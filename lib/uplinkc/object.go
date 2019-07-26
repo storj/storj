@@ -7,6 +7,7 @@ package main
 import "C"
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -129,7 +130,7 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 }
 
 //export upload_write
-func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cErr **C.char) (writeLength C.size_t) {
+func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cErr **C.char) C.size_t {
 	upload, ok := universe.Get(uploader._handle).(*Upload)
 	if !ok {
 		*cErr = C.CString("invalid uploader")
@@ -137,6 +138,9 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 	}
 
 	if err := upload.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 		return C.size_t(0)
 	}
 
@@ -157,12 +161,19 @@ func upload_commit(uploader C.UploaderRef, cErr **C.char) {
 		return
 	}
 
-	universe.Del(uploader._handle)
+	if err := upload.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return
+	}
 	defer upload.cancel()
 
 	err := upload.wc.Close()
 	if err != nil {
-		*cErr = C.CString(fmt.Sprintf("%+v", err))
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 		return
 	}
 }
@@ -172,6 +183,13 @@ func upload_cancel(uploader C.UploaderRef, cErr **C.char) {
 	upload, ok := universe.Get(uploader._handle).(*Upload)
 	if !ok {
 		*cErr = C.CString("invalid uploader")
+		return
+	}
+
+	if err := upload.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 		return
 	}
 
@@ -269,6 +287,9 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 	}
 
 	if err := download.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 		return C.size_t(0)
 	}
 
@@ -288,7 +309,13 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 		*cErr = C.CString("invalid downloader")
 	}
 
-	universe.Del(downloader._handle)
+	if err := download.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return
+	}
+
 	defer download.cancel()
 
 	err := download.rc.Close()
@@ -302,9 +329,14 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 func download_cancel(downloader C.DownloaderRef, cErr **C.char) {
 	download, ok := universe.Get(downloader._handle).(*Download)
 	if !ok {
-		// TODO: should this be an error?
-		// NB: download already closed
-		//*cErr = C.CString("invalid downloader")
+		*cErr = C.CString("invalid downloader")
+		return
+	}
+
+	if err := download.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 		return
 	}
 
@@ -325,9 +357,16 @@ func delete_object(bucketRef C.BucketRef, path *C.char, cerr **C.char) {
 	}
 }
 
-//export free_upload_ref
-func free_upload_ref(uploader C.UploaderRef) {
+//export free_uploader_ref
+// free_uploader_ref deletes the uploader reference from the universe
+func free_uploader_ref(uploader C.UploaderRef) {
 	universe.Del(uploader._handle)
+}
+
+//export free_downloader_ref
+// free_downloader_ref deletes the downloader reference from the universe
+func free_downloader_ref(downloader C.DownloaderRef) {
+	universe.Del(downloader._handle)
 }
 
 //export free_upload_opts

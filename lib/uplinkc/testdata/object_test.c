@@ -83,6 +83,8 @@ void handle_project(ProjectRef project) {
 
             upload_commit(uploader, err);
             require_noerror(*err);
+
+            free_uploader_ref(uploader);
         }
 
         { // object meta
@@ -127,6 +129,8 @@ void handle_project(ProjectRef project) {
             download_close(downloader, err);
             require_noerror(*err);
             require(memcmp(data, downloaded_data, data_len) == 0);
+
+            free_downloader_ref(downloader);
         }
 
         if (data != NULL) {
