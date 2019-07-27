@@ -160,7 +160,7 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 
 func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsed(ctx)
+	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -179,7 +179,7 @@ func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) 
 // AvailableSpace returns available disk space for upload
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsed(ctx)
+	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}

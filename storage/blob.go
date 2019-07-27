@@ -104,6 +104,8 @@ type Blobs interface {
 	SpaceUsed(ctx context.Context) (int64, error)
 	// SpaceUsedInNamespace adds up how much is used in the given namespace
 	SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error)
+	// GetAllNamespaces finds all namespaces in which keys might currently be stored.
+	GetAllNamespaces(ctx context.Context) ([][]byte, error)
 	// ReserveSpace marks some amount of free space as used, even if it's not, so that
 	// future calls to FreeSpace() are deducted by this amount. Calls to ReserveSpace
 	// invalidate earlier calls, so ReserveSpace(0) undoes all space reservation. This

@@ -269,9 +269,38 @@ func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when 
 	return store.expirationInfo.DeleteFailed(ctx, expired.SatelliteID, expired.PieceID, when)
 }
 
-// SpaceUsed returns the disk space used by all local pieces (both V0 and later).
-func (store *Store) SpaceUsed(ctx context.Context) (int64, error) {
-	return store.blobs.SpaceUsed(ctx)
+// SpaceUsedForPieces returns the disk space used by all local pieces (both V0 and later).
+// Important note: this metric does not include space used by piece headers, whereas
+// storj/filestore/store.(*Store).SpaceUsed() includes all space used by the blobs.
+func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
+	satellites, err := store.getAllStoringSatellites(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	for _, satellite := range satellites {
+		spaceUsed, err := store.SpaceUsedBySatellite(ctx, satellite)
+		if err != nil {
+			return 0, err
+		}
+		total += spaceUsed
+	}
+	return total, nil
+}
+
+func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID, error) {
+	namespaces, err := store.blobs.GetAllNamespaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+	satellites := make([]storj.NodeID, len(namespaces))
+	for i, namespace := range namespaces {
+		satellites[i], err = storj.NodeIDFromBytes(namespace)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return satellites, nil
 }
 
 // SpaceUsedBySatellite calculates disk space used for local piece storage in the given

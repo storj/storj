@@ -146,7 +146,7 @@ func (s *Service) GetBandwidthBySatellite(ctx context.Context, satelliteID storj
 func (s *Service) GetUsedStorageTotal(ctx context.Context) (_ *DiskSpaceInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	spaceUsed, err := s.pieceStore.SpaceUsed(ctx)
+	spaceUsed, err := s.pieceStore.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -100,14 +100,20 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 		// google.protobuf.Timestamp fields variable-width?
 		return Error.New("marshaled piece header too big!")
 	}
+	size, err := w.blob.Size()
+	if err != nil {
+		return err
+	}
 	if _, err := w.blob.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
 	if _, err = w.blob.Write(headerBytes); err != nil {
 		return Error.New("failed writing piece header at file start: %v", err)
 	}
-	// seek back to the end, as blob.Commit will truncate from the current file position
-	if _, err := w.blob.Seek(0, io.SeekEnd); err != nil {
+	// seek back to the end, as blob.Commit will truncate from the current file position.
+	// (don't try to seek(0, io.SeekEnd), because dir.CreateTemporaryFile preallocs space
+	// and the actual end of the file might be far past the intended end of the piece.)
+	if _, err := w.blob.Seek(size, io.SeekStart); err != nil {
 		return err
 	}
 	return nil
