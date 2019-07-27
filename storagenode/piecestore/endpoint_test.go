@@ -236,7 +236,7 @@ func TestDownload(t *testing.T) {
 		{ // should err with piece ID not specified
 			pieceID: storj.PieceID{2},
 			action:  pb.PieceAction_GET,
-			errs:    []string{"no such file or directory", "The system cannot find the path specified"},
+			errs:    []string{"file does not exist", "The system cannot find the path specified"},
 		},
 		{ // should successfully download data
 			pieceID: orderLimit.PieceId,
