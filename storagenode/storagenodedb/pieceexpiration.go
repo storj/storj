@@ -24,7 +24,7 @@ func (db *DB) PieceExpirationDB() pieces.PieceExpirationDB { return db.info.Piec
 func (db *InfoDB) PieceExpirationDB() pieces.PieceExpirationDB { return &db.pieceExpirationDB }
 
 // GetExpired gets piece IDs that expire or have expired before the given time
-func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (expireds []pieces.ExpiredInfo, err error) {
+func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (expiredPieceIDs []pieces.ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.db.QueryContext(ctx, `
@@ -46,13 +46,13 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiredAt time.Time
 		if err != nil {
 			return nil, ErrInfo.Wrap(err)
 		}
-		expireds = append(expireds, pieces.ExpiredInfo{
+		expiredPieceIDs = append(expiredPieceIDs, pieces.ExpiredInfo{
 			SatelliteID: satelliteID,
 			PieceID:     pieceID,
 			InPieceInfo: false,
 		})
 	}
-	return expireds, nil
+	return expiredPieceIDs, nil
 }
 
 // SetExpiration sets an expiration time for the given piece ID on the given satellite
