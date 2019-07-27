@@ -7,7 +7,6 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -55,8 +54,10 @@ func TestHidden(t *testing.T) {
 
 	// Define a config struct with a hidden field.
 	var config struct {
+		W int `default:"0" hidden:"false"`
 		X int `default:"0" hidden:"true"`
-		Z int `default:"0"`
+		Y int `releaseDefault:"1" devDefault:"0" hidden:"true"`
+		Z int `default:"1"`
 	}
 	Bind(cmd, &config)
 
@@ -64,10 +65,6 @@ func TestHidden(t *testing.T) {
 	ctx := testcontext.New(t)
 	testConfigFile := ctx.File("testconfig.yaml")
 	defer ctx.Cleanup()
-
-	// Change a value from the default so that it should be saved if not hidden
-	defer setenv("STORJ_X", "1")()
-	defer setenv("STORJ_Z", "2")()
 
 	// Run the command through the exec call.
 	Exec(cmd)
@@ -78,5 +75,11 @@ func TestHidden(t *testing.T) {
 
 	actualConfigFile, err := ioutil.ReadFile(testConfigFile)
 	require.NoError(t, err)
-	require.Equal(t, `z: 2`, strings.TrimSpace(string(actualConfigFile)))
+
+	expectedConfigW := "# w: 0"
+	expectedConfigZ := "# z: 1"
+	require.Contains(t, string(actualConfigFile), expectedConfigW)
+	require.Contains(t, string(actualConfigFile), expectedConfigZ)
+	require.NotContains(t, string(actualConfigFile), "# y: ")
+	require.NotContains(t, string(actualConfigFile), "# x: ")
 }
