@@ -4,7 +4,6 @@
 package gc_test
 
 import (
-	"storj.io/storj/storage"
 	"testing"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/storage"
 )
 
 // TestGarbageCollection does the following:
