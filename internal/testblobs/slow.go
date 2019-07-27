@@ -117,11 +117,6 @@ func (slow *SlowBlobs) FreeSpace() (int64, error) {
 	return slow.blobs.FreeSpace()
 }
 
-// ReserveSpace marks some amount of space as reserved.
-func (slow *SlowBlobs) ReserveSpace(amount int64) {
-	slow.blobs.ReserveSpace(amount)
-}
-
 // SpaceUsed adds up how much is used in all namespaces
 func (slow *SlowBlobs) SpaceUsed(ctx context.Context) (int64, error) {
 	slow.sleep()

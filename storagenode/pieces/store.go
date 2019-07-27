@@ -123,6 +123,8 @@ type Store struct {
 	blobs          storage.Blobs
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
+
+	reservedSpace int64
 }
 
 // NewStore creates a new piece store
@@ -285,7 +287,7 @@ func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
 		}
 		total += spaceUsed
 	}
-	return total, nil
+	return total + store.reservedSpace, nil
 }
 
 func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID, error) {
@@ -323,6 +325,14 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 		return 0, err
 	}
 	return totalUsed, nil
+}
+
+// ReserveSpace marks some amount of free space as used, even if it's not, so that future calls
+// to SpaceUsedForPieces() are raised by this amount. Calls to ReserveSpace invalidate earlier
+// calls, so ReserveSpace(0) undoes all prior space reservation. This may only be useful for test
+// scenarios.
+func (store *Store) ReserveSpace(amount int64) {
+	store.reservedSpace = amount
 }
 
 // StorageStatus contains information about the disk store is using.

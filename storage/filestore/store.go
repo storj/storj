@@ -27,8 +27,6 @@ var (
 type Store struct {
 	dir *Dir
 	log *zap.Logger
-
-	spaceReserved int64
 }
 
 // New creates a new disk blob store in the specified directory
@@ -158,13 +156,7 @@ func (store *Store) FreeSpace() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return info.AvailableSpace - store.spaceReserved, nil
-}
-
-// ReserveSpace marks some amount of space as used (although it's not); this only causes FreeSpace()
-// to return a lesser amount.
-func (store *Store) ReserveSpace(amount int64) {
-	store.spaceReserved = amount
+	return info.AvailableSpace, nil
 }
 
 // GetAllNamespaces finds all known namespace IDs in use in local storage. They are not

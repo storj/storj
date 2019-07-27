@@ -106,11 +106,6 @@ type Blobs interface {
 	SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error)
 	// GetAllNamespaces finds all namespaces in which keys might currently be stored.
 	GetAllNamespaces(ctx context.Context) ([][]byte, error)
-	// ReserveSpace marks some amount of free space as used, even if it's not, so that
-	// future calls to FreeSpace() are deducted by this amount. Calls to ReserveSpace
-	// invalidate earlier calls, so ReserveSpace(0) undoes all space reservation. This
-	// may only be useful for test scenarios.
-	ReserveSpace(amount int64)
 	// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with
 	// storage format V1 or greater, in the given namespace. If doForEach returns a non-nil
 	// error, ForAllKeysInNamespace will stop iterating and return the error immediately.
