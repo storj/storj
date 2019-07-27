@@ -80,7 +80,7 @@ type V0PieceInfoDB interface {
 	// with storage format V0 in the namespace of the given satellite. If doForEach returns a
 	// non-nil error, ForAllV0PieceIDsOwnedBySatellite will stop iterating and return the error
 	// immediately.
-	ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, doForEach func(storj.PieceID) error) error
+	ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, blobStore storage.Blobs, satellite storj.NodeID, doForEach func(StoredPieceAccess) error) error
 }
 
 // V0PieceInfoDBForTest is like V0PieceInfoDB, but adds on the Add() method so
@@ -103,11 +103,18 @@ type StoredPieceAccess interface {
 	PieceID() storj.PieceID
 	// Satellite gives the nodeID of the satellite which owns the piece
 	Satellite() (storj.NodeID, error)
-	// ContentSize gives the size of the piece content (not including the piece header, if applicable)
+	// ContentSize gives the size of the piece content (not including the piece header, if
+	// applicable)
 	ContentSize(ctx context.Context) (int64, error)
-	// CreationTime returns the piece creation time as given in the original order (which is not
-	// necessarily the same as the file mtime).
+	// CreationTime returns the piece creation time as given in the original PieceHash (which is
+	// likely not the same as the file mtime). For non-FormatV0 pieces, this requires opening
+	// the file and unmarshaling the piece header. If exact precision is not required, ModTime()
+	// may be a better solution.
 	CreationTime(ctx context.Context) (time.Time, error)
+	// ModTime returns a less-precise piece creation time than CreationTime, but is generally
+	// much faster. For non-FormatV0 pieces, this gets the piece creation time from to the
+	// filesystem instead of the piece header.
+	ModTime(ctx context.Context) (time.Time, error)
 }
 
 // Store implements storing pieces onto a blob storage implementation.
@@ -227,10 +234,7 @@ func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellit
 		return doForEach(pieceAccess)
 	})
 	if err == nil && store.v0PieceInfo != nil {
-		err = store.v0PieceInfo.ForAllV0PieceIDsOwnedBySatellite(ctx, satellite, func(pieceID storj.PieceID) error {
-			pieceAccess := newV0StoredPieceAccess(store, satellite, pieceID)
-			return doForEach(pieceAccess)
-		})
+		err = store.v0PieceInfo.ForAllV0PieceIDsOwnedBySatellite(ctx, store.blobs, satellite, doForEach)
 	}
 	return err
 }
@@ -279,7 +283,7 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	err := store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access StoredPieceAccess) error {
 		contentSize, statErr := access.ContentSize(ctx)
 		if statErr != nil {
-			store.log.Sugar().Errorf("failed to stat: %v", statErr)
+			store.log.Error("failed to stat", zap.Error(statErr), zap.String("pieceID", access.PieceID().String()), zap.String("satellite", satelliteID.String()))
 			// keep iterating; we want a best effort total here.
 			return nil
 		}
@@ -340,21 +344,24 @@ func (access storedPieceAccess) Satellite() (storj.NodeID, error) {
 }
 
 // ContentSize gives the size of the piece content (not including the piece header, if applicable)
-func (access storedPieceAccess) ContentSize(ctx context.Context) (int64, error) {
+func (access storedPieceAccess) ContentSize(ctx context.Context) (size int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	stat, err := access.Stat(ctx)
 	if err != nil {
 		return 0, err
 	}
-	size := stat.Size()
+	size = stat.Size()
 	if access.StorageFormatVersion() >= storage.FormatV1 {
 		size -= V1PieceHeaderSize
 	}
 	return size, nil
 }
 
-// CreationTime returns the piece creation time as given in the original PieceHash from
-// the uplink (which is not necessarily the same as the file mtime).
-func (access storedPieceAccess) CreationTime(ctx context.Context) (time.Time, error) {
+// CreationTime returns the piece creation time as given in the original PieceHash (which is likely
+// not the same as the file mtime). This requires opening the file and unmarshaling the piece
+// header. If exact precision is not required, ModTime() may be a better solution.
+func (access storedPieceAccess) CreationTime(ctx context.Context) (cTime time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
 	reader, err := access.store.readerLocated(ctx, access)
 	if err != nil {
 		return time.Time{}, err
@@ -366,87 +373,14 @@ func (access storedPieceAccess) CreationTime(ctx context.Context) (time.Time, er
 	return header.CreationTime, nil
 }
 
-type v0StoredPieceAccess struct {
-	store      *Store
-	satellite  storj.NodeID
-	pieceID    storj.PieceID
-	blobAccess storage.StoredBlobAccess
-}
-
-func newV0StoredPieceAccess(store *Store, satellite storj.NodeID, pieceID storj.PieceID) v0StoredPieceAccess {
-	return v0StoredPieceAccess{
-		store:      store,
-		satellite:  satellite,
-		pieceID:    pieceID,
-		blobAccess: nil, // we'll fill this in lazily if needed
-	}
-}
-
-// PieceID returns the piece ID for the piece
-func (v0Access v0StoredPieceAccess) PieceID() storj.PieceID {
-	return v0Access.pieceID
-}
-
-// Satellite returns the satellite ID that owns the piece
-func (v0Access v0StoredPieceAccess) Satellite() (storj.NodeID, error) {
-	return v0Access.satellite, nil
-}
-
-// BlobRef returns the relevant storage.BlobRef locator for the piece
-func (v0Access v0StoredPieceAccess) BlobRef() storage.BlobRef {
-	return storage.BlobRef{
-		Namespace: v0Access.satellite.Bytes(),
-		Key:       v0Access.pieceID.Bytes(),
-	}
-}
-
-func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error {
-	if v0Access.blobAccess == nil {
-		blobAccess, err := v0Access.store.blobs.LookupSpecific(ctx, v0Access.BlobRef(), v0Access.StorageFormatVersion())
-		if err != nil {
-			return err
-		}
-		v0Access.blobAccess = blobAccess
-	}
-	return nil
-}
-
-// ContentSize gives the size of the piece content (not including the piece header, if applicable)
-func (v0Access v0StoredPieceAccess) ContentSize(ctx context.Context) (int64, error) {
-	stat, err := v0Access.Stat(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return stat.Size(), nil
-}
-
-// CreationTime returns the piece creation time as given in the original order (which is not
-// necessarily the same as the file mtime).
-func (v0Access v0StoredPieceAccess) CreationTime(ctx context.Context) (time.Time, error) {
-	info, err := v0Access.store.v0PieceInfo.Get(ctx, v0Access.satellite, v0Access.pieceID)
+// ModTime returns a less-precise piece creation time than CreationTime, but is generally
+// much faster. This gets the piece creation time from to the filesystem instead of the
+// piece header.
+func (access storedPieceAccess) ModTime(ctx context.Context) (mTime time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+	stat, err := access.Stat(ctx)
 	if err != nil {
 		return time.Time{}, err
 	}
-	return info.PieceCreation, nil
-}
-
-// FullPath gives the full path to the on-disk blob file
-func (v0Access v0StoredPieceAccess) FullPath(ctx context.Context) (string, error) {
-	if err := v0Access.fillInBlobAccess(ctx); err != nil {
-		return "", err
-	}
-	return v0Access.blobAccess.FullPath(ctx)
-}
-
-// StorageFormatVersion indicates the storage format version used to store the piece
-func (v0Access v0StoredPieceAccess) StorageFormatVersion() storage.FormatVersion {
-	return storage.FormatV0
-}
-
-// Stat does a stat on the on-disk blob file
-func (v0Access v0StoredPieceAccess) Stat(ctx context.Context) (os.FileInfo, error) {
-	if err := v0Access.fillInBlobAccess(ctx); err != nil {
-		return nil, err
-	}
-	return v0Access.blobAccess.Stat(ctx)
+	return stat.ModTime(), nil
 }

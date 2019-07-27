@@ -563,13 +563,13 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		defer runtime.Gosched()
-		stat, err := access.Stat(ctx)
+		mTime, err := access.ModTime(ctx)
 		if err != nil {
 			endpoint.log.Error("failed to determine mtime of blob", zap.Error(err))
 			// but continue iterating.
 			return nil
 		}
-		if stat.ModTime().After(createdBefore) {
+		if !mTime.Before(createdBefore) {
 			return nil
 		}
 		pieceID := access.PieceID()

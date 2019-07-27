@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"os"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -13,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -56,31 +58,51 @@ func (db *v0PieceInfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	return ErrInfo.Wrap(err)
 }
 
-// ForAllV0PieceIDsOwnedBySatellite executes doForEach for each locally stored piece, stored with
-// storage format V0 in the namespace of the given satellite, if that piece was created before
-// the specified time. If doForEach returns a non-nil error, ForAllV0PieceIDsOwnedBySatellite will
-// stop iterating and return the error immediately.
-func (db *v0PieceInfo) ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, satelliteID storj.NodeID, doForEach func(storj.PieceID) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func (db *v0PieceInfo) getAllPiecesOwnedBy(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID) ([]v0StoredPieceAccess, error) {
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
-		SELECT piece_id, piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash
+		SELECT piece_id, piece_size, piece_creation, piece_expiration
 		FROM pieceinfo_
 		WHERE satellite_id = ?
 		ORDER BY piece_id
 	`), satelliteID)
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return nil, ErrInfo.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+	var pieceInfos []v0StoredPieceAccess
 	for rows.Next() {
-		var pieceID storj.PieceID
-		var expirationTime *time.Time
-		err = rows.Scan(&pieceID, &expirationTime)
+		pieceInfos = append(pieceInfos, v0StoredPieceAccess{
+			blobStore: blobStore,
+			satellite: satelliteID,
+		})
+		thisAccess := &pieceInfos[len(pieceInfos)-1]
+		err = rows.Scan(&thisAccess.pieceID, &thisAccess.pieceSize, &thisAccess.creationTime, &thisAccess.expirationTime)
 		if err != nil {
-			return ErrInfo.Wrap(err)
+			return nil, ErrInfo.Wrap(err)
 		}
-		if err := doForEach(pieceID); err != nil {
+	}
+	return pieceInfos, nil
+}
+
+// ForAllV0PieceIDsOwnedBySatellite executes doForEach for each locally stored piece, stored with
+// storage format V0 in the namespace of the given satellite, if that piece was created before
+// the specified time. If doForEach returns a non-nil error, ForAllV0PieceIDsOwnedBySatellite will
+// stop iterating and return the error immediately.
+//
+// If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
+// instances will not work, but otherwise everything should be ok.
+func (db *v0PieceInfo) ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID, doForEach func(pieces.StoredPieceAccess) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO: is it worth paging this query? we hope that SNs will not yet have too many V0 pieces.
+	pieceInfos, err := db.getAllPiecesOwnedBy(ctx, blobStore, satelliteID)
+	if err != nil {
+		return err
+	}
+	// note we must not keep a transaction open with the db when calling doForEach; the callback
+	// might need to make db calls as well
+	for i := range pieceInfos {
+		if err := doForEach(&pieceInfos[i]); err != nil {
 			return err
 		}
 	}
@@ -189,4 +211,85 @@ func (db *v0PieceInfo) GetExpired(ctx context.Context, expiredAt time.Time, limi
 		infos = append(infos, info)
 	}
 	return infos, nil
+}
+
+type v0StoredPieceAccess struct {
+	blobStore      storage.Blobs
+	satellite      storj.NodeID
+	pieceID        storj.PieceID
+	pieceSize      int64
+	creationTime   time.Time
+	expirationTime *time.Time
+	blobAccess     storage.StoredBlobAccess
+}
+
+// PieceID returns the piece ID for the piece
+func (v0Access v0StoredPieceAccess) PieceID() storj.PieceID {
+	return v0Access.pieceID
+}
+
+// Satellite returns the satellite ID that owns the piece
+func (v0Access v0StoredPieceAccess) Satellite() (storj.NodeID, error) {
+	return v0Access.satellite, nil
+}
+
+// BlobRef returns the relevant storage.BlobRef locator for the piece
+func (v0Access v0StoredPieceAccess) BlobRef() storage.BlobRef {
+	return storage.BlobRef{
+		Namespace: v0Access.satellite.Bytes(),
+		Key:       v0Access.pieceID.Bytes(),
+	}
+}
+
+func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error {
+	if v0Access.blobAccess == nil {
+		if v0Access.blobStore == nil {
+			return errs.New("this v0StoredPieceAccess instance has no blobStore reference, and cannot look up the relevant blob")
+		}
+		blobAccess, err := v0Access.blobStore.LookupSpecific(ctx, v0Access.BlobRef(), v0Access.StorageFormatVersion())
+		if err != nil {
+			return err
+		}
+		v0Access.blobAccess = blobAccess
+	}
+	return nil
+}
+
+// ContentSize gives the size of the piece content (not including the piece header, if applicable)
+func (v0Access v0StoredPieceAccess) ContentSize(ctx context.Context) (int64, error) {
+	return v0Access.pieceSize, nil
+}
+
+// CreationTime returns the piece creation time as given in the original order (which is not
+// necessarily the same as the file mtime).
+func (v0Access v0StoredPieceAccess) CreationTime(ctx context.Context) (time.Time, error) {
+	return v0Access.creationTime, nil
+}
+
+// ModTime returns the same thing as CreationTime for V0 blobs. The intent is for ModTime to
+// be a little faster when CreationTime is too slow and the precision is not needed, but in
+// this case we already have the exact creation time from the database.
+func (v0Access v0StoredPieceAccess) ModTime(ctx context.Context) (time.Time, error) {
+	return v0Access.creationTime, nil
+}
+
+// FullPath gives the full path to the on-disk blob file
+func (v0Access v0StoredPieceAccess) FullPath(ctx context.Context) (string, error) {
+	if err := v0Access.fillInBlobAccess(ctx); err != nil {
+		return "", err
+	}
+	return v0Access.blobAccess.FullPath(ctx)
+}
+
+// StorageFormatVersion indicates the storage format version used to store the piece
+func (v0Access v0StoredPieceAccess) StorageFormatVersion() storage.FormatVersion {
+	return storage.FormatV0
+}
+
+// Stat does a stat on the on-disk blob file
+func (v0Access v0StoredPieceAccess) Stat(ctx context.Context) (os.FileInfo, error) {
+	if err := v0Access.fillInBlobAccess(ctx); err != nil {
+		return nil, err
+	}
+	return v0Access.blobAccess.Stat(ctx)
 }

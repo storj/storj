@@ -632,7 +632,7 @@ func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.No
 		if err != nil {
 			return err
 		}
-		if mTime.After(createdBefore) {
+		if !mTime.Before(createdBefore) {
 			return nil
 		}
 		pieceIDs = append(pieceIDs, pieceAccess.PieceID())
