@@ -376,16 +376,27 @@ func (dir *Dir) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doF
 	nsDir := filepath.Join(dir.blobsdir(), namespaceDir)
 	openDir, err := os.Open(nsDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// job accomplished: there are no blobs in this namespace!
+			return nil
+		}
 		return err
 	}
 	defer func() { err = errs.Combine(err, openDir.Close()) }()
 	for {
+		// check for context done both before and after our readdir() call
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		subdirNames, err := openDir.Readdirnames(nameBatchSize)
 		if err != nil && err != io.EOF {
 			return err
 		}
-		if len(subdirNames) == 0 {
+		if os.IsNotExist(err) || len(subdirNames) == 0 {
 			return nil
+		}
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 		for _, keyPrefix := range subdirNames {
 			if len(keyPrefix) != 2 {
@@ -409,12 +420,19 @@ func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace [
 	}
 	defer func() { err = errs.Combine(err, openDir.Close()) }()
 	for {
+		// check for context done both before and after our readdir() call
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		keyInfos, err := openDir.Readdir(nameBatchSize)
 		if err != nil && err != io.EOF {
 			return err
 		}
-		if len(keyInfos) == 0 {
+		if os.IsNotExist(err) || len(keyInfos) == 0 {
 			return nil
+		}
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 		for _, keyInfo := range keyInfos {
 			if keyInfo.Mode().IsDir() {
@@ -438,6 +456,10 @@ func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace [
 			fullPath := filepath.Join(keyDir, blobFileName)
 			err = doForEach(newStoredBlobAccess(ref, fullPath, keyInfo, formatVer))
 			if err != nil {
+				return err
+			}
+			// also check for context done between every doForEach callback.
+			if err := ctx.Err(); err != nil {
 				return err
 			}
 		}

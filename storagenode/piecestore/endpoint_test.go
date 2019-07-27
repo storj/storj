@@ -626,13 +626,13 @@ func TestRetain(t *testing.T) {
 	})
 }
 
-func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID, createdSince time.Time) (pieceIDs []storj.PieceID, err error) {
+func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID, createdBefore time.Time) (pieceIDs []storj.PieceID, err error) {
 	err = store.ForAllPieceIDsOwnedBySatellite(ctx, satellite, func(pieceAccess pieces.StoredPieceAccess) error {
-		stat, err := pieceAccess.Stat(ctx)
+		mTime, err := pieceAccess.CreationTime(ctx)
 		if err != nil {
 			return err
 		}
-		if stat.ModTime().Before(createdSince) {
+		if mTime.After(createdBefore) {
 			return nil
 		}
 		pieceIDs = append(pieceIDs, pieceAccess.PieceID())
