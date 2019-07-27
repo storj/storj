@@ -154,19 +154,22 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			}
 			flags.Var(fieldvalue, flagname, help)
 
+			markHidden := false
 			if onlyForSetup {
 				setBoolAnnotation(flags, flagname, "setup")
 			}
 			if field.Tag.Get("user") == "true" {
 				setBoolAnnotation(flags, flagname, "user")
 			}
-			// hidden and deprecated both mark the flag as hidden for display, but only
-			// hidden sets a bool annotation used for skipping writing the flag to config files.
-			switch {
-			case field.Tag.Get("hidden") == "true":
+			if field.Tag.Get("hidden") == "true" {
+				markHidden = true
 				setBoolAnnotation(flags, flagname, "hidden")
-				fallthrough
-			case field.Tag.Get("deprecated") == "true":
+			}
+			if field.Tag.Get("deprecated") == "true" {
+				markHidden = true
+				setBoolAnnotation(flags, flagname, "deprecated")
+			}
+			if markHidden {
 				err := flags.MarkHidden(flagname)
 				if err != nil {
 					panic(fmt.Sprintf("mark hidden failed %s: %v", flagname, err))
@@ -246,13 +249,16 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				setBoolAnnotation(flags, flagname, "user")
 			}
 
-			// hidden and deprecated both mark the flag as hidden for display, but only
-			// hidden sets a bool annotation used for skipping writing the flag to config files.
-			switch {
-			case field.Tag.Get("hidden") == "true":
+			markHidden := false
+			if field.Tag.Get("hidden") == "true" {
+				markHidden = true
 				setBoolAnnotation(flags, flagname, "hidden")
-				fallthrough
-			case field.Tag.Get("deprecated") == "true":
+			}
+			if field.Tag.Get("deprecated") == "true" {
+				markHidden = true
+				setBoolAnnotation(flags, flagname, "deprecated")
+			}
+			if markHidden {
 				err := flags.MarkHidden(flagname)
 				if err != nil {
 					panic(fmt.Sprintf("mark hidden failed %s: %v", flagname, err))
