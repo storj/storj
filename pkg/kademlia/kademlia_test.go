@@ -22,11 +22,11 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage/teststore"
 )
 
