@@ -8,18 +8,17 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	ecclient "storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/ecclient"
+	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
+	"storj.io/storj/uplink/storage/segments"
+	"storj.io/storj/uplink/storage/streams"
 )
 
 // Project represents a specific project access session.
@@ -103,10 +102,10 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	cfg.setDefaults()
 
 	bucket = storj.Bucket{
-		PathCipher:           cfg.PathCipher,
-		EncryptionParameters: cfg.EncryptionParameters,
-		RedundancyScheme:     cfg.Volatile.RedundancyScheme,
-		SegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
+		PathCipher:                  cfg.PathCipher,
+		DefaultEncryptionParameters: cfg.EncryptionParameters,
+		DefaultRedundancyScheme:     cfg.Volatile.RedundancyScheme,
+		DefaultSegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
 	}
 	return p.project.CreateBucket(ctx, name, &bucket)
 }
@@ -139,10 +138,10 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 	}
 	cfg := &BucketConfig{
 		PathCipher:           b.PathCipher,
-		EncryptionParameters: b.EncryptionParameters,
+		EncryptionParameters: b.DefaultEncryptionParameters,
 	}
-	cfg.Volatile.RedundancyScheme = b.RedundancyScheme
-	cfg.Volatile.SegmentsSize = memory.Size(b.SegmentsSize)
+	cfg.Volatile.RedundancyScheme = b.DefaultRedundancyScheme
+	cfg.Volatile.SegmentsSize = memory.Size(b.DefaultSegmentsSize)
 	return b, cfg, nil
 }
 
@@ -159,13 +158,20 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 
 	// partnerID set and bucket's attribution is not set
-	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.Attribution == "" {
+	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.PartnerID.IsZero() {
+		// make an entry into the attribution table
 		err = p.checkBucketAttribution(ctx, bucketName)
 		if err != nil {
 			return nil, err
 		}
 
-		// update the bucket with attribution info
+		partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		// update the bucket metainfo table with corresponding partner info
+		bucketInfo.PartnerID = *partnerID
 		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
 		if err != nil {
 			return nil, err
@@ -225,16 +231,11 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	if err != nil {
 		return nil, err
 	}
-	key, err := encryption.DeriveDefaultPassword([]byte(passphrase), salt)
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "")
 	if err != nil {
 		return nil, err
 	}
-	if len(key) != len(storj.Key{}) {
-		return nil, errs.New("unexpected key length!")
-	}
-	var result storj.Key
-	copy(result[:], key)
-	return &result, nil
+	return key, nil
 }
 
 // checkBucketAttribution Checks the bucket attribution
@@ -258,11 +259,12 @@ func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bu
 	defer mon.Task()(&ctx)(&err)
 
 	bucket = storj.Bucket{
-		Attribution:          p.uplinkCfg.Volatile.PartnerID,
-		PathCipher:           bucketInfo.PathCipher,
-		EncryptionParameters: bucketInfo.EncryptionParameters,
-		RedundancyScheme:     bucketInfo.RedundancyScheme,
-		SegmentsSize:         bucketInfo.SegmentsSize,
+		Name:                        bucketInfo.Name,
+		PartnerID:                   bucketInfo.PartnerID,
+		PathCipher:                  bucketInfo.PathCipher,
+		DefaultEncryptionParameters: bucketInfo.DefaultEncryptionParameters,
+		DefaultRedundancyScheme:     bucketInfo.DefaultRedundancyScheme,
+		DefaultSegmentsSize:         bucketInfo.DefaultSegmentsSize,
 	}
 	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }

@@ -7,22 +7,23 @@ import (
 	"context"
 	"io"
 	"os"
+	"runtime"
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
@@ -47,7 +48,6 @@ var _ pb.PiecestoreServer = (*Endpoint)(nil)
 type OldConfig struct {
 	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
 	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls" devDefault:"" releaseDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@saturn.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777"`
-	SatelliteIDRestriction bool           `help:"if true, only allow data from approved satellites" devDefault:"false" releaseDefault:"true"`
 	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
 	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes" default:"2TB"`
 	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
@@ -58,9 +58,55 @@ type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
+	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
+	RetainStatus          RetainStatus  `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
+}
+
+// RetainStatus is a type defining the enabled/disabled status of retain requests
+type RetainStatus uint32
+
+const (
+	// RetainDisabled means we do not do anything with retain requests
+	RetainDisabled RetainStatus = iota + 1
+	// RetainEnabled means we fully enable retain requests and delete data not defined by bloom filter
+	RetainEnabled
+	// RetainDebug means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
+	RetainDebug
+)
+
+// Set implements pflag.Value
+func (v *RetainStatus) Set(s string) error {
+	switch s {
+	case "disabled":
+		*v = RetainDisabled
+	case "enabled":
+		*v = RetainEnabled
+	case "debug":
+		*v = RetainDebug
+	default:
+		return Error.New("invalid RetainStatus %q", s)
+	}
+	return nil
+}
+
+// Type implements pflag.Value
+func (*RetainStatus) Type() string { return "storj.RetainStatus" }
+
+// String implements pflag.Value
+func (v *RetainStatus) String() string {
+	switch *v {
+	case RetainDisabled:
+		return "disabled"
+	case RetainEnabled:
+		return "enabled"
+	case RetainDebug:
+		return "debug"
+	default:
+		return "invalid"
+	}
 }
 
 // Endpoint implements uploading, downloading and deleting for a storage node.
@@ -164,7 +210,6 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return ErrProtocol.New("expected order limit as the first message")
 	}
 	limit := message.Limit
-
 	endpoint.log.Info("upload started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
 	// TODO: verify that we have have expected amount of storage before continuing
@@ -206,11 +251,6 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		}
 	}()
 
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
@@ -233,7 +273,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 
 	largestOrder := pb.Order{}
-	defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
+	defer endpoint.SaveOrder(ctx, limit, &largestOrder)
 
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
@@ -245,18 +285,18 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		if message == nil {
 			return ErrProtocol.New("expected a message") // TODO: report grpc status bad message
 		}
+		if message.Order == nil && message.Chunk == nil && message.Done == nil {
+			return ErrProtocol.New("expected a message") // TODO: report grpc status bad message
+		}
 
-		switch {
-		default:
-			return ErrProtocol.New("message didn't contain any of order, chunk or done") // TODO: report grpc status bad message
-
-		case message.Order != nil:
-			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
+		if message.Order != nil {
+			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
 				return err
 			}
 			largestOrder = *message.Order
+		}
 
-		case message.Chunk != nil:
+		if message.Chunk != nil {
 			if message.Chunk.Offset != pieceWriter.Size() {
 				return ErrProtocol.New("chunk out of order") // TODO: report grpc status bad message
 			}
@@ -279,11 +319,16 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
 				return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 			}
+		}
 
-		case message.Done != nil:
+		if message.Done != nil {
 			expectedHash := pieceWriter.Hash()
-			if err := endpoint.VerifyPieceHash(ctx, peer, limit, message.Done, expectedHash); err != nil {
+			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, expectedHash); err != nil {
 				return err // TODO: report grpc status internal server error
+			}
+			if message.Done.PieceSize != pieceWriter.Size() {
+				return ErrProtocol.New("Size of finished piece does not match size declared by uplink! %d != %d",
+					message.Done.GetPieceSize(), pieceWriter.Size())
 			}
 
 			if err := pieceWriter.Commit(ctx); err != nil {
@@ -292,25 +337,17 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 			// TODO: do this in a goroutine
 			{
-				var expiration *time.Time
-				if limit.PieceExpiration != nil {
-					exp, err := ptypes.Timestamp(limit.PieceExpiration)
-					if err != nil {
-						return ErrInternal.Wrap(err)
-					}
-					expiration = &exp
-				}
-
 				// TODO: maybe this should be as a pieceWriter.Commit(ctx, info)
 				info := &pieces.Info{
 					SatelliteID: limit.SatelliteId,
 
 					PieceID:         limit.PieceId,
 					PieceSize:       pieceWriter.Size(),
-					PieceExpiration: expiration,
+					PieceCreation:   limit.OrderCreation,
+					PieceExpiration: limit.PieceExpiration,
 
+					OrderLimit:      limit,
 					UplinkPieceHash: message.Done,
-					Uplink:          peer,
 				}
 
 				if err := endpoint.pieceinfo.Add(ctx, info); err != nil {
@@ -405,11 +442,6 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		}
 	}()
 
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -460,7 +492,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				return ErrInternal.Wrap(err)
 			}
 
-			_, err = pieceReader.Read(chunkData)
+			// ReadFull is required to ensure we are sending the right amount of data.
+			_, err = io.ReadFull(pieceReader, chunkData)
 			if err != nil {
 				return ErrInternal.Wrap(err)
 			}
@@ -486,7 +519,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	recvErr := func() (err error) {
 		largestOrder := pb.Order{}
-		defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
+		defer endpoint.SaveOrder(ctx, limit, &largestOrder)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -504,7 +537,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				return ErrProtocol.New("expected order as the message")
 			}
 
-			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
+			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
 				return err
 			}
 
@@ -528,7 +561,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 }
 
 // SaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order, uplink *identity.PeerIdentity) {
+func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -537,9 +570,8 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 		return
 	}
 	err = endpoint.orders.Enqueue(ctx, &orders.Info{
-		Limit:  limit,
-		Order:  order,
-		Uplink: uplink,
+		Limit: limit,
+		Order: order,
 	})
 	if err != nil {
 		endpoint.log.Error("failed to add order", zap.Error(err))
@@ -549,6 +581,77 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 		}
 	}
+}
+
+// Retain keeps only piece ids specified in the request
+func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// if retain status is disabled, quit immediately
+	if endpoint.config.RetainStatus == RetainDisabled {
+		return &pb.RetainResponse{}, nil
+	}
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, status.Error(codes.PermissionDenied, Error.New("retain called with untrusted ID").Error())
+	}
+
+	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, Error.Wrap(err).Error())
+	}
+
+	const limit = 1000
+	offset := 0
+	numDeleted := 0
+	hasMorePieces := true
+
+	for hasMorePieces {
+		// subtract some time to leave room for clock difference between the satellite and storage node
+		createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
+
+		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
+		if err != nil {
+			return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
+		}
+		for _, pieceID := range pieceIDs {
+			if !filter.Contains(pieceID) {
+				endpoint.log.Sugar().Debugf("About to delete piece id (%s) from satellite (%s). RetainStatus: %s", pieceID.String(), peer.ID.String(), endpoint.config.RetainStatus.String())
+
+				// if retain status is enabled, delete pieceid
+				if endpoint.config.RetainStatus == RetainEnabled {
+					if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
+						endpoint.log.Error("failed to delete a piece", zap.Error(err))
+						// continue because if we fail to delete from file system,
+						// we need to keep the pieceinfo so we can delete next time
+						continue
+					}
+					if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
+						endpoint.log.Error("failed to delete piece info", zap.Error(err))
+					}
+				}
+
+				numDeleted++
+			}
+		}
+
+		hasMorePieces = (len(pieceIDs) == limit)
+		offset += len(pieceIDs)
+		offset -= numDeleted
+		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
+		// so other goroutines can continue serving requests.
+		runtime.Gosched()
+	}
+
+	endpoint.log.Sugar().Debugf("Deleted %d pieces during retain. RetainStatus: %s", numDeleted, endpoint.config.RetainStatus.String())
+
+	return &pb.RetainResponse{}, nil
 }
 
 // min finds the min of two values

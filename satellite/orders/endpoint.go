@@ -8,19 +8,18 @@ import (
 	"io"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/certdb"
 )
 
 // DB implements saving order after receiving from storage node
@@ -68,7 +67,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint new orders receiving endpoint
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, certdb certdb.DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, certdb certdb.DB, db DB) *Endpoint {
 	return &Endpoint{
 		log:             log,
 		satelliteSignee: satelliteSignee,
@@ -138,35 +137,35 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			return status.Error(codes.Unauthenticated, "only specified storage node can settle order")
 		}
 
-		orderExpiration, err := ptypes.Timestamp(orderLimit.OrderExpiration)
-		if err != nil {
-			return status.Errorf(codes.InvalidArgument, err.Error())
-		}
-
 		rejectErr := func() error {
-			var uplinkSignee signing.Signee
-
-			// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
-			if endpoint.satelliteSignee.ID() == orderLimit.UplinkId {
-				uplinkSignee = endpoint.satelliteSignee
-			} else {
-				uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, orderLimit.UplinkId)
-				if err != nil {
-					log.Warn("unable to find uplink public key", zap.Error(err))
-					return status.Errorf(codes.Internal, "unable to find uplink public key")
-				}
-				uplinkSignee = &signing.PublicKey{
-					Self: orderLimit.UplinkId,
-					Key:  uplinkPubKey,
-				}
-			}
-
 			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
 				return Error.New("unable to verify order limit")
 			}
 
-			if err := signing.VerifyOrderSignature(ctx, uplinkSignee, order); err != nil {
-				return Error.New("unable to verify order")
+			if orderLimit.DeprecatedUplinkId == nil { // new signature handling
+				if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+					return Error.New("unable to verify order")
+				}
+			} else {
+				var uplinkSignee signing.Signee
+
+				// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
+				if endpoint.satelliteSignee.ID() == *orderLimit.DeprecatedUplinkId {
+					uplinkSignee = endpoint.satelliteSignee
+				} else {
+					uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, *orderLimit.DeprecatedUplinkId)
+					if err != nil {
+						log.Warn("unable to find uplink public key", zap.Error(err))
+						return status.Errorf(codes.Internal, "unable to find uplink public key")
+					}
+					uplinkSignee = &signing.PublicKey{
+						Self: *orderLimit.DeprecatedUplinkId,
+						Key:  uplinkPubKey,
+					}
+				}
+				if err := signing.VerifyOrderSignature(ctx, uplinkSignee, order); err != nil {
+					return Error.New("unable to verify order")
+				}
 			}
 
 			// TODO should this reject or just error ??
@@ -174,13 +173,13 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				return Error.New("invalid serial number")
 			}
 
-			if orderExpiration.Before(time.Now()) {
+			if orderLimit.OrderExpiration.Before(time.Now()) {
 				return Error.New("order limit expired")
 			}
 			return nil
 		}()
 		if rejectErr != err {
-			log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(err))
+			log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(err), zap.Error(rejectErr))
 			err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
 				SerialNumber: orderLimit.SerialNumber,
 				Status:       pb.SettlementResponse_REJECTED,

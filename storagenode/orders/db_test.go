@@ -7,22 +7,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-func TestOrders(t *testing.T) {
+func TestDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -33,7 +32,6 @@ func TestOrders(t *testing.T) {
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
-		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 		piece := storj.NewPieceID()
 
 		serialNumber := testrand.SerialNumber()
@@ -48,33 +46,33 @@ func TestOrders(t *testing.T) {
 		require.Len(t, emptyArchive, 0)
 
 		now := time.Now()
-		nowTimestamp, err := ptypes.TimestampProto(now)
+
+		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 		require.NoError(t, err)
 
 		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
 			SerialNumber:    serialNumber,
 			SatelliteId:     satellite0.ID,
-			UplinkId:        uplink.ID,
+			UplinkPublicKey: piecePublicKey,
 			StorageNodeId:   storagenode.ID,
 			PieceId:         piece,
 			Limit:           100,
 			Action:          pb.PieceAction_GET,
 			OrderCreation:   now.AddDate(0, 0, -1),
-			PieceExpiration: nowTimestamp,
-			OrderExpiration: nowTimestamp,
+			PieceExpiration: now,
+			OrderExpiration: now,
 		})
 		require.NoError(t, err)
 
-		order, err := signing.SignOrder(ctx, signing.SignerFromFullIdentity(uplink), &pb.Order{
+		order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
 			SerialNumber: serialNumber,
 			Amount:       50,
 		})
 		require.NoError(t, err)
 
 		info := &orders.Info{
-			Limit:  limit,
-			Order:  order,
-			Uplink: uplink.PeerIdentity(),
+			Limit: limit,
+			Order: order,
 		}
 
 		// basic add
@@ -120,14 +118,54 @@ func TestOrders(t *testing.T) {
 
 		require.Empty(t, cmp.Diff([]*orders.ArchivedInfo{
 			{
-				Limit:  limit,
-				Order:  order,
-				Uplink: uplink.PeerIdentity(),
+				Limit: limit,
+				Order: order,
 
 				Status:     orders.StatusAccepted,
 				ArchivedAt: archived[0].ArchivedAt,
 			},
 		}, archived, cmp.Comparer(pb.Equal)))
 
+	})
+}
+
+func TestDB_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
+
+		{ // Ensure Enqueue works at all
+			err := db.Orders().Enqueue(ctx, &orders.Info{
+				Order: &pb.Order{},
+				Limit: &pb.OrderLimit{
+					SatelliteId:     satelliteID,
+					SerialNumber:    serial,
+					OrderExpiration: time.Now(),
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		{ // Ensure ListUnsent works at all
+			_, err := db.Orders().ListUnsent(ctx, 1)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure ListUnsentBySatellite works at all
+			_, err := db.Orders().ListUnsentBySatellite(ctx)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure Archive works at all
+			err := db.Orders().Archive(ctx, satelliteID, serial, orders.StatusAccepted)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure ListArchived works at all
+			_, err := db.Orders().ListArchived(ctx, 1)
+			require.NoError(t, err)
+		}
 	})
 }

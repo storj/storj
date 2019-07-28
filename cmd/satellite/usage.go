@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/satellitedb"
 )
 

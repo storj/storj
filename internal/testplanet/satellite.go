@@ -11,24 +11,25 @@ import (
 	"time"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/accounting/rollup"
-	"storj.io/storj/pkg/accounting/tally"
-	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/repairer"
-	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/discovery"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/vouchers"
 )
@@ -104,7 +105,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					UptimeCount:       0,
 					AuditCount:        0,
 					NewNodePercentage: 0,
-					OnlineWindow:      time.Hour,
+					OnlineWindow:      0,
 					DistinctIP:        false,
 
 					AuditReputationRepairWeight:  1,
@@ -124,17 +125,18 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Discovery: discovery.Config{
-				DiscoveryInterval: 1 * time.Second,
-				RefreshInterval:   1 * time.Second,
-				RefreshLimit:      100,
+				DiscoveryInterval:  1 * time.Second,
+				RefreshInterval:    1 * time.Second,
+				RefreshLimit:       100,
+				RefreshConcurrency: 2,
 			},
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
 				Overlay:              true,
-				BwExpiration:         45,
 				RS: metainfo.RSConfig{
+					MaxSegmentSize:   64 * memory.MiB,
 					MaxBufferMem:     memory.Size(256),
 					ErasureShareSize: memory.Size(256),
 					MinThreshold:     (planet.config.StorageNodeCount * 1 / 5),
@@ -143,25 +145,37 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					MaxThreshold:     (planet.config.StorageNodeCount * 4 / 5),
 					Validate:         false,
 				},
+				Loop: metainfo.LoopConfig{
+					CoalesceDuration: 5 * time.Second,
+				},
 			},
 			Orders: orders.Config{
-				Expiration: 45 * 24 * time.Hour,
+				Expiration: 7 * 24 * time.Hour,
 			},
 			Checker: checker.Config{
-				Interval:            30 * time.Second,
-				IrreparableInterval: 15 * time.Second,
+				Interval:                  30 * time.Second,
+				IrreparableInterval:       15 * time.Second,
+				ReliabilityCacheStaleness: 5 * time.Minute,
 			},
 			Repairer: repairer.Config{
-				MaxRepair:    10,
-				Interval:     time.Hour,
-				Timeout:      1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
-				MaxBufferMem: 4 * memory.MiB,
+				MaxRepair:                     10,
+				Interval:                      time.Hour,
+				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
+				MaxBufferMem:                  4 * memory.MiB,
+				MaxExcessRateOptimalThreshold: 0.05,
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB:   0,
 				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
+			},
+			GarbageCollection: gc.Config{
+				Interval:          1 * time.Minute,
+				Enabled:           true,
+				InitialPieces:     10,
+				FalsePositiveRate: 0.1,
+				ConcurrentSends:   1,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,

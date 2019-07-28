@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -73,7 +73,7 @@ func (db *ConsoleDB) UserPayments() console.UserPayments {
 
 // ProjectPayments is a getter for console.ProjectPayments repository
 func (db *ConsoleDB) ProjectPayments() console.ProjectPayments {
-	return &projectpayments{db.methods}
+	return &projectPayments{db.db, db.methods}
 }
 
 // ProjectInvoiceStamps is a getter for console.ProjectInvoiceStamps repository

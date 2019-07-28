@@ -21,31 +21,27 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/accounting/live"
-	"storj.io/storj/pkg/accounting/rollup"
-	"storj.io/storj/pkg/accounting/tally"
-	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
-	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/certdb"
-	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/irreparable"
-	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/datarepair/repairer"
-	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/attribution"
+	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/discovery"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -53,9 +49,14 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/irreparable"
+	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
@@ -98,6 +99,8 @@ type DB interface {
 	Orders() orders.DB
 	// Containment returns database for containment
 	Containment() audit.Containment
+	// Buckets returns the database to interact with buckets
+	Buckets() metainfo.BucketsDB
 }
 
 // Config is the global config satellite
@@ -115,6 +118,8 @@ type Config struct {
 	Checker  checker.Config
 	Repairer repairer.Config
 	Audit    audit.Config
+
+	GarbageCollection gc.Config
 
 	Tally          tally.Config
 	Rollup         rollup.Config
@@ -165,6 +170,7 @@ type Peer struct {
 		Database  storage.KeyValueStore // TODO: move into pointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
+		Loop      *metainfo.Loop
 	}
 
 	Inspector struct {
@@ -185,6 +191,10 @@ type Peer struct {
 		Service *audit.Service
 	}
 
+	GarbageCollection struct {
+		Service *gc.Service
+	}
+
 	Accounting struct {
 		Tally        *tally.Service
 		Rollup       *rollup.Service
@@ -200,7 +210,7 @@ type Peer struct {
 	}
 
 	Vouchers struct {
-		Service *vouchers.Service
+		Endpoint *vouchers.Endpoint
 	}
 
 	Console struct {
@@ -341,13 +351,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Service = vouchers.NewService(
+		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
 			peer.Log.Named("vouchers"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			config.Vouchers.Expiration,
 		)
-		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 
 	{ // setup live accounting
@@ -375,20 +385,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
-			peer.DB.Orders(),
 			peer.DB.CertDB(),
+			peer.DB.Orders(),
 		)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			peer.DB.CertDB(),
 			peer.DB.Orders(),
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Kademlia.ExternalAddress,
 			},
+			config.Repairer.MaxExcessRateOptimalThreshold,
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
@@ -401,7 +411,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 
 		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"), peer.Metainfo.Database)
+		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
+			peer.Metainfo.Database,
+			peer.DB.Buckets(),
+		)
+		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Service)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -413,6 +427,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
+			signing.SignerFromFullIdentity(peer.Identity),
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
@@ -426,8 +441,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval,
-			config.Checker.IrreparableInterval)
+			config.Checker)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.Log.Named("repairer"),
@@ -461,6 +475,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup garbage collection
+		log.Debug("Setting up garbage collection")
+
+		peer.GarbageCollection.Service = gc.NewService(
+			peer.Log.Named("garbage collection"),
+			config.GarbageCollection,
+			peer.Transport,
+			peer.DB.OverlayCache(),
+			peer.Metainfo.Loop,
+		)
 	}
 
 	{ // setup accounting
@@ -647,6 +673,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
@@ -657,6 +686,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead

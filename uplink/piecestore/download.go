@@ -10,9 +10,10 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
+	"storj.io/storj/pkg/storj"
 )
 
 // Downloader is interface that can be used for downloading content.
@@ -24,11 +25,12 @@ type Downloader interface {
 
 // Download implements downloading from a piecestore.
 type Download struct {
-	client *Client
-	limit  *pb.OrderLimit
-	peer   *identity.PeerIdentity
-	stream pb.Piecestore_DownloadClient
-	ctx    context.Context
+	client     *Client
+	limit      *pb.OrderLimit
+	privateKey storj.PiecePrivateKey
+	peer       *identity.PeerIdentity
+	stream     pb.Piecestore_DownloadClient
+	ctx        context.Context
 
 	read         int64 // how much data we have read so far
 	allocated    int64 // how far have we sent orders
@@ -42,7 +44,7 @@ type Download struct {
 }
 
 // Download starts a new download using the specified order limit at the specified offset and size.
-func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, offset, size int64) (_ Downloader, err error) {
+func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, piecePrivateKey storj.PiecePrivateKey, offset, size int64) (_ Downloader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	stream, err := client.client.Download(ctx)
@@ -70,11 +72,12 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, offset
 	}
 
 	download := &Download{
-		client: client,
-		limit:  limit,
-		peer:   peer,
-		stream: stream,
-		ctx:    ctx,
+		client:     client,
+		limit:      limit,
+		privateKey: piecePrivateKey,
+		peer:       peer,
+		stream:     stream,
+		ctx:        ctx,
 
 		read: 0,
 
@@ -125,12 +128,10 @@ func (client *Download) Read(data []byte) (read int, err error) {
 
 			// send an order
 			if newAllocation > 0 {
-				// sign the order
-				order, err := signing.SignOrder(ctx, client.client.signer, &pb.Order{
+				order, err := signing.SignUplinkOrder(ctx, client.privateKey, &pb.Order{
 					SerialNumber: client.limit.SerialNumber,
 					Amount:       newAllocation,
 				})
-				// something went wrong with signing
 				if err != nil {
 					client.unread.IncludeError(err)
 					return read, nil

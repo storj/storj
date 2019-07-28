@@ -19,13 +19,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia/routinggraph"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/eestream"
 )
 
 var (
@@ -553,22 +553,25 @@ func getSegments(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
-
-	length := irreparableLimit
-	var offset int32
+	var lastSeenSegmentPath = []byte{}
 
 	// query DB and paginate results
-	for length >= irreparableLimit {
-		res, err := i.irrdbclient.ListIrreparableSegments(context.Background(), &pb.ListIrreparableSegmentsRequest{Limit: irreparableLimit, Offset: offset})
+	for {
+		req := &pb.ListIrreparableSegmentsRequest{
+			Limit:               irreparableLimit,
+			LastSeenSegmentPath: lastSeenSegmentPath,
+		}
+		res, err := i.irrdbclient.ListIrreparableSegments(context.Background(), req)
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
 
-		objects := sortSegments(res.Segments)
-		if len(objects) == 0 {
+		if len(res.Segments) == 0 {
 			break
 		}
+		lastSeenSegmentPath = res.Segments[len(res.Segments)-1].Path
 
+		objects := sortSegments(res.Segments)
 		// format and print segments
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -577,9 +580,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		length = int32(len(res.Segments))
-		offset += length
-
+		length := int32(len(res.Segments))
 		if length >= irreparableLimit {
 			if !prompt.Confirm("\nNext page? (y/n)") {
 				break
