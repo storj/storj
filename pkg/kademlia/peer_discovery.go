@@ -25,8 +25,9 @@ type peerDiscovery struct {
 	antechamberLimit int
 	concurrency      int
 
-	cond  sync.Cond
-	queue discoveryQueue
+	cond          sync.Cond
+	vettedQueue   discoveryQueue
+	unvettedQueue discoveryQueue
 }
 
 func newPeerDiscovery(log *zap.Logger, dialer *kademliaclient.Dialer, target storj.NodeID, startingNodes []*pb.Node, k, antechamberLimit, alpha int, self *pb.Node) *peerDiscovery {
@@ -39,15 +40,16 @@ func newPeerDiscovery(log *zap.Logger, dialer *kademliaclient.Dialer, target sto
 		antechamberLimit: antechamberLimit,
 		concurrency:      alpha,
 		cond:             sync.Cond{L: &sync.Mutex{}},
-		queue:            *newDiscoveryQueue(target, k),
+		vettedQueue:      *newDiscoveryQueue(target, k),
+		unvettedQueue:    *newDiscoveryQueue(target, antechamberLimit),
 	}
-	discovery.queue.Insert(startingNodes...)
+	discovery.vettedQueue.Insert(startingNodes...)
 	return discovery
 }
 
 func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if lookup.queue.Unqueried() == 0 {
+	if lookup.vettedQueue.Unqueried() == 0 {
 		return nil, nil
 	}
 
@@ -62,7 +64,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 		go func() {
 			defer wg.Done()
 			for {
-				var next *pb.Node
+				var nextVetted, nextUnvetted *pb.Node
 
 				lookup.cond.L.Lock()
 				for {
@@ -72,10 +74,11 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 						return
 					}
 
-					next = lookup.queue.ClosestUnqueried()
+					nextVetted = lookup.vettedQueue.ClosestUnqueried()
 
-					if next != nil {
+					if nextVetted != nil {
 						working++
+						nextUnvetted = lookup.unvettedQueue.ClosestUnqueried()
 						break
 					}
 					// no work, wait until some other routine inserts into the queue
@@ -83,24 +86,40 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 				}
 				lookup.cond.L.Unlock()
 
-				rtNeighbors, _, err := lookup.dialer.Lookup(ctx, lookup.self, *next, lookup.target, lookup.k, lookup.antechamberLimit)
+				vettedNeighbors, unvettedNeighbors, err := lookup.dialer.Lookup(ctx, lookup.self, *nextVetted, lookup.target, lookup.k, lookup.antechamberLimit)
 				if err != nil {
-					lookup.queue.QueryFailure(next)
+					lookup.vettedQueue.QueryFailure(nextVetted)
 					if !isDone(ctx) {
-						lookup.log.Debug("connecting to node failed",
+						lookup.log.Debug("connecting to vetted node failed",
 							zap.Any("target", lookup.target),
-							zap.Any("dial-node", next.Id),
-							zap.Any("dial-address", next.Address.Address),
+							zap.Any("dial-node", nextVetted.Id),
+							zap.Any("dial-address", nextVetted.Address.Address),
 							zap.Error(err),
 						)
 					}
 				} else {
-					lookup.queue.QuerySuccess(next, rtNeighbors...)
+					lookup.vettedQueue.QuerySuccess(nextVetted, vettedNeighbors...)
+					lookup.unvettedQueue.Insert(unvettedNeighbors...)
+				}
+
+				if nextUnvetted != nil {
+					_, err := lookup.dialer.PingNode(ctx, *nextUnvetted)
+					if err != nil {
+						lookup.vettedQueue.QueryFailure(nextUnvetted)
+						if !isDone(ctx) {
+							lookup.log.Debug("connecting to unvetted node failed",
+								zap.Any("target", lookup.target),
+								zap.Any("dial-node", nextUnvetted.Id),
+								zap.Any("dial-address", nextUnvetted.Address.Address),
+								zap.Error(err),
+							)
+						}
+					}
 				}
 
 				lookup.cond.L.Lock()
 				working--
-				allDone = allDone || isDone(ctx) || (working == 0 && lookup.queue.Unqueried() == 0)
+				allDone = allDone || isDone(ctx) || (working == 0 && lookup.vettedQueue.Unqueried() == 0)
 				lookup.cond.L.Unlock()
 				lookup.cond.Broadcast()
 			}
@@ -109,7 +128,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 
 	wg.Wait()
 
-	return lookup.queue.ClosestQueried(), ctx.Err()
+	return lookup.vettedQueue.ClosestQueried(), ctx.Err()
 }
 
 func isDone(ctx context.Context) bool {
