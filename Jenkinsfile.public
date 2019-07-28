@@ -32,17 +32,17 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'go run ./scripts/check-copyright.go'
-                        sh 'go run ./scripts/check-large-files.go'
-                        sh 'go run ./scripts/check-imports.go -race ./...'
-                        sh 'go run ./scripts/check-peer-constraints.go -race -fail=false'
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
-                        sh 'go run ./scripts/atomicalign.go ./...'
-                        sh 'bash ./scripts/check-dbx-version.sh'
-                        sh 'golangci-lint -j=2 run'
-                        sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
-                        sh 'make check-satellite-config-lock'
+                        sh 'go run ./scripts/check-copyright.go', wait: false
+                        sh 'go run ./scripts/check-large-files.go', wait: false
+                        sh 'go run ./scripts/check-imports.go -race ./...', wait: false
+                        sh 'go run ./scripts/check-peer-constraints.go -race', wait: false
+                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint', wait: false
+                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock', wait: false
+                        sh 'go run ./scripts/atomicalign.go ./...', wait: false
+                        sh 'bash ./scripts/check-dbx-version.sh', wait: false
+                        sh 'golangci-lint -j=2 run', wait: false
+                        sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig', wait: false
+                        sh 'make check-satellite-config-lock', wait: false
                     }
                 }
 
@@ -60,7 +60,7 @@ pipeline {
 
                     post {
                         always {
-                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', propagate: false
                             archiveArtifacts artifacts: '.build/tests.json'
                             junit '.build/tests.xml'
 
