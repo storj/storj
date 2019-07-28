@@ -11,8 +11,8 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/satellite/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
