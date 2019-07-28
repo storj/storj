@@ -20,7 +20,8 @@ linters:
     - deadcode    # find code that is not used
     #TODO#- unparam     # check for unused parameters
     - nakedret    # check for naked returns
-    - goimports   # fix import order
+    #- goimports   # fix import order, disabled because it's slow
+    - gofmt
     - misspell    # check spelling
     - unconvert   # remove unnecessary conversions
     - scopelint   # checks for unpinned variables
@@ -28,6 +29,7 @@ linters:
     #TODO#- maligned    # check for better memory usage
     #TODO#- prealloc    # easy optimizations
   disable:
+    - goimports
     - goconst     # check for things that could be replaced by constants
     - gocyclo     # needs tweaking
     - depguard    # unused

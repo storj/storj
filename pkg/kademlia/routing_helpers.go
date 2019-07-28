@@ -116,6 +116,11 @@ func (rt *RoutingTable) removeNode(ctx context.Context, node *pb.Node) (err erro
 	if storage.ErrKeyNotFound.Has(err) {
 		//check replacement cache
 		rt.removeFromReplacementCache(kadBucketID, node)
+		// check antechamber
+		err = rt.antechamberRemoveNode(ctx, node)
+		if err != nil {
+			return RoutingErr.Wrap(err)
+		}
 		return nil
 	} else if err != nil {
 		return RoutingErr.New("could not get node %s", err)

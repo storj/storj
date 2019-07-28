@@ -6,15 +6,12 @@ package ecclient_test
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
@@ -22,6 +19,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -47,7 +45,7 @@ func TestECClient(t *testing.T) {
 
 	planet.Start(ctx)
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
 
 	k := storageNodes / 2
 	n := storageNodes
@@ -58,7 +56,7 @@ func TestECClient(t *testing.T) {
 	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
 	require.NoError(t, err)
 
-	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, dataSize.Int64()))
+	data, err := ioutil.ReadAll(io.LimitReader(testrand.Reader(), dataSize.Int64()))
 	require.NoError(t, err)
 
 	// Erasure encode some random data and upload the pieces
@@ -72,10 +70,12 @@ func TestECClient(t *testing.T) {
 }
 
 func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, rs eestream.RedundancyStrategy, data []byte) ([]*pb.Node, []*pb.PieceHash) {
-	var err error
+	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	require.NoError(t, err)
+
 	limits := make([]*pb.AddressedOrderLimit, rs.TotalCount())
 	for i := 0; i < len(limits); i++ {
-		limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_PUT, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], storj.NewPieceID())
+		limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_PUT, planet.Satellites[0], piecePublicKey, planet.StorageNodes[i], storj.NewPieceID())
 		require.NoError(t, err)
 	}
 
@@ -83,7 +83,7 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 
 	r := bytes.NewReader(data)
 
-	successfulNodes, successfulHashes, err := ec.Put(ctx, limits, rs, r, ttl)
+	successfulNodes, successfulHashes, err := ec.Put(ctx, limits, piecePrivateKey, rs, r, ttl)
 
 	require.NoError(t, err)
 	assert.Equal(t, len(limits), len(successfulNodes))
@@ -111,16 +111,18 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 }
 
 func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, es eestream.ErasureScheme, data []byte, successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash) {
-	var err error
+	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	require.NoError(t, err)
+
 	limits := make([]*pb.AddressedOrderLimit, es.TotalCount())
 	for i := 0; i < len(limits); i++ {
 		if successfulNodes[i] != nil {
-			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_GET, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
+			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_GET, planet.Satellites[0], piecePublicKey, planet.StorageNodes[i], successfulHashes[i].PieceId)
 			require.NoError(t, err)
 		}
 	}
 
-	rr, err := ec.Get(ctx, limits, es, dataSize.Int64())
+	rr, err := ec.Get(ctx, limits, piecePrivateKey, es, dataSize.Int64())
 	require.NoError(t, err)
 
 	r, err := rr.Range(ctx, 0, rr.Size())
@@ -133,43 +135,42 @@ func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 }
 
 func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash) {
-	var err error
+	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	require.NoError(t, err)
+
 	limits := make([]*pb.AddressedOrderLimit, len(successfulNodes))
 	for i := 0; i < len(limits); i++ {
 		if successfulNodes[i] != nil {
-			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_DELETE, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
+			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_DELETE, planet.Satellites[0], piecePublicKey, planet.StorageNodes[i], successfulHashes[i].PieceId)
 			require.NoError(t, err)
 		}
 	}
 
-	err = ec.Delete(ctx, limits)
+	err = ec.Delete(ctx, limits, piecePrivateKey)
 
 	require.NoError(t, err)
 }
 
-func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
+func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *satellite.Peer, piecePublicKey storj.PiecePublicKey, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
 	// TODO refactor to avoid OrderLimit duplication
-	serialNumber, err := uuid.New()
-	if err != nil {
-		return nil, err
-	}
-	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(24 * time.Hour))
-	if err != nil {
-		return nil, err
-	}
-	limit := &pb.OrderLimit2{
-		SerialNumber:    storj.SerialNumber(*serialNumber),
+	serialNumber := testrand.SerialNumber()
+
+	now := time.Now()
+
+	limit := &pb.OrderLimit{
+		SerialNumber:    serialNumber,
 		SatelliteId:     satellite.ID(),
-		UplinkId:        uplink.ID(),
+		UplinkPublicKey: piecePublicKey,
 		StorageNodeId:   storageNode.ID(),
 		PieceId:         pieceID,
 		Action:          action,
 		Limit:           dataSize.Int64(),
-		PieceExpiration: nil,
-		OrderExpiration: orderExpiration,
+		PieceExpiration: time.Time{},
+		OrderCreation:   now,
+		OrderExpiration: now.Add(24 * time.Hour),
 	}
 
-	limit, err = signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
+	limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
 	if err != nil {
 		return nil, err
 	}

@@ -42,17 +42,19 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "OK")
 	})
-	ln, err := net.Listen("tcp", *debugAddr)
-	if err != nil {
-		return err
-	}
-	go func() {
-		logger.Debug(fmt.Sprintf("debug server listening on %s", ln.Addr().String()))
-		err := (&http.Server{Handler: &mux}).Serve(ln)
+	if *debugAddr != "" {
+		ln, err := net.Listen("tcp", *debugAddr)
 		if err != nil {
-			logger.Error("debug server died", zap.Error(err))
+			return err
 		}
-	}()
+		go func() {
+			logger.Debug(fmt.Sprintf("debug server listening on %s", ln.Addr().String()))
+			err := (&http.Server{Handler: &mux}).Serve(ln)
+			if err != nil {
+				logger.Error("debug server died", zap.Error(err))
+			}
+		}()
+	}
 	return nil
 }
 

@@ -13,14 +13,14 @@ import (
 
 // Inspector is a gRPC service for inspecting kademlia internals
 type Inspector struct {
-	dht      *Kademlia
+	kademlia *Kademlia
 	identity *identity.FullIdentity
 }
 
 // NewInspector creates an Inspector
-func NewInspector(kad *Kademlia, identity *identity.FullIdentity) *Inspector {
+func NewInspector(kademlia *Kademlia, identity *identity.FullIdentity) *Inspector {
 	return &Inspector{
-		dht:      kad,
+		kademlia: kademlia,
 		identity: identity,
 	}
 }
@@ -30,7 +30,7 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: this is definitely the wrong way to get this
-	kadNodes, err := srv.dht.FindNear(ctx, srv.identity.ID, 100000)
+	kadNodes, err := srv.kademlia.FindNear(ctx, srv.identity.ID, 100000)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 // GetBuckets returns all kademlia buckets for current kademlia instance
 func (srv *Inspector) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (_ *pb.GetBucketsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	b, err := srv.dht.GetBucketIds(ctx)
+	b, err := srv.kademlia.GetBucketIds(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (srv *Inspector) FindNear(ctx context.Context, req *pb.FindNearRequest) (_ 
 	defer mon.Task()(&ctx)(&err)
 	start := req.Start
 	limit := req.Limit
-	nodes, err := srv.dht.FindNear(ctx, start, int(limit))
+	nodes, err := srv.kademlia.FindNear(ctx, start, int(limit))
 	if err != nil {
 		return &pb.FindNearResponse{}, err
 	}
@@ -76,7 +76,7 @@ func (srv *Inspector) FindNear(ctx context.Context, req *pb.FindNearRequest) (_ 
 // PingNode sends a PING RPC to the provided node ID in the Kad network.
 func (srv *Inspector) PingNode(ctx context.Context, req *pb.PingNodeRequest) (_ *pb.PingNodeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = srv.dht.Ping(ctx, pb.Node{
+	_, err = srv.kademlia.Ping(ctx, pb.Node{
 		Id: req.Id,
 		Address: &pb.NodeAddress{
 			Address: req.Address,
@@ -98,7 +98,7 @@ func (srv *Inspector) LookupNode(ctx context.Context, req *pb.LookupNodeRequest)
 	if err != nil {
 		return &pb.LookupNodeResponse{}, err
 	}
-	node, err := srv.dht.FindNode(ctx, id)
+	node, err := srv.kademlia.FindNode(ctx, id)
 	if err != nil {
 		return &pb.LookupNodeResponse{}, err
 	}
@@ -111,7 +111,7 @@ func (srv *Inspector) LookupNode(ctx context.Context, req *pb.LookupNodeRequest)
 // DumpNodes returns all of the nodes in the routing table database.
 func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (_ *pb.DumpNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	nodes, err := srv.dht.DumpNodes(ctx)
+	nodes, err := srv.kademlia.DumpNodes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (
 // NodeInfo sends a PING RPC to a node and returns its local info.
 func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (_ *pb.NodeInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	info, err := srv.dht.FetchInfo(ctx, pb.Node{
+	info, err := srv.kademlia.FetchInfo(ctx, pb.Node{
 		Id:      req.Id,
 		Address: req.Address,
 	})
@@ -142,7 +142,7 @@ func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (_ 
 // GetBucketList returns the list of buckets with their routing nodes and their cached nodes
 func (srv *Inspector) GetBucketList(ctx context.Context, req *pb.GetBucketListRequest) (_ *pb.GetBucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	bucketIds, err := srv.dht.GetBucketIds(ctx)
+	bucketIds, err := srv.kademlia.GetBucketIds(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -151,11 +151,11 @@ func (srv *Inspector) GetBucketList(ctx context.Context, req *pb.GetBucketListRe
 
 	for i, b := range bucketIds {
 		bucketID := keyToBucketID(b)
-		routingNodes, err := srv.dht.GetNodesWithinKBucket(ctx, bucketID)
+		routingNodes, err := srv.kademlia.GetNodesWithinKBucket(ctx, bucketID)
 		if err != nil {
 			return nil, err
 		}
-		cachedNodes := srv.dht.GetCachedNodesWithinKBucket(bucketID)
+		cachedNodes := srv.kademlia.GetCachedNodesWithinKBucket(bucketID)
 		buckets[i] = &pb.GetBucketListResponse_Bucket{
 			BucketId:     keyToBucketID(b),
 			RoutingNodes: routingNodes,

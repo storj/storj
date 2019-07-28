@@ -20,12 +20,14 @@ import (
 
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/setup"
 )
 
 // GatewayFlags configuration flags
@@ -36,6 +38,8 @@ type GatewayFlags struct {
 	Minio  miniogw.MinioConfig
 
 	uplink.Config
+
+	Version version.Config
 }
 
 var (
@@ -143,21 +147,26 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		address = net.JoinHostPort("127.0.0.1", port)
 	}
 
-	fmt.Printf("Starting Storj S3-compatible gateway!\n\n")
-	fmt.Printf("Endpoint: %s\n", address)
-	fmt.Printf("Access key: %s\n", runCfg.Minio.AccessKey)
-	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
-
 	ctx := process.Ctx(cmd)
 
 	if err := process.InitMetrics(ctx, nil, ""); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
+	err = version.CheckProcessVersion(ctx, runCfg.Version, version.Build, "Gateway")
+	if err != nil {
+		return err
+	}
+
+	zap.S().Infof("Starting Storj S3-compatible gateway!\n\n")
+	zap.S().Infof("Endpoint: %s\n", address)
+	zap.S().Infof("Access key: %s\n", runCfg.Minio.AccessKey)
+	zap.S().Infof("Secret key: %s\n", runCfg.Minio.SecretKey)
+
 	err = checkCfg(ctx)
 	if err != nil {
-		return fmt.Errorf("Failed to contact Satellite.\n"+
-			"Perhaps your configuration is invalid?\n%s", err)
+		zap.S().Warn("Failed to contact Satellite. Perhaps your configuration is invalid?")
+		return err
 	}
 
 	return runCfg.Run(ctx)
@@ -179,7 +188,7 @@ func checkCfg(ctx context.Context) (err error) {
 	}
 	defer func() { err = errs.Combine(err, proj.Close()) }()
 
-	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After})
+	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.Forward})
 	return err
 }
 
@@ -224,7 +233,7 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	encKey, err := uplink.LoadEncryptionKey(flags.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, flags.Enc)
 	if err != nil {
 		return nil, err
 	}
@@ -236,9 +245,9 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 
 	return miniogw.NewStorjGateway(
 		project,
-		encKey,
-		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
-		flags.GetEncryptionScheme().ToEncryptionParameters(),
+		access,
+		storj.CipherSuite(flags.Enc.PathType),
+		flags.GetEncryptionParameters(),
 		flags.GetRedundancyScheme(),
 		flags.Client.SegmentSize,
 	), nil
@@ -291,7 +300,7 @@ func (flags GatewayFlags) interactive(
 		return Error.Wrap(err)
 	}
 
-	err = uplink.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -332,7 +341,7 @@ func (flags GatewayFlags) nonInteractive(
 	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
 ) error {
 	if setupCfg.Enc.EncryptionKey != "" {
-		err := uplink.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
+		err := setup.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
 		if err != nil {
 			return Error.Wrap(err)
 		}

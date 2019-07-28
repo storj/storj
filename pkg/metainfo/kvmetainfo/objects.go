@@ -6,12 +6,8 @@ package kvmetainfo
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
@@ -35,11 +31,11 @@ var DefaultRS = storj.RedundancyScheme{
 	ShareSize:      1 * memory.KiB.Int32(),
 }
 
-// DefaultES default values for EncryptionScheme
+// DefaultES default values for EncryptionParameters
 // BlockSize should default to the size of a stripe
-var DefaultES = storj.EncryptionScheme{
-	Cipher:    storj.AESGCM,
-	BlockSize: DefaultRS.StripeSize(),
+var DefaultES = storj.EncryptionParameters{
+	CipherSuite: storj.EncAESGCM,
+	BlockSize:   DefaultRS.StripeSize(),
 }
 
 // GetObject returns information about an object
@@ -60,7 +56,7 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 		return nil, err
 	}
 
-	streamKey, err := encryption.StoreDeriveContentKey(bucket, meta.fullpath.UnencryptedPath(), db.encStore)
+	streamKey, err := encryption.DeriveContentKey(bucket, meta.fullpath.UnencryptedPath(), db.encStore)
 	if err != nil {
 		return nil, err
 	}
@@ -97,26 +93,26 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 		info.ContentType = createInfo.ContentType
 		info.Expires = createInfo.Expires
 		info.RedundancyScheme = createInfo.RedundancyScheme
-		info.EncryptionScheme = createInfo.EncryptionScheme
+		info.EncryptionParameters = createInfo.EncryptionParameters
 	}
 
 	// TODO: autodetect content type from the path extension
 	// if info.ContentType == "" {}
 
-	if info.EncryptionScheme.IsZero() {
-		info.EncryptionScheme = storj.EncryptionScheme{
-			Cipher:    DefaultES.Cipher,
-			BlockSize: DefaultES.BlockSize,
+	if info.EncryptionParameters.IsZero() {
+		info.EncryptionParameters = storj.EncryptionParameters{
+			CipherSuite: DefaultES.CipherSuite,
+			BlockSize:   DefaultES.BlockSize,
 		}
 	}
 
 	if info.RedundancyScheme.IsZero() {
 		info.RedundancyScheme = DefaultRS
 
-		// If the provided EncryptionScheme.BlockSize isn't a multiple of the
-		// DefaultRS stripeSize, then overwrite the EncryptionScheme with the DefaultES values
-		if err := validateBlockSize(DefaultRS, info.EncryptionScheme.BlockSize); err != nil {
-			info.EncryptionScheme.BlockSize = DefaultES.BlockSize
+		// If the provided EncryptionParameters.BlockSize isn't a multiple of the
+		// DefaultRS stripeSize, then overwrite the EncryptionParameters with the DefaultES values
+		if err := validateBlockSize(DefaultRS, info.EncryptionParameters.BlockSize); err != nil {
+			info.EncryptionParameters.BlockSize = DefaultES.BlockSize
 		}
 	}
 
@@ -242,7 +238,7 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 
 	fullpath := streams.CreatePath(bucket, paths.NewUnencrypted(path))
 
-	encPath, err := encryption.StoreEncryptPath(bucket, paths.NewUnencrypted(path), bucketInfo.PathCipher, db.encStore)
+	encPath, err := encryption.EncryptPath(bucket, paths.NewUnencrypted(path), bucketInfo.PathCipher, db.encStore)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -271,8 +267,8 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 	}
 
 	lastSegmentMeta := segments.Meta{
-		Modified:   convertTime(pointer.GetCreationDate()),
-		Expiration: convertTime(pointer.GetExpirationDate()),
+		Modified:   pointer.CreationDate,
+		Expiration: pointer.GetExpirationDate(),
 		Size:       pointer.GetSegmentSize(),
 		Data:       pointer.GetMetadata(),
 	}
@@ -366,9 +362,9 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 				OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
 				TotalShares:    int16(redundancyScheme.GetTotal()),
 			},
-			EncryptionScheme: storj.EncryptionScheme{
-				Cipher:    storj.Cipher(streamMeta.EncryptionType),
-				BlockSize: streamMeta.EncryptionBlockSize,
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.CipherSuite(streamMeta.EncryptionType),
+				BlockSize:   streamMeta.EncryptionBlockSize,
 			},
 			LastSegment: storj.LastSegment{
 				Size:              stream.LastSegmentSize,
@@ -377,18 +373,6 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 			},
 		},
 	}, nil
-}
-
-// convertTime converts gRPC timestamp to Go time
-func convertTime(ts *timestamp.Timestamp) time.Time {
-	if ts == nil {
-		return time.Time{}
-	}
-	t, err := ptypes.Timestamp(ts)
-	if err != nil {
-		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
-	}
-	return t
 }
 
 type mutableObject struct {

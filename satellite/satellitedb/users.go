@@ -49,14 +49,19 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		return nil, err
 	}
 
+	optional := dbx.User_Create_Fields{
+		ShortName: dbx.User_ShortName(user.ShortName),
+	}
+	if !user.PartnerID.IsZero() {
+		optional.PartnerId = dbx.User_PartnerId(user.PartnerID[:])
+	}
+
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(userID[:]),
 		dbx.User_Email(user.Email),
 		dbx.User_FullName(user.FullName),
 		dbx.User_PasswordHash(user.PasswordHash),
-		dbx.User_Create_Fields{
-			ShortName: dbx.User_ShortName(user.ShortName),
-		},
+		optional,
 	)
 
 	if err != nil {
@@ -77,6 +82,7 @@ func (users *users) Delete(ctx context.Context, id uuid.UUID) (err error) {
 // Update is a method for updating user entity
 func (users *users) Update(ctx context.Context, user *console.User) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	_, err = users.db.Update_User_By_Id(
 		ctx,
 		dbx.User_Id(user.ID[:]),
@@ -122,6 +128,13 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		PasswordHash: user.PasswordHash,
 		Status:       console.UserStatus(user.Status),
 		CreatedAt:    user.CreatedAt,
+	}
+
+	if user.PartnerId != nil {
+		result.PartnerID, err = bytesToUUID(user.PartnerId)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if user.ShortName != nil {

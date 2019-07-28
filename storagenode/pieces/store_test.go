@@ -6,7 +6,6 @@ package pieces_test
 import (
 	"bytes"
 	"io"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/filestore"
@@ -36,8 +36,7 @@ func TestPieces(t *testing.T) {
 	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 	pieceID := storj.NewPieceID()
 
-	source := make([]byte, 8000)
-	_, _ = rand.Read(source)
+	source := testrand.Bytes(8000)
 
 	{ // write data
 		writer, err := store.Writer(ctx, satelliteID, pieceID)
@@ -81,6 +80,24 @@ func TestPieces(t *testing.T) {
 		require.Equal(t, source[10:11], read(10, 1))
 		require.Equal(t, source[10:1010], read(10, 1000))
 		require.Equal(t, source, read(0, int64(len(source))))
+	}
+
+	{ // reading ends with io.EOF
+		reader, err := store.Reader(ctx, satelliteID, pieceID)
+		require.NoError(t, err)
+
+		data := make([]byte, 111)
+		for {
+			_, err := reader.Read(data)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				require.NoError(t, err)
+			}
+		}
+
+		require.NoError(t, reader.Close())
 	}
 
 	{ // test delete

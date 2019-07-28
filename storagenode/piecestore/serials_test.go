@@ -4,7 +4,6 @@
 package piecestore_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
@@ -29,9 +29,9 @@ func TestUsedSerials(t *testing.T) {
 		node0 := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
 		node1 := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
 
-		serial1 := newRandomSerial()
-		serial2 := newRandomSerial()
-		serial3 := newRandomSerial()
+		serial1 := testrand.SerialNumber()
+		serial2 := testrand.SerialNumber()
+		serial3 := testrand.SerialNumber()
 
 		now := time.Now()
 
@@ -49,11 +49,14 @@ func TestUsedSerials(t *testing.T) {
 			Expiration   time.Time
 		}
 
+		// use different timezones
+		location := time.FixedZone("XYZ", int((8 * time.Hour).Seconds()))
+
 		serialNumbers := []Serial{
 			{node0.ID, serial1, now.Add(time.Minute)},
 			{node0.ID, serial2, now.Add(4 * time.Minute)},
-			{node0.ID, serial3, now.Add(8 * time.Minute)},
-			{node1.ID, serial1, now.Add(time.Minute)},
+			{node0.ID, serial3, now.In(location).Add(8 * time.Minute)},
+			{node1.ID, serial1, now.In(location).Add(time.Minute)},
 			{node1.ID, serial2, now.Add(4 * time.Minute)},
 			{node1.ID, serial3, now.Add(8 * time.Minute)},
 		}
@@ -66,7 +69,7 @@ func TestUsedSerials(t *testing.T) {
 
 		// duplicate adds should fail
 		for _, serial := range serialNumbers {
-			expirationDelta := time.Duration(rand.Intn(10)-5) * time.Hour
+			expirationDelta := time.Duration(testrand.Intn(10)-5) * time.Hour
 			err = usedSerials.Add(ctx, serial.SatelliteID, serial.SerialNumber, serial.Expiration.Add(expirationDelta))
 			assert.Error(t, err)
 		}
@@ -99,9 +102,26 @@ func TestUsedSerials(t *testing.T) {
 	})
 }
 
-// TODO: move somewhere better
-func newRandomSerial() storj.SerialNumber {
-	var serial storj.SerialNumber
-	_, _ = rand.Read(serial[:])
-	return serial
+func TestUsedSerials_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
+
+		{ // Ensure Add works at all
+			err := db.UsedSerials().Add(ctx, satelliteID, serial, time.Now())
+			require.NoError(t, err)
+		}
+
+		{ // Ensure IterateAll works at all
+			err := db.UsedSerials().IterateAll(ctx, func(storj.NodeID, storj.SerialNumber, time.Time) {})
+			require.NoError(t, err)
+		}
+
+		{ // Ensure DeleteExpired works at all
+			err := db.UsedSerials().DeleteExpired(ctx, time.Now())
+			require.NoError(t, err)
+		}
+	})
 }

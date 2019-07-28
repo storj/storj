@@ -19,12 +19,14 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/rewards"
 )
@@ -67,11 +69,59 @@ func (m *lockedAttribution) Insert(ctx context.Context, info *attribution.Info) 
 	return m.db.Insert(ctx, info)
 }
 
-// QueryAttribution queries partner bucket value attribution data
+// QueryAttribution queries partner bucket attribution data
 func (m *lockedAttribution) QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) ([]*attribution.CSVRow, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.QueryAttribution(ctx, partnerID, start, end)
+}
+
+// Buckets returns the database to interact with buckets
+func (m *locked) Buckets() metainfo.BucketsDB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedBuckets{m.Locker, m.db.Buckets()}
+}
+
+// lockedBuckets implements locking wrapper for metainfo.BucketsDB
+type lockedBuckets struct {
+	sync.Locker
+	db metainfo.BucketsDB
+}
+
+// Create creates a new bucket
+func (m *lockedBuckets) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateBucket(ctx, bucket)
+}
+
+// Delete deletes a bucket
+func (m *lockedBuckets) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteBucket(ctx, bucketName, projectID)
+}
+
+// Get returns an existing bucket
+func (m *lockedBuckets) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBucket(ctx, bucketName, projectID)
+}
+
+// List returns all buckets for a project
+func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
+}
+
+// UpdateBucket updates an existing bucket
+func (m *lockedBuckets) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBucket(ctx, bucket)
 }
 
 // CertDB returns database for storing uplink's public key & ID
@@ -304,16 +354,40 @@ func (m *lockedProjectPayments) Create(ctx context.Context, info console.Project
 	return m.db.Create(ctx, info)
 }
 
-func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPayment, error) {
+func (m *lockedProjectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, projectPaymentID)
+}
+
+func (m *lockedProjectPayments) GetByID(ctx context.Context, projectPaymentID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByID(ctx, projectPaymentID)
+}
+
+func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) ([]*console.ProjectPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByPayerID(ctx, payerID)
 }
 
-func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
+func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]*console.ProjectPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByProjectID(ctx, projectID)
+}
+
+func (m *lockedProjectPayments) GetDefaultByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetDefaultByProjectID(ctx, projectID)
+}
+
+func (m *lockedProjectPayments) Update(ctx context.Context, info console.ProjectPayment) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Update(ctx, info)
 }
 
 // Projects is a getter for Projects repository
@@ -504,7 +578,7 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, userCredit)
@@ -674,11 +748,11 @@ func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*pb.Ir
 	return m.db.Get(ctx, segmentPath)
 }
 
-// GetLimited number of segments from offset
-func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, offset int64) ([]*pb.IrreparableSegment, error) {
+// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
+func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) ([]*pb.IrreparableSegment, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetLimited(ctx, limit, offset)
+	return m.db.GetLimited(ctx, limit, lastSeenSegmentPath)
 }
 
 // IncrementRepairAttempts increments the repair attempts.
@@ -817,6 +891,20 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Paginate(ctx, offset, limit)
+}
+
+// PaginateQualified will page through the qualified nodes
+func (m *lockedOverlayCache) PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.PaginateQualified(ctx, offset, limit)
+}
+
+// Reliable returns all nodes that are reliable
+func (m *lockedOverlayCache) Reliable(ctx context.Context, a1 *overlay.NodeCriteria) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Reliable(ctx, a1)
 }
 
 // SelectNewStorageNodes looks up nodes based on new node criteria
@@ -981,16 +1069,10 @@ func (m *lockedRewards) GetCurrentByType(ctx context.Context, offerType rewards.
 	return m.db.GetCurrentByType(ctx, offerType)
 }
 
-func (m *lockedRewards) ListAll(ctx context.Context) ([]rewards.Offer, error) {
+func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ListAll(ctx)
-}
-
-func (m *lockedRewards) Redeem(ctx context.Context, offerID int, isDefault bool) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Redeem(ctx, offerID, isDefault)
 }
 
 // StoragenodeAccounting returns database for storing information about storagenode use
@@ -1039,6 +1121,13 @@ func (m *lockedStoragenodeAccounting) LastTimestamp(ctx context.Context, timesta
 	m.Lock()
 	defer m.Unlock()
 	return m.db.LastTimestamp(ctx, timestampType)
+}
+
+// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
+func (m *lockedStoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.NodeSpaceUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.QueryNodeDailySpaceUsage(ctx, nodeID, start, end)
 }
 
 // QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID

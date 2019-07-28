@@ -4,11 +4,11 @@
 package storj_test
 
 import (
-	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -20,8 +20,7 @@ func TestSerialNumber_Encode(t *testing.T) {
 	assert.Error(t, err)
 
 	for i := 0; i < 10; i++ {
-		var serialNumber storj.SerialNumber
-		_, _ = rand.Read(serialNumber[:])
+		serialNumber := testrand.SerialNumber()
 
 		fromString, err := storj.SerialNumberFromString(serialNumber.String())
 		assert.NoError(t, err)

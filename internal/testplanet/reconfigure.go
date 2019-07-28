@@ -4,6 +4,8 @@
 package testplanet
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 
 	"storj.io/storj/bootstrap"
@@ -19,7 +21,7 @@ type Reconfigure struct {
 	NewSatelliteDB func(log *zap.Logger, index int) (satellite.DB, error)
 	Satellite      func(log *zap.Logger, index int, config *satellite.Config)
 
-	NewStorageNodeDB func(index int) (storagenode.DB, error)
+	NewStorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode      func(index int, config *storagenode.Config)
 	NewIPCount       int
 }
@@ -35,5 +37,13 @@ var DisablePeerCAWhitelist = Reconfigure{
 	},
 	StorageNode: func(index int, config *storagenode.Config) {
 		config.Server.UsePeerCAWhitelist = false
+	},
+}
+
+// ShortenOnlineWindow returns a `Reconfigure` that sets the NodeSelection
+// OnlineWindow to 1 second, meaning a connection failure leads to marking the nodes as offline
+var ShortenOnlineWindow = Reconfigure{
+	Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Overlay.Node.OnlineWindow = 1 * time.Second
 	},
 }
