@@ -55,7 +55,7 @@ export async function changePasswordRequest(password: string, newPassword: strin
                         password: "${password}",
                         newPassword: "${newPassword}"
                     ) {
-                       email 
+                       email
                     }
                 }`
             ),
@@ -112,7 +112,7 @@ export async function createUserRequest(user: User, password: string, secret: st
                         shortName: "${user.shortName}",
                         partnerId: "${user.partnerId}",
                     },
-                    refUserId: "${refUserId || ""}",
+                    referrerUserId: "${refUserId || ''}",
                     secret: "${secret}",
                 ){email, id}
             }`

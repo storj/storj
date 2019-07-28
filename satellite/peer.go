@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -118,6 +119,8 @@ type Config struct {
 	Repairer repairer.Config
 	Audit    audit.Config
 
+	GarbageCollection gc.Config
+
 	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
@@ -186,6 +189,10 @@ type Peer struct {
 	}
 	Audit struct {
 		Service *audit.Service
+	}
+
+	GarbageCollection struct {
+		Service *gc.Service
 	}
 
 	Accounting struct {
@@ -470,6 +477,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 	}
 
+	{ // setup garbage collection
+		log.Debug("Setting up garbage collection")
+
+		peer.GarbageCollection.Service = gc.NewService(
+			peer.Log.Named("garbage collection"),
+			config.GarbageCollection,
+			peer.Transport,
+			peer.DB.OverlayCache(),
+			peer.Metainfo.Loop,
+		)
+	}
+
 	{ // setup accounting
 		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
@@ -667,6 +686,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
