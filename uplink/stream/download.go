@@ -7,8 +7,8 @@ import (
 	"context"
 	"io"
 
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/storage/streams"
 )
 
 // Download implements Reader, Seeker and Closer for reading from stream.

@@ -10,8 +10,8 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/storage/objects"
 )
 
 type prefixedObjStore struct {

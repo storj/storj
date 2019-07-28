@@ -15,8 +15,8 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
-	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 )

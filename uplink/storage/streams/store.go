@@ -22,11 +22,11 @@ import (
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
+	"storj.io/storj/uplink/storage/meta"
+	"storj.io/storj/uplink/storage/segments"
 )
 
 var mon = monkit.Package()

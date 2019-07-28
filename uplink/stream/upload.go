@@ -12,8 +12,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/storage/streams"
 )
 
 // Upload implements Writer and Closer for writing to stream.

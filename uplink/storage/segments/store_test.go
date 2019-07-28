@@ -22,13 +22,13 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
-	ecclient "storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/storage/segments"
 	storj "storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
+	"storj.io/storj/uplink/storage/meta"
+	"storj.io/storj/uplink/storage/segments"
 )
 
 func TestSegmentStoreMeta(t *testing.T) {

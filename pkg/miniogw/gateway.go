@@ -17,8 +17,8 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/storage/streams"
 	"storj.io/storj/uplink/stream"
 )
 

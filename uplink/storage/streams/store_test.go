@@ -18,8 +18,8 @@ import (
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
-	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/storage/segments"
 )
 
 var (

@@ -18,9 +18,9 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/uplink/storage/meta"
 )
 
 func TestAuditSegment(t *testing.T) {
