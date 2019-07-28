@@ -13,8 +13,8 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
