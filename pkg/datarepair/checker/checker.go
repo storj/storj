@@ -32,7 +32,9 @@ var (
 // Config contains configurable values for checker
 type Config struct {
 	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
-	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"15s" devDefault:"0h0m5s"`
+	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
+
+	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
 }
 
 // durabilityStats remote segment information
@@ -49,7 +51,7 @@ type Checker struct {
 	metainfo        *metainfo.Service
 	lastChecked     string
 	repairQueue     queue.RepairQueue
-	overlay         *overlay.Cache
+	nodestate       *ReliabilityCache
 	irrdb           irreparable.DB
 	logger          *zap.Logger
 	Loop            sync2.Cycle
@@ -58,20 +60,19 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, config Config) *Checker {
 	// TODO: reorder arguments
-	checker := &Checker{
+	return &Checker{
 		metainfo:        metainfo,
 		lastChecked:     "",
 		repairQueue:     repairQueue,
-		overlay:         overlay,
+		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		irrdb:           irrdb,
 		logger:          logger,
-		Loop:            *sync2.NewCycle(repairInterval),
-		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
+		Loop:            *sync2.NewCycle(config.Interval),
+		IrreparableLoop: *sync2.NewCycle(config.IrreparableInterval),
 		monStats:        durabilityStats{},
 	}
-	return checker
 }
 
 // Run the checker loop
@@ -89,6 +90,11 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 	})
 
 	return group.Wait()
+}
+
+// RefreshReliabilityCache forces refreshing node online status cache.
+func (checker *Checker) RefreshReliabilityCache(ctx context.Context) error {
+	return checker.nodestate.Refresh(ctx)
 }
 
 // Close halts the Checker loop
@@ -131,6 +137,10 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				if err != nil {
 					return Error.New("error unmarshalling pointer %s", err)
 				}
+				remote := pointer.GetRemote()
+				if remote == nil {
+					continue
+				}
 
 				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats)
 				if err != nil {
@@ -170,7 +180,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		return nil
 	}
 
-	missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
+	missingPieces, err := checker.nodestate.MissingPieces(ctx, pointer.CreationDate, pieces)
 	if err != nil {
 		return Error.New("error getting missing pieces %s", err)
 	}
@@ -183,17 +193,21 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
 	redundancy := pointer.Remote.Redundancy
-	// we repair when the number of healthy files is less than or equal to the repair threshold
+	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))
+	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy))
+
+	// we repair when the number of healthy pieces is less than or equal to the repair threshold
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && redundancy.RepairThreshold != redundancy.SuccessThreshold {
+	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
 			checker.logger.Warn("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme.")
 			return nil
 		}
 		monStats.remoteSegmentsNeedingRepair++
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:       path,
-			LostPieces: missingPieces,
+			Path:         []byte(path),
+			LostPieces:   missingPieces,
+			InsertedTime: time.Now().UTC(),
 		})
 		if err != nil {
 			return Error.New("error adding injured segment to queue %s", err)
@@ -204,7 +218,9 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		if err != nil {
 			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
 		}
-	} else if numHealthy < redundancy.MinReq {
+		// we need one additional piece for error correction. If only the minimum is remaining the file can't be repaired and is lost.
+		// except for the case when minimum and repair thresholds are the same (a case usually seen during testing)
+	} else if numHealthy <= redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
 		// check to make sure there are at least *4* path elements. the first three
 		// are project, segment, and bucket name, but we want to make sure we're talking
 		// about an actual object, and that there's an object name specified
@@ -235,29 +251,32 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	return nil
 }
 
-// IrreparableProcess picks items from irrepairabledb and spawns a repair worker
+// IrreparableProcess iterates over all items in the irreparabledb. If an item can
+// now be repaired then it is added to a worker queue.
 func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	limit := 1
-	var offset int64
+	const limit = 1000
+	lastSeenSegmentPath := []byte{}
 
 	for {
-		seg, err := checker.irrdb.GetLimited(ctx, limit, offset)
+		segments, err := checker.irrdb.GetLimited(ctx, limit, lastSeenSegmentPath)
 		if err != nil {
 			return Error.New("error reading segment from the queue %s", err)
 		}
 
 		// zero segments returned with nil err
-		if len(seg) == 0 {
+		if len(segments) == 0 {
 			break
 		}
 
-		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &durabilityStats{})
-		if err != nil {
-			checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
+		lastSeenSegmentPath = segments[len(segments)-1].Path
+
+		for _, segment := range segments {
+			err = checker.updateSegmentStatus(ctx, segment.GetSegmentDetail(), string(segment.GetPath()), &durabilityStats{})
+			if err != nil {
+				checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
+			}
 		}
-		offset++
 	}
 
 	return nil

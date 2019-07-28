@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"

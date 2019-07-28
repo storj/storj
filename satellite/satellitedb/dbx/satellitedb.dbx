@@ -2,11 +2,24 @@
 
 //--- Value Attribution ---//
 model value_attribution (
-	key bucket_id
+	key project_id bucket_name
 
-	field bucket_id		blob
+	field project_id	blob
+	field bucket_name	blob
 	field partner_id	blob
-	field last_updated 	utimestamp
+	field last_updated 	utimestamp  ( autoinsert, autoupdate )
+)
+
+create value_attribution ()
+delete value_attribution (
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
+)
+
+read one (
+    select value_attribution
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
 )
 
 //--- containment ---//
@@ -19,6 +32,7 @@ model pending_audits (
 	field share_size          int64
 	field expected_share_hash blob
 	field reverify_count      int64 ( updatable )
+	field path                blob
 )
 
 create pending_audits ( )
@@ -52,6 +66,7 @@ read one (
 
 read limitoffset (
 	select irreparabledb
+	where irreparabledb.segmentpath > ?
 	orderby asc irreparabledb.segmentpath
 )
 
@@ -105,14 +120,14 @@ read all (
 model node (
 	key id
 
-	index ( 
+	index (
 		name node_last_ip
-		fields last_ip 
+		fields last_net
 	)
 
 	field id             blob
 	field address        text  ( updatable ) // TODO: use compressed format
-	field last_ip        text  ( updatable )
+	field last_net       text  ( updatable )
 	field protocol       int   ( updatable )
 	field type           int   ( updatable )
 	field email          text  ( updatable )
@@ -130,10 +145,8 @@ model node (
 	field latency_90           int64   ( updatable )
 	field audit_success_count  int64   ( updatable )
 	field total_audit_count    int64   ( updatable )
-	field audit_success_ratio  float64 ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
-	field uptime_ratio         float64 ( updatable )
 
 	field created_at           timestamp ( autoinsert )
 	field updated_at           timestamp ( autoinsert, autoupdate )
@@ -141,7 +154,12 @@ model node (
 	field last_contact_failure timestamp ( updatable )
 
 	field contained bool ( updatable )
-	field disqualified bool ( updatable )
+	field disqualified timestamp ( updatable, nullable )
+
+	field audit_reputation_alpha  float64 ( updatable )
+	field audit_reputation_beta   float64 ( updatable )
+	field uptime_reputation_alpha float64 ( updatable )
+	field uptime_reputation_beta  float64 ( updatable )
 )
 
 create node ( )
@@ -164,14 +182,25 @@ read limitoffset (
 	orderby asc node.id
 )
 
+read limitoffset (
+	select node.id node.last_net node.address node.protocol
+	where  node.id >= ?
+	where  node.disqualified = null
+	orderby asc node.id
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (
 	key path
 
-	field path text
+	field path blob
 	field data blob
 	field attempted utimestamp (updatable, nullable)
+
+	index (
+		fields attempted
+	)
 )
 
 //--- satellite console ---//
@@ -186,7 +215,7 @@ model user (
     field password_hash    blob      ( updatable )
 
     field status           int       ( updatable, autoinsert )
-
+    field partner_id       blob      ( nullable )
     field created_at       timestamp ( autoinsert )
 )
 
@@ -230,6 +259,7 @@ model project (
     field name           text
     field description    text      ( updatable )
     field usage_limit    int64     ( updatable )
+    field partner_id     blob      ( nullable  )
 
     field created_at     timestamp ( autoinsert )
 )
@@ -257,24 +287,36 @@ read all (
     orderby asc project.name
 )
 
-// add is default, make composite key
 model project_payment (
-    key project_id
+    key id
+
+    field id                blob
 
     field project_id        project.id              cascade
     field payer_id          user_payment.user_id    cascade
     field payment_method_id blob
+    field is_default        bool ( updatable )
 
     field created_at        timestamp  ( autoinsert )
 )
 
 create project_payment ( )
+update project_payment ( where project_payment.id = ? )
+delete project_payment ( where project_payment.id = ? )
 
 read one (
     select project_payment
+    where project_payment.id = ? )
+read one (
+    select project_payment
+    where project_payment.project_id = ?
+    where project_payment.is_default = true
+)
+read all (
+    select project_payment
     where project_payment.project_id = ?
 )
-read one (
+read all (
     select project_payment
     where project_payment.payer_id = ?
 )
@@ -340,6 +382,7 @@ model api_key (
     field  head        blob
     field  name        text       (updatable)
     field  secret      blob
+    field  partner_id  blob       (nullable)
     field  created_at  timestamp  (autoinsert)
 )
 
@@ -643,26 +686,25 @@ delete reset_password_token ( where reset_password_token.secret = ? )
 
 model offer (
 	key id
-	
-	field id	serial 
+
+	field id	serial
 	field name text ( updatable )
 	field description text ( updatable )
-	
-	field award_credit_in_cents int ( updatable ) 
+
+	field award_credit_in_cents int ( updatable )
 	field invitee_credit_in_cents int ( updatable )
 
-	field award_credit_duration_days int ( updatable )
-	field invitee_credit_duration_days int ( updatable )
+	field award_credit_duration_days int ( updatable, nullable )
+	field invitee_credit_duration_days int ( updatable, nullable )
 
-	field redeemable_cap int ( updatable )
-	field num_redeemed int ( updatable, autoinsert )
+	field redeemable_cap int ( updatable, nullable )
 
 	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )
 
-	// status has three possible value: NoStatus=0, Default=1, Active=2.
+	// status corresponds to the values of rewards.OfferStatus
 	field status int ( updatable )
-	// type has two possible value: FREE_CREDIT=0, REFERRAL=1
+	// type corresponds to the values of rewards.OfferType
 	field type int ( updatable )
 )
 
@@ -673,6 +715,7 @@ read one (
 
 read all (
 	select offer
+	orderby asc offer.id
 )
 
 update offer (
@@ -680,3 +723,96 @@ update offer (
 )
 
 create offer ( )
+
+
+//--- user credit table ---//
+
+model user_credit (
+	key	id
+
+	field id				serial
+
+	field user_id user.id	restrict
+	field offer_id offer.id	restrict
+	field referred_by user.id	restrict ( nullable )
+
+	field credits_earned_in_cents	int
+	field credits_used_in_cents	int ( updatable, autoinsert )
+
+	field expires_at		timestamp	( updatable )
+	field created_at		timestamp	( autoinsert )
+)
+
+read all (
+	select user_credit
+	where user_credit.user_id = ?
+    where user_credit.expires_at > ?
+    where user_credit.credits_used_in_cents < user_credit.credits_earned_in_cents
+    orderby asc user_credit.expires_at
+)
+
+read count (
+    select user_credit
+    where user_credit.referred_by = ?
+)
+
+create user_credit ()
+
+//--- metainfo buckets ---//
+
+model bucket_metainfo (
+	key    id
+	unique name project_id
+
+	field id             blob
+	field project_id     project.id restrict
+	field name           blob
+	field partner_id     blob   (nullable, updatable)
+
+	field path_cipher    int
+
+	field created_at     timestamp ( autoinsert )
+
+	field default_segment_size int (updatable)
+
+	field default_encryption_cipher_suite int (updatable)
+	field default_encryption_block_size   int (updatable)
+
+	field default_redundancy_algorithm       int (updatable)
+	field default_redundancy_share_size      int (updatable)
+	field default_redundancy_required_shares int (updatable)
+	field default_redundancy_repair_shares   int (updatable)
+	field default_redundancy_optimal_shares  int (updatable)
+	field default_redundancy_total_shares    int (updatable)
+)
+
+create bucket_metainfo ()
+update bucket_metainfo (
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read one (
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+delete bucket_metainfo (
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read limitoffset ( // Forward
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name >= ?
+	orderby asc bucket_metainfo.name
+)
+
+read limitoffset ( // After
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name > ?
+	orderby asc bucket_metainfo.name
+)

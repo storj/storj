@@ -11,16 +11,19 @@
 # audit.min-bytes-per-second: 128 B
 
 # the minimum duration for downloading a share from storage nodes before timing out
-# audit.min-download-timeout: 5s
+# audit.min-download-timeout: 25s
 
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 
 # how frequently irrepairable checker should check for lost pieces
-# checker.irreparable-interval: 15s
+# checker.irreparable-interval: 30m0s
+
+# how stale reliable node cache can be
+# checker.reliability-cache-staleness: 5m0s
 
 # server address of the graphql api gateway and frontend app
-# console.address: "127.0.0.1:8081"
+# console.address: ":10100"
 
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
@@ -61,11 +64,29 @@ defaults: "release"
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 # discovery.discovery-interval: 1s
 
+# the amount of nodes refreshed in parallel
+# discovery.refresh-concurrency: 8
+
 # the interval at which the cache refreshes itself in seconds
 # discovery.refresh-interval: 1s
 
-# the amount of nodes refreshed at each interval
+# the amount of nodes read from the overlay cache in a single pagination call
 # discovery.refresh-limit: 100
+
+# the number of nodes to concurrently send garbage collection bloom filters to
+# garbage-collection.concurrent-sends: 1
+
+# set if garbage collection is enabled or not
+# garbage-collection.enabled: false
+
+# the false positive rate used for creating a garbage collection bloom filter
+# garbage-collection.false-positive-rate: 0.1
+
+# the initial number of pieces expected for a storage node to have, used for creating a filter
+# garbage-collection.initial-pieces: 400000
+
+# the time between each send of garbage collection filters to storage nodes
+# garbage-collection.interval: 168h0m0s
 
 # help for setup
 # help: false
@@ -107,7 +128,7 @@ kademlia.operator.wallet: ""
 # kademlia.replacement-cache-size: 5
 
 # what to use for storing real-time accounting data
-# live-accounting.storage-backend: ""
+# live-accounting.storage-backend: "plainmemory"
 
 # if true, log function filename and line number
 # log.caller: false
@@ -119,7 +140,7 @@ kademlia.operator.wallet: ""
 # log.encoding: "console"
 
 # the minimum log level to log
-# log.level: warn
+# log.level: info
 
 # can be stdout, stderr, or a filename
 # log.output: "stderr"
@@ -157,11 +178,17 @@ kademlia.operator.wallet: ""
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
 
-# lifespan of bandwidth agreements in days
-# metainfo.bw-expiration: 45
+# server address of the marketing Admin GUI
+# marketing.address: "127.0.0.1:8090"
+
+# path to static resources
+# marketing.static-dir: ""
 
 # the database connection string to use
 # metainfo.database-url: "postgres://"
+
+# how long to wait for new observers before starting iteration
+# metainfo.loop.coalesce-duration: 5s
 
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 8.0 KB
@@ -172,6 +199,30 @@ kademlia.operator.wallet: ""
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
+# the size of each new erasure share in bytes
+# metainfo.rs.erasure-share-size: 256 B
+
+# maximum buffer memory to be allocated for read buffers
+# metainfo.rs.max-buffer-mem: 4.0 MiB
+
+# maximum segment size
+# metainfo.rs.max-segment-size: 64.0 MiB
+
+# the largest amount of pieces to encode to. n.
+# metainfo.rs.max-threshold: 130
+
+# the minimum pieces required to recover a segment. k.
+# metainfo.rs.min-threshold: 29
+
+# the minimum safe pieces before a repair is triggered. m.
+# metainfo.rs.repair-threshold: 35
+
+# the desired total pieces for a segment. o.
+# metainfo.rs.success-threshold: 80
+
+# validate redundancy scheme configuration
+# metainfo.rs.validate: true
+
 # address to send telemetry to
 # metrics.addr: "collectora.storj.io:9000"
 
@@ -181,17 +232,41 @@ kademlia.operator.wallet: ""
 # application suffix
 # metrics.app-suffix: "-release"
 
+# instance id prefix
+# metrics.instance-prefix: ""
+
 # how frequently to send up telemetry
 # metrics.interval: 1m0s
 
 # path to log for oom notices
 # monkit.hw.oomlog: "/var/log/kern.log"
 
-# the number of times a node has been audited to not be considered a New Node
-# overlay.node.audit-count: 500
+# how long until an order expires
+# orders.expiration: 168h0m0s
 
-# a node's ratio of successful audits
-# overlay.node.audit-success-ratio: 0.4
+# the number of times a node has been audited to not be considered a New Node
+# overlay.node.audit-count: 100
+
+# the initial shape 'alpha' used to calculate audit SNs reputation
+# overlay.node.audit-reputation-alpha0: 1
+
+# the initial shape 'beta' value used to calculate audit SNs reputation
+# overlay.node.audit-reputation-beta0: 0
+
+# the reputation cut-off for disqualifying SNs based on audit history
+# overlay.node.audit-reputation-dq: 0.6
+
+# the forgetting factor used to calculate the audit SNs reputation
+# overlay.node.audit-reputation-lambda: 0.95
+
+# weight to apply to audit reputation for total repair reputation calculation
+# overlay.node.audit-reputation-repair-weight: 1
+
+# weight to apply to audit reputation for total uplink reputation calculation
+# overlay.node.audit-reputation-uplink-weight: 1
+
+# the normalization weight used to calculate the audit SNs reputation
+# overlay.node.audit-reputation-weight: 1
 
 # require distinct IPs when choosing nodes for upload
 # overlay.node.distinct-ip: true
@@ -206,10 +281,28 @@ kademlia.operator.wallet: ""
 # overlay.node.online-window: 1h0m0s
 
 # the number of times a node's uptime has been checked to not be considered a New Node
-# overlay.node.uptime-count: 500
+# overlay.node.uptime-count: 100
 
-# a node's ratio of being up/online vs. down/offline
-# overlay.node.uptime-ratio: 0.9
+# the initial shape 'alpha' used to calculate uptime SNs reputation
+# overlay.node.uptime-reputation-alpha0: 2
+
+# the initial shape 'beta' value used to calculate uptime SNs reputation
+# overlay.node.uptime-reputation-beta0: 0
+
+# the reputation cut-off for disqualifying SNs based on uptime history
+# overlay.node.uptime-reputation-dq: 0
+
+# the forgetting factor used to calculate the uptime SNs reputation
+# overlay.node.uptime-reputation-lambda: 0.99
+
+# weight to apply to uptime reputation for total repair reputation calculation
+# overlay.node.uptime-reputation-repair-weight: 1
+
+# weight to apply to uptime reputation for total uplink reputation calculation
+# overlay.node.uptime-reputation-uplink-weight: 1
+
+# the normalization weight used to calculate the uptime SNs reputation
+# overlay.node.uptime-reputation-weight: 1
 
 # how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
@@ -217,11 +310,14 @@ kademlia.operator.wallet: ""
 # maximum buffer memory (in bytes) to be allocated for read buffers
 # repairer.max-buffer-mem: 4.0 MB
 
+# ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload
+# repairer.max-excess-rate-optimal-threshold: 0.05
+
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5
 
 # time limit for uploading repaired pieces to new storage nodes
-# repairer.timeout: 10m0s
+# repairer.timeout: 2h0m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: false
@@ -271,6 +367,6 @@ server.private-address: "127.0.0.1:7778"
 # server address to check its version against
 # version.server-address: "https://version.alpha.storj.io"
 
-# number of days before a voucher expires
-# vouchers.expiration: 30
+# length of time before a voucher expires
+# vouchers.expiration: 720h0m0s
 

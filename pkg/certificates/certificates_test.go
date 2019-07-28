@@ -36,11 +36,11 @@ import (
 var (
 	idents = testidentity.NewPregeneratedIdentities(storj.LatestIDVersion())
 	t1     = Token{
-		UserID: "user@example.com",
+		UserID: "user@mail.test",
 		Data:   [tokenDataLength]byte{1, 2, 3},
 	}
 	t2 = Token{
-		UserID: "user2@example.com",
+		UserID: "user2@mail.test",
 		Data:   [tokenDataLength]byte{4, 5, 6},
 	}
 )
@@ -77,25 +77,25 @@ func TestAuthorizationDB_Create(t *testing.T) {
 	}{
 		{
 			"first authorization",
-			"user1@example.com",
+			"user1@mail.test",
 			0, 1, 1, 1,
 			nil, nil,
 		},
 		{
 			"second authorization",
-			"user1@example.com",
+			"user1@mail.test",
 			1, 2, 2, 3,
 			nil, nil,
 		},
 		{
 			"large authorization",
-			"user2@example.com",
+			"user2@mail.test",
 			0, 5, 5, 5,
 			nil, nil,
 		},
 		{
 			"authorization error",
-			"user2@example.com",
+			"user2@mail.test",
 			5, -1, 0, 5,
 			&ErrAuthorizationDB, ErrAuthorizationCount,
 		},
@@ -162,7 +162,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	authsBytes, err := expectedAuths.Marshal()
 	require.NoError(t, err)
 
-	err = authDB.DB.Put(ctx, storage.Key("user@example.com"), authsBytes)
+	err = authDB.DB.Put(ctx, storage.Key("user@mail.test"), authsBytes)
 	require.NoError(t, err)
 
 	cases := []struct {
@@ -172,12 +172,12 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	}{
 		{
 			"Non-existent email",
-			"nouser@example.com",
+			"nouser@mail.test",
 			nil,
 		},
 		{
 			"Existing email",
-			"user@example.com",
+			"user@mail.test",
 			expectedAuths,
 		},
 	}
@@ -205,7 +205,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(authDB.Close)
 
-	userID := "user@example.com"
+	userID := "user@mail.test"
 
 	auths, err := authDB.Create(ctx, userID, 1)
 	require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(authDB.Close)
 
-	userID := "user@example.com"
+	userID := "user@mail.test"
 	claimedTime := int64(1000000)
 	claimedAddr := "6.7.8.9:0"
 
@@ -395,7 +395,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 }
 
 func TestNewAuthorization(t *testing.T) {
-	userID := "user@example.com"
+	userID := "user@mail.test"
 	auth, err := NewAuthorization(userID)
 	require.NoError(t, err)
 	require.NotNil(t, auth)
@@ -476,7 +476,7 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 
 	var authErrs errs.Group
 	for i := 0; i < 5; i++ {
-		_, err := authDB.Create(ctx, fmt.Sprintf("user%d@example.com", i), 1)
+		_, err := authDB.Create(ctx, fmt.Sprintf("user%d@mail.test", i), 1)
 		if err != nil {
 			authErrs.Add(err)
 		}
@@ -489,7 +489,7 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 }
 
 func TestParseToken_Valid(t *testing.T) {
-	userID := "user@example.com"
+	userID := "user@mail.test"
 	data := [tokenDataLength]byte{1, 2, 3}
 
 	cases := []struct {
@@ -502,7 +502,7 @@ func TestParseToken_Valid(t *testing.T) {
 		},
 		{
 			"multiple delimiters",
-			"us" + tokenDelimiter + "er@example.com",
+			"us" + tokenDelimiter + "er@mail.test",
 		},
 	}
 
@@ -522,7 +522,7 @@ func TestParseToken_Valid(t *testing.T) {
 }
 
 func TestParseToken_Invalid(t *testing.T) {
-	userID := "user@example.com"
+	userID := "user@mail.test"
 	data := [tokenDataLength]byte{1, 2, 3}
 
 	cases := []struct {
@@ -576,7 +576,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 				caCert := ctx.File("ca.cert")
 				caKey := ctx.File("ca.key")
-				userID := "user@example.com"
+				userID := "user@mail.test"
 				signerCAConfig := identity.FullCAConfig{
 					CertPath: caCert,
 					KeyPath:  caKey,
@@ -591,7 +591,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				authDB, err := config.NewAuthDB()
 				require.NoError(t, err)
 
-				auths, err := authDB.Create(ctx, "user@example.com", 1)
+				auths, err := authDB.Create(ctx, "user@mail.test", 1)
 				require.NoError(t, err)
 				require.NotEmpty(t, auths)
 
@@ -741,7 +741,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
-			userID := "user@example.com"
+			userID := "user@mail.test"
 			// TODO: test with all types of authorization DBs (bolt, redis, etc.)
 			config := CertServerConfig{
 				AuthorizationDBURL: "bolt://" + ctx.File("authorizations.db"),

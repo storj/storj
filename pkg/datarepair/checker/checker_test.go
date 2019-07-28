@@ -4,6 +4,7 @@
 package checker_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -29,13 +30,13 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		checker.Loop.Stop()
 
 		//add noise to metainfo before bad record
-		for x := 0; x < 1000; x++ {
+		for x := 0; x < 10; x++ {
 			makePointer(t, planet, fmt.Sprintf("a-%d", x), false)
 		}
 		//create piece that needs repair
 		makePointer(t, planet, fmt.Sprintf("b"), true)
 		//add more noise to metainfo after bad record
-		for x := 0; x < 1000; x++ {
+		for x := 0; x < 10; x++ {
 			makePointer(t, planet, fmt.Sprintf("c-%d", x), false)
 		}
 		err := checker.IdentifyInjuredSegments(ctx)
@@ -49,7 +50,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		require.NoError(t, err)
 
 		numValidNode := int32(len(planet.StorageNodes))
-		require.Equal(t, "b", injuredSegment.Path)
+		require.Equal(t, []byte("b"), injuredSegment.Path)
 		require.Equal(t, len(planet.StorageNodes), len(injuredSegment.LostPieces))
 		for _, lostPiece := range injuredSegment.LostPieces {
 			// makePointer() starts with numValidNode good pieces
@@ -87,10 +88,13 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			expectedLostPieces[int32(i)] = true
 		}
 		pointer := &pb.Pointer{
+			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:          int32(4),
-					RepairThreshold: int32(8),
+					MinReq:           int32(3),
+					RepairThreshold:  int32(8),
+					SuccessThreshold: int32(9),
+					Total:            int32(10),
 				},
 				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
 				RemotePieces: pieces,
@@ -132,19 +136,23 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		require.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
 		require.True(t, firstRepair < remoteSegmentInfo.LastRepairAttempt)
 
-		// make the  pointer repairable
+		// make the pointer repairable
 		pointer = &pb.Pointer{
+			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:          int32(3),
-					RepairThreshold: int32(8),
+					MinReq:           int32(2),
+					RepairThreshold:  int32(8),
+					SuccessThreshold: int32(9),
+					Total:            int32(10),
 				},
 				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
 				RemotePieces: pieces,
 			},
 		}
-		// put test pointer to db
-		metainfo = planet.Satellites[0].Metainfo.Service
+		// update test pointer in db
+		err = metainfo.Delete(ctx, "fake-piece-id")
+		require.NoError(t, err)
 		err = metainfo.Put(ctx, "fake-piece-id", pointer)
 		require.NoError(t, err)
 
@@ -181,10 +189,13 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 		minReq, repairThreshold = numOfStorageNodes-1, numOfStorageNodes+1
 	}
 	pointer := &pb.Pointer{
+		CreationDate: time.Now(),
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
-				MinReq:          int32(minReq),
-				RepairThreshold: int32(repairThreshold),
+				MinReq:           int32(minReq),
+				RepairThreshold:  int32(repairThreshold),
+				SuccessThreshold: int32(repairThreshold) + 1,
+				Total:            int32(repairThreshold) + 2,
 			},
 			RootPieceId:  teststorj.PieceIDFromString(pieceID),
 			RemotePieces: pieces,
@@ -202,7 +213,12 @@ func TestCheckerResume(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairQueue := &mockRepairQueue{}
 		irrepairQueue := planet.Satellites[0].DB.Irreparable()
-		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, repairQueue, planet.Satellites[0].Overlay.Service, irrepairQueue, 0, nil, 30*time.Second, 15*time.Second)
+		config := checker.Config{
+			Interval:                  30 * time.Second,
+			IrreparableInterval:       15 * time.Second,
+			ReliabilityCacheStaleness: 5 * time.Minute,
+		}
+		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, repairQueue, planet.Satellites[0].Overlay.Service, irrepairQueue, 0, nil, config)
 
 		// create pointer that needs repair
 		makePointer(t, planet, "a", true)
@@ -219,7 +235,7 @@ func TestCheckerResume(t *testing.T) {
 		// "a" should be the only segment in the repair queue
 		injuredSegment, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, "a")
+		require.Equal(t, injuredSegment.Path, []byte("a"))
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 		injuredSegment, err = repairQueue.Select(ctx)
@@ -231,7 +247,7 @@ func TestCheckerResume(t *testing.T) {
 		// "c" should be the only segment in the repair queue
 		injuredSegment, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, "c")
+		require.Equal(t, injuredSegment.Path, []byte("c"))
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 		injuredSegment, err = repairQueue.Select(ctx)
@@ -243,7 +259,7 @@ func TestCheckerResume(t *testing.T) {
 		// "a" should be the only segment in the repair queue
 		injuredSegment, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, "a")
+		require.Equal(t, injuredSegment.Path, []byte("a"))
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 		injuredSegment, err = repairQueue.Select(ctx)
@@ -257,7 +273,7 @@ type mockRepairQueue struct {
 }
 
 func (mockRepairQueue *mockRepairQueue) Insert(ctx context.Context, s *pb.InjuredSegment) error {
-	if s.Path == "b" || s.Path == "d" {
+	if bytes.Equal(s.Path, []byte("b")) || bytes.Equal(s.Path, []byte("d")) {
 		return errs.New("mock Insert error")
 	}
 	mockRepairQueue.injuredSegments = append(mockRepairQueue.injuredSegments, *s)
@@ -276,7 +292,7 @@ func (mockRepairQueue *mockRepairQueue) Delete(ctx context.Context, s *pb.Injure
 	var toDelete int
 	found := false
 	for i, seg := range mockRepairQueue.injuredSegments {
-		if seg.Path == s.Path {
+		if bytes.Equal(seg.Path, s.Path) {
 			toDelete = i
 			found = true
 			break

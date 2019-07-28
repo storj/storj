@@ -5,12 +5,14 @@ package audit
 
 import (
 	"context"
-	"crypto/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
+
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
@@ -98,6 +100,7 @@ func TestNotEnoughShares(t *testing.T) {
 		}
 	}
 	_, _, err = auditShares(ctx, 20, 40, auditPkgShares)
+	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "infectious: must specify at least the number of required shares")
 }
 
@@ -120,9 +123,7 @@ func TestCreatePendingAudits(t *testing.T) {
 	err = f.Encode([]byte("hello, world! __"), output)
 	require.NoError(t, err)
 
-	var testNodeID storj.NodeID
-	_, err = rand.Read(testNodeID[:])
-	require.NoError(t, err)
+	testNodeID := testrand.NodeID()
 
 	ctx := context.Background()
 	contained := make(map[int]storj.NodeID)
@@ -130,7 +131,8 @@ func TestCreatePendingAudits(t *testing.T) {
 	stripe := Stripe{
 		Index: 3,
 		Segment: &pb.Pointer{
-			Type: pb.Pointer_REMOTE,
+			CreationDate: time.Now(),
+			Type:         pb.Pointer_REMOTE,
 			Remote: &pb.RemoteSegment{
 				RootPieceId: storj.NewPieceID(),
 				Redundancy: &pb.RedundancyScheme{

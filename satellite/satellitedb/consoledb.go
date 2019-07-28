@@ -61,6 +61,11 @@ func (db *ConsoleDB) UsageRollups() console.UsageRollups {
 	return &usagerollups{db.db}
 }
 
+// UserCredits is a getter for console.UserCredits repository
+func (db *ConsoleDB) UserCredits() console.UserCredits {
+	return &usercredits{db: db.db}
+}
+
 // UserPayments is a getter for console.UserPayments repository
 func (db *ConsoleDB) UserPayments() console.UserPayments {
 	return &userpayments{db.methods}
@@ -68,7 +73,7 @@ func (db *ConsoleDB) UserPayments() console.UserPayments {
 
 // ProjectPayments is a getter for console.ProjectPayments repository
 func (db *ConsoleDB) ProjectPayments() console.ProjectPayments {
-	return &projectpayments{db.methods}
+	return &projectPayments{db.db, db.methods}
 }
 
 // ProjectInvoiceStamps is a getter for console.ProjectInvoiceStamps repository

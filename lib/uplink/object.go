@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/pkg/stream"
 )
 
-// ObjectMeta contains metadata about a specific Object
+// ObjectMeta contains metadata about a specific Object.
 type ObjectMeta struct {
 	// Bucket gives the name of the bucket in which an Object is placed.
 	Bucket string

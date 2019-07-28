@@ -43,7 +43,7 @@ type ErasureScheme interface {
 	// from Decode.
 	StripeSize() int
 
-	// Encode will generate this many pieces
+	// Encode will generate this many erasure shares and therefore this many pieces
 	TotalCount() int
 
 	// Decode requires at least this many pieces
@@ -119,6 +119,7 @@ func (rs *RedundancyStrategy) OptimalThreshold() int {
 }
 
 type encodedReader struct {
+	ctx    context.Context
 	rs     RedundancyStrategy
 	pieces map[int]*encodedPiece
 }
@@ -129,6 +130,7 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []
 	defer mon.Task()(&ctx)(&err)
 
 	er := &encodedReader{
+		ctx:    ctx,
 		rs:     rs,
 		pieces: make(map[int]*encodedPiece, rs.TotalCount()),
 	}
@@ -189,6 +191,7 @@ type encodedPiece struct {
 }
 
 func (ep *encodedPiece) Read(p []byte) (n int, err error) {
+	// No need to trace this function because it's very fast and called many times.
 	if ep.err != nil {
 		return 0, ep.err
 	}
@@ -218,7 +221,9 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (ep *encodedPiece) Close() error {
+func (ep *encodedPiece) Close() (err error) {
+	ctx := ep.er.ctx
+	defer mon.Task()(&ctx)(&err)
 	return ep.pipeReader.Close()
 }
 

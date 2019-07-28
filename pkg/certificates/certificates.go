@@ -252,9 +252,9 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (_ 
 		Token: *token,
 	}
 	c.log.Info("certificate successfully signed",
-		zap.String("node ID", peerIdent.ID.String()),
+		zap.Stringer("node ID", peerIdent.ID),
 		zap.Uint16("difficulty", difficulty),
-		zap.String("truncated token", tokenFormatter.String()),
+		zap.Stringer("truncated token", tokenFormatter),
 	)
 
 	return &pb.SigningResponse{

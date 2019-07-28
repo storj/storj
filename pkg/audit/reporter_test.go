@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -38,8 +37,9 @@ func TestReportPendingAudits(t *testing.T) {
 		report := audit.Report{PendingAudits: []*audit.PendingAudit{&pending}}
 		overlay := planet.Satellites[0].Overlay.Service
 		containment := planet.Satellites[0].DB.Containment()
+		log := planet.Satellites[0].Log.Named("reporter")
 
-		reporter := audit.NewReporter(zap.L(), overlay, containment, 1, 3)
+		reporter := audit.NewReporter(log, overlay, containment, 1, 3)
 		failed, err := reporter.RecordAudits(ctx, &report)
 		require.NoError(t, err)
 		assert.Zero(t, failed)
@@ -51,5 +51,33 @@ func TestReportPendingAudits(t *testing.T) {
 		pa, err := containment.Get(ctx, nodeID)
 		require.NoError(t, err)
 		assert.Equal(t, pending, *pa)
+	})
+}
+
+func TestRecordAuditsAtLeastOnce(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		nodeID := planet.StorageNodes[0].ID()
+
+		report := audit.Report{Successes: []storj.NodeID{nodeID}}
+		overlay := planet.Satellites[0].Overlay.Service
+		containment := planet.Satellites[0].DB.Containment()
+		log := planet.Satellites[0].Log.Named("reporter")
+
+		// set maxRetries to 0
+		reporter := audit.NewReporter(log, overlay, containment, 0, 3)
+
+		// expect RecordAudits to try recording at least once
+		failed, err := reporter.RecordAudits(ctx, &report)
+		require.NoError(t, err)
+		require.Zero(t, failed)
+
+		node, err := overlay.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, node.Reputation.AuditCount)
 	})
 }

@@ -11,10 +11,12 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
@@ -62,6 +64,13 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdNodeUsage,
 	}
+	partnerAttributionCmd = &cobra.Command{
+		Use:   "partner-attribution [partner ID] [start] [end]",
+		Short: "Generate a partner attribution report for a given period to use for payments",
+		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD",
+		Args:  cobra.MinimumNArgs(3),
+		RunE:  cmdValueAttribution,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -71,6 +80,10 @@ var (
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 	nodeUsageCfg struct {
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Output   string `help:"destination of report output" default:""`
+	}
+	partnerAttribtionCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
 		Output   string `help:"destination of report output" default:""`
 	}
@@ -89,10 +102,12 @@ func init() {
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
+	reportsCmd.AddCommand(partnerAttributionCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -227,6 +242,51 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return generateCSV(ctx, start, end, file)
+}
+
+func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
+	log := zap.L().Named("satellite-cli")
+	// Parse the UUID
+	partnerID, err := uuid.Parse(args[0])
+	if err != nil {
+		return errs.Combine(errs.New("Invalid Partner ID format. %s", args[0]), err)
+	}
+
+	layout := "2006-01-02"
+	start, err := time.Parse(layout, args[1])
+	if err != nil {
+		return errs.New("Invalid start date format. Please use YYYY-MM-DD")
+	}
+	end, err := time.Parse(layout, args[2])
+	if err != nil {
+		return errs.New("Invalid end date format. Please use YYYY-MM-DD")
+	}
+
+	// Ensure that start date is not after end date
+	if start.After(end) {
+		return errs.New("Invalid time period (%v) - (%v)", start, end)
+	}
+
+	// send output to stdout
+	if partnerAttribtionCfg.Output == "" {
+		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, os.Stdout)
+	}
+
+	// send output to file
+	file, err := os.Create(partnerAttribtionCfg.Output)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = errs.Combine(err, file.Close())
+		if err != nil {
+			log.Sugar().Errorf("error closing the file %v after retrieving partner value attribution data: %+v", partnerAttribtionCfg.Output, err)
+		}
+	}()
+
+	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, file)
 }
 
 func main() {

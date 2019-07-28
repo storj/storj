@@ -13,7 +13,6 @@ import (
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/dbschema"
-	"storj.io/storj/internal/errs2"
 )
 
 // DB is postgres database with schema
@@ -126,7 +125,7 @@ func CheckApplicationName(s string) (r string) {
 
 // IsConstraintError checks if given error is about constraint violation
 func IsConstraintError(err error) bool {
-	return errs2.IsFunc(err, func(err error) bool {
+	return errs.IsFunc(err, func(err error) bool {
 		if e, ok := err.(*pq.Error); ok {
 			if e.Code.Class() == "23" {
 				return true

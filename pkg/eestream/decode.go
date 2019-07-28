@@ -39,7 +39,9 @@ type decodedReader struct {
 // expectedSize is the number of bytes expected to be returned by the Reader.
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
-func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser, es ErasureScheme, expectedSize int64, mbm int) io.ReadCloser {
+// if forceErrorDetection is set to true then k+1 pieces will be always
+// required for decoding, so corrupted pieces can be detected.
+func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser, es ErasureScheme, expectedSize int64, mbm int, forceErrorDetection bool) io.ReadCloser {
 	defer mon.Task()(&ctx)(nil)
 	if expectedSize < 0 {
 		return readcloser.FatalReadCloser(Error.New("negative expected size"))
@@ -55,7 +57,7 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser, es ErasureSche
 	dr := &decodedReader{
 		readers:         rs,
 		scheme:          es,
-		stripeReader:    NewStripeReader(rs, es, mbm),
+		stripeReader:    NewStripeReader(rs, es, mbm, forceErrorDetection),
 		outbuf:          make([]byte, 0, es.StripeSize()),
 		expectedStripes: expectedSize / int64(es.StripeSize()),
 	}
@@ -69,6 +71,9 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser, es ErasureSche
 }
 
 func (dr *decodedReader) Read(p []byte) (n int, err error) {
+	ctx := dr.ctx
+	defer mon.Task()(&ctx)(&err)
+
 	if len(dr.outbuf) == 0 {
 		// if the output buffer is empty, let's fill it again
 		// if we've already had an error, fail
@@ -81,7 +86,7 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 			return 0, dr.err
 		}
 		// read the input buffers of the next stripe - may also decode it
-		dr.outbuf, dr.err = dr.stripeReader.ReadStripe(context.TODO(), dr.currentStripe, dr.outbuf)
+		dr.outbuf, dr.err = dr.stripeReader.ReadStripe(ctx, dr.currentStripe, dr.outbuf)
 		if dr.err != nil {
 			return 0, dr.err
 		}
@@ -97,7 +102,9 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (dr *decodedReader) Close() error {
+func (dr *decodedReader) Close() (err error) {
+	ctx := dr.ctx
+	defer mon.Task()(&ctx)(&err)
 	// cancel the context to terminate reader goroutines
 	dr.cancel()
 	errorThreshold := len(dr.readers) - dr.scheme.RequiredCount()
@@ -126,10 +133,11 @@ func (dr *decodedReader) Close() error {
 }
 
 type decodedRanger struct {
-	es     ErasureScheme
-	rrs    map[int]ranger.Ranger
-	inSize int64
-	mbm    int // max buffer memory
+	es                  ErasureScheme
+	rrs                 map[int]ranger.Ranger
+	inSize              int64
+	mbm                 int // max buffer memory
+	forceErrorDetection bool
 }
 
 // Decode takes a map of Rangers and an ErasureScheme and returns a combined
@@ -138,7 +146,9 @@ type decodedRanger struct {
 // rrs is a map of erasure piece numbers to erasure piece rangers.
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
-func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger, error) {
+// if forceErrorDetection is set to true then k+1 pieces will be always
+// required for decoding, so corrupted pieces can be detected.
+func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int, forceErrorDetection bool) (ranger.Ranger, error) {
 	if err := checkMBM(mbm); err != nil {
 		return nil, err
 	}
@@ -163,10 +173,11 @@ func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger
 			size, es.ErasureShareSize())
 	}
 	return &decodedRanger{
-		es:     es,
-		rrs:    rrs,
-		inSize: size,
-		mbm:    mbm,
+		es:                  es,
+		rrs:                 rrs,
+		inSize:              size,
+		mbm:                 mbm,
+		forceErrorDetection: forceErrorDetection,
 	}, nil
 }
 
@@ -207,7 +218,7 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (_ io.
 		}
 	}
 	// decode from all those ranges
-	r := DecodeReaders(ctx, readers, dr.es, blockCount*int64(dr.es.StripeSize()), dr.mbm)
+	r := DecodeReaders(ctx, readers, dr.es, blockCount*int64(dr.es.StripeSize()), dr.mbm, dr.forceErrorDetection)
 	// offset might start a few bytes in, potentially discard the initial bytes
 	_, err = io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.StripeSize()))

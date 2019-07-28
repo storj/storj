@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -82,7 +83,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
@@ -97,7 +98,8 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
 	if showProgress {
-		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES).SetWidth(80)
+		bar.ShowSpeed = true
 		bar.Start()
 		reader = bar.NewProxyReader(reader)
 	}
@@ -109,7 +111,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	}
 
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
-	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
+	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
 
 	if err := bucket.UploadObject(ctx, dst.Path(), reader, opts); err != nil {
 		return err
@@ -134,7 +136,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
@@ -160,7 +162,8 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	var bar *progressbar.ProgressBar
 	var reader io.ReadCloser
 	if showProgress {
-		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES).SetWidth(80)
+		bar.ShowSpeed = true
 		bar.Start()
 		reader = bar.NewProxyReader(rc)
 	} else {
@@ -212,7 +215,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
@@ -256,7 +259,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		Metadata:    object.Meta.Metadata,
 	}
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
-	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
+	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
 	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
 	if err != nil {
 		return err

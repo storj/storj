@@ -6,13 +6,13 @@ package uplink
 import (
 	"context"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
@@ -25,10 +25,9 @@ import (
 type Project struct {
 	uplinkCfg     *Config
 	tc            transport.Client
-	metainfo      metainfo.Client
+	metainfo      *metainfo.Client
 	project       *kvmetainfo.Project
 	maxInlineSize memory.Size
-	encryptionKey *storj.Key
 }
 
 // BucketConfig holds information about a bucket's configuration. This is
@@ -62,15 +61,13 @@ func (cfg *BucketConfig) clone() *BucketConfig {
 	return &clone
 }
 
+// TODO: is this the best way to do this?
 func (cfg *BucketConfig) setDefaults() {
 	if cfg.PathCipher == storj.EncUnspecified {
 		cfg.PathCipher = defaultCipher
 	}
 	if cfg.EncryptionParameters.CipherSuite == storj.EncUnspecified {
 		cfg.EncryptionParameters.CipherSuite = defaultCipher
-	}
-	if cfg.EncryptionParameters.BlockSize == 0 {
-		cfg.EncryptionParameters.BlockSize = (1 * memory.KiB).Int32()
 	}
 	if cfg.Volatile.RedundancyScheme.RequiredShares == 0 {
 		cfg.Volatile.RedundancyScheme.RequiredShares = 29
@@ -82,10 +79,13 @@ func (cfg *BucketConfig) setDefaults() {
 		cfg.Volatile.RedundancyScheme.OptimalShares = 80
 	}
 	if cfg.Volatile.RedundancyScheme.TotalShares == 0 {
-		cfg.Volatile.RedundancyScheme.TotalShares = 95
+		cfg.Volatile.RedundancyScheme.TotalShares = 130
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
-		cfg.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
+		cfg.Volatile.RedundancyScheme.ShareSize = 256 * memory.B.Int32()
+	}
+	if cfg.EncryptionParameters.BlockSize == 0 {
+		cfg.EncryptionParameters.BlockSize = cfg.Volatile.RedundancyScheme.ShareSize * int32(cfg.Volatile.RedundancyScheme.RequiredShares)
 	}
 	if cfg.Volatile.SegmentsSize.Int() == 0 {
 		cfg.Volatile.SegmentsSize = 64 * memory.MiB
@@ -102,10 +102,10 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	cfg.setDefaults()
 
 	bucket = storj.Bucket{
-		PathCipher:           cfg.PathCipher.ToCipher(),
-		EncryptionParameters: cfg.EncryptionParameters,
-		RedundancyScheme:     cfg.Volatile.RedundancyScheme,
-		SegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
+		PathCipher:                  cfg.PathCipher,
+		DefaultEncryptionParameters: cfg.EncryptionParameters,
+		DefaultRedundancyScheme:     cfg.Volatile.RedundancyScheme,
+		DefaultSegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
 	}
 	return p.project.CreateBucket(ctx, name, &bucket)
 }
@@ -124,7 +124,7 @@ type BucketListOptions = storj.BucketListOptions
 func (p *Project) ListBuckets(ctx context.Context, opts *BucketListOptions) (bl storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if opts == nil {
-		opts = &BucketListOptions{}
+		opts = &BucketListOptions{Direction: storj.Forward}
 	}
 	return p.project.ListBuckets(ctx, *opts)
 }
@@ -137,13 +137,15 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 		return b, nil, err
 	}
 	cfg := &BucketConfig{
-		PathCipher:           b.PathCipher.ToCipherSuite(),
-		EncryptionParameters: b.EncryptionParameters,
+		PathCipher:           b.PathCipher,
+		EncryptionParameters: b.DefaultEncryptionParameters,
 	}
-	cfg.Volatile.RedundancyScheme = b.RedundancyScheme
-	cfg.Volatile.SegmentsSize = memory.Size(b.SegmentsSize)
+	cfg.Volatile.RedundancyScheme = b.DefaultRedundancyScheme
+	cfg.Volatile.SegmentsSize = memory.Size(b.DefaultSegmentsSize)
 	return b, cfg, nil
 }
+
+// TODO: move the bucket related OpenBucket to bucket.go
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
@@ -155,15 +157,29 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		return nil, err
 	}
 
-	if access == nil || access.Key == (storj.Key{}) {
-		return nil, Error.New("No encryption key chosen")
-	}
-	if err != nil {
-		return nil, err
-	}
-	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
+	// partnerID set and bucket's attribution is not set
+	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.PartnerID.IsZero() {
+		// make an entry into the attribution table
+		err = p.checkBucketAttribution(ctx, bucketName)
+		if err != nil {
+			return nil, err
+		}
 
-	ec := ecclient.NewClient(p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
+		partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		// update the bucket metainfo table with corresponding partner info
+		bucketInfo.PartnerID = *partnerID
+		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
+		if err != nil {
+			return nil, err
+		}
+	}
+	encryptionParameters := cfg.EncryptionParameters
+
+	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
 	if err != nil {
 		return nil, err
@@ -177,30 +193,78 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 
 	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(cfg.Volatile.SegmentsSize.Int64(),
-		cfg.EncryptionParameters.ToEncryptionScheme())
+		cfg.EncryptionParameters)
 	if err != nil {
 		return nil, err
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
-
-	bucketStore := buckets.NewStore(streamStore)
 
 	return &Bucket{
 		BucketConfig: *cfg,
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.metainfo, bucketStore, streamStore, segmentStore, &access.Key, encryptionScheme.BlockSize, rs, cfg.Volatile.SegmentsSize.Int64()),
+		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, access.store),
 		streams:      streamStore,
 	}, nil
 }
 
-// Close closes the Project.
-func (p *Project) Close() error {
-	return nil
+func (p *Project) retrieveSalt(ctx context.Context) (salt []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	info, err := p.metainfo.GetProjectInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return info.ProjectSalt, nil
+}
+
+// SaltedKeyFromPassphrase returns a key generated from the given passphrase using a stable, project-specific salt
+func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string) (_ *storj.Key, err error) {
+	defer mon.Task()(&ctx)(&err)
+	salt, err := p.retrieveSalt(ctx)
+	if err != nil {
+		return nil, err
+	}
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "")
+	if err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+// checkBucketAttribution Checks the bucket attribution
+func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if p.uplinkCfg.Volatile.PartnerID == "" {
+		return nil
+	}
+
+	partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
+}
+
+// updateBucket updates an existing bucket's attribution info.
+func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bucket = storj.Bucket{
+		Name:                        bucketInfo.Name,
+		PartnerID:                   bucketInfo.PartnerID,
+		PathCipher:                  bucketInfo.PathCipher,
+		DefaultEncryptionParameters: bucketInfo.DefaultEncryptionParameters,
+		DefaultRedundancyScheme:     bucketInfo.DefaultRedundancyScheme,
+		DefaultSegmentsSize:         bucketInfo.DefaultSegmentsSize,
+	}
+	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }

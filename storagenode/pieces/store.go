@@ -13,16 +13,13 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
 
 const (
-	readBufferSize  = 256 * memory.KiB
-	writeBufferSize = 256 * memory.KiB
-	preallocSize    = 4 * memory.MiB
+	preallocSize = 4 * memory.MiB
 )
 
 var (
@@ -38,10 +35,11 @@ type Info struct {
 
 	PieceID         storj.PieceID
 	PieceSize       int64
-	PieceExpiration *time.Time
+	PieceCreation   time.Time
+	PieceExpiration time.Time
 
+	OrderLimit      *pb.OrderLimit
 	UplinkPieceHash *pb.PieceHash
-	Uplink          *identity.PeerIdentity
 }
 
 // ExpiredInfo is a fully namespaced piece id
@@ -57,12 +55,18 @@ type DB interface {
 	Add(context.Context, *Info) error
 	// Get returns Info about a piece.
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
+	// GetPieceIDs gets pieceIDs using the satelliteID
+	GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, limit, offset int) (pieceIDs []storj.PieceID, err error)
 	// Delete deletes Info about a piece.
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// DeleteFailed marks piece deletion from disk failed
 	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
-	// SpaceUsed calculates disk space used by all pieces
+	// SpaceUsed returns the in memory value for disk space used by all pieces
 	SpaceUsed(ctx context.Context) (int64, error)
+	// CalculatedSpaceUsed calculates disk space used by all pieces
+	CalculatedSpaceUsed(ctx context.Context) (int64, error)
+	// SpaceUsedBySatellite calculates disk space used by all pieces by satellite
+	SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error)
 	// GetExpired gets orders that are expired and were created before some time
 	GetExpired(ctx context.Context, expiredAt time.Time, limit int64) ([]ExpiredInfo, error)
 }
@@ -92,7 +96,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(blob, writeBufferSize.Int())
+	writer, err := NewWriter(blob)
 	return writer, Error.Wrap(err)
 }
 
@@ -110,7 +114,7 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	reader, err := NewReader(blob, readBufferSize.Int())
+	reader, err := NewReader(blob)
 	return reader, Error.Wrap(err)
 }
 

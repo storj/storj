@@ -15,7 +15,7 @@ import (
 
 // Config contains configurable values for the live accounting service.
 type Config struct {
-	StorageBackend string `help:"what to use for storing real-time accounting data"`
+	StorageBackend string `help:"what to use for storing real-time accounting data" default:"plainmemory"`
 }
 
 // Service represents the external interface to the live accounting

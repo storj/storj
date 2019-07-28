@@ -315,7 +315,7 @@ By utilizing customer.io’s attribute feature, we can update user’s state thr
 ```javascript
 analytics.identify("97980cfea0067", {
   name: "Peter Gibbons",
-  email: "peter@initech.com",
+  email: "peter@mail.test",
   low_credits: true,
 });
 ```

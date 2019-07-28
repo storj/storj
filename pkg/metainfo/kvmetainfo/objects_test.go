@@ -5,7 +5,6 @@ package kvmetainfo_test
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"io"
 	"testing"
@@ -15,8 +14,8 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -34,39 +33,40 @@ func TestCreateObject(t *testing.T) {
 		ShareSize:      2 * memory.KiB.Int32(),
 	}
 
-	customES := storj.EncryptionScheme{
-		Cipher:    storj.Unencrypted,
-		BlockSize: customRS.StripeSize(),
+	const stripesPerBlock = 2
+	customEP := storj.EncryptionParameters{
+		CipherSuite: storj.EncNull,
+		BlockSize:   stripesPerBlock * customRS.StripeSize(),
 	}
 
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
 		for i, tt := range []struct {
 			create     *storj.CreateObject
 			expectedRS storj.RedundancyScheme
-			expectedES storj.EncryptionScheme
+			expectedEP storj.EncryptionParameters
 		}{
 			{
 				create:     nil,
 				expectedRS: kvmetainfo.DefaultRS,
-				expectedES: kvmetainfo.DefaultES,
+				expectedEP: kvmetainfo.DefaultES,
 			},
 			{
-				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionScheme: customES},
+				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionParameters: customEP},
 				expectedRS: customRS,
-				expectedES: customES,
+				expectedEP: customEP,
 			},
 			{
 				create:     &storj.CreateObject{RedundancyScheme: customRS},
 				expectedRS: customRS,
-				expectedES: storj.EncryptionScheme{Cipher: kvmetainfo.DefaultES.Cipher, BlockSize: kvmetainfo.DefaultES.BlockSize},
+				expectedEP: storj.EncryptionParameters{CipherSuite: kvmetainfo.DefaultES.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
 			{
-				create:     &storj.CreateObject{EncryptionScheme: customES},
+				create:     &storj.CreateObject{EncryptionParameters: customEP},
 				expectedRS: kvmetainfo.DefaultRS,
-				expectedES: storj.EncryptionScheme{Cipher: customES.Cipher, BlockSize: kvmetainfo.DefaultES.BlockSize},
+				expectedEP: storj.EncryptionParameters{CipherSuite: customEP.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
@@ -77,17 +77,17 @@ func TestCreateObject(t *testing.T) {
 			info := obj.Info()
 
 			assert.Equal(t, TestBucket, info.Bucket.Name, errTag)
-			assert.Equal(t, storj.AESGCM, info.Bucket.PathCipher, errTag)
+			assert.Equal(t, storj.EncAESGCM, info.Bucket.PathCipher, errTag)
 			assert.Equal(t, TestFile, info.Path, errTag)
 			assert.EqualValues(t, 0, info.Size, errTag)
 			assert.Equal(t, tt.expectedRS, info.RedundancyScheme, errTag)
-			assert.Equal(t, tt.expectedES, info.EncryptionScheme, errTag)
+			assert.Equal(t, tt.expectedEP, info.EncryptionParameters, errTag)
 		}
 	})
 }
 
 func TestGetObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 		upload(ctx, t, db, streams, bucket, TestFile, nil)
@@ -108,16 +108,14 @@ func TestGetObject(t *testing.T) {
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestFile, object.Path)
 			assert.Equal(t, TestBucket, object.Bucket.Name)
-			assert.Equal(t, storj.AESGCM, object.Bucket.PathCipher)
+			assert.Equal(t, storj.EncAESGCM, object.Bucket.PathCipher)
 		}
 	})
 }
 
 func TestGetObjectStream(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
-		data := make([]byte, 32*memory.KiB)
-		_, err := rand.Read(data)
-		require.NoError(t, err)
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+		data := testrand.Bytes(32 * memory.KiB)
 
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
@@ -138,9 +136,9 @@ func TestGetObjectStream(t *testing.T) {
 		_, err = db.GetObjectStream(ctx, bucket.Name, "non-existing-file")
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		assertStream(ctx, t, db, streams, bucket, "empty-file", 0, []byte{})
-		assertStream(ctx, t, db, streams, bucket, "small-file", 4, []byte("test"))
-		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KiB.Int64(), data)
+		assertStream(ctx, t, db, streams, bucket, "empty-file", []byte{})
+		assertStream(ctx, t, db, streams, bucket, "small-file", []byte("test"))
+		assertStream(ctx, t, db, streams, bucket, "large-file", data)
 
 		/* TODO: Disable stopping due to flakiness.
 		// Stop randomly half of the storage nodes and remove them from satellite's overlay cache
@@ -176,13 +174,13 @@ func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams stream
 	require.NoError(t, err)
 }
 
-func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, size int64, content []byte) {
+func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, content []byte) {
 	readOnly, err := db.GetObjectStream(ctx, bucket.Name, path)
 	require.NoError(t, err)
 
 	assert.Equal(t, path, readOnly.Info().Path)
 	assert.Equal(t, TestBucket, readOnly.Info().Bucket.Name)
-	assert.Equal(t, storj.AESGCM, readOnly.Info().Bucket.PathCipher)
+	assert.Equal(t, storj.EncAESGCM, readOnly.Info().Bucket.PathCipher)
 
 	segments, more, err := readOnly.Segments(ctx, 0, 0)
 	require.NoError(t, err)
@@ -243,7 +241,7 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -269,7 +267,7 @@ func TestDeleteObject(t *testing.T) {
 }
 
 func TestListObjectsEmpty(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
@@ -295,8 +293,8 @@ func TestListObjectsEmpty(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
-		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
 		require.NoError(t, err)
 
 		filePaths := []string{
@@ -632,13 +630,12 @@ func TestListObjects(t *testing.T) {
 				for i, item := range list.Items {
 					assert.Equal(t, tt.result[i], item.Path, errTag)
 					assert.Equal(t, TestBucket, item.Bucket.Name, errTag)
-					assert.Equal(t, storj.Unencrypted, item.Bucket.PathCipher, errTag)
+					assert.Equal(t, storj.EncNull, item.Bucket.PathCipher, errTag)
 				}
 			}
 		}
 	})
 }
-
 func options(prefix, cursor string, direction storj.ListDirection, limit int) storj.ListOptions {
 	return storj.ListOptions{
 		Prefix:    prefix,

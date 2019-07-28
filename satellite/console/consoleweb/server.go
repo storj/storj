@@ -47,7 +47,7 @@ var (
 
 // Config contains configuration for console web server
 type Config struct {
-	Address         string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
+	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:8081" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 	StripeKey       string `help:"stripe api key" default:""`
@@ -117,7 +117,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
+	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "index.html"))
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
@@ -174,9 +174,9 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 	before = time.Unix(beforeStamp, 0)
 
 	s.log.Debug("querying bucket usage report",
-		zap.String("projectID", projectID.String()),
-		zap.String("since", since.String()),
-		zap.String("before", before.String()))
+		zap.Stringer("projectID", projectID),
+		zap.Stringer("since", since),
+		zap.Stringer("before", before))
 
 	ctx = console.WithAuth(ctx, auth)
 	bucketRollups, err := s.service.GetBucketUsageRollups(ctx, *projectID, since, before)
@@ -263,10 +263,11 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 	}
 
 	switch req.Method {
-	case "POST":
+	case http.MethodPost:
 		err := req.ParseForm()
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
 
 		password := req.FormValue("password")
@@ -279,18 +280,25 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 		err = s.service.ResetPassword(ctx, recoveryToken, password)
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
+
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "resetPassword", "success.html"))
-	default:
+	case http.MethodGet:
 		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
 
 		err = t.Execute(w, nil)
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
+	default:
+		s.serveError(w, req)
+		return
 	}
 }
 
@@ -309,6 +317,7 @@ func (s *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, req *http.
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 }
 

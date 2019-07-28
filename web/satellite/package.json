@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "serve": "rm -rf dist/ && npm run build && vue-cli-service serve -s dist",
+    "serve": "vue-cli-service serve",
     "lint": "vue-cli-service lint",
     "test:unit": "vue-cli-service test:unit",
     "test": "jest",
-    "build": "webpack --config webpack.config.dev.js"
+    "build": "vue-cli-service build --mode=production"
   },
   "dependencies": {
     "@types/graphql": "^14.0.3",
@@ -19,6 +19,7 @@
     "graphql": "^14.0.2",
     "graphql-tag": "^2.10.0",
     "moment": "^2.24.0",
+    "stripe": "^7.0.1",
     "vue": "^2.5.17",
     "vue-clipboards": "^1.2.4",
     "vue-property-decorator": "^7.0.0",
@@ -30,6 +31,7 @@
     "@babel/plugin-proposal-object-rest-spread": "^7.0.0",
     "@types/jest": "^23.1.4",
     "@types/sinon": "^5.0.5",
+    "@types/stripe": "^6.26.0",
     "@vue/cli-plugin-babel": "^3.0.5",
     "@vue/cli-plugin-typescript": "^3.6.0",
     "@vue/cli-plugin-unit-jest": "^3.6.3",
@@ -50,6 +52,7 @@
     "typescript": "^3.0.0",
     "vue-html-webpack-plugin": "^3.2.2",
     "vue-loader": "^15.4.2",
+    "vue-segment-analytics": "^0.3.2",
     "vue-style-loader": "^4.1.2",
     "vue-template-compiler": "^2.5.17",
     "vue-tslint": "^0.3.2",

@@ -24,7 +24,7 @@ func TestUserFromDbx(t *testing.T) {
 			Id:           []byte("qweqwe"),
 			FullName:     "Very long full name",
 			ShortName:    nil,
-			Email:        "some@email.com",
+			Email:        "some@mail.test",
 			PasswordHash: []byte("ihqerfgnu238723huagsd"),
 			CreatedAt:    time.Now(),
 		}
