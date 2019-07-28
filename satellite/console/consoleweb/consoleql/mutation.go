@@ -62,7 +62,7 @@ const (
 	// Secret is a field name for registration token for user creation during Vanguard release
 	Secret = "secret"
 	// ReferrerUserID is a field name for passing referrer's user id
-	ReferrerUserID = "referrerUserID"
+	ReferrerUserID = "referrerUserId"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient

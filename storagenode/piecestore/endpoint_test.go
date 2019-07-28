@@ -515,7 +515,8 @@ func TestRetain(t *testing.T) {
 		// have a recent timestamp and thus should not be deleted
 		const numOldPieces = 5
 
-		filter := bloomfilter.NewOptimal(numPiecesToKeep, 0.1)
+		// for this test, we set the false positive rate very low, so we can test which pieces should be deleted with precision
+		filter := bloomfilter.NewOptimal(numPieces, 0.000000001)
 
 		pieceIDs := generateTestIDs(numPieces)
 
@@ -531,12 +532,25 @@ func TestRetain(t *testing.T) {
 		require.NoError(t, err)
 
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
-		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, pieceInfos, nil, nil, nil, ps.Config{})
+		endpointEnabled, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, pieceInfos, nil, nil, nil, ps.Config{
+			RetainStatus: ps.RetainEnabled,
+		})
+		require.NoError(t, err)
+		endpointDisabled, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, pieceInfos, nil, nil, nil, ps.Config{
+			RetainStatus: ps.RetainDisabled,
+		})
+		require.NoError(t, err)
+		endpointDebug, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, pieceInfos, nil, nil, nil, ps.Config{
+			RetainStatus: ps.RetainDebug,
+		})
 		require.NoError(t, err)
 
 		recentTime := time.Now()
 		oldTime := recentTime.Add(-time.Duration(48) * time.Hour)
 
+		// keep pieceIDs[0 : numPiecesToKeep] (old + in filter)
+		// delete pieceIDs[numPiecesToKeep : numPiecesToKeep+numOldPieces] (old + not in filter)
+		// keep pieceIDs[numPiecesToKeep+numOldPieces : numPieces] (recent + not in filter)
 		var pieceCreation time.Time
 		// add all pieces to the node pieces info DB - but only count piece ids in filter
 		for index, id := range pieceIDs {
@@ -603,17 +617,35 @@ func TestRetain(t *testing.T) {
 		retainReq.Filter = filter.Bytes()
 		retainReq.CreationDate = recentTime
 
-		_, err = endpoint.Retain(ctxSatellite0, &retainReq)
+		// expect that disabled and debug endpoints do not delete any pieces
+		_, err = endpointDisabled.Retain(ctxSatellite0, &retainReq)
 		require.NoError(t, err)
 
-		// check we have deleted nothing for satellite1
+		_, err = endpointDebug.Retain(ctxSatellite0, &retainReq)
+		require.NoError(t, err)
+
 		satellite1Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite1Pieces))
 
-		// check we did not delete recent pieces
 		satellite0Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
 		require.NoError(t, err)
+		require.Equal(t, numPieces, len(satellite0Pieces))
+
+		// expect that enabled endpoint deletes the correct pieces
+		_, err = endpointEnabled.Retain(ctxSatellite0, &retainReq)
+		require.NoError(t, err)
+
+		// check we have deleted nothing for satellite1
+		satellite1Pieces, err = pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		require.NoError(t, err)
+		require.Equal(t, numPieces, len(satellite1Pieces))
+
+		// check we did not delete recent pieces or retained pieces for satellite0
+		// also check that we deleted the correct pieces for satellite0
+		satellite0Pieces, err = pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		require.NoError(t, err)
+		require.Equal(t, numPieces-numOldPieces, len(satellite0Pieces))
 
 		for _, id := range pieceIDs[:numPiecesToKeep] {
 			require.Contains(t, satellite0Pieces, id, "piece should not have been deleted (not in bloom filter)")
@@ -621,6 +653,10 @@ func TestRetain(t *testing.T) {
 
 		for _, id := range pieceIDs[numPiecesToKeep+numOldPieces:] {
 			require.Contains(t, satellite0Pieces, id, "piece should not have been deleted (recent piece)")
+		}
+
+		for _, id := range pieceIDs[numPiecesToKeep : numPiecesToKeep+numOldPieces] {
+			require.NotContains(t, satellite0Pieces, id, "piece should have been deleted")
 		}
 	})
 }
