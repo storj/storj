@@ -31,7 +31,7 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 			SELECT name, type, sql FROM sqlite_master WHERE sql NOT NULL AND name NOT LIKE 'sqlite_%'
 		`)
 		if err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -39,7 +39,7 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 			var defName, defType, defSQL string
 			err := rows.Scan(&defName, &defType, &defSQL)
 			if err != nil {
-				return err
+				return errs.Wrap(err)
 			}
 			if defType == "table" {
 				tableDefinitions = append(tableDefinitions, &definition{name: defName, sql: defSQL})
@@ -74,7 +74,7 @@ func discoverTables(db dbschema.Queryer, schema *dbschema.Schema, tableDefinitio
 
 		tableRows, err := db.Query(`PRAGMA table_info(` + definition.name + `)`)
 		if err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, tableRows.Close()) }()
 
@@ -85,7 +85,7 @@ func discoverTables(db dbschema.Queryer, schema *dbschema.Schema, tableDefinitio
 			var notNull bool
 			err := tableRows.Scan(&index, &name, &columnType, &notNull, &defaultValue, &pk)
 			if err != nil {
-				return err
+				return errs.Wrap(err)
 			}
 
 			column := &dbschema.Column{
@@ -116,7 +116,7 @@ func discoverTables(db dbschema.Queryer, schema *dbschema.Schema, tableDefinitio
 
 		keysRows, err := db.Query(`PRAGMA foreign_key_list(` + definition.name + `)`)
 		if err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, keysRows.Close()) }()
 
@@ -125,7 +125,7 @@ func discoverTables(db dbschema.Queryer, schema *dbschema.Schema, tableDefinitio
 			var tableName, from, to, onUpdate, onDelete, match string
 			err := keysRows.Scan(&id, &sec, &tableName, &from, &to, &onUpdate, &onDelete, &match)
 			if err != nil {
-				return err
+				return errs.Wrap(err)
 			}
 
 			column, found := table.FindColumn(from)
@@ -145,7 +145,7 @@ func discoverTables(db dbschema.Queryer, schema *dbschema.Schema, tableDefinitio
 			}
 		}
 	}
-	return err
+	return errs.Wrap(err)
 }
 
 func discoverIndexes(db dbschema.Queryer, schema *dbschema.Schema, indexDefinitions []*definition) (err error) {
@@ -158,25 +158,33 @@ func discoverIndexes(db dbschema.Queryer, schema *dbschema.Schema, indexDefiniti
 
 		indexRows, err := db.Query(`PRAGMA index_info(` + definition.name + `)`)
 		if err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, indexRows.Close()) }()
 
 		for indexRows.Next() {
-			var name string
+			var name *string
 			var seqno, cid int
 			err := indexRows.Scan(&seqno, &cid, &name)
 			if err != nil {
-				return err
+				return errs.Wrap(err)
 			}
-
-			index.Columns = append(index.Columns, name)
+			if name != nil {
+				index.Columns = append(index.Columns, *name)
+			} else {
+				matches := rxIndexExpr.FindStringSubmatch(definition.sql)
+				index.Columns = append(index.Columns, matches[1])
+			}
 		}
 
 		matches := rxIndexTable.FindStringSubmatch(definition.sql)
 		index.Table = strings.TrimSpace(matches[1])
+
+		if matches := rxIndexPartial.FindStringSubmatch(definition.sql); len(matches) > 0 {
+			index.Partial = strings.TrimSpace(matches[1])
+		}
 	}
-	return err
+	return errs.Wrap(err)
 }
 
 var (
@@ -184,5 +192,11 @@ var (
 	rxUnique = regexp.MustCompile(`UNIQUE\s*\((.*?)\)`)
 
 	// matches ON (a,b)
-	rxIndexTable = regexp.MustCompile(`ON\s*(.*)\(`)
+	rxIndexTable = regexp.MustCompile(`ON\s*([^(]*)\(`)
+
+	// matches ON table(expr)
+	rxIndexExpr = regexp.MustCompile(`ON\s*[^(]*\((.*)\)`)
+
+	// matches WHERE (partial expression)
+	rxIndexPartial = regexp.MustCompile(`WHERE (.*)$`)
 )

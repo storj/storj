@@ -10,12 +10,15 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/date"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
 )
 
-type consoledb struct{ *InfoDB }
+type consoledb struct {
+	*InfoDB
+}
 
 // Console returns console.DB
 func (db *InfoDB) Console() console.DB { return &consoledb{db} }
@@ -33,7 +36,7 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT DISTINCT satellite_id
 		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?`), from, to)
+		WHERE ? <= created_at AND created_at <= ?`), from.UTC(), to.UTC())
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -62,12 +65,12 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	since, _ := getDateEdges(from.UTC())
-	_, before := getDateEdges(to.UTC())
+	since, _ := date.DayBoundary(from.UTC())
+	_, before := date.DayBoundary(to.UTC())
 
 	return db.getDailyBandwidthUsed(ctx,
 		"WHERE ? <= created_at AND created_at <= ?",
-		since, before)
+		since.UTC(), before.UTC())
 }
 
 // GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
@@ -75,12 +78,12 @@ func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to ti
 func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	since, _ := getDateEdges(from.UTC())
-	_, before := getDateEdges(to.UTC())
+	since, _ := date.DayBoundary(from.UTC())
+	_, before := date.DayBoundary(to.UTC())
 
 	return db.getDailyBandwidthUsed(ctx,
 		"WHERE satellite_id = ? AND ? <= created_at AND created_at <= ?",
-		satelliteID, since, before)
+		satelliteID, since.UTC(), before.UTC())
 }
 
 // getDailyBandwidthUsed returns slice of grouped by date bandwidth usage
@@ -118,7 +121,7 @@ func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 			return nil, err
 		}
 
-		from, to := getDateEdges(createdAt)
+		from, to := date.DayBoundary(createdAt)
 
 		bandwidthUsed, ok := dailyBandwidth[from]
 		if !ok {
@@ -151,10 +154,4 @@ func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 	}
 
 	return bandwidthUsedList, nil
-}
-
-// getDateEdges returns start and end of the provided day
-func getDateEdges(t time.Time) (time.Time, time.Time) {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC),
-		time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, -1, time.UTC)
 }

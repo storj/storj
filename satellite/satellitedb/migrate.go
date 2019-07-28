@@ -18,8 +18,10 @@ import (
 	"storj.io/storj/satellite/satellitedb/pbold"
 )
 
-// ErrMigrate is for tracking migration errors
-var ErrMigrate = errs.Class("migrate")
+var (
+	// ErrMigrate is for tracking migration errors
+	ErrMigrate = errs.Class("migrate")
+)
 
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
@@ -870,6 +872,28 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Update project_id column from 36 byte string based UUID to 16 byte UUID",
 				Version:     37,
 				Action: migrate.SQL{
+					`
+					update bucket_bandwidth_rollups as a
+					set allocated = a.allocated + b.allocated,
+						settled = a.settled + b.settled
+					from bucket_bandwidth_rollups as b
+					where a.interval_start = b.interval_start
+					  and a.bucket_name = b.bucket_name
+					  and a.action = b.action
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')
+					  and length(b.project_id) = 36
+					  and length(a.project_id) = 16
+					;`,
+					`
+					delete from bucket_bandwidth_rollups as b
+					using bucket_bandwidth_rollups as a
+					where a.interval_start = b.interval_start
+					  and a.bucket_name = b.bucket_name
+					  and a.action = b.action
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')
+					  and length(b.project_id) = 36
+					  and length(a.project_id) = 16
+					;`,
 					`UPDATE bucket_storage_tallies SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
 					`UPDATE bucket_bandwidth_rollups SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
 				},
@@ -903,6 +927,123 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     39,
 				Action: migrate.SQL{
 					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
+				},
+			},
+			{
+				Description: "Add unique id for project payments. Add is_default property",
+				Version:     40,
+				Action: migrate.SQL{
+					`DROP TABLE project_payments CASCADE`,
+					`CREATE TABLE project_payments (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
+						payment_method_id bytea NOT NULL,
+						is_default boolean NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				Description: "Move InjuredSegment path from string to bytes",
+				Version:     41,
+				Action: migrate.SQL{
+					`ALTER TABLE injuredsegments RENAME COLUMN path TO path_old;`,
+					`ALTER TABLE injuredsegments ADD COLUMN path bytea;`,
+					`UPDATE injuredsegments SET path = decode(path_old, 'escape');`,
+					`ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;`,
+					`ALTER TABLE injuredsegments DROP COLUMN path_old;`,
+					`ALTER TABLE injuredsegments ADD CONSTRAINT injuredsegments_pk PRIMARY KEY (path);`,
+				},
+			},
+			{
+				Description: "Remove num_redeemed column in offers table",
+				Version:     42,
+				Action: migrate.SQL{
+					`ALTER TABLE offers DROP num_redeemed;`,
+				},
+			},
+			{
+				Description: "Set default offer for each offer type in offers table",
+				Version:     43,
+				Action: migrate.SQL{
+					`ALTER TABLE offers
+						ALTER COLUMN redeemable_cap DROP NOT NULL,
+						ALTER COLUMN invitee_credit_duration_days DROP NOT NULL,
+						ALTER COLUMN award_credit_duration_days DROP NOT NULL
+					`,
+					`INSERT INTO offers (
+						name,
+						description,
+						award_credit_in_cents,
+						invitee_credit_in_cents,
+						expires_at,
+						created_at,
+						status,
+						type )
+					VALUES (
+						'Default referral offer',
+						'Is active when no other active referral offer',
+						300,
+						600,
+						'2119-03-14 08:28:24.636949+00',
+						'2019-07-14 08:28:24.636949+00',
+						1,
+						2
+					),
+					(
+						'Default free credit offer',
+						'Is active when no active free credit offer',
+						300,
+						0,
+						'2119-03-14 08:28:24.636949+00',
+						'2019-07-14 08:28:24.636949+00',
+						1,
+						1
+					) ON CONFLICT DO NOTHING;`,
+				},
+			},
+			{
+				Description: "Add index on InjuredSegments attempted column",
+				Version:     44,
+				Action: migrate.SQL{
+					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
+				},
+			},
+			{
+				Description: "Add partner id field to support OSPP",
+				Version:     45,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE users ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE api_keys ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN partner_id BYTEA`,
+				},
+			},
+			{
+				Description: "Add pending audit path",
+				Version:     46,
+				Action: migrate.SQL{
+					`DELETE FROM pending_audits;`, // clearing pending_audits is the least-bad choice to deal with the added 'path' column
+					`ALTER TABLE pending_audits ADD COLUMN path bytea NOT NULL;`,
+					`UPDATE nodes SET contained = false;`,
+				},
+			},
+			{
+				Description: "Modify default offers configuration",
+				Version:     47,
+				Action: migrate.SQL{
+					`UPDATE offers SET
+						award_credit_duration_days = 365,
+						invitee_credit_duration_days = 14
+						WHERE type=2 AND status=1 AND id=1`,
+					`UPDATE offers SET
+						invitee_credit_duration_days = 14,
+						award_credit_duration_days = NULL,
+						award_credit_in_cents = 0,
+						invitee_credit_in_cents = 300
+						WHERE type=1 AND status=1 AND id=2;`,
 				},
 			},
 		},

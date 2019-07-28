@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -92,7 +93,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 }
 
 // CreateUser gets password hash value and creates new inactive User
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
@@ -128,13 +129,22 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	err = withTx(tx, func(tx DBTx) error {
+		newUser := &User{
+			Email:        user.Email,
+			FullName:     user.FullName,
+			ShortName:    user.ShortName,
+			PasswordHash: hash,
+		}
+		if user.PartnerID != "" {
+			partnerID, err := uuid.Parse(user.PartnerID)
+			if err != nil {
+				return errs.New(internalErrMsg)
+			}
+			newUser.PartnerID = *partnerID
+		}
+
 		u, err = tx.Users().Insert(ctx,
-			&User{
-				Email:        user.Email,
-				FullName:     user.FullName,
-				ShortName:    user.ShortName,
-				PasswordHash: hash,
-			},
+			newUser,
 		)
 		if err != nil {
 			return errs.New(internalErrMsg)
@@ -166,6 +176,164 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	return u, nil
+}
+
+// AddNewPaymentMethod adds new payment method for project
+func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID) (payment *ProjectPayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	authorization, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	params := payments.AddPaymentMethodParams{
+		Token:      paymentMethodToken,
+		CustomerID: string(userPayments.CustomerID),
+	}
+
+	method, err := s.pm.AddPaymentMethod(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := s.store.BeginTx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var pp *ProjectPayment
+	err = withTx(tx, func(tx DBTx) error {
+		if isDefault {
+			projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return err
+				}
+			}
+			if projectPayment != nil {
+				projectPayment.IsDefault = false
+
+				err = tx.ProjectPayments().Update(ctx, *projectPayment)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		projectPaymentInfo := ProjectPayment{
+			ProjectID:       projectID,
+			PayerID:         authorization.User.ID,
+			PaymentMethodID: method.ID,
+			CreatedAt:       time.Now(),
+			IsDefault:       isDefault,
+		}
+
+		pp, err = tx.ProjectPayments().Create(ctx, projectPaymentInfo)
+		return err
+	})
+
+	return pp, nil
+}
+
+// SetDefaultPaymentMethod set default payment method for given project
+func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.store.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = withTx(tx, func(tx DBTx) error {
+		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
+		if err != nil {
+			return err
+		}
+		projectPayment.IsDefault = false
+
+		err = tx.ProjectPayments().Update(ctx, *projectPayment)
+		if err != nil {
+			return err
+		}
+
+		projectPayment, err = tx.ProjectPayments().GetByID(ctx, projectPaymentID)
+		if err != nil {
+			return err
+		}
+		projectPayment.IsDefault = true
+
+		return tx.ProjectPayments().Update(ctx, *projectPayment)
+	})
+
+	return err
+}
+
+// DeleteProjectPaymentMethod deletes selected payment method
+func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.store.ProjectPayments().Delete(ctx, projectPayment)
+}
+
+// GetProjectPaymentMethods retrieves project payment methods
+func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.UUID) ([]ProjectPayment, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	projectPaymentInfos, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var projectPayments []ProjectPayment
+	for _, payment := range projectPaymentInfos {
+		pm, err := s.pm.GetPaymentMethod(ctx, payment.PaymentMethodID)
+		if err != nil {
+			return nil, err
+		}
+
+		projectPayment := ProjectPayment{
+			ID:              payment.ID,
+			CreatedAt:       pm.CreatedAt,
+			PaymentMethodID: pm.ID,
+			IsDefault:       payment.IsDefault,
+			PayerID:         payment.PayerID,
+			ProjectID:       projectID,
+			Card: Card{
+				LastFour:        pm.Card.LastFour,
+				Name:            pm.Card.Name,
+				Brand:           pm.Card.Brand,
+				Country:         pm.Card.Country,
+				ExpirationMonth: pm.Card.ExpMonth,
+				ExpirationYear:  pm.Card.ExpYear,
+			},
+		}
+
+		projectPayments = append(projectPayments, projectPayment)
+	}
+
+	return projectPayments, nil
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -486,6 +654,22 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 	return usage, nil
 }
 
+// CreateCredit creates a new record in database when new user earns new credits
+func (s *Service) CreateCredit(ctx context.Context, newCredit UserCredit) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	err = s.store.UserCredits().Create(ctx, newCredit)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
+}
+
 // CreateProject is a method for creating new project
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -736,11 +920,22 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, err
 	}
 
-	info, err := s.store.APIKeys().Create(ctx, key.Head(), APIKeyInfo{
+	apikey := APIKeyInfo{
 		Name:      name,
 		ProjectID: projectID,
 		Secret:    secret,
-	})
+	}
+
+	user, err := s.GetUser(ctx, auth.User.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	// If the user has a partnerID set it in the apikey for value attribution
+	if !user.PartnerID.IsZero() {
+		apikey.PartnerID = user.PartnerID
+	}
+
+	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
 	if err != nil {
 		return nil, nil, errs.New(internalErrMsg)
 	}
@@ -931,7 +1126,7 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 			continue
 		}
 
-		paymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, proj.ID)
+		paymentInfo, err := s.store.ProjectPayments().GetDefaultByProjectID(ctx, proj.ID)
 		if err != nil {
 			invoiceError.Add(err)
 			continue

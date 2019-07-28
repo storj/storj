@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -125,11 +126,11 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		}
 	}()
 
-	derivedKey, err := encryption.StoreDeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
+	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
 		return Meta{}, currentSegment, err
 	}
-	encPath, err := encryption.StoreEncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return Meta{}, currentSegment, err
 	}
@@ -285,7 +286,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.CipherSuite) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryption.StoreEncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -311,7 +312,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		return nil, Meta{}, err
 	}
 
-	derivedKey, err := encryption.StoreDeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
+	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -372,7 +373,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.CipherSuite) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryption.StoreEncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -404,7 +405,7 @@ func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.Ciph
 func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.CipherSuite) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryption.StoreEncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return err
 	}
@@ -450,6 +451,13 @@ type ListItem struct {
 	IsPrefix bool
 }
 
+// pathForKey removes the trailing `/` from the raw path, which is required so
+// the derived key matches the final list path (which also has the trailing
+// encrypted `/` part of the path removed)
+func pathForKey(raw string) paths.Unencrypted {
+	return paths.NewUnencrypted(strings.TrimSuffix(raw, "/"))
+}
+
 // List all the paths inside l/, stripping off the l/ prefix
 func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefore string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -460,14 +468,23 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 		metaFlags |= meta.UserDefined
 	}
 
-	prefixKey, err := encryption.StoreDerivePathKey(prefix.Bucket(), prefix.UnencryptedPath(), s.encStore)
+	prefixKey, err := encryption.DerivePathKey(prefix.Bucket(), pathForKey(prefix.UnencryptedPath().Raw()), s.encStore)
 	if err != nil {
 		return nil, false, err
 	}
 
-	encPrefix, err := encryption.StoreEncryptPath(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, s.encStore)
+	encPrefix, err := encryption.EncryptPath(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return nil, false, err
+	}
+
+	// If the raw unencrypted path ends in a `/` we need to remove the final
+	// section of the encrypted path. For example, if we are listing the path
+	// `/bob/`, the encrypted path results in `enc("")/enc("bob")/enc("")`. This
+	// is an incorrect list prefix, what we really want is `enc("")/enc("bob")`
+	if strings.HasSuffix(prefix.UnencryptedPath().Raw(), "/") {
+		lastSlashIdx := strings.LastIndex(encPrefix.Raw(), "/")
+		encPrefix = paths.NewEncrypted(encPrefix.Raw()[:lastSlashIdx])
 	}
 
 	// We have to encrypt startAfter and endBefore but only if they don't contain a bucket.
@@ -622,7 +639,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, path Path, pathCipher storj.CipherSuite) {
 	defer mon.Task()(&ctx)(nil)
 
-	encPath, err := encryption.StoreEncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		zap.S().Warnf("Failed deleting segments: %v", err)
 		return
@@ -664,7 +681,7 @@ func TypedDecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path Pa
 		return nil, pb.StreamMeta{}, err
 	}
 
-	derivedKey, err := encryption.StoreDeriveContentKey(path.Bucket(), path.UnencryptedPath(), encStore)
+	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), encStore)
 	if err != nil {
 		return nil, pb.StreamMeta{}, err
 	}

@@ -51,13 +51,16 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		}
 
 		var db storagenode.DB
-		if planet.config.Reconfigure.NewStorageNodeDB != nil {
-			db, err = planet.config.Reconfigure.NewStorageNodeDB(i)
-		} else {
-			db, err = storagenodedb.NewInMemory(log.Named("db"), storageDir)
-		}
+		db, err = storagenodedb.NewTest(log.Named("db"), storageDir)
 		if err != nil {
 			return nil, err
+		}
+
+		if planet.config.Reconfigure.NewStorageNodeDB != nil {
+			db, err = planet.config.Reconfigure.NewStorageNodeDB(i, db, planet.log)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		err = db.CreateTables()
@@ -98,8 +101,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				AllocatedDiskSpace:     1 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
-
-				SatelliteIDRestriction: true,
 				WhitelistedSatellites:  whitelistedSatellites,
 			},
 			Collector: collector.Config{
@@ -112,7 +113,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Storage2: piecestore.Config{
 				ExpirationGracePeriod: 0,
 				MaxConcurrentRequests: 100,
-				OrderLimitGracePeriod: time.Hour * 24,
+				OrderLimitGracePeriod: time.Hour,
 				Sender: orders.SenderConfig{
 					Interval: time.Hour,
 					Timeout:  time.Hour,
@@ -121,6 +122,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
 				},
+				RetainStatus: piecestore.RetainEnabled,
 			},
 			Vouchers: vouchers.Config{
 				Interval: time.Hour,

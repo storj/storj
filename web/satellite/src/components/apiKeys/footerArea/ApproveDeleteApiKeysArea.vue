@@ -16,7 +16,7 @@
                     width="140px" 
                     height="48px"
                     :onPress="onCancelButtonClick" 
-                    isWhite />
+                    isWhite="true" />
                 <Button 
                     label="Delete" 
                     width="140px" 
@@ -28,17 +28,15 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
 
-@Component({
-    components: {
-        Button
-    }
-})
-
-export default class ApproveDeleteApiKeysArea extends Vue {
-}
+    @Component({
+        components: {
+            Button
+        }
+    })
+    export default class ApproveDeleteApiKeysArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -88,6 +86,7 @@ export default class ApproveDeleteApiKeysArea extends Vue {
             }
         }
     }
+    
     .blur-wrap {
         position: fixed;
         height: 100vh;

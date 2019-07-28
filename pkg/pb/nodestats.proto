@@ -10,18 +10,23 @@ import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 
 service NodeStats {
-    rpc UptimeCheck(UptimeCheckRequest) returns (UptimeCheckResponse);
+    rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
     rpc DailyStorageUsage(DailyStorageUsageRequest) returns (DailyStorageUsageResponse);
 }
 
-message UptimeCheckRequest { }
-
-message UptimeCheckResponse {
+message ReputationStats {
     int64 total_count = 1;
     int64 success_count = 2;
     double reputation_alpha = 3;
     double reputation_beta = 4;
     double reputation_score = 5;
+}
+
+message GetStatsRequest {}
+
+message GetStatsResponse {
+    ReputationStats uptime_check = 1;
+    ReputationStats audit_check = 2;
 }
 
 message DailyStorageUsageRequest {

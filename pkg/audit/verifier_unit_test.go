@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -99,6 +100,7 @@ func TestNotEnoughShares(t *testing.T) {
 		}
 	}
 	_, _, err = auditShares(ctx, 20, 40, auditPkgShares)
+	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "infectious: must specify at least the number of required shares")
 }
 
@@ -129,7 +131,8 @@ func TestCreatePendingAudits(t *testing.T) {
 	stripe := Stripe{
 		Index: 3,
 		Segment: &pb.Pointer{
-			Type: pb.Pointer_REMOTE,
+			CreationDate: time.Now(),
+			Type:         pb.Pointer_REMOTE,
 			Remote: &pb.RemoteSegment{
 				RootPieceId: storj.NewPieceID(),
 				Redundancy: &pb.RedundancyScheme{

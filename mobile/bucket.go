@@ -24,14 +24,8 @@ const (
 	// by the NaCl cryptography library under the name "Secretbox".
 	CipherSuiteEncSecretBox = byte(storj.EncSecretBox)
 
-	// DirectionAfter lists forwards from cursor, without cursor
-	DirectionAfter = int(storj.After)
 	// DirectionForward lists forwards from cursor, including cursor
 	DirectionForward = int(storj.Forward)
-	// DirectionBackward lists backwards from cursor, including cursor
-	DirectionBackward = int(storj.Backward)
-	// DirectionBefore lists backwards from cursor, without cursor
-	DirectionBefore = int(storj.Before)
 )
 
 // Bucket represents operations you can perform on a bucket
@@ -57,18 +51,18 @@ func newBucketInfo(bucket storj.Bucket) *BucketInfo {
 		Name:         bucket.Name,
 		Created:      bucket.Created.UTC().UnixNano() / int64(time.Millisecond),
 		PathCipher:   byte(bucket.PathCipher),
-		SegmentsSize: bucket.SegmentsSize,
+		SegmentsSize: bucket.DefaultSegmentsSize,
 		RedundancyScheme: &RedundancyScheme{
-			Algorithm:      byte(bucket.RedundancyScheme.Algorithm),
-			ShareSize:      bucket.RedundancyScheme.ShareSize,
-			RequiredShares: bucket.RedundancyScheme.RequiredShares,
-			RepairShares:   bucket.RedundancyScheme.RepairShares,
-			OptimalShares:  bucket.RedundancyScheme.OptimalShares,
-			TotalShares:    bucket.RedundancyScheme.TotalShares,
+			Algorithm:      byte(bucket.DefaultRedundancyScheme.Algorithm),
+			ShareSize:      bucket.DefaultRedundancyScheme.ShareSize,
+			RequiredShares: bucket.DefaultRedundancyScheme.RequiredShares,
+			RepairShares:   bucket.DefaultRedundancyScheme.RepairShares,
+			OptimalShares:  bucket.DefaultRedundancyScheme.OptimalShares,
+			TotalShares:    bucket.DefaultRedundancyScheme.TotalShares,
 		},
 		EncryptionParameters: &EncryptionParameters{
-			CipherSuite: byte(bucket.EncryptionParameters.CipherSuite),
-			BlockSize:   bucket.EncryptionParameters.BlockSize,
+			CipherSuite: byte(bucket.DefaultEncryptionParameters.CipherSuite),
+			BlockSize:   bucket.DefaultEncryptionParameters.BlockSize,
 		},
 	}
 }
