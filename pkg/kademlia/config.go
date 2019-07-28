@@ -57,7 +57,7 @@ func (c Config) Verify(log *zap.Logger) error {
 // OperatorConfig defines properties related to storage node operator metadata
 type OperatorConfig struct {
 	Email  string `user:"true" help:"operator email address" default:""`
-	Wallet string `user:"true" help:"operator wallet adress" default:""`
+	Wallet string `user:"true" help:"operator wallet address" default:""`
 }
 
 // Verify verifies whether operator config is valid.
@@ -82,13 +82,13 @@ func isOperatorEmailValid(log *zap.Logger, email string) error {
 
 func isOperatorWalletValid(log *zap.Logger, wallet string) error {
 	if wallet == "" {
-		return fmt.Errorf("Operator wallet address isn't specified")
+		return fmt.Errorf("operator wallet address isn't specified")
 	}
 	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
 	if match := r.MatchString(wallet); !match {
-		return fmt.Errorf("Operator wallet address isn't valid")
+		return fmt.Errorf("operator wallet address isn't valid")
 	}
 
-	log.Sugar().Info("Operator wallet: ", wallet)
+	log.Sugar().Info("operator wallet: ", wallet)
 	return nil
 }

@@ -5,9 +5,11 @@ package segments
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -21,32 +23,53 @@ import (
 
 // Repairer for segments
 type Repairer struct {
+	log      *zap.Logger
 	metainfo *metainfo.Service
 	orders   *orders.Service
 	cache    *overlay.Cache
 	ec       ecclient.Client
 	identity *identity.FullIdentity
 	timeout  time.Duration
+
+	// multiplierOptimalThreshold is the value that multiplied by the optimal
+	// threshold results in the maximum limit of number of nodes to upload
+	// repaired pieces
+	multiplierOptimalThreshold float64
 }
 
-// NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
+// NewSegmentRepairer creates a new instance of SegmentRepairer.
+//
+// excessPercentageOptimalThreshold is the percentage to apply over the optimal
+// threshould to determine the maximum limit of nodes to upload repaired pieces,
+// when negative, 0 is applied.
+func NewSegmentRepairer(
+	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
+	cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration,
+	excessOptimalThreshold float64,
+) *Repairer {
+
+	if excessOptimalThreshold < 0 {
+		excessOptimalThreshold = 0
+	}
+
 	return &Repairer{
-		metainfo: metainfo,
-		orders:   orders,
-		cache:    cache,
-		ec:       ec,
-		identity: identity,
-		timeout:  timeout,
+		log:                        log,
+		metainfo:                   metainfo,
+		orders:                     orders,
+		cache:                      cache,
+		ec:                         ec.WithForceErrorDetection(true),
+		identity:                   identity,
+		timeout:                    timeout,
+		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, path)(&err)
 
 	// Read the segment pointer from the metainfo
-	pointer, err := repairer.metainfo.Get(path)
+	pointer, err := repairer.metainfo.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -67,7 +90,8 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	expiration := pointer.GetExpirationDate()
 
 	var excludeNodeIDs storj.NodeIDList
-	var healthyPieces []*pb.RemotePiece
+	var healthyPieces, unhealthyPieces []*pb.RemotePiece
+	healthyMap := make(map[int32]bool)
 	pieces := pointer.GetRemote().GetRemotePieces()
 	missingPieces, err := repairer.cache.GetMissingPieces(ctx, pieces)
 	if err != nil {
@@ -75,16 +99,17 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	numHealthy := len(pieces) - len(missingPieces)
-	// irreparable piece
-	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+	// irreparable piece, we need k+1 to detect corrupted pieces
+	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq+1 {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
-		return Error.New("piece %v cannot be repaired", path)
+		return Error.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1)
 	}
 
 	// repair not needed
 	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
 		mon.Meter("repair_unnecessary").Mark(1)
-		return Error.New("piece %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		repairer.log.Sugar().Debugf("segment %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		return nil
 	}
 
 	healthyRatioBeforeRepair := 0.0
@@ -98,8 +123,11 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
 	for _, piece := range pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
-		if _, ok := lostPiecesSet[piece.GetPieceNum()]; !ok {
+		if !lostPiecesSet[piece.GetPieceNum()] {
 			healthyPieces = append(healthyPieces, piece)
+			healthyMap[piece.GetPieceNum()] = true
+		} else {
+			unhealthyPieces = append(unhealthyPieces, piece)
 		}
 	}
 
@@ -109,14 +137,22 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, err := repairer.orders.CreateGetRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, healthyPieces)
+	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucketID, pointer, healthyPieces)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
+	var requestCount int
+	{
+		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) *
+			repairer.multiplierOptimalThreshold,
+		)
+		requestCount = int(totalNeeded) - len(healthyPieces)
+	}
+
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
-		RequestedCount: redundancy.TotalCount() - len(healthyPieces),
+		RequestedCount: requestCount,
 		FreeBandwidth:  pieceSize,
 		FreeDisk:       pieceSize,
 		ExcludedNodes:  excludeNodeIDs,
@@ -127,13 +163,13 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, err := repairer.orders.CreatePutRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, getOrderLimits, newNodes)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucketID, pointer, getOrderLimits, newNodes)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	// Download the segment using just the healthy pieces
-	rr, err := repairer.ec.Get(ctx, getOrderLimits, redundancy, pointer.GetSegmentSize())
+	rr, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -145,49 +181,68 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout, path)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, r, expiration, repairer.timeout, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// Add the successfully uploaded pieces to the healthyPieces
+	// Add the successfully uploaded pieces to repairedPieces
+	var repairedPieces []*pb.RemotePiece
+	repairedMap := make(map[int32]bool)
 	for i, node := range successfulNodes {
 		if node == nil {
 			continue
 		}
-		healthyPieces = append(healthyPieces, &pb.RemotePiece{
+		piece := pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   node.Id,
 			Hash:     hashes[i],
-		})
+		}
+		repairedPieces = append(repairedPieces, &piece)
+		repairedMap[int32(i)] = true
 	}
 
-	// Update the remote pieces in the pointer
-	pointer.GetRemote().RemotePieces = healthyPieces
-
-	if int32(len(healthyPieces)) <= pointer.Remote.Redundancy.RepairThreshold {
+	healthyAfterRepair := int32(len(healthyPieces) + len(repairedPieces))
+	switch {
+	case healthyAfterRepair <= pointer.Remote.Redundancy.RepairThreshold:
 		mon.Meter("repair_failed").Mark(1)
-	} else if int32(len(healthyPieces)) < pointer.Remote.Redundancy.SuccessThreshold {
+	case healthyAfterRepair < pointer.Remote.Redundancy.SuccessThreshold:
 		mon.Meter("repair_partial").Mark(1)
-	} else {
+	default:
 		mon.Meter("repair_success").Mark(1)
 	}
 
 	healthyRatioAfterRepair := 0.0
 	if pointer.Remote.Redundancy.Total != 0 {
-		healthyRatioAfterRepair = float64(len(healthyPieces)) / float64(pointer.Remote.Redundancy.Total)
+		healthyRatioAfterRepair = float64(healthyAfterRepair) / float64(pointer.Remote.Redundancy.Total)
 	}
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
+	var toRemove []*pb.RemotePiece
+	if healthyAfterRepair >= pointer.Remote.Redundancy.SuccessThreshold {
+		// if full repair, remove all unhealthy pieces
+		toRemove = unhealthyPieces
+	} else {
+		// if partial repair, leave unrepaired unhealthy pieces in the pointer
+		for _, piece := range unhealthyPieces {
+			if repairedMap[piece.GetPieceNum()] {
+				// add only repaired pieces in the slice, unrepaired
+				// unhealthy pieces are not removed from the pointer
+				toRemove = append(toRemove, piece)
+			}
+		}
+	}
+
 	// Update the segment pointer in the metainfo
-	return repairer.metainfo.Put(path, pointer)
+	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
+	return err
 }
 
 // sliceToSet converts the given slice to a set
-func sliceToSet(slice []int32) map[int32]struct{} {
-	set := make(map[int32]struct{}, len(slice))
+func sliceToSet(slice []int32) map[int32]bool {
+	set := make(map[int32]bool, len(slice))
 	for _, value := range slice {
-		set[value] = struct{}{}
+		set[value] = true
 	}
 	return set
 }

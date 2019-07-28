@@ -59,6 +59,15 @@ func TestBase2Size(t *testing.T) {
 		if test.size != size {
 			t.Errorf("%d. invalid size got %d expected %d", i, size, test.size)
 		}
+
+		// test negative
+		err = size.Set("-" + test.text)
+		if err != nil {
+			t.Errorf("%d. got error %v", i, err)
+		}
+		if -test.size != size {
+			t.Errorf("%d. invalid size got %d expected %d", i, size, test.size)
+		}
 	}
 }
 
@@ -97,6 +106,15 @@ func TestBase10Size(t *testing.T) {
 		if test.size != size {
 			t.Errorf("%d. invalid size got %d expected %d", i, size, test.size)
 		}
+
+		// test negative
+		err = size.Set("-" + test.text)
+		if err != nil {
+			t.Errorf("%d. got error %v", i, err)
+		}
+		if -test.size != size {
+			t.Errorf("%d. invalid size got %d expected %d", i, size, test.size)
+		}
 	}
 }
 
@@ -133,6 +151,15 @@ func TestParse(t *testing.T) {
 			t.Errorf("%d. got error %v", i, err)
 		}
 		if test.size != size {
+			t.Errorf("%d. invalid size got %d expected %d", i, size, test.size)
+		}
+
+		// test negative
+		err = size.Set("-" + test.text)
+		if err != nil {
+			t.Errorf("%d. got error %v", i, err)
+		}
+		if -test.size != size {
 			t.Errorf("%d. invalid size got %d expected %d", i, size, test.size)
 		}
 	}

@@ -4,7 +4,6 @@
 package accounting_test
 
 import (
-	"crypto/rand"
 	"fmt"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -48,11 +48,12 @@ func TestProjectUsageStorage(t *testing.T) {
 
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
-		for _, tt := range cases {
-			t.Run(tt.name, func(t *testing.T) {
+		for _, ttc := range cases {
+			testCase := ttc
+			t.Run(testCase.name, func(t *testing.T) {
 
 				// Setup: create BucketStorageTally records to test exceeding storage project limit
-				if tt.expectedResource == "storage" {
+				if testCase.expectedResource == "storage" {
 					now := time.Now()
 					err := setUpStorageTallies(ctx, projectID, acctDB, 25, now)
 					require.NoError(t, err)
@@ -60,17 +61,15 @@ func TestProjectUsageStorage(t *testing.T) {
 
 				actualExceeded, _, err := projectUsage.ExceedsStorageUsage(ctx, projectID)
 				require.NoError(t, err)
-				require.Equal(t, tt.expectedExceeded, actualExceeded)
+				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
 				// Setup: create some bytes for the uplink to upload
-				expectedData := make([]byte, 50*memory.KiB)
-				_, err = rand.Read(expectedData)
-				require.NoError(t, err)
+				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
 				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
-				if tt.expectedResource == "storage" {
-					assert.EqualError(t, actualErr, tt.expectedErrMsg)
+				if testCase.expectedResource == "storage" {
+					assert.EqualError(t, actualErr, testCase.expectedErrMsg)
 				} else {
 					require.NoError(t, actualErr)
 				}
@@ -91,7 +90,8 @@ func TestProjectUsageBandwidth(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
+		testCase := tt
+		t.Run(testCase.name, func(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -108,16 +108,14 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
-				if tt.expectedResource == "bandwidth" {
+				if testCase.expectedResource == "bandwidth" {
 					now := time.Now().UTC()
 					err := setUpBucketBandwidthAllocations(ctx, projectID, orderDB, now)
 					require.NoError(t, err)
 				}
 
 				// Setup: create some bytes for the uplink to upload to test the download later
-				expectedData := make([]byte, 50*memory.KiB)
-				_, err = rand.Read(expectedData)
-				require.NoError(t, err)
+				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				filePath := "test/path"
 				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, filePath, expectedData)
@@ -125,12 +123,12 @@ func TestProjectUsageBandwidth(t *testing.T) {
 
 				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, projectID, bucketID)
 				require.NoError(t, err)
-				require.Equal(t, tt.expectedExceeded, actualExceeded)
+				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
 				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, filePath)
-				if tt.expectedResource == "bandwidth" {
-					assert.EqualError(t, actualErr, tt.expectedErrMsg)
+				if testCase.expectedResource == "bandwidth" {
+					assert.EqualError(t, actualErr, testCase.expectedErrMsg)
 				} else {
 					require.NoError(t, actualErr)
 				}
@@ -188,21 +186,20 @@ func createBucketBandwidthRollups(ctx *testcontext.Context, satelliteDB satellit
 			intervalStart = now
 		}
 
-		bucketID := createBucketID(projectID, []byte(bucketName))
 		err := ordersDB.UpdateBucketBandwidthAllocation(ctx,
-			bucketID, pb.PieceAction_GET, amount, intervalStart,
+			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
 		)
 		if err != nil {
 			return expectedSum, err
 		}
 		err = ordersDB.UpdateBucketBandwidthSettle(ctx,
-			bucketID, pb.PieceAction_GET, amount, intervalStart,
+			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
 		)
 		if err != nil {
 			return expectedSum, err
 		}
 		err = ordersDB.UpdateBucketBandwidthInline(ctx,
-			bucketID, pb.PieceAction_GET, amount, intervalStart,
+			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
 		)
 		if err != nil {
 			return expectedSum, err
@@ -218,17 +215,15 @@ func TestProjectBandwidthTotal(t *testing.T) {
 		defer ctx.Cleanup()
 
 		pdb := db.ProjectAccounting()
-		projectID, err := uuid.New()
-		require.NoError(t, err)
+		projectID := testrand.UUID()
 
 		// Setup: create bucket bandwidth rollup records
-		expectedTotal, err := createBucketBandwidthRollups(ctx, db, *projectID)
+		expectedTotal, err := createBucketBandwidthRollups(ctx, db, projectID)
 		require.NoError(t, err)
 
 		// Execute test: get project bandwidth total
-		bucketID := createBucketID(*projectID, []byte("testbucket"))
 		from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
-		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, bucketID, from)
+		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, projectID, from)
 		require.NoError(t, err)
 		require.Equal(t, actualBandwidthTotal, expectedTotal)
 	})
@@ -239,14 +234,13 @@ func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UU
 	// Create many records that sum greater than project usage limit of 25GB
 	for i := 0; i < 4; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
-		bucketID := createBucketID(projectID, []byte(bucketName))
 
 		// In order to exceed the project limits, create bandwidth allocation records
 		// that sum greater than the maxAlphaUsage * expansionFactor
 		amount := 10 * memory.GB.Int64() * accounting.ExpansionFactor
 		action := pb.PieceAction_GET
 		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-		err := orderDB.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount, intervalStart)
+		err := orderDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), action, amount, intervalStart)
 		if err != nil {
 			return err
 		}
@@ -284,9 +278,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		require.Equal(t, project.UsageLimit, limit.Int64())
 
 		// Setup: create some bytes for the uplink to upload
-		expectedData := make([]byte, 50*memory.KiB)
-		_, err = rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
 		actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)

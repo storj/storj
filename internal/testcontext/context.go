@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -52,6 +51,8 @@ type caller struct {
 type TB interface {
 	Name() string
 	Helper()
+
+	Log(args ...interface{})
 	Error(args ...interface{})
 	Fatal(args ...interface{})
 }
@@ -98,6 +99,16 @@ func (ctx *Context) Go(fn func() error) {
 	})
 }
 
+// Wait blocks until all of the goroutines launched with Go are done and
+// fails the test if any of them returned an error.
+func (ctx *Context) Wait() {
+	ctx.test.Helper()
+	err := ctx.group.Wait()
+	if err != nil {
+		ctx.test.Fatal(err)
+	}
+}
+
 // Check calls fn and checks result
 func (ctx *Context) Check(fn func() error) {
 	ctx.test.Helper()
@@ -113,9 +124,15 @@ func (ctx *Context) Dir(elem ...string) string {
 	ctx.test.Helper()
 
 	ctx.once.Do(func() {
+		sanitized := strings.Map(func(r rune) rune {
+			if ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z') || ('0' <= r && r <= '9') || r == '-' {
+				return r
+			}
+			return '_'
+		}, ctx.test.Name())
+
 		var err error
-		pattern := regexp.MustCompile(`[\\/]`)
-		ctx.directory, err = ioutil.TempDir("", pattern.ReplaceAllString(ctx.test.Name(), "_"))
+		ctx.directory, err = ioutil.TempDir("", sanitized)
 		if err != nil {
 			ctx.test.Fatal(err)
 		}

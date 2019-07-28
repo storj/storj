@@ -36,6 +36,9 @@ func graphqlAPIKeyInfo() *graphql.Object {
 			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
+			FieldPartnerID: &graphql.Field{
+				Type: graphql.String,
+			},
 		},
 	})
 }

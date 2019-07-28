@@ -4,11 +4,14 @@
 package testsuite
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 
 	"storj.io/storj/storage"
 )
+
+var ctx = context.Background() // test context
 
 func testIterate(t *testing.T, store storage.KeyValueStore) {
 	items := storage.Items{
@@ -25,7 +28,7 @@ func testIterate(t *testing.T, store storage.KeyValueStore) {
 	}
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(store, items)
-	if err := storage.PutAll(store, items...); err != nil {
+	if err := storage.PutAll(ctx, store, items...); err != nil {
 		t.Fatalf("failed to setup: %v", err)
 	}
 

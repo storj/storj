@@ -14,6 +14,7 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -42,11 +43,12 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
 
+	// list objects
 	if len(args) > 0 {
 		src, err := fpath.New(args[0])
 		if err != nil {
@@ -57,7 +59,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No bucket specified, use format sj://bucket/")
 		}
 
-		bucket, err := project.OpenBucket(ctx, src.Bucket(), &access)
+		bucket, err := project.OpenBucket(ctx, src.Bucket(), access)
 		if err != nil {
 			return err
 		}
@@ -73,11 +75,15 @@ func list(cmd *cobra.Command, args []string) error {
 		return convertError(err, src)
 	}
 
-	startAfter := ""
 	noBuckets := true
 
+	// list buckets
+	listOpts := storj.BucketListOptions{
+		Direction: storj.Forward,
+		Cursor:    "",
+	}
 	for {
-		list, err := project.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
+		list, err := project.ListBuckets(ctx, &listOpts)
 		if err != nil {
 			return err
 		}
@@ -95,7 +101,8 @@ func list(cmd *cobra.Command, args []string) error {
 		if !list.More {
 			break
 		}
-		startAfter = list.Items[len(list.Items)-1].Name
+
+		listOpts = listOpts.NextPage(list)
 	}
 
 	if noBuckets {
@@ -105,13 +112,13 @@ func list(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucketName string, access libuplink.EncryptionAccess) error {
+func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucketName string, access *libuplink.EncryptionAccess) error {
 	prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucketName))
 	if err != nil {
 		return err
 	}
 
-	bucket, err := project.OpenBucket(ctx, bucketName, &access)
+	bucket, err := project.OpenBucket(ctx, bucketName, access)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@
 package testsuite
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -22,7 +23,7 @@ func newItem(key, value string, isPrefix bool) storage.ListItem {
 
 func cleanupItems(store storage.KeyValueStore, items storage.Items) {
 	for _, item := range items {
-		_ = store.Delete(item.Key)
+		_ = store.Delete(ctx, item.Key)
 	}
 }
 
@@ -48,7 +49,7 @@ func testIterations(t *testing.T, store storage.KeyValueStore, tests []iteration
 
 func isEmptyKVStore(tb testing.TB, store storage.KeyValueStore) bool {
 	tb.Helper()
-	keys, err := store.List(storage.Key(""), 1)
+	keys, err := store.List(ctx, storage.Key(""), 1)
 	if err != nil {
 		tb.Fatalf("Failed to check if KeyValueStore is empty: %v", err)
 	}
@@ -60,9 +61,9 @@ type collector struct {
 	Limit int
 }
 
-func (collect *collector) include(it storage.Iterator) error {
+func (collect *collector) include(ctx context.Context, it storage.Iterator) error {
 	var item storage.ListItem
-	for (collect.Limit < 0 || len(collect.Items) < collect.Limit) && it.Next(&item) {
+	for (collect.Limit < 0 || len(collect.Items) < collect.Limit) && it.Next(ctx, &item) {
 		collect.Items = append(collect.Items, storage.CloneItem(item))
 	}
 	return nil
@@ -70,7 +71,7 @@ func (collect *collector) include(it storage.Iterator) error {
 
 func iterateItems(store storage.KeyValueStore, opts storage.IterateOptions, limit int) (storage.Items, error) {
 	collect := &collector{Limit: limit}
-	err := store.Iterate(opts, collect.include)
+	err := store.Iterate(ctx, opts, collect.include)
 	if err != nil {
 		return nil, err
 	}

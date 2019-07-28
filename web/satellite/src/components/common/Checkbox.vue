@@ -9,33 +9,20 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
 
-// Custom checkbox component
-@Component(
-    {
-        data: () => {
-            return {
-                checked: false
-            };
-        },
-        methods: {
-            // Emits data to parent component
-            onChange() {
-                this.$emit('setData', this.$data.checked);
-            }
-        },
-        props: {
-            isCheckboxError: {
-                type: Boolean,
-                default: false
-            },
-        },
+    // Custom checkbox component
+    @Component
+    export default class Checkbox extends Vue {
+        @Prop({default: false})
+        private readonly isCheckboxError: boolean;
+        
+        private checked: boolean = false;
+        
+        public onChange(): void {
+            this.$emit('setData', this.checked);
+        }
     }
-)
-export default class Checkbox extends Vue {
-
-}
 </script>
 
 <style scoped lang="scss">
@@ -43,8 +30,8 @@ export default class Checkbox extends Vue {
         display: block;
         position: relative;
         padding-left: 20px;
-        height: 25px;
-        width: 25px;
+        height: 23px;
+        width: 23px;
         cursor: pointer;
         font-size: 22px;
         -webkit-user-select: none;

@@ -97,7 +97,8 @@ func TestMigratePostgres(t *testing.T) {
 	snapshots, err := loadSnapshots(*pgtest.ConnStr)
 	require.NoError(t, err)
 
-	for _, base := range snapshots.List {
+	for _, snapshot := range snapshots.List {
+		base := snapshot
 		// versions 0 to 4 can be a starting point
 		if base.Version < minBaseVersion || maxBaseVersion < base.Version {
 			continue

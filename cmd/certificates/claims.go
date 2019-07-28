@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/certificates"
+	"storj.io/storj/pkg/process"
 )
 
 var (
@@ -44,6 +45,7 @@ var (
 )
 
 func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
 	authDB, err := claimsExportCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
@@ -52,7 +54,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, authDB.Close())
 	}()
 
-	auths, err := authDB.List()
+	auths, err := authDB.List(ctx)
 	if err != nil {
 		return err
 	}
@@ -81,6 +83,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
 	authDB, err := claimsDeleteCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
@@ -89,7 +92,7 @@ func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, authDB.Close())
 	}()
 
-	if err := authDB.Unclaim(args[0]); err != nil {
+	if err := authDB.Unclaim(ctx, args[0]); err != nil {
 		return err
 	}
 	return nil

@@ -5,6 +5,7 @@ package inspector
 
 import (
 	"context"
+	"net"
 	"strings"
 	"time"
 
@@ -35,23 +36,33 @@ type Endpoint struct {
 	kademlia  *kademlia.Kademlia
 	usageDB   bandwidth.DB
 
-	startTime time.Time
-	config    piecestore.OldConfig
+	startTime        time.Time
+	pieceStoreConfig piecestore.OldConfig
+	dashboardAddress net.Addr
 }
 
 // NewEndpoint creates piecestore inspector instance
-func NewEndpoint(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, usageDB bandwidth.DB, config piecestore.OldConfig) *Endpoint {
+func NewEndpoint(
+	log *zap.Logger,
+	pieceInfo pieces.DB,
+	kademlia *kademlia.Kademlia,
+	usageDB bandwidth.DB,
+	pieceStoreConfig piecestore.OldConfig,
+	dashbaordAddress net.Addr) *Endpoint {
+
 	return &Endpoint{
-		log:       log,
-		pieceInfo: pieceInfo,
-		kademlia:  kademlia,
-		usageDB:   usageDB,
-		config:    config,
-		startTime: time.Now(),
+		log:              log,
+		pieceInfo:        pieceInfo,
+		kademlia:         kademlia,
+		usageDB:          usageDB,
+		pieceStoreConfig: pieceStoreConfig,
+		dashboardAddress: dashbaordAddress,
+		startTime:        time.Now(),
 	}
 }
 
-func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryResponse, error) {
+func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummaryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
 	totalUsedSpace, err := inspector.pieceInfo.SpaceUsed(ctx)
@@ -69,11 +80,11 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryRe
 
 	return &pb.StatSummaryResponse{
 		UsedSpace:          totalUsedSpace,
-		AvailableSpace:     inspector.config.AllocatedDiskSpace.Int64() - totalUsedSpace,
+		AvailableSpace:     inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - totalUsedSpace,
 		UsedIngress:        ingress,
 		UsedEgress:         egress,
 		UsedBandwidth:      totalUsedBandwidth,
-		AvailableBandwidth: inspector.config.AllocatedBandwidth.Int64() - totalUsedBandwidth,
+		AvailableBandwidth: inspector.pieceStoreConfig.AllocatedBandwidth.Int64() - totalUsedBandwidth,
 	}, nil
 }
 
@@ -93,7 +104,9 @@ func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out 
 	return statsSummary, nil
 }
 
-func (inspector *Endpoint) getDashboardData(ctx context.Context) (*pb.DashboardResponse, error) {
+func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.DashboardResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	statsSummary, err := inspector.retrieveStats(ctx)
 	if err != nil {
 		return &pb.DashboardResponse{}, Error.Wrap(err)
@@ -111,25 +124,15 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (*pb.DashboardR
 		bsNodes[i] = node.Address.Address
 	}
 
-	pinged, err := ptypes.TimestampProto(inspector.kademlia.LastPinged())
-	if err != nil {
-		inspector.log.Warn("last ping time bad", zap.Error(err))
-		pinged = nil
-	}
-	queried, err := ptypes.TimestampProto(inspector.kademlia.LastQueried())
-	if err != nil {
-		inspector.log.Warn("last query time bad", zap.Error(err))
-		queried = nil
-	}
-
 	return &pb.DashboardResponse{
 		NodeId:           inspector.kademlia.Local().Id,
 		NodeConnections:  int64(len(nodes)),
-		BootstrapAddress: strings.Join(bsNodes[:], ", "),
+		BootstrapAddress: strings.Join(bsNodes, ", "),
 		InternalAddress:  "",
 		ExternalAddress:  inspector.kademlia.Local().Address.Address,
-		LastPinged:       pinged,
-		LastQueried:      queried,
+		LastPinged:       inspector.kademlia.LastPinged(),
+		LastQueried:      inspector.kademlia.LastQueried(),
+		DashboardAddress: inspector.dashboardAddress.String(),
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
 	}, nil

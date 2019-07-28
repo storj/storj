@@ -27,6 +27,8 @@ type Bucket struct {
 	streams  streams.Store
 }
 
+// TODO: move the object related OpenObject to object.go
+
 // OpenObject returns an Object handle, if authorized.
 func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -53,7 +55,7 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 				RedundancyScheme     storj.RedundancyScheme
 				SegmentsSize         int64
 			}{
-				EncryptionParameters: info.ToEncryptionParameters(),
+				EncryptionParameters: info.EncryptionParameters,
 				RedundancyScheme:     info.RedundancyScheme,
 				SegmentsSize:         info.FixedSegmentSize,
 			},
@@ -119,7 +121,7 @@ type ListOptions = storj.ListOptions
 func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
-		cfg = &storj.ListOptions{}
+		cfg = &storj.ListOptions{Direction: storj.Forward}
 	}
 	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
 }
@@ -157,11 +159,11 @@ func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOpt
 		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
 	}
 	createInfo := storj.CreateObject{
-		ContentType:      opts.ContentType,
-		Metadata:         opts.Metadata,
-		Expires:          opts.Expires,
-		RedundancyScheme: opts.Volatile.RedundancyScheme,
-		EncryptionScheme: opts.Volatile.EncryptionParameters.ToEncryptionScheme(),
+		ContentType:          opts.ContentType,
+		Metadata:             opts.Metadata,
+		Expires:              opts.Expires,
+		RedundancyScheme:     opts.Volatile.RedundancyScheme,
+		EncryptionParameters: opts.Volatile.EncryptionParameters,
 	}
 
 	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)

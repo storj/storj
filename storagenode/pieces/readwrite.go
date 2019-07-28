@@ -4,11 +4,9 @@
 package pieces
 
 import (
-	"bufio"
+	"context"
 	"hash"
 	"io"
-
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/storage"
@@ -16,7 +14,6 @@ import (
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
 type Writer struct {
-	buf  bufio.Writer
 	hash hash.Hash
 	blob storage.BlobWriter
 	size int64
@@ -25,9 +22,8 @@ type Writer struct {
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(blob storage.BlobWriter, bufferSize int) (*Writer, error) {
+func NewWriter(blob storage.BlobWriter) (*Writer, error) {
 	w := &Writer{}
-	w.buf = *bufio.NewWriterSize(blob, bufferSize)
 	w.blob = blob
 	w.hash = pkcrypto.NewHash()
 	return w, nil
@@ -35,9 +31,12 @@ func NewWriter(blob storage.BlobWriter, bufferSize int) (*Writer, error) {
 
 // Write writes data to the blob and calculates the hash.
 func (w *Writer) Write(data []byte) (int, error) {
-	n, err := w.buf.Write(data)
+	n, err := w.blob.Write(data)
 	w.size += int64(n)
 	_, _ = w.hash.Write(data[:n]) // guaranteed not to return an error
+	if err == io.EOF {
+		return n, err
+	}
 	return n, Error.Wrap(err)
 }
 
@@ -48,44 +47,40 @@ func (w *Writer) Size() int64 { return w.size }
 func (w *Writer) Hash() []byte { return w.hash.Sum(nil) }
 
 // Commit commits piece to permanent storage.
-func (w *Writer) Commit() error {
+func (w *Writer) Commit(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if w.closed {
 		return Error.New("already closed")
 	}
 	w.closed = true
-	if err := w.buf.Flush(); err != nil {
-		return Error.Wrap(errs.Combine(err, w.blob.Cancel()))
-	}
-	return Error.Wrap(w.blob.Commit())
+	return Error.Wrap(w.blob.Commit(ctx))
 }
 
 // Cancel deletes any temporarily written data.
-func (w *Writer) Cancel() error {
+func (w *Writer) Cancel(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if w.closed {
 		return nil
 	}
 	w.closed = true
-	w.buf.Reset(nil)
-	return Error.Wrap(w.blob.Cancel())
+	return Error.Wrap(w.blob.Cancel(ctx))
 }
 
 // Reader implements a piece reader that reads content from blob store.
 type Reader struct {
-	buf  bufio.Reader
 	blob storage.BlobReader
 	pos  int64
 	size int64
 }
 
 // NewReader creates a new reader for storage.BlobReader.
-func NewReader(blob storage.BlobReader, bufferSize int) (*Reader, error) {
+func NewReader(blob storage.BlobReader) (*Reader, error) {
 	size, err := blob.Size()
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	reader := &Reader{}
-	reader.buf = *bufio.NewReaderSize(blob, bufferSize)
 	reader.blob = blob
 	reader.size = size
 
@@ -96,6 +91,9 @@ func NewReader(blob storage.BlobReader, bufferSize int) (*Reader, error) {
 func (r *Reader) Read(data []byte) (int, error) {
 	n, err := r.blob.Read(data)
 	r.pos += int64(n)
+	if err == io.EOF {
+		return n, err
+	}
 	return n, Error.Wrap(err)
 }
 
@@ -105,15 +103,20 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 		return r.pos, nil
 	}
 
-	r.buf.Reset(r.blob)
 	pos, err := r.blob.Seek(offset, whence)
 	r.pos = pos
+	if err == io.EOF {
+		return pos, err
+	}
 	return pos, Error.Wrap(err)
 }
 
 // ReadAt reads data at the specified offset
 func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
 	n, err := r.blob.ReadAt(data, offset)
+	if err == io.EOF {
+		return n, err
+	}
 	return n, Error.Wrap(err)
 }
 
@@ -122,6 +125,5 @@ func (r *Reader) Size() int64 { return r.size }
 
 // Close closes the reader.
 func (r *Reader) Close() error {
-	r.buf.Reset(nil)
 	return Error.Wrap(r.blob.Close())
 }

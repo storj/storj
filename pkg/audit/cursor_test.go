@@ -4,18 +4,17 @@
 package audit_test
 
 import (
-	"crypto/rand"
+	"context"
 	"math"
-	"math/big"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
@@ -37,7 +36,7 @@ func TestAuditSegment(t *testing.T) {
 		// change limit in library to 5 in
 		// list api call, default is  0 == 1000 listing
 		//populate metainfo with 10 non-expired pointers of test data
-		tests, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
+		tests, cursor, metainfoSvc := populateTestData(t, planet, time.Now().Add(3*time.Second))
 
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
@@ -55,7 +54,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// test to see how random paths are
 		t.Run("probabilisticTest", func(t *testing.T) {
-			list, _, err := metainfo.List("", "", "", true, 10, meta.None)
+			list, _, err := metainfoSvc.List(ctx, "", "", "", true, 10, meta.None)
 			require.NoError(t, err)
 			require.Len(t, list, 10)
 
@@ -65,11 +64,7 @@ func TestAuditSegment(t *testing.T) {
 
 			// get a list of 100 paths generated from random
 			for i := 0; i < 100; i++ {
-				randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(list))))
-				if err != nil {
-					t.Error("num error: failed to get num")
-				}
-				pointerItem := list[randomNum.Int64()]
+				pointerItem := list[testrand.Int63n(int64(len(list)))]
 				path := pointerItem.Path
 				val := pathCount{path: path, count: 1}
 				pathCounter = append(pathCounter, val)
@@ -80,7 +75,7 @@ func TestAuditSegment(t *testing.T) {
 				skip := false
 				for i, up := range uniquePathCounted {
 					if reflect.DeepEqual(pc.path, up.path) {
-						up.count = up.count + 1
+						up.count++
 						uniquePathCounted[i] = up
 						skip = true
 						break
@@ -117,9 +112,9 @@ func TestDeleteExpired(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		//populate metainfo with 10 expired pointers of test data
-		_, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{})
+		_, cursor, metainfoSvc := populateTestData(t, planet, time.Now().Add(-time.Second*1))
 		//make sure it they're in there
-		list, _, err := metainfo.List("", "", "", true, 10, meta.None)
+		list, _, err := metainfoSvc.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 10)
 		// make sure an error and no pointer is returned
@@ -129,7 +124,7 @@ func TestDeleteExpired(t *testing.T) {
 			require.Nil(t, stripe)
 		})
 		//make sure it they're not in there anymore
-		list, _, err = metainfo.List("", "", "", true, 10, meta.None)
+		list, _, err = metainfoSvc.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 0)
 	})
@@ -140,7 +135,8 @@ type testData struct {
 	path storj.Path
 }
 
-func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *metainfo.Service) {
+func populateTestData(t *testing.T, planet *testplanet.Planet, expiration time.Time) ([]testData, *audit.Cursor, *metainfo.Service) {
+	ctx := context.TODO()
 	tests := []testData{
 		{bm: "success-1", path: "folder1/file1"},
 		{bm: "success-2", path: "foodFolder1/file1/file2"},
@@ -153,28 +149,30 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 		{bm: "success-9", path: "Pictures/Animals/Dogs/dogs.png"},
 		{bm: "success-10", path: "Nada/ビデオ/😶"},
 	}
-	metainfo := planet.Satellites[0].Metainfo.Service
-	cursor := audit.NewCursor(metainfo)
+	metainfoSvc := planet.Satellites[0].Metainfo.Service
+	cursor := audit.NewCursor(metainfoSvc)
 
-	// put 10 pointers in db with expirations
+	// put 10 pointers in db with expiration
 	t.Run("putToDB", func(t *testing.T) {
 		for _, tt := range tests {
-			t.Run(tt.bm, func(t *testing.T) {
-				pointer := makePointer(tt.path, expiration)
-				require.NoError(t, metainfo.Put(tt.path, pointer))
+			test := tt
+			t.Run(test.bm, func(t *testing.T) {
+				pointer := makePointer(expiration)
+				require.NoError(t, metainfoSvc.Put(ctx, test.path, pointer))
 			})
 		}
 	})
-	return tests, cursor, metainfo
+	return tests, cursor, metainfoSvc
 }
 
-func makePointer(path storj.Path, expiration *timestamp.Timestamp) *pb.Pointer {
+func makePointer(expiration time.Time) *pb.Pointer {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
 		NodeId:   teststorj.NodeIDFromString("testId"),
 	})
 	return &pb.Pointer{
+		CreationDate:   time.Now(),
 		ExpirationDate: expiration,
 		Type:           pb.Pointer_REMOTE,
 		Remote: &pb.RemoteSegment{

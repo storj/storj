@@ -9,7 +9,8 @@ import (
 	"crypto/sha512"
 	"database/sql/driver"
 	"encoding/base32"
-	"strings"
+	"encoding/binary"
+	"encoding/json"
 
 	"github.com/zeebo/errs"
 )
@@ -51,7 +52,7 @@ func PieceIDFromBytes(b []byte) (PieceID, error) {
 	}
 
 	var id PieceID
-	copy(id[:], b[:])
+	copy(id[:], b)
 	return id, nil
 }
 
@@ -66,11 +67,14 @@ func (id PieceID) String() string { return pieceIDEncoding.EncodeToString(id.Byt
 // Bytes returns bytes of the piece ID
 func (id PieceID) Bytes() []byte { return id[:] }
 
-// Derive a new PieceID from the current piece ID and the given storage node ID
-func (id PieceID) Derive(storagenodeID NodeID) PieceID {
+// Derive a new PieceID from the current piece ID, the given storage node ID and piece number
+func (id PieceID) Derive(storagenodeID NodeID, pieceNum int32) PieceID {
 	// TODO: should the secret / content be swapped?
 	mac := hmac.New(sha512.New, id.Bytes())
 	_, _ = mac.Write(storagenodeID.Bytes()) // on hash.Hash write never returns an error
+	num := make([]byte, 4)
+	binary.BigEndian.PutUint32(num, uint32(pieceNum))
+	_, _ = mac.Write(num) // on hash.Hash write never returns an error
 	var derived PieceID
 	copy(derived[:], mac.Sum(nil))
 	return derived
@@ -106,8 +110,13 @@ func (id PieceID) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON deserializes a json string (as bytes) to a piece ID
 func (id *PieceID) UnmarshalJSON(data []byte) error {
-	var err error
-	*id, err = PieceIDFromString(strings.Trim(string(data), `"`))
+	var unquoted string
+	err := json.Unmarshal(data, &unquoted)
+	if err != nil {
+		return err
+	}
+
+	*id, err = PieceIDFromString(unquoted)
 	if err != nil {
 		return err
 	}

@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/eestream"
@@ -44,25 +43,28 @@ func NewCursor(metainfo *metainfo.Service) *Cursor {
 
 // NextStripe returns a random stripe to be audited. "more" is true except when we have completed iterating over metainfo. It can be disregarded if there is an error or stripe returned
 func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	cursor.mutex.Lock()
 	defer cursor.mutex.Unlock()
 
 	var pointerItems []*pb.ListResponse_Item
 	var path storj.Path
 
-	pointerItems, more, err = cursor.metainfo.List("", cursor.lastPath, "", true, 0, meta.None)
+	pointerItems, more, err = cursor.metainfo.List(ctx, "", cursor.lastPath, "", true, 0, meta.None)
 	if err != nil {
 		return nil, more, err
 	}
-
 	// keep track of last path listed
 	if !more {
 		cursor.lastPath = ""
 	} else {
 		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
-
-	pointer, path, err := cursor.getRandomValidPointer(pointerItems)
+	if len(pointerItems) == 0 {
+		return nil, more, nil
+	}
+	pointer, path, err := cursor.getRandomValidPointer(ctx, pointerItems)
 	if err != nil {
 		return nil, more, err
 	}
@@ -70,7 +72,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool
 		return nil, more, nil
 	}
 
-	index, err := getRandomStripe(pointer)
+	index, err := getRandomStripe(ctx, pointer)
 	if err != nil {
 		return nil, more, err
 	}
@@ -82,7 +84,8 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool
 	}, more, nil
 }
 
-func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
+func getRandomStripe(ctx context.Context, pointer *pb.Pointer) (index int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
 		return 0, err
@@ -102,7 +105,8 @@ func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
 }
 
 // getRandomValidPointer attempts to get a random remote pointer from a list. If it sees expired pointers in the process of looking, deletes them
-func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, path storj.Path, err error) {
+func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, path storj.Path, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var src cryptoSource
 	rnd := rand.New(src)
 	errGroup := new(errs.Group)
@@ -113,26 +117,19 @@ func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item
 		path := pointerItem.Path
 
 		// get pointer info
-		pointer, err := cursor.metainfo.Get(path)
+		pointer, err := cursor.metainfo.Get(ctx, path)
 		if err != nil {
 			errGroup.Add(err)
 			continue
 		}
 
 		//delete expired items rather than auditing them
-		if expiration := pointer.GetExpirationDate(); expiration != nil {
-			t, err := ptypes.Timestamp(expiration)
+		if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now()) {
+			err := cursor.metainfo.Delete(ctx, path)
 			if err != nil {
 				errGroup.Add(err)
-				continue
 			}
-			if t.Before(time.Now()) {
-				err := cursor.metainfo.Delete(path)
-				if err != nil {
-					errGroup.Add(err)
-				}
-				continue
-			}
+			continue
 		}
 
 		if pointer.GetType() != pb.Pointer_REMOTE || pointer.GetSegmentSize() == 0 {

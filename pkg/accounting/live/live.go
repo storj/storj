@@ -15,7 +15,7 @@ import (
 
 // Config contains configurable values for the live accounting service.
 type Config struct {
-	StorageBackend string `help:"what to use for storing real-time accounting data"`
+	StorageBackend string `help:"what to use for storing real-time accounting data" default:"plainmemory"`
 }
 
 // Service represents the external interface to the live accounting
@@ -36,8 +36,7 @@ func New(log *zap.Logger, config Config) (Service, error) {
 	} else {
 		backendType = parts[0]
 	}
-	switch backendType {
-	case "plainmemory":
+	if backendType == "plainmemory" {
 		return newPlainMemoryLiveAccounting(log)
 	}
 	return nil, errs.New("unrecognized live accounting backend specifier %q", backendType)

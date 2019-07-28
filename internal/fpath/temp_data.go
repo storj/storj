@@ -21,7 +21,7 @@ type temp struct {
 
 // WithTempData creates context with information how store temporary data, in memory or on disk
 func WithTempData(ctx context.Context, directory string, inmemory bool) context.Context {
-	temp := &temp{
+	temp := temp{
 		inmemory:  inmemory,
 		directory: directory,
 	}

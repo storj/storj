@@ -9,10 +9,10 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/dbschema"
-	"storj.io/storj/internal/errs2"
 )
 
 // DB is postgres database with schema
@@ -20,6 +20,10 @@ type DB struct {
 	*sql.DB
 	Schema string
 }
+
+var (
+	mon = monkit.Package()
+)
 
 // Open opens a postgres database with a schema
 func Open(connstr string, schemaPrefix string) (*DB, error) {
@@ -30,7 +34,7 @@ func Open(connstr string, schemaPrefix string) (*DB, error) {
 		return nil, err
 	}
 
-	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+	dbutil.Configure(db, mon)
 
 	err = CreateSchema(db, schemaName)
 	if err != nil {
@@ -121,7 +125,7 @@ func CheckApplicationName(s string) (r string) {
 
 // IsConstraintError checks if given error is about constraint violation
 func IsConstraintError(err error) bool {
-	return errs2.IsFunc(err, func(err error) bool {
+	return errs.IsFunc(err, func(err error) bool {
 		if e, ok := err.(*pq.Error); ok {
 			if e.Code.Class() == "23" {
 				return true

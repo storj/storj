@@ -6,7 +6,6 @@ package pieces_test
 import (
 	"bytes"
 	"io"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/filestore"
@@ -36,8 +36,7 @@ func TestPieces(t *testing.T) {
 	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 	pieceID := storj.NewPieceID()
 
-	source := make([]byte, 8000)
-	_, _ = rand.Read(source[:])
+	source := testrand.Bytes(8000)
 
 	{ // write data
 		writer, err := store.Writer(ctx, satelliteID, pieceID)
@@ -54,9 +53,9 @@ func TestPieces(t *testing.T) {
 		assert.Equal(t, hash.Sum(nil), writer.Hash())
 
 		// commit
-		require.NoError(t, writer.Commit())
+		require.NoError(t, writer.Commit(ctx))
 		// after commit we should be able to call cancel without an error
-		require.NoError(t, writer.Cancel())
+		require.NoError(t, writer.Cancel(ctx))
 	}
 
 	{ // valid reads
@@ -83,6 +82,24 @@ func TestPieces(t *testing.T) {
 		require.Equal(t, source, read(0, int64(len(source))))
 	}
 
+	{ // reading ends with io.EOF
+		reader, err := store.Reader(ctx, satelliteID, pieceID)
+		require.NoError(t, err)
+
+		data := make([]byte, 111)
+		for {
+			_, err := reader.Read(data)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				require.NoError(t, err)
+			}
+		}
+
+		require.NoError(t, reader.Close())
+	}
+
 	{ // test delete
 		assert.NoError(t, store.Delete(ctx, satelliteID, pieceID))
 		// read should now fail
@@ -101,9 +118,9 @@ func TestPieces(t *testing.T) {
 		assert.Equal(t, len(source), int(writer.Size()))
 
 		// cancel writing
-		require.NoError(t, writer.Cancel())
+		require.NoError(t, writer.Cancel(ctx))
 		// commit should not fail
-		require.Error(t, writer.Commit())
+		require.Error(t, writer.Commit(ctx))
 
 		// read should fail
 		_, err = store.Reader(ctx, satelliteID, cancelledPieceID)

@@ -12,10 +12,14 @@ import (
 	"runtime/pprof"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -24,9 +28,24 @@ import (
 type UplinkFlags struct {
 	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
 	uplink.Config
+
+	Version version.Config
 }
 
-var cfg UplinkFlags
+var (
+	cfg     UplinkFlags
+	confDir string
+
+	defaults = cfgstruct.DefaultsFlag(RootCmd)
+
+	// Error is the class of errors returned by this package
+	Error = errs.Class("uplink")
+)
+
+func init() {
+	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
+	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
+}
 
 var cpuProfile = flag.String("profile.cpu", "", "file path of the cpu profile to be created")
 var memoryProfile = flag.String("profile.mem", "", "file path of the memory profile to be created")
@@ -50,54 +69,51 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 		defaultConfDir = confDirParam
 	}
 
-	cfgstruct.Bind(cmd.Flags(), &cfg, defaults, cfgstruct.ConfDir(defaultConfDir))
+	process.Bind(cmd, &cfg, defaults, cfgstruct.ConfDir(defaultConfDir))
 
 	return cmd
 }
 
 // NewUplink returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
-func (c *UplinkFlags) NewUplink(ctx context.Context, config *libuplink.Config) (*libuplink.Uplink, error) {
-	return libuplink.NewUplink(ctx, config)
-}
+func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, error) {
 
-// GetProject returns a *libuplink.Project for interacting with a specific project
-func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
-	apiKey, err := libuplink.ParseAPIKey(c.Client.APIKey)
-	if err != nil {
-		return nil, err
-	}
-
-	satelliteAddr := c.Client.SatelliteAddr
-
-	cfg := &libuplink.Config{}
-
-	cfg.Volatile.TLS = struct {
+	// Transform the uplink cli config flags to the libuplink config object
+	libuplinkCfg := &libuplink.Config{}
+	libuplinkCfg.Volatile.MaxInlineSize = cliCfg.Client.MaxInlineSize
+	libuplinkCfg.Volatile.MaxMemory = cliCfg.RS.MaxBufferMem
+	libuplinkCfg.Volatile.PeerIDVersion = cliCfg.TLS.PeerIDVersions
+	libuplinkCfg.Volatile.TLS = struct {
 		SkipPeerCAWhitelist bool
 		PeerCAWhitelistPath string
 	}{
-		SkipPeerCAWhitelist: !c.TLS.UsePeerCAWhitelist,
-		PeerCAWhitelistPath: c.TLS.PeerCAWhitelistPath,
+		SkipPeerCAWhitelist: !cliCfg.TLS.UsePeerCAWhitelist,
+		PeerCAWhitelistPath: cliCfg.TLS.PeerCAWhitelistPath,
 	}
 
-	cfg.Volatile.MaxInlineSize = c.Client.MaxInlineSize
-	cfg.Volatile.MaxMemory = c.RS.MaxBufferMem
+	libuplinkCfg.Volatile.DialTimeout = cliCfg.Client.DialTimeout
+	libuplinkCfg.Volatile.RequestTimeout = cliCfg.Client.RequestTimeout
 
-	uplk, err := c.NewUplink(ctx, cfg)
+	return libuplink.NewUplink(ctx, libuplinkCfg)
+}
+
+// GetProject returns a *libuplink.Project for interacting with a specific project
+func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
+	err := version.CheckProcessVersion(ctx, cliCfg.Version, version.Build, "Uplink")
 	if err != nil {
 		return nil, err
 	}
 
-	opts := &libuplink.ProjectOptions{}
-
-	encKey, err := uplink.UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	apiKey, err := libuplink.ParseAPIKey(cliCfg.Client.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
-	opts.Volatile.EncryptionKey = encKey
+	uplk, err := cliCfg.NewUplink(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	project, err := uplk.OpenProject(ctx, satelliteAddr, apiKey, opts)
-
+	project, err := uplk.OpenProject(ctx, cliCfg.Client.SatelliteAddr, apiKey)
 	if err != nil {
 		if err := uplk.Close(); err != nil {
 			fmt.Printf("error closing uplink: %+v\n", err)
@@ -108,10 +124,10 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 }
 
 // GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
-func (c *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access libuplink.EncryptionAccess) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
-	project, err = c.GetProject(ctx)
+func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access *libuplink.EncryptionAccess) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
+	project, err = cliCfg.GetProject(ctx)
 	if err != nil {
-		return nil, nil, err
+		return project, bucket, err
 	}
 
 	defer func() {
@@ -122,12 +138,12 @@ func (c *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string
 		}
 	}()
 
-	bucket, err = project.OpenBucket(ctx, bucketName, &access)
+	bucket, err = project.OpenBucket(ctx, bucketName, access)
 	if err != nil {
-		return nil, nil, err
+		return project, bucket, err
 	}
 
-	return project, bucket, nil
+	return project, bucket, err
 }
 
 func closeProjectAndBucket(project *libuplink.Project, bucket *libuplink.Bucket) {

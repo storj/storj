@@ -19,6 +19,7 @@ type irreparableDB struct {
 
 // IncrementRepairAttempts a db entry for to increment the repair attempts field
 func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	tx, err := db.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -64,6 +65,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 
 // Get a irreparable's segment info from the db
 func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.IrreparableSegment, err error) {
+	defer mon.Task()(&ctx)(&err)
 	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 	if err != nil {
 		return &pb.IrreparableSegment{}, Error.Wrap(err)
@@ -85,9 +87,17 @@ func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.
 	}, nil
 }
 
-// Getlimited number of irreparable segments by offset
-func (db *irreparableDB) GetLimited(ctx context.Context, limit int, offset int64) (resp []*pb.IrreparableSegment, err error) {
-	rows, err := db.db.Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx, limit, offset)
+// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
+func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) (resp []*pb.IrreparableSegment, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// the offset is hardcoded to 0 since we are using the lastSeenSegmentPath to
+	// indicate the item we last listed instead. In a perfect world this db query would
+	// not take an offset as an argument, but currently dbx only supports `limitoffset`
+	const offset = 0
+	rows, err := db.db.Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx,
+		dbx.Irreparabledb_Segmentpath(lastSeenSegmentPath),
+		limit, offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +122,7 @@ func (db *irreparableDB) GetLimited(ctx context.Context, limit int, offset int64
 
 // Delete a irreparable's segment info from the db
 func (db *irreparableDB) Delete(ctx context.Context, segmentPath []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	_, err = db.db.Delete_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 
 	return Error.Wrap(err)

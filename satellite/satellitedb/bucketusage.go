@@ -17,17 +17,19 @@ type bucketusage struct {
 }
 
 // Get retrieves bucket usage rollup info by id
-func (usage *bucketusage) Get(ctx context.Context, id uuid.UUID) (*accounting.BucketRollup, error) {
+func (usage *bucketusage) Get(ctx context.Context, id uuid.UUID) (_ *accounting.BucketRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
 	dbxUsage, err := usage.db.Get_BucketUsage_By_Id(ctx, dbx.BucketUsage_Id(id[:]))
 	if err != nil {
 		return nil, err
 	}
 
-	return fromDBXUsage(dbxUsage)
+	return fromDBXUsage(ctx, dbxUsage)
 }
 
 // GetPaged retrieves list of bucket usage rollup entries for given cursor
-func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) ([]accounting.BucketRollup, error) {
+func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.BucketRollupCursor) (_ []accounting.BucketRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var getUsage func(context.Context,
 		dbx.BucketUsage_BucketId_Field,
 		dbx.BucketUsage_RollupEndTime_Field,
@@ -56,7 +58,7 @@ func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.Bucket
 
 	var rollups []accounting.BucketRollup
 	for _, dbxUsage := range dbxUsages {
-		rollup, err := fromDBXUsage(dbxUsage)
+		rollup, err := fromDBXUsage(ctx, dbxUsage)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +121,8 @@ func (usage bucketusage) GetPaged(ctx context.Context, cursor *accounting.Bucket
 }
 
 // Create creates new bucket usage rollup
-func (usage bucketusage) Create(ctx context.Context, rollup accounting.BucketRollup) (*accounting.BucketRollup, error) {
+func (usage bucketusage) Create(ctx context.Context, rollup accounting.BucketRollup) (_ *accounting.BucketRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
 	id, err := uuid.New()
 	if err != nil {
 		return nil, err
@@ -145,17 +148,19 @@ func (usage bucketusage) Create(ctx context.Context, rollup accounting.BucketRol
 		return nil, err
 	}
 
-	return fromDBXUsage(dbxUsage)
+	return fromDBXUsage(ctx, dbxUsage)
 }
 
 // Delete deletes bucket usage rollup entry by id
-func (usage *bucketusage) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := usage.db.Delete_BucketUsage_By_Id(ctx, dbx.BucketUsage_Id(id[:]))
+func (usage *bucketusage) Delete(ctx context.Context, id uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = usage.db.Delete_BucketUsage_By_Id(ctx, dbx.BucketUsage_Id(id[:]))
 	return err
 }
 
 // fromDBXUsage helper method to conert dbx.BucketUsage to accounting.BucketRollup
-func fromDBXUsage(dbxUsage *dbx.BucketUsage) (*accounting.BucketRollup, error) {
+func fromDBXUsage(ctx context.Context, dbxUsage *dbx.BucketUsage) (_ *accounting.BucketRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
 	id, err := bytesToUUID(dbxUsage.Id)
 	if err != nil {
 		return nil, err

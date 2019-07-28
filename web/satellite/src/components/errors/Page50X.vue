@@ -4,13 +4,11 @@
 <template src="./page50X.html"></template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-@Component({})
-
-// Page for server errors
-export default class Page50X extends Vue {
-}
+    @Component
+    // Page for server errors
+    export default class Page50X extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -47,6 +45,7 @@ export default class Page50X extends Vue {
             user-drag: none;
         }
     }
+
     .logo {
         display: flex;
         align-items: center;
@@ -54,8 +53,8 @@ export default class Page50X extends Vue {
         top: 87px;
         left: 100px;
     }
+
     .text {
         margin-left: 15px;
     }
-
 </style>
