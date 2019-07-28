@@ -20,10 +20,10 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/attribution"

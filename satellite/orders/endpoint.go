@@ -15,10 +15,10 @@ import (
 	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 )
 
