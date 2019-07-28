@@ -10,9 +10,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/audit"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -99,7 +99,7 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (_ boo
 
 	isDeleted, err := tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
 	if err != nil {
-		return isDeleted, audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
+		return isDeleted, audit.ContainError.Wrap(errs.Combine(audit.ErrContainDelete.Wrap(err), tx.Rollback()))
 	}
 
 	updateContained := dbx.Node_Update_Fields{

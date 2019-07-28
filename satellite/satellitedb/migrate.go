@@ -18,8 +18,10 @@ import (
 	"storj.io/storj/satellite/satellitedb/pbold"
 )
 
-// ErrMigrate is for tracking migration errors
-var ErrMigrate = errs.Class("migrate")
+var (
+	// ErrMigrate is for tracking migration errors
+	ErrMigrate = errs.Class("migrate")
+)
 
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
@@ -878,7 +880,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					where a.interval_start = b.interval_start
 					  and a.bucket_name = b.bucket_name
 					  and a.action = b.action
-					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')  
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')
 					  and length(b.project_id) = 36
 					  and length(a.project_id) = 16
 					;`,
@@ -888,7 +890,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					where a.interval_start = b.interval_start
 					  and a.bucket_name = b.bucket_name
 					  and a.action = b.action
-					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')  
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')
 					  and length(b.project_id) = 36
 					  and length(a.project_id) = 16
 					;`,

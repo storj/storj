@@ -13,9 +13,7 @@ export class User {
         this.fullName = fullName;
         this.shortName = shortName;
         this.email = email;
-        if (partnerId) {
-            this.partnerId = partnerId;
-        }
+        this.partnerId = partnerId || '';
     }
 
     public getFullName(): string {

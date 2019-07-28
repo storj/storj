@@ -15,15 +15,15 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
@@ -354,9 +354,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
 	})
 
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
-	})
+	//group.Go(func() error {
+	//	return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
+	//})
 
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -387,9 +387,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
-	if peer.DB.Bandwidth() != nil {
-		errlist.Add(peer.DB.Bandwidth().Close())
-	}
+	//if peer.DB.Bandwidth() != nil {
+	//	errlist.Add(peer.DB.Bandwidth().Close())
+	//}
 	if peer.Vouchers != nil {
 		errlist.Add(peer.Vouchers.Close())
 	}

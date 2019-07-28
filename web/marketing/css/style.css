@@ -193,20 +193,3 @@ input{
 .header-row .col-heading{
     margin-left:-110px;
 }
-
-.partner-wrapper,
-.partners-table{
-    margin-left:-10px;
-    margin-right:0px;
-    padding-right:0px;
-}
-
-.partners-table{
-    width:1800px;
-}
-
-.partner-wrapper{
-    padding-left:0px;
-    overflow-x: auto;
-    max-width: 1150px;
-}

@@ -9,16 +9,16 @@ import (
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/certdb"
-	"storj.io/storj/pkg/datarepair/irreparable"
-	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
+	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/irreparable"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -84,6 +84,12 @@ func (db *DB) CreateSchema(schema string) error {
 // TestDBAccess for raw database access,
 // should not be used outside of migration tests.
 func (db *DB) TestDBAccess() *dbx.DB { return db.db }
+
+// TestDBAccess for raw database access,
+// should not be used outside of tests.
+func (db *locked) TestDBAccess() *dbx.DB {
+	return db.db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
+}
 
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {

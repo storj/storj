@@ -82,6 +82,24 @@ func TestPieces(t *testing.T) {
 		require.Equal(t, source, read(0, int64(len(source))))
 	}
 
+	{ // reading ends with io.EOF
+		reader, err := store.Reader(ctx, satelliteID, pieceID)
+		require.NoError(t, err)
+
+		data := make([]byte, 111)
+		for {
+			_, err := reader.Read(data)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				require.NoError(t, err)
+			}
+		}
+
+		require.NoError(t, reader.Close())
+	}
+
 	{ // test delete
 		assert.NoError(t, store.Delete(ctx, satelliteID, pieceID))
 		// read should now fail
