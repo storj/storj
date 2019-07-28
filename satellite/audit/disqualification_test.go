@@ -16,11 +16,11 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/overlay"
 )
 
 // TestDisqualificationTooManyFailedAudits does the following:

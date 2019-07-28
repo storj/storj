@@ -15,8 +15,8 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 )
 
 var (

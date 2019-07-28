@@ -12,12 +12,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
 

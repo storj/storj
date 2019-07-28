@@ -20,7 +20,6 @@ import (
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
@@ -28,6 +27,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/meta"

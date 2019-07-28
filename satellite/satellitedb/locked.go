@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -28,6 +27,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
 )
 

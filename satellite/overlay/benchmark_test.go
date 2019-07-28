@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 

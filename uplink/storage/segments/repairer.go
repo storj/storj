@@ -12,11 +12,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
 )

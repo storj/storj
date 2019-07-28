@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 )
 
 // ReliabilityCache caches the reliable nodes for the specified staleness duration

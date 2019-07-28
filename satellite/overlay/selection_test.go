@@ -13,8 +13,8 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 )
 
 func TestOffline(t *testing.T) {

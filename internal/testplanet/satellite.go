@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
@@ -30,6 +29,7 @@ import (
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/vouchers"
 )

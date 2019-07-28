@@ -11,7 +11,6 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -19,6 +18,7 @@ import (
 	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
