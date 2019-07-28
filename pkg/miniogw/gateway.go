@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/stream"
+	"storj.io/storj/uplink/stream"
 )
 
 var (
