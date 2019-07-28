@@ -10,9 +10,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/accounting"
 )
 
 // Config contains configurable values for rollup

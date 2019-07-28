@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/accounting/rollup"
-	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
@@ -23,6 +21,8 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/gc"

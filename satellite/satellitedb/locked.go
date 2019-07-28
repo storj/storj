@@ -14,7 +14,6 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -24,6 +23,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"

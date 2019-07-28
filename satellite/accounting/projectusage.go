@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/accounting/live"
+	"storj.io/storj/satellite/accounting/live"
 )
 
 const (

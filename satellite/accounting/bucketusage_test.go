@@ -11,8 +11,8 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 

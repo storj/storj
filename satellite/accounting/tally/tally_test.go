@@ -17,10 +17,10 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/storagenode"
 )
 
