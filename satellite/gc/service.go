@@ -13,11 +13,11 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/bloomfilter"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/uplink/piecestore"
 )
 

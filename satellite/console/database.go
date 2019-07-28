@@ -6,7 +6,7 @@ package console
 import (
 	"context"
 
-	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/satellite/accounting"
 )
 
 // DB contains access to different satellite databases
