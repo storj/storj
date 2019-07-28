@@ -12,6 +12,7 @@ type Config struct {
 	APIKey        string
 	EncryptionKey string
 	NoSSL         bool
+	ConfigDir     string
 }
 
 // Client is the common interface for different implementations

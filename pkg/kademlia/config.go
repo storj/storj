@@ -6,6 +6,7 @@ package kademlia
 import (
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -22,10 +23,12 @@ var (
 // Config defines all of the things that are needed to start up Kademlia
 // server endpoints (and not necessarily client code).
 type Config struct {
-	BootstrapAddr   string `help:"the Kademlia node to bootstrap against" default:""`
-	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
-	ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
-	Operator        OperatorConfig
+	BootstrapAddr        string        `help:"the Kademlia node to bootstrap against" releaseDefault:"bootstrap.storj.io:8888" devDefault:""`
+	BootstrapBackoffMax  time.Duration `help:"the maximum amount of time to wait when retrying bootstrap" default:"30s"`
+	BootstrapBackoffBase time.Duration `help:"the base interval to wait when retrying bootstrap" default:"1s"`
+	DBPath               string        `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
+	ExternalAddress      string        `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
+	Operator             OperatorConfig
 
 	// TODO: reduce the number of flags here
 	Alpha int `help:"alpha is a system wide concurrency parameter" default:"5"`
@@ -41,7 +44,6 @@ func (c Config) BootstrapNodes() []pb.Node {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   c.BootstrapAddr,
 			},
-			Type: pb.NodeType_BOOTSTRAP,
 		})
 	}
 	return nodes
@@ -55,7 +57,7 @@ func (c Config) Verify(log *zap.Logger) error {
 // OperatorConfig defines properties related to storage node operator metadata
 type OperatorConfig struct {
 	Email  string `user:"true" help:"operator email address" default:""`
-	Wallet string `user:"true" help:"operator wallet adress" default:""`
+	Wallet string `user:"true" help:"operator wallet address" default:""`
 }
 
 // Verify verifies whether operator config is valid.
@@ -80,13 +82,13 @@ func isOperatorEmailValid(log *zap.Logger, email string) error {
 
 func isOperatorWalletValid(log *zap.Logger, wallet string) error {
 	if wallet == "" {
-		return fmt.Errorf("Operator wallet address isn't specified")
+		return fmt.Errorf("operator wallet address isn't specified")
 	}
 	r := regexp.MustCompile("^0x[a-fA-F0-9]{40}$")
 	if match := r.MatchString(wallet); !match {
-		return fmt.Errorf("Operator wallet address isn't valid")
+		return fmt.Errorf("operator wallet address isn't valid")
 	}
 
-	log.Sugar().Info("Operator wallet: ", wallet)
+	log.Sugar().Info("operator wallet: ", wallet)
 	return nil
 }

@@ -31,7 +31,7 @@ func TestLimiterLimiting(t *testing.T) {
 	limiter.Wait()
 }
 
-func TestLimiterCancelling(t *testing.T) {
+func TestLimiterCanceling(t *testing.T) {
 	t.Parallel()
 
 	const N, Limit = 1000, 10

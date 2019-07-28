@@ -9,22 +9,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/lib/pq"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
 
 var (
-	mon             = monkit.Package()
-	errAuditSuccess = errs.Class("overlay audit success error")
-	errUptime       = errs.Class("overlay uptime error")
+	mon = monkit.Package()
 )
 
 var _ overlay.DB = (*overlaycache)(nil)
@@ -33,21 +32,23 @@ type overlaycache struct {
 	db *dbx.DB
 }
 
-func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
+func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
-		  AND total_audit_count >= ?
-		  AND audit_success_ratio >= ?
-		  AND total_uptime_count >= ?
-		  AND uptime_ratio >= ?
-		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure`
+		WHERE disqualified IS NULL
+		AND type = ?
+		AND free_bandwidth >= ?
+		AND free_disk >= ?
+		AND total_audit_count >= ?
+		AND total_uptime_count >= ?
+		AND (last_contact_success > ?
+		     OR last_contact_success > last_contact_failure)`
 	args := append(make([]interface{}, 0, 13),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
-		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
-		time.Now().Add(-overlay.OnlineWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
+		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -55,24 +56,53 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 			return nil, Error.New("invalid node selection criteria version: %v", err)
 		}
 		safeQuery += `
-			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
 			AND release`
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
+	if !criteria.DistinctIP {
+		nodes, err = cache.queryNodes(ctx, criteria.ExcludedNodes, count, safeQuery, args...)
+		if err != nil {
+			return nil, err
+		}
+		return nodes, nil
+	}
+
+	// query for distinct IPs
+	for i := 0; i < 3; i++ {
+		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range moreNodes {
+			nodes = append(nodes, n)
+			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
+			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
+		}
+		if len(nodes) == count {
+			break
+		}
+	}
+
+	return nodes, nil
 }
 
-func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NewNodeCriteria) ([]*pb.Node, error) {
+func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
-		  AND total_audit_count < ?
-		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure`
+		WHERE disqualified IS NULL
+		AND type = ?
+		AND free_bandwidth >= ?
+		AND free_disk >= ?
+		AND (total_audit_count < ? OR total_uptime_count < ?)
+		AND (last_contact_success > ?
+		     OR last_contact_success > last_contact_failure)`
 	args := append(make([]interface{}, 0, 10),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditThreshold, time.Now().Add(-overlay.OnlineWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -80,54 +110,231 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 			return nil, Error.New("invalid node selection criteria version: %v", err)
 		}
 		safeQuery += `
-			AND major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))
+			AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
 			AND release`
 		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
 	}
 
-	return cache.queryFilteredNodes(ctx, criteria.Excluded, count, safeQuery, args...)
+	if !criteria.DistinctIP {
+		nodes, err = cache.queryNodes(ctx, criteria.ExcludedNodes, count, safeQuery, args...)
+		if err != nil {
+			return nil, err
+		}
+		return nodes, nil
+	}
+
+	// query for distinct IPs
+	for i := 0; i < 3; i++ {
+		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range moreNodes {
+			nodes = append(nodes, n)
+			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
+			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
+		}
+		if len(nodes) == count {
+			break
+		}
+	}
+
+	return nodes, nil
 }
 
-func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
+func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if count == 0 {
 		return nil, nil
 	}
 
 	safeExcludeNodes := ""
-	if len(excluded) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excluded)-1) + `)`
+	if len(excludedNodes) > 0 {
+		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedNodes)-1) + `)`
+		for _, id := range excludedNodes {
+			args = append(args, id.Bytes())
+		}
 	}
-	for _, id := range excluded {
-		args = append(args, id.Bytes())
-	}
+
 	args = append(args, count)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id,
-		type, address, free_bandwidth, free_disk, audit_success_ratio,
-		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-		uptime_success_count
-		FROM nodes
-		`+safeQuery+safeExcludeNodes+`
-		ORDER BY RANDOM()
-		LIMIT ?`), args...)
+	var rows *sql.Rows
+	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
+	free_bandwidth, free_disk, total_audit_count, audit_success_count,
+	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
+	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
+	FROM nodes
+	`+safeQuery+safeExcludeNodes+`
+	ORDER BY RANDOM()
+	LIMIT ?`), args...)
+
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-
 	var nodes []*pb.Node
 	for rows.Next() {
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
-			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
+			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
-			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount)
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
+		)
 		if err != nil {
 			return nil, err
 		}
 
-		dossier, err := convertDBNode(dbNode)
+		dossier, err := convertDBNode(ctx, dbNode)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, &dossier.Node)
+	}
+
+	return nodes, rows.Err()
+}
+
+func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch t := cache.db.DB.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		return cache.sqliteQueryNodesDistinct(ctx, excludedNodes, excludedIPs, count, safeQuery, distinctIP, args...)
+	case *pq.Driver:
+		return cache.postgresQueryNodesDistinct(ctx, excludedNodes, excludedIPs, count, safeQuery, distinctIP, args...)
+	default:
+		return []*pb.Node{}, Error.New("Unsupported database %t", t)
+	}
+}
+
+func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if count == 0 {
+		return nil, nil
+	}
+
+	safeExcludeNodes := ""
+	if len(excludedNodes) > 0 {
+		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedNodes)-1) + `)`
+		for _, id := range excludedNodes {
+			args = append(args, id.Bytes())
+		}
+	}
+
+	safeExcludeIPs := ""
+	if len(excludedIPs) > 0 {
+		safeExcludeIPs = ` AND last_net NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
+		for _, ip := range excludedIPs {
+			args = append(args, ip)
+		}
+	}
+
+	args = append(args, count)
+
+	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
+	free_bandwidth, free_disk, total_audit_count, audit_success_count,
+	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
+	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
+	FROM (SELECT *, Row_number() OVER(PARTITION BY last_net ORDER BY RANDOM()) rn
+		FROM nodes
+		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
+	WHERE rn = 1
+	ORDER BY RANDOM()
+	LIMIT ?`), args...)
+
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	var nodes []*pb.Node
+	for rows.Next() {
+		dbNode := &dbx.Node{}
+		err = rows.Scan(&dbNode.Id, &dbNode.Type,
+			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
+			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		dossier, err := convertDBNode(ctx, dbNode)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, &dossier.Node)
+	}
+
+	return nodes, rows.Err()
+}
+
+func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if count == 0 {
+		return nil, nil
+	}
+
+	safeExcludeNodes := ""
+	if len(excludedNodes) > 0 {
+		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedNodes)-1) + `)`
+		for _, id := range excludedNodes {
+			args = append(args, id.Bytes())
+		}
+	}
+
+	safeExcludeIPs := ""
+	if len(excludedIPs) > 0 {
+		safeExcludeIPs = ` AND last_net NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
+		for _, ip := range excludedIPs {
+			args = append(args, ip)
+		}
+	}
+	args = append(args, count)
+
+	rows, err := cache.db.Query(cache.db.Rebind(`
+	WITH candidates AS (
+		SELECT * FROM nodes
+		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
+	)
+	SELECT
+		id, type, address, last_net, free_bandwidth, free_disk, total_audit_count,
+		audit_success_count, total_uptime_count, uptime_success_count,
+		audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha,
+		uptime_reputation_beta
+	FROM (
+		SELECT DISTINCT ON (last_net) *  -- choose at max 1 node from this IP or network
+		FROM candidates
+		WHERE last_net <> ''             -- don't try to IP-filter nodes with no known IP yet
+		ORDER BY last_net, RANDOM()      -- equal chance of choosing any qualified node at this IP or network
+	) filteredcandidates
+	ORDER BY RANDOM()                       -- do the actual node selection from filtered pool
+	LIMIT ?`), args...)
+
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	var nodes []*pb.Node
+	for rows.Next() {
+		dbNode := &dbx.Node{}
+		err = rows.Scan(&dbNode.Id, &dbNode.Type,
+			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
+			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
+		)
+		if err != nil {
+			return nil, err
+		}
+		dossier, err := convertDBNode(ctx, dbNode)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +345,9 @@ func (cache *overlaycache) queryFilteredNodes(ctx context.Context, excluded []st
 }
 
 // Get looks up the node by nodeID
-func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.NodeDossier, error) {
+func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay.NodeDossier, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if id.IsZero() {
 		return nil, overlay.ErrEmptyNode
 	}
@@ -151,47 +360,180 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 		return nil, err
 	}
 
-	return convertDBNode(node)
+	return convertDBNode(ctx, node)
 }
 
-// GetAll looks up nodes based on the ids from the overlay cache
-func (cache *overlaycache) GetAll(ctx context.Context, ids storj.NodeIDList) ([]*overlay.NodeDossier, error) {
-	infos := make([]*overlay.NodeDossier, len(ids))
-	for i, id := range ids {
-		// TODO: abort on canceled context
-		info, err := cache.Get(ctx, id)
-		if err != nil {
-			continue
+// IsVetted returns whether or not the node reaches reputable thresholds
+func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row := cache.db.QueryRow(cache.db.Rebind(`SELECT id
+	FROM nodes
+	WHERE id = ?
+		AND disqualified IS NULL
+		AND type = ?
+		AND total_audit_count >= ?
+		AND total_uptime_count >= ?
+		`), id, pb.NodeType_STORAGE, criteria.AuditCount, criteria.UptimeCount)
+	var bytes *[]byte
+	err = row.Scan(&bytes)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
 		}
-		infos[i] = info
+		return false, err
 	}
-	return infos, nil
+	return true, nil
 }
 
-// List lists nodes starting from cursor
-func (cache *overlaycache) List(ctx context.Context, cursor storj.NodeID, limit int) ([]*overlay.NodeDossier, error) {
-	// TODO: handle this nicer
-	if limit <= 0 || limit > storage.LookupLimit {
-		limit = storage.LookupLimit
+// KnownOffline filters a set of nodes to offline nodes
+func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIds) == 0 {
+		return nil, Error.New("no ids provided")
 	}
 
-	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, 0)
+	// get offline nodes
+	var rows *sql.Rows
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		args := make([]interface{}, 0, len(nodeIds)+1)
+		for i := range nodeIds {
+			args = append(args, nodeIds[i].Bytes())
+		}
+		args = append(args, time.Now().Add(-criteria.OnlineWindow))
+
+		rows, err = cache.db.Query(cache.db.Rebind(`
+			SELECT id FROM nodes
+			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+			AND (
+				last_contact_success < last_contact_failure AND last_contact_success < ?
+			)
+		`), args...)
+
+	case *pq.Driver:
+		rows, err = cache.db.Query(`
+			SELECT id FROM nodes
+				WHERE id = any($1::bytea[])
+				AND (
+					last_contact_success < last_contact_failure AND last_contact_success < $2
+				)
+			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		)
+	default:
+		return nil, Error.New("Unsupported database %t", t)
+	}
+
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
 
-	infos := make([]*overlay.NodeDossier, len(dbxInfos))
-	for i, dbxInfo := range dbxInfos {
-		infos[i], err = convertDBNode(dbxInfo)
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
 		if err != nil {
 			return nil, err
 		}
+		offlineNodes = append(offlineNodes, id)
 	}
-	return infos, nil
+	return offlineNodes, nil
+}
+
+// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIds) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	// get reliable and online nodes
+	var rows *sql.Rows
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		args := make([]interface{}, 0, len(nodeIds)+3)
+		for i := range nodeIds {
+			args = append(args, nodeIds[i].Bytes())
+		}
+		args = append(args, time.Now().Add(-criteria.OnlineWindow))
+
+		rows, err = cache.db.Query(cache.db.Rebind(`
+			SELECT id FROM nodes
+			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+			AND disqualified IS NULL
+			AND (last_contact_success > ? OR last_contact_success > last_contact_failure)
+		`), args...)
+
+	case *pq.Driver:
+		rows, err = cache.db.Query(`
+			SELECT id FROM nodes
+				WHERE id = any($1::bytea[])
+				AND disqualified IS NULL
+				AND (last_contact_success > $2 OR last_contact_success > last_contact_failure)
+			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		)
+	default:
+		return nil, Error.New("Unsupported database %t", t)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	goodNodes := make(map[storj.NodeID]struct{}, len(nodeIds))
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		goodNodes[id] = struct{}{}
+	}
+	for _, id := range nodeIds {
+		if _, ok := goodNodes[id]; !ok {
+			badNodes = append(badNodes, id)
+		}
+	}
+	return badNodes, nil
+}
+
+// Reliable returns all reliable nodes.
+func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	// get reliable and online nodes
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE disqualified IS NULL
+		  AND (last_contact_success > ? OR last_contact_success > last_contact_failure)`),
+		time.Now().Add(-criteria.OnlineWindow))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, id)
+	}
+	return nodes, nil
 }
 
 // Paginate will run through
-func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
+func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) (_ []*overlay.NodeDossier, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	cursor := storj.NodeID{}
 
 	// more represents end of table. If there are more rows in the database, more will be true.
@@ -212,7 +554,7 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 
 	infos := make([]*overlay.NodeDossier, len(dbxInfos))
 	for i, dbxInfo := range dbxInfos {
-		infos[i], err = convertDBNode(dbxInfo)
+		infos[i], err = convertDBNode(ctx, dbxInfo)
 		if err != nil {
 			return nil, false, err
 		}
@@ -220,8 +562,41 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 	return infos, more, nil
 }
 
-// Update updates node information
-func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error) {
+// PaginateQualified will retrieve all qualified nodes
+func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursor := storj.NodeID{}
+
+	// more represents end of table. If there are more rows in the database, more will be true.
+	more := true
+
+	if limit <= 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
+
+	dbxInfos, err := cache.db.Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(dbxInfos) < limit {
+		more = false
+	}
+
+	infos := make([]*pb.Node, len(dbxInfos))
+	for i, dbxInfo := range dbxInfos {
+		infos[i], err = convertDBNodeToPBNode(ctx, dbxInfo)
+		if err != nil {
+			return nil, false, err
+		}
+	}
+	return infos, more, nil
+}
+
+// Update updates node address
+func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, defaults overlay.NodeSelectionConfig) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if info == nil || info.Id.IsZero() {
 		return overlay.ErrEmptyNode
 	}
@@ -239,95 +614,48 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	}
 
 	if err != nil {
-		metadata := info.Metadata
-		if metadata == nil {
-			metadata = &pb.NodeMetadata{}
-		}
-
-		restrictions := info.Restrictions
-		if restrictions == nil {
-			restrictions = &pb.NodeRestrictions{
-				FreeBandwidth: -1,
-				FreeDisk:      -1,
-			}
-		}
-
-		reputation := info.Reputation
-		if reputation == nil {
-			reputation = &pb.NodeStats{}
-		}
-
-		ver := info.Version
-		var semver version.SemVer
-		var verTime time.Time
-		if ver == nil {
-			ver = &pb.NodeVersion{}
-		} else {
-			parsed, err := version.NewSemVer(ver.Version)
-			if err == nil {
-				semver = *parsed
-			}
-			verTime, err = ptypes.Timestamp(ver.Timestamp)
-			if err != nil {
-				verTime = time.Time{}
-			}
-		}
-
+		// add the node to DB for first time
 		_, err = tx.Create_Node(
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
 			dbx.Node_Address(address.Address),
+			dbx.Node_LastNet(info.LastIp),
 			dbx.Node_Protocol(int(address.Transport)),
-			dbx.Node_Type(int(info.Type)),
-			dbx.Node_Email(metadata.Email),
-			dbx.Node_Wallet(metadata.Wallet),
-			dbx.Node_FreeBandwidth(restrictions.FreeBandwidth),
-			dbx.Node_FreeDisk(restrictions.FreeDisk),
-			dbx.Node_Major(semver.Major),
-			dbx.Node_Minor(semver.Minor),
-			dbx.Node_Patch(semver.Patch),
-			dbx.Node_Hash(ver.CommitHash),
-			dbx.Node_Timestamp(verTime),
-			dbx.Node_Release(ver.Release),
-
-			dbx.Node_Latency90(reputation.Latency_90),
-			dbx.Node_AuditSuccessCount(reputation.AuditSuccessCount),
-			dbx.Node_TotalAuditCount(reputation.AuditCount),
-			dbx.Node_AuditSuccessRatio(reputation.AuditSuccessRatio),
-			dbx.Node_UptimeSuccessCount(reputation.UptimeSuccessCount),
-			dbx.Node_TotalUptimeCount(reputation.UptimeCount),
-			dbx.Node_UptimeRatio(reputation.UptimeRatio),
+			dbx.Node_Type(int(pb.NodeType_INVALID)),
+			dbx.Node_Email(""),
+			dbx.Node_Wallet(""),
+			dbx.Node_FreeBandwidth(-1),
+			dbx.Node_FreeDisk(-1),
+			dbx.Node_Major(0),
+			dbx.Node_Minor(0),
+			dbx.Node_Patch(0),
+			dbx.Node_Hash(""),
+			dbx.Node_Timestamp(time.Time{}),
+			dbx.Node_Release(false),
+			dbx.Node_Latency90(0),
+			dbx.Node_AuditSuccessCount(0),
+			dbx.Node_TotalAuditCount(0),
+			dbx.Node_UptimeSuccessCount(0),
+			dbx.Node_TotalUptimeCount(0),
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
+			dbx.Node_Contained(false),
+			dbx.Node_AuditReputationAlpha(defaults.AuditReputationAlpha0),
+			dbx.Node_AuditReputationBeta(defaults.AuditReputationBeta0),
+			dbx.Node_UptimeReputationAlpha(defaults.UptimeReputationAlpha0),
+			dbx.Node_UptimeReputationBeta(defaults.UptimeReputationBeta0),
+			dbx.Node_Create_Fields{
+				Disqualified: dbx.Node_Disqualified_Null(),
+			},
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	} else {
 		update := dbx.Node_Update_Fields{
-			// TODO: should we be able to update node type?
 			Address:  dbx.Node_Address(address.Address),
+			LastNet:  dbx.Node_LastNet(info.LastIp),
 			Protocol: dbx.Node_Protocol(int(address.Transport)),
-		}
-
-		if info.Reputation != nil {
-			update.Latency90 = dbx.Node_Latency90(info.Reputation.Latency_90)
-			update.AuditSuccessRatio = dbx.Node_AuditSuccessRatio(info.Reputation.AuditSuccessRatio)
-			update.UptimeRatio = dbx.Node_UptimeRatio(info.Reputation.UptimeRatio)
-			update.TotalAuditCount = dbx.Node_TotalAuditCount(info.Reputation.AuditCount)
-			update.AuditSuccessCount = dbx.Node_AuditSuccessCount(info.Reputation.AuditSuccessCount)
-			update.TotalUptimeCount = dbx.Node_TotalUptimeCount(info.Reputation.UptimeCount)
-			update.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(info.Reputation.UptimeSuccessCount)
-		}
-
-		if info.Metadata != nil {
-			update.Email = dbx.Node_Email(info.Metadata.Email)
-			update.Wallet = dbx.Node_Wallet(info.Metadata.Wallet)
-		}
-
-		if info.Restrictions != nil {
-			update.FreeBandwidth = dbx.Node_FreeBandwidth(info.Restrictions.FreeBandwidth)
-			update.FreeDisk = dbx.Node_FreeDisk(info.Restrictions.FreeDisk)
 		}
 
 		_, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()), update)
@@ -337,110 +665,6 @@ func (cache *overlaycache) Update(ctx context.Context, info *pb.Node) (err error
 	}
 
 	return Error.Wrap(tx.Commit())
-}
-
-// CreateStats initializes the stats the provided storagenode
-func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID, startingStats *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	tx, err := cache.db.Open(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	if startingStats != nil {
-		auditSuccessRatio, err := checkRatioVars(startingStats.AuditSuccessCount, startingStats.AuditCount)
-		if err != nil {
-			return nil, errAuditSuccess.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-
-		uptimeRatio, err := checkRatioVars(startingStats.UptimeSuccessCount, startingStats.UptimeCount)
-		if err != nil {
-			return nil, errUptime.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-
-		updateFields := dbx.Node_Update_Fields{
-			AuditSuccessCount:  dbx.Node_AuditSuccessCount(startingStats.AuditSuccessCount),
-			TotalAuditCount:    dbx.Node_TotalAuditCount(startingStats.AuditCount),
-			AuditSuccessRatio:  dbx.Node_AuditSuccessRatio(auditSuccessRatio),
-			UptimeSuccessCount: dbx.Node_UptimeSuccessCount(startingStats.UptimeSuccessCount),
-			TotalUptimeCount:   dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
-			UptimeRatio:        dbx.Node_UptimeRatio(uptimeRatio),
-		}
-
-		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-		if err != nil {
-			return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-	}
-
-	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
-	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
-	// but for now we're adding a nil check to prevent a panic.
-	if dbNode == nil {
-		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
-	}
-	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
-}
-
-// FindInvalidNodes finds a subset of storagenodes that fail to meet minimum reputation requirements
-func (cache *overlaycache) FindInvalidNodes(ctx context.Context, nodeIDs storj.NodeIDList, maxStats *overlay.NodeStats) (invalidIDs storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var invalidIds storj.NodeIDList
-
-	maxAuditSuccess := maxStats.AuditSuccessRatio
-	maxUptime := maxStats.UptimeRatio
-
-	rows, err := cache.findInvalidNodesQuery(nodeIDs, maxAuditSuccess, maxUptime)
-
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	for rows.Next() {
-		node := &dbx.Node{}
-		err = rows.Scan(&node.Id, &node.TotalAuditCount, &node.TotalUptimeCount, &node.AuditSuccessRatio, &node.UptimeRatio)
-		if err != nil {
-			return nil, err
-		}
-		id, err := storj.NodeIDFromBytes(node.Id)
-		if err != nil {
-			return nil, err
-		}
-		invalidIds = append(invalidIds, id)
-	}
-
-	return invalidIds, nil
-}
-
-func (cache *overlaycache) findInvalidNodesQuery(nodeIds storj.NodeIDList, auditSuccess, uptime float64) (*sql.Rows, error) {
-	args := make([]interface{}, len(nodeIds))
-	for i, id := range nodeIds {
-		args[i] = id.Bytes()
-	}
-	args = append(args, auditSuccess, uptime)
-
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT nodes.id, nodes.total_audit_count,
-		nodes.total_uptime_count, nodes.audit_success_ratio,
-		nodes.uptime_ratio
-		FROM nodes
-		WHERE nodes.id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-		AND nodes.total_audit_count > 0
-		AND nodes.total_uptime_count > 0
-		AND (
-			nodes.audit_success_ratio < ?
-			OR nodes.uptime_ratio < ?
-		)`), args...)
-
-	return rows, err
 }
 
 // UpdateStats a single storagenode's stats in the db
@@ -457,42 +681,75 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	if err != nil {
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
+	// do not update reputation if node is disqualified
+	if dbNode.Disqualified != nil {
+		return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+	}
 
-	auditSuccessCount := dbNode.AuditSuccessCount
-	totalAuditCount := dbNode.TotalAuditCount
-	var auditSuccessRatio float64
-	uptimeSuccessCount := dbNode.UptimeSuccessCount
-	totalUptimeCount := dbNode.TotalUptimeCount
-	var uptimeRatio float64
-
-	auditSuccessCount, totalAuditCount, auditSuccessRatio = updateRatioVars(
+	auditAlpha, auditBeta, totalAuditCount := updateReputation(
 		updateReq.AuditSuccess,
-		auditSuccessCount,
-		totalAuditCount,
+		dbNode.AuditReputationAlpha,
+		dbNode.AuditReputationBeta,
+		updateReq.AuditLambda,
+		updateReq.AuditWeight,
+		dbNode.TotalAuditCount,
 	)
+	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)
+	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)
 
-	uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateRatioVars(
+	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
 		updateReq.IsUp,
-		uptimeSuccessCount,
-		totalUptimeCount,
+		dbNode.UptimeReputationAlpha,
+		dbNode.UptimeReputationBeta,
+		updateReq.UptimeLambda,
+		updateReq.UptimeWeight,
+		dbNode.TotalUptimeCount,
 	)
+	mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
+	mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
 
 	updateFields := dbx.Node_Update_Fields{
-		AuditSuccessCount:  dbx.Node_AuditSuccessCount(auditSuccessCount),
-		TotalAuditCount:    dbx.Node_TotalAuditCount(totalAuditCount),
-		AuditSuccessRatio:  dbx.Node_AuditSuccessRatio(auditSuccessRatio),
-		UptimeSuccessCount: dbx.Node_UptimeSuccessCount(uptimeSuccessCount),
-		TotalUptimeCount:   dbx.Node_TotalUptimeCount(totalUptimeCount),
-		UptimeRatio:        dbx.Node_UptimeRatio(uptimeRatio),
+		TotalAuditCount:       dbx.Node_TotalAuditCount(totalAuditCount),
+		TotalUptimeCount:      dbx.Node_TotalUptimeCount(totalUptimeCount),
+		AuditReputationAlpha:  dbx.Node_AuditReputationAlpha(auditAlpha),
+		AuditReputationBeta:   dbx.Node_AuditReputationBeta(auditBeta),
+		UptimeReputationAlpha: dbx.Node_UptimeReputationAlpha(uptimeAlpha),
+		UptimeReputationBeta:  dbx.Node_UptimeReputationBeta(uptimeBeta),
+	}
+
+	auditRep := auditAlpha / (auditAlpha + auditBeta)
+	if auditRep <= updateReq.AuditDQ {
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+	}
+
+	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
+	if uptimeRep <= updateReq.UptimeDQ {
+		// n.b. that this will overwrite the audit DQ timestamp
+		// if it has already been set.
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
 	}
 
 	if updateReq.IsUp {
+		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
 	} else {
 		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
 	}
 
+	if updateReq.AuditSuccess {
+		updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
+	}
+
+	// Updating node stats always exits it from containment mode
+	updateFields.Contained = dbx.Node_Contained(false)
+
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	// Cleanup containment table too
+	_, err = tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(nodeID.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
@@ -501,7 +758,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
 	// but for now we're adding a nil check to prevent a panic.
 	if dbNode == nil {
-		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
 	}
 
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
@@ -513,6 +770,9 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 
 	var updateFields dbx.Node_Update_Fields
 	if nodeInfo != nil {
+		if nodeInfo.GetType() != pb.NodeType_INVALID {
+			updateFields.Type = dbx.Node_Type(int(nodeInfo.GetType()))
+		}
 		if nodeInfo.GetOperator() != nil {
 			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.GetOperator().GetWallet())
 			updateFields.Email = dbx.Node_Email(nodeInfo.GetOperator().GetEmail())
@@ -524,17 +784,13 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 		if nodeInfo.GetVersion() != nil {
 			semVer, err := version.NewSemVer(nodeInfo.GetVersion().GetVersion())
 			if err != nil {
-				return &overlay.NodeDossier{}, errs.New("unable to convert version to semVer")
-			}
-			pbts, err := ptypes.Timestamp(nodeInfo.GetVersion().GetTimestamp())
-			if err != nil {
-				return &overlay.NodeDossier{}, errs.New("unable to convert version timestamp")
+				return nil, errs.New("unable to convert version to semVer")
 			}
 			updateFields.Major = dbx.Node_Major(semVer.Major)
 			updateFields.Minor = dbx.Node_Minor(semVer.Minor)
 			updateFields.Patch = dbx.Node_Patch(semVer.Patch)
 			updateFields.Hash = dbx.Node_Hash(nodeInfo.GetVersion().GetCommitHash())
-			updateFields.Timestamp = dbx.Node_Timestamp(pbts)
+			updateFields.Timestamp = dbx.Node_Timestamp(nodeInfo.GetVersion().Timestamp)
 			updateFields.Release = dbx.Node_Release(nodeInfo.GetVersion().GetRelease())
 		}
 	}
@@ -544,11 +800,11 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 		return nil, Error.Wrap(err)
 	}
 
-	return convertDBNode(updatedDBNode)
+	return convertDBNode(ctx, updatedDBNode)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := cache.db.Open(ctx)
@@ -559,27 +815,60 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	if err != nil {
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
-
-	uptimeSuccessCount := dbNode.UptimeSuccessCount
-	totalUptimeCount := dbNode.TotalUptimeCount
-	var uptimeRatio float64
+	// do not update reputation if node is disqualified
+	if dbNode.Disqualified != nil {
+		return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+	}
 
 	updateFields := dbx.Node_Update_Fields{}
-
-	uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateRatioVars(
+	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
 		isUp,
-		uptimeSuccessCount,
-		totalUptimeCount,
+		dbNode.UptimeReputationAlpha,
+		dbNode.UptimeReputationBeta,
+		lambda,
+		weight,
+		dbNode.TotalUptimeCount,
 	)
+	mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
+	mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
 
-	updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(uptimeSuccessCount)
+	updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(uptimeAlpha)
+	updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(uptimeBeta)
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
-	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
 
+	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
+	if uptimeRep <= uptimeDQ {
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+	}
+
+	lastContactSuccess := dbNode.LastContactSuccess
+	lastContactFailure := dbNode.LastContactFailure
+	mon.Meter("uptime_updates").Mark(1)
 	if isUp {
+		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
+
+		mon.Meter("uptime_update_successes").Mark(1)
+		// we have seen this node in the past 24 hours
+		if time.Now().Sub(lastContactFailure) > time.Hour*24 {
+			mon.Meter("uptime_seen_24h").Mark(1)
+		}
+		// we have seen this node in the past week
+		if time.Now().Sub(lastContactFailure) > time.Hour*24*7 {
+			mon.Meter("uptime_seen_week").Mark(1)
+		}
 	} else {
 		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
+
+		mon.Meter("uptime_update_failures").Mark(1)
+		// it's been over 24 hours since we've seen this node
+		if time.Now().Sub(lastContactSuccess) > time.Hour*24 {
+			mon.Meter("uptime_not_seen_24h").Mark(1)
+		}
+		// it's been over a week since we've seen this node
+		if time.Now().Sub(lastContactSuccess) > time.Hour*24*7 {
+			mon.Meter("uptime_not_seen_week").Mark(1)
+		}
 	}
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -590,13 +879,14 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
 	// but for now we're adding a nil check to prevent a panic.
 	if dbNode == nil {
-		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
 	}
 
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
-func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
+func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if info == nil {
 		return nil, Error.New("missing info")
 	}
@@ -611,19 +901,14 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 		Patch: info.Patch,
 	}
 
-	pbts, err := ptypes.TimestampProto(info.Timestamp)
-	if err != nil {
-		return nil, err
-	}
-
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
-			Id: id,
+			Id:     id,
+			LastIp: info.LastNet,
 			Address: &pb.NodeAddress{
 				Address:   info.Address,
 				Transport: pb.NodeTransport(info.Protocol),
 			},
-			Type: pb.NodeType(info.Type),
 		},
 		Type: pb.NodeType(info.Type),
 		Operator: pb.NodeOperator{
@@ -634,69 +919,66 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			FreeBandwidth: info.FreeBandwidth,
 			FreeDisk:      info.FreeDisk,
 		},
-		Reputation: overlay.NodeStats{
-			Latency90:          info.Latency90,
-			AuditSuccessRatio:  info.AuditSuccessRatio,
-			UptimeRatio:        info.UptimeRatio,
-			AuditCount:         info.TotalAuditCount,
-			AuditSuccessCount:  info.AuditSuccessCount,
-			UptimeCount:        info.TotalUptimeCount,
-			UptimeSuccessCount: info.UptimeSuccessCount,
-			LastContactSuccess: info.LastContactSuccess,
-			LastContactFailure: info.LastContactFailure,
-		},
+		Reputation: *getNodeStats(info),
 		Version: pb.NodeVersion{
 			Version:    ver.String(),
 			CommitHash: info.Hash,
-			Timestamp:  pbts,
+			Timestamp:  info.Timestamp,
 			Release:    info.Release,
 		},
-	}
-
-	if time.Now().Sub(info.LastContactSuccess) < 1*time.Hour && info.LastContactSuccess.After(info.LastContactFailure) {
-		node.IsUp = true
+		Contained:    info.Contained,
+		Disqualified: info.Disqualified,
 	}
 
 	return node, nil
 }
 
+func convertDBNodeToPBNode(ctx context.Context, info *dbx.Id_LastNet_Address_Protocol_Row) (_ *pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if info == nil {
+		return nil, Error.New("missing info")
+	}
+
+	id, err := storj.NodeIDFromBytes(info.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Node{
+		Id:     id,
+		LastIp: info.LastNet,
+		Address: &pb.NodeAddress{
+			Address:   info.Address,
+			Transport: pb.NodeTransport(info.Protocol),
+		},
+	}, nil
+}
+
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
-		Latency90:          dbNode.Latency90,
-		AuditSuccessRatio:  dbNode.AuditSuccessRatio,
-		AuditSuccessCount:  dbNode.AuditSuccessCount,
-		AuditCount:         dbNode.TotalAuditCount,
-		UptimeRatio:        dbNode.UptimeRatio,
-		UptimeSuccessCount: dbNode.UptimeSuccessCount,
-		UptimeCount:        dbNode.TotalUptimeCount,
-		LastContactSuccess: dbNode.LastContactSuccess,
-		LastContactFailure: dbNode.LastContactFailure,
+		Latency90:             dbNode.Latency90,
+		AuditCount:            dbNode.TotalAuditCount,
+		UptimeCount:           dbNode.TotalUptimeCount,
+		LastContactSuccess:    dbNode.LastContactSuccess,
+		LastContactFailure:    dbNode.LastContactFailure,
+		AuditReputationAlpha:  dbNode.AuditReputationAlpha,
+		AuditReputationBeta:   dbNode.AuditReputationBeta,
+		UptimeReputationAlpha: dbNode.UptimeReputationAlpha,
+		UptimeReputationBeta:  dbNode.UptimeReputationBeta,
+		Disqualified:          dbNode.Disqualified,
 	}
 	return nodeStats
 }
 
-func updateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int64, float64) {
-	totalCount++
-	if newStatus {
-		successCount++
+// updateReputation uses the Beta distribution model to determine a node's reputation.
+// lambda is the "forgetting factor" which determines how much past info is kept when determining current reputation score.
+// w is the normalization weight that affects how severely new updates affect the current reputation distribution.
+func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount int64) (newAlpha, newBeta float64, updatedCount int64) {
+	// v is a single feedback value that allows us to update both alpha and beta
+	var v float64 = -1
+	if isSuccess {
+		v = 1
 	}
-	newRatio := float64(successCount) / float64(totalCount)
-	return successCount, totalCount, newRatio
-}
-
-func checkRatioVars(successCount, totalCount int64) (ratio float64, err error) {
-	if successCount < 0 {
-		return 0, errs.New("success count less than 0")
-	}
-	if totalCount < 0 {
-		return 0, errs.New("total count less than 0")
-	}
-	if successCount > totalCount {
-		return 0, errs.New("success count greater than total count")
-	}
-	if totalCount == 0 {
-		return 0, nil
-	}
-	ratio = float64(successCount) / float64(totalCount)
-	return ratio, nil
+	newAlpha = lambda*alpha + w*(1+v)/2
+	newBeta = lambda*beta + w*(1-v)/2
+	return newAlpha, newBeta, totalCount + 1
 }

@@ -19,28 +19,33 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
 
-@Component({
-    props: {
-        mainTitle: String,
-        additionalText: String,
-        imageSource: String,
-        isButtonShown: {
-            type: Boolean,
-            default: false
-        },
-        onButtonClick: Function,
-        buttonLabel: String
-    },
-    components: {
-        Button
+    @Component({
+        components: {
+            Button,
+        }
+    })
+    export default class EmptyStateProjectArea extends Vue {
+        @Prop({default: ''})
+        private readonly mainTitle: string;
+        
+        @Prop({default: ''})
+        private readonly additionalText: string;
+        
+        @Prop({default: ''})
+        private readonly imageSource: string;
+        
+        @Prop({default: false})
+        private readonly isButtonShown: boolean;
+        
+        @Prop()
+        private readonly onButtonClick: Function;
+        
+        @Prop({default: 'Default'})
+        private readonly buttonLabel: string;
     }
-})
-
-export default class EmptyStateProjectArea extends Vue {
-}
 </script>
 
 <style scoped lang="scss">
@@ -70,9 +75,9 @@ export default class EmptyStateProjectArea extends Vue {
                 }
             }
 
-             &__img {
+            &__img {
                 margin-top: 50px;
-             }
+            }
 
             h1 {
                 font-family: 'font_bold';
@@ -80,6 +85,7 @@ export default class EmptyStateProjectArea extends Vue {
                 line-height: 35px;
                 margin-bottom: 15px;
                 min-width: 900px;
+                color: #354049;
             }
 
             p {

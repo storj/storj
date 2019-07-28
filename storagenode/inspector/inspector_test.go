@@ -4,17 +4,16 @@
 package inspector_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/uplink"
 )
@@ -28,6 +27,8 @@ func TestInspectorStats(t *testing.T) {
 	defer ctx.Check(planet.Shutdown)
 
 	planet.Start(ctx)
+
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
 
 	var availableBandwidth int64
 	var availableSpace int64
@@ -47,9 +48,7 @@ func TestInspectorStats(t *testing.T) {
 		availableSpace = response.AvailableSpace
 	}
 
-	expectedData := make([]byte, 100*memory.KiB)
-	_, err = rand.Read(expectedData)
-	require.NoError(t, err)
+	expectedData := testrand.Bytes(100 * memory.KiB)
 
 	rs := &uplink.RSConfig{
 		MinThreshold:     2,
@@ -94,48 +93,37 @@ func TestInspectorStats(t *testing.T) {
 func TestInspectorDashboard(t *testing.T) {
 	testStartedTime := time.Now()
 
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for _, storageNode := range planet.StorageNodes {
+			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
+			require.NoError(t, err)
 
-	planet, err := testplanet.New(t, 1, 6, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
+			assert.True(t, response.Uptime.Nanos > 0)
+			assert.Equal(t, storageNode.ID(), response.NodeId)
+			assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
+			assert.NotNil(t, response.Stats)
+		}
 
-	planet.Start(ctx)
+		expectedData := testrand.Bytes(100 * memory.KiB)
 
-	for _, storageNode := range planet.StorageNodes {
-		response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
-		assert.True(t, response.Uptime.Nanos > 0)
-		assert.Equal(t, storageNode.ID(), response.NodeId)
-		assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
-		assert.NotNil(t, response.Stats)
-	}
+		for _, storageNode := range planet.StorageNodes {
+			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
+			require.NoError(t, err)
 
-	expectedData := make([]byte, 100*memory.KiB)
-	_, err = rand.Read(expectedData)
-	require.NoError(t, err)
+			assert.True(t, response.LastPinged.After(testStartedTime))
 
-	err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
-	require.NoError(t, err)
+			assert.True(t, response.LastQueried.After(testStartedTime))
 
-	for _, storageNode := range planet.StorageNodes {
-		response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
-		require.NoError(t, err)
-
-		lastPinged, err := ptypes.Timestamp(response.LastPinged)
-		assert.NoError(t, err)
-		assert.True(t, lastPinged.After(testStartedTime))
-
-		lastQueried, err := ptypes.Timestamp(response.LastQueried)
-		assert.NoError(t, err)
-		assert.True(t, lastQueried.After(testStartedTime))
-
-		assert.True(t, response.Uptime.Nanos > 0)
-		assert.Equal(t, storageNode.ID(), response.NodeId)
-		assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
-		assert.Equal(t, int64(len(planet.StorageNodes)+len(planet.Satellites)), response.NodeConnections)
-		assert.NotNil(t, response.Stats)
-	}
+			assert.True(t, response.Uptime.Nanos > 0)
+			assert.Equal(t, storageNode.ID(), response.NodeId)
+			assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
+			assert.Equal(t, int64(len(planet.StorageNodes)+len(planet.Satellites)), response.NodeConnections)
+			assert.NotNil(t, response.Stats)
+		}
+	})
 }

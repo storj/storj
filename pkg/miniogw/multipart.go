@@ -15,14 +15,14 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/hash"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/lib/uplink"
 )
 
 func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, object string, metadata map[string]string) (uploadID string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Check that the bucket exists
-	_, err = layer.gateway.metainfo.GetBucket(ctx, bucket)
+	_, _, err = layer.gateway.project.GetBucketInfo(ctx, bucket)
 	if err != nil {
 		return "", convertError(err, bucket, "")
 	}
@@ -38,13 +38,11 @@ func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, objec
 		contentType := metadata["content-type"]
 		delete(metadata, "content-type")
 
-		createInfo := storj.CreateObject{
-			ContentType:      contentType,
-			Metadata:         metadata,
-			RedundancyScheme: layer.gateway.redundancy,
-			EncryptionScheme: layer.gateway.encryption,
+		opts := uplink.UploadOptions{
+			ContentType: contentType,
+			Metadata:    metadata,
 		}
-		objInfo, err := layer.putObject(ctx, bucket, object, upload.Stream, &createInfo)
+		objInfo, err := layer.putObject(ctx, bucket, object, upload.Stream, &opts)
 
 		uploads.RemoveByID(upload.ID)
 

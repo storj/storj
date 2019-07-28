@@ -16,7 +16,7 @@
                     width="140px" 
                     height="48px"
                     :onPress="onClearSelection"
-                    isWhite />
+                    isWhite="true" />
                 <Button 
                     label="Delete" 
                     width="140px" 
@@ -28,47 +28,45 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { PM_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { PM_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { TeamMember } from '../../../types/teamMembers';
 
-@Component({
-    methods: {
-        onDelete: async function () {
-            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMemberModel) => {
+    @Component({
+        components: {
+            Button
+        }
+    })
+    export default class DeleteUserArea extends Vue {
+        public async onDelete(): Promise<any> {
+            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMember) => {
                 return member.user.email;
             });
 
-            const isSuccess = await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
+            const response = await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
 
-            if (!isSuccess) {
+            if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from team');
 
                 return;
             }
 
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
-        },
-        onClearSelection: function () {
+        }
+
+        public onClearSelection(): void {
             this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
         }
 
-    },
-    computed: {
-        selectedProjectMembersCount: function () {
+        public get selectedProjectMembersCount(): number {
             return this.$store.getters.selectedProjectMembers.length;
-        },
-        projectMembersCount: function () {
+        }
+
+        public get projectMembersCount(): number {
             return this.$store.getters.projectMembers.length;
         }
-    },
-    components: {
-        Button
     }
-})
-
-export default class DeleteUserArea extends Vue {
-}
 </script>
 
 <style scoped lang="scss">
@@ -130,6 +128,7 @@ export default class DeleteUserArea extends Vue {
             }
         }
     }
+    
     @media screen and (max-width: 1600px) {
         .delete-user-container {
             max-width: 74%;

@@ -17,30 +17,23 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-@Component({
-    data:function () {
-        return {
-            searchQuery:''
-        };
-    },
-    methods: {
-        clearSearch: function () {
-            this.$data.searchQuery = '';
+    @Component
+    export default class SearchArea extends Vue {
+        private searchQuery: string = '';
+
+        public clearSearch(): void {
+            this.searchQuery = '';
         }
     }
-})
-
-export default class SearchArea extends Vue {
-}
 </script>
 
 <style scoped lang="scss">
     .search-container {
         width: 100%;
         height: 56px;
-        margin-right: 24px;
+        margin-left: 24px;
 
         &__wrap {
             position: relative;

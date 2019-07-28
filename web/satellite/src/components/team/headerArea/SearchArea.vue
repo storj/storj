@@ -19,30 +19,25 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+    import { RequestResponse } from '@/types/response';
 
-    @Component({
-        data:function () {
-            return {
-                searchQuery:''
-            };
-        },
-        methods: {
-            processSearchQuery: async function () {
-                this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, this.$data.searchQuery);
-                const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+    @Component
+    export default class SearchArea extends Vue {
+        private searchQuery: string = '';
 
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-                }
-            },
-            clearSearch: function () {
-                this.$data.searchQuery = '';
-                (this as any).processSearchQuery();
+        public clearSearch() {
+            this.searchQuery = '';
+            this.processSearchQuery();
+        }
+
+        private async processSearchQuery() {
+            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, this.searchQuery);
+            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
+
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
         }
-    })
-
-    export default class SearchArea extends Vue {
     }
 </script>
 
@@ -50,7 +45,7 @@
     .search-container {
         width: 100%;
         height: 56px;
-        margin: 0 24px;
+        margin: 0 0 0 24px;
 
         &__wrap {
             position: relative;

@@ -180,8 +180,7 @@ func CertsFromPEM(pemBytes []byte) ([]*x509.Certificate, error) {
 		if pemBlock == nil {
 			break
 		}
-		switch pemBlock.Type {
-		case BlockLabelCertificate:
+		if pemBlock.Type == BlockLabelCertificate {
 			encChain.AddCert(pemBlock.Bytes)
 		}
 	}

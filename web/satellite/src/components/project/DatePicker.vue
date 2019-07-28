@@ -386,6 +386,7 @@
     let _moment2 = _interopRequireDefault(_moment);
 
     function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
     @Component({
         props: {
             required: false,
@@ -496,7 +497,15 @@
             },
             nextMonth: function nextMonth(type) {
                 let next = null;
-                type === 'next' ? next = (0, _moment2.default)(this.checked.currentMoment).add(1, 'M') : next = (0, _moment2.default)(this.checked.currentMoment).add(-1, 'M');
+                let currentMoment = (0, _moment2.default)(this.checked.currentMoment);
+                if (type === 'next') {
+                    if (currentMoment.format('MM') === (0, _moment2.default)(new Date()).format('MM')) {
+                        return;
+                    }
+                    next = (0, _moment2.default)(this.checked.currentMoment).add(1, 'M');
+                } else {
+                    next = (0, _moment2.default)(this.checked.currentMoment).add(-1, 'M');
+                }
                 this.showDay(next);
             },
             showDay: function showDay(time) {
@@ -520,11 +529,12 @@
                 nextMonth.add(1, 'months');
                 previousMonth.subtract(1, 'months');
                 let monthDays = (0, _moment2.default)(currentMoment).daysInMonth();
+                let now = (0, _moment2.default)(new Date());
                 let oldtime = this.checked.oldtime;
                 for (let i = 1; i <= monthDays; ++i) {
                     days.push({
                         value: i,
-                        inMonth: true,
+                        inMonth: this.checked.month !== now.format('MM') || (this.checked.month === now.format('MM') && i<= now.format('DD')),
                         unavailable: false,
                         checked: false,
                         moment: (0, _moment2.default)(currentMoment).date(i)
@@ -639,7 +649,8 @@
                     return false;
                 }
                 if (!obj.inMonth) {
-                    this.nextMonth(obj.action);
+                    // this.nextMonth(obj.action);
+	                return;
                 }
                 if (this.option.type === 'day' || this.option.type === 'min') {
                     this.dayList.forEach(function (x) {
@@ -840,5 +851,5 @@
         }
     })
 
-    export default class UsageReport extends Vue {}
+    export default class DatePicker extends Vue {}
 </script>

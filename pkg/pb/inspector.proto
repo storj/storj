@@ -25,6 +25,8 @@ service KadInspector {
   rpc FindNear(FindNearRequest) returns (FindNearResponse);
   // DumpNodes returns all the nodes in the node database
   rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
+  // GetBucketList returns all the buckets with all their nodes
+  rpc GetBucketList(GetBucketListRequest) returns (GetBucketListResponse);
 }
 
 service OverlayInspector {
@@ -32,10 +34,6 @@ service OverlayInspector {
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
   // DumpNodes returns all the nodes in the cache
   rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
-  // GetStats returns the stats for a particular node ID
-  rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
-  // CreateStats creates a node with specified stats
-  rpc CreateStats(CreateStatsRequest) returns (CreateStatsResponse);
 }
 
 service PieceStoreInspector {
@@ -61,7 +59,7 @@ service HealthInspector {
 // ListSegments
 message ListIrreparableSegmentsRequest {
   int32 limit = 1;
-  int32 offset = 2;
+  bytes last_seen_segment_path = 2;
 }
 
 message IrreparableSegment {
@@ -76,36 +74,24 @@ message ListIrreparableSegmentsResponse {
   repeated IrreparableSegment segments = 1;
 }
 
-// GetStats
-message GetStatsRequest {
-  bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-}
-
-message GetStatsResponse {
-  int64 audit_count = 1;
-  double audit_ratio = 2;
-  int64 uptime_count = 3;
-  double uptime_ratio = 4;
-}
-
-// CreateStats
-message CreateStatsRequest {
-  bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  int64 audit_count = 2;
-  int64 audit_success_count = 3;
-  int64 uptime_count = 4;
-  int64 uptime_success_count = 5;
-}
-
-message CreateStatsResponse {
-}
-
 // CountNodes
 message CountNodesResponse {
   int64 count = 1;
 }
 
 message CountNodesRequest {
+}
+
+message GetBucketListRequest {
+}
+
+message GetBucketListResponse {
+	message Bucket {
+	  bytes bucket_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+	  repeated node.Node routing_nodes = 2;
+	  repeated node.Node cached_nodes = 3;
+	}
+	repeated Bucket buckets = 1;
 }
 
 // GetBuckets
@@ -124,10 +110,6 @@ message GetBucketRequest {
 
 message GetBucketResponse {
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  repeated node.Node nodes = 2;
-}
-
-message Bucket {
   repeated node.Node nodes = 2;
 }
 
@@ -202,10 +184,11 @@ message DashboardResponse {
   string bootstrap_address = 3;
   string internal_address = 4;
   string external_address = 5;
-  StatSummaryResponse stats = 6;
-  google.protobuf.Duration uptime = 7;
-  google.protobuf.Timestamp last_pinged = 8;
-  google.protobuf.Timestamp last_queried = 9;
+  string dashboard_address = 6;
+  StatSummaryResponse stats = 7;
+  google.protobuf.Duration uptime = 8;
+  google.protobuf.Timestamp last_pinged = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp last_queried = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message SegmentHealthRequest {
@@ -216,8 +199,10 @@ message SegmentHealthRequest {
 }
 
 message SegmentHealth {
-  int32 online_nodes = 1; // amount of pieces with nodes that are online
-  bytes segment = 2;      // path formatted segment index
+  repeated bytes healthy_ids = 1 [(gogoproto.customtype) = "NodeID"];   // online + not disqualified
+  repeated bytes unhealthy_ids = 2 [(gogoproto.customtype) = "NodeID"]; // online + disqualified
+  repeated bytes offline_ids = 3 [(gogoproto.customtype) = "NodeID"];   // offline
+  bytes segment = 4;                                                    // path formatted segment index
 }
 
 message SegmentHealthResponse {

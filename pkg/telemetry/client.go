@@ -118,6 +118,7 @@ func (c *Client) Run(ctx context.Context) {
 }
 
 // Report bundles up all the current stats and writes them out as UDP packets
-func (c *Client) Report(ctx context.Context) error {
+func (c *Client) Report(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return c.send(ctx, c.opts)
 }

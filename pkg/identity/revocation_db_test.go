@@ -37,20 +37,20 @@ func TestRevocationDB_Get(t *testing.T) {
 
 		{
 			t.Log("missing key")
-			rev, err = revDB.Get(chain)
+			rev, err = revDB.Get(ctx, chain)
 			assert.NoError(t, err)
 			assert.Nil(t, rev)
 
 			nodeID, err := identity.NodeIDFromCert(chain[peertls.CAIndex])
 			require.NoError(t, err)
 
-			err = db.Put(nodeID.Bytes(), ext.Value)
+			err = db.Put(ctx, nodeID.Bytes(), ext.Value)
 			require.NoError(t, err)
 		}
 
 		{
 			t.Log("existing key")
-			rev, err = revDB.Get(chain)
+			rev, err = revDB.Get(ctx, chain)
 			assert.NoError(t, err)
 
 			revBytes, err := rev.Marshal()
@@ -96,13 +96,13 @@ func TestRevocationDB_Put_success(t *testing.T) {
 			t.Log(testcase.name)
 			require.NotNil(t, testcase.ext)
 
-			err = revDB.Put(chain, testcase.ext)
+			err = revDB.Put(ctx, chain, testcase.ext)
 			require.NoError(t, err)
 
 			nodeID, err := identity.NodeIDFromCert(chain[peertls.CAIndex])
 			require.NoError(t, err)
 
-			revBytes, err := db.Get(nodeID.Bytes())
+			revBytes, err := db.Get(ctx, nodeID.Bytes())
 			require.NoError(t, err)
 
 			assert.Equal(t, testcase.ext.Value, []byte(revBytes))
@@ -125,7 +125,7 @@ func TestRevocationDB_Put_error(t *testing.T) {
 		newerRevocation, err := extensions.NewRevocationExt(keys[peertls.CAIndex], chain[peertls.LeafIndex])
 		require.NoError(t, err)
 
-		err = revDB.Put(chain, newerRevocation)
+		err = revDB.Put(ctx, chain, newerRevocation)
 		require.NoError(t, err)
 
 		testcases := []struct {
@@ -145,7 +145,7 @@ func TestRevocationDB_Put_error(t *testing.T) {
 			t.Log(testcase.name)
 			require.NotNil(t, testcase.ext)
 
-			err = revDB.Put(chain, testcase.ext)
+			err = revDB.Put(ctx, chain, testcase.ext)
 			assert.True(t, extensions.Error.Has(err))
 			assert.Equal(t, testcase.err, err)
 		}

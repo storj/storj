@@ -14,34 +14,31 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
-import NewProjectArea from '@/components/header/NewProjectArea.vue';
-import AccountButton from './AccountButton.vue';
+    import { Component, Vue } from 'vue-property-decorator';
+    import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
+    import NewProjectArea from '@/components/header/NewProjectArea.vue';
+    import AccountButton from './AccountButton.vue';
 
-@Component(
-    {
+    @Component({
         components: {
             ProjectSelectionArea,
             NewProjectArea,
             AccountButton,
         },
-    }
-)
-
-export default class DashboardHeader extends Vue {
-}
+    })
+    export default class DashboardHeader extends Vue {}
 </script>
 
 <style scoped lang="scss">
     .header-container {
         width: 100%;
         height: 100px;
+        min-height: 100px;
         background-color: white;
         display: flex;
         flex-direction: row;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         padding-left: 60px;
         padding-right: 60px;
 
@@ -56,13 +53,12 @@ export default class DashboardHeader extends Vue {
         &__right-area {
             @extend .header-container__left-area;
             justify-content: flex-end;
+            position: absolute;
+            right: 60px;
+            width: 30%;
 
             &__new-project {
                 margin-right: 24px;
-            }
-
-            &__account-button {
-                margin-right: 100px;
             }
         }
     }

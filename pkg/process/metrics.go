@@ -16,16 +16,29 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2/environment"
 
 	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/telemetry"
 )
 
 var (
-	metricInterval  = flag.Duration("metrics.interval", telemetry.DefaultInterval, "how frequently to send up telemetry")
-	metricCollector = flag.String("metrics.addr", "collectora.storj.io:9000", "address to send telemetry to")
-	metricApp       = flag.String("metrics.app", filepath.Base(os.Args[0]), "application name for telemetry identification")
-	metricAppSuffix = flag.String("metrics.app-suffix", "-dev", "application suffix")
+	metricInterval       = flag.Duration("metrics.interval", telemetry.DefaultInterval, "how frequently to send up telemetry")
+	metricCollector      = flag.String("metrics.addr", flagDefault("", "collectora.storj.io:9000"), "address to send telemetry to")
+	metricApp            = flag.String("metrics.app", filepath.Base(os.Args[0]), "application name for telemetry identification")
+	metricAppSuffix      = flag.String("metrics.app-suffix", flagDefault("-dev", "-release"), "application suffix")
+	metricInstancePrefix = flag.String("metrics.instance-prefix", "", "instance id prefix")
 )
+
+const (
+	maxInstanceLength = 52
+)
+
+func flagDefault(dev, release string) string {
+	if cfgstruct.DefaultsType() == "release" {
+		return release
+	}
+	return dev
+}
 
 // InitMetrics initializes telemetry reporting. Makes a telemetry.Client and calls
 // its Run() method in a goroutine.
@@ -38,6 +51,10 @@ func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (er
 	}
 	if instanceID == "" {
 		instanceID = telemetry.DefaultInstanceID()
+	}
+	instanceID = *metricInstancePrefix + instanceID
+	if len(instanceID) > maxInstanceLength {
+		instanceID = instanceID[:maxInstanceLength]
 	}
 	c, err := telemetry.NewClient(*metricCollector, telemetry.ClientOpts{
 		Interval:      *metricInterval,

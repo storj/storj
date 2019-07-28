@@ -12,6 +12,12 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_SORT_PM_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',
     TOGGLE_SUCCESSFUL_REGISTRATION_POPUP: 'toggleSuccessfulRegistrationPopup',
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
+    TOGGLE_EDIT_PROFILE_POPUP: 'toggleEditProfilePopup',
+    TOGGLE_CHANGE_PASSWORD_POPUP: 'toggleChangePasswordPopup',
+    SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'showSetDefaultPaymentMethodPopup',
+    CLOSE_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'closeSetDefaultPaymentMethodPopup',
+    SHOW_DELETE_PAYMENT_METHOD_POPUP: 'showDeletePaymentMethodPopup',
+    CLOSE_DELETE_PAYMENT_METHOD_POPUP: 'closeDeletePaymentMethodPopup',
     CLOSE_POPUPS: 'closePopups',
     CHANGE_STATE: 'changeFetchState',
 };
@@ -67,5 +73,25 @@ export const API_KEYS_ACTIONS = {
 
 export const PROJECT_USAGE_ACTIONS = {
     FETCH: 'fetchProjectUsage',
+    FETCH_CURRENT_ROLLUP: 'fetchCurrentProjectUsage',
+    FETCH_PREVIOUS_ROLLUP: 'fetchPreviousProjectUsage',
     CLEAR: 'clearProjectUsage',
+};
+
+export const BUCKET_USAGE_ACTIONS = {
+    FETCH: 'fetchBucketUsages',
+    SET_SEARCH: 'setSearchBucketUsage',
+    CLEAR: 'clearBucketUsages'
+};
+
+export const PROJECT_PAYMENT_METHODS_ACTIONS = {
+    ADD: 'addProjectPaymentMethod',
+    FETCH: 'fetchProjectPaymentMethods',
+    CLEAR: 'clearProjectPaymentMethods',
+    SET_DEFAULT: 'setDefaultPaymentMethod',
+    DELETE: 'deletePaymentMethod'
+};
+
+export const CREDIT_USAGE_ACTIONS = {
+    FETCH: 'fetchCreditUsage',
 };

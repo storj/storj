@@ -5,6 +5,7 @@ package transport
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"google.golang.org/grpc"
@@ -25,28 +26,44 @@ type Observer interface {
 type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
+	FetchPeerIdentity(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*identity.PeerIdentity, error)
 	Identity() *identity.FullIdentity
 	WithObservers(obs ...Observer) Client
+	AlertSuccess(ctx context.Context, node *pb.Node)
+	AlertFail(ctx context.Context, node *pb.Node, err error)
+}
+
+// Timeouts contains all of the timeouts configurable for a transport
+type Timeouts struct {
+	Request time.Duration
+	Dial    time.Duration
 }
 
 // Transport interface structure
 type Transport struct {
-	tlsOpts        *tlsopts.Options
-	observers      []Observer
-	requestTimeout time.Duration
+	tlsOpts   *tlsopts.Options
+	observers []Observer
+	timeouts  Timeouts
 }
 
 // NewClient returns a transport client with a default timeout for requests
 func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
-	return NewClientWithTimeout(tlsOpts, defaultRequestTimeout, obs...)
+	return NewClientWithTimeouts(tlsOpts, Timeouts{}, obs...)
 }
 
-// NewClientWithTimeout returns a transport client with a specified timeout for requests
-func NewClientWithTimeout(tlsOpts *tlsopts.Options, requestTimeout time.Duration, obs ...Observer) Client {
+// NewClientWithTimeouts returns a transport client with a specified timeout for requests
+func NewClientWithTimeouts(tlsOpts *tlsopts.Options, timeouts Timeouts, obs ...Observer) Client {
+	if timeouts.Request == 0 {
+		timeouts.Request = defaultTransportRequestTimeout
+	}
+	if timeouts.Dial == 0 {
+		timeouts.Dial = defaultTransportDialTimeout
+	}
+
 	return &Transport{
-		tlsOpts:        tlsOpts,
-		requestTimeout: requestTimeout,
-		observers:      obs,
+		tlsOpts:   tlsOpts,
+		timeouts:  timeouts,
+		observers: obs,
 	}
 }
 
@@ -56,11 +73,8 @@ func NewClientWithTimeout(tlsOpts *tlsopts.Options, requestTimeout time.Duration
 // DialAddress. The connection will be established successfully only if the
 // target node has the private key for the requested node ID.
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: "+node.Id.String()[0:8])(&err)
 
-	if node != nil {
-		node.Type.DPanicOnInvalid("transport dial node")
-	}
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
@@ -73,10 +87,16 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		dialOption,
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
-		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+			if err != nil {
+				return nil, err
+			}
+			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
+		}),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
 	defer cancel()
 
 	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
@@ -84,11 +104,11 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		if err == context.Canceled {
 			return nil, err
 		}
-		alertFail(timedCtx, transport.observers, node, err)
+		transport.AlertFail(timedCtx, node, err)
 		return nil, Error.Wrap(err)
 	}
 
-	alertSuccess(timedCtx, transport.observers, node)
+	transport.AlertSuccess(timedCtx, node)
 
 	return conn, nil
 }
@@ -105,12 +125,20 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 		transport.tlsOpts.DialUnverifiedIDOption(),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
-		grpc.WithUnaryInterceptor(InvokeTimeout{transport.requestTimeout}.Intercept),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+			if err != nil {
+				return nil, err
+			}
+			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
+		}),
 	}, opts...)
 
-	timedCtx, cancel := context.WithTimeout(ctx, defaultDialTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
 	defer cancel()
 
+	// TODO: this should also call alertFail or alertSuccess with the node id. We should be able
+	// to get gRPC to give us the node id after dialing?
 	conn, err = grpc.DialContext(timedCtx, address, options...)
 	if err == context.Canceled {
 		return nil, err
@@ -125,20 +153,29 @@ func (transport *Transport) Identity() *identity.FullIdentity {
 
 // WithObservers returns a new transport including the listed observers.
 func (transport *Transport) WithObservers(obs ...Observer) Client {
-	tr := &Transport{tlsOpts: transport.tlsOpts, requestTimeout: transport.requestTimeout}
+	tr := &Transport{tlsOpts: transport.tlsOpts, timeouts: transport.timeouts}
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr
 }
 
-func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
-	for _, o := range obs {
+// AlertFail alerts any subscribed observers of the failure 'err' for 'node'
+func (transport *Transport) AlertFail(ctx context.Context, node *pb.Node, err error) {
+	defer mon.Task()(&ctx)(nil)
+	for _, o := range transport.observers {
 		o.ConnFailure(ctx, node, err)
 	}
 }
 
-func alertSuccess(ctx context.Context, obs []Observer, node *pb.Node) {
-	for _, o := range obs {
+// AlertSuccess alerts any subscribed observers of success for 'node'
+func (transport *Transport) AlertSuccess(ctx context.Context, node *pb.Node) {
+	defer mon.Task()(&ctx)(nil)
+	for _, o := range transport.observers {
 		o.ConnSuccess(ctx, node)
 	}
+}
+
+// Timeouts returns the timeout values for dialing and requests.
+func (transport *Transport) Timeouts() Timeouts {
+	return transport.timeouts
 }

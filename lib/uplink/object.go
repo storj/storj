@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"storj.io/storj/internal/readcloser"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/stream"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
+	"storj.io/storj/uplink/storage/streams"
+	"storj.io/storj/uplink/stream"
 )
 
-// ObjectMeta contains metadata about a specific Object
+// ObjectMeta contains metadata about a specific Object.
 type ObjectMeta struct {
 	// Bucket gives the name of the bucket in which an Object is placed.
 	Bucket string
@@ -59,6 +59,10 @@ type ObjectMeta struct {
 		// Error Correction encoding parameters to be used for this
 		// Object.
 		RedundancyScheme storj.RedundancyScheme
+
+		// SegmentsSize gives the segment size being used for the
+		// Object's data storage.
+		SegmentsSize int64
 	}
 }
 
@@ -70,14 +74,16 @@ type Object struct {
 	// Meta holds the metainfo associated with the Object.
 	Meta ObjectMeta
 
-	metainfo *kvmetainfo.DB
-	streams  streams.Store
+	metainfoDB *kvmetainfo.DB
+	streams    streams.Store
 }
 
 // DownloadRange returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
-func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	readOnlyStream, err := o.metainfo.GetObjectStream(ctx, o.Meta.Bucket, o.Meta.Path)
+func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	readOnlyStream, err := o.metainfoDB.GetObjectStream(ctx, o.Meta.Bucket, o.Meta.Path)
 	if err != nil {
 		return nil, err
 	}

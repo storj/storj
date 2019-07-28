@@ -11,8 +11,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -31,11 +33,22 @@ func init() {
 func list(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	metainfo, _, err := cfg.Metainfo(ctx)
+	project, err := cfg.GetProject(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := project.Close(); err != nil {
+			fmt.Printf("error closing project: %+v\n", err)
+		}
+	}()
+
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
 
+	// list objects
 	if len(args) > 0 {
 		src, err := fpath.New(args[0])
 		if err != nil {
@@ -46,16 +59,31 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No bucket specified, use format sj://bucket/")
 		}
 
-		err = listFiles(ctx, metainfo, src, false)
+		bucket, err := project.OpenBucket(ctx, src.Bucket(), access)
+		if err != nil {
+			return err
+		}
+
+		defer func() {
+			if err := bucket.Close(); err != nil {
+				fmt.Printf("error closing bucket: %+v\n", err)
+			}
+		}()
+
+		err = listFiles(ctx, bucket, src, false)
 
 		return convertError(err, src)
 	}
 
-	startAfter := ""
 	noBuckets := true
 
+	// list buckets
+	listOpts := storj.BucketListOptions{
+		Direction: storj.Forward,
+		Cursor:    "",
+	}
 	for {
-		list, err := metainfo.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
+		list, err := project.ListBuckets(ctx, &listOpts)
 		if err != nil {
 			return err
 		}
@@ -64,12 +92,7 @@ func list(cmd *cobra.Command, args []string) error {
 			for _, bucket := range list.Items {
 				fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
 				if *recursiveFlag {
-					prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucket.Name))
-					if err != nil {
-						return err
-					}
-					err = listFiles(ctx, metainfo, prefix, true)
-					if err != nil {
+					if err := listFilesFromBucket(ctx, project, bucket.Name, access); err != nil {
 						return err
 					}
 				}
@@ -78,7 +101,8 @@ func list(cmd *cobra.Command, args []string) error {
 		if !list.More {
 			break
 		}
-		startAfter = list.Items[len(list.Items)-1].Name
+
+		listOpts = listOpts.NextPage(list)
 	}
 
 	if noBuckets {
@@ -88,11 +112,36 @@ func list(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func listFiles(ctx context.Context, metainfo storj.Metainfo, prefix fpath.FPath, prependBucket bool) error {
+func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucketName string, access *libuplink.EncryptionAccess) error {
+	prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucketName))
+	if err != nil {
+		return err
+	}
+
+	bucket, err := project.OpenBucket(ctx, bucketName, access)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err := bucket.Close(); err != nil {
+			fmt.Printf("error closing bucket: %+v\n", err)
+		}
+	}()
+
+	err = listFiles(ctx, bucket, prefix, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func listFiles(ctx context.Context, bucket *libuplink.Bucket, prefix fpath.FPath, prependBucket bool) error {
 	startAfter := ""
 
 	for {
-		list, err := metainfo.ListObjects(ctx, prefix.Bucket(), storj.ListOptions{
+		list, err := bucket.ListObjects(ctx, &storj.ListOptions{
 			Direction: storj.After,
 			Cursor:    startAfter,
 			Prefix:    prefix.Path(),

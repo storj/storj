@@ -8,7 +8,7 @@
         </div>
         <div v-if="!isEmpty" class="api-keys-container">
             <div class="api-keys-container__content">
-                <div v-for="apiKey in apiKeys" v-on:click="toggleSelection(apiKey.id)">
+                <div v-for="apiKey in apiKeyList" v-on:click="toggleSelection(apiKey.id)">
                     <ApiKeysItem
                         v-bind:class="[apiKey.isSelected ? 'selected': null]"
                         :apiKey="apiKey" />
@@ -22,86 +22,84 @@
             mainTitle="Let's create your first API Key"
             additional-text="<p>API keys give access to the project allowing you to create buckets, upload files, and read them. Once you’ve created an API key, you’re ready to interact with the network through our Uplink CLI.</p>"
             :imageSource="emptyImage"
-            buttonLabel="Create an Api Key"
-            isButtonShown />
+            buttonLabel="Create an API Key"
+            isButtonShown="true" />
         <AddAPIKeyPopup v-if="isPopupShown"/>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
-import HeaderArea from '@/components/apiKeys/headerArea/HeaderArea.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
-import AddAPIKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
-import Footer from '@/components/apiKeys/footerArea/Footer.vue';
-import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import HeaderArea from '@/components/apiKeys/headerArea/HeaderArea.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
+    import AddAPIKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
+    import Footer from '@/components/apiKeys/footerArea/Footer.vue';
+    import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { ApiKey } from '../../types/apiKeys';
 
-@Component({
-    data: function () {
-        return {
-            emptyImage: EMPTY_STATE_IMAGES.API_KEY,
-        };
-    },
-    methods: {
-        toggleSelection: function(id: string): void {
+    @Component({
+        components: {
+            EmptyState,
+            HeaderArea,
+            ApiKeysItem,
+            AddAPIKeyPopup,
+            Footer,
+        },
+    })
+    export default class ApiKeysArea extends Vue {
+        public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
+
+        public mounted(): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+        }
+
+        public toggleSelection(id: string): void {
             this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
-        },
-        togglePopup: function (): void {
+        }
+
+        public togglePopup(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-        },
-    },
-    computed: {
-        apiKeys: function (): any {
+        }
+
+        public get apiKeyList(): ApiKey[] {
             return this.$store.state.apiKeysModule.apiKeys;
-        },
-        isEmpty: function (): boolean {
+        }
+
+        public get isEmpty(): boolean {
             return this.$store.state.apiKeysModule.apiKeys.length === 0;
-        },
-        isSelected: function (): boolean {
+        }
+
+        public get isSelected(): boolean {
             return this.$store.getters.selectedAPIKeys.length > 0;
-        },
-        isPopupShown: function (): boolean {
+        }
+
+        public get isPopupShown(): boolean {
             return this.$store.state.appStateModule.appState.isNewAPIKeyPopupShown;
         }
-    },
-    components: {
-        EmptyState,
-        HeaderArea,
-        ApiKeysItem,
-        AddAPIKeyPopup,
-        Footer
-    },
-})
-
-export default class ApiKeysArea extends Vue {
-}
+    }
 </script>
 
 <style scoped lang="scss">
-    // .api-keys-header {
-    //     padding: 44px 40px 0 40px;
-    // }
-
-    // .api-keys-container {
-    //     padding: 0px 40px 0 60px;
-    // }
     .api-keys-header {
         position: fixed;
         padding: 55px 30px 0px 64px;
-        max-width: 79.7%;
+        max-width: 78.7%;
         width: 100%;
         background-color: #F5F6FA;
         z-index: 999;
+        top: auto;
     }
-    .api-keys-container {
-       padding: 0px 30px 55px 64px;
-       overflow-y: scroll;
-       max-height: 84vh;
-       position: relative;
 
-       &__content {
+    .api-keys-container {
+        padding: 0px 30px 55px 64px;
+        overflow-y: scroll;
+        max-height: 84vh;
+        height: 84vh;
+        position: relative;
+
+        &__content {
             display: grid;
             grid-template-columns: 190px 190px 190px 190px 190px 190px 190px;
             width: 100%;
@@ -120,6 +118,7 @@ export default class ApiKeysArea extends Vue {
                 grid-template-columns: 200px 200px 200px 200px 200px;
             }
         }
+
         .api-keys-header {
             max-width: 75%;
         }
@@ -162,6 +161,7 @@ export default class ApiKeysArea extends Vue {
                 grid-template-columns: 200px 200px 200px 200px;
             }
         }
+
         .api-keys-header {
             max-width: 80%;
         }
@@ -179,6 +179,7 @@ export default class ApiKeysArea extends Vue {
                 grid-row-gap: 0px;
             }
         }
+
         .api-keys-header {
             max-width: 80%;
         }

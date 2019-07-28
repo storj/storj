@@ -38,18 +38,18 @@ func TestBasic(t *testing.T) {
 		}
 
 		// ping a satellite
-		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local())
+		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local().Node)
 		require.NoError(t, err)
 
 		// ping a storage node
-		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local())
+		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local().Node)
 		require.NoError(t, err)
 
 		err = planet.StopPeer(planet.StorageNodes[1])
 		require.NoError(t, err)
 
 		// ping a stopped storage node
-		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local())
+		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local().Node)
 		require.Error(t, err)
 
 		// wait a bit to see whether some failures occur
@@ -64,10 +64,11 @@ func TestBasic(t *testing.T) {
 func BenchmarkCreate(b *testing.B) {
 	storageNodes := []int{4, 10, 100}
 	for _, count := range storageNodes {
-		b.Run(strconv.Itoa(count), func(b *testing.B) {
+		storageNodeCount := count
+		b.Run(strconv.Itoa(storageNodeCount), func(b *testing.B) {
 			ctx := context.Background()
 			for i := 0; i < b.N; i++ {
-				planet, err := testplanet.New(nil, 1, count, 1)
+				planet, err := testplanet.New(nil, 1, storageNodeCount, 1)
 				require.NoError(b, err)
 
 				planet.Start(ctx)

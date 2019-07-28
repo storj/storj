@@ -20,8 +20,9 @@ type httpRanger struct {
 }
 
 // HTTPRanger turns an HTTP URL into a Ranger
-func HTTPRanger(URL string) (Ranger, error) {
-	resp, err := http.Head(URL)
+func HTTPRanger(ctx context.Context, url string) (_ Ranger, err error) {
+	defer mon.Task()(&ctx)(&err)
+	resp, err := http.Head(url)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +43,7 @@ func HTTPRanger(URL string) (Ranger, error) {
 		return nil, err
 	}
 	return &httpRanger{
-		URL:  URL,
+		URL:  url,
 		size: int64(size),
 	}, nil
 }
@@ -50,9 +51,9 @@ func HTTPRanger(URL string) (Ranger, error) {
 // HTTPRangerSize creates an HTTPRanger with known size.
 // Use it if you know the content size. This will safe the extra HEAD request
 // for retrieving the content size.
-func HTTPRangerSize(URL string, size int64) Ranger {
+func HTTPRangerSize(url string, size int64) Ranger {
 	return &httpRanger{
-		URL:  URL,
+		URL:  url,
 		size: size,
 	}
 }
@@ -63,7 +64,8 @@ func (r *httpRanger) Size() int64 {
 }
 
 // Range implements Ranger.Range
-func (r *httpRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (r *httpRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if offset < 0 {
 		return nil, Error.New("negative offset")
 	}

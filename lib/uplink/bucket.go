@@ -10,21 +10,24 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/stream"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
+	"storj.io/storj/uplink/storage/streams"
+	"storj.io/storj/uplink/stream"
 )
 
 // Bucket represents operations you can perform on a bucket
 type Bucket struct {
-	storj.Bucket
-	Config BucketConfig
+	BucketConfig
+	Name    string
+	Created time.Time
 
-	metainfo   *kvmetainfo.DB
-	streams    streams.Store
-	pathCipher storj.Cipher
+	bucket   storj.Bucket
+	metainfo *kvmetainfo.DB
+	streams  streams.Store
 }
+
+// TODO: move the object related OpenObject to object.go
 
 // OpenObject returns an Object handle, if authorized.
 func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, err error) {
@@ -50,13 +53,15 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 			Volatile: struct {
 				EncryptionParameters storj.EncryptionParameters
 				RedundancyScheme     storj.RedundancyScheme
+				SegmentsSize         int64
 			}{
-				EncryptionParameters: info.ToEncryptionParameters(),
+				EncryptionParameters: info.EncryptionParameters,
 				RedundancyScheme:     info.RedundancyScheme,
+				SegmentsSize:         info.FixedSegmentSize,
 			},
 		},
-		metainfo: b.metainfo,
-		streams:  b.streams,
+		metainfoDB: b.metainfo,
+		streams:    b.streams,
 	}, nil
 }
 
@@ -93,29 +98,10 @@ type UploadOptions struct {
 func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Reader, opts *UploadOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if opts == nil {
-		opts = &UploadOptions{}
-	}
-
-	createInfo := storj.CreateObject{
-		ContentType:      opts.ContentType,
-		Metadata:         opts.Metadata,
-		Expires:          opts.Expires,
-		RedundancyScheme: opts.Volatile.RedundancyScheme,
-		EncryptionScheme: opts.Volatile.EncryptionParameters.ToEncryptionScheme(),
-	}
-
-	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
+	upload, err := b.NewWriter(ctx, path, opts)
 	if err != nil {
 		return err
 	}
-
-	mutableStream, err := obj.CreateStream(ctx)
-	if err != nil {
-		return err
-	}
-
-	upload := stream.NewUpload(ctx, mutableStream, b.streams)
 
 	_, err = io.Copy(upload, data)
 
@@ -125,20 +111,92 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 // DeleteObject removes an object, if authorized.
 func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return b.metainfo.DeleteObject(ctx, b.Bucket.Name, path)
+	return b.metainfo.DeleteObject(ctx, b.bucket.Name, path)
 }
 
 // ListOptions controls options for the ListObjects() call.
 type ListOptions = storj.ListOptions
 
 // ListObjects lists objects a user is authorized to see.
-// TODO(paul): should probably have a ListOptions defined in this package, for consistency's sake
 func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
-		cfg = &storj.ListOptions{}
+		cfg = &storj.ListOptions{Direction: storj.Forward}
 	}
-	return b.metainfo.ListObjects(ctx, b.Bucket.Name, *cfg)
+	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
+}
+
+// NewWriter creates a writer which uploads the object.
+func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOptions) (_ io.WriteCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if opts == nil {
+		opts = &UploadOptions{}
+	}
+
+	if opts.Volatile.RedundancyScheme.Algorithm == 0 {
+		opts.Volatile.RedundancyScheme.Algorithm = b.Volatile.RedundancyScheme.Algorithm
+	}
+	if opts.Volatile.RedundancyScheme.OptimalShares == 0 {
+		opts.Volatile.RedundancyScheme.OptimalShares = b.Volatile.RedundancyScheme.OptimalShares
+	}
+	if opts.Volatile.RedundancyScheme.RepairShares == 0 {
+		opts.Volatile.RedundancyScheme.RepairShares = b.Volatile.RedundancyScheme.RepairShares
+	}
+	if opts.Volatile.RedundancyScheme.RequiredShares == 0 {
+		opts.Volatile.RedundancyScheme.RequiredShares = b.Volatile.RedundancyScheme.RequiredShares
+	}
+	if opts.Volatile.RedundancyScheme.ShareSize == 0 {
+		opts.Volatile.RedundancyScheme.ShareSize = b.Volatile.RedundancyScheme.ShareSize
+	}
+	if opts.Volatile.RedundancyScheme.TotalShares == 0 {
+		opts.Volatile.RedundancyScheme.TotalShares = b.Volatile.RedundancyScheme.TotalShares
+	}
+	if opts.Volatile.EncryptionParameters.CipherSuite == storj.EncUnspecified {
+		opts.Volatile.EncryptionParameters.CipherSuite = b.EncryptionParameters.CipherSuite
+	}
+	if opts.Volatile.EncryptionParameters.BlockSize == 0 {
+		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
+	}
+	createInfo := storj.CreateObject{
+		ContentType:          opts.ContentType,
+		Metadata:             opts.Metadata,
+		Expires:              opts.Expires,
+		RedundancyScheme:     opts.Volatile.RedundancyScheme,
+		EncryptionParameters: opts.Volatile.EncryptionParameters,
+	}
+
+	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	mutableStream, err := obj.CreateStream(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	upload := stream.NewUpload(ctx, mutableStream, b.streams)
+	return upload, nil
+}
+
+// ReadSeekCloser combines interfaces io.Reader, io.Seeker, io.Closer
+type ReadSeekCloser interface {
+	io.Reader
+	io.Seeker
+	io.Closer
+}
+
+// NewReader creates a new reader that downloads the object data.
+func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ ReadSeekCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, path)
+	if err != nil {
+		return nil, err
+	}
+
+	return stream.NewDownload(ctx, segmentStream, b.streams), nil
 }
 
 // Close closes the Bucket session.

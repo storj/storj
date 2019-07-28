@@ -1,5 +1,5 @@
-# piecestore
-/pkg/piecestore/ @aleitner
+# storagenode
+/storagenode/ @aleitner
 
 # audits
 /pkg/audit/ @navillasa
@@ -14,9 +14,4 @@
 /pkg/datarepair/ @jenlij
 
 # kademlia
-/pkg/dht/ @jenlij
 /pkg/kademlia/ @jenlij
-
-# bwagreement
-/pkg/bwagreement/ @wthorp
-

@@ -61,14 +61,12 @@ func TestDialNode(t *testing.T) {
 			{
 				Id:      storj.NodeID{},
 				Address: nil,
-				Type:    pb.NodeType_STORAGE,
 			},
 			{
 				Id: storj.NodeID{},
 				Address: &pb.NodeAddress{
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				},
-				Type: pb.NodeType_STORAGE,
 			},
 			{
 				Id: storj.NodeID{123},
@@ -76,7 +74,6 @@ func TestDialNode(t *testing.T) {
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
 					Address:   "127.0.0.1:100",
 				},
-				Type: pb.NodeType_STORAGE,
 			},
 			{
 				Id: storj.NodeID{},
@@ -84,7 +81,6 @@ func TestDialNode(t *testing.T) {
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
 					Address:   planet.StorageNodes[1].Addr(),
 				},
-				Type: pb.NodeType_STORAGE,
 			},
 		}
 
@@ -106,7 +102,6 @@ func TestDialNode(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
@@ -126,7 +121,6 @@ func TestDialNode(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		dialOption, err := opts.DialOption(target.Id)
@@ -149,7 +143,6 @@ func TestDialNode(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)
@@ -231,7 +224,6 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   planet.StorageNodes[1].Addr(),
 			},
-			Type: pb.NodeType_STORAGE,
 		}
 
 		timedCtx, cancel := context.WithTimeout(ctx, time.Second)

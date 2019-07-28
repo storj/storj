@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -119,7 +120,7 @@ func newKVInputIterator(pathToFile string) (*KVInputIterator, error) {
 // Next should be called by BulkImporter instances in order to advance the iterator. It fills in
 // a storage.ListItem instance, and returns a boolean indicating whether to continue. When false is
 // returned, iteration should stop and nothing is expected to be changed in item.
-func (kvi *KVInputIterator) Next(item *storage.ListItem) bool {
+func (kvi *KVInputIterator) Next(ctx context.Context, item *storage.ListItem) bool {
 	if !kvi.scanner.Scan() {
 		kvi.reachedEnd = true
 		kvi.err = kvi.scanner.Err()
@@ -241,8 +242,8 @@ func importBigPathset(tb testing.TB, store storage.KeyValueStore) {
 		tb.Log("Performing manual import...")
 
 		var item storage.ListItem
-		for inputIter.Next(&item) {
-			if err := store.Put(item.Key, item.Value); err != nil {
+		for inputIter.Next(ctx, &item) {
+			if err := store.Put(ctx, item.Key, item.Value); err != nil {
 				tb.Fatalf("Provided KeyValueStore failed to insert data (%q, %q): %v", item.Key, item.Value, err)
 			}
 		}
@@ -762,8 +763,8 @@ func cleanupBigPathset(tb testing.TB, store storage.KeyValueStore) {
 		tb.Log("Performing manual cleanup...")
 
 		var item storage.ListItem
-		for inputIter.Next(&item) {
-			if err := store.Delete(item.Key); err != nil {
+		for inputIter.Next(ctx, &item) {
+			if err := store.Delete(ctx, item.Key); err != nil {
 				tb.Fatalf("Provided KeyValueStore failed to delete item %q during cleanup: %v", item.Key, err)
 			}
 		}
