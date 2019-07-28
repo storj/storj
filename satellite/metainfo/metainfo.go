@@ -18,19 +18,19 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
-	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/eestream"
+	"storj.io/storj/uplink/storage/meta"
 )
 
 const (

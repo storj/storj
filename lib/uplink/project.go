@@ -10,15 +10,15 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	ecclient "storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/ecclient"
+	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
+	"storj.io/storj/uplink/storage/segments"
+	"storj.io/storj/uplink/storage/streams"
 )
 
 // Project represents a specific project access session.
