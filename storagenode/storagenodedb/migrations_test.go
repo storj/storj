@@ -80,7 +80,7 @@ func TestMigrate(t *testing.T) {
 	log := zaptest.NewLogger(t)
 
 	// create a new satellitedb connection
-	db, err := storagenodedb.NewInfoInMemory()
+	db, err := storagenodedb.NewInfoTest()
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 

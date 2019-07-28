@@ -343,10 +343,11 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 
 	rr, err = eestream.Decode(rrs, es, ec.memoryLimit, ec.forceErrorDetection)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
-	return eestream.Unpad(rr, int(paddedSize-size))
+	ranger, err := eestream.Unpad(rr, int(paddedSize-size))
+	return ranger, Error.Wrap(err)
 }
 
 func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) (err error) {

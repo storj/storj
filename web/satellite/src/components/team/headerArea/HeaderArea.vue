@@ -17,20 +17,17 @@
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-        methods: {
-            onAddUsersClick: function(): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
-            }
-        },
         components: {
             SortUsersDropdown,
             SearchArea,
             Button
         }
     })
-
-export default class HeaderArea extends Vue {
-}
+    export default class HeaderArea extends Vue {
+        public onAddUsersClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        }
+    }
 </script>
 
 <style scoped lang="scss">

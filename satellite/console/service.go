@@ -93,7 +93,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 }
 
 // CreateUser gets password hash value and creates new inactive User
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
@@ -129,13 +129,22 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	err = withTx(tx, func(tx DBTx) error {
+		newUser := &User{
+			Email:        user.Email,
+			FullName:     user.FullName,
+			ShortName:    user.ShortName,
+			PasswordHash: hash,
+		}
+		if user.PartnerID != "" {
+			partnerID, err := uuid.Parse(user.PartnerID)
+			if err != nil {
+				return errs.New(internalErrMsg)
+			}
+			newUser.PartnerID = *partnerID
+		}
+
 		u, err = tx.Users().Insert(ctx,
-			&User{
-				Email:        user.Email,
-				FullName:     user.FullName,
-				ShortName:    user.ShortName,
-				PasswordHash: hash,
-			},
+			newUser,
 		)
 		if err != nil {
 			return errs.New(internalErrMsg)
@@ -645,6 +654,22 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 	return usage, nil
 }
 
+// CreateCredit creates a new record in database when new user earns new credits
+func (s *Service) CreateCredit(ctx context.Context, newCredit UserCredit) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	err = s.store.UserCredits().Create(ctx, newCredit)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
+}
+
 // CreateProject is a method for creating new project
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -895,11 +920,22 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, err
 	}
 
-	info, err := s.store.APIKeys().Create(ctx, key.Head(), APIKeyInfo{
+	apikey := APIKeyInfo{
 		Name:      name,
 		ProjectID: projectID,
 		Secret:    secret,
-	})
+	}
+
+	user, err := s.GetUser(ctx, auth.User.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	// If the user has a partnerID set it in the apikey for value attribution
+	if !user.PartnerID.IsZero() {
+		apikey.PartnerID = user.PartnerID
+	}
+
+	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
 	if err != nil {
 		return nil, nil, errs.New(internalErrMsg)
 	}

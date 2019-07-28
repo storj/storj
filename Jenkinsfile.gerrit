@@ -45,6 +45,7 @@ pipeline {
                         sh 'go run ./scripts/check-peer-constraints.go -race -fail=false'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
+                        sh 'go run ./scripts/atomicalign.go ./...'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=2 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'

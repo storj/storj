@@ -56,7 +56,7 @@ func applyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	satellites := []string{"us-central-1.tardigrade.io", "europe-west-1.tardigrade.io", "asia-east-1.tardigrade.io"}
 
-	_, err := fmt.Print("Pick a satellite to use:\n")
+	_, err := fmt.Print("Select your satellite:\n")
 	if err != nil {
 		return "", err
 	}

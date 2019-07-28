@@ -19,27 +19,33 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
 
     @Component({
-        props: {
-            mainTitle: String,
-            additionalText: String,
-            imageSource: String,
-            isButtonShown: {
-                type: Boolean,
-                default: false
-            },
-            onButtonClick: Function,
-            buttonLabel: String
-        },
         components: {
-            Button
+            Button,
         }
     })
-
-    export default class EmptyStateProjectArea extends Vue {}
+    export default class EmptyStateProjectArea extends Vue {
+        @Prop({default: ''})
+        private readonly mainTitle: string;
+        
+        @Prop({default: ''})
+        private readonly additionalText: string;
+        
+        @Prop({default: ''})
+        private readonly imageSource: string;
+        
+        @Prop({default: false})
+        private readonly isButtonShown: boolean;
+        
+        @Prop()
+        private readonly onButtonClick: Function;
+        
+        @Prop({default: 'Default'})
+        private readonly buttonLabel: string;
+    }
 </script>
 
 <style scoped lang="scss">

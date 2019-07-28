@@ -28,3 +28,9 @@ type SerialNumber = storj.SerialNumber
 
 // StreamID is an alias to storj.StreamID for use in generated protobuf code
 type StreamID = storj.StreamID
+
+// Nonce is an alias to storj.Nonce for use in generated protobuf code
+type Nonce = storj.Nonce
+
+// SegmentID is an alias to storj.SegmentID for use in generated protobuf code
+type SegmentID = storj.SegmentID
