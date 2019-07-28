@@ -15,11 +15,9 @@ See LICENSE for copying information. -->
     </div>
     {{template "freeOffers" .}}
     {{template "freeOffersModal" .}}
-    <div class="row mt-4 mb-4 d-flex justify-content-between pr-4 modal-btn">
-        <h3 class="mt-4">Partner Offers</h3>
-        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#partner-offers-modal">+ Create Partner Offer</button>
-    </div>
-    {{template "partnerOffers" .}}
-    {{template "partnerOffersModal" .}}
+
+    {{range .PartnerTables}}
+        {{template "partnerOffers" .}}
+    {{end}}
 </div>
 {{end}}
