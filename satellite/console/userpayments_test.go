@@ -4,13 +4,13 @@
 package console_test
 
 import (
-	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -21,19 +21,14 @@ func TestUserPaymentInfos(t *testing.T) {
 		ctx := testcontext.New(t)
 		consoleDB := db.Console()
 
-		var customerID [8]byte
-		_, err := rand.Read(customerID[:])
-		require.NoError(t, err)
-
-		var passHash [8]byte
-		_, err = rand.Read(passHash[:])
-		require.NoError(t, err)
+		customerID := testrand.Bytes(8)
+		passHash := testrand.Bytes(8)
 
 		// create user
 		user, err := consoleDB.Users().Insert(ctx, &console.User{
 			FullName:     "John Doe",
 			Email:        "john@mail.test",
-			PasswordHash: passHash[:],
+			PasswordHash: passHash,
 			Status:       console.Active,
 		})
 		require.NoError(t, err)
@@ -41,12 +36,12 @@ func TestUserPaymentInfos(t *testing.T) {
 		t.Run("create user payment info", func(t *testing.T) {
 			info, err := consoleDB.UserPayments().Create(ctx, console.UserPayment{
 				UserID:     user.ID,
-				CustomerID: customerID[:],
+				CustomerID: customerID,
 			})
 
 			assert.NoError(t, err)
 			assert.Equal(t, user.ID, info.UserID)
-			assert.Equal(t, customerID[:], info.CustomerID)
+			assert.Equal(t, customerID, info.CustomerID)
 		})
 
 		t.Run("get user payment info", func(t *testing.T) {
@@ -54,7 +49,7 @@ func TestUserPaymentInfos(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, user.ID, info.UserID)
-			assert.Equal(t, customerID[:], info.CustomerID)
+			assert.Equal(t, customerID, info.CustomerID)
 		})
 	})
 }

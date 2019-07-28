@@ -11,13 +11,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
+	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -27,19 +26,10 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-
 	setupCfg UplinkFlags
-	confDir  string
-	defaults cfgstruct.BindOpt
-
-	// Error is the default uplink setup errs class
-	Error = errs.Class("uplink setup error")
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
-	defaults = cfgstruct.DefaultsFlag(RootCmd)
 	RootCmd.AddCommand(setupCmd)
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
 }
@@ -87,7 +77,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 // or to a default path whose directory tree exists.
 func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
 	if setupCfg.Enc.EncryptionKey != "" {
-		err := uplink.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
+		err := setup.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
 		if err != nil {
 			return err
 		}
@@ -115,69 +105,23 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFi
 // encryptionKeyFilepath should be set to the filepath indicated by the user or
 // or to a default path whose directory tree exists.
 func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
-	_, err := fmt.Print(`
-Pick satellite to use:
-	[1] mars.tardigrade.io
-	[2] jupiter.tardigrade.io
-	[3] saturn.tardigrade.io
-Please enter numeric choice or enter satellite address manually [1]: `)
-	if err != nil {
-		return err
-	}
-	satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
-	var satelliteAddress string
-	n, err := fmt.Scanln(&satelliteAddress)
-	if err != nil {
-		if n == 0 {
-			// fmt.Scanln cannot handle empty input
-			satelliteAddress = satellites[0]
-		} else {
-			return err
-		}
-	}
 
-	// TODO add better validation
-	if satelliteAddress == "" {
-		return errs.New("satellite address cannot be empty")
-	} else if len(satelliteAddress) == 1 {
-		switch satelliteAddress {
-		case "1":
-			satelliteAddress = satellites[0]
-		case "2":
-			satelliteAddress = satellites[1]
-		case "3":
-			satelliteAddress = satellites[2]
-		default:
-			return errs.New("Satellite address cannot be one character")
-		}
-	}
-
-	satelliteAddress, err = ApplyDefaultHostAndPortToAddr(
-		satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
+	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
 		return err
 	}
 
-	_, err = fmt.Print("Enter your API key: ")
-	if err != nil {
-		return err
-	}
-	var apiKey string
-	n, err = fmt.Scanln(&apiKey)
-	if err != nil && n != 0 {
-		return err
-	}
-
-	if apiKey == "" {
-		return errs.New("API key cannot be empty")
-	}
-
-	humanReadableKey, err := cfgstruct.PromptForEncryptionKey()
+	apiKey, err := wizard.PromptForAPIKey()
 	if err != nil {
 		return err
 	}
 
-	err = uplink.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	humanReadableKey, err := wizard.PromptForEncryptionKey()
+	if err != nil {
+		return err
+	}
+
+	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
 	if err != nil {
 		return err
 	}

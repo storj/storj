@@ -7,12 +7,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"log"
-	"math/rand"
 	"os"
+	"sync"
 	"testing"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/s3client"
+	"storj.io/storj/internal/testrand"
 )
 
 var benchmarkCases = []struct {
@@ -26,21 +27,22 @@ var benchmarkCases = []struct {
 	{"1G", 1 * memory.GiB},
 }
 
-var testObjects = createObjects()
+var testobjectData struct {
+	sync.Once
+	objects map[string][]byte
+}
 
-// createObjects generates the objects (i.e. slice of bytes) that
+// testObjects returns test objects (i.e. slice of bytes) that
 // will be used as the objects to upload/download tests
-func createObjects() map[string][]byte {
-	objects := make(map[string][]byte)
-	for _, bm := range benchmarkCases {
-		data := make([]byte, bm.objectsize)
-		_, err := rand.Read(data)
-		if err != nil {
-			log.Fatalf("failed to read random bytes: %+v\n", err)
+func testObjects() map[string][]byte {
+	testobjectData.Do(func() {
+		objects := make(map[string][]byte)
+		for _, bm := range benchmarkCases {
+			objects[bm.name] = testrand.Bytes(bm.objectsize)
 		}
-		objects[bm.name] = data
-	}
-	return objects
+		testobjectData.objects = objects
+	})
+	return testobjectData.objects
 }
 
 // uplinkSetup setups an uplink to use for testing uploads/downloads
@@ -124,7 +126,7 @@ func BenchmarkDownload_Uplink(b *testing.B) {
 }
 
 func uploadTestObjects(client s3client.Client, bucket string) {
-	for name, data := range testObjects {
+	for name, data := range testObjects() {
 		objectName := "folder/data_" + name
 		err := client.Upload(bucket, objectName, data)
 		if err != nil {
@@ -134,7 +136,7 @@ func uploadTestObjects(client s3client.Client, bucket string) {
 }
 
 func teardownTestObjects(client s3client.Client, bucket string) {
-	for name := range testObjects {
+	for name := range testObjects() {
 		objectName := "folder/data_" + name
 		err := client.Delete(bucket, objectName)
 		if err != nil {
@@ -155,11 +157,10 @@ func benchmarkUpload(b *testing.B, client s3client.Client, bucket string, upload
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				// make some random bytes so the objectPath is unique
-				randomBytes := make([]byte, 16)
-				rand.Read(randomBytes)
+				randomBytes := testrand.Bytes(16)
 				uniquePathPart := hex.EncodeToString(randomBytes)
 				objectPath := "folder/data" + uniquePathPart + "_" + benchmark.name
-				err := client.Upload(bucket, objectPath, testObjects[benchmark.name])
+				err := client.Upload(bucket, objectPath, testObjects()[benchmark.name])
 				if err != nil {
 					log.Fatalf("failed to upload object %q: %+v\n", objectPath, err)
 				}

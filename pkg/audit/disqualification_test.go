@@ -7,12 +7,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -43,14 +49,14 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		require.NoError(t, err)
 
 		var (
-			sat    = planet.Satellites[0]
-			nodeID = planet.StorageNodes[0].ID()
-			report = &audit.Report{
+			satellitePeer = planet.Satellites[0]
+			nodeID        = planet.StorageNodes[0].ID()
+			report        = &audit.Report{
 				Fails: storj.NodeIDList{nodeID},
 			}
 		)
 
-		dossier, err := sat.Overlay.Service.Get(ctx, nodeID)
+		dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
 
 		require.Equal(t, alpha0, dossier.Reputation.AuditReputationAlpha)
@@ -62,10 +68,10 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		// failed audits
 		iterations := 1
 		for ; ; iterations++ {
-			_, err := sat.Audit.Service.Reporter.RecordAudits(ctx, report)
+			_, err := satellitePeer.Audit.Service.Reporter.RecordAudits(ctx, report)
 			require.NoError(t, err)
 
-			dossier, err := sat.Overlay.Service.Get(ctx, nodeID)
+			dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
 			require.NoError(t, err)
 
 			reputation := calcReputation(dossier)
@@ -102,4 +108,150 @@ func calcReputation(dossier *overlay.NodeDossier) float64 {
 	)
 
 	return alpha / (alpha + beta)
+}
+
+func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
+	// Uploads random data.
+	// Mark a node as disqualified.
+	// Check we don't get it when we require order limit.
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+		uplinkPeer := planet.Uplinks[0]
+
+		err := satellitePeer.Audit.Service.Close()
+		require.NoError(t, err)
+
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err = uplinkPeer.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+
+		encParameters := uplinkPeer.GetConfig(satellitePeer).GetEncryptionParameters()
+		cipherSuite := encParameters.CipherSuite
+		store := encryption.NewStore()
+		store.SetDefaultKey(new(storj.Key))
+		encryptedPath, err := encryption.EncryptPath("testbucket", paths.NewUnencrypted("test/path"), cipherSuite, store)
+		require.NoError(t, err)
+		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", "testbucket", encryptedPath.Raw())
+		pointer, err := satellitePeer.Metainfo.Service.Get(ctx, lastSegPath)
+		require.NoError(t, err)
+
+		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId
+		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode)
+
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucketID, pointer)
+		require.NoError(t, err)
+		assert.Len(t, limits, len(pointer.GetRemote().GetRemotePieces())-1)
+
+		for _, orderLimit := range limits {
+			assert.False(t, isDisqualified(t, ctx, satellitePeer, orderLimit.Limit.StorageNodeId))
+			assert.NotEqual(t, orderLimit.Limit.StorageNodeId, disqualifiedNode)
+		}
+	})
+}
+
+func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
+
+	// - mark a node as disqualified
+	// - check that we have an error if we try to create a segment using all storage nodes
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+		disqualifiedNode := planet.StorageNodes[0]
+
+		err := satellitePeer.Audit.Service.Close()
+		require.NoError(t, err)
+
+		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode.ID())
+
+		request := overlay.FindStorageNodesRequest{
+			MinimumRequiredNodes: 4,
+			RequestedCount:       0,
+			FreeBandwidth:        0,
+			FreeDisk:             0,
+			ExcludedNodes:        nil,
+			MinimumVersion:       "", // semver or empty
+		}
+		nodes, err := satellitePeer.Overlay.Service.FindStorageNodes(ctx, request)
+		assert.True(t, overlay.ErrNotEnoughNodes.Has(err))
+
+		assert.Len(t, nodes, 3)
+		for _, node := range nodes {
+			assert.False(t, isDisqualified(t, ctx, satellitePeer, node.Id))
+			assert.NotEqual(t, node.Id, disqualifiedNode)
+		}
+
+	})
+}
+
+func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
+
+	// - mark a node as disqualified
+	// - give it high uptime and audit rate
+	// - check that the node remains disqualified
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+
+		err := satellitePeer.Audit.Service.Close()
+		require.NoError(t, err)
+
+		disqualifiedNode := planet.StorageNodes[0]
+		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode.ID())
+
+		_, err = satellitePeer.DB.OverlayCache().UpdateUptime(ctx, disqualifiedNode.ID(), true, 0, 1, 0)
+		require.NoError(t, err)
+
+		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
+
+		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       disqualifiedNode.ID(),
+			IsUp:         true,
+			AuditSuccess: true,
+			AuditLambda:  0, // forget about history
+			AuditWeight:  1,
+			AuditDQ:      0, // make sure new reputation scores are larger than the DQ thresholds
+			UptimeLambda: 0, // forget about history
+			UptimeWeight: 1,
+			UptimeDQ:     0, // make sure new reputation scores are larger than the DQ thresholds
+		})
+		require.NoError(t, err)
+
+		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
+	})
+}
+
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) bool {
+	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
+	require.NoError(t, err)
+
+	return node.Disqualified != nil
+}
+func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) {
+	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		NodeID:       nodeID,
+		IsUp:         true,
+		AuditSuccess: false,
+		AuditLambda:  0,
+		AuditWeight:  1,
+		AuditDQ:      0.5,
+		UptimeLambda: 1,
+		UptimeWeight: 1,
+		UptimeDQ:     0.5,
+	})
+	require.NoError(t, err)
+	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }

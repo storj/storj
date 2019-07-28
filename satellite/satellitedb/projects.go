@@ -75,11 +75,19 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		return nil, err
 	}
 
+	partnerID := dbx.Project_Create_Fields{}
+	if !project.PartnerID.IsZero() {
+		partnerID = dbx.Project_Create_Fields{
+			PartnerId: dbx.Project_PartnerId(project.PartnerID[:]),
+		}
+	}
+
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
 		dbx.Project_Description(project.Description),
 		dbx.Project_UsageLimit(0),
+		partnerID,
 	)
 
 	if err != nil {

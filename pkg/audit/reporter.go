@@ -44,8 +44,10 @@ func NewReporter(log *zap.Logger, overlay *overlay.Cache, containment Containmen
 		maxReverifyCount: maxReverifyCount}
 }
 
-// RecordAudits saves audit details to overlay
-func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed *Report, err error) {
+// RecordAudits saves audit results to overlay cache. When no error, it returns
+// nil for both return values, otherwise it returns the report with the fields
+// set to the values which have been saved and the error.
+func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if req == nil {
 		return nil, nil
@@ -127,13 +129,6 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 			failed = append(failed, nodeID)
 			errlist.Add(err)
 		}
-
-		// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
-		_, err = reporter.containment.Delete(ctx, nodeID)
-		if err != nil {
-			failed = append(failed, nodeID)
-			errlist.Add(err)
-		}
 	}
 	if len(failed) > 0 {
 		return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), errlist.Err())
@@ -172,13 +167,6 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 			failed = append(failed, nodeID)
 			errlist.Add(err)
 		}
-
-		// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
-		_, err = reporter.containment.Delete(ctx, nodeID)
-		if err != nil {
-			failed = append(failed, nodeID)
-			errlist.Add(err)
-		}
 	}
 	if len(failed) > 0 {
 		return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), errlist.Err())
@@ -204,13 +192,6 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 				IsUp:         true,
 				AuditSuccess: false,
 			})
-			if err != nil {
-				failed = append(failed, pendingAudit)
-				errlist.Add(err)
-			}
-
-			// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
-			_, err = reporter.containment.Delete(ctx, pendingAudit.NodeID)
 			if err != nil {
 				failed = append(failed, pendingAudit)
 				errlist.Add(err)

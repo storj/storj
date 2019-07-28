@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/dbutil/dbschema"
@@ -33,24 +34,24 @@ func loadSnapshots() (*dbschema.Snapshots, error) {
 	// find all sql files
 	matches, err := filepath.Glob("testdata/sqlite.*")
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	for _, match := range matches {
 		versionStr := match[17 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
 		version, err := strconv.Atoi(versionStr)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		scriptData, err := ioutil.ReadFile(match)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		snapshot, err := sqliteutil.LoadSnapshotFromSQL(string(scriptData))
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 		snapshot.Version = version
 
@@ -79,7 +80,7 @@ func TestMigrate(t *testing.T) {
 	log := zaptest.NewLogger(t)
 
 	// create a new satellitedb connection
-	db, err := storagenodedb.NewInfoInMemory()
+	db, err := storagenodedb.NewInfoTest()
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 

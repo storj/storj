@@ -29,12 +29,11 @@ hr{
 }
 
 .offers-table{
-    width: 1110px;
+    width : 1106px;
     margin-left: -15px;
     background: #FFFFFF;
     border: 1.5px solid #DFDFDF;
     border-radius: 6px;
-    width: 1106px;
     overflow-x: auto;
     overflow-y: hidden;
 }
@@ -45,7 +44,7 @@ hr{
     line-height: 49px;
     letter-spacing: -0.100741px;
     margin-top:-5px;
-    width: 1103px;
+    width: 120%;
     color: #656565;
     background: #F2F3F5;
     border: 1px solid #DADDE5;
@@ -61,9 +60,11 @@ hr{
 .col-heading {
     font-family: 'Roboto';
     font-style: normal;
+    white-space: nowrap;
 }
 
-.data-row{
+.data-row,
+.data-row .col a{
     font-weight: normal;
     font-size: 14px;
     line-height: 49px;
@@ -168,6 +169,8 @@ input{
 
 .offer-type{
     margin-left:35px;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .edit-offer{
@@ -177,4 +180,16 @@ input{
 .edit-offer:hover{
     text-decoration: underline;
     color: #656565;
+}
+
+.stop-offer{
+    cursor:pointer;
+}
+
+.modal-btn{
+    margin-right:-30px;
+}
+
+.header-row .col-heading{
+    margin-left:-110px;
 }

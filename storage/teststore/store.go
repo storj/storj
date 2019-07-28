@@ -26,14 +26,15 @@ type Client struct {
 	ForceError int
 
 	CallCount struct {
-		Get         int
-		Put         int
-		List        int
-		GetAll      int
-		ReverseList int
-		Delete      int
-		Close       int
-		Iterate     int
+		Get            int
+		Put            int
+		List           int
+		GetAll         int
+		ReverseList    int
+		Delete         int
+		Close          int
+		Iterate        int
+		CompareAndSwap int
 	}
 
 	version int
@@ -89,13 +90,7 @@ func (store *Client) Put(ctx context.Context, key storage.Key, value storage.Val
 		return nil
 	}
 
-	store.Items = append(store.Items, storage.ListItem{})
-	copy(store.Items[keyIndex+1:], store.Items[keyIndex:])
-	store.Items[keyIndex] = storage.ListItem{
-		Key:   storage.CloneKey(key),
-		Value: storage.CloneValue(value),
-	}
-
+	store.put(keyIndex, key, value)
 	return nil
 }
 
@@ -169,8 +164,7 @@ func (store *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 		return storage.ErrKeyNotFound.New(key.String())
 	}
 
-	copy(store.Items[keyIndex:], store.Items[keyIndex+1:])
-	store.Items = store.Items[:len(store.Items)-1]
+	store.delete(keyIndex)
 	return nil
 }
 
@@ -429,4 +423,62 @@ func (cursor *cursor) prev() (*storage.ListItem, bool) {
 	cursor.lastKey = item.Key
 	cursor.nextIndex--
 	return item, true
+}
+
+// CompareAndSwap atomically compares and swaps oldValue with newValue
+func (store *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer store.locked()()
+
+	store.version++
+	store.CallCount.CompareAndSwap++
+	if store.forcedError() {
+		return errInternal
+	}
+
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+
+	keyIndex, found := store.indexOf(key)
+	if !found {
+		if oldValue != nil {
+			return storage.ErrKeyNotFound.New(key.String())
+		}
+
+		if newValue == nil {
+			return nil
+		}
+
+		store.put(keyIndex, key, newValue)
+		return nil
+	}
+
+	kv := &store.Items[keyIndex]
+	if !bytes.Equal(kv.Value, oldValue) {
+		return storage.ErrValueChanged.New(key.String())
+	}
+
+	if newValue == nil {
+		store.delete(keyIndex)
+		return nil
+	}
+
+	kv.Value = storage.CloneValue(newValue)
+
+	return nil
+}
+
+func (store *Client) put(keyIndex int, key storage.Key, value storage.Value) {
+	store.Items = append(store.Items, storage.ListItem{})
+	copy(store.Items[keyIndex+1:], store.Items[keyIndex:])
+	store.Items[keyIndex] = storage.ListItem{
+		Key:   storage.CloneKey(key),
+		Value: storage.CloneValue(value),
+	}
+}
+
+func (store *Client) delete(keyIndex int) {
+	copy(store.Items[keyIndex:], store.Items[keyIndex+1:])
+	store.Items = store.Items[:len(store.Items)-1]
 }

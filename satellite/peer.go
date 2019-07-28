@@ -46,16 +46,18 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
-	"storj.io/storj/satellite/marketing"
-	"storj.io/storj/satellite/marketing/marketingweb"
+	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -91,12 +93,14 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
-	// Marketing returns database for marketing admin GUI
-	Marketing() marketing.DB
+	//  returns database for marketing admin GUI
+	Rewards() rewards.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
 	Containment() audit.Containment
+	// Buckets returns the database to interact with buckets
+	Buckets() metainfo.BucketsDB
 }
 
 // Config is the global config satellite
@@ -114,6 +118,8 @@ type Config struct {
 	Checker  checker.Config
 	Repairer repairer.Config
 	Audit    audit.Config
+
+	GarbageCollection gc.Config
 
 	Tally          tally.Config
 	Rollup         rollup.Config
@@ -143,7 +149,7 @@ type Peer struct {
 
 	// services and endpoints
 	Kademlia struct {
-		kdb, ndb storage.KeyValueStore // TODO: move these into DB
+		kdb, ndb, adb storage.KeyValueStore // TODO: move these into DB
 
 		RoutingTable *kademlia.RoutingTable
 		Service      *kademlia.Kademlia
@@ -164,6 +170,7 @@ type Peer struct {
 		Database  storage.KeyValueStore // TODO: move into pointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
+		Loop      *metainfo.Loop
 	}
 
 	Inspector struct {
@@ -184,6 +191,10 @@ type Peer struct {
 		Service *audit.Service
 	}
 
+	GarbageCollection struct {
+		Service *gc.Service
+	}
+
 	Accounting struct {
 		Tally        *tally.Service
 		Rollup       *rollup.Service
@@ -199,7 +210,7 @@ type Peer struct {
 	}
 
 	Vouchers struct {
-		Service *vouchers.Service
+		Endpoint *vouchers.Endpoint
 	}
 
 	Console struct {
@@ -211,6 +222,10 @@ type Peer struct {
 	Marketing struct {
 		Listener net.Listener
 		Endpoint *marketingweb.Server
+	}
+
+	NodeStats struct {
+		Endpoint *nodestats.Endpoint
 	}
 }
 
@@ -302,13 +317,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 				return nil, err
 			}
 
-			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket)
+			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
-			peer.Kademlia.kdb, peer.Kademlia.ndb = dbs[0], dbs[1]
+			peer.Kademlia.kdb, peer.Kademlia.ndb, peer.Kademlia.adb = dbs[0], dbs[1], dbs[2]
 
-			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb, &config.RoutingTableConfig)
+			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb, peer.Kademlia.adb, &config.RoutingTableConfig)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
@@ -336,13 +351,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Service = vouchers.NewService(
+		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
 			peer.Log.Named("vouchers"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			config.Vouchers.Expiration,
 		)
-		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 
 	{ // setup live accounting
@@ -370,20 +385,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
-			peer.DB.Orders(),
 			peer.DB.CertDB(),
+			peer.DB.Orders(),
 		)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			peer.DB.CertDB(),
 			peer.DB.Orders(),
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Kademlia.ExternalAddress,
 			},
+			config.Repairer.MaxExcessRateOptimalThreshold,
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
@@ -396,7 +411,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 
 		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"), peer.Metainfo.Database)
+		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
+			peer.Metainfo.Database,
+			peer.DB.Buckets(),
+		)
+		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Service)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -408,6 +427,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
+			signing.SignerFromFullIdentity(peer.Identity),
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
@@ -421,10 +441,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval,
-			config.Checker.IrreparableInterval)
+			config.Checker)
 
 		peer.Repair.Repairer = repairer.NewService(
+			peer.Log.Named("repairer"),
 			peer.DB.RepairQueue(),
 			&config.Repairer,
 			config.Repairer.Interval,
@@ -455,6 +475,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup garbage collection
+		log.Debug("Setting up garbage collection")
+
+		peer.GarbageCollection.Service = gc.NewService(
+			peer.Log.Named("garbage collection"),
+			config.GarbageCollection,
+			peer.Transport,
+			peer.DB.OverlayCache(),
+			peer.Metainfo.Loop,
+		)
 	}
 
 	{ // setup accounting
@@ -567,6 +599,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.DB.Rewards(),
 			pmService,
 			consoleConfig.PasswordCost,
 		)
@@ -596,11 +629,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Marketing.Endpoint, err = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
+			peer.DB.Rewards(),
 			peer.Marketing.Listener,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup node stats endpoint
+		log.Debug("Setting up node stats endpoint")
+
+		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
+			peer.Log.Named("nodestats:endpoint"),
+			peer.DB.OverlayCache(),
+			peer.DB.StoragenodeAccounting())
+
+		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 	}
 
 	return peer, nil
@@ -628,6 +673,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
@@ -638,6 +686,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -712,9 +763,10 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Overlay.Service.Close())
 	}
 
-	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {
+	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil || peer.Kademlia.adb != nil {
 		errlist.Add(peer.Kademlia.kdb.Close())
 		errlist.Add(peer.Kademlia.ndb.Close())
+		errlist.Add(peer.Kademlia.adb.Close())
 	}
 
 	return errlist.Err()
@@ -728,6 +780,9 @@ func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTabl
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
+
+// URL returns the storj.NodeURL.
+func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()} }
 
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }

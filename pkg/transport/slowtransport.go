@@ -47,6 +47,12 @@ func (client *slowTransport) DialAddress(ctx context.Context, address string, op
 	return client.client.DialAddress(ctx, address, append(client.network.DialOptions(), opts...)...)
 }
 
+// FetchPeerIdentity dials the node and fetches the identity.
+func (client *slowTransport) FetchPeerIdentity(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (_ *identity.PeerIdentity, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return client.client.FetchPeerIdentity(ctx, node, append(client.network.DialOptions(), opts...)...)
+}
+
 // Identity for slowTransport
 func (client *slowTransport) Identity() *identity.FullIdentity {
 	return client.client.Identity()
@@ -55,6 +61,18 @@ func (client *slowTransport) Identity() *identity.FullIdentity {
 // WithObservers calls WithObservers for slowTransport
 func (client *slowTransport) WithObservers(obs ...Observer) Client {
 	return &slowTransport{client.client.WithObservers(obs...), client.network}
+}
+
+// AlertSuccess implements the transport.Client interface
+func (client *slowTransport) AlertSuccess(ctx context.Context, node *pb.Node) {
+	defer mon.Task()(&ctx)(nil)
+	client.client.AlertSuccess(ctx, node)
+}
+
+// AlertFail implements the transport.Client interface
+func (client *slowTransport) AlertFail(ctx context.Context, node *pb.Node, err error) {
+	defer mon.Task()(&ctx)(nil)
+	client.client.AlertFail(ctx, node, err)
 }
 
 // DialOptions returns options such that it will use simulated network parameters

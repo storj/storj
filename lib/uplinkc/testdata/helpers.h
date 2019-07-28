@@ -24,7 +24,7 @@ BucketConfig test_bucket_config() {
 }
 
 // with_test_project opens default test project and calls handleProject callback.
-void with_test_project(void (*handleProject)(ProjectRef), ProjectOptions *project_opts) {
+void with_test_project(void (*handleProject)(ProjectRef)) {
     char *_err = "";
     char **err = &_err;
 
@@ -51,7 +51,7 @@ void with_test_project(void (*handleProject)(ProjectRef), ProjectOptions *projec
 
             {
                 // open a project
-                ProjectRef project = open_project(uplink, satellite_addr, apikey, project_opts, err);
+                ProjectRef project = open_project(uplink, satellite_addr, apikey, err);
                 require_noerror(*err);
                 requiref(project._handle != 0, "got empty project\n");
 

@@ -5,13 +5,12 @@ package overlay_test
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -33,8 +32,7 @@ func BenchmarkOverlay(b *testing.B) {
 		var all []storj.NodeID
 		var check []storj.NodeID
 		for i := 0; i < TotalNodeCount; i++ {
-			var id storj.NodeID
-			_, _ = rand.Read(id[:]) // math/rand never returns error
+			id := testrand.NodeID()
 			all = append(all, id)
 			if i < OnlineCount {
 				check = append(check, id)
@@ -48,9 +46,7 @@ func BenchmarkOverlay(b *testing.B) {
 
 		// create random offline node ids to check
 		for i := 0; i < OfflineCount; i++ {
-			var id storj.NodeID
-			_, _ = rand.Read(id[:]) // math/rand never returns error
-			check = append(check, id)
+			check = append(check, testrand.NodeID())
 		}
 
 		b.Run("KnownUnreliableOrOffline", func(b *testing.B) {
@@ -87,7 +83,7 @@ func BenchmarkOverlay(b *testing.B) {
 		})
 
 		b.Run("UpdateNodeInfo", func(b *testing.B) {
-			now := ptypes.TimestampNow()
+			now := time.Now()
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
 				_, err := overlaydb.UpdateNodeInfo(ctx, id, &pb.InfoResponse{

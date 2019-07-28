@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
@@ -29,13 +28,6 @@ func (db *InfoDB) Orders() orders.DB { return &ordersdb{db} }
 func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	certdb := db.CertDB()
-
-	uplinkCertID, err := certdb.Include(ctx, info.Uplink)
-	if err != nil {
-		return ErrInfo.Wrap(err)
-	}
-
 	limitSerialized, err := proto.Marshal(info.Limit)
 	if err != nil {
 		return ErrInfo.Wrap(err)
@@ -46,20 +38,14 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 		return ErrInfo.Wrap(err)
 	}
 
-	expirationTime, err := ptypes.Timestamp(info.Limit.OrderExpiration)
-	if err != nil {
-		return ErrInfo.Wrap(err)
-	}
-
-	defer db.locked()()
-
+	// TODO: remove uplink_cert_id
 	_, err = db.db.Exec(`
 		INSERT INTO unsent_order(
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized, order_limit_expiration,
 			uplink_cert_id
 		) VALUES (?,?, ?,?,?, ?)
-	`, info.Limit.SatelliteId, info.Limit.SerialNumber, limitSerialized, orderSerialized, expirationTime, uplinkCertID)
+	`, info.Limit.SatelliteId, info.Limit.SerialNumber, limitSerialized, orderSerialized, info.Limit.OrderExpiration.UTC(), 0)
 
 	return ErrInfo.Wrap(err)
 }
@@ -67,12 +53,10 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 // ListUnsent returns orders that haven't been sent yet.
 func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	rows, err := db.db.Query(`
-		SELECT order_limit_serialized, order_serialized, certificate.peer_identity
+		SELECT order_limit_serialized, order_serialized
 		FROM unsent_order
-		INNER JOIN certificate on unsent_order.uplink_cert_id = certificate.cert_id
 		LIMIT ?
 	`, limit)
 	if err != nil {
@@ -87,16 +71,15 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 	for rows.Next() {
 		var limitSerialized []byte
 		var orderSerialized []byte
-		var uplinkIdentity []byte
 
-		err := rows.Scan(&limitSerialized, &orderSerialized, &uplinkIdentity)
+		err := rows.Scan(&limitSerialized, &orderSerialized)
 		if err != nil {
 			return nil, ErrInfo.Wrap(err)
 		}
 
 		var info orders.Info
-		info.Limit = &pb.OrderLimit2{}
-		info.Order = &pb.Order2{}
+		info.Limit = &pb.OrderLimit{}
+		info.Order = &pb.Order{}
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
@@ -104,11 +87,6 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 		}
 
 		err = proto.Unmarshal(orderSerialized, info.Order)
-		if err != nil {
-			return nil, ErrInfo.Wrap(err)
-		}
-
-		info.Uplink, err = decodePeerIdentity(ctx, uplinkIdentity)
 		if err != nil {
 			return nil, ErrInfo.Wrap(err)
 		}
@@ -123,7 +101,6 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 // Does not return uplink identity.
 func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.NodeID][]*orders.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 	// TODO: add some limiting
 
 	rows, err := db.db.Query(`
@@ -149,8 +126,8 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 		}
 
 		var info orders.Info
-		info.Limit = &pb.OrderLimit2{}
-		info.Order = &pb.Order2{}
+		info.Limit = &pb.OrderLimit{}
+		info.Order = &pb.Order{}
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
@@ -171,10 +148,9 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 // Archive marks order as being handled.
 func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	result, err := db.db.Exec(`
-		INSERT INTO order_archive (
+		INSERT INTO order_archive_ (
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized,
 			uplink_cert_id,
@@ -189,7 +165,7 @@ func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial 
 
 		DELETE FROM unsent_order
 		WHERE satellite_id = ? AND serial_number = ?;
-	`, int(status), time.Now(), satellite, serial, satellite, serial)
+	`, int(status), time.Now().UTC(), satellite, serial, satellite, serial)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
@@ -208,13 +184,10 @@ func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial 
 // ListArchived returns orders that have been sent.
 func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.ArchivedInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	rows, err := db.db.Query(`
-		SELECT order_limit_serialized, order_serialized, certificate.peer_identity,
-			status, archived_at
-		FROM order_archive
-		INNER JOIN certificate on order_archive.uplink_cert_id = certificate.cert_id
+		SELECT order_limit_serialized, order_serialized, status, archived_at
+		FROM order_archive_
 		LIMIT ?
 	`, limit)
 	if err != nil {
@@ -229,19 +202,18 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 	for rows.Next() {
 		var limitSerialized []byte
 		var orderSerialized []byte
-		var uplinkIdentity []byte
 
 		var status int
 		var archivedAt time.Time
 
-		err := rows.Scan(&limitSerialized, &orderSerialized, &uplinkIdentity, &status, &archivedAt)
+		err := rows.Scan(&limitSerialized, &orderSerialized, &status, &archivedAt)
 		if err != nil {
 			return nil, ErrInfo.Wrap(err)
 		}
 
 		var info orders.ArchivedInfo
-		info.Limit = &pb.OrderLimit2{}
-		info.Order = &pb.Order2{}
+		info.Limit = &pb.OrderLimit{}
+		info.Order = &pb.Order{}
 
 		info.Status = orders.Status(status)
 		info.ArchivedAt = archivedAt
@@ -252,11 +224,6 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 		}
 
 		err = proto.Unmarshal(orderSerialized, info.Order)
-		if err != nil {
-			return nil, ErrInfo.Wrap(err)
-		}
-
-		info.Uplink, err = decodePeerIdentity(ctx, uplinkIdentity)
 		if err != nil {
 			return nil, ErrInfo.Wrap(err)
 		}

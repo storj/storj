@@ -15,6 +15,7 @@
                     placeholder="Enter Project Name"
                     class="full-input"
                     width="100%"
+                    maxSymbols="20"
                     :error="nameError"
                     @setData="setProjectName">
                 </HeaderedInput>
@@ -23,18 +24,18 @@
                     placeholder="Enter Project Description"
                     additional-label="Optional"
                     class="full-input"
-                    isMultiline
+                    isMultiline="true"
                     height="100px"
                     width="100%"
                     @setData="setProjectDescription">
                 </HeaderedInput>
                 <div class="new-project-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
+                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true"/>
                     <Button label="Next" width="205px" height="48px" :onPress="createProjectClick"/>
                 </div>
             </div>
-            <div class="new-project-popup__close-cross-container">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" v-on:click="onCloseClick">
+            <div class="new-project-popup__close-cross-container" @click="onCloseClick">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
                 </svg>
             </div>
@@ -49,130 +50,131 @@
     import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
     import { PM_ACTIONS } from '@/utils/constants/actionNames';
+    import { TeamMember } from '../../types/teamMembers';
+    import { RequestResponse } from '../../types/response';
+    import { CreateProjectModel, Project } from '@/types/projects';
 
-    @Component(
-        {
-            beforeMount() {
-                this.$data.self = this as any;
-            },
-            data: function () {
-                return {
-                    projectName: '',
-                    description: '',
-                    nameError: '',
-                    createdProjectId: '',
-                    self: null,
-                    isLoading: false,
-                };
-            },
-            methods: {
-                setProjectName: function (value: string): void {
-                    this.$data.projectName = value;
-                    this.$data.nameError = '';
-                },
-                setProjectDescription: function (value: string): void {
-                    this.$data.description = value;
-                },
-                onCloseClick: function (): void {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-                },
-                createProjectClick: async function (): Promise<any> {
-                    if (this.$data.isLoading) {
-                        return;
-                    }
+    @Component({
+        components: {
+            HeaderedInput,
+            Checkbox,
+            Button,
+        }
+    })
+    export default class NewProjectPopup extends Vue {
+        private projectName: string = '';
+        private description: string = '';
+        private nameError: string = '';
+        private createdProjectId: string = '';
+        private isLoading: boolean = false;
 
-                    this.$data.isLoading = true;
+        public setProjectName (value: string): void {
+            this.projectName = value;
+            this.nameError = '';
+        }
 
-                    if (!this.$data.self.validateProjectName(this.$data.projectName)) {
-                        this.$data.isLoading = false;
+        public setProjectDescription (value: string): void {
+            this.description = value;
+        }
 
-                        return;
-                    }
+        public onCloseClick (): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+        }
 
-                    if (!await this.$data.self.createProject()) {
-                        this.$data.isLoading = false;
+        public async createProjectClick (): Promise<void> {
+            if (this.isLoading) {
+                return;
+            }
 
-                        return;
-                    }
+            this.isLoading = true;
 
-                    this.$data.self.selectCreatedProject();
+            if (!this.validateProjectName()) {
+                this.isLoading = false;
 
-                    this.$data.self.fetchProjectMembers();
+                return;
+            }
 
-                    this.$data.self.checkIfsFirstProject();
+            if (!await this.createProject()) {
+                this.isLoading = false;
 
-                    this.$data.isLoading = false;
-                },
-                validateProjectName: function(): boolean {
-                    this.$data.projectName = this.$data.projectName.trim();
+                return;
+            }
 
-                    const rgx = /^[^/]+$/;
-                    if (!rgx.test(this.$data.projectName)) {
-                        this.$data.nameError = 'Name for project is invalid!';
+            this.selectCreatedProject();
 
-                        return false;
-                    }
+            this.fetchProjectMembers();
 
-                    if (this.$data.projectName.length > 20) {
-                        this.$data.nameError = 'Name should be less than 21 character!';
+            this.checkIfsFirstProject();
 
-                        return false;
-                    }
+            this.isLoading = false;
+        }
 
-                    return true;
-                },
-                createProject: async function(): Promise<boolean> {
-                    let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, {
-                        name: this.$data.projectName,
-                        description: this.$data.description,
-                        isTermsAccepted: this.$data.isTermsAccepted
-                    });
-                    if (!response.isSuccess) {
-                        this.$data.self.notifyError(response.errorMessage);
+        private validateProjectName(): boolean {
+            this.projectName = this.projectName.trim();
 
-                        return false;
-                    }
+            const rgx = /^[^/]+$/;
+            if (!rgx.test(this.projectName)) {
+                this.nameError = 'Name for project is invalid!';
 
-                    this.$data.createdProjectId = response.data.id;
+                return false;
+            }
 
-                    return true;
-                },
-                selectCreatedProject: function () {
-                    this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.$data.createdProjectId);
+            if (this.projectName.length > 20) {
+                this.nameError = 'Name should be less than 21 character!';
 
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-                },
-                checkIfsFirstProject: function() {
-                    let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
+                return false;
+            }
 
-                    isFirstProject
-                        ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
-                        : this.$data.self.notifySuccess('Project created successfully!');
-                },
-                fetchProjectMembers: async function(): Promise<any> {
-                    this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+            return true;
+        }
 
-                    const response: RequestResponse<TeamMemberModel[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
-                    if (!response.isSuccess) {
-                        this.$data.self.notifyError(response.errorMessage);
-                    }
-                },
-                notifyError(message: string) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, message);
-                },
-                notifySuccess(message: string) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
-                }
-            },
-            components: {
-                HeaderedInput,
-                Checkbox,
-                Button
+        private async createProject(): Promise<boolean> {
+            const project: CreateProjectModel = {
+                name: this.projectName,
+                description: this.description,
+            };
+
+            let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, project);
+            if (!response.isSuccess) {
+                this.notifyError(response.errorMessage);
+
+                return false;
+            }
+            this.createdProjectId = response.data.id;
+
+            return true;
+        }
+
+        private selectCreatedProject(): void {
+            this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.createdProjectId);
+
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+        }
+
+        private checkIfsFirstProject(): void {
+            let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
+
+            isFirstProject
+                ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
+                : this.notifySuccess('Project created successfully!');
+        }
+
+        private async fetchProjectMembers(): Promise<any> {
+            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+
+            const response: RequestResponse<TeamMember[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            if (!response.isSuccess) {
+                this.notifyError(response.errorMessage);
             }
         }
-    )
 
-    export default class NewProjectPopup extends Vue {
+        private notifyError(message: string): void {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, message);
+        }
+
+        private notifySuccess(message: string): void {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
+        }
     }
 </script>
 
@@ -189,9 +191,11 @@
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .new-project-popup {
         width: 100%;
         max-width: 845px;

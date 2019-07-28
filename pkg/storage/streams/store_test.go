@@ -15,6 +15,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/segments"
@@ -24,6 +25,12 @@ import (
 var (
 	ctx = context.Background()
 )
+
+func newStore() *encryption.Store {
+	store := encryption.NewStore()
+	store.SetDefaultKey(new(storj.Key))
+	return store
+}
 
 func TestStreamStoreMeta(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -43,7 +50,7 @@ func TestStreamStoreMeta(t *testing.T) {
 	}
 
 	lastSegmentMetadata, err := proto.Marshal(&pb.StreamMeta{
-		EncryptedStreamInfo: stream,
+		EncryptedStreamInfo: stream, EncryptionType: int32(storj.EncNull),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -89,14 +96,14 @@ func TestStreamStoreMeta(t *testing.T) {
 			Meta(gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, storj.AESGCM, 4)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, storj.EncAESGCM, 4)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		meta, err := streamStore.Meta(ctx, test.path, storj.AESGCM)
+		meta, err := streamStore.Meta(ctx, test.path, storj.EncAESGCM)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("%+v", err)
 		}
 
 		assert.Equal(t, test.streamMeta, meta, errTag)
@@ -112,8 +119,8 @@ func TestStreamStorePut(t *testing.T) {
 	const (
 		encBlockSize = 10
 		segSize      = 10
-		pathCipher   = storj.AESGCM
-		dataCipher   = storj.Unencrypted
+		pathCipher   = storj.EncAESGCM
+		dataCipher   = storj.EncNull
 		inlineSize   = 0
 	)
 
@@ -169,7 +176,7 @@ func TestStreamStorePut(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher, inlineSize)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, newStore(), encBlockSize, dataCipher, inlineSize)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -208,8 +215,8 @@ func TestStreamStoreGet(t *testing.T) {
 		segSize      = 10
 		inlineSize   = 5
 		encBlockSize = 10
-		dataCipher   = storj.Unencrypted
-		pathCipher   = storj.AESGCM
+		dataCipher   = storj.EncNull
+		pathCipher   = storj.EncAESGCM
 	)
 
 	mockSegmentStore := segments.NewMockStore(ctrl)
@@ -279,7 +286,7 @@ func TestStreamStoreGet(t *testing.T) {
 
 		gomock.InOrder(calls...)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher, inlineSize)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, newStore(), encBlockSize, dataCipher, inlineSize)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -328,12 +335,12 @@ func TestStreamStoreDelete(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, 0, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = streamStore.Delete(ctx, test.path, storj.AESGCM)
+		err = streamStore.Delete(ctx, test.path, storj.EncAESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -372,12 +379,12 @@ func TestStreamStoreList(t *testing.T) {
 			List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segments, test.segmentMore, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, 0, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		items, more, err := streamStore.List(ctx, test.prefix, test.startAfter, test.endBefore, storj.AESGCM, test.recursive, test.limit, test.metaFlags)
+		items, more, err := streamStore.List(ctx, test.prefix, test.startAfter, test.endBefore, storj.EncAESGCM, test.recursive, test.limit, test.metaFlags)
 		if err != nil {
 			t.Fatal(err)
 		}

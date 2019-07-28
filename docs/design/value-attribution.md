@@ -58,12 +58,13 @@ The attribution table will consist of data that allows for ease of calculating t
 | project_id (pk) | uuid          |
 | bucket_name(pk) | bytes         |
 | partner_id      | uuid          |
-| at_rest_data    | integer       |
-| egress_data     | integer       |
-| ingress_data    | integer       |
 | last_updated    | timestamp     |
 
 
 ### Reporting
 
-When the total attribution needs to be calculated for a partner, the attribution service will need to find all buckets attributed to the partner, list all objects for each bucket, tally the total storage used, can calculate how much egress and ingress bandwidth was used. This can either be done on an ad hoc basis or a recurring interval.  After a calculation has been tallied, the updated total storage and egress/ingress bandwidth will be added to the attribution table.
+When the total attribution needs to be calculated for a partner, the attribution service will need to find all buckets attributed to the partner, list all objects for each bucket, and calculate the total storage and egress bandwidth was used during the time period specified. This will be done on an ad hoc basis.
+Example satellite cli usage:
+```
+satellite reports partner-attribution <partner ID> <start date inclusive> <end date exclusive>
+```

@@ -17,37 +17,34 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
-import TabNavigation from '@/components/navigation/TabNavigation.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
+    import { Component, Vue } from 'vue-property-decorator';
+    import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import TabNavigation from '@/components/navigation/TabNavigation.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
 
-@Component(
-    {
-        data: function () {
-            return {
-                emptyImage: EMPTY_STATE_IMAGES.PROJECT,
-                navigation: PROJECT_ROUTES,
-            };
-        },
-        computed: {
-            isProjectSelected: function (): boolean {
-                return this.$store.getters.selectedProject.id !== '';
-            },
-        },
-        mounted() {
-            this.$router.push(PROJECT_ROUTES.DETAILS.path);
-        },
+    @Component({
         components: {
             EmptyState,
             TabNavigation,
         }
-    }
-)
+    })
+    export default class ProjectDetailsArea extends Vue {
+        // TODO: make type for project routes
+        public navigation: any = PROJECT_ROUTES;
 
-export default class ProjectDetailsArea extends Vue {
-}
+        public mounted(): void {
+            this.$router.push(PROJECT_ROUTES.DETAILS.path);
+        }
+
+        public get isProjectSelected(): boolean {
+            return this.$store.getters.selectedProject.id !== '';
+        }
+
+        public get emptyImage(): string {
+            return EMPTY_STATE_IMAGES.PROJECT;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

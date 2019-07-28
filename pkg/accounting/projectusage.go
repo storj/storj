@@ -66,7 +66,7 @@ func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID 
 	group.Go(func() error {
 		var err error
 		from := time.Now().AddDate(0, 0, -AverageDaysInMonth) // past 30 days
-		bandwidthGetTotal, err = usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, bucketID, from)
+		bandwidthGetTotal, err = usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
 		return err
 	})
 

@@ -12,8 +12,9 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 )
 
 // Error is the default error class for piecestore client.
@@ -40,29 +41,39 @@ var DefaultConfig = Config{
 // Client implements uploading, downloading and deleting content from a piecestore.
 type Client struct {
 	log    *zap.Logger
-	signer signing.Signer
-	conn   *grpc.ClientConn
 	client pb.PiecestoreClient
+	conn   *grpc.ClientConn
 	config Config
 }
 
-// NewClient creates a new piecestore client from a grpc client connection.
-func NewClient(log *zap.Logger, signer signing.Signer, conn *grpc.ClientConn, config Config) *Client {
+// Dial dials the target piecestore endpoint.
+func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log *zap.Logger, config Config) (*Client, error) {
+	conn, err := transport.DialNode(ctx, target)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	return &Client{
 		log:    log,
-		signer: signer,
-		conn:   conn,
 		client: pb.NewPiecestoreClient(conn),
+		conn:   conn,
 		config: config,
-	}
+	}, nil
 }
 
 // Delete uses delete order limit to delete a piece on piece store.
-func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) (err error) {
+func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit, privateKey storj.PiecePrivateKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = client.client.Delete(ctx, &pb.PieceDeleteRequest{
 		Limit: limit,
 	})
+	return Error.Wrap(err)
+}
+
+// Retain uses a bloom filter to tell the piece store which pieces to keep.
+func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = client.client.Retain(ctx, req)
 	return Error.Wrap(err)
 }
 

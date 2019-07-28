@@ -5,30 +5,29 @@ package uplink
 
 import (
 	"context"
+	"time"
 
-	"github.com/vivint/infectious"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storage/streams"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/metainfo"
 )
 
-var (
-	maxBucketMetaSize = 10 * memory.MiB
-)
+const defaultUplinkDialTimeout = 20 * time.Second
+const defaultUplinkRequestTimeout = 20 * time.Second
 
 // Config represents configuration options for an Uplink
 type Config struct {
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
+		// Log is the logger to use for uplink components
+		Log *zap.Logger
+
 		// TLS defines options that affect TLS negotiation for outbound
 		// connections initiated by this uplink.
 		TLS struct {
@@ -63,6 +62,18 @@ type Config struct {
 		// be used. If set to a negative value, the system will use the
 		// smallest amount of memory it can.
 		MaxMemory memory.Size
+
+		// PartnerID is the identity given to the partner for value
+		// attribution
+		PartnerID string
+
+		// DialTimeout is the maximum time to wait connecting to another node.
+		// If not set, the library default (20 seconds) will be used.
+		DialTimeout time.Duration
+
+		// RequestTimeout is the maximum time to wait for a request response from another node.
+		// If not set, the library default (20 seconds) will be used.
+		RequestTimeout time.Duration
 	}
 }
 
@@ -79,6 +90,15 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 		cfg.Volatile.MaxMemory = 4 * memory.MiB
 	} else if cfg.Volatile.MaxMemory.Int() < 0 {
 		cfg.Volatile.MaxMemory = 0
+	}
+	if cfg.Volatile.Log == nil {
+		cfg.Volatile.Log = zap.L()
+	}
+	if cfg.Volatile.DialTimeout.Seconds() == 0 {
+		cfg.Volatile.DialTimeout = defaultUplinkDialTimeout
+	}
+	if cfg.Volatile.RequestTimeout.Seconds() == 0 {
+		cfg.Volatile.RequestTimeout = defaultUplinkRequestTimeout
 	}
 	return nil
 }
@@ -121,7 +141,12 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	if err != nil {
 		return nil, err
 	}
-	tc := transport.NewClient(tlsOpts)
+
+	timeouts := transport.Timeouts{
+		Dial:    cfg.Volatile.DialTimeout,
+		Request: cfg.Volatile.RequestTimeout,
+	}
+	tc := transport.NewClientWithTimeouts(tlsOpts, timeouts)
 
 	return &Uplink{
 		ident: ident,
@@ -130,62 +155,37 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	}, nil
 }
 
-// ProjectOptions allows configuration of various project options during opening
-type ProjectOptions struct {
-	Volatile struct {
-		EncryptionKey *storj.Key
-	}
-}
+// TODO: move the project related OpenProject and Close to project.go
 
 // OpenProject returns a Project handle with the given APIKey
-func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey, opts *ProjectOptions) (p *Project, err error) {
+func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	metainfo, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.Serialize())
+	m, err := metainfo.Dial(ctx, u.tc, satelliteAddr, apiKey.Serialize())
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: we shouldn't really need encoding parameters to manage buckets.
-	whoCares := 1
-	fc, err := infectious.NewFEC(whoCares, whoCares)
+	project, err := kvmetainfo.SetupProject(m)
 	if err != nil {
-		return nil, Error.New("failed to create erasure coding client: %v", err)
-	}
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, whoCares), whoCares, whoCares)
-	if err != nil {
-		return nil, Error.New("failed to create redundancy strategy: %v", err)
-	}
-	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
-	var encryptionKey *storj.Key
-	if opts != nil {
-		encryptionKey = opts.Volatile.EncryptionKey
-	}
-	if encryptionKey == nil {
-		// volatile warning: we're setting an encryption key of all zeros when one isn't provided.
-		// TODO: fix before the final alpha network wipe
-		encryptionKey = new(storj.Key)
-	}
-	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), encryptionKey,
-		memory.KiB.Int(), storj.AESGCM, maxBucketMetaSize.Int(),
-	)
-	if err != nil {
-		return nil, Error.New("failed to create stream store: %v", err)
+		return nil, err
 	}
 
 	return &Project{
 		uplinkCfg:     u.cfg,
 		tc:            u.tc,
-		metainfo:      metainfo,
-		project:       kvmetainfo.NewProject(streams, memory.KiB.Int32(), rs, 64*memory.MiB.Int64()),
+		metainfo:      m,
+		project:       project,
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
-		encryptionKey: encryptionKey,
 	}, nil
 }
 
-// Close closes the Uplink. This may not do anything at present, but should
-// still be called to allow forward compatibility. No Project or Bucket
-// objects using this Uplink should be used after calling Close.
+// Close closes the Project. Opened buckets or objects must not be used after calling Close.
+func (p *Project) Close() error {
+	return p.metainfo.Close()
+}
+
+// Close closes the Uplink. Opened projects, buckets or objects must not be used after calling Close.
 func (u *Uplink) Close() error {
 	return nil
 }

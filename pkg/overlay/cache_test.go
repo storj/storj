@@ -5,7 +5,6 @@ package overlay_test
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -61,28 +61,27 @@ func testNodeSelectionConfig(auditCount int64, newNodePercentage float64, distin
 }
 
 func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
-	valid1ID := storj.NodeID{}
-	valid2ID := storj.NodeID{}
-	missingID := storj.NodeID{}
+	valid1ID := testrand.NodeID()
+	valid2ID := testrand.NodeID()
+	valid3ID := testrand.NodeID()
+	missingID := testrand.NodeID()
 	address := &pb.NodeAddress{Address: "127.0.0.1:0"}
-
-	_, _ = rand.Read(valid1ID[:])
-	_, _ = rand.Read(valid2ID[:])
-	_, _ = rand.Read(missingID[:])
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, 0, false)
 	cache := overlay.NewCache(zaptest.NewLogger(t), store, nodeSelectionConfig)
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		err = cache.Put(ctx, valid2ID, pb.Node{Id: valid2ID, Address: address})
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+
+		err = cache.Put(ctx, valid3ID, pb.Node{Id: valid3ID, Address: address})
+		require.NoError(t, err)
+
+		_, err = cache.UpdateUptime(ctx, valid3ID, false)
+		require.NoError(t, err)
 	}
 
 	{ // Get
@@ -119,6 +118,15 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		assert.NoError(t, err)
 		assert.NotNil(t, more)
 		assert.NotEqual(t, len(zero), 0)
+	}
+
+	{ // PaginateQualified
+
+		// should return two nodes
+		nodes, more, err := cache.PaginateQualified(ctx, 0, 3)
+		assert.NotNil(t, more)
+		assert.NoError(t, err)
+		assert.Equal(t, len(nodes), 2)
 	}
 
 	{ // Reputation
@@ -203,8 +211,8 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
-			newID := storj.NodeID{}
-			_, _ = rand.Read(newID[:])
+			newID := testrand.NodeID()
+
 			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, defaults)
 			require.NoError(t, err)
 			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
@@ -293,12 +301,12 @@ func TestIsVetted(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var err error
-		satellite := planet.Satellites[0]
-		satellite.Audit.Service.Loop.Pause()
-		satellite.Repair.Checker.Loop.Pause()
-		service := satellite.Overlay.Service
+		satellitePeer := planet.Satellites[0]
+		satellitePeer.Audit.Service.Loop.Pause()
+		satellitePeer.Repair.Checker.Loop.Pause()
+		service := satellitePeer.Overlay.Service
 
-		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         true,
 			AuditSuccess: true,
@@ -311,7 +319,7 @@ func TestIsVetted(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[1].ID(),
 			IsUp:         true,
 			AuditSuccess: true,
@@ -336,8 +344,8 @@ func TestIsVetted(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, reputable)
 
-		// test dqing for bad uptime
-		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		// test dq-ing for bad uptime
+		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         false,
 			AuditSuccess: true,
@@ -350,8 +358,8 @@ func TestIsVetted(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// test dqing for bad audit
-		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		// test dq-ing for bad audit
+		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[1].ID(),
 			IsUp:         true,
 			AuditSuccess: false,
