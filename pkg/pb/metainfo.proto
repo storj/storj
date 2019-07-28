@@ -352,7 +352,10 @@ message SatStreamID {
     google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes satellite_signature = 7;
+    bytes  encrypted_metadata_nonce = 7 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes  encrypted_metadata       = 8;
+
+    bytes satellite_signature = 9;
 }
 
 //---------------------------
