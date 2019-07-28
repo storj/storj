@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/storage"
 )
 
