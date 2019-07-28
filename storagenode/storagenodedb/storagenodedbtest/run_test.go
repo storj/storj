@@ -37,7 +37,7 @@ func TestBandwidthRollup(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 
-	db, err := storagenodedb.NewInMemory(log, ctx.Dir("storage"))
+	db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,8 +71,8 @@ func TestBandwidthRollup(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(27), usage.Total())
 
-		err = db.Bandwidth().Rollup(ctx)
-		require.NoError(t, err)
+		//err = db.Bandwidth().Rollup(ctx)
+		//require.NoError(t, err)
 
 		// After rollup, the totals should still be the same
 		usage, err = db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
@@ -133,7 +133,7 @@ func TestInMemoryConcurrency(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 
-	db, err := storagenodedb.NewInMemory(log, ctx.Dir("storage"))
+	db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
 	if err != nil {
 		t.Fatal(err)
 	}
