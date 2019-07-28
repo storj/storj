@@ -17,13 +17,13 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/eestream"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
 )
 
 const (

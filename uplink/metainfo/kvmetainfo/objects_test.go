@@ -15,9 +15,9 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/stream"
 )
 

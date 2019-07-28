@@ -11,7 +11,6 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
@@ -19,6 +18,7 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
 )
 
 // Project represents a specific project access session.
