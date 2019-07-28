@@ -309,14 +309,10 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 		audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha,
 		uptime_reputation_beta
 	FROM (
-		SELECT * FROM (
-			SELECT DISTINCT ON (last_net) *  -- choose at max 1 node from this IP or network
-			FROM candidates
-			WHERE last_net <> ''             -- don't try to IP-filter nodes with no known IP yet
-			ORDER BY last_net, RANDOM()      -- equal chance of choosing any qualified node at this IP or network
-		) ipfiltered
-		UNION ALL
-		SELECT * FROM candidates WHERE last_net = ''
+		SELECT DISTINCT ON (last_net) *  -- choose at max 1 node from this IP or network
+		FROM candidates
+		WHERE last_net <> ''             -- don't try to IP-filter nodes with no known IP yet
+		ORDER BY last_net, RANDOM()      -- equal chance of choosing any qualified node at this IP or network
 	) filteredcandidates
 	ORDER BY RANDOM()                       -- do the actual node selection from filtered pool
 	LIMIT ?`), args...)
