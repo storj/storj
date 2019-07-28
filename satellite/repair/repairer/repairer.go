@@ -40,16 +40,12 @@ type Config struct {
 
 // Service contains the information needed to run the repair service
 type Service struct {
-	log       *zap.Logger
-	queue     queue.RepairQueue
-	config    *Config
-	Limiter   *sync2.Limiter
-	Loop      sync2.Cycle
-	transport transport.Client
-	metainfo  *metainfo.Service
-	orders    *orders.Service
-	cache     *overlay.Cache
-	repairer  *SegmentRepairer
+	log      *zap.Logger
+	queue    queue.RepairQueue
+	config   *Config
+	Limiter  *sync2.Limiter
+	Loop     sync2.Cycle
+	repairer *SegmentRepairer
 }
 
 // NewService creates repairing service
@@ -58,16 +54,12 @@ func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interv
 	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, client, config.Timeout, config.MaxExcessRateOptimalThreshold)
 
 	return &Service{
-		log:       log,
-		queue:     queue,
-		config:    config,
-		Limiter:   sync2.NewLimiter(concurrency),
-		Loop:      *sync2.NewCycle(interval),
-		transport: transport,
-		metainfo:  metainfo,
-		orders:    orders,
-		cache:     cache,
-		repairer:  repairer,
+		log:      log,
+		queue:    queue,
+		config:   config,
+		Limiter:  sync2.NewLimiter(concurrency),
+		Loop:     *sync2.NewCycle(interval),
+		repairer: repairer,
 	}
 }
 
