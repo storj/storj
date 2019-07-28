@@ -9,9 +9,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 )
 
 var (
