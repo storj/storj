@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -23,7 +22,6 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/ecclient"
-	"storj.io/storj/uplink/storage/segments"
 )
 
 // Error is a standard error class for this package.
@@ -42,19 +40,14 @@ type Config struct {
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
+func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss *SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ec := ecclient.NewClient(log.Named("ecclient"), tc, c.MaxBufferMem.Int())
 
-	return segments.NewSegmentRepairer(
+	return NewSegmentRepairer(
 		log.Named("repairer"), metainfo, orders, cache, ec, identity, c.Timeout, c.MaxExcessRateOptimalThreshold,
 	), nil
-}
-
-// SegmentRepairer is a repairer for segments
-type SegmentRepairer interface {
-	Repair(ctx context.Context, path storj.Path) (err error)
 }
 
 // Service contains the information needed to run the repair service
@@ -68,7 +61,7 @@ type Service struct {
 	metainfo  *metainfo.Service
 	orders    *orders.Service
 	cache     *overlay.Cache
-	repairer  SegmentRepairer
+	repairer  *SegmentRepairer
 }
 
 // NewService creates repairing service

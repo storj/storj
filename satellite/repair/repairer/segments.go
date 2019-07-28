@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package segments
+package repairer
 
 import (
 	"context"
@@ -21,8 +21,8 @@ import (
 	"storj.io/storj/uplink/eestream"
 )
 
-// Repairer for segments
-type Repairer struct {
+// SegmentRepairer for segments
+type SegmentRepairer struct {
 	log      *zap.Logger
 	metainfo *metainfo.Service
 	orders   *orders.Service
@@ -46,13 +46,13 @@ func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration,
 	excessOptimalThreshold float64,
-) *Repairer {
+) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
 		excessOptimalThreshold = 0
 	}
 
-	return &Repairer{
+	return &SegmentRepairer{
 		log:                        log,
 		metainfo:                   metainfo,
 		orders:                     orders,
@@ -65,7 +65,7 @@ func NewSegmentRepairer(
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err error) {
+func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
 	// Read the segment pointer from the metainfo
