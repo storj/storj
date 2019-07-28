@@ -16,9 +16,9 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/uplink/storage/meta"
 )

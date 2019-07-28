@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
@@ -23,6 +22,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/gc"

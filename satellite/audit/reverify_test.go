@@ -14,11 +14,11 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/audit"
 )
 
 func TestReverifySuccess(t *testing.T) {

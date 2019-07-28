@@ -12,9 +12,9 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/satellite/audit"
 )
 
 func TestContainIncrementAndGet(t *testing.T) {

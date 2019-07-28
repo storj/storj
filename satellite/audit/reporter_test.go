@@ -12,9 +12,9 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/audit"
 )
 
 func TestReportPendingAudits(t *testing.T) {
