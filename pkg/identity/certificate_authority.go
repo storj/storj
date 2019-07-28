@@ -221,8 +221,13 @@ func (caS CASetupConfig) Create(ctx context.Context, logger io.Writer) (*FullCer
 		parent = &FullCertificateAuthority{}
 	}
 
+	version, err := storj.GetIDVersion(storj.IDVersionNumber(caS.VersionNumber))
+	if err != nil {
+		return nil, err
+	}
+
 	ca, err := NewCA(ctx, NewCAOptions{
-		VersionNumber: storj.IDVersionNumber(caS.VersionNumber),
+		VersionNumber: version.Number,
 		Difficulty:    uint16(caS.Difficulty),
 		Concurrency:   caS.Concurrency,
 		ParentCert:    parent.Cert,

@@ -6,29 +6,22 @@ package satellitedbtest
 // This package should be referenced only in test files!
 
 import (
-	"flag"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/dbutil/pgutil"
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
 
 const (
-	// DefaultPostgresConn is a connstring that works with docker-compose
-	DefaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 	// DefaultSqliteConn is a connstring that is inmemory
 	DefaultSqliteConn = "sqlite3://file::memory:?mode=memory"
-)
-
-var (
-	// TestPostgres is flag for the postgres test database
-	TestPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
 )
 
 // Database describes a test database
@@ -42,7 +35,7 @@ type Database struct {
 func Databases() []Database {
 	return []Database{
 		{"Sqlite", DefaultSqliteConn, ""},
-		{"Postgres", *TestPostgres, "Postgres flag missing, example: -postgres-test-db=" + DefaultPostgresConn},
+		{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},
 	}
 }
 
@@ -89,6 +82,51 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 			}
 
 			test(t, db)
+		})
+	}
+}
+
+// Bench method will iterate over all supported databases. Will establish
+// connection and will create tables for each DB.
+func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
+	schemaSuffix := pgutil.CreateRandomTestingSchemaName(8)
+	b.Log("schema-suffix ", schemaSuffix)
+
+	for _, dbInfo := range Databases() {
+		dbInfo := dbInfo
+		b.Run(dbInfo.Name, func(b *testing.B) {
+			if dbInfo.URL == "" {
+				b.Skipf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
+			}
+
+			log := zap.NewNop()
+
+			schema := strings.ToLower(b.Name() + "-satellite/x-" + schemaSuffix)
+			connstr := pgutil.ConnstrWithSchema(dbInfo.URL, schema)
+			db, err := satellitedb.New(log, connstr)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			err = db.CreateSchema(schema)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			defer func() {
+				dropErr := db.DropSchema(schema)
+				err := errs.Combine(dropErr, db.Close())
+				if err != nil {
+					b.Fatal(err)
+				}
+			}()
+
+			err = db.CreateTables()
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			bench(b, db)
 		})
 	}
 }

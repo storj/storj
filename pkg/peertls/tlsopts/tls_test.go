@@ -58,9 +58,10 @@ func TestVerifyIdentity_error(t *testing.T) {
 		{"wrong node ID", identTheftVictim.ID},
 	}
 
-	for _, c := range cases {
-		t.Run(c.test, func(t *testing.T) {
-			err := tlsopts.VerifyIdentity(c.nodeID)(nil, identity.ToChains(ident.Chain()))
+	for _, cc := range cases {
+		testCase := cc
+		t.Run(testCase.test, func(t *testing.T) {
+			err := tlsopts.VerifyIdentity(testCase.nodeID)(nil, identity.ToChains(ident.Chain()))
 			assert.Error(t, err)
 		})
 	}
@@ -138,7 +139,7 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 
 		assert.NotEqual(t, oldRevocation, newRevocation)
 
-		err = revDB.Put(chain, newRevocation)
+		err = revDB.Put(ctx, chain, newRevocation)
 		assert.NoError(t, err)
 
 		opts := &extensions.Options{RevDB: revDB}

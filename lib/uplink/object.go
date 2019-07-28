@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/pkg/stream"
 )
 
-// ObjectMeta contains metadata about a specific Object
+// ObjectMeta contains metadata about a specific Object.
 type ObjectMeta struct {
 	// Bucket gives the name of the bucket in which an Object is placed.
 	Bucket string
@@ -80,7 +80,9 @@ type Object struct {
 
 // DownloadRange returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
-func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	readOnlyStream, err := o.metainfoDB.GetObjectStream(ctx, o.Meta.Bucket, o.Meta.Path)
 	if err != nil {
 		return nil, err

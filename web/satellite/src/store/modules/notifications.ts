@@ -13,7 +13,7 @@ export const notificationsModule = {
     },
     mutations: {
         // Mutaion for adding notification to queue
-        [NOTIFICATION_MUTATIONS.ADD](state: any, notification: any): void {
+        [NOTIFICATION_MUTATIONS.ADD](state: any, notification: DelayedNotification): void {
             state.notificationQueue.push(notification);
 
             // Pause current notification if it`s not first
@@ -91,7 +91,7 @@ export const notificationsModule = {
         },
     },
     getters: {
-        currentNotification: (state: any) => {
+        currentNotification: (state: any): DelayedNotification => {
             return state.notificationQueue[0] ? state.notificationQueue[0] : null;
         },
     },

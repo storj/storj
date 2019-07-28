@@ -11,21 +11,15 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import ApproveDeleteApiKeysArea from './ApproveDeleteApiKeysArea.vue';
-import DeleteApiKeysArea from './DeleteApiKeysArea.vue';
+    import { Component, Vue } from 'vue-property-decorator';
+    import ApproveDeleteApiKeysArea from './ApproveDeleteApiKeysArea.vue';
+    import DeleteApiKeysArea from './DeleteApiKeysArea.vue';
 
-@Component({
-    components: {
-        DeleteApiKeysArea,
-        ApproveDeleteApiKeysArea,
-    }
-})
-
-export default class APIFooter extends Vue {
-}
+    @Component({
+        components: {
+            DeleteApiKeysArea,
+            ApproveDeleteApiKeysArea,
+        }
+    })
+    export default class APIFooter extends Vue {}
 </script>
-
-<style scoped lang="scss">
-
-</style>

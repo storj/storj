@@ -23,6 +23,9 @@ type Flags struct {
 	IsDev bool
 
 	OnlyEnv bool // only do things necessary for loading env vars
+
+	// Connection string for the postgres database to use for storj-sim processes
+	Postgres string
 }
 
 var printCommands bool
@@ -52,6 +55,8 @@ func main() {
 
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
+
+	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", "", "connection string for postgres. If provided, storj-sim will use postgres for all databases that support it.")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",
@@ -93,32 +98,8 @@ func main() {
 		},
 	)
 
-	inmemoryCmd := &cobra.Command{
-		Use:   "inmemory",
-		Short: "in-memory single process network",
-	}
-
-	inmemoryCmd.AddCommand(
-		&cobra.Command{
-			Use:   "run",
-			Short: "run an in-memory network",
-			RunE: func(cmd *cobra.Command, args []string) (err error) {
-				return inmemoryRun(&flags)
-			},
-		},
-		&cobra.Command{
-			Use:   "test <command>",
-			Short: "run command with an in-memory network",
-			Args:  cobra.MinimumNArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) (err error) {
-				return inmemoryTest(&flags, args[0], args[1:])
-			},
-		},
-	)
-
 	rootCmd.AddCommand(
 		networkCmd,
-		inmemoryCmd,
 	)
 
 	rootCmd.SilenceUsage = true

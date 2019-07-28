@@ -14,7 +14,6 @@ import (
 )
 
 // RegistrationTokens is interface for working with registration tokens
-// TODO: remove after vanguard release
 type RegistrationTokens interface {
 	// Create creates new registration token
 	Create(ctx context.Context, projectLimit int) (*RegistrationToken, error)

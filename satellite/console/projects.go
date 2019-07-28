@@ -14,6 +14,8 @@ import (
 type Projects interface {
 	// GetAll is a method for querying all projects from the database.
 	GetAll(ctx context.Context) ([]Project, error)
+	// GetCreatedBefore retrieves all projects created before provided date
+	GetCreatedBefore(ctx context.Context, before time.Time) ([]Project, error)
 	// GetByUserID is a method for querying all projects from the database by userID.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
@@ -30,8 +32,10 @@ type Projects interface {
 type Project struct {
 	ID uuid.UUID `json:"id"`
 
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	UsageLimit  int64     `json:"usageLimit"`
+	PartnerID   uuid.UUID `json:"partnerId"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

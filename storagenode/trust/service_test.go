@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 )
@@ -26,6 +27,9 @@ func TestGetSignee(t *testing.T) {
 
 	planet.Start(ctx)
 
+	// make sure nodes are refreshed in db
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	trust := planet.StorageNodes[0].Storage2.Trust
 
 	canceledContext, cancel := context.WithCancel(ctx)
@@ -33,17 +37,13 @@ func TestGetSignee(t *testing.T) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		cert, err := trust.GetSignee(canceledContext, planet.Satellites[0].ID())
-		if err != context.Canceled {
+		_, err := trust.GetSignee(canceledContext, planet.Satellites[0].ID())
+		if errs2.IsCanceled(err) {
 			return nil
 		}
-		if err != nil {
-			return err
-		}
-		if cert != nil {
-			return errors.New("got certificate")
-		}
-		return nil
+		// if the other goroutine races us,
+		// then we might get the certificate from the cache, however we shouldn't get an error
+		return err
 	})
 
 	group.Go(func() error {
@@ -58,4 +58,34 @@ func TestGetSignee(t *testing.T) {
 	})
 
 	assert.NoError(t, group.Wait())
+}
+
+func TestGetAddress(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		// test address is stored correctly
+		for _, sat := range planet.Satellites {
+			address, err := planet.StorageNodes[0].Storage2.Trust.GetAddress(ctx, sat.ID())
+			require.NoError(t, err)
+			assert.Equal(t, sat.Addr(), address)
+		}
+
+		var group errgroup.Group
+
+		// test parallel reads
+		for i := 0; i < 10; i++ {
+			group.Go(func() error {
+				address, err := planet.StorageNodes[0].Storage2.Trust.GetAddress(ctx, planet.Satellites[0].ID())
+				if err != nil {
+					return err
+				}
+				assert.Equal(t, planet.Satellites[0].Addr(), address)
+				return nil
+			})
+		}
+
+		assert.NoError(t, group.Wait())
+	})
 }

@@ -7,6 +7,8 @@ import { changePasswordRequest, deleteAccountRequest, getUserRequest, updateAcco
 import { USER_MUTATIONS } from '@/store/mutationConstants';
 import Vuex from 'vuex';
 import { createLocalVue } from '@vue/test-utils';
+import { RequestResponse } from '@/types/response';
+import { User } from '@/types/users';
 
 const mutations = usersModule.mutations;
 

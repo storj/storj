@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pointerdb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 )
@@ -29,17 +28,17 @@ const lastSegmentIndex = int64(-1)
 
 // Endpoint for checking object and segment health
 type Endpoint struct {
-	log       *zap.Logger
-	cache     *overlay.Cache
-	pointerdb *pointerdb.Service
+	log      *zap.Logger
+	cache    *overlay.Cache
+	metainfo *metainfo.Service
 }
 
 // NewEndpoint will initialize an Endpoint struct
-func NewEndpoint(log *zap.Logger, cache *overlay.Cache, pdb *pointerdb.Service) *Endpoint {
+func NewEndpoint(log *zap.Logger, cache *overlay.Cache, metainfo *metainfo.Service) *Endpoint {
 	return &Endpoint{
-		log:       log,
-		cache:     cache,
-		pointerdb: pdb,
+		log:      log,
+		cache:    cache,
+		metainfo: metainfo,
 	}
 }
 
@@ -119,12 +118,12 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		return nil, Error.Wrap(err)
 	}
 
-	path, err := metainfo.CreatePath(*projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
+	path, err := metainfo.CreatePath(ctx, *projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	pointer, err := endpoint.pointerdb.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -138,19 +137,40 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		nodeIDs = append(nodeIDs, piece.NodeId)
 	}
 
-	nodes, err := endpoint.cache.GetAll(ctx, nodeIDs)
+	unreliableOrOfflineNodes, err := endpoint.cache.KnownUnreliableOrOffline(ctx, nodeIDs)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	onlineNodeCount := int32(0)
-	for _, n := range nodes {
-		if n.Online() {
-			onlineNodeCount++
-		}
+	offlineNodes, err := endpoint.cache.KnownOffline(ctx, nodeIDs)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
-	health.OnlineNodes = onlineNodeCount
+	offlineMap := make(map[storj.NodeID]bool)
+	for _, id := range offlineNodes {
+		offlineMap[id] = true
+	}
+	unreliableOfflineMap := make(map[storj.NodeID]bool)
+	for _, id := range unreliableOrOfflineNodes {
+		unreliableOfflineMap[id] = true
+	}
+
+	var healthyNodes storj.NodeIDList
+	var unhealthyNodes storj.NodeIDList
+	for _, id := range nodeIDs {
+		if offlineMap[id] {
+			continue
+		}
+		if unreliableOfflineMap[id] {
+			unhealthyNodes = append(unhealthyNodes, id)
+		} else {
+			healthyNodes = append(healthyNodes, id)
+		}
+	}
+	health.HealthyIds = healthyNodes
+	health.UnhealthyIds = unhealthyNodes
+	health.OfflineIds = offlineNodes
 
 	if in.GetSegmentIndex() > -1 {
 		health.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))

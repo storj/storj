@@ -4,14 +4,15 @@
 package storj_test
 
 import (
-	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -140,11 +141,25 @@ func TestNodeID_String_Version(t *testing.T) {
 	}
 }
 
-func TestNewVersionedID(t *testing.T) {
-	nodeID := storj.NodeID{}
-	_, err := rand.Read(nodeID[:])
+func TestNodeID_MarshalJSON(t *testing.T) {
+	nodeID, _ := storj.NodeIDFromString("12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7")
+	buf, err := json.Marshal(nodeID)
 	require.NoError(t, err)
-	nodeID[storj.NodeIDSize-1] = 0
+	assert.Equal(t, string(buf), `"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7"`)
+}
+
+func TestNodeID_UnmarshalJSON(t *testing.T) {
+	var nodeID storj.NodeID
+	err := json.Unmarshal([]byte(`"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7"`), &nodeID)
+	require.NoError(t, err)
+	assert.Equal(t, nodeID.String(), "12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7")
+
+	assert.Error(t, nodeID.UnmarshalJSON([]byte(`""12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7""`)))
+	assert.Error(t, nodeID.UnmarshalJSON([]byte(`{}`)))
+}
+
+func TestNewVersionedID(t *testing.T) {
+	nodeID := testrand.NodeID()
 
 	assert.Equal(t, storj.V0, nodeID.Version().Number)
 

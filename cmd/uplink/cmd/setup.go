@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -12,13 +11,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 
+	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -28,23 +26,12 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	setupCfg    UplinkFlags
-	confDir     string
-	identityDir string
-	isDev       bool
-
-	// Error is the default uplink setup errs class
-	Error = errs.Class("uplink setup error")
+	setupCfg UplinkFlags
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "uplink")
-	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
-	cfgstruct.SetupFlag(zap.L(), RootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for uplink identity credentials")
-	cfgstruct.DevFlag(RootCmd, &isDev, false, "use development and test configuration settings")
 	RootCmd.AddCommand(setupCmd)
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, isDev, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -69,87 +56,103 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	var override map[string]interface{}
-	if !setupCfg.NonInteractive {
-		_, err = fmt.Print("Enter your Satellite address: ")
-		if err != nil {
-			return err
-		}
-		var satelliteAddress string
-		_, err = fmt.Scanln(&satelliteAddress)
-		if err != nil {
-			return err
-		}
+	// override is required because the default value of Enc.KeyFilepath is ""
+	// and setting the value directly in setupCfg.Enc.KeyFiletpathon will set the
+	// value in the config file but commented out.
+	usedEncryptionKeyFilepath := setupCfg.Enc.KeyFilepath
+	if usedEncryptionKeyFilepath == "" {
+		usedEncryptionKeyFilepath = filepath.Join(setupDir, ".encryption.key")
+	}
 
-		// TODO add better validation
-		if satelliteAddress == "" {
-			return errs.New("Satellite address cannot be empty")
-		}
+	if setupCfg.NonInteractive {
+		return cmdSetupNonInteractive(cmd, setupDir, usedEncryptionKeyFilepath)
+	}
 
-		satelliteAddress, err = ApplyDefaultHostAndPortToAddr(satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
-		if err != nil {
-			return err
-		}
+	return cmdSetupInteractive(cmd, setupDir, usedEncryptionKeyFilepath)
+}
 
-		_, err = fmt.Print("Enter your API key: ")
+// cmdSetupNonInteractive sets up uplink non-interactively.
+//
+// encryptionKeyFilepath should be set to the filepath indicated by the user or
+// or to a default path whose directory tree exists.
+func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
+	if setupCfg.Enc.EncryptionKey != "" {
+		err := setup.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
 		if err != nil {
 			return err
-		}
-		var apiKey string
-		_, err = fmt.Scanln(&apiKey)
-		if err != nil {
-			return err
-		}
-
-		if apiKey == "" {
-			return errs.New("API key cannot be empty")
-		}
-
-		_, err = fmt.Print("Enter your encryption passphrase: ")
-		if err != nil {
-			return err
-		}
-		encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Println()
-		if err != nil {
-			return err
-		}
-
-		_, err = fmt.Print("Enter your encryption passphrase again: ")
-		if err != nil {
-			return err
-		}
-		repeatedEncKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Println()
-		if err != nil {
-			return err
-		}
-
-		if !bytes.Equal(encKey, repeatedEncKey) {
-			return errs.New("encryption passphrases doesn't match")
-		}
-
-		if len(encKey) == 0 {
-			_, err = fmt.Println("Warning: Encryption passphrase is empty!")
-			if err != nil {
-				return err
-			}
-		}
-
-		override = map[string]interface{}{
-			"satellite-addr": satelliteAddress,
-			"api-key":        apiKey,
-			"enc.key":        string(encKey),
 		}
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), override)
+	override := map[string]interface{}{
+		"enc.key-filepath": encryptionKeyFilepath,
+	}
+
+	err := process.SaveConfigWithAllDefaults(
+		cmd.Flags(), filepath.Join(setupDir, process.DefaultCfgFilename), override)
+	if err != nil {
+		return err
+	}
+
+	if setupCfg.Enc.EncryptionKey != "" {
+		_, _ = fmt.Printf("Your encryption key is saved to: %s\n", encryptionKeyFilepath)
+	}
+
+	return nil
+}
+
+// cmdSetupInteractive sets up uplink interactively.
+//
+// encryptionKeyFilepath should be set to the filepath indicated by the user or
+// or to a default path whose directory tree exists.
+func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
+
+	satelliteAddress, err := wizard.PromptForSatellite(cmd)
+	if err != nil {
+		return err
+	}
+
+	apiKey, err := wizard.PromptForAPIKey()
+	if err != nil {
+		return err
+	}
+
+	humanReadableKey, err := wizard.PromptForEncryptionKey()
+	if err != nil {
+		return err
+	}
+
+	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	if err != nil {
+		return err
+	}
+
+	var override = map[string]interface{}{
+		"api-key":          apiKey,
+		"satellite-addr":   satelliteAddress,
+		"enc.key-filepath": encryptionKeyFilepath,
+	}
+
+	err = process.SaveConfigWithAllDefaults(
+		cmd.Flags(), filepath.Join(setupDir, process.DefaultCfgFilename), override)
+	if err != nil {
+		return nil
+	}
+
+	// if there is an error with this we cannot do that much and the setup process
+	// has ended OK, so we ignore it.
+	_, _ = fmt.Printf(`
+Your encryption key is saved to: %s
+
+Your Uplink CLI is configured and ready to use!
+
+Some things to try next:
+
+* Run 'uplink --help' to see the operations that can be performed
+
+* See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands
+	`, encryptionKeyFilepath)
+
+	return nil
 }
 
 // ApplyDefaultHostAndPortToAddrFlag applies the default host and/or port if either is missing in the specified flag name.

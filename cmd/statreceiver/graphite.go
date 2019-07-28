@@ -43,6 +43,7 @@ func (d *GraphiteDest) Metric(application, instance string, key []byte, val floa
 		if err != nil {
 			return err
 		}
+		// TODO(leak): free connection
 		d.conn = conn
 		d.buf = bufio.NewWriter(conn)
 	}

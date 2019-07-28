@@ -5,32 +5,42 @@ package storagenode
 
 import (
 	"context"
+	"net"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/piecestore/psserver"
-	"storj.io/storj/pkg/piecestore/psserver/agreementsender"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/collector"
+	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/trust"
+	"storj.io/storj/storagenode/vouchers"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // DB is the master database for Storage Node
@@ -44,13 +54,13 @@ type DB interface {
 
 	Orders() orders.DB
 	PieceInfo() pieces.DB
-	CertDB() trust.CertDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
+	Vouchers() vouchers.DB
+	Console() console.DB
 
 	// TODO: use better interfaces
-	PSDB() *psdb.DB
-	RoutingTable() (kdb, ndb storage.KeyValueStore)
+	RoutingTable() (kdb, ndb, adb storage.KeyValueStore)
 }
 
 // Config is all the configuration parameters for a Storage Node
@@ -59,9 +69,15 @@ type Config struct {
 
 	Server   server.Config
 	Kademlia kademlia.Config
-	Storage  psserver.Config
 
-	Storage2 piecestore.Config
+	// TODO: flatten storage config and only keep the new one
+	Storage   piecestore.OldConfig
+	Storage2  piecestore.Config
+	Collector collector.Config
+
+	Vouchers vouchers.Config
+
+	Console consoleserver.Config
 
 	Version version.Config
 }
@@ -93,17 +109,27 @@ type Peer struct {
 		Inspector    *kademlia.Inspector
 	}
 
-	Agreements struct {
-		Sender *agreementsender.AgreementSender
-	}
-
 	Storage2 struct {
+		// TODO: lift things outside of it to organize better
 		Trust     *trust.Pool
 		Store     *pieces.Store
 		Endpoint  *piecestore.Endpoint
 		Inspector *inspector.Endpoint
 		Monitor   *monitor.Service
 		Sender    *orders.Sender
+	}
+
+	Vouchers *vouchers.Service
+
+	Collector *collector.Service
+
+	NodeStats *nodestats.Service
+
+	// Web server with web UI
+	Console struct {
+		Listener net.Listener
+		Service  *console.Service
+		Endpoint *consoleserver.Server
 	}
 }
 
@@ -153,28 +179,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		self := pb.Node{
-			Id:   peer.ID(),
-			Type: pb.NodeType_STORAGE,
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   config.ExternalAddress,
+		self := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   config.ExternalAddress,
+				},
 			},
-			Metadata: &pb.NodeMetadata{
+			Type: pb.NodeType_STORAGE,
+			Operator: pb.NodeOperator{
+				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
 			},
-			Version: pbVersion,
+			Version: *pbVersion,
 		}
 
-		kdb, ndb := peer.DB.RoutingTable()
-		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, &config.RoutingTableConfig)
+		kdb, ndb, adb := peer.DB.RoutingTable()
+		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, adb, &config.RoutingTableConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), self, peer.Transport, peer.Kademlia.RoutingTable, config)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -186,18 +215,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
-	{ // agreements
-		config := config.Storage // TODO: separate config
-		peer.Agreements.Sender = agreementsender.New(
-			peer.Log.Named("agreements"),
-			peer.DB.PSDB(), peer.Transport, peer.Kademlia.Service,
-			config.AgreementSenderCheckInterval,
-		)
-	}
-
-	{ // setup storage 2
-		trustAllSatellites := !config.Storage.SatelliteIDRestriction
-		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatelliteIDs)
+	{ // setup storage
+		peer.Storage2.Trust, err = trust.NewPool(peer.Transport, config.Storage.WhitelistedSatellites)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -214,6 +233,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Storage.AllocatedBandwidth.Int64(),
 			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
+			config.Storage2.Monitor,
 		)
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
@@ -233,43 +253,96 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
+		peer.Storage2.Sender = orders.NewSender(
+			log.Named("piecestore:orderssender"),
+			peer.Transport,
+			peer.DB.Orders(),
+			peer.Storage2.Trust,
+			config.Storage2.Sender,
+		)
+	}
+
+	{ // setup node stats service
+		peer.NodeStats = nodestats.NewService(
+			peer.Log.Named("nodestats"),
+			peer.Transport,
+			peer.Kademlia.Service)
+	}
+
+	{ // setup vouchers
+		interval := config.Vouchers.Interval
+		buffer := interval + time.Hour
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Transport, peer.DB.Vouchers(),
+			peer.Storage2.Trust, interval, buffer)
+	}
+
+	{ // setup storage node operator dashboard
+		peer.Console.Service, err = console.NewService(
+			peer.Log.Named("console:service"),
+			peer.DB.Console(),
+			peer.DB.Bandwidth(),
+			peer.DB.PieceInfo(),
+			peer.Kademlia.Service,
+			peer.Version,
+			peer.NodeStats,
+			config.Storage.AllocatedBandwidth,
+			config.Storage.AllocatedDiskSpace,
+			config.Kademlia.Operator.Wallet,
+			versionInfo)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Endpoint = consoleserver.NewServer(
+			peer.Log.Named("console:endpoint"),
+			config.Console,
+			peer.Console.Service,
+			peer.Console.Listener,
+		)
+	}
+
+	{ // setup storage inspector
 		peer.Storage2.Inspector = inspector.NewEndpoint(
 			peer.Log.Named("pieces:inspector"),
 			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
-			peer.DB.PSDB(),
 			config.Storage,
+			peer.Console.Listener.Addr(),
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
-
-		peer.Storage2.Sender = orders.NewSender(
-			log.Named("piecestore:orderssender"),
-			peer.Transport,
-			peer.Kademlia.Service,
-			peer.DB.Orders(),
-			config.Storage2.Sender,
-		)
 	}
+
+	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
 
 	return peer, nil
 }
 
 // Run runs storage node until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) error {
+func (peer *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
+
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
+
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Agreements.Sender.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Collector.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Sender.Run(ctx))
@@ -278,12 +351,24 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
+	})
+
+	//group.Go(func() error {
+	//	return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
+	//})
+
+	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
+	})
+
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()
@@ -301,11 +386,33 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+
+	//if peer.DB.Bandwidth() != nil {
+	//	errlist.Add(peer.DB.Bandwidth().Close())
+	//}
+	if peer.Vouchers != nil {
+		errlist.Add(peer.Vouchers.Close())
+	}
+	if peer.Storage2.Monitor != nil {
+		errlist.Add(peer.Storage2.Monitor.Close())
+	}
+	if peer.Storage2.Sender != nil {
+		errlist.Add(peer.Storage2.Sender.Close())
+	}
+	if peer.Collector != nil {
+		errlist.Add(peer.Collector.Close())
+	}
+
 	if peer.Kademlia.Service != nil {
 		errlist.Add(peer.Kademlia.Service.Close())
 	}
 	if peer.Kademlia.RoutingTable != nil {
 		errlist.Add(peer.Kademlia.RoutingTable.Close())
+	}
+	if peer.Console.Endpoint != nil {
+		errlist.Add(peer.Console.Endpoint.Close())
+	} else if peer.Console.Listener != nil {
+		errlist.Add(peer.Console.Listener.Close())
 	}
 
 	return errlist.Err()
@@ -315,10 +422,13 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() pb.Node { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
+
+// URL returns the storj.NodeURL.
+func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()} }
 
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }

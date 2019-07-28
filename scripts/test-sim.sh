@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ueo pipefail
 set +x
 
@@ -15,18 +15,26 @@ trap cleanup EXIT
 
 export STORJ_NETWORK_DIR=$TMP
 
+STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
+STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
+
 # setup the network
-storj-sim -x network setup
+# if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
+if [ -z ${STORJ_SIM_POSTGRES} ]; then
+	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network setup
+else
+	storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+fi
 
 # run aws-cli tests
-storj-sim -x network test bash "$SCRIPTDIR"/test-sim-aws.sh
-storj-sim -x network test bash "$SCRIPTDIR"/test-uplink.sh
-storj-sim -x network destroy
+storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-sim-aws.sh
+storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink.sh
+storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network destroy
 
 # setup the network with ipv6
-storj-sim -x --host "::1" network setup
+#storj-sim -x --host "::1" network setup
 # aws-cli doesn't support gateway with ipv6 address, so change it to use localhost
-find "$STORJ_NETWORK_DIR"/gateway -type f -name config.yaml -exec sed -i 's/server.address: "\[::1\]/server.address: "127.0.0.1/' '{}' +
+#find "$STORJ_NETWORK_DIR"/gateway -type f -name config.yaml -exec sed -i 's/server.address: "\[::1\]/server.address: "127.0.0.1/' '{}' +
 # run aws-cli tests using ipv6
-storj-sim -x --host "::1" network test bash "$SCRIPTDIR"/test-sim-aws.sh
-storj-sim -x network destroy
+#storj-sim -x --host "::1" network test bash "$SCRIPTDIR"/test-sim-aws.sh
+#storj-sim -x network destroy

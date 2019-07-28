@@ -5,7 +5,7 @@ import { HttpLink } from 'apollo-link-http';
 import ApolloClient from 'apollo-client/ApolloClient';
 import { InMemoryCache } from 'apollo-cache-inmemory';
 import { setContext } from 'apollo-link-context';
-import { getToken } from '@/utils/tokenManager';
+import { AuthToken } from '@/utils/authToken';
 
 // Satellite url
 const satelliteUrl = new HttpLink({
@@ -15,9 +15,9 @@ const satelliteUrl = new HttpLink({
 // Adding auth headers
 const authLink = setContext((_, {headers}) => {
     // get the authentication token from local storage if it exists
-    const token = getToken();
-    // return the headers to the context so httpLink can read them
+    const token = AuthToken.get();
 
+    // return the headers to the context so httpLink can read them
     return {
         headers: {
             ...headers,

@@ -5,19 +5,26 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"errors"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
+
+var mon = monkit.Package()
 
 // Delimiter separates nested paths in storage
 const Delimiter = '/'
 
-//ErrKeyNotFound used When something doesn't exist
+//ErrKeyNotFound used when something doesn't exist
 var ErrKeyNotFound = errs.Class("key not found")
 
-// ErrEmptyKey is returned when an empty key is used in Put
+// ErrEmptyKey is returned when an empty key is used in Put or in CompareAndSwap
 var ErrEmptyKey = errs.Class("empty key")
+
+// ErrValueChanged is returned when the current value of the key does not match the oldValue in CompareAndSwap
+var ErrValueChanged = errs.Class("value changed")
 
 // ErrEmptyQueue is returned when attempting to Dequeue from an empty queue
 var ErrEmptyQueue = errs.Class("empty queue")
@@ -53,30 +60,20 @@ type ListItem struct {
 // KeyValueStore describes key/value stores like redis and boltdb
 type KeyValueStore interface {
 	// Put adds a value to store
-	Put(Key, Value) error
+	Put(context.Context, Key, Value) error
 	// Get gets a value to store
-	Get(Key) (Value, error)
+	Get(context.Context, Key) (Value, error)
 	// GetAll gets all values from the store
-	GetAll(Keys) (Values, error)
+	GetAll(context.Context, Keys) (Values, error)
 	// Delete deletes key and the value
-	Delete(Key) error
+	Delete(context.Context, Key) error
 	// List lists all keys starting from start and upto limit items
-	List(start Key, limit int) (Keys, error)
+	List(ctx context.Context, start Key, limit int) (Keys, error)
 	// Iterate iterates over items based on opts
-	Iterate(opts IterateOptions, fn func(Iterator) error) error
+	Iterate(ctx context.Context, opts IterateOptions, fn func(context.Context, Iterator) error) error
+	// CompareAndSwap atomically compares and swaps oldValue with newValue
+	CompareAndSwap(ctx context.Context, key Key, oldValue, newValue Value) error
 	// Close closes the store
-	Close() error
-}
-
-//Queue is an interface describing queue stores like redis
-type Queue interface {
-	//Enqueue add a FIFO element
-	Enqueue(Value) error
-	//Dequeue removes a FIFO element, returning ErrEmptyQueue if empty
-	Dequeue() (Value, error)
-	//Peekqueue returns 'limit' elements from the queue
-	Peekqueue(limit int) ([]Value, error)
-	//Close closes the store
 	Close() error
 }
 
@@ -96,7 +93,7 @@ type IterateOptions struct {
 type Iterator interface {
 	// Next prepares the next list item.
 	// It returns true on success, or false if there is no next result row or an error happened while preparing it.
-	Next(item *ListItem) bool
+	Next(ctx context.Context, item *ListItem) bool
 }
 
 // IsZero returns true if the value struct is it's zero value

@@ -4,6 +4,7 @@
 package identity
 
 import (
+	"context"
 	"crypto/x509"
 	"crypto/x509/pkix"
 
@@ -72,13 +73,14 @@ func newRevocationDBRedis(address string) (*RevocationDB, error) {
 
 // Get attempts to retrieve the most recent revocation for the given cert chain
 // (the  key used in the underlying database is the nodeID of the certificate chain).
-func (r RevocationDB) Get(chain []*x509.Certificate) (*extensions.Revocation, error) {
+func (r RevocationDB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.Revocation, err error) {
+	defer mon.Task()(&ctx)(&err)
 	nodeID, err := NodeIDFromCert(chain[peertls.CAIndex])
 	if err != nil {
 		return nil, extensions.ErrRevocation.Wrap(err)
 	}
 
-	revBytes, err := r.DB.Get(nodeID.Bytes())
+	revBytes, err := r.DB.Get(ctx, nodeID.Bytes())
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
@@ -96,7 +98,8 @@ func (r RevocationDB) Get(chain []*x509.Certificate) (*extensions.Revocation, er
 // Put stores the most recent revocation for the given cert chain IF the timestamp
 // is newer than the current value (the  key used in the underlying database is
 // the nodeID of the certificate chain).
-func (r RevocationDB) Put(chain []*x509.Certificate, revExt pkix.Extension) error {
+func (r RevocationDB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Extension) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	ca := chain[peertls.CAIndex]
 	var rev extensions.Revocation
 	if err := rev.Unmarshal(revExt.Value); err != nil {
@@ -110,7 +113,7 @@ func (r RevocationDB) Put(chain []*x509.Certificate, revExt pkix.Extension) erro
 		return err
 	}
 
-	lastRev, err := r.Get(chain)
+	lastRev, err := r.Get(ctx, chain)
 	if err != nil {
 		return err
 	} else if lastRev != nil && lastRev.Timestamp >= rev.Timestamp {
@@ -121,20 +124,21 @@ func (r RevocationDB) Put(chain []*x509.Certificate, revExt pkix.Extension) erro
 	if err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
-	if err := r.DB.Put(nodeID.Bytes(), revExt.Value); err != nil {
+	if err := r.DB.Put(ctx, nodeID.Bytes(), revExt.Value); err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
 	return nil
 }
 
 // List lists all revocations in the store
-func (r RevocationDB) List() (revs []*extensions.Revocation, err error) {
-	keys, err := r.DB.List([]byte{}, 0)
+func (r RevocationDB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	keys, err := r.DB.List(ctx, []byte{}, 0)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
 
-	marshaledRevs, err := r.DB.GetAll(keys)
+	marshaledRevs, err := r.DB.GetAll(ctx, keys)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}

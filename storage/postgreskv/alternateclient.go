@@ -5,6 +5,7 @@
 package postgreskv
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/zeebo/errs"
@@ -110,9 +111,10 @@ type alternateOrderedPostgresIterator struct {
 	*orderedPostgresIterator
 }
 
-func (opi *alternateOrderedPostgresIterator) doNextQuery() (*sql.Rows, error) {
+func (opi *alternateOrderedPostgresIterator) doNextQuery(ctx context.Context) (_ *sql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if opi.opts.Recurse {
-		return opi.orderedPostgresIterator.doNextQuery()
+		return opi.orderedPostgresIterator.doNextQuery(ctx)
 	}
 	start := opi.lastKeySeen
 	if start == nil {
@@ -127,7 +129,8 @@ func (opi *alternateOrderedPostgresIterator) doNextQuery() (*sql.Rows, error) {
 	return opi.client.pgConn.Query(query, []byte(opi.bucket), []byte(opi.opts.Prefix), []byte(start), opi.batchSize+1)
 }
 
-func newAlternateOrderedPostgresIterator(altClient *AlternateClient, opts storage.IterateOptions, batchSize int) (*alternateOrderedPostgresIterator, error) {
+func newAlternateOrderedPostgresIterator(ctx context.Context, altClient *AlternateClient, opts storage.IterateOptions, batchSize int) (_ *alternateOrderedPostgresIterator, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if opts.Prefix == nil {
 		opts.Prefix = storage.Key("")
 	}
@@ -144,7 +147,7 @@ func newAlternateOrderedPostgresIterator(altClient *AlternateClient, opts storag
 	}
 	opi := &alternateOrderedPostgresIterator{orderedPostgresIterator: opi1}
 	opi.nextQuery = opi.doNextQuery
-	newRows, err := opi.nextQuery()
+	newRows, err := opi.nextQuery(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -153,8 +156,9 @@ func newAlternateOrderedPostgresIterator(altClient *AlternateClient, opts storag
 }
 
 // Iterate iterates over items based on opts
-func (altClient *AlternateClient) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) (err error) {
-	opi, err := newAlternateOrderedPostgresIterator(altClient, opts, defaultBatchSize)
+func (altClient *AlternateClient) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	opi, err := newAlternateOrderedPostgresIterator(ctx, altClient, opts, defaultBatchSize)
 	if err != nil {
 		return err
 	}
@@ -162,5 +166,5 @@ func (altClient *AlternateClient) Iterate(opts storage.IterateOptions, fn func(s
 		err = errs.Combine(err, opi.Close())
 	}()
 
-	return fn(opi)
+	return fn(ctx, opi)
 }
