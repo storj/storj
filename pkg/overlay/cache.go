@@ -225,7 +225,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			DistinctIP:     preferences.DistinctIP,
 		})
 		if err != nil {
-			return nil, err
+			return nil, OverlayError.Wrap(err)
 		}
 	}
 
@@ -251,7 +251,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
-		return nil, err
+		return nil, OverlayError.Wrap(err)
 	}
 
 	nodes = append(nodes, newNodes...)

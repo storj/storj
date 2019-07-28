@@ -57,6 +57,10 @@ func NewStore(logger *zap.Logger, dbURLString string) (db storage.KeyValueStore,
 		err = Error.New("unsupported db scheme: %s", driver)
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
 	logger.Debug("Connected to:", zap.String("db source", source))
-	return db, err
+	return db, nil
 }

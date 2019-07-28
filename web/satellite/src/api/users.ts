@@ -55,7 +55,7 @@ export async function changePasswordRequest(password: string, newPassword: strin
                         password: "${password}",
                         newPassword: "${newPassword}"
                     ) {
-                       email 
+                       email
                     }
                 }`
             ),
@@ -97,7 +97,7 @@ export async function forgotPasswordRequest(email: string): Promise<RequestRespo
 }
 
 // Performs Create user graqhQL request.
-export async function createUserRequest(user: User, password: string, secret: string): Promise<RequestResponse<string>> {
+export async function createUserRequest(user: User, password: string, secret: string, refUserId?: string): Promise<RequestResponse<string>> {
     let result: RequestResponse<string> = new RequestResponse<string>();
 
     let response = await apolloManager.mutate(
@@ -112,6 +112,7 @@ export async function createUserRequest(user: User, password: string, secret: st
                         shortName: "${user.shortName}",
                         partnerId: "${user.partnerId}",
                     },
+                    referrerUserId: "${refUserId || ''}",
                     secret: "${secret}",
                 ){email, id}
             }`
