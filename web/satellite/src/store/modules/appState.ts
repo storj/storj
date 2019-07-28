@@ -22,6 +22,8 @@ export const appStateModule = {
             isSuccessfulProjectCreationPopupShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
+            deletePaymentMethodID: '',
+            setDefaultPaymentMethodID: '',
         },
     },
     mutations: {
@@ -75,12 +77,20 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP](state: any): void {
             state.appState.isEditProfilePopupShown = !state.appState.isEditProfilePopupShown;
         },
+        [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: any, id: string): void {
+            state.appState.setDefaultPaymentMethodID = id;
+        },
+        [APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP](state: any, id: string): void {
+            state.appState.deletePaymentMethodID = id;
+        },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
             state.appState.isProjectsDropdownShown = false;
             state.appState.isAccountDropdownShown = false;
             state.appState.isSortProjectMembersByPopupShown = false;
             state.appState.isSuccessfulRegistrationPopupShown = false;
+            state.appState.setDefaultPaymentMethodID = '';
+            state.appState.deletePaymentMethodID = '';
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
@@ -163,6 +173,20 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP);
+        },
+        [APP_STATE_ACTIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP]: function ({commit, state}: any, methodID: string): void {
+            if (!state.appState.setDefaultPaymentMethodID) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP, methodID);
+        },
+        [APP_STATE_ACTIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP]: function ({commit, state}: any, methodID: string): void {
+            if (!state.appState.deletePaymentMethodID) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP, methodID);
         },
         [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);

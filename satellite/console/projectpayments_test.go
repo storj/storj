@@ -64,18 +64,18 @@ func TestProjectPaymentInfos(t *testing.T) {
 			info, err := consoleDB.ProjectPayments().GetByProjectID(ctx, proj.ID)
 
 			assert.NoError(t, err)
-			assert.Equal(t, proj.ID, info.ProjectID)
-			assert.Equal(t, userPmInfo.UserID, info.PayerID)
-			assert.Equal(t, paymentMethodID, info.PaymentMethodID)
+			assert.Equal(t, proj.ID, info[0].ProjectID)
+			assert.Equal(t, userPmInfo.UserID, info[0].PayerID)
+			assert.Equal(t, paymentMethodID, info[0].PaymentMethodID)
 		})
 
 		t.Run("get by payer id", func(t *testing.T) {
 			info, err := consoleDB.ProjectPayments().GetByPayerID(ctx, userPmInfo.UserID)
 
 			assert.NoError(t, err)
-			assert.Equal(t, proj.ID, info.ProjectID)
-			assert.Equal(t, userPmInfo.UserID, info.PayerID)
-			assert.Equal(t, paymentMethodID, info.PaymentMethodID)
+			assert.Equal(t, proj.ID, info[0].ProjectID)
+			assert.Equal(t, userPmInfo.UserID, info[0].PayerID)
+			assert.Equal(t, paymentMethodID, info[0].PaymentMethodID)
 		})
 	})
 }

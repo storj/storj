@@ -59,10 +59,10 @@ func TestReverifySuccess(t *testing.T) {
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
 		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		limit, err := orders.CreateAuditOrderLimit(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, stripe.Index, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, stripe.Index, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -72,6 +72,7 @@ func TestReverifySuccess(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -126,10 +127,10 @@ func TestReverifyFailMissingShare(t *testing.T) {
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
 		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		limit, err := orders.CreateAuditOrderLimit(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, stripe.Index, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, stripe.Index, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -139,6 +140,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -199,11 +201,13 @@ func TestReverifyFailBadData(t *testing.T) {
 			ShareSize:         redundancy.ErasureShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
+		nodeID := pieces[0].NodeId
 		report, err := audits.Verifier.Reverify(ctx, stripe)
 		require.NoError(t, err)
 
@@ -211,7 +215,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		require.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Fails, 1)
-		require.Equal(t, report.Fails[0], pieces[0].NodeId)
+		require.Equal(t, report.Fails[0], nodeID)
 	})
 }
 
@@ -252,6 +256,7 @@ func TestReverifyOffline(t *testing.T) {
 			ShareSize:         redundancy.ErasureShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
@@ -340,6 +345,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			ShareSize:         redundancy.ErasureShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
@@ -389,6 +395,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 			ShareSize:         stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize(),
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		containment := planet.Satellites[0].DB.Containment()
@@ -442,6 +449,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			ShareSize:         stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize(),
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		containment := planet.Satellites[0].DB.Containment()

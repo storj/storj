@@ -16,6 +16,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/kademlia/kademliaclient"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -35,13 +36,13 @@ var (
 	mon              = monkit.Package()
 )
 
-// Kademlia is an implementation of kademlia adhering to the DHT interface.
+// Kademlia is an implementation of kademlia network.
 type Kademlia struct {
 	log            *zap.Logger
 	alpha          int // alpha is a system wide concurrency parameter
 	routingTable   *RoutingTable
 	bootstrapNodes []pb.Node
-	dialer         *Dialer
+	dialer         *kademliaclient.Dialer
 	lookups        sync2.WorkGroup
 
 	bootstrapFinished    sync2.Fence
@@ -65,7 +66,7 @@ func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, c
 		bootstrapNodes:       config.BootstrapNodes(),
 		bootstrapBackoffMax:  config.BootstrapBackoffMax,
 		bootstrapBackoffBase: config.BootstrapBackoffBase,
-		dialer:               NewDialer(log.Named("dialer"), transport),
+		dialer:               kademliaclient.NewDialer(log.Named("dialer"), transport),
 		refreshThreshold:     int64(time.Minute),
 	}
 
@@ -173,7 +174,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 
 			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 			if err != nil {
-				errGroup.Add(err)
+				errGroup.Add(BootstrapErr.Wrap(err))
 				continue
 			}
 
@@ -183,7 +184,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 			// The way FetchPeerIdentityUnverified does is is to do a basic ping request, which
 			// we have now done. Let's tell all the transport observers now.
 			// TODO: remove the explicit transport observer notification
-			k.dialer.transport.AlertSuccess(ctx, &pb.Node{
+			k.dialer.AlertSuccess(ctx, &pb.Node{
 				Id:      ident.ID,
 				Address: node.Address,
 			})
@@ -196,7 +197,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		}
 
 		if !foundOnlineBootstrap {
-			errGroup.Add(Error.New("no bootstrap node found online"))
+			errGroup.Add(BootstrapErr.New("no bootstrap node found online"))
 			continue
 		}
 
@@ -206,7 +207,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		k.routingTable.mutex.Unlock()
 		_, err := k.lookup(ctx, id)
 		if err != nil {
-			errGroup.Add(err)
+			errGroup.Add(BootstrapErr.Wrap(err))
 			continue
 		}
 		return nil
@@ -218,7 +219,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		// ```
 	}
 
-	errGroup.Add(Error.New("unable to start bootstrap after final wait time of %s", waitInterval))
+	errGroup.Add(BootstrapErr.New("unable to start bootstrap after final wait time of %s", waitInterval))
 	return errGroup.Err()
 }
 

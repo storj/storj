@@ -24,7 +24,7 @@ import {AppState} from "../utils/constants/appStateEnum";
     import { Component, Vue } from 'vue-property-decorator';
     import DashboardHeader from '@/components/header/Header.vue';
     import NavigationArea from '@/components/navigation/NavigationArea.vue';
-    import { removeToken } from '@/utils/tokenManager';
+    import { AuthToken } from '@/utils/authToken';
     import {
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
@@ -33,11 +33,14 @@ import {AppState} from "../utils/constants/appStateEnum";
         PROJETS_ACTIONS,
         USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
-        BUCKET_USAGE_ACTIONS
+        BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
     import { AppState } from '../utils/constants/appStateEnum';
+    import { RequestResponse } from '../types/response';
+    import { User } from '../types/users';
+    import { Project } from '@/types/projects';
 
     @Component({
     mounted: async function() {
@@ -47,7 +50,7 @@ import {AppState} from "../utils/constants/appStateEnum";
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
                 this.$router.push(ROUTES.LOGIN);
-                removeToken();
+                AuthToken.remove();
 
                 return;
             }
@@ -80,6 +83,11 @@ import {AppState} from "../utils/constants/appStateEnum";
             const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
             if (!bucketsResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+            }
+
+            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!paymentMethodsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
             }
 
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
@@ -127,6 +135,7 @@ export default class Dashboard extends Vue {
             height: 100%;
         }
     }
+
     @media screen and (max-width: 720px) {
         .dashboard-container {
             &__main-area{
@@ -134,6 +143,7 @@ export default class Dashboard extends Vue {
             }
         }
     }
+
     .loading-overlay {
         display: flex;
         justify-content: center;

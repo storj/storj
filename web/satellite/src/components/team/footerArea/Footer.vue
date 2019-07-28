@@ -11,21 +11,15 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import ApproveDeleteUserArea from './ApproveDeleteUserArea.vue';
-import DeleteUserArea from './DeleteUserArea.vue';
+    import { Component, Vue } from 'vue-property-decorator';
+    import ApproveDeleteUserArea from './ApproveDeleteUserArea.vue';
+    import DeleteUserArea from './DeleteUserArea.vue';
 
-@Component({
-    components: {
-        DeleteUserArea,
-        ApproveDeleteUserArea,
-    }
-})
-
-export default class TeamFooter extends Vue {
-}
+    @Component({
+        components: {
+            DeleteUserArea,
+            ApproveDeleteUserArea,
+        }
+    })
+    export default class TeamFooter extends Vue {}
 </script>
-
-<style scoped lang="scss">
-
-</style>

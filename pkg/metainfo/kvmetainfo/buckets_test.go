@@ -145,20 +145,10 @@ func TestBucketCreateCipher(t *testing.T) {
 
 func TestListBucketsEmpty(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		_, err := db.ListBuckets(ctx, storj.BucketListOptions{})
-		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
-
-		for _, direction := range []storj.ListDirection{
-			storj.Before,
-			storj.Backward,
-			storj.Forward,
-			storj.After,
-		} {
-			bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{Direction: direction})
-			if assert.NoError(t, err) {
-				assert.False(t, bucketList.More)
-				assert.Equal(t, 0, len(bucketList.Items))
-			}
+		bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.Forward})
+		if assert.NoError(t, err) {
+			assert.False(t, bucketList.More)
+			assert.Equal(t, 0, len(bucketList.Items))
 		}
 	})
 }
@@ -179,22 +169,6 @@ func TestListBuckets(t *testing.T) {
 			more   bool
 			result []string
 		}{
-			{cursor: "", dir: storj.After, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0", "c00"}},
-			{cursor: "`", dir: storj.After, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0", "c00"}},
-			{cursor: "b00", dir: storj.After, limit: 0, more: false, result: []string{"bb0", "c00"}},
-			{cursor: "c00", dir: storj.After, limit: 0, more: false, result: []string{}},
-			{cursor: "ca", dir: storj.After, limit: 0, more: false, result: []string{}},
-			{cursor: "", dir: storj.After, limit: 1, more: true, result: []string{"a00"}},
-			{cursor: "`", dir: storj.After, limit: 1, more: true, result: []string{"a00"}},
-			{cursor: "aa0", dir: storj.After, limit: 1, more: true, result: []string{"b00"}},
-			{cursor: "c00", dir: storj.After, limit: 1, more: false, result: []string{}},
-			{cursor: "ca", dir: storj.After, limit: 1, more: false, result: []string{}},
-			{cursor: "", dir: storj.After, limit: 2, more: true, result: []string{"a00", "aa0"}},
-			{cursor: "`", dir: storj.After, limit: 2, more: true, result: []string{"a00", "aa0"}},
-			{cursor: "aa0", dir: storj.After, limit: 2, more: true, result: []string{"b00", "bb0"}},
-			{cursor: "bb0", dir: storj.After, limit: 2, more: false, result: []string{"c00"}},
-			{cursor: "c00", dir: storj.After, limit: 2, more: false, result: []string{}},
-			{cursor: "ca", dir: storj.After, limit: 2, more: false, result: []string{}},
 			{cursor: "", dir: storj.Forward, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0", "c00"}},
 			{cursor: "`", dir: storj.Forward, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0", "c00"}},
 			{cursor: "b00", dir: storj.Forward, limit: 0, more: false, result: []string{"b00", "bb0", "c00"}},
@@ -211,38 +185,6 @@ func TestListBuckets(t *testing.T) {
 			{cursor: "bb0", dir: storj.Forward, limit: 2, more: false, result: []string{"bb0", "c00"}},
 			{cursor: "c00", dir: storj.Forward, limit: 2, more: false, result: []string{"c00"}},
 			{cursor: "ca", dir: storj.Forward, limit: 2, more: false, result: []string{}},
-			{cursor: "", dir: storj.Backward, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0", "c00"}},
-			{cursor: "`", dir: storj.Backward, limit: 0, more: false, result: []string{}},
-			{cursor: "b00", dir: storj.Backward, limit: 0, more: false, result: []string{"a00", "aa0", "b00"}},
-			{cursor: "c00", dir: storj.Backward, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0", "c00"}},
-			{cursor: "ca", dir: storj.Backward, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0", "c00"}},
-			{cursor: "", dir: storj.Backward, limit: 1, more: true, result: []string{"c00"}},
-			{cursor: "`", dir: storj.Backward, limit: 1, more: false, result: []string{}},
-			{cursor: "aa0", dir: storj.Backward, limit: 1, more: true, result: []string{"aa0"}},
-			{cursor: "c00", dir: storj.Backward, limit: 1, more: true, result: []string{"c00"}},
-			{cursor: "ca", dir: storj.Backward, limit: 1, more: true, result: []string{"c00"}},
-			{cursor: "", dir: storj.Backward, limit: 2, more: true, result: []string{"bb0", "c00"}},
-			{cursor: "`", dir: storj.Backward, limit: 2, more: false, result: []string{}},
-			{cursor: "aa0", dir: storj.Backward, limit: 2, more: false, result: []string{"a00", "aa0"}},
-			{cursor: "bb0", dir: storj.Backward, limit: 2, more: true, result: []string{"b00", "bb0"}},
-			{cursor: "c00", dir: storj.Backward, limit: 2, more: true, result: []string{"bb0", "c00"}},
-			{cursor: "ca", dir: storj.Backward, limit: 2, more: true, result: []string{"bb0", "c00"}},
-			{cursor: "", dir: storj.Before, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0", "c00"}},
-			{cursor: "`", dir: storj.Before, limit: 0, more: false, result: []string{}},
-			{cursor: "b00", dir: storj.Before, limit: 0, more: false, result: []string{"a00", "aa0"}},
-			{cursor: "c00", dir: storj.Before, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0"}},
-			{cursor: "ca", dir: storj.Before, limit: 0, more: false, result: []string{"a00", "aa0", "b00", "bb0", "c00"}},
-			{cursor: "", dir: storj.Before, limit: 1, more: true, result: []string{"c00"}},
-			{cursor: "`", dir: storj.Before, limit: 1, more: false, result: []string{}},
-			{cursor: "aa0", dir: storj.Before, limit: 1, more: false, result: []string{"a00"}},
-			{cursor: "c00", dir: storj.Before, limit: 1, more: true, result: []string{"bb0"}},
-			{cursor: "ca", dir: storj.Before, limit: 1, more: true, result: []string{"c00"}},
-			{cursor: "", dir: storj.Before, limit: 2, more: true, result: []string{"bb0", "c00"}},
-			{cursor: "`", dir: storj.Before, limit: 2, more: false, result: []string{}},
-			{cursor: "aa0", dir: storj.Before, limit: 2, more: false, result: []string{"a00"}},
-			{cursor: "bb0", dir: storj.Before, limit: 2, more: true, result: []string{"aa0", "b00"}},
-			{cursor: "c00", dir: storj.Before, limit: 2, more: true, result: []string{"b00", "bb0"}},
-			{cursor: "ca", dir: storj.Before, limit: 2, more: true, result: []string{"bb0", "c00"}},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
@@ -274,14 +216,14 @@ func runTest(t *testing.T, test func(*testing.T, context.Context, *testplanet.Pl
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		db, streams, err := newMetainfoParts(t, planet)
+		db, streams, err := newMetainfoParts(planet)
 		require.NoError(t, err)
 
 		test(t, ctx, planet, db, streams)
 	})
 }
 
-func newMetainfoParts(t *testing.T, planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store, error) {
+func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
@@ -340,7 +282,7 @@ func newMetainfoParts(t *testing.T, planet *testplanet.Planet) (*kvmetainfo.DB, 
 	if err != nil {
 		return nil, nil, err
 	}
-	proj := kvmetainfo.NewProject(streams, int32(blockSize), rs, 64*memory.MiB.Int64())
+	proj := kvmetainfo.NewProject(streams, int32(blockSize), rs, 64*memory.MiB.Int64(), *metainfo)
 	return kvmetainfo.New(proj, metainfo, streams, segments, encStore), streams, nil
 }
 

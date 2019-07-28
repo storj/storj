@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -115,14 +114,10 @@ func (v Info) Marshal() (data []byte, err error) {
 // TODO: shouldn't we just use pb.NodeVersion everywhere? gogoproto will let
 // us make it match Info.
 func (v Info) Proto() (*pb.NodeVersion, error) {
-	pbts, err := ptypes.TimestampProto(v.Timestamp)
-	if err != nil {
-		return nil, err
-	}
 	return &pb.NodeVersion{
 		Version:    v.Version.String(),
 		CommitHash: v.CommitHash,
-		Timestamp:  pbts,
+		Timestamp:  v.Timestamp,
 		Release:    v.Release,
 	}, nil
 }

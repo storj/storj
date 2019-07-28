@@ -4,8 +4,10 @@
 package storagenodedb
 
 import (
+	_ "github.com/mattn/go-sqlite3" // used indirectly
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
@@ -13,6 +15,10 @@ import (
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 var _ storagenode.DB = (*DB)(nil)
@@ -73,16 +79,15 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	}, nil
 }
 
-// NewInMemory creates new inmemory master database for storage node
-// TODO: still stores data on disk
-func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
+// NewTest creates new test database for storage node.
+func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 	piecesDir, err := filestore.NewDir(storageDir)
 	if err != nil {
 		return nil, err
 	}
 	pieces := filestore.New(piecesDir)
 
-	infodb, err := NewInfoInMemory()
+	infodb, err := NewInfoTest()
 	if err != nil {
 		return nil, err
 	}

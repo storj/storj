@@ -6,7 +6,6 @@ package uplink_test
 import (
 	"bytes"
 	"io/ioutil"
-	"reflect"
 	"testing"
 	"time"
 
@@ -20,16 +19,6 @@ import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
-
-// hackyGetBucketAttribution exists to read the unexported Attribution field on a bucket.
-// It should be removed once there's an exported way to do this.
-func hackyGetBucketAttribution(bucket *uplink.Bucket) string {
-	return reflect.ValueOf(bucket).
-		Elem().
-		FieldByName("bucket").
-		FieldByName("Attribution").
-		String()
-}
 
 type testConfig struct {
 	uplinkCfg uplink.Config
@@ -93,10 +82,13 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			require.NoError(t, err)
 			defer ctx.Check(project.Close)
 
-			bucketInfo, err := project.CreateBucket(ctx, bucketName, nil) // TODO: by specifying config here it can be rolled into the testAttrs test
+			bucketInfo, err := project.CreateBucket(ctx, bucketName, nil)
 			require.NoError(t, err)
 
-			assert.Equal(t, bucketInfo.Attribution, "")
+			assert.True(t, bucketInfo.PartnerID.IsZero())
+
+			_, err = project.CreateBucket(ctx, bucketName, nil)
+			require.Error(t, err)
 		})
 
 		t.Run("open with partner id", func(t *testing.T) {
@@ -116,7 +108,9 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			require.NoError(t, err)
 			defer ctx.Check(bucket.Close)
 
-			assert.Equal(t, hackyGetBucketAttribution(bucket), partnerID.String())
+			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
+			require.NoError(t, err)
+			assert.Equal(t, bucketInfo.PartnerID.String(), config.Volatile.PartnerID)
 		})
 
 		t.Run("open with different partner id", func(t *testing.T) {
@@ -136,8 +130,9 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			require.NoError(t, err)
 			defer ctx.Check(bucket.Close)
 
-			// shouldn't change
-			assert.Equal(t, hackyGetBucketAttribution(bucket), partnerID.String())
+			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
+			require.NoError(t, err)
+			assert.NotEqual(t, bucketInfo.PartnerID.String(), config.Volatile.PartnerID)
 		})
 	})
 }
@@ -192,6 +187,7 @@ func TestBucketAttrs(t *testing.T) {
 			assert.Equal(t, inBucketConfig.EncryptionParameters, got.EncryptionParameters)
 			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, got.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize, got.Volatile.SegmentsSize)
+			assert.Equal(t, inBucketConfig, got.BucketConfig)
 
 			err = proj.DeleteBucket(ctx, bucketName)
 			require.NoError(t, err)
