@@ -517,22 +517,21 @@ func (verifier *Verifier) removeFailedPieces(ctx context.Context, path string, p
 	if len(failedNodes) == 0 {
 		return nil
 	}
-	remoteSegment := pointer.GetRemote()
-	newRemotePieces := remoteSegment.RemotePieces[:0]
+
+	var toRemove []*pb.RemotePiece
 OUTER:
-	for _, piece := range remoteSegment.RemotePieces {
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		for _, failedNode := range failedNodes {
 			if piece.NodeId == failedNode {
+				toRemove = append(toRemove, piece)
 				continue OUTER
 			}
 		}
-		newRemotePieces = append(newRemotePieces, piece)
 	}
-	remoteSegment.RemotePieces = newRemotePieces
 
 	// Update the segment pointer in the metainfo
-	//TODO:  update in a safe manner - https://storjlabs.atlassian.net/browse/V3-2088
-	return verifier.metainfo.Put(ctx, path, pointer)
+	_, err = verifier.metainfo.UpdatePieces(ctx, path, pointer, nil, toRemove)
+	return err
 }
 
 // checkIfSegmentDeleted checks if stripe's pointer has been deleted since stripe was selected.

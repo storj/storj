@@ -47,6 +47,10 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		db, err = bootstrapdb.NewInMemory()
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
 	err = db.CreateTables()
 	if err != nil {
 		return nil, err
