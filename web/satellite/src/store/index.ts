@@ -11,7 +11,8 @@ import { projectMembersModule } from '@/store/modules/projectMembers';
 import { notificationsModule } from '@/store/modules/notifications';
 import { appStateModule } from '@/store/modules/appState';
 import { apiKeysModule } from '@/store/modules/apiKeys';
-import { usageModule } from '@/store/modules/usage';
+import { bucketUsageModule, usageModule, creditUsageModule } from '@/store/modules/usage';
+import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 
 Vue.use(Vuex);
 
@@ -24,7 +25,10 @@ const store = new Vuex.Store({
         notificationsModule,
         appStateModule,
         apiKeysModule,
-        usageModule
+        usageModule,
+        bucketUsageModule,
+        projectPaymentsMethodsModule,
+        creditUsageModule
     }
 });
 

@@ -19,8 +19,9 @@ type certDB struct {
 	db *dbx.DB
 }
 
-func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicKey crypto.PublicKey) error {
-	_, err := certs.db.Get_CertRecord_By_Id(ctx, dbx.CertRecord_Id(nodeID.Bytes()))
+func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicKey crypto.PublicKey) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = certs.db.Get_CertRecord_By_Id(ctx, dbx.CertRecord_Id(nodeID.Bytes()))
 	if err == sql.ErrNoRows {
 		return certs.tryAddPublicKey(ctx, nodeID, publicKey)
 	}
@@ -32,7 +33,8 @@ func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pub
 	return nil
 }
 
-func (certs *certDB) tryAddPublicKey(ctx context.Context, nodeID storj.NodeID, publicKey crypto.PublicKey) error {
+func (certs *certDB) tryAddPublicKey(ctx context.Context, nodeID storj.NodeID, publicKey crypto.PublicKey) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	// no rows err, so create/insert an entry
 	pubbytes, err := pkcrypto.PublicKeyToPKIX(publicKey)
 	if err != nil {
@@ -54,7 +56,8 @@ func (certs *certDB) tryAddPublicKey(ctx context.Context, nodeID storj.NodeID, p
 	return nil
 }
 
-func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (crypto.PublicKey, error) {
+func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ crypto.PublicKey, err error) {
+	defer mon.Task()(&ctx)(&err)
 	dbxInfo, err := certs.db.Get_CertRecord_By_Id(ctx, dbx.CertRecord_Id(nodeID.Bytes()))
 	if err != nil {
 		return nil, err

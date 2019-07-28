@@ -4,31 +4,68 @@
 <template src="./registrationSuccessPopup.html"></template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import ROUTES from '@/utils/constants/routerConstants';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import ROUTES from '@/utils/constants/routerConstants';
+    import { resendEmailRequest } from '../../api/users';
+    import { getUserID } from '@/utils/consoleLocalStorage';
 
-@Component(
-        {
-            computed:{
-                isPopupShown: function () {
-                    return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
-                }
-            },
-            methods: {
-                onCloseClick: function () {
-                    this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-                    this.$router.push(ROUTES.LOGIN.path);
-                }
-            },
-            components: {
-                Button,
-            },
-        }
-    )
-
+    @Component({
+        components: {
+            Button,
+        },
+    })
     export default class RegistrationSuccessPopup extends Vue {
+        private isResendEmailButtonDisabled: boolean = true;
+        private timeToEnableResendEmailButton: string = '00:30';
+        private intervalID: any = null;
+
+        public beforeDestroy(): void {
+            if (this.intervalID) {
+                clearInterval(this.intervalID);
+            }
+        }
+
+        public async onResendEmailButtonClick(): Promise<void> {
+            this.isResendEmailButtonDisabled = true;
+
+            let userID = getUserID();
+            if (!userID) {
+                return;
+            }
+
+            let response = await resendEmailRequest(userID);
+            if (response.isSuccess) {
+                this.startResendEmailCountdown();
+            }
+        }
+
+        public onCloseClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+            this.$router.push(ROUTES.LOGIN.path);
+        }
+
+        public get isPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
+        }
+
+        private startResendEmailCountdown(): void {
+            let countdown = 30;
+            let self = this;
+
+            this.intervalID = setInterval(function () {
+                countdown--;
+
+                let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
+                self.timeToEnableResendEmailButton = `00:${secondsLeft}`;
+
+                if (countdown <= 0) {
+                    clearInterval(self.intervalID);
+                    self.isResendEmailButtonDisabled = false;
+                }
+            }.bind(this), 1000);
+        }
     }
 </script>
 
@@ -40,6 +77,19 @@ import ROUTES from '@/utils/constants/routerConstants';
         color: #354049;
         padding: 27px 0 0 0;
         margin: 0;
+    }
+
+    h3 {
+        font-family: 'font_medium';
+        font-size: 12px;
+        line-height: 16px;
+        color: #354049;
+        padding: 27px 0 0 0;
+        margin: 0;
+    }
+
+    b {
+        color: #2683FF;
     }
 
     a {
@@ -59,6 +109,7 @@ import ROUTES from '@/utils/constants/routerConstants';
         justify-content: center;
         align-items: center;
     }
+
     .register-success-popup {
         width: 100%;
         max-width: 845px;

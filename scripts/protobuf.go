@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -56,12 +57,14 @@ func run(command, root string) error {
 			"github.com/ckaznocha/protoc-gen-lint@68a05858965b31eb872cbeb8d027507a94011acc",
 			// See https://github.com/gogo/protobuf#most-speed-and-most-customization
 			"github.com/gogo/protobuf/protoc-gen-gogo@"+gogoVersion,
-			"github.com/nilslice/protolock/cmd/protolock",
+			"github.com/nilslice/protolock/cmd/protolock@v0.12.0",
 		)
 	case "generate":
 		return walkdirs(root, generate)
 	case "lint":
 		return walkdirs(root, lint)
+	case "check-lock":
+		return walkdirs(root, checklock)
 	default:
 		return errors.New("unknown command " + command)
 	}
@@ -143,9 +146,12 @@ func generate(dir string, dirs []string, files []string) error {
 }
 
 func appendCommonArguments(args []string, dir string, dirs []string, files []string) []string {
+	var includes []string
+	prependDirInclude := false
 	for _, otherdir := range dirs {
 		if otherdir == dir {
-			args = append(args, "-I=.")
+			// the include for the directory must be added first... see below.
+			prependDirInclude = true
 			continue
 		}
 
@@ -154,9 +160,16 @@ func appendCommonArguments(args []string, dir string, dirs []string, files []str
 			panic(err)
 		}
 
-		args = append(args, "-I="+reldir)
+		includes = append(includes, "-I="+reldir)
 	}
 
+	if prependDirInclude {
+		// The include for the directory needs to be added first, otherwise the
+		// .proto files it contains will be shadowed by .proto files in the
+		// other directories with matching names (causing protoc to bail).
+		args = append(args, "-I=.")
+	}
+	args = append(args, includes...)
 	args = append(args, files...)
 
 	return args
@@ -175,6 +188,60 @@ func lint(dir string, dirs []string, files []string) error {
 		fmt.Println(string(out))
 	}
 	return err
+}
+
+func checklock(dir string, dirs []string, files []string) error {
+	defer switchdir(dir)()
+
+	local, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	protolockdir := findProtolockDir(local)
+
+	tmpdir, err := ioutil.TempDir("", "protolock")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = os.RemoveAll(tmpdir)
+	}()
+
+	original, err := ioutil.ReadFile(filepath.Join(protolockdir, "proto.lock"))
+	if err != nil {
+		return fmt.Errorf("unable to read proto.lock: %v", err)
+	}
+
+	err = ioutil.WriteFile(filepath.Join(tmpdir, "proto.lock"), original, 0755)
+	if err != nil {
+		return fmt.Errorf("unable to read proto.lock: %v", err)
+	}
+
+	cmd := exec.Command("protolock", "commit", "-lockdir", tmpdir)
+	cmd.Dir = protolockdir
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		fmt.Println(string(out))
+	}
+	if err != nil {
+		return err
+	}
+
+	changed, err := ioutil.ReadFile(filepath.Join(tmpdir, "proto.lock"))
+	if err != nil {
+		return fmt.Errorf("unable to read new proto.lock: %v", err)
+	}
+
+	if !bytes.Equal(original, changed) {
+		diff, err := diff(original, changed)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+		}
+		return fmt.Errorf("protolock is not up to date: %v", string(diff))
+	}
+
+	return nil
 }
 
 func switchdir(to string) func() {
@@ -258,4 +325,42 @@ func findProtolockDir(dir string) string {
 	}
 
 	return dir
+}
+
+func diff(b1, b2 []byte) (data []byte, err error) {
+	f1, err := writeTempFile("protobuf-diff", b1)
+	if err != nil {
+		return
+	}
+	defer os.Remove(f1)
+
+	f2, err := writeTempFile("protobuf-diff", b2)
+	if err != nil {
+		return
+	}
+	defer os.Remove(f2)
+
+	data, err = exec.Command("diff", "-u", f1, f2).CombinedOutput()
+	if len(data) > 0 {
+		// diff exits with a non-zero status when the files don't match.
+		// Ignore that failure as long as we get output.
+		err = nil
+	}
+	return
+}
+
+func writeTempFile(prefix string, data []byte) (string, error) {
+	file, err := ioutil.TempFile("", prefix)
+	if err != nil {
+		return "", err
+	}
+	_, err = file.Write(data)
+	if err1 := file.Close(); err == nil {
+		err = err1
+	}
+	if err != nil {
+		os.Remove(file.Name())
+		return "", err
+	}
+	return file.Name(), nil
 }

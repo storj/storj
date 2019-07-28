@@ -7,6 +7,7 @@ import (
 	"flag"
 	"testing"
 
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
@@ -19,11 +20,11 @@ func newTestAlternatePostgres(t testing.TB) (store *AlternateClient, cleanup fun
 	if !*doAltTests {
 		t.Skip("alternate-implementation PG tests not enabled.")
 	}
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	if *pgtest.ConnStr == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
-	pgdb, err := AltNew(*testPostgres)
+	pgdb, err := AltNew(*pgtest.ConnStr)
 	if err != nil {
 		t.Fatalf("init: %v", err)
 	}

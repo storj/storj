@@ -1,14 +1,10 @@
-ARG CGO_ENABLED=1
-ARG REPOSITORY=../storj.io/storj
-ARG PACKAGE=storj.io/storj/cmd/bootstrap
-FROM storjlabs/golang as build-env
-
-# final stage
-FROM alpine
-ENV CONF_PATH=/root/.local/share/storj/bootstrap
+ARG DOCKER_ARCH
+FROM ${DOCKER_ARCH:-amd64}/alpine
+ARG TAG
+ARG GOARCH
+ENV GOARCH ${GOARCH}
 EXPOSE 28967
 WORKDIR /app
-VOLUME /root/.local/share/storj/bootstrap
-COPY --from=build-env /app /app/bootstrap
+COPY release/${TAG}/bootstrap_linux_${GOARCH:-amd64} /app/bootstrap
 COPY cmd/bootstrap/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]

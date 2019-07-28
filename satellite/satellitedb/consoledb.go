@@ -51,9 +51,34 @@ func (db *ConsoleDB) RegistrationTokens() console.RegistrationTokens {
 	return &registrationTokens{db.methods}
 }
 
+// ResetPasswordTokens is a getter for ResetPasswordTokens repository
+func (db *ConsoleDB) ResetPasswordTokens() console.ResetPasswordTokens {
+	return &resetPasswordTokens{db.methods}
+}
+
 // UsageRollups is a getter for console.UsageRollups repository
 func (db *ConsoleDB) UsageRollups() console.UsageRollups {
 	return &usagerollups{db.db}
+}
+
+// UserCredits is a getter for console.UserCredits repository
+func (db *ConsoleDB) UserCredits() console.UserCredits {
+	return &usercredits{db: db.db}
+}
+
+// UserPayments is a getter for console.UserPayments repository
+func (db *ConsoleDB) UserPayments() console.UserPayments {
+	return &userpayments{db.methods}
+}
+
+// ProjectPayments is a getter for console.ProjectPayments repository
+func (db *ConsoleDB) ProjectPayments() console.ProjectPayments {
+	return &projectPayments{db.db, db.methods}
+}
+
+// ProjectInvoiceStamps is a getter for console.ProjectInvoiceStamps repository
+func (db *ConsoleDB) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
+	return &projectinvoicestamps{db.methods}
 }
 
 // BeginTx is a method for opening transaction

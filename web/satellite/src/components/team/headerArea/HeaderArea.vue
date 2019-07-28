@@ -3,34 +3,31 @@
 
 <template>
     <div class="team-header-container">
-        <Button label="Add User" width="240px" height="58px" :onPress="onAddUsersClick" id="addTeamMemberPopupButton" />
+        <Button label="Add User" width="251px" height="56px" :onPress="onAddUsersClick" id="addTeamMemberPopupButton" />
         <SortUsersDropdown />
         <SearchArea />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import SortUsersDropdown from '@/components/team/headerArea/SortUsersDropdown.vue';
-import SearchArea from './SearchArea.vue';
-import Button from '@/components/common/Button.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import SortUsersDropdown from '@/components/team/headerArea/SortUsersDropdown.vue';
+    import SearchArea from './SearchArea.vue';
+    import Button from '@/components/common/Button.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({
-    methods: {
-        onAddUsersClick: function(): void {
+    @Component({
+        components: {
+            SortUsersDropdown,
+            SearchArea,
+            Button
+        }
+    })
+    export default class HeaderArea extends Vue {
+        public onAddUsersClick(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
         }
-    },
-    components: {
-        SortUsersDropdown,
-        SearchArea,
-        Button
     }
-})
-
-export default class HeaderArea extends Vue {
-}
 </script>
 
 <style scoped lang="scss">

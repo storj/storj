@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"errors"
 )
 
@@ -24,7 +25,8 @@ type ListOptions struct {
 // then the result []ListItem includes all requested keys.
 // If true then the caller must call List again to get more
 // results by setting `StartAfter` or `EndBefore` appropriately.
-func ListV2(store KeyValueStore, opts ListOptions) (result Items, more bool, err error) {
+func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result Items, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !opts.StartAfter.IsZero() && !opts.EndBefore.IsZero() {
 		return nil, false, errors.New("start-after and end-before cannot be combined")
 	}
@@ -44,11 +46,11 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more bool, err
 		first = opts.EndBefore
 	}
 
-	iterate := func(it Iterator) error {
+	iterate := func(ctx context.Context, it Iterator) error {
 		var item ListItem
 		skipFirst := true
 		for ; limit > 0; limit-- {
-			if !it.Next(&item) {
+			if !it.Next(ctx, &item) {
 				more = false
 				return nil
 			}
@@ -79,7 +81,7 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more bool, err
 		}
 
 		// we still need to consume one item for the more flag
-		more = it.Next(&item)
+		more = it.Next(ctx, &item)
 		return nil
 	}
 
@@ -90,7 +92,7 @@ func ListV2(store KeyValueStore, opts ListOptions) (result Items, more bool, err
 	if reverse && !opts.EndBefore.IsZero() {
 		firstFull = joinKey(opts.Prefix, opts.EndBefore)
 	}
-	err = store.Iterate(IterateOptions{
+	err = store.Iterate(ctx, IterateOptions{
 		Prefix:  opts.Prefix,
 		First:   firstFull,
 		Reverse: reverse,

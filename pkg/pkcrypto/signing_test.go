@@ -19,21 +19,22 @@ func TestSigningAndVerifyingECDSA(t *testing.T) {
 		{"longnulls", string(make([]byte, 2000))},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
 			privKey, err := GeneratePrivateECDSAKey(authECCurve)
 			assert.NoError(t, err)
 			pubKey := PublicKeyFromPrivate(privKey)
 
 			// test signing and verifying a hash of the data
-			sig, err := HashAndSign(privKey, []byte(tt.data))
+			sig, err := HashAndSign(privKey, []byte(test.data))
 			assert.NoError(t, err)
-			err = HashAndVerifySignature(pubKey, []byte(tt.data), sig)
+			err = HashAndVerifySignature(pubKey, []byte(test.data), sig)
 			assert.NoError(t, err)
 
 			// test signing and verifying the data directly
-			sig, err = SignWithoutHashing(privKey, []byte(tt.data))
+			sig, err = SignWithoutHashing(privKey, []byte(test.data))
 			assert.NoError(t, err)
-			err = VerifySignatureWithoutHashing(pubKey, []byte(tt.data), sig)
+			err = VerifySignatureWithoutHashing(pubKey, []byte(test.data), sig)
 			assert.NoError(t, err)
 		})
 	}
@@ -53,11 +54,12 @@ func TestSigningAndVerifyingRSA(t *testing.T) {
 		{"longnulls", string(make([]byte, 2000))},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
 			// test signing and verifying a hash of the data
-			sig, err := HashAndSign(privKey, []byte(tt.data))
+			sig, err := HashAndSign(privKey, []byte(test.data))
 			assert.NoError(t, err)
-			err = HashAndVerifySignature(pubKey, []byte(tt.data), sig)
+			err = HashAndVerifySignature(pubKey, []byte(test.data), sig)
 			assert.NoError(t, err)
 
 			// don't test signing and verifying the data directly, as RSA can't

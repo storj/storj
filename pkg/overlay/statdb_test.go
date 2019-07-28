@@ -6,6 +6,7 @@ package overlay_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,11 +19,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func getRatio(success, total int64) (ratio float64) {
-	ratio = float64(success) / float64(total)
-	return ratio
-}
-
 func TestStatDB(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
@@ -33,84 +29,88 @@ func TestStatDB(t *testing.T) {
 }
 
 func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
-	nodeID := storj.NodeID{1, 2, 3, 4, 5}
-	currAuditSuccess := int64(4)
-	currAuditCount := int64(10)
-	currUptimeSuccess := int64(8)
-	currUptimeCount := int64(25)
+	{ // TestKnownUnreliableOrOffline
+		for _, tt := range []struct {
+			nodeID      storj.NodeID
+			auditAlpha  float64
+			auditBeta   float64
+			uptimeAlpha float64
+			uptimeBeta  float64
+		}{
+			{storj.NodeID{1}, 20, 0, 20, 0}, // good reputations => good
+			{storj.NodeID{2}, 0, 20, 20, 0}, // bad audit rep, good uptime rep => bad
+			{storj.NodeID{3}, 20, 0, 0, 20}, // good audit rep, bad uptime rep => bad
+		} {
+			startingRep := overlay.NodeSelectionConfig{
+				AuditReputationAlpha0:  tt.auditAlpha,
+				AuditReputationBeta0:   tt.auditBeta,
+				UptimeReputationAlpha0: tt.uptimeAlpha,
+				UptimeReputationBeta0:  tt.uptimeBeta,
+			}
 
-	{ // TestCreateNewAndWithStats
-		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
-		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID}, startingRep)
+			require.NoError(t, err)
 
-		nodeStats := &overlay.NodeStats{
-			AuditSuccessRatio:  auditSuccessRatio,
-			UptimeRatio:        uptimeRatio,
-			AuditCount:         currAuditCount,
-			AuditSuccessCount:  currAuditSuccess,
-			UptimeCount:        currUptimeCount,
-			UptimeSuccessCount: currUptimeSuccess,
+			// update stats so node disqualification is triggered
+			_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
+				NodeID:       tt.nodeID,
+				AuditSuccess: true,
+				IsUp:         true,
+				AuditLambda:  1, AuditWeight: 1,
+				UptimeLambda: 1, UptimeWeight: 1,
+				AuditDQ: 0.9, UptimeDQ: 0.9,
+			})
+			require.NoError(t, err)
 		}
 
-		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID})
+		nodeIds := storj.NodeIDList{
+			storj.NodeID{1}, storj.NodeID{2},
+			storj.NodeID{3}, storj.NodeID{4},
+		}
+		criteria := &overlay.NodeCriteria{OnlineWindow: time.Hour}
+
+		invalid, err := cache.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 		require.NoError(t, err)
 
-		stats, err := cache.CreateStats(ctx, nodeID, nodeStats)
-		require.NoError(t, err)
-		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
-		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
-
-		node, err := cache.Get(ctx, nodeID)
-		require.NoError(t, err)
-
-		assert.EqualValues(t, currAuditCount, node.Reputation.AuditCount)
-		assert.EqualValues(t, currAuditSuccess, node.Reputation.AuditSuccessCount)
-		assert.EqualValues(t, auditSuccessRatio, node.Reputation.AuditSuccessRatio)
-		assert.EqualValues(t, currUptimeCount, node.Reputation.UptimeCount)
-		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
-		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
-	}
-
-	{ // TestGetDoesNotExist
-		noNodeID := storj.NodeID{255, 255, 255, 255}
-
-		_, err := cache.Get(ctx, noNodeID)
-		assert.Error(t, err)
+		require.Contains(t, invalid, storj.NodeID{2}) // bad audit
+		require.Contains(t, invalid, storj.NodeID{3}) // bad uptime
+		require.Contains(t, invalid, storj.NodeID{4}) // not in db
+		require.Len(t, invalid, 3)
 	}
 
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
-		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID})
+		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID}, overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		update, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
 			Operator: &pb.NodeOperator{
 				Wallet: "0x1111111111111111111111111111111111111111",
-				Email:  "abc123@gmail.com",
+				Email:  "abc123@mail.test",
 			},
 		})
-
 		require.NoError(t, err)
-		assert.NotNil(t, update)
+		require.NotNil(t, update)
+		require.Equal(t, "0x1111111111111111111111111111111111111111", update.Operator.Wallet)
+		require.Equal(t, "abc123@mail.test", update.Operator.Email)
 
 		found, err := cache.Get(ctx, nodeID)
-		assert.NotNil(t, found)
 		require.NoError(t, err)
-
-		assert.Equal(t, "0x1111111111111111111111111111111111111111", update.Operator.Wallet)
-		assert.Equal(t, "abc123@gmail.com", update.Operator.Email)
+		require.NotNil(t, found)
+		require.Equal(t, "0x1111111111111111111111111111111111111111", found.Operator.Wallet)
+		require.Equal(t, "abc123@mail.test", found.Operator.Email)
 
 		updateEmail, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
 			Operator: &pb.NodeOperator{
 				Wallet: update.Operator.Wallet,
-				Email:  "def456@gmail.com",
+				Email:  "def456@mail.test",
 			},
 		})
 
 		require.NoError(t, err)
 		assert.NotNil(t, updateEmail)
 		assert.Equal(t, "0x1111111111111111111111111111111111111111", updateEmail.Operator.Wallet)
-		assert.Equal(t, "def456@gmail.com", updateEmail.Operator.Email)
+		assert.Equal(t, "def456@mail.test", updateEmail.Operator.Email)
 
 		updateWallet, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
 			Operator: &pb.NodeOperator{
@@ -122,91 +122,90 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		require.NoError(t, err)
 		assert.NotNil(t, updateWallet)
 		assert.Equal(t, "0x2222222222222222222222222222222222222222", updateWallet.Operator.Wallet)
-		assert.Equal(t, "def456@gmail.com", updateWallet.Operator.Email)
+		assert.Equal(t, "def456@mail.test", updateWallet.Operator.Email)
 	}
 
 	{ // TestUpdateExists
-		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
-		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
-
+		nodeID := storj.NodeID{1}
 		node, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, currAuditCount, node.Reputation.AuditCount)
-		assert.EqualValues(t, currAuditSuccess, node.Reputation.AuditSuccessCount)
-		assert.EqualValues(t, auditSuccessRatio, node.Reputation.AuditSuccessRatio)
-		assert.EqualValues(t, currUptimeCount, node.Reputation.UptimeCount)
-		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
-		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
+		auditAlpha := node.Reputation.AuditReputationAlpha
+		auditBeta := node.Reputation.AuditReputationBeta
+		uptimeAlpha := node.Reputation.UptimeReputationAlpha
+		uptimeBeta := node.Reputation.UptimeReputationBeta
 
 		updateReq := &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditSuccess: true,
-			IsUp:         false,
+			IsUp:         true,
+			AuditLambda:  0.123, AuditWeight: 0.456,
+			UptimeLambda: 0.789, UptimeWeight: 0.876,
+			AuditDQ: 0, UptimeDQ: 0, // don't disqualify for any reason
 		}
 		stats, err := cache.UpdateStats(ctx, updateReq)
 		require.NoError(t, err)
 
-		currAuditSuccess++
-		currAuditCount++
-		currUptimeCount++
-		newAuditRatio := getRatio(currAuditSuccess, currAuditCount)
-		newUptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
+		expectedAuditAlpha := updateReq.AuditLambda*auditAlpha + updateReq.AuditWeight
+		expectedAuditBeta := updateReq.AuditLambda * auditBeta
+		expectedUptimeAlpha := updateReq.UptimeLambda*uptimeAlpha + updateReq.UptimeWeight
+		expectedUptimeBeta := updateReq.UptimeLambda * uptimeBeta
+		require.EqualValues(t, stats.AuditReputationAlpha, expectedAuditAlpha)
+		require.EqualValues(t, stats.AuditReputationBeta, expectedAuditBeta)
+		require.EqualValues(t, stats.UptimeReputationAlpha, expectedUptimeAlpha)
+		require.EqualValues(t, stats.UptimeReputationBeta, expectedUptimeBeta)
 
-		assert.EqualValues(t, newAuditRatio, stats.AuditSuccessRatio)
-		assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
+		auditAlpha = expectedAuditAlpha
+		auditBeta = expectedAuditBeta
+		uptimeAlpha = expectedUptimeAlpha
+		uptimeBeta = expectedUptimeBeta
+
+		updateReq.AuditSuccess = false
+		updateReq.IsUp = false
+		stats, err = cache.UpdateStats(ctx, updateReq)
+		require.NoError(t, err)
+
+		expectedAuditAlpha = updateReq.AuditLambda * auditAlpha
+		expectedAuditBeta = updateReq.AuditLambda*auditBeta + updateReq.AuditWeight
+		expectedUptimeAlpha = updateReq.UptimeLambda * uptimeAlpha
+		expectedUptimeBeta = updateReq.UptimeLambda*uptimeBeta + updateReq.UptimeWeight
+		require.EqualValues(t, stats.AuditReputationAlpha, expectedAuditAlpha)
+		require.EqualValues(t, stats.AuditReputationBeta, expectedAuditBeta)
+		require.EqualValues(t, stats.UptimeReputationAlpha, expectedUptimeAlpha)
+		require.EqualValues(t, stats.UptimeReputationBeta, expectedUptimeBeta)
+
 	}
 
 	{ // TestUpdateUptimeExists
-		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
-		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
+		nodeID := storj.NodeID{1}
 
 		node, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, currAuditCount, node.Reputation.AuditCount)
-		assert.EqualValues(t, currAuditSuccess, node.Reputation.AuditSuccessCount)
-		assert.EqualValues(t, auditSuccessRatio, node.Reputation.AuditSuccessRatio)
-		assert.EqualValues(t, currUptimeCount, node.Reputation.UptimeCount)
-		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
-		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
+		alpha := node.Reputation.UptimeReputationAlpha
+		beta := node.Reputation.UptimeReputationBeta
 
-		stats, err := cache.UpdateUptime(ctx, nodeID, false)
+		lambda := 0.789
+		weight := 0.876
+		dq := float64(0) // don't disqualify for any reason
+
+		stats, err := cache.UpdateUptime(ctx, nodeID, false, lambda, weight, dq)
 		require.NoError(t, err)
 
-		currUptimeCount++
-		newUptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
-		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
-		assert.EqualValues(t, currAuditCount, stats.AuditCount)
-		assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
-	}
+		expectedAlpha := lambda * alpha
+		expectedBeta := lambda*beta + weight
+		require.EqualValues(t, stats.UptimeReputationAlpha, expectedAlpha)
+		require.EqualValues(t, stats.UptimeReputationBeta, expectedBeta)
 
-	{ // TestUpdateStatsExists
-		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
-		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
+		alpha = expectedAlpha
+		beta = expectedBeta
 
-		node, err := cache.Get(ctx, nodeID)
+		stats, err = cache.UpdateUptime(ctx, nodeID, true, lambda, weight, dq)
 		require.NoError(t, err)
 
-		assert.EqualValues(t, currAuditCount, node.Reputation.AuditCount)
-		assert.EqualValues(t, currAuditSuccess, node.Reputation.AuditSuccessCount)
-		assert.EqualValues(t, auditSuccessRatio, node.Reputation.AuditSuccessRatio)
-		assert.EqualValues(t, currUptimeCount, node.Reputation.UptimeCount)
-		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
-		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
-
-		stats, err := cache.UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			IsUp:         true,
-			AuditSuccess: false,
-		})
-		require.NoError(t, err)
-
-		currAuditCount++
-		newAuditRatio := getRatio(stats.AuditSuccessCount, stats.AuditCount)
-		assert.EqualValues(t, newAuditRatio, stats.AuditSuccessRatio)
-		assert.EqualValues(t, currAuditCount, stats.AuditCount)
-		newUptimeRatio := getRatio(stats.UptimeSuccessCount, stats.UptimeCount)
-		assert.EqualValues(t, newUptimeRatio, stats.UptimeRatio)
+		expectedAlpha = lambda*alpha + weight
+		expectedBeta = lambda * beta
+		require.EqualValues(t, stats.UptimeReputationAlpha, expectedAlpha)
+		require.EqualValues(t, stats.UptimeReputationBeta, expectedBeta)
 	}
 }

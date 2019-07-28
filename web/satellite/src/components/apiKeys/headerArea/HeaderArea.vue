@@ -5,7 +5,7 @@
     <div class="api-keys-header-container">
         <div class="api-keys-header-container__item">
             <div id="addApiKeyPopupButton">
-                <Button label="New API Key" width="240px" height="54px" :onPress="togglePopup" />
+                <Button label="New API Key" width="170px" height="56px" :onPress="togglePopup" />
             </div>
             <SearchArea />
         </div>
@@ -16,32 +16,27 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import SearchArea from './SearchArea.vue';
-import Button from '@/components/common/Button.vue';
-import SortApiKeysHeader from '@/components/apiKeys/headerArea/SortApiKeysHeader.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import SearchArea from './SearchArea.vue';
+    import Button from '../../common/Button.vue';
+    import SortApiKeysHeader from '@/components/apiKeys/headerArea/SortApiKeysHeader.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({
-    components: {
-        SearchArea,
-        Button,
-        SortApiKeysHeader,
-    },
-    methods: {
-        togglePopup: function () {
+    @Component({
+        components: {
+            SearchArea,
+            Button,
+        }
+    })
+    export default class HeaderArea extends Vue {
+        public togglePopup(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-        },
-    },
-})
-
-export default class HeaderArea extends Vue {
-}
+        }
+    }
 </script>
 
 <style scoped lang="scss">
     .api-keys-header-container {
-
         margin-bottom: 4px;
 
         &__item {

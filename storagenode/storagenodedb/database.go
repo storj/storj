@@ -4,16 +4,21 @@
 package storagenodedb
 
 import (
+	_ "github.com/mattn/go-sqlite3" // used indirectly
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/piecestore/psserver/psdb"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 var _ storagenode.DB = (*DB)(nil)
@@ -31,8 +36,7 @@ type Config struct {
 
 // DB contains access to different database tables
 type DB struct {
-	log  *zap.Logger
-	psdb *psdb.DB
+	log *zap.Logger
 
 	pieces interface {
 		storage.Blobs
@@ -41,7 +45,7 @@ type DB struct {
 
 	info *InfoDB
 
-	kdb, ndb storage.KeyValueStore
+	kdb, ndb, adb storage.KeyValueStore
 }
 
 // New creates a new master database for storage node
@@ -57,19 +61,13 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		return nil, err
 	}
 
-	psdb, err := psdb.Open(config.Info)
-	if err != nil {
-		return nil, err
-	}
-
-	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket)
+	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
 	if err != nil {
 		return nil, err
 	}
 
 	return &DB{
-		log:  log,
-		psdb: psdb,
+		log: log,
 
 		pieces: pieces,
 
@@ -77,56 +75,46 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 
 		kdb: dbs[0],
 		ndb: dbs[1],
+		adb: dbs[2],
 	}, nil
 }
 
-// NewInMemory creates new inmemory master database for storage node
-// TODO: still stores data on disk
-func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
+// NewTest creates new test database for storage node.
+func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 	piecesDir, err := filestore.NewDir(storageDir)
 	if err != nil {
 		return nil, err
 	}
 	pieces := filestore.New(piecesDir)
 
-	infodb, err := NewInfoInMemory()
-	if err != nil {
-		return nil, err
-	}
-
-	psdb, err := psdb.OpenInMemory()
+	infodb, err := NewInfoTest()
 	if err != nil {
 		return nil, err
 	}
 
 	return &DB{
-		log:  log,
-		psdb: psdb,
+		log: log,
 
 		pieces: pieces,
-
-		info: infodb,
+		info:   infodb,
 
 		kdb: teststore.New(),
 		ndb: teststore.New(),
+		adb: teststore.New(),
 	}, nil
 }
 
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables() error {
-	migration := db.psdb.Migration()
-	return errs.Combine(
-		migration.Run(db.log.Named("migration"), db.psdb),
-		db.info.CreateTables(db.log.Named("info")),
-	)
+	return db.info.CreateTables(db.log)
 }
 
 // Close closes any resources.
 func (db *DB) Close() error {
 	return errs.Combine(
-		db.psdb.Close(),
 		db.kdb.Close(),
 		db.ndb.Close(),
+		db.adb.Close(),
 
 		db.pieces.Close(),
 		db.info.Close(),
@@ -138,12 +126,7 @@ func (db *DB) Pieces() storage.Blobs {
 	return db.pieces
 }
 
-// PSDB returns piecestore database
-func (db *DB) PSDB() *psdb.DB {
-	return db.psdb
-}
-
 // RoutingTable returns kademlia routing table
-func (db *DB) RoutingTable() (kdb, ndb storage.KeyValueStore) {
-	return db.kdb, db.ndb
+func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
+	return db.kdb, db.ndb, db.adb
 }

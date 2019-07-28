@@ -35,29 +35,16 @@ func main() {
 	stdin := io.TeeReader(os.Stdin, &buffer)
 
 	pkgs, err := ProcessWithEcho(stdin)
-	switch err {
-	case nil: // do nothing
-
-	case parse.ErrNotParseable:
-		fmt.Fprintf(os.Stderr, "tparse error: no parseable events: call go test with -json flag\n\n")
-		fmt.Fprintf(os.Stdout, "\n\n\n\n=== RAW OUTPUT ===\n\n\n\n")
-		parse.ReplayOutput(os.Stderr, &buffer)
-		os.Exit(1)
-
-	case parse.ErrRaceDetected:
-		fmt.Fprintf(os.Stderr, "tparse error: %v\n\n", err)
-		fmt.Fprintf(os.Stdout, "\n\n\n\n=== RAW OUTPUT ===\n\n\n\n")
-		parse.ReplayRaceOutput(os.Stderr, &buffer)
-		os.Exit(1)
-
-	default:
-		fmt.Fprintf(os.Stderr, "tparse error: %v\n\n", err)
-		fmt.Fprintf(os.Stdout, "\n\n\n\n=== RAW OUTPUT ===\n\n\n\n")
-		parse.ReplayOutput(os.Stderr, &buffer)
-		os.Exit(1)
+	if err != nil {
+		if err == parse.ErrNotParseable {
+			fmt.Fprintf(os.Stderr, "tparse error: no parseable events: call go test with -json flag\n\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "tparse error: %v\n\n", err)
+		}
+		defer os.Exit(1)
+	} else {
+		defer os.Exit(pkgs.ExitCode())
 	}
-
-	defer os.Exit(pkgs.ExitCode())
 
 	output, err := os.Create(*xunit)
 	if err != nil {
@@ -80,9 +67,9 @@ func main() {
 	defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testsuites"}})
 
 	for _, pkg := range pkgs {
-		failed := pkg.TestsByAction(parse.ActionFail)
-		skipped := pkg.TestsByAction(parse.ActionSkip)
-		passed := pkg.TestsByAction(parse.ActionPass)
+		failed := TestsByAction(pkg, parse.ActionFail)
+		skipped := TestsByAction(pkg, parse.ActionSkip)
+		passed := TestsByAction(pkg, parse.ActionPass)
 
 		skipped = withoutEmptyName(skipped)
 
@@ -91,7 +78,7 @@ func main() {
 		all = append(all, skipped...)
 		all = append(all, passed...)
 
-		if pkg.NoTests || len(all) == 0 {
+		if !pkg.HasPanic && (pkg.NoTests || len(all) == 0) {
 			continue
 		}
 
@@ -109,6 +96,21 @@ func main() {
 			})
 			defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testsuite"}})
 
+			if pkg.HasPanic {
+				encoder.EncodeToken(xml.StartElement{
+					Name: xml.Name{Local: "testcase"},
+					Attr: []xml.Attr{
+						{xml.Name{Local: "classname"}, pkg.Summary.Package},
+						{xml.Name{Local: "name"}, "Panic"},
+					},
+				})
+				encoder.EncodeToken(xml.StartElement{Name: xml.Name{Local: "failure"}, Attr: nil})
+				encoder.EncodeToken(xml.CharData(eventOutput(pkg.PanicEvents)))
+				encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "failure"}})
+
+				encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testcase"}})
+			}
+
 			for _, t := range all {
 				t.SortEvents()
 				func() {
@@ -123,10 +125,10 @@ func main() {
 					defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testcase"}})
 
 					encoder.EncodeToken(xml.StartElement{xml.Name{Local: "system-out"}, nil})
-					encoder.EncodeToken(xml.CharData(fullOutput(t)))
+					encoder.EncodeToken(xml.CharData(eventOutput(t.Events)))
 					encoder.EncodeToken(xml.EndElement{xml.Name{Local: "system-out"}})
 
-					switch t.Status() {
+					switch TestStatus(t) {
 					case parse.ActionSkip:
 						encoder.EncodeToken(xml.StartElement{
 							Name: xml.Name{Local: "skipped"},
@@ -135,7 +137,6 @@ func main() {
 							},
 						})
 						encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "skipped"}})
-
 					case parse.ActionFail:
 						encoder.EncodeToken(xml.StartElement{Name: xml.Name{Local: "failure"}, Attr: nil})
 						encoder.EncodeToken(xml.CharData(t.Stack()))
@@ -147,9 +148,9 @@ func main() {
 	}
 }
 
-func fullOutput(t *parse.Test) string {
+func eventOutput(events parse.Events) string {
 	var out strings.Builder
-	for _, event := range t.Events {
+	for _, event := range events {
 		out.WriteString(event.Output)
 	}
 	return out.String()
@@ -192,6 +193,10 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 			continue
 		}
 		scan = true
+
+		if line := strings.TrimRightFunc(event.Output, unicode.IsSpace); line != "" {
+			fmt.Fprintln(os.Stdout, line)
+		}
 
 		pkg, ok := pkgs[event.Package]
 		if !ok {
@@ -250,11 +255,12 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 			pkg.Coverage = cover
 		}
 
-		if line := strings.TrimRightFunc(event.Output, unicode.IsSpace); line != "" {
-			fmt.Fprintln(os.Stdout, line)
+		// special case for tooling checking
+		if event.Action == parse.ActionOutput && strings.HasPrefix(event.Output, "FAIL\t") {
+			event.Action = parse.ActionFail
 		}
 
-		if !event.Discard() {
+		if !Discard(event) {
 			pkg.AddEvent(event)
 		}
 	}
@@ -266,8 +272,68 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 		return nil, parse.ErrNotParseable
 	}
 	if hasRace {
-		return nil, parse.ErrRaceDetected
+		return pkgs, parse.ErrRaceDetected
 	}
 
 	return pkgs, nil
+}
+
+func Discard(e *parse.Event) bool {
+	for i := range updates {
+		if strings.HasPrefix(e.Output, updates[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	updates = []string{
+		"=== RUN   ",
+		"=== PAUSE ",
+		"=== CONT  ",
+	}
+)
+
+// Status reports the outcome of the test represented as a single Action: pass, fail or skip.
+//
+// Custom status to check packages properly.
+func TestStatus(t *parse.Test) parse.Action {
+
+	// sort by time and scan for an action in reverse order.
+	// The first action we come across (in reverse order) is
+	// the outcome of the test, which will be one of pass|fail|skip.
+	t.SortEvents()
+
+	for i := len(t.Events) - 1; i >= 0; i-- {
+		switch t.Events[i].Action {
+		case parse.ActionPass:
+			return parse.ActionPass
+		case parse.ActionSkip:
+			return parse.ActionSkip
+		case parse.ActionFail:
+			return parse.ActionFail
+		}
+	}
+
+	if t.Name == "" {
+		return parse.ActionPass
+	}
+	return parse.ActionFail
+}
+
+// TestsByAction returns all tests that identify as one of the following
+// actions: pass, skip or fail.
+//
+// An empty slice if returned if there are no tests.
+func TestsByAction(p *parse.Package, action parse.Action) []*parse.Test {
+	tests := []*parse.Test{}
+
+	for _, t := range p.Tests {
+		if TestStatus(t) == action {
+			tests = append(tests, t)
+		}
+	}
+
+	return tests
 }

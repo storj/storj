@@ -5,6 +5,7 @@ package piecestore
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/zeebo/errs"
@@ -12,6 +13,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // Downloader is interface that can be used for downloading content.
@@ -23,10 +25,12 @@ type Downloader interface {
 
 // Download implements downloading from a piecestore.
 type Download struct {
-	client *Client
-	limit  *pb.OrderLimit2
-	peer   *identity.PeerIdentity
-	stream pb.Piecestore_DownloadClient
+	client     *Client
+	limit      *pb.OrderLimit
+	privateKey storj.PiecePrivateKey
+	peer       *identity.PeerIdentity
+	stream     pb.Piecestore_DownloadClient
+	ctx        context.Context
 
 	read         int64 // how much data we have read so far
 	allocated    int64 // how far have we sent orders
@@ -40,7 +44,9 @@ type Download struct {
 }
 
 // Download starts a new download using the specified order limit at the specified offset and size.
-func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (Downloader, error) {
+func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, piecePrivateKey storj.PiecePrivateKey, offset, size int64) (_ Downloader, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	stream, err := client.client.Download(ctx)
 	if err != nil {
 		return nil, err
@@ -66,10 +72,12 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 	}
 
 	download := &Download{
-		client: client,
-		limit:  limit,
-		peer:   peer,
-		stream: stream,
+		client:     client,
+		limit:      limit,
+		privateKey: piecePrivateKey,
+		peer:       peer,
+		stream:     stream,
+		ctx:        ctx,
 
 		read: 0,
 
@@ -89,7 +97,9 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offse
 }
 
 // Read downloads data from the storage node allocating as necessary.
-func (client *Download) Read(data []byte) (read int, _ error) {
+func (client *Download) Read(data []byte) (read int, err error) {
+	ctx := client.ctx
+	defer mon.Task()(&ctx)(&err)
 	for client.read < client.downloadSize {
 		// read from buffer
 		n, err := client.unread.Read(data)
@@ -118,12 +128,10 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 
 			// send an order
 			if newAllocation > 0 {
-				// sign the order
-				order, err := signing.SignOrder(client.client.signer, &pb.Order2{
+				order, err := signing.SignUplinkOrder(ctx, client.privateKey, &pb.Order{
 					SerialNumber: client.limit.SerialNumber,
 					Amount:       newAllocation,
 				})
-				// something went wrong with signing
 				if err != nil {
 					client.unread.IncludeError(err)
 					return read, nil
@@ -168,7 +176,15 @@ func (client *Download) Read(data []byte) (read int, _ error) {
 }
 
 // Close closes the downloading.
-func (client *Download) Close() error {
+func (client *Download) Close() (err error) {
+	defer func() {
+		if err != nil {
+			details := errs.Class(fmt.Sprintf("(Node ID: %s, Piece ID: %s)", client.peer.ID.String(), client.limit.PieceId.String()))
+			err = details.Wrap(err)
+			err = Error.Wrap(err)
+		}
+	}()
+
 	alldone := client.read == client.downloadSize
 
 	// close our sending end
@@ -178,16 +194,16 @@ func (client *Download) Close() error {
 
 	if alldone {
 		// if we are all done, then we expecte io.EOF, but don't care about them
-		return Error.Wrap(errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr)))
+		return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
 	}
 
 	if client.unread.Errored() {
 		// something went wrong and we didn't manage to download all the content
-		return Error.Wrap(errs.Combine(client.unread.Error(), closeErr, recvErr))
+		return errs.Combine(client.unread.Error(), closeErr, recvErr)
 	}
 
 	// we probably closed download early, so we can ignore io.EOF-s
-	return Error.Wrap(errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr)))
+	return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
 }
 
 // ReadBuffer implements buffered reading with an error.

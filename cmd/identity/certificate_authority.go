@@ -106,11 +106,11 @@ func init() {
 	caCmd.AddCommand(revokeCACmd)
 	caCmd.AddCommand(revokePeerCACmd)
 
-	cfgstruct.Bind(newCACmd.Flags(), &newCACfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(getIDCmd.Flags(), &getIDCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(caExtCmd.Flags(), &caExtCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokeCACmd.Flags(), &revokeCACfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokePeerCACmd.Flags(), &revokePeerCACfg, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(newCACmd, &newCACfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(getIDCmd, &getIDCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(caExtCmd, &caExtCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(revokeCACmd, &revokeCACfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(revokePeerCACmd, &revokePeerCACfg, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) error {
@@ -161,6 +161,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
 	argLen := len(args)
 	switch {
 	case argLen > 0:
@@ -200,7 +201,7 @@ func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err = revDB.Put([]*x509.Certificate{ca.Cert, peerCA.Cert}, ext); err != nil {
+	if err = revDB.Put(ctx, []*x509.Certificate{ca.Cert, peerCA.Cert}, ext); err != nil {
 		return err
 	}
 	return nil

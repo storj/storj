@@ -5,6 +5,7 @@ package piecestore
 
 import (
 	"bufio"
+	"context"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -32,14 +33,16 @@ func (upload *BufferedUpload) Write(data []byte) (int, error) {
 }
 
 // Cancel aborts the upload.
-func (upload *BufferedUpload) Cancel() error {
-	return upload.upload.Cancel()
+func (upload *BufferedUpload) Cancel(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return upload.upload.Cancel(ctx)
 }
 
 // Commit flushes any remaining content from buffer and commits the upload.
-func (upload *BufferedUpload) Commit() (*pb.PieceHash, error) {
+func (upload *BufferedUpload) Commit(ctx context.Context) (_ *pb.PieceHash, err error) {
+	defer mon.Task()(&ctx)(&err)
 	flushErr := upload.buffer.Flush()
-	piece, closeErr := upload.upload.Commit()
+	piece, closeErr := upload.upload.Commit(ctx)
 	return piece, errs.Combine(flushErr, closeErr)
 }
 
@@ -82,17 +85,19 @@ func (upload *LockingUpload) Write(p []byte) (int, error) {
 }
 
 // Cancel aborts the upload.
-func (upload *LockingUpload) Cancel() error {
+func (upload *LockingUpload) Cancel(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	upload.mu.Lock()
 	defer upload.mu.Unlock()
-	return upload.upload.Cancel()
+	return upload.upload.Cancel(ctx)
 }
 
 // Commit finishes the upload.
-func (upload *LockingUpload) Commit() (*pb.PieceHash, error) {
+func (upload *LockingUpload) Commit(ctx context.Context) (_ *pb.PieceHash, err error) {
+	defer mon.Task()(&ctx)(&err)
 	upload.mu.Lock()
 	defer upload.mu.Unlock()
-	return upload.upload.Commit()
+	return upload.upload.Commit(ctx)
 }
 
 // LockingDownload adds a lock around download making it safe to use concurrently.

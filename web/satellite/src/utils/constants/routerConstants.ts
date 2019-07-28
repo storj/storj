@@ -19,12 +19,12 @@ const ROUTES = {
         name: 'Dashboard'
     },
     ACCOUNT_SETTINGS: {
-        path: '/account-settings',
-        name: 'AccountSettings'
+        path: '/account',
+        name: 'Account'
     },
-    PROJECT_DETAILS: {
-        path: '/project-details',
-        name: 'ProjectDetails'
+    PROJECT_OVERVIEW: {
+        path: '/project-overview',
+        name: 'ProjectOverview'
     },
     TEAM: {
         path: '/team',
@@ -35,12 +35,32 @@ const ROUTES = {
         name: 'ApiKeys'
     },
     USAGE_REPORT: {
-        path: '/project-details/usage-report',
+        path: 'usage-report',
         name: 'UsageReport'
+    },
+    BILLING_HISTORY: {
+        path: 'billing-history',
+        name: 'BillingHistory'
+    },
+    PROJECT_DETAILS: {
+        path: 'details',
+        name: 'ProjectDetails'
+    },
+    PAYMENT_METHODS: {
+        path: 'payment-methods',
+        name: 'ProjectPaymentMethods.vue'
     },
     BUCKETS: {
         path: '/buckets',
         name: 'Buckets'
+    },
+    PROFILE: {
+        path: 'profile',
+        name: 'Profile'
+    },
+    REFERRAL: {
+        path: '/ref/:ids',
+        name: 'Referral'
     },
 };
 

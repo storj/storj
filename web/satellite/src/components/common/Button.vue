@@ -12,62 +12,41 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue, Prop } from 'vue-property-decorator';
 
-// Custom button component with label
-@Component(
-    {
-        props: {
-            label: {
-                type: String,
-                default: 'Default'
-            },
-            width: {
-                type: String,
-                default: 'inherit'
-            },
-            height: {
-                type: String,
-                default: 'inherit'
-            },
-            isWhite: {
-                type: Boolean,
-                default: false
-            },
-            isDeletion: {
-                type: Boolean,
-                default: false
-            },
-            isDisabled: {
-                type: Boolean,
-                default: false
-            },
-            onPress: {
-                type: Function,
-                default: () => {
-                    console.error('onPress is not reinitialized');
-                }
-            }
-        },
-        computed: {
-            style: function () {
-                return {width: this.$props.width, height: this.$props.height};
-            },
-            containerClassName: function () {
-                if (this.$props.isDisabled) return 'container disabled';
-
-                if (this.$props.isWhite) return 'container white';
-
-                if (this.$props.isDeletion) return 'container red';
-                
-                return 'container';
-            },
+    // Custom button component with label
+    @Component
+    export default class Button extends Vue {
+        @Prop({default: 'Default'})
+        private readonly label: string;
+        @Prop({default: 'inherit'})
+        private readonly width: string;
+        @Prop({default: 'inherit'})
+        private readonly height: string;
+        @Prop({default: false})
+        private readonly isWhite: boolean;
+        @Prop({default: false})
+        private readonly isDeletion: boolean;
+        @Prop({default: false})
+        private isDisabled: boolean;
+        // TODO: improve default implementation
+        @Prop({default: () => console.error('onPress is not reinitialized')})
+        private readonly onPress: Function;
+        
+        public get style(): Object {
+            return { width: this.width, height: this.height };
+        }
+    
+        public get containerClassName(): string {
+            if (this.isDisabled) return 'container disabled';
+        
+            if (this.isWhite) return 'container white';
+        
+            if (this.isDeletion) return 'container red';
+        
+            return 'container';
         }
     }
-)
-
-export default class Button extends Vue {
-}
 </script>
 
 <style scoped lang="scss">
@@ -118,6 +97,7 @@ export default class Button extends Vue {
             color: #fff;
         }
     }
+
     .container.white,
     .container.red {
         background-color: transparent;
@@ -127,6 +107,7 @@ export default class Button extends Vue {
             color: #354049;
         }
     }
+
     .container.disabled {
         background-color: #DADDE5;
         border-color: #DADDE5;

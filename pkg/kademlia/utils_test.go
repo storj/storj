@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -25,15 +26,10 @@ func TestSortByXOR(t *testing.T) {
 }
 
 func BenchmarkSortByXOR(b *testing.B) {
-	newNodeID := func() storj.NodeID {
-		var id storj.NodeID
-		rand.Read(id[:])
-		return id
-	}
-
-	nodes := []storj.NodeID{}
-	for k := 0; k < 1000; k++ {
-		nodes = append(nodes, newNodeID())
+	l := 1000
+	nodes := make([]storj.NodeID, l)
+	for k := 0; k < l; k++ {
+		nodes = append(nodes, testrand.NodeID())
 	}
 
 	b.ResetTimer()
@@ -41,7 +37,7 @@ func BenchmarkSortByXOR(b *testing.B) {
 		rand.Shuffle(len(nodes), func(i, k int) {
 			nodes[i], nodes[k] = nodes[k], nodes[i]
 		})
-		sortByXOR(nodes, newNodeID())
+		sortByXOR(nodes, testrand.NodeID())
 	}
 }
 

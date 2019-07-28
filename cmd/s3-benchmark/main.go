@@ -30,6 +30,7 @@ func main() {
 	flag.StringVar(&conf.APIKey, "apikey", "abc123", "api key")
 	flag.StringVar(&conf.EncryptionKey, "encryptionkey", "abc123", "encryption key")
 	flag.BoolVar(&conf.NoSSL, "no-ssl", false, "disable ssl")
+	flag.StringVar(&conf.ConfigDir, "config-dir", "", "path of config dir to use. If empty, a config will be created.")
 
 	clientName := flag.String("client", "minio", "client to use for requests (supported: minio, aws-cli, uplink)")
 

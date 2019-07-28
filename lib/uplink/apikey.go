@@ -3,17 +3,51 @@
 
 package uplink
 
+import (
+	"storj.io/storj/pkg/macaroon"
+)
+
 // APIKey represents an access credential to certain resources
 type APIKey struct {
-	key string
+	key *macaroon.APIKey
 }
 
-// Serialize serializes the API Key to a string
+// Serialize serializes the API key to a string
 func (a APIKey) Serialize() string {
-	return a.key
+	return a.key.Serialize()
 }
 
-// ParseAPIKey parses an API Key
+func (a APIKey) serializeRaw() []byte {
+	return a.key.SerializeRaw()
+}
+
+// IsZero returns if the api key is an uninitialized value
+func (a *APIKey) IsZero() bool {
+	return a.key == nil
+}
+
+// ParseAPIKey parses an API key
 func ParseAPIKey(val string) (APIKey, error) {
-	return APIKey{key: val}, nil
+	k, err := macaroon.ParseAPIKey(val)
+	if err != nil {
+		return APIKey{}, err
+	}
+	return APIKey{key: k}, nil
+}
+
+func parseRawAPIKey(data []byte) (APIKey, error) {
+	k, err := macaroon.ParseRawAPIKey(data)
+	if err != nil {
+		return APIKey{}, err
+	}
+	return APIKey{key: k}, nil
+}
+
+// Restrict generates a new APIKey with the provided Caveat attached.
+func (a APIKey) Restrict(caveat macaroon.Caveat) (APIKey, error) {
+	k, err := a.key.Restrict(caveat)
+	if err != nil {
+		return APIKey{}, err
+	}
+	return APIKey{key: k}, nil
 }

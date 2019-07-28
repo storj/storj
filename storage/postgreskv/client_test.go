@@ -4,33 +4,26 @@
 package postgreskv
 
 import (
+	"context"
 	"database/sql"
-	"flag"
-	"os"
 	"testing"
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
 
-const (
-	// this connstring is expected to work under the storj-test docker-compose instance
-	defaultPostgresConn = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
-)
-
-var (
-	testPostgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string")
-)
+var ctx = context.Background() // test context
 
 func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
-	if *testPostgres == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", defaultPostgresConn)
+	if *pgtest.ConnStr == "" {
+		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
-	pgdb, err := New(*testPostgres)
+	pgdb, err := New(*pgtest.ConnStr)
 	if err != nil {
 		t.Fatalf("init: %v", err)
 	}
@@ -83,7 +76,7 @@ func bulkImport(db *sql.DB, iter storage.Iterator) (err error) {
 	}()
 
 	var item storage.ListItem
-	for iter.Next(&item) {
+	for iter.Next(ctx, &item) {
 		if _, err := stmt.Exec([]byte(""), []byte(item.Key), []byte(item.Value)); err != nil {
 			return err
 		}

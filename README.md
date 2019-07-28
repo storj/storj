@@ -2,9 +2,8 @@
 
 [![Go Report Card](https://goreportcard.com/badge/storj.io/storj)](https://goreportcard.com/report/storj.io/storj)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://godoc.org/storj.io/storj)
-[![Coverage Status](https://coveralls.io/repos/github/storj/storj/badge.svg?branch=master)](https://coveralls.io/github/storj/storj?branch=master)
+[![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.ops.storj.io/job/storj/job/master/Coverage_20Details/)
 ![Alpha](https://img.shields.io/badge/version-alpha-green.svg)
-[![Build Status](https://travis-ci.com/storj/storj.svg?branch=master)](https://travis-ci.com/storj/storj)
 
 <img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
 
@@ -30,7 +29,9 @@ retrieve those files!
 
 All of our code for Storj v3 is open source. Have a code change you think would make Storj better? Please send a pull request along! Make sure to sign our [Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) first. See our [license section](#license) for more details.
 
-Have comments, bug reports, or suggestions? Want to propose a PR before hand-crafting it? Jump on to our [Rocketchat](https://community.storj.io) and join the [#dev channel](https://community.storj.io/channel/dev) to say hi to the developer community and to talk to the Storj core team.
+Have comments or bug reports? Want to propose a PR before hand-crafting it? Jump on to our [Rocketchat](https://community.storj.io) and join the [#dev channel](https://community.storj.io/channel/dev) to say hi to the developer community and to talk to the Storj core team. 
+
+Want to vote on or suggest new features? Post it on [ideas.storj.io](https://ideas.storj.io).
 
 ### Issue tracking and roadmap
 
@@ -38,11 +39,10 @@ See the breakdown of what we're building by checking out the following resources
 
  * [White paper](https://storj.io/whitepaper)
  * [Aha! Roadmap](https://storjlabs.aha.io/published/01ee405b4bd8d14208c5256d70d73a38)
- * [Jira Issues](https://storjlabs.atlassian.net/projects/V3)
 
 ### Install required packages
 
-To get started running Storj locally, download and install the latest release of Go (at least Go 1.11) at [golang.org](https://golang.org).
+To get started running Storj locally, download and install the latest release of Go (at least Go 1.12) at [golang.org](https://golang.org).
 
 You will also need [Git](https://git-scm.com/). (`brew install git`, `apt-get install git`, etc).
 If you're building on Windows, you also need to install and have [gcc](https://gcc.gnu.org/install/binaries.html) setup correctly.

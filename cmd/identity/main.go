@@ -57,7 +57,9 @@ var (
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
 		Signer         certificates.CertClientConfig
 		// TODO: ideally the default is the latest version; can't interpolate struct tags
-		Version uint `default:"0" help:"identity version to use when creating an identity or CA"`
+		IdentityVersion uint `default:"0" help:"identity version to use when creating an identity or CA"`
+
+		Version version.Config
 	}
 
 	identityDir, configDir string
@@ -69,8 +71,8 @@ func init() {
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(authorizeCmd)
 
-	cfgstruct.Bind(newServiceCmd.Flags(), &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(authorizeCmd.Flags(), &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(newServiceCmd, &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(authorizeCmd, &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func main() {
@@ -84,7 +86,7 @@ func serviceDirectory(serviceName string) string {
 func cmdNewService(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	err := version.CheckProcessVersion(ctx, config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -103,7 +105,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		Concurrency:    config.Concurrency,
 		ParentCertPath: config.ParentCertPath,
 		ParentKeyPath:  config.ParentKeyPath,
-		VersionNumber:  config.Version,
+		VersionNumber:  config.IdentityVersion,
 	}
 
 	status, err := caConfig.Status()
@@ -146,7 +148,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	err := version.CheckProcessVersion(ctx, config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -178,6 +180,9 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	if config.Signer.Address == "" {
 		config.Signer.Address = defaultSignerAddress
 	}
+
+	// Ensure we dont enforce a signed Peer Identity
+	config.Signer.TLS.UsePeerCAWhitelist = false
 
 	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
 	if err != nil {

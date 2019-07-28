@@ -14,7 +14,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -30,11 +30,16 @@ func TestRollupNoDeletes(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Rollup.DeleteTallies = false
+				// 0 so that we can disqualify a node immediately by triggering a failed audit
+				config.Overlay.Node.AuditReputationLambda = 0
 			},
 		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			dqedNodes, err := dqNodes(ctx, planet)
+			require.NoError(t, err)
+			require.NotEmpty(t, dqedNodes)
+
 			days := 5
 			testData := createData(planet, days)
 
@@ -43,7 +48,7 @@ func TestRollupNoDeletes(t *testing.T) {
 			start := timestamp
 
 			for i := 0; i < days; i++ {
-				err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, testData[i].nodeData)
+				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, timestamp, testData[i].nodeData)
 				require.NoError(t, err)
 				err = saveBW(ctx, planet, testData[i].bwTotals, timestamp)
 				require.NoError(t, err)
@@ -59,7 +64,7 @@ func TestRollupNoDeletes(t *testing.T) {
 				start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
 				end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
 
-				rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, start, end)
+				rows, err := planet.Satellites[0].DB.StoragenodeAccounting().QueryPaymentInfo(ctx, start, end)
 				require.NoError(t, err)
 				if i == 0 { // we need at least two days for rollup to work
 					assert.Equal(t, 0, len(rows))
@@ -78,17 +83,34 @@ func TestRollupNoDeletes(t *testing.T) {
 					assert.Equal(t, int64(totals[3]), r.GetRepairTotal)
 					assert.Equal(t, totals[4], r.AtRestTotal)
 					assert.NotEmpty(t, r.Wallet)
+					if dqedNodes[r.NodeID] {
+						assert.NotNil(t, r.Disqualified)
+					} else {
+						assert.Nil(t, r.Disqualified)
+					}
 				}
 			}
-			raw, err := planet.Satellites[0].DB.Accounting().GetRaw(ctx)
+			raw, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, days*len(planet.StorageNodes), len(raw))
 		})
 }
 func TestRollupDeletes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0},
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Rollup.DeleteTallies = true
+				// 0 so that we can disqualify a node immediately by triggering a failed audit
+				config.Overlay.Node.AuditReputationLambda = 0
+			},
+		},
+	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			dqedNodes, err := dqNodes(ctx, planet)
+			require.NoError(t, err)
+			require.NotEmpty(t, dqedNodes)
+
 			days := 5
 			testData := createData(planet, days)
 
@@ -97,7 +119,7 @@ func TestRollupDeletes(t *testing.T) {
 			start := timestamp
 
 			for i := 0; i < days; i++ {
-				err := planet.Satellites[0].DB.Accounting().SaveAtRestRaw(ctx, timestamp, timestamp, testData[i].nodeData)
+				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, timestamp, testData[i].nodeData)
 				require.NoError(t, err)
 				err = saveBW(ctx, planet, testData[i].bwTotals, timestamp)
 				require.NoError(t, err)
@@ -106,15 +128,12 @@ func TestRollupDeletes(t *testing.T) {
 				require.NoError(t, err)
 
 				// Assert that RollupStorage deleted all raws except for today's
-				raw, err := planet.Satellites[0].DB.Accounting().GetRaw(ctx)
+				raw, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 				require.NoError(t, err)
 				for _, r := range raw {
 					assert.Equal(t, r.IntervalEndTime.UTC().Truncate(time.Second), timestamp.Truncate(time.Second))
-					if r.DataType == accounting.AtRest {
-						assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
-					} else {
-						assert.Equal(t, testData[i].bwTotals[r.NodeID][r.DataType], int64(r.DataTotal))
-					}
+					assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
+
 				}
 
 				// Advance time by 24 hours
@@ -125,7 +144,7 @@ func TestRollupDeletes(t *testing.T) {
 				start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
 				end = time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
 
-				rows, err := planet.Satellites[0].DB.Accounting().QueryPaymentInfo(ctx, start, end)
+				rows, err := planet.Satellites[0].DB.StoragenodeAccounting().QueryPaymentInfo(ctx, start, end)
 				require.NoError(t, err)
 				if i == 0 { // we need at least two days for rollup to work
 					assert.Equal(t, 0, len(rows))
@@ -144,6 +163,11 @@ func TestRollupDeletes(t *testing.T) {
 					assert.Equal(t, int64(totals[3]), r.GetRepairTotal)
 					assert.Equal(t, totals[4], r.AtRestTotal)
 					assert.NotEmpty(t, r.Wallet)
+					if dqedNodes[r.NodeID] {
+						assert.NotNil(t, r.Disqualified)
+					} else {
+						assert.Nil(t, r.Disqualified)
+					}
 				}
 			}
 		})
@@ -175,6 +199,27 @@ func createData(planet *testplanet.Planet, days int) []testData {
 		}
 	}
 	return data
+}
+
+// dqNodes disqualifies half the nodes in the testplanet and returns a map of dqed nodes
+func dqNodes(ctx *testcontext.Context, planet *testplanet.Planet) (map[storj.NodeID]bool, error) {
+	dqed := make(map[storj.NodeID]bool)
+
+	for i, n := range planet.StorageNodes {
+		if i%2 == 0 {
+			continue
+		}
+		_, err := planet.Satellites[0].Overlay.Service.UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       n.ID(),
+			IsUp:         true,
+			AuditSuccess: false,
+		})
+		if err != nil {
+			return nil, err
+		}
+		dqed[n.ID()] = true
+	}
+	return dqed, nil
 }
 
 func saveBW(ctx context.Context, planet *testplanet.Planet, bwTotals map[storj.NodeID][]int64, intervalStart time.Time) error {

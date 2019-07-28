@@ -7,8 +7,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
@@ -41,19 +44,28 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
-	metainfo, _, err := cfg.Metainfo(ctx)
+	project, err := cfg.GetProject(ctx)
 	if err != nil {
-		return err
+		return errs.New("error setting up project: %+v", err)
+	}
+	defer func() {
+		if err := project.Close(); err != nil {
+			fmt.Printf("error closing project: %+v\n", err)
+		}
+	}()
+
+	bucketCfg := &uplink.BucketConfig{}
+	bucketCfg.PathCipher = cfg.GetPathCipherSuite()
+	bucketCfg.EncryptionParameters = cfg.GetEncryptionParameters()
+	bucketCfg.Volatile = struct {
+		RedundancyScheme storj.RedundancyScheme
+		SegmentsSize     memory.Size
+	}{
+		RedundancyScheme: cfg.GetRedundancyScheme(),
+		SegmentsSize:     cfg.GetSegmentSize(),
 	}
 
-	_, err = metainfo.GetBucket(ctx, dst.Bucket())
-	if err == nil {
-		return fmt.Errorf("Bucket already exists")
-	}
-	if !storj.ErrBucketNotFound.Has(err) {
-		return err
-	}
-	_, err = metainfo.CreateBucket(ctx, dst.Bucket(), &storj.Bucket{PathCipher: storj.Cipher(cfg.Enc.PathType)})
+	_, err = project.CreateBucket(ctx, dst.Bucket(), bucketCfg)
 	if err != nil {
 		return err
 	}

@@ -5,6 +5,7 @@ package consoleql_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/post"
@@ -22,6 +24,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -29,7 +32,7 @@ import (
 type discardSender struct{}
 
 // SendEmail immediately returns with nil error
-func (*discardSender) SendEmail(msg *post.Message) error {
+func (*discardSender) SendEmail(ctx context.Context, msg *post.Message) error {
 	return nil
 }
 
@@ -49,17 +52,15 @@ func TestGrapqhlMutation(t *testing.T) {
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			db.Rewards(),
+			localpayments.NewService(nil),
 			console.TestPasswordCost,
 		)
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		mailService, err := mailservice.New(log, &discardSender{}, "testdata")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+		defer ctx.Check(mailService.Close)
 
 		rootObject := make(map[string]interface{})
 		rootObject["origin"] = "http://doesntmatter.com/"
@@ -67,48 +68,37 @@ func TestGrapqhlMutation(t *testing.T) {
 		rootObject[consoleql.SignInPath] = "login"
 
 		schema, err := consoleql.CreateSchema(log, service, mailService)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		createUser := console.CreateUser{
 			UserInfo: console.UserInfo{
 				FullName:  "John Roll",
 				ShortName: "Roll",
-				Email:     "test@email.com",
+				Email:     "test@mail.test",
+				PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
 			},
 			Password: "123a123",
 		}
+		refUserID := ""
 
 		regToken, err := service.CreateRegToken(ctx, 1)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
-		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
-		if err != nil {
-			t.Fatal(err)
-		}
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
+		require.NoError(t, err)
+		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
 
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		err = service.ActivateAccount(ctx, activationToken)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		sauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		authCtx := console.WithAuth(ctx, sauth)
 
@@ -117,22 +107,22 @@ func TestGrapqhlMutation(t *testing.T) {
 				UserInfo: console.UserInfo{
 					FullName:  "Green Mickey",
 					ShortName: "Green",
-					Email:     "u1@email.com",
+					Email:     "u1@mail.test",
+					PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
 				},
 				Password: "123a123",
 			}
 
 			regTokenTest, err := service.CreateRegToken(ctx, 1)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,partnerId,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
 				newUser.ShortName,
+				newUser.PartnerID,
 				regTokenTest.Secret,
 			)
 
@@ -146,10 +136,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			for _, err := range result.Errors {
 				assert.NoError(t, err)
 			}
-
-			if result.HasErrors() {
-				t.Fatal()
-			}
+			require.False(t, result.HasErrors())
 
 			data := result.Data.(map[string]interface{})
 			usrData := data[consoleql.CreateUserMutation].(map[string]interface{})
@@ -163,6 +150,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, newUser.FullName, user.FullName)
 			assert.Equal(t, newUser.ShortName, user.ShortName)
+			assert.Equal(t, newUser.PartnerID, user.PartnerID.String())
 		})
 
 		testQuery := func(t *testing.T, query string) interface{} {
@@ -176,16 +164,13 @@ func TestGrapqhlMutation(t *testing.T) {
 			for _, err := range result.Errors {
 				assert.NoError(t, err)
 			}
-
-			if result.HasErrors() {
-				t.Fatal()
-			}
+			require.False(t, result.HasErrors())
 
 			return result.Data
 		}
 
 		t.Run("Update account mutation email only", func(t *testing.T) {
-			email := "new@email.com"
+			email := "new@mail.test"
 			query := fmt.Sprintf(
 				"mutation {updateAccount(input:{email:\"%s\"}){id,email,fullName,shortName,createdAt}}",
 				email,
@@ -295,9 +280,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			oldHash := rootUser.PasswordHash
 
 			rootUser, err = service.GetUser(authCtx, rootUser.ID)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			assert.False(t, bytes.Equal(oldHash, rootUser.PasswordHash))
 
@@ -305,14 +288,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		})
 
 		token, err = service.Token(ctx, rootUser.Email, createUser.Password)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		sauth, err = service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		authCtx = console.WithAuth(ctx, sauth)
 
@@ -341,14 +320,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		})
 
 		pID, err := uuid.Parse(projectID)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		project, err := service.GetProject(authCtx, *pID)
-		if err != nil {
-			t.Fatal(err, project)
-		}
+		require.NoError(t, err)
 
 		t.Run("Update project description mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
@@ -368,68 +343,55 @@ func TestGrapqhlMutation(t *testing.T) {
 		})
 
 		regTokenUser1, err := service.CreateRegToken(ctx, 1)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
 				FullName: "User1",
-				Email:    "u1@email.net",
+				Email:    "u1@mail.test",
 			},
 			Password: "123a123",
-		}, regTokenUser1.Secret)
-		if err != nil {
-			t.Fatal(err, project)
-		}
+		}, regTokenUser1.Secret, refUserID)
+		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
 			activationToken1, err := service.GenerateActivationToken(
 				ctx,
 				user1.ID,
-				"u1@email.net",
+				"u1@mail.test",
 			)
-			if err != nil {
-				t.Fatal(err, project)
-			}
+			require.NoError(t, err)
+
 			err = service.ActivateAccount(ctx, activationToken1)
-			if err != nil {
-				t.Fatal(err, project)
-			}
-			user1.Email = "u1@email.net"
+			require.NoError(t, err)
+
+			user1.Email = "u1@mail.test"
 		})
 
 		regTokenUser2, err := service.CreateRegToken(ctx, 1)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
 				FullName: "User1",
-				Email:    "u2@email.net",
+				Email:    "u2@mail.test",
 			},
 			Password: "123a123",
-		}, regTokenUser2.Secret)
-
-		if err != nil {
-			t.Fatal(err, project)
-		}
+		}, regTokenUser2.Secret, refUserID)
+		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
 			activationToken2, err := service.GenerateActivationToken(
 				ctx,
 				user2.ID,
-				"u2@email.net",
+				"u2@mail.test",
 			)
-			if err != nil {
-				t.Fatal(err, project)
-			}
+			require.NoError(t, err)
+
 			err = service.ActivateAccount(ctx, activationToken2)
-			if err != nil {
-				t.Fatal(err, project)
-			}
-			user2.Email = "u2@email.net"
+			require.NoError(t, err)
+
+			user2.Email = "u2@mail.test"
 		})
 
 		t.Run("Add project members mutation", func(t *testing.T) {
@@ -477,7 +439,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Run("Create api key mutation", func(t *testing.T) {
 			keyName := "key1"
 			query := fmt.Sprintf(
-				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID}}}",
+				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID,partnerId}}}",
 				project.ID.String(),
 				keyName,
 			)
@@ -494,20 +456,17 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, keyName, keyInfo[consoleql.FieldName])
 			assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
+			assert.Equal(t, rootUser.PartnerID.String(), keyInfo[consoleql.FieldPartnerID])
 
 			keyID = keyInfo[consoleql.FieldID].(string)
 		})
 
 		t.Run("Delete api key mutation", func(t *testing.T) {
 			id, err := uuid.Parse(keyID)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			info, err := service.GetAPIKeyInfo(authCtx, *id)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			query := fmt.Sprintf(
 				"mutation {deleteAPIKeys(id:[\"%s\"]){name,projectID}}",

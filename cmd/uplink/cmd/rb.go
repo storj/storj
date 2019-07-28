@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/setup"
 )
 
 func init() {
@@ -41,12 +42,19 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
-	metainfo, _, err := cfg.Metainfo(ctx)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
 
-	list, err := metainfo.ListObjects(ctx, dst.Bucket(), storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
+	if err != nil {
+		return convertError(err, dst)
+	}
+
+	defer closeProjectAndBucket(project, bucket)
+
+	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
 	if err != nil {
 		return convertError(err, dst)
 	}
@@ -55,7 +63,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Bucket not empty: %s", dst.Bucket())
 	}
 
-	err = metainfo.DeleteBucket(ctx, dst.Bucket())
+	err = project.DeleteBucket(ctx, dst.Bucket())
 	if err != nil {
 		return convertError(err, dst)
 	}

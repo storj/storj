@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/process"
 )
 
 var (
@@ -67,9 +68,9 @@ func init() {
 	idCmd.AddCommand(leafExtCmd)
 	idCmd.AddCommand(revokeLeafCmd)
 
-	cfgstruct.Bind(newIDCmd.Flags(), &newIDCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(leafExtCmd.Flags(), &leafExtCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(revokeLeafCmd.Flags(), &revokeLeafCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(newIDCmd, &newIDCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(leafExtCmd, &leafExtCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(revokeLeafCmd, &revokeLeafCfg, defaults, cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdNewID(cmd *cobra.Command, args []string) (err error) {
