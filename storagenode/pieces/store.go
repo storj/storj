@@ -214,9 +214,9 @@ func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
 	return store.v0PieceInfo
 }
 
-// ForAllPieceIDsOwnedBySatellite executes doForEach for each locally stored piece in the namespace of
-// the given satellite which was created before the specified time. If doForEach returns a non-nil
-// error, ForAllPieceIDsInNamespace will stop iterating and return the error immediately.
+// ForAllPieceIDsOwnedBySatellite executes doForEach for each locally stored piece in the namespace
+// of the given satellite. If doForEach returns a non-nil error, ForAllPieceIDsInNamespace will stop
+// iterating and return the error immediately.
 //
 // Note that this method includes all locally stored pieces, both V0 and higher.
 func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, doForEach func(StoredPieceAccess) error) (err error) {

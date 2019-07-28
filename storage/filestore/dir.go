@@ -367,10 +367,9 @@ func (dir *Dir) GetAllNamespaces(ctx context.Context) (ids [][]byte, err error) 
 	}
 }
 
-// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with
-// storage format V1 or greater, in the given namespace, if that blob was created before the
-// specified time. If doForEach returns a non-nil error, ForAllKeysInNamespace will stop
-// iterating and return the error immediately.
+// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with storage
+// format V1 or greater, in the given namespace. If doForEach returns a non-nil error,
+// ForAllKeysInNamespace will stop iterating and return the error immediately.
 func (dir *Dir) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) (err error) {
 	namespaceDir := pathEncoding.EncodeToString(namespace)
 	nsDir := filepath.Join(dir.blobsdir(), namespaceDir)

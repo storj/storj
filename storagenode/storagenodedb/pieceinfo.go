@@ -85,9 +85,8 @@ func (db *v0PieceInfo) getAllPiecesOwnedBy(ctx context.Context, blobStore storag
 }
 
 // ForAllV0PieceIDsOwnedBySatellite executes doForEach for each locally stored piece, stored with
-// storage format V0 in the namespace of the given satellite, if that piece was created before
-// the specified time. If doForEach returns a non-nil error, ForAllV0PieceIDsOwnedBySatellite will
-// stop iterating and return the error immediately.
+// storage format V0 in the namespace of the given satellite. If doForEach returns a non-nil error,
+// ForAllV0PieceIDsOwnedBySatellite will stop iterating and return the error immediately.
 //
 // If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
 // instances will not work, but otherwise everything should be ok.
