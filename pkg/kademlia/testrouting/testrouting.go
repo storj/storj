@@ -11,10 +11,9 @@ import (
 
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/dht"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
 
@@ -58,9 +57,6 @@ func New(self storj.NodeID, bucketSize, cacheSize, allowedFailures int) *Table {
 		splits:          map[string]bool{},
 	}
 }
-
-// make sure the Table implements the right interface
-var _ dht.RoutingTable = (*Table)(nil)
 
 // K returns the Table's routing depth, or Kademlia k value
 func (t *Table) K() int { return t.bucketSize }

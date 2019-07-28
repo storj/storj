@@ -10,15 +10,24 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/kademlia/testrouting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
-type routingCtor func(context.Context, storj.NodeID, int, int, int) dht.RoutingTable
+// RoutingTableInterface contains information on nodes we have locally
+type RoutingTableInterface interface {
+	K() int
+	CacheSize() int
+	FindNear(ctx context.Context, id storj.NodeID, limit int) ([]*pb.Node, error)
+	ConnectionSuccess(ctx context.Context, node *pb.Node) error
+	ConnectionFailed(ctx context.Context, node *pb.Node) error
+	Close() error
+}
 
-func newRouting(ctx context.Context, self storj.NodeID, bucketSize, cacheSize, allowedFailures int) dht.RoutingTable {
+type routingCtor func(context.Context, storj.NodeID, int, int, int) RoutingTableInterface
+
+func newRouting(ctx context.Context, self storj.NodeID, bucketSize, cacheSize, allowedFailures int) RoutingTableInterface {
 	if allowedFailures != 0 {
 		panic("failure counting currently unsupported")
 	}
@@ -28,7 +37,7 @@ func newRouting(ctx context.Context, self storj.NodeID, bucketSize, cacheSize, a
 	})
 }
 
-func newTestRouting(ctx context.Context, self storj.NodeID, bucketSize, cacheSize, allowedFailures int) dht.RoutingTable {
+func newTestRouting(ctx context.Context, self storj.NodeID, bucketSize, cacheSize, allowedFailures int) RoutingTableInterface {
 	return testrouting.New(self, bucketSize, cacheSize, allowedFailures)
 }
 

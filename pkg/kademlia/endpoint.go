@@ -42,7 +42,12 @@ func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *p
 		endpoint.pingback(ctx, req.Sender)
 	}
 
-	nodes, err := endpoint.routingTable.FindNear(ctx, req.Target.Id, int(req.Limit))
+	limit := int(req.Limit)
+	if limit <= 0 || limit > endpoint.routingTable.bucketSize {
+		limit = endpoint.routingTable.bucketSize
+	}
+
+	nodes, err := endpoint.routingTable.FindNear(ctx, req.Target.Id, limit)
 	if err != nil {
 		return &pb.QueryResponse{}, EndpointError.New("could not find near endpoint: %v", err)
 	}

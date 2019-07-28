@@ -4,6 +4,8 @@
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+import { TeamMember } from '@/types/teamMembers';
+import { RequestResponse } from '@/types/response';
 
 // Performs graqhQL request.
 export async function addProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
@@ -70,8 +72,8 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
 }
 
 // Performs graqhQL request.
-export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMemberModel[]>> {
-    let result: RequestResponse<TeamMemberModel[]> = {
+export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMember[]>> {
+    let result: RequestResponse<TeamMember[]> = {
         errorMessage: '',
         isSuccess: false,
         data: []
@@ -105,7 +107,7 @@ export async function fetchProjectMembersRequest(projectID: string, limit: strin
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = response.data.project.members;
+        result.data = getProjectMembersList(response.data.project.members);
     }
 
     return result;
@@ -119,4 +121,12 @@ function prepareEmailList(emails: string[]): string {
     });
 
     return emailString;
+}
+
+function getProjectMembersList(projectMembers: any[]): TeamMember[] {
+    if (!projectMembers) {
+        return [];
+    }
+
+    return projectMembers.map(key => new TeamMember(key.user.fullName, key.user.shortName, key.user.email, '', key.user.id));
 }

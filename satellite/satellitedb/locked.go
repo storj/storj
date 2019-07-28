@@ -14,20 +14,20 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/certdb"
-	"storj.io/storj/pkg/datarepair/irreparable"
-	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
+	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/irreparable"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -115,6 +115,13 @@ func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, li
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
+}
+
+// UpdateBucket updates an existing bucket
+func (m *lockedBuckets) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBucket(ctx, bucket)
 }
 
 // CertDB returns database for storing uplink's public key & ID
@@ -571,7 +578,7 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, userCredit)
@@ -741,11 +748,11 @@ func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*pb.Ir
 	return m.db.Get(ctx, segmentPath)
 }
 
-// GetLimited number of segments from offset
-func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, offset int64) ([]*pb.IrreparableSegment, error) {
+// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
+func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) ([]*pb.IrreparableSegment, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetLimited(ctx, limit, offset)
+	return m.db.GetLimited(ctx, limit, lastSeenSegmentPath)
 }
 
 // IncrementRepairAttempts increments the repair attempts.
@@ -886,7 +893,7 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
-// Paginate will page through the database nodes
+// PaginateQualified will page through the qualified nodes
 func (m *lockedOverlayCache) PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
 	m.Lock()
 	defer m.Unlock()
