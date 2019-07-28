@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
@@ -28,7 +27,6 @@ type SegmentRepairer struct {
 	orders   *orders.Service
 	cache    *overlay.Cache
 	ec       ecclient.Client
-	identity *identity.FullIdentity
 	timeout  time.Duration
 
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
@@ -44,7 +42,7 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
-	cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration,
+	cache *overlay.Cache, ec ecclient.Client, timeout time.Duration,
 	excessOptimalThreshold float64,
 ) *SegmentRepairer {
 
@@ -58,7 +56,6 @@ func NewSegmentRepairer(
 		orders:                     orders,
 		cache:                      cache,
 		ec:                         ec.WithForceErrorDetection(true),
-		identity:                   identity,
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}

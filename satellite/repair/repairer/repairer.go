@@ -55,7 +55,7 @@ type Service struct {
 // NewService creates repairing service
 func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
 	client := ecclient.NewClient(log.Named("ecclient"), transport, config.MaxBufferMem.Int())
-	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, client, transport.Identity(), config.Timeout, config.MaxExcessRateOptimalThreshold)
+	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, client, config.Timeout, config.MaxExcessRateOptimalThreshold)
 
 	return &Service{
 		log:       log,
