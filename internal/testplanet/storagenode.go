@@ -51,7 +51,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		}
 
 		var db storagenode.DB
-		db, err = storagenodedb.NewInMemory(log.Named("db"), storageDir)
+		db, err = storagenodedb.NewTest(log.Named("db"), storageDir)
 		if err != nil {
 			return nil, err
 		}
@@ -122,6 +122,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
 				},
+				RetainStatus: piecestore.RetainEnabled,
 			},
 			Vouchers: vouchers.Config{
 				Interval: time.Hour,

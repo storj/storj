@@ -28,7 +28,10 @@
         // TODO: use svg loader
         public readonly arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
         public readonly arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
-        public readonly totalCount: number = this.$store.state.bucketUsageModule.page.totalCount;
+
+        public get totalCount(): number {
+            return this.$store.state.bucketUsageModule.page.totalCount;
+        }
     
         public get pages(): number[] {
             return new Array(this.$store.state.bucketUsageModule.page.pageCount);

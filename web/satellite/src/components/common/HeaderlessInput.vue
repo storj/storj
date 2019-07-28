@@ -11,9 +11,10 @@
         <input
             :class="{'inputError' : error}"
             @input="onInput"
-            :placeholder="placeholder"
+            @change="onInput"
             v-model="value"
-            :type="[isPassword ? passwordType : textType]"
+            :placeholder="placeholder"
+            :type="type"
             :style="style.inputStyle"/>
         <!--2 conditions of eye image (crossed or not) -->
         <svg v-if="isPassword && !isPasswordShown" v-on:click="changeVision()" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -40,40 +41,62 @@
     // Custom input component for login page
     @Component
     export default class HeaderlessInput extends Vue {
-        public textType: string = 'text';
-        private value: string = '';
-        private passwordType: string = 'password';
+        private readonly textType: string = 'text';
+        private readonly passwordType: string = 'password';
+
+        private type: string = this.textType;
         private isPasswordShown: boolean = false;
 
+        protected value: string = '';
+
+        @Prop({default: ''})
+        protected readonly label: string;
         @Prop({default: 'default'})
-        private readonly placeholder: string;
+        protected readonly placeholder: string;
         @Prop({default: false})
-        private readonly isPassword: boolean;
+        protected readonly isPassword: boolean;
         @Prop({default: '48px'})
-        private readonly height: string;
+        protected readonly height: string;
         @Prop({default: '100%'})
-        private readonly width: string;
+        protected readonly width: string;
+        @Prop({default: ''})
+        protected readonly error: string;
+        @Prop({default: Number.MAX_SAFE_INTEGER})
+        protected readonly maxSymbols: number;
+
         @Prop({default: false})
         private readonly isWhite: boolean;
-        @Prop({default: ''})
-        private readonly label: string;
-        @Prop({default: ''})
-        private readonly error: string;
 
-        public onInput(): void {
-            this.$emit('setData', this.value);
+        public constructor() {
+            super();
+
+            this.type = this.isPassword ? this.passwordType : this.textType;
         }
 
-        public changeVision(): void {
-            this.isPasswordShown = !this.isPasswordShown;
-            if (this.isPassword) this.passwordType = this.passwordType == 'password' ? 'text' : 'password';
-        }
-
+        // Used to set default value from parent component
         public setValue(value: string): void {
             this.value = value;
         }
 
-        public get style(): object {
+        // triggers on input
+        public onInput({ target }): void {
+            if (target.value.length > this.maxSymbols) {
+                this.value = target.value.slice(0, this.maxSymbols);
+            } else {
+                this.value = target.value;
+            }
+
+            this.$emit('setData', this.value);
+        }
+
+        private changeVision(): void {
+            this.isPasswordShown = !this.isPasswordShown;
+            if (this.isPasswordShown) {
+                this.type = this.type == this.passwordType ? this.textType : this.passwordType;
+            }
+        }
+
+        protected get style(): object {
             return {
                 inputStyle: {
                     width: this.width,
@@ -156,7 +179,7 @@
     
         svg {
             position: absolute;
-            right: 15px;
+            right: 25px;
             bottom: 5px;
             transform: translateY(-50%);
             z-index: 20;

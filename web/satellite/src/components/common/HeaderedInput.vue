@@ -17,74 +17,46 @@
             v-if="isMultiline"
             :id="this.$props.label"
             :placeholder="this.$props.placeholder"
-            :style="style"
+            :style="style.inputStyle"
             :rows="5"
             :cols="40"
             wrap="hard"
-            v-model.lazy="value"
+            @input="onInput"
             @change="onInput"
-            @input="onInput">
+            v-model="value">
         </textarea>
         <input
             v-if="!isMultiline"
             :id="this.$props.label"
             :placeholder="this.$props.placeholder"
             v-bind:type="[isPassword ? 'password': 'text']"
-            v-model.lazy="value"
-            @change="onInput"
             @input="onInput"
-            :style="style"/>
+            @change="onInput"
+            v-model="value"
+            :style="style.inputStyle"/>
     </div>
 </template>
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
+    import HeaderlessInput from './HeaderlessInput.vue';
 
     // Custom input component with labeled header
     @Component
-    export default class HeaderedInput extends Vue {
+    export default class HeaderedInput extends HeaderlessInput {
         @Prop({default: ''})
         private readonly initValue: string;
         @Prop({default: ''})
-        private readonly label: string;
-        @Prop({default: ''})
         private readonly additionalLabel: string;
-        @Prop({default: 'default'})
-        private readonly placeholder: string;
-        @Prop({default: ''})
-        private readonly error: string;
         @Prop({default: false})
         private readonly isOptional: boolean;
         @Prop({default: false})
         private readonly isMultiline: boolean;
-        @Prop({default: false})
-        private readonly isPassword: boolean;
-        @Prop({default: '48px'})
-        private readonly height: string;
-        @Prop({default: '100%'})
-        private readonly width: string;
-        
-        private value: string = '';
         
         public constructor() {
             super();
             
             this.value = this.initValue;
-        }
-        
-        public get style(): object {
-            return {
-                width: this.width,
-                height: this.height,
-            };
-        }
-    
-        public onInput(): void {
-            this.$emit('setData', this.$data.value);
-        }
-        
-        public setValue(value: string): void {
-            this.value = value;
         }
     }
 </script>

@@ -94,7 +94,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 func (r *repairQueue) Delete(ctx context.Context, seg *pb.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = r.db.ExecContext(ctx, r.db.Rebind(`DELETE FROM injuredsegments WHERE path = ?`), seg.Path)
-	return
+	return Error.Wrap(err)
 }
 
 func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.InjuredSegment, err error) {
@@ -104,13 +104,16 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 	}
 	//todo: strictly enforce order-by or change tests
 	rows, err := r.db.QueryContext(ctx, r.db.Rebind(`SELECT data FROM injuredsegments LIMIT ?`), limit)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	for rows.Next() {
 		var seg pb.InjuredSegment
 		err = rows.Scan(&seg)
 		if err != nil {
-			return
+			return segs, Error.Wrap(err)
 		}
 		segs = append(segs, seg)
 	}
-	return segs, rows.Err()
+	return segs, Error.Wrap(rows.Err())
 }
