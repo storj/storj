@@ -32,6 +32,7 @@ model pending_audits (
 	field share_size          int64
 	field expected_share_hash blob
 	field reverify_count      int64 ( updatable )
+	field path                blob
 )
 
 create pending_audits ( )
@@ -65,6 +66,7 @@ read one (
 
 read limitoffset (
 	select irreparabledb
+	where irreparabledb.segmentpath > ?
 	orderby asc irreparabledb.segmentpath
 )
 
@@ -765,7 +767,7 @@ model bucket_metainfo (
 	field id             blob
 	field project_id     project.id restrict
 	field name           blob
-	field partner_id     blob   (nullable)
+	field partner_id     blob   (nullable, updatable)
 
 	field path_cipher    int
 
@@ -785,6 +787,10 @@ model bucket_metainfo (
 )
 
 create bucket_metainfo ()
+update bucket_metainfo (
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
 
 read one (
 	select bucket_metainfo

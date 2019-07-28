@@ -45,6 +45,18 @@ func TestOffer_Database(t *testing.T) {
 				Status:                    rewards.Active,
 				Type:                      rewards.FreeCredit,
 			},
+			{
+				Name:                      "partner",
+				Description:               "test offer 2",
+				AwardCredit:               currency.Cents(0),
+				InviteeCredit:             currency.Cents(50),
+				AwardCreditDurationDays:   0,
+				InviteeCreditDurationDays: 30,
+				RedeemableCap:             50,
+				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
+				Status:                    rewards.Active,
+				Type:                      rewards.Partner,
+			},
 		}
 
 		for i := range validOffers {

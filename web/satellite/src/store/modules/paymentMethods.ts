@@ -9,6 +9,7 @@ import {
     fetchProjectPaymentMethods,
     setDefaultPaymentMethodRequest
 } from '@/api/paymentMethods';
+import { RequestResponse } from '@/types/response';
 
 export const projectPaymentsMethodsModule = {
     state: {

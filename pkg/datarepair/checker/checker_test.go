@@ -30,13 +30,13 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		checker.Loop.Stop()
 
 		//add noise to metainfo before bad record
-		for x := 0; x < 1000; x++ {
+		for x := 0; x < 10; x++ {
 			makePointer(t, planet, fmt.Sprintf("a-%d", x), false)
 		}
 		//create piece that needs repair
 		makePointer(t, planet, fmt.Sprintf("b"), true)
 		//add more noise to metainfo after bad record
-		for x := 0; x < 1000; x++ {
+		for x := 0; x < 10; x++ {
 			makePointer(t, planet, fmt.Sprintf("c-%d", x), false)
 		}
 		err := checker.IdentifyInjuredSegments(ctx)
@@ -136,7 +136,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		require.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
 		require.True(t, firstRepair < remoteSegmentInfo.LastRepairAttempt)
 
-		// make the  pointer repairable
+		// make the pointer repairable
 		pointer = &pb.Pointer{
 			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
@@ -150,8 +150,9 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 				RemotePieces: pieces,
 			},
 		}
-		// put test pointer to db
-		metainfo = planet.Satellites[0].Metainfo.Service
+		// update test pointer in db
+		err = metainfo.Delete(ctx, "fake-piece-id")
+		require.NoError(t, err)
 		err = metainfo.Put(ctx, "fake-piece-id", pointer)
 		require.NoError(t, err)
 
