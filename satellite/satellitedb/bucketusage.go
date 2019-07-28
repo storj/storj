@@ -8,7 +8,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/satellite/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
