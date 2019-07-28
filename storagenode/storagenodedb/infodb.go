@@ -15,6 +15,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/utccheck"
@@ -311,7 +312,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 									)`,
 				},
 			},
-		},
+			{
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{

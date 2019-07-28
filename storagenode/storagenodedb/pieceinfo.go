@@ -51,7 +51,7 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 		INSERT INTO
 			pieceinfo_(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash, uplink_cert_id)
 		VALUES (?,?,?,?,?,?,?,?)
-	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation.UTC(), info.PieceExpiration, orderLimit, uplinkPieceHash, 0)
+	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation.UTC(), pieceExpiration, orderLimit, uplinkPieceHash, 0)
 	return ErrInfo.Wrap(err)
 }
 
