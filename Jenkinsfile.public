@@ -32,17 +32,17 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'go run ./scripts/check-copyright.go', wait: false
-                        sh 'go run ./scripts/check-large-files.go', wait: false
-                        sh 'go run ./scripts/check-imports.go -race ./...', wait: false
-                        sh 'go run ./scripts/check-peer-constraints.go -race', wait: false
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint', wait: false
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock', wait: false
-                        sh 'go run ./scripts/atomicalign.go ./...', wait: false
-                        sh 'bash ./scripts/check-dbx-version.sh', wait: false
-                        sh 'golangci-lint -j=2 run', wait: false
-                        sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig', wait: false
-                        sh 'make check-satellite-config-lock', wait: false
+                        sh script: 'go run ./scripts/check-copyright.go', wait: false
+                        sh script: 'go run ./scripts/check-large-files.go', wait: false
+                        sh script: 'go run ./scripts/check-imports.go -race ./...', wait: false
+                        sh script: 'go run ./scripts/check-peer-constraints.go -race', wait: false
+                        sh script: 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint', wait: false
+                        sh script: 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock', wait: false
+                        sh script: 'go run ./scripts/atomicalign.go ./...', wait: false
+                        sh script: 'bash ./scripts/check-dbx-version.sh', wait: false
+                        sh script: 'golangci-lint -j=2 run', wait: false
+                        sh script: 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig', wait: false
+                        sh script: 'make check-satellite-config-lock', wait: false
                     }
                 }
 
