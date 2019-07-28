@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -29,6 +28,7 @@ import (
 	storj "storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/eestream"
 )
 
 func TestSegmentStoreMeta(t *testing.T) {

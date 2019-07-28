@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
@@ -31,6 +30,7 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/uplink/eestream"
 )
 
 const (

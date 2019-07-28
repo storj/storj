@@ -10,7 +10,6 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -18,6 +17,7 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 )
 

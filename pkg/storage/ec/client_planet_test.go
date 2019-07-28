@@ -21,12 +21,12 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/uplink/eestream"
 )
 
 const (

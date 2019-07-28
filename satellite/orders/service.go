@@ -14,10 +14,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/eestream"
 )
 
 // Config is a configuration struct for orders Service.

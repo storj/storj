@@ -4,9 +4,9 @@
 package kvmetainfo
 
 import (
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/streams"
+	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 )
 
