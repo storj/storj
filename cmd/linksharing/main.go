@@ -15,9 +15,9 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/lib/uplink"
+	"storj.io/storj/linksharing"
+	"storj.io/storj/linksharing/httpserver"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/httpserver"
-	"storj.io/storj/pkg/linksharing"
 	"storj.io/storj/pkg/process"
 )
 
