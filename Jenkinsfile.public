@@ -60,7 +60,7 @@ pipeline {
 
                     post {
                         always {
-                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', propagate: false
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100'
                             archiveArtifacts artifacts: '.build/tests.json'
                             junit '.build/tests.xml'
 
