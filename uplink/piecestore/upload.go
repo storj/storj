@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
 )
 
 var mon = monkit.Package()
@@ -31,11 +32,12 @@ type Uploader interface {
 
 // Upload implements uploading to the storage node.
 type Upload struct {
-	client *Client
-	limit  *pb.OrderLimit2
-	peer   *identity.PeerIdentity
-	stream pb.Piecestore_UploadClient
-	ctx    context.Context
+	client     *Client
+	limit      *pb.OrderLimit
+	privateKey storj.PiecePrivateKey
+	peer       *identity.PeerIdentity
+	stream     pb.Piecestore_UploadClient
+	ctx        context.Context
 
 	hash           hash.Hash // TODO: use concrete implementation
 	offset         int64
@@ -47,7 +49,7 @@ type Upload struct {
 }
 
 // Upload initiates an upload to the storage node.
-func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (_ Uploader, err error) {
+func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit, piecePrivateKey storj.PiecePrivateKey) (_ Uploader, err error) {
 	defer mon.Task()(&ctx, "node: "+limit.StorageNodeId.String()[0:8])(&err)
 
 	stream, err := client.client.Upload(ctx)
@@ -69,11 +71,12 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (_ Uplo
 	}
 
 	upload := &Upload{
-		client: client,
-		limit:  limit,
-		peer:   peer,
-		stream: stream,
-		ctx:    ctx,
+		client:     client,
+		limit:      limit,
+		privateKey: piecePrivateKey,
+		peer:       peer,
+		stream:     stream,
+		ctx:        ctx,
 
 		hash:           pkcrypto.NewHash(),
 		offset:         0,
@@ -98,7 +101,7 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 	}
 	// if we already encountered an error, keep returning it
 	if client.sendError != nil {
-		return 0, ErrProtocol.Wrap(client.sendError)
+		return 0, client.sendError
 	}
 
 	fullData := data
@@ -118,7 +121,7 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 		}
 
 		// create a signed order for the next chunk
-		order, err := signing.SignOrder(ctx, client.client.signer, &pb.Order2{
+		order, err := signing.SignUplinkOrder(ctx, client.privateKey, &pb.Order{
 			SerialNumber: client.limit.SerialNumber,
 			Amount:       client.offset + int64(len(sendData)),
 		})
@@ -126,25 +129,18 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 			return written, ErrInternal.Wrap(err)
 		}
 
-		// send signed order so that storagenode will accept data
+		// send signed order + data
 		err = client.stream.Send(&pb.PieceUploadRequest{
 			Order: order,
-		})
-		if err != nil {
-			client.sendError = err
-			return written, ErrProtocol.Wrap(client.sendError)
-		}
-
-		// send data as the next message
-		err = client.stream.Send(&pb.PieceUploadRequest{
 			Chunk: &pb.PieceUploadRequest_Chunk{
 				Offset: client.offset,
 				Data:   sendData,
 			},
 		})
 		if err != nil {
+			err = ErrProtocol.Wrap(err)
 			client.sendError = err
-			return written, ErrProtocol.Wrap(client.sendError)
+			return written, err
 		}
 
 		// update our offset
@@ -184,9 +180,11 @@ func (client *Upload) Commit(ctx context.Context) (_ *pb.PieceHash, err error) {
 	}
 
 	// sign the hash for storage node
-	uplinkHash, err := signing.SignPieceHash(ctx, client.client.signer, &pb.PieceHash{
-		PieceId: client.limit.PieceId,
-		Hash:    client.hash.Sum(nil),
+	uplinkHash, err := signing.SignUplinkPieceHash(ctx, client.privateKey, &pb.PieceHash{
+		PieceId:   client.limit.PieceId,
+		PieceSize: client.offset,
+		Hash:      client.hash.Sum(nil),
+		Timestamp: client.limit.OrderCreation,
 	})
 	if err != nil {
 		// failed to sign, let's close the sending side, no need to wait for a response

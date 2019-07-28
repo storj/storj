@@ -12,5 +12,5 @@ var (
 	mon = monkit.Package()
 
 	// Error is a pkg/identity error
-	Error = errs.Class("pkg/identity error")
+	Error = errs.Class("identity error")
 )

@@ -76,6 +76,11 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		return nil, err
 	}
 
+	optional := dbx.ApiKey_Create_Fields{}
+	if !info.PartnerID.IsZero() {
+		optional.PartnerId = dbx.ApiKey_PartnerId(info.PartnerID[:])
+	}
+
 	dbKey, err := keys.db.Create_ApiKey(
 		ctx,
 		dbx.ApiKey_Id(id[:]),
@@ -83,6 +88,7 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		dbx.ApiKey_Head(head),
 		dbx.ApiKey_Name(info.Name),
 		dbx.ApiKey_Secret(info.Secret),
+		optional,
 	)
 
 	if err != nil {
@@ -126,11 +132,20 @@ func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo,
 		return nil, err
 	}
 
-	return &console.APIKeyInfo{
+	result := &console.APIKeyInfo{
 		ID:        id,
 		ProjectID: projectID,
 		Name:      key.Name,
 		CreatedAt: key.CreatedAt,
 		Secret:    key.Secret,
-	}, nil
+	}
+
+	if key.PartnerId != nil {
+		result.PartnerID, err = bytesToUUID(key.PartnerId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
 }

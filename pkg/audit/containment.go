@@ -34,6 +34,7 @@ type PendingAudit struct {
 	ShareSize         int32
 	ExpectedShareHash []byte
 	ReverifyCount     int32
+	Path              storj.Path
 }
 
 // Containment holds information about pending audits for contained nodes

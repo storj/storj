@@ -68,7 +68,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
 	}
 
-	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionScheme.Cipher, stream.streamKey, &segment.EncryptedKeyNonce)
+	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionParameters.CipherSuite, stream.streamKey, &segment.EncryptedKeyNonce)
 	if err != nil {
 		return segment, err
 	}
@@ -89,7 +89,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 	}
 
 	if pointer.GetType() == pb.Pointer_INLINE {
-		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.info.EncryptionScheme.Cipher, contentKey, nonce)
+		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.info.EncryptionParameters.CipherSuite, contentKey, nonce)
 	} else {
 		segment.PieceID = pointer.Remote.RootPieceId
 		segment.Pieces = make([]storj.Piece, 0, len(pointer.Remote.RemotePieces))

@@ -135,7 +135,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
-		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionScheme())
+		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionParameters())
 		require.NoError(t, err)
 
 		// Execute test: upload a file, then calculate at rest data
@@ -273,6 +273,7 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 
 	if inline {
 		inlinePointer := &pb.Pointer{
+			CreationDate:  time.Now(),
 			Type:          pb.Pointer_INLINE,
 			InlineSegment: make([]byte, segmentSize),
 			SegmentSize:   segmentSize,
@@ -290,7 +291,8 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 	}
 
 	pointer := &pb.Pointer{
-		Type: pb.Pointer_REMOTE,
+		CreationDate: time.Now(),
+		Type:         pb.Pointer_REMOTE,
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_RS,

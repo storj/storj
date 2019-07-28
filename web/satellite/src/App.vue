@@ -10,48 +10,52 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import NotificationArea from '@/components/notifications/NotificationArea.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import NotificationArea from '@/components/notifications/NotificationArea.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({
-    data: function() {
-        return {
-            ids: [
-                'accountDropdown',
-                'accountDropdownButton',
-                'projectDropdown',
-                'projectDropdownButton',
-                'sortTeamMemberByDropdown',
-                'sortTeamMemberByDropdownButton',
-                'notificationArea',
-                'successfulRegistrationPopup',
-            ]
-        };
-    },
-    components: {
-        NotificationArea
-    },
-    methods: {
-        onClick: function(e) {
-            let target: any = e.target;
-            while (target) {
-                if (this.$data.ids.includes(target.id)) {
-                    return;
+    @Component({
+        data: function() {
+            return {
+                ids: [
+                    'accountDropdown',
+                    'accountDropdownButton',
+                    'projectDropdown',
+                    'projectDropdownButton',
+                    'sortTeamMemberByDropdown',
+                    'sortTeamMemberByDropdownButton',
+                    'notificationArea',
+                    'successfulRegistrationPopup',
+                    'deletePaymentMethodButton',
+                    'deletePaymentMethodDialog',
+                    'makeDefaultPaymentMethodButton',
+                    'makeDefaultPaymentDialog'
+                ]
+            };
+        },
+        components: {
+            NotificationArea
+        },
+        methods: {
+            onClick: function(e) {
+                let target: any = e.target;
+                while (target) {
+                    if (this.$data.ids.includes(target.id)) {
+                        return;
+                    }
+                    target = target.parentNode;
                 }
-                target = target.parentNode;
-            }
-            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-        }
-    }
-})
 
-export default class App extends Vue {
-}
+                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+            }
+        }
+    })
+
+    export default class App extends Vue {
+    }
 </script>
 
 <style lang="scss">
-
     @font-face {
         font-family: "font_regular";
         src: url("../static/fonts/font_regular.ttf");

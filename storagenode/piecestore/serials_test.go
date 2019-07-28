@@ -49,11 +49,14 @@ func TestUsedSerials(t *testing.T) {
 			Expiration   time.Time
 		}
 
+		// use different timezones
+		location := time.FixedZone("XYZ", int((8 * time.Hour).Seconds()))
+
 		serialNumbers := []Serial{
 			{node0.ID, serial1, now.Add(time.Minute)},
 			{node0.ID, serial2, now.Add(4 * time.Minute)},
-			{node0.ID, serial3, now.Add(8 * time.Minute)},
-			{node1.ID, serial1, now.Add(time.Minute)},
+			{node0.ID, serial3, now.In(location).Add(8 * time.Minute)},
+			{node1.ID, serial1, now.In(location).Add(time.Minute)},
 			{node1.ID, serial2, now.Add(4 * time.Minute)},
 			{node1.ID, serial3, now.Add(8 * time.Minute)},
 		}
@@ -96,5 +99,29 @@ func TestUsedSerials(t *testing.T) {
 			{node0.ID, serial3, now.Add(8 * time.Minute)},
 			{node1.ID, serial3, now.Add(8 * time.Minute)},
 		}, listedAfterDelete))
+	})
+}
+
+func TestUsedSerials_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
+
+		{ // Ensure Add works at all
+			err := db.UsedSerials().Add(ctx, satelliteID, serial, time.Now())
+			require.NoError(t, err)
+		}
+
+		{ // Ensure IterateAll works at all
+			err := db.UsedSerials().IterateAll(ctx, func(storj.NodeID, storj.SerialNumber, time.Time) {})
+			require.NoError(t, err)
+		}
+
+		{ // Ensure DeleteExpired works at all
+			err := db.UsedSerials().DeleteExpired(ctx, time.Now())
+			require.NoError(t, err)
+		}
 	})
 }

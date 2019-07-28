@@ -13,7 +13,9 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -36,39 +38,68 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 	for usageRows.Next() {
 
 		var (
-			usedCredit      sql.NullInt64
-			availableCredit sql.NullInt64
-			referred        sql.NullInt64
+			usedCreditInCents      sql.NullInt64
+			availableCreditInCents sql.NullInt64
+			referred               sql.NullInt64
 		)
-		err = usageRows.Scan(&usedCredit, &availableCredit, &referred)
+		err = usageRows.Scan(&usedCreditInCents, &availableCreditInCents, &referred)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
 
-		usage.UsedCredits += usedCredit.Int64
 		usage.Referred += referred.Int64
-		usage.AvailableCredits += availableCredit.Int64
+		usage.UsedCredits = usage.UsedCredits.Add(currency.Cents(int(usedCreditInCents.Int64)))
+		usage.AvailableCredits = usage.AvailableCredits.Add(currency.Cents(int(availableCreditInCents.Int64)))
 	}
 
 	return &usage, nil
 }
 
 // Create insert a new record of user credit
-func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
-	credit, err := c.db.Create_UserCredit(ctx,
-		dbx.UserCredit_UserId(userCredit.UserID[:]),
-		dbx.UserCredit_OfferId(userCredit.OfferID),
-		dbx.UserCredit_CreditsEarnedInCents(userCredit.CreditsEarnedInCents),
-		dbx.UserCredit_ExpiresAt(userCredit.ExpiresAt),
-		dbx.UserCredit_Create_Fields{
-			ReferredBy: dbx.UserCredit_ReferredBy(userCredit.ReferredBy[:]),
-		},
-	)
-	if err != nil {
-		return nil, errs.Wrap(err)
+func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) error {
+	var statement string
+
+	if userCredit.ExpiresAt.Before(time.Now().UTC()) {
+		return errs.New("user credit is already expired")
 	}
 
-	return convertDBCredit(credit)
+	switch t := c.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		statement = `
+			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
+				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, time('now'))) AS v
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?), TRUE);
+		`
+	case *pq.Driver:
+		statement = `
+			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
+				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), now())) AS v
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?), TRUE);
+		`
+	default:
+		return errs.New("Unsupported database %t", t)
+	}
+
+	var referrerID []byte
+	if userCredit.ReferredBy != nil {
+		referrerID = userCredit.ReferredBy[:]
+	}
+
+	result, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.OfferID, userCredit.OfferID)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	if rows != 1 {
+		return errs.New(rewards.MaxRedemptionErr)
+	}
+
+	return nil
 }
 
 // UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending
@@ -98,17 +129,17 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, creditsToCharg
 			break
 		}
 
-		creditsForUpdate := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
+		creditsForUpdateInCents := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
 
-		if remainingCharge < creditsForUpdate {
-			creditsForUpdate = remainingCharge
+		if remainingCharge < creditsForUpdateInCents {
+			creditsForUpdateInCents = remainingCharge
 		}
 
 		values[i%2] = credit.Id
-		values[(i%2 + 1)] = creditsForUpdate
+		values[(i%2 + 1)] = creditsForUpdateInCents
 		rowIds[i] = credit.Id
 
-		remainingCharge -= creditsForUpdate
+		remainingCharge -= creditsForUpdateInCents
 	}
 
 	values = append(values, rowIds...)
@@ -149,31 +180,4 @@ func generateQuery(totalRows int, toInt bool) (query string) {
 	}
 
 	return query
-}
-
-func convertDBCredit(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error) {
-	if userCreditDBX == nil {
-		return nil, errs.New("userCreditDBX parameter is nil")
-	}
-
-	userID, err := bytesToUUID(userCreditDBX.UserId)
-	if err != nil {
-		return nil, err
-	}
-
-	referredByID, err := bytesToUUID(userCreditDBX.ReferredBy)
-	if err != nil {
-		return nil, err
-	}
-
-	return &console.UserCredit{
-		ID:                   userCreditDBX.Id,
-		UserID:               userID,
-		OfferID:              userCreditDBX.OfferId,
-		ReferredBy:           referredByID,
-		CreditsEarnedInCents: userCreditDBX.CreditsEarnedInCents,
-		CreditsUsedInCents:   userCreditDBX.CreditsUsedInCents,
-		ExpiresAt:            userCreditDBX.ExpiresAt,
-		CreatedAt:            userCreditDBX.CreatedAt,
-	}, nil
 }

@@ -1,5 +1,7 @@
 module storj.io/storj
 
+go 1.12
+
 // force specific versions for minio
 require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
@@ -45,6 +47,7 @@ require (
 	github.com/gorilla/handlers v1.4.0 // indirect
 	github.com/gorilla/mux v1.7.0
 	github.com/gorilla/rpc v1.1.0 // indirect
+	github.com/gorilla/schema v1.1.0
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.3 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
@@ -106,21 +109,21 @@ require (
 	github.com/zeebo/errs v1.2.1-0.20190617123220-06a113fed680
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
-	github.com/zeebo/structs v1.0.1
+	github.com/zeebo/structs v1.0.2
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
-	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980 // indirect
+	golang.org/x/net v0.0.0-20190628185345-da137c7871d7 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190614160838-b47fdc937951
+	golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	golang.org/x/tools v0.0.0-20190614152001-1edc8e83c897
 	google.golang.org/appengine v1.6.0 // indirect
-	google.golang.org/genproto v0.0.0-20190530194941-fb225487d101 // indirect
-	google.golang.org/grpc v1.21.0
+	google.golang.org/genproto v0.0.0-20190701230453-710ae3a149df // indirect
+	google.golang.org/grpc v1.22.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect

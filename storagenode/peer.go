@@ -54,14 +54,13 @@ type DB interface {
 
 	Orders() orders.DB
 	PieceInfo() pieces.DB
-	CertDB() trust.CertDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
 	Console() console.DB
 
 	// TODO: use better interfaces
-	RoutingTable() (kdb, ndb storage.KeyValueStore)
+	RoutingTable() (kdb, ndb, adb storage.KeyValueStore)
 }
 
 // Config is all the configuration parameters for a Storage Node
@@ -196,8 +195,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			Version: *pbVersion,
 		}
 
-		kdb, ndb := peer.DB.RoutingTable()
-		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, &config.RoutingTableConfig)
+		kdb, ndb, adb := peer.DB.RoutingTable()
+		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, adb, &config.RoutingTableConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -217,8 +216,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup storage
-		trustAllSatellites := !config.Storage.SatelliteIDRestriction
-		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatelliteIDs)
+		peer.Storage2.Trust, err = trust.NewPool(peer.Transport, config.Storage.WhitelistedSatellites)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -255,20 +253,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
-		peer.Storage2.Inspector = inspector.NewEndpoint(
-			peer.Log.Named("pieces:inspector"),
-			peer.DB.PieceInfo(),
-			peer.Kademlia.Service,
-			peer.DB.Bandwidth(),
-			config.Storage,
-		)
-		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
-
 		peer.Storage2.Sender = orders.NewSender(
 			log.Named("piecestore:orderssender"),
 			peer.Transport,
-			peer.Kademlia.Service,
 			peer.DB.Orders(),
+			peer.Storage2.Trust,
 			config.Storage2.Sender,
 		)
 	}
@@ -283,7 +272,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{ // setup vouchers
 		interval := config.Vouchers.Interval
 		buffer := interval + time.Hour
-		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Transport, peer.DB.Vouchers(),
 			peer.Storage2.Trust, interval, buffer)
 	}
 
@@ -316,6 +305,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Console.Service,
 			peer.Console.Listener,
 		)
+	}
+
+	{ // setup storage inspector
+		peer.Storage2.Inspector = inspector.NewEndpoint(
+			peer.Log.Named("pieces:inspector"),
+			peer.DB.PieceInfo(),
+			peer.Kademlia.Service,
+			peer.DB.Bandwidth(),
+			config.Storage,
+			peer.Console.Listener.Addr(),
+		)
+		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
@@ -353,6 +354,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
 	})
 
+	//group.Go(func() error {
+	//	return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
+	//})
+
 	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
@@ -382,6 +387,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	//if peer.DB.Bandwidth() != nil {
+	//	errlist.Add(peer.DB.Bandwidth().Close())
+	//}
 	if peer.Vouchers != nil {
 		errlist.Add(peer.Vouchers.Close())
 	}
@@ -418,6 +426,9 @@ func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTabl
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
+
+// URL returns the storj.NodeURL.
+func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()} }
 
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }

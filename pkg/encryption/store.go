@@ -84,6 +84,11 @@ func (s *Store) SetDefaultKey(defaultKey *storj.Key) {
 	s.defaultKey = defaultKey
 }
 
+// GetDefaultKey returns the default key, or nil if none has been set.
+func (s *Store) GetDefaultKey() *storj.Key {
+	return s.defaultKey
+}
+
 // Add creates a mapping from the unencrypted path to the encrypted path and key.
 func (s *Store) Add(bucket string, unenc paths.Unencrypted, enc paths.Encrypted, key storj.Key) error {
 	root, ok := s.roots[bucket]
@@ -212,4 +217,34 @@ func (n *node) lookup(path paths.Iterator, bestConsumed string, bestBase *Base, 
 
 	// Recurse to the next node in the tree.
 	return child.lookup(path, bestConsumed, bestBase, unenc)
+}
+
+// Iterate executes the callback with every value that has been Added to the Store.
+func (s *Store) Iterate(fn func(string, paths.Unencrypted, paths.Encrypted, storj.Key) error) error {
+	for bucket, root := range s.roots {
+		if err := root.iterate(fn, bucket); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// iterate calls the callback if the node has a base, and recurses to its children.
+func (n *node) iterate(fn func(string, paths.Unencrypted, paths.Encrypted, storj.Key) error, bucket string) error {
+	if n.base != nil {
+		err := fn(bucket, n.base.Unencrypted, n.base.Encrypted, n.base.Key)
+		if err != nil {
+			return err
+		}
+	}
+
+	// recurse down only the unenc map, as the enc map should be the same.
+	for _, child := range n.unenc {
+		err := child.iterate(fn, bucket)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

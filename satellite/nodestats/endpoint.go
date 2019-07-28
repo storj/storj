@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -24,20 +25,22 @@ var (
 
 // Endpoint for querying node stats for the SNO
 type Endpoint struct {
-	log     *zap.Logger
-	overlay overlay.DB
+	log        *zap.Logger
+	overlay    overlay.DB
+	accounting accounting.StoragenodeAccounting
 }
 
 // NewEndpoint creates new endpoint
-func NewEndpoint(log *zap.Logger, overlay overlay.DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.StoragenodeAccounting) *Endpoint {
 	return &Endpoint{
-		log:     log,
-		overlay: overlay,
+		log:        log,
+		overlay:    overlay,
+		accounting: accounting,
 	}
 }
 
-// UptimeCheck returns uptime checks information for client node
-func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeCheckRequest) (_ *pb.UptimeCheckResponse, err error) {
+// GetStats sends node stats for client node
+func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb.GetStatsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
@@ -50,20 +53,72 @@ func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeCheckRequest) 
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
-	reputationScore := calculateUptimeReputationScore(
+	uptimeScore := calculateReputationScore(
 		node.Reputation.UptimeReputationAlpha,
 		node.Reputation.UptimeReputationBeta)
 
-	return &pb.UptimeCheckResponse{
-		TotalCount:      node.Reputation.UptimeCount,
-		SuccessCount:    node.Reputation.UptimeSuccessCount,
-		ReputationAlpha: node.Reputation.UptimeReputationAlpha,
-		ReputationBeta:  node.Reputation.UptimeReputationBeta,
-		ReputationScore: reputationScore,
+	auditScore := calculateReputationScore(
+		node.Reputation.AuditReputationAlpha,
+		node.Reputation.AuditReputationBeta)
+
+	return &pb.GetStatsResponse{
+		UptimeCheck: &pb.ReputationStats{
+			TotalCount:      node.Reputation.UptimeCount,
+			SuccessCount:    node.Reputation.UptimeSuccessCount,
+			ReputationAlpha: node.Reputation.UptimeReputationAlpha,
+			ReputationBeta:  node.Reputation.UptimeReputationBeta,
+			ReputationScore: uptimeScore,
+		},
+		AuditCheck: &pb.ReputationStats{
+			TotalCount:      node.Reputation.AuditCount,
+			SuccessCount:    node.Reputation.AuditSuccessCount,
+			ReputationAlpha: node.Reputation.AuditReputationAlpha,
+			ReputationBeta:  node.Reputation.AuditReputationBeta,
+			ReputationScore: auditScore,
+		},
 	}, nil
 }
 
-// calculateUptimeReputationScore is helper method to calculate reputation value for uptime checks
-func calculateUptimeReputationScore(alpha, beta float64) float64 {
+// DailyStorageUsage returns slice of daily storage usage for given period of time sorted in ASC order by date
+func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUsageRequest) (_ *pb.DailyStorageUsageResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, NodeStatsEndpointErr.Wrap(err)
+	}
+
+	node, err := e.overlay.Get(ctx, peer.ID)
+	if err != nil {
+		return nil, NodeStatsEndpointErr.Wrap(err)
+	}
+
+	nodeSpaceUsages, err := e.accounting.QueryNodeDailySpaceUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
+	if err != nil {
+		return nil, NodeStatsEndpointErr.Wrap(err)
+	}
+
+	return &pb.DailyStorageUsageResponse{
+		NodeId:            node.Id,
+		DailyStorageUsage: toPBDailyStorageUsage(nodeSpaceUsages),
+	}, nil
+}
+
+// toPBDailyStorageUsage converts NodeSpaceUsage to PB DailyStorageUsageResponse_StorageUsage
+func toPBDailyStorageUsage(usages []accounting.NodeSpaceUsage) []*pb.DailyStorageUsageResponse_StorageUsage {
+	var pbUsages []*pb.DailyStorageUsageResponse_StorageUsage
+
+	for _, usage := range usages {
+		pbUsages = append(pbUsages, &pb.DailyStorageUsageResponse_StorageUsage{
+			AtRestTotal: usage.AtRestTotal,
+			TimeStamp:   usage.TimeStamp,
+		})
+	}
+
+	return pbUsages
+}
+
+// calculateReputationScore is helper method to calculate reputation score value
+func calculateReputationScore(alpha, beta float64) float64 {
 	return alpha / (alpha + beta)
 }

@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
@@ -27,7 +28,7 @@ import (
 )
 
 // newStorageNodes initializes storage nodes
-func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []string) ([]*storagenode.Peer, error) {
+func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.NodeURLs) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
@@ -50,13 +51,16 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 		}
 
 		var db storagenode.DB
-		if planet.config.Reconfigure.NewStorageNodeDB != nil {
-			db, err = planet.config.Reconfigure.NewStorageNodeDB(i)
-		} else {
-			db, err = storagenodedb.NewInMemory(log.Named("db"), storageDir)
-		}
+		db, err = storagenodedb.NewTest(log.Named("db"), storageDir)
 		if err != nil {
 			return nil, err
+		}
+
+		if planet.config.Reconfigure.NewStorageNodeDB != nil {
+			db, err = planet.config.Reconfigure.NewStorageNodeDB(i, db, planet.log)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		err = db.CreateTables()
@@ -97,9 +101,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				AllocatedDiskSpace:     1 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
-
-				SatelliteIDRestriction:  true,
-				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
+				WhitelistedSatellites:  whitelistedSatellites,
 			},
 			Collector: collector.Config{
 				Interval: time.Minute,
@@ -109,6 +111,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				StaticDir: filepath.Join(developmentRoot, "web/operator/"),
 			},
 			Storage2: piecestore.Config{
+				ExpirationGracePeriod: 0,
+				MaxConcurrentRequests: 100,
+				OrderLimitGracePeriod: time.Hour,
 				Sender: orders.SenderConfig{
 					Interval: time.Hour,
 					Timeout:  time.Hour,
@@ -117,6 +122,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
 				},
+				RetainStatus: piecestore.RetainEnabled,
 			},
 			Vouchers: vouchers.Config{
 				Interval: time.Hour,
