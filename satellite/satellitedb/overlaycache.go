@@ -313,7 +313,7 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 	) filteredcandidates
 	ORDER BY RANDOM()                                  -- do the actual node selection from filtered pool
 	LIMIT ?`), args...)
-	
+
 	if err != nil {
 		return nil, err
 	}
@@ -321,8 +321,8 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 	var nodes []*pb.Node
 	for rows.Next() {
 		dbNode := &dbx.Node{}
-		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
+		err = rows.Scan(&dbNode.LastNet, &dbNode.Id, &dbNode.Type,
+			&dbNode.Address, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
