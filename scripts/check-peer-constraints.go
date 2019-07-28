@@ -16,7 +16,6 @@ import (
 )
 
 var race = flag.Bool("race", false, "load with race tag")
-var fail = flag.Bool("fail", true, "fail on violation")
 
 func main() {
 	flag.Parse()
@@ -50,9 +49,7 @@ func main() {
 		}
 	}
 
-	if *fail {
-		os.Exit(exitcode)
-	}
+	os.Exit(exitcode)
 }
 
 func load(names ...string) ([]*packages.Package, error) {
