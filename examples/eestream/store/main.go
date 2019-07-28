@@ -14,9 +14,9 @@ import (
 
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/eestream"
 )
 
 var (
@@ -56,7 +56,7 @@ func Main() error {
 	}
 	encKey := storj.Key(sha256.Sum256([]byte(*key)))
 	var firstNonce storj.Nonce
-	encrypter, err := encryption.NewEncrypter(storj.AESGCM, &encKey, &firstNonce, es.StripeSize())
+	encrypter, err := encryption.NewEncrypter(storj.EncAESGCM, &encKey, &firstNonce, es.StripeSize())
 	if err != nil {
 		return err
 	}

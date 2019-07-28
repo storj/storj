@@ -14,10 +14,10 @@ import (
 
 	"github.com/vivint/infectious"
 
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/eestream"
 )
 
 var (
@@ -46,7 +46,7 @@ func Main() error {
 	}
 	es := eestream.NewRSScheme(fc, *erasureShareSize)
 	var firstNonce storj.Nonce
-	decrypter, err := encryption.NewDecrypter(storj.AESGCM, &encKey, &firstNonce, es.StripeSize())
+	decrypter, err := encryption.NewDecrypter(storj.EncAESGCM, &encKey, &firstNonce, es.StripeSize())
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func Main() error {
 		}
 		rrs[res.i] = res.rr
 	}
-	rc, err := eestream.Decode(rrs, es, 4*1024*1024)
+	rc, err := eestream.Decode(rrs, es, 4*1024*1024, false)
 	if err != nil {
 		return err
 	}

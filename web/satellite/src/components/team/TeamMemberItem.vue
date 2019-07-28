@@ -6,38 +6,25 @@
         <div class="user-container__avatar" :style="avatarData.style">
             <h1>{{avatarData.letter}}</h1>
         </div>
-        <p class="user-container__user-name">{{userInfo.fullName}}</p>
-        <p class="user-container__user-email">{{userInfo.email}}</p>
-        <p class="user-container__date">{{new Date(projectMember.joinedAt).toLocaleDateString()}}</p>
+        <p class="user-container__user-name">{{this.projectMember.formattedFullName()}}</p>
+        <p class="user-container__user-email">{{this.projectMember.formattedEmail()}}</p>
+        <p class="user-container__date">{{this.projectMember.joinedAtLocal()}}</p>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import { getColor } from '@/utils/avatarColorManager';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
+    import { getColor } from '@/utils/avatarColorManager';
+    import { TeamMember } from '../../types/teamMembers';
 
-@Component({
-    props: {
-        projectMember: Object,
-    },
-    computed: {
-        userInfo: function (): object { 
-            let fullName = getFullName(this.$props.projectMember.user);
+    @Component
+    export default class TeamMemberItem extends Vue {
+        @Prop()
+        private projectMember: TeamMember;
 
-            let email: string = this.$props.projectMember.user.email;
-
-            if (fullName.length > 16) {
-                fullName = fullName.slice(0, 13) + '...';
-            }
-
-            if (email.length > 16) {
-                email = this.$props.projectMember.user.email.slice(0, 13) + '...';
-            }
-
-            return { fullName, email };
-        },
-        avatarData: function (): object {
-            let fullName = getFullName(this.$props.projectMember.user);
+        // TODO: fix this method
+        public get avatarData(): object {
+            let fullName: string = this.projectMember.user.getFullName();
 
             const letter = fullName.slice(0, 1).toLocaleUpperCase();
 
@@ -51,14 +38,6 @@ import { getColor } from '@/utils/avatarColorManager';
             };
         }
     }
-})
-
-export default class TeamMemberItem extends Vue {
-}
-
-function getFullName(user: any): string {
-    return user.shortName === '' ? user.fullName : user.shortName;
-}
 </script>
 
 <style scoped lang="scss">
@@ -118,6 +97,7 @@ function getFullName(user: any): string {
             align-items: center;
             justify-content: center;
             background-color: #FF8658;
+
             h1 {
                 font-family: 'font_medium';
                 font-size: 16px;
@@ -126,6 +106,7 @@ function getFullName(user: any): string {
             }
         }
     }
+
     .user-container.selected {
         box-shadow: 0px 12px 24px rgba(38, 131, 255, 0.4);
         background-color: #2683FF;

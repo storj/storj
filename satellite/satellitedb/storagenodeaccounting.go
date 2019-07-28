@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -153,8 +153,8 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []*accounting.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
-	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet
+	var sqlStmt = `SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total,
+	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
 	    FROM (
 			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
 			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total,
@@ -175,8 +175,9 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		var nodeID []byte
 		r := &accounting.CSVRow{}
 		var wallet sql.NullString
-		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AuditSuccessRatio, &r.AtRestTotal, &r.GetRepairTotal,
-			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet)
+		var disqualified *time.Time
+		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AtRestTotal, &r.GetRepairTotal,
+			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet, &disqualified)
 		if err != nil {
 			return csv, Error.Wrap(err)
 		}
@@ -188,9 +189,52 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 			return csv, Error.Wrap(err)
 		}
 		r.NodeID = id
+		r.Disqualified = disqualified
 		csv = append(csv, r)
 	}
 	return csv, nil
+}
+
+// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
+func (db *StoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeSpaceUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// as entries are stored on daily basis we don't need
+	// to extract DATE from start_time
+	query := `SELECT at_rest_total, start_time 
+		FROM accounting_rollups
+		WHERE node_id = ?
+		AND ? <= start_time AND start_time <= ?
+		GROUP BY start_time
+		ORDER BY start_time ASC`
+
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start, end)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	var nodeSpaceUsages []accounting.NodeSpaceUsage
+	for rows.Next() {
+		var atRestTotal float64
+		var startTime time.Time
+
+		err = rows.Scan(atRestTotal, startTime)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		nodeSpaceUsages = append(nodeSpaceUsages, accounting.NodeSpaceUsage{
+			NodeID:      nodeID,
+			AtRestTotal: atRestTotal,
+			TimeStamp:   startTime,
+		})
+	}
+
+	return nodeSpaceUsages, nil
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time

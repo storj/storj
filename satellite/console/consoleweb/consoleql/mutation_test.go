@@ -52,6 +52,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			db.Rewards(),
 			localpayments.NewService(nil),
 			console.TestPasswordCost,
 		)
@@ -73,16 +74,19 @@ func TestGrapqhlMutation(t *testing.T) {
 			UserInfo: console.UserInfo{
 				FullName:  "John Roll",
 				ShortName: "Roll",
-				Email:     "test@email.com",
+				Email:     "test@mail.test",
+				PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
 			},
 			Password: "123a123",
 		}
+		refUserID := ""
 
 		regToken, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
-		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
 		require.NoError(t, err)
+		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
 
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
@@ -103,7 +107,8 @@ func TestGrapqhlMutation(t *testing.T) {
 				UserInfo: console.UserInfo{
 					FullName:  "Green Mickey",
 					ShortName: "Green",
-					Email:     "u1@email.com",
+					Email:     "u1@mail.test",
+					PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
 				},
 				Password: "123a123",
 			}
@@ -112,11 +117,12 @@ func TestGrapqhlMutation(t *testing.T) {
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,partnerId,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
 				newUser.ShortName,
+				newUser.PartnerID,
 				regTokenTest.Secret,
 			)
 
@@ -144,6 +150,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, newUser.FullName, user.FullName)
 			assert.Equal(t, newUser.ShortName, user.ShortName)
+			assert.Equal(t, newUser.PartnerID, user.PartnerID.String())
 		})
 
 		testQuery := func(t *testing.T, query string) interface{} {
@@ -163,7 +170,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Update account mutation email only", func(t *testing.T) {
-			email := "new@email.com"
+			email := "new@mail.test"
 			query := fmt.Sprintf(
 				"mutation {updateAccount(input:{email:\"%s\"}){id,email,fullName,shortName,createdAt}}",
 				email,
@@ -341,24 +348,24 @@ func TestGrapqhlMutation(t *testing.T) {
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
 				FullName: "User1",
-				Email:    "u1@email.net",
+				Email:    "u1@mail.test",
 			},
 			Password: "123a123",
-		}, regTokenUser1.Secret)
+		}, regTokenUser1.Secret, refUserID)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
 			activationToken1, err := service.GenerateActivationToken(
 				ctx,
 				user1.ID,
-				"u1@email.net",
+				"u1@mail.test",
 			)
 			require.NoError(t, err)
 
 			err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 
-			user1.Email = "u1@email.net"
+			user1.Email = "u1@mail.test"
 		})
 
 		regTokenUser2, err := service.CreateRegToken(ctx, 1)
@@ -367,24 +374,24 @@ func TestGrapqhlMutation(t *testing.T) {
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
 				FullName: "User1",
-				Email:    "u2@email.net",
+				Email:    "u2@mail.test",
 			},
 			Password: "123a123",
-		}, regTokenUser2.Secret)
+		}, regTokenUser2.Secret, refUserID)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
 			activationToken2, err := service.GenerateActivationToken(
 				ctx,
 				user2.ID,
-				"u2@email.net",
+				"u2@mail.test",
 			)
 			require.NoError(t, err)
 
 			err = service.ActivateAccount(ctx, activationToken2)
 			require.NoError(t, err)
 
-			user2.Email = "u2@email.net"
+			user2.Email = "u2@mail.test"
 		})
 
 		t.Run("Add project members mutation", func(t *testing.T) {
@@ -432,7 +439,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Run("Create api key mutation", func(t *testing.T) {
 			keyName := "key1"
 			query := fmt.Sprintf(
-				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID}}}",
+				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID,partnerId}}}",
 				project.ID.String(),
 				keyName,
 			)
@@ -449,6 +456,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, keyName, keyInfo[consoleql.FieldName])
 			assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
+			assert.Equal(t, rootUser.PartnerID.String(), keyInfo[consoleql.FieldPartnerID])
 
 			keyID = keyInfo[consoleql.FieldID].(string)
 		})

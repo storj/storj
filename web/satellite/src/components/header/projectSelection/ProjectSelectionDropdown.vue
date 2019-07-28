@@ -19,57 +19,58 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import {
+    import { Component, Vue } from 'vue-property-decorator';
+    import {
     APP_STATE_ACTIONS,
     PROJETS_ACTIONS,
     NOTIFICATION_ACTIONS,
     PM_ACTIONS,
     API_KEYS_ACTIONS,
     PROJECT_USAGE_ACTIONS,
-    BUCKET_USAGE_ACTIONS
-} from '@/utils/constants/actionNames';
+    BUCKET_USAGE_ACTIONS,
+    PROJECT_PAYMENT_METHODS_ACTIONS
+    } from '@/utils/constants/actionNames';
+    import { Project } from '@/types/projects';
 
-@Component(
-    {
-        computed: {
-            projects: function () {
-                return this.$store.getters.projects;
+    @Component
+    export default class ProjectSelectionDropdown extends Vue {
+        public async onProjectSelected(projectID: string): Promise<void> {
+            this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+
+            // TODO: add types
+            const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+
+            if (!pmResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
-        },
-        methods: {
-            onProjectSelected: async function (projectID: string): Promise<void> {
-                this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
-                this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-                const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
-                const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-                const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-                const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
-
-                if (!pmResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-                }
-
-                if (!keysResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
-                }
-
-                if (!usageResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-                }
-
-                if (!bucketsResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
-                }
+            if (!keysResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
-        },
+
+            if (!usageResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            }
+
+            if (!bucketsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+            }
+
+            if (!paymentMethodsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
+            }
+        }
+
+        public get projects(): Project[] {
+            return this.$store.getters.projects;
+        }
     }
-)
-
-export default class ProjectSelectionDropdown extends Vue {
-}
 </script>
 
 <style scoped lang="scss">
@@ -83,6 +84,7 @@ export default class ProjectSelectionDropdown extends Vue {
         background-color: #FFFFFF;
         z-index: 1120;
     }
+
     .project-selection-overflow-container {
         position: relative;
         width: 226px;

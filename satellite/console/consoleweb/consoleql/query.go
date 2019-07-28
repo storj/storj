@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -24,6 +25,10 @@ const (
 	ProjectQuery = "project"
 	// MyProjectsQuery is a query name for projects related to account
 	MyProjectsQuery = "myProjects"
+	// ActiveRewardQuery is a query name for current active reward offer
+	ActiveRewardQuery = "activeReward"
+	// CreditUsageQuery is a query name for credit usage related to an user
+	CreditUsageQuery = "creditUsage"
 	// TokenQuery is a query name for token
 	TokenQuery = "token"
 	// ForgotPasswordQuery is a query name for password recovery request
@@ -79,6 +84,25 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				Type: graphql.NewList(types.project),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					return service.GetUsersProjects(p.Context)
+				},
+			},
+			ActiveRewardQuery: &graphql.Field{
+				Type: types.reward,
+				Args: graphql.FieldConfigArgument{
+					FieldType: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					rewardType, _ := p.Args[FieldType].(int)
+
+					return service.GetCurrentRewardByType(p.Context, rewards.OfferType(rewardType))
+				},
+			},
+			CreditUsageQuery: &graphql.Field{
+				Type: types.creditUsage,
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return service.GetUserCreditUsage(p.Context)
 				},
 			},
 			TokenQuery: &graphql.Field{

@@ -4,17 +4,16 @@
 package inspector_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/uplink"
 )
@@ -49,9 +48,7 @@ func TestInspectorStats(t *testing.T) {
 		availableSpace = response.AvailableSpace
 	}
 
-	expectedData := make([]byte, 100*memory.KiB)
-	_, err = rand.Read(expectedData)
-	require.NoError(t, err)
+	expectedData := testrand.Bytes(100 * memory.KiB)
 
 	rs := &uplink.RSConfig{
 		MinThreshold:     2,
@@ -109,24 +106,18 @@ func TestInspectorDashboard(t *testing.T) {
 			assert.NotNil(t, response.Stats)
 		}
 
-		expectedData := make([]byte, 100*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(100 * memory.KiB)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		for _, storageNode := range planet.StorageNodes {
 			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
 			require.NoError(t, err)
 
-			lastPinged, err := ptypes.Timestamp(response.LastPinged)
-			assert.NoError(t, err)
-			assert.True(t, lastPinged.After(testStartedTime))
+			assert.True(t, response.LastPinged.After(testStartedTime))
 
-			lastQueried, err := ptypes.Timestamp(response.LastQueried)
-			assert.NoError(t, err)
-			assert.True(t, lastQueried.After(testStartedTime))
+			assert.True(t, response.LastQueried.After(testStartedTime))
 
 			assert.True(t, response.Uptime.Nanos > 0)
 			assert.Equal(t, storageNode.ID(), response.NodeId)

@@ -30,6 +30,7 @@ type UserInfo struct {
 	FullName  string `json:"fullName"`
 	ShortName string `json:"shortName"`
 	Email     string `json:"email"`
+	PartnerID string `json:"partnerId"`
 }
 
 // IsValid checks UserInfo validity and returns error describing whats wrong.
@@ -61,6 +62,13 @@ func (user *CreateUser) IsValid() error {
 	errs.AddWrap(user.UserInfo.IsValid())
 	errs.AddWrap(validatePassword(user.Password))
 
+	if user.PartnerID != "" {
+		_, err := uuid.Parse(user.PartnerID)
+		if err != nil {
+			errs.AddWrap(err)
+		}
+	}
+
 	return errs.Combine()
 }
 
@@ -86,7 +94,8 @@ type User struct {
 	Email        string `json:"email"`
 	PasswordHash []byte `json:"passwordHash"`
 
-	Status UserStatus `json:"status"`
+	Status    UserStatus `json:"status"`
+	PartnerID uuid.UUID  `json:"partnerId"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

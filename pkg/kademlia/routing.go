@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
 
@@ -25,6 +25,8 @@ const (
 	KademliaBucket = "kbuckets"
 	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
 	NodeBucket = "nodes"
+	// AntechamberBucket is the string representing the bucket used for the kademlia antechamber nodes
+	AntechamberBucket = "antechamber"
 )
 
 // RoutingErr is the class for all errors pertaining to routing table operations
@@ -62,13 +64,15 @@ type RoutingTable struct {
 	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
 	rcMutex          *sync.Mutex
+	acMutex          *sync.Mutex
 	replacementCache map[bucketID][]*pb.Node
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
+	antechamber      storage.KeyValueStore
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (_ *RoutingTable, err error) {
+func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, ndb, adb storage.KeyValueStore, config *RoutingTableConfig) (_ *RoutingTable, err error) {
 	if config == nil || config.BucketSize == 0 || config.ReplacementCacheSize == 0 {
 		// TODO: handle this more nicely
 		config = &RoutingTableConfig{
@@ -86,10 +90,12 @@ func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, nd
 
 		mutex:            &sync.Mutex{},
 		rcMutex:          &sync.Mutex{},
+		acMutex:          &sync.Mutex{},
 		replacementCache: make(map[bucketID][]*pb.Node),
 
 		bucketSize:   config.BucketSize,
 		rcBucketSize: config.ReplacementCacheSize,
+		antechamber:  adb,
 	}
 	ok, err := rt.addNode(context.TODO(), &localNode.Node)
 	if !ok || err != nil {
@@ -186,6 +192,7 @@ func (rt *RoutingTable) DumpNodes(ctx context.Context) (_ []*pb.Node, err error)
 // returns all Nodes (excluding self) closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(ctx context.Context, target storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	closestNodes := make([]*pb.Node, 0, limit+1)
 	err = rt.iterateNodes(ctx, storj.NodeID{}, func(ctx context.Context, newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)

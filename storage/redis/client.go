@@ -4,6 +4,7 @@
 package redis
 
 import (
+	"bytes"
 	"context"
 	"net/url"
 	"sort"
@@ -80,15 +81,7 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 	if key.IsZero() {
 		return nil, storage.ErrEmptyKey.New("")
 	}
-
-	value, err := client.db.Get(string(key)).Bytes()
-	if err == redis.Nil {
-		return nil, storage.ErrKeyNotFound.New(key.String())
-	}
-	if err != nil {
-		return nil, Error.New("get error: %v", err)
-	}
-	return value, nil
+	return get(ctx, client.db, key)
 }
 
 // Put adds a value to the provided key in redis, returning an error on failure.
@@ -97,12 +90,7 @@ func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Va
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
-
-	err = client.db.Set(key.String(), []byte(value), client.TTL).Err()
-	if err != nil {
-		return Error.New("put error: %v", err)
-	}
-	return nil
+	return put(ctx, client.db, key, value, client.TTL)
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
@@ -117,12 +105,7 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
-
-	err = client.db.Del(key.String()).Err()
-	if err != nil {
-		return Error.New("delete error: %v", err)
-	}
-	return nil
+	return delete(ctx, client.db, key)
 }
 
 // Close closes a redis client
@@ -228,4 +211,84 @@ func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage
 	sort.Sort(all)
 
 	return all, nil
+}
+
+// CompareAndSwap atomically compares and swaps oldValue with newValue
+func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+
+	txf := func(tx *redis.Tx) error {
+		value, err := get(ctx, tx, key)
+		if storage.ErrKeyNotFound.Has(err) {
+			if oldValue != nil {
+				return storage.ErrKeyNotFound.New(key.String())
+			}
+
+			if newValue == nil {
+				return nil
+			}
+
+			// runs only if the watched keys remain unchanged
+			_, err = tx.Pipelined(func(pipe redis.Pipeliner) error {
+				return put(ctx, pipe, key, newValue, client.TTL)
+			})
+			return err
+		}
+		if err != nil {
+			return err
+		}
+
+		if !bytes.Equal(value, oldValue) {
+			return storage.ErrValueChanged.New(key.String())
+		}
+
+		// runs only if the watched keys remain unchanged
+		_, err = tx.Pipelined(func(pipe redis.Pipeliner) error {
+			if newValue == nil {
+				return delete(ctx, pipe, key)
+			}
+			return put(ctx, pipe, key, newValue, client.TTL)
+		})
+
+		return err
+	}
+
+	err = client.db.Watch(txf, key.String())
+	if err == redis.TxFailedErr {
+		return storage.ErrValueChanged.New(key.String())
+	}
+	return Error.Wrap(err)
+}
+
+func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage.Value, err error) {
+	defer mon.Task()(&ctx)(&err)
+	value, err := cmdable.Get(string(key)).Bytes()
+	if err == redis.Nil {
+		return nil, storage.ErrKeyNotFound.New(key.String())
+	}
+	if err != nil && err != redis.TxFailedErr {
+		return nil, Error.New("get error: %v", err)
+	}
+	return value, errs.Wrap(err)
+}
+
+func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value storage.Value, ttl time.Duration) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = cmdable.Set(key.String(), []byte(value), ttl).Err()
+	if err != nil && err != redis.TxFailedErr {
+		return Error.New("put error: %v", err)
+	}
+	return errs.Wrap(err)
+}
+
+func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = cmdable.Del(key.String()).Err()
+	if err != nil && err != redis.TxFailedErr {
+		return Error.New("delete error: %v", err)
+	}
+	return errs.Wrap(err)
 }

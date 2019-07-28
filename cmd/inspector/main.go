@@ -4,13 +4,11 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -21,13 +19,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia/routinggraph"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/eestream"
 )
 
 var (
@@ -108,32 +106,6 @@ var (
 		Use:   "routing-graph",
 		Short: "Dumps a graph of the routing table in the dot format",
 		RunE:  DrawTableAsGraph,
-	}
-	getStatsCmd = &cobra.Command{
-		Use:   "getstats <node_id>",
-		Short: "Get node stats",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  GetStats,
-	}
-	getCSVStatsCmd = &cobra.Command{
-		Use:   "getcsvstats <path to node ID csv file>",
-		Short: "Get node stats from csv",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  GetCSVStats,
-	}
-	createStatsCmd = &cobra.Command{
-		// TODO: add args to usage
-		Use:   "createstats",
-		Short: "Create node with stats",
-		Args:  cobra.MinimumNArgs(5), // id, auditct, auditsuccessct, uptimect, uptimesuccessct
-		RunE:  CreateStats,
-	}
-	createCSVStatsCmd = &cobra.Command{
-		// TODO: add args to usage
-		Use:   "createcsvstats",
-		Short: "Create node stats from csv",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  CreateCSVStats,
 	}
 	objectHealthCmd = &cobra.Command{
 		Use:   "object <project-id> <bucket> <encrypted-path>",
@@ -332,167 +304,6 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// GetStats gets a node's stats from overlay
-func GetStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	nodeID, err := storj.NodeIDFromString(args[0])
-	if err != nil {
-		return err
-	}
-
-	res, err := i.overlayclient.GetStats(context.Background(), &pb.GetStatsRequest{
-		NodeId: nodeID,
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Printf("Stats for ID %s:\n", nodeID)
-	fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
-		res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
-	return nil
-}
-
-// GetCSVStats gets node stats from overlay based on a csv
-func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	// get csv
-	csvPath := args[0]
-	csvFile, _ := os.Open(csvPath)
-	reader := csv.NewReader(bufio.NewReader(csvFile))
-	for {
-		line, err := reader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return ErrArgs.Wrap(err)
-		}
-
-		nodeID, err := storj.NodeIDFromString(line[0])
-		if err != nil {
-			return err
-		}
-		res, err := i.overlayclient.GetStats(context.Background(), &pb.GetStatsRequest{
-			NodeId: nodeID,
-		})
-		if err != nil {
-			return ErrRequest.Wrap(err)
-		}
-
-		fmt.Printf("Stats for ID %s:\n", nodeID)
-		fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
-			res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
-	}
-	return nil
-}
-
-// CreateStats creates a node with stats in overlay
-func CreateStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	nodeID, err := storj.NodeIDFromString(args[0])
-	if err != nil {
-		return err
-	}
-	auditCount, err := strconv.ParseInt(args[1], 10, 64)
-	if err != nil {
-		return ErrArgs.New("audit count must be an int")
-	}
-	auditSuccessCount, err := strconv.ParseInt(args[2], 10, 64)
-	if err != nil {
-		return ErrArgs.New("audit success count must be an int")
-	}
-	uptimeCount, err := strconv.ParseInt(args[3], 10, 64)
-	if err != nil {
-		return ErrArgs.New("uptime count must be an int")
-	}
-	uptimeSuccessCount, err := strconv.ParseInt(args[4], 10, 64)
-	if err != nil {
-		return ErrArgs.New("uptime success count must be an int")
-	}
-
-	_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
-		NodeId:             nodeID,
-		AuditCount:         auditCount,
-		AuditSuccessCount:  auditSuccessCount,
-		UptimeCount:        uptimeCount,
-		UptimeSuccessCount: uptimeSuccessCount,
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Printf("Created stats entry for ID %s\n", nodeID)
-	return nil
-}
-
-// CreateCSVStats creates node with stats in overlay based on a CSV
-func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	// get csv
-	csvPath := args[0]
-	csvFile, _ := os.Open(csvPath)
-	reader := csv.NewReader(bufio.NewReader(csvFile))
-	for {
-		line, err := reader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return ErrArgs.Wrap(err)
-		}
-
-		nodeID, err := storj.NodeIDFromString(line[0])
-		if err != nil {
-			return err
-		}
-		auditCount, err := strconv.ParseInt(line[1], 10, 64)
-		if err != nil {
-			return ErrArgs.New("audit count must be an int")
-		}
-		auditSuccessCount, err := strconv.ParseInt(line[2], 10, 64)
-		if err != nil {
-			return ErrArgs.New("audit success count must be an int")
-		}
-		uptimeCount, err := strconv.ParseInt(line[3], 10, 64)
-		if err != nil {
-			return ErrArgs.New("uptime count must be an int")
-		}
-		uptimeSuccessCount, err := strconv.ParseInt(line[4], 10, 64)
-		if err != nil {
-			return ErrArgs.New("uptime success count must be an int")
-		}
-
-		_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
-			NodeId:             nodeID,
-			AuditCount:         auditCount,
-			AuditSuccessCount:  auditSuccessCount,
-			UptimeCount:        uptimeCount,
-			UptimeSuccessCount: uptimeSuccessCount,
-		})
-		if err != nil {
-			return ErrRequest.Wrap(err)
-		}
-
-		fmt.Printf("Created stats entry for ID %s\n", nodeID)
-	}
-	return nil
-}
-
 // ObjectHealth gets information about the health of an object on the network
 func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	ctx := context.Background()
@@ -565,7 +376,7 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := printSegmentHealthTable(w, redundancy, resp.GetSegments()); err != nil {
+	if err := printSegmentHealthAndNodeTables(w, redundancy, resp.GetSegments()); err != nil {
 		return err
 	}
 
@@ -621,7 +432,7 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := printSegmentHealthTable(w, redundancy, []*pb.SegmentHealth{resp.GetHealth()}); err != nil {
+	if err := printSegmentHealthAndNodeTables(w, redundancy, []*pb.SegmentHealth{resp.GetHealth()}); err != nil {
 		return err
 	}
 
@@ -636,29 +447,74 @@ func csvOutput() (*os.File, error) {
 	return os.Create(CSVPath)
 }
 
-func printSegmentHealthTable(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
+func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
 	segmentTableHeader := []string{
-		"Segment Index", "Online Nodes", "Offline Nodes",
+		"Segment Index", "Healthy Nodes", "Unhealthy Nodes", "Offline Nodes",
 	}
 
 	if err := w.Write(segmentTableHeader); err != nil {
 		return fmt.Errorf("error writing record to csv: %s", err)
 	}
 
-	total := redundancy.TotalCount() // total amount of pieces we generated (n)
-
+	currentNodeIndex := 1                     // start at index 1 to leave first column empty
+	nodeIndices := make(map[storj.NodeID]int) // to keep track of node positions for node table
 	// Add each segment to the segmentTable
 	for _, segment := range segments {
-		onlineNodes := segment.GetOnlineNodes()          // amount of nodes with pieces currently online
+		healthyNodes := segment.HealthyIds               // healthy nodes with pieces currently online
+		unhealthyNodes := segment.UnhealthyIds           // unhealthy nodes with pieces currently online
+		offlineNodes := segment.OfflineIds               // offline nodes
 		segmentIndexPath := string(segment.GetSegment()) // path formatted Segment Index
-		offlineNodes := int32(total) - onlineNodes
 
 		row := []string{
 			segmentIndexPath,
-			strconv.FormatInt(int64(onlineNodes), 10),
-			strconv.FormatInt(int64(offlineNodes), 10),
+			strconv.FormatInt(int64(len(healthyNodes)), 10),
+			strconv.FormatInt(int64(len(unhealthyNodes)), 10),
+			strconv.FormatInt(int64(len(offlineNodes)), 10),
 		}
 
+		if err := w.Write(row); err != nil {
+			return fmt.Errorf("error writing record to csv: %s", err)
+		}
+
+		allNodes := append(healthyNodes, unhealthyNodes...)
+		allNodes = append(allNodes, offlineNodes...)
+		for _, id := range allNodes {
+			if nodeIndices[id] == 0 {
+				nodeIndices[id] = currentNodeIndex
+				currentNodeIndex++
+			}
+		}
+	}
+
+	if err := w.Write([]string{}); err != nil {
+		return fmt.Errorf("error writing record to csv: %s", err)
+	}
+
+	numNodes := len(nodeIndices)
+	nodeTableHeader := make([]string, numNodes+1)
+	for id, i := range nodeIndices {
+		nodeTableHeader[i] = id.String()
+	}
+	if err := w.Write(nodeTableHeader); err != nil {
+		return fmt.Errorf("error writing record to csv: %s", err)
+	}
+
+	// Add online/offline info to the node table
+	for _, segment := range segments {
+		row := make([]string, numNodes+1)
+		for _, id := range segment.HealthyIds {
+			i := nodeIndices[id]
+			row[i] = "healthy"
+		}
+		for _, id := range segment.UnhealthyIds {
+			i := nodeIndices[id]
+			row[i] = "unhealthy"
+		}
+		for _, id := range segment.OfflineIds {
+			i := nodeIndices[id]
+			row[i] = "offline"
+		}
+		row[0] = string(segment.GetSegment())
 		if err := w.Write(row); err != nil {
 			return fmt.Errorf("error writing record to csv: %s", err)
 		}
@@ -697,22 +553,25 @@ func getSegments(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
-
-	length := irreparableLimit
-	var offset int32
+	var lastSeenSegmentPath = []byte{}
 
 	// query DB and paginate results
-	for length >= irreparableLimit {
-		res, err := i.irrdbclient.ListIrreparableSegments(context.Background(), &pb.ListIrreparableSegmentsRequest{Limit: irreparableLimit, Offset: offset})
+	for {
+		req := &pb.ListIrreparableSegmentsRequest{
+			Limit:               irreparableLimit,
+			LastSeenSegmentPath: lastSeenSegmentPath,
+		}
+		res, err := i.irrdbclient.ListIrreparableSegments(context.Background(), req)
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
 
-		objects := sortSegments(res.Segments)
-		if len(objects) == 0 {
+		if len(res.Segments) == 0 {
 			break
 		}
+		lastSeenSegmentPath = res.Segments[len(res.Segments)-1].Path
 
+		objects := sortSegments(res.Segments)
 		// format and print segments
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -721,9 +580,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		length = int32(len(res.Segments))
-		offset += length
-
+		length := int32(len(res.Segments))
 		if length >= irreparableLimit {
 			if !prompt.Confirm("\nNext page? (y/n)") {
 				break
@@ -759,11 +616,6 @@ func init() {
 	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
 	kadCmd.AddCommand(drawTableCmd)
-
-	statsCmd.AddCommand(getStatsCmd)
-	statsCmd.AddCommand(getCSVStatsCmd)
-	statsCmd.AddCommand(createStatsCmd)
-	statsCmd.AddCommand(createCSVStatsCmd)
 
 	healthCmd.AddCommand(objectHealthCmd)
 	healthCmd.AddCommand(segmentHealthCmd)

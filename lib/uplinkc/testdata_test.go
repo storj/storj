@@ -8,18 +8,45 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 )
 
-func TestC(t *testing.T) {
+func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplanet.Planet)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	libuplink := ctx.CompileShared("uplink", "storj.io/storj/lib/uplinkc")
+	planet, err := testplanet.NewCustom(
+		zaptest.NewLogger(t, zaptest.Level(zapcore.WarnLevel)),
+		testplanet.Config{
+			SatelliteCount:   1,
+			StorageNodeCount: 6,
+			UplinkCount:      1,
+			Reconfigure:      testplanet.DisablePeerCAWhitelist,
+		},
+	)
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	// make sure nodes are refreshed in db
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
+	run(ctx, planet)
+}
+
+func TestC(t *testing.T) {
+	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
+	defer ctx.Cleanup()
+
+	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
@@ -37,7 +64,7 @@ func TestC(t *testing.T) {
 			t.Run(filepath.Base(ctest), func(t *testing.T) {
 				t.Parallel()
 
-				testexe := ctx.CompileC(ctest, libuplink, definition)
+				testexe := ctx.CompileC(t, ctest, libuplink, definition)
 
 				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 					cmd := exec.Command(testexe)

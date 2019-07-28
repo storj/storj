@@ -58,3 +58,9 @@ func (m *Universe) Empty() bool {
 	defer m.lock.Unlock()
 	return len(m.values) == 0
 }
+
+//export internal_UniverseIsEmpty
+// internal_UniverseIsEmpty returns true if nothing is stored in the global map.
+func internal_UniverseIsEmpty() bool {
+	return universe.Empty()
+}

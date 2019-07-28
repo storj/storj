@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"storj.io/storj/internal/readcloser"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/stream"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
+	"storj.io/storj/uplink/storage/streams"
+	"storj.io/storj/uplink/stream"
 )
 
-// ObjectMeta contains metadata about a specific Object
+// ObjectMeta contains metadata about a specific Object.
 type ObjectMeta struct {
 	// Bucket gives the name of the bucket in which an Object is placed.
 	Bucket string

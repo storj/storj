@@ -19,10 +19,13 @@ type TypeCreator struct {
 	token *graphql.Object
 
 	user            *graphql.Object
+	reward          *graphql.Object
+	creditUsage     *graphql.Object
 	project         *graphql.Object
 	projectUsage    *graphql.Object
 	bucketUsage     *graphql.Object
 	bucketUsagePage *graphql.Object
+	paymentMethod   *graphql.Object
 	projectMember   *graphql.Object
 	apiKeyInfo      *graphql.Object
 	createAPIKey    *graphql.Object
@@ -56,6 +59,16 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 		return err
 	}
 
+	c.reward = graphqlReward()
+	if err := c.reward.Error(); err != nil {
+		return err
+	}
+
+	c.creditUsage = graphqlCreditUsage()
+	if err := c.creditUsage.Error(); err != nil {
+		return err
+	}
+
 	c.projectUsage = graphqlProjectUsage()
 	if err := c.projectUsage.Error(); err != nil {
 		return err
@@ -63,6 +76,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.bucketUsage = graphqlBucketUsage()
 	if err := c.bucketUsage.Error(); err != nil {
+		return err
+	}
+
+	c.paymentMethod = graphqlPaymentMethod()
+	if err := c.paymentMethod.Error(); err != nil {
 		return err
 	}
 

@@ -105,18 +105,18 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
 		// Log about the error, but dont crash the service and allow further operation
-		zap.S().Errorf("Failed to do periodic version check: ", err)
+		zap.S().Errorf("Failed to do periodic version check: %s", err.Error())
 		return true
 	}
 
-	list := getFieldString(&accepted, srv.service)
-	zap.S().Debugf("allowed versions from Control Server: %v", list)
+	minimum := getFieldString(&accepted, srv.service)
+	zap.S().Debugf("allowed minimum version from control server is: %s", minimum.String())
 
-	if list == nil {
-		zap.S().Errorf("Empty List from Versioning Server")
+	if minimum.String() == "" {
+		zap.S().Errorf("no version from control server, accepting to run")
 		return true
 	}
-	if containsVersion(list, srv.info.Version) {
+	if isAcceptedVersion(srv.info.Version, minimum) {
 		zap.S().Infof("running on version %s", srv.info.Version.String())
 		return true
 	}
@@ -168,12 +168,12 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getFieldString(array *AllowedVersions, field string) []SemVer {
+func getFieldString(array *AllowedVersions, field string) SemVer {
 	r := reflect.ValueOf(array)
 	f := reflect.Indirect(r).FieldByName(field).Interface()
-	result, ok := f.([]SemVer)
+	result, ok := f.(SemVer)
 	if ok {
 		return result
 	}
-	return nil
+	return SemVer{}
 }
