@@ -5,7 +5,6 @@ package storagenodedb
 
 import (
 	"context"
-	"database/sql"
 	"os"
 	"time"
 
@@ -151,16 +150,6 @@ func (db *v0PieceInfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceI
 func (db *v0PieceInfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var pieceSize int64
-	err = db.db.QueryRowContext(ctx, db.Rebind(`
-		SELECT piece_size
-		FROM pieceinfo_
-		WHERE satellite_id = ? AND piece_id = ?
-	`), satelliteID, pieceID).Scan(&pieceSize)
-	// Ignore no rows found errors
-	if err != nil && err != sql.ErrNoRows {
-		return ErrInfo.Wrap(err)
-	}
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		DELETE FROM pieceinfo_
 		WHERE satellite_id = ?
