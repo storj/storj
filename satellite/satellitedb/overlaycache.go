@@ -1098,7 +1098,7 @@ func buildUpdateStatement(db *dbx.DB, update updateNodeStats) string {
 		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = X'%v';\n", hexNodeID)
 	case *pq.Driver:
 		sql += fmt.Sprintf(" WHERE nodes.id = decode('%v', 'hex');\n", hexNodeID)
-		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = X'%v', 'hex');\n", hexNodeID)
+		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = decode('%v', 'hex');\n", hexNodeID)
 	default:
 		return ""
 	}
