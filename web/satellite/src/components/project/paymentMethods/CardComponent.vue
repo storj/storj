@@ -72,7 +72,7 @@
         }
 
         public async onDeletePaymentMethodClick(): Promise<void> {
-            if ((this as any).getDeletePaymentMethodID == this.paymentMethod.id) {
+            if (this.getDeletePaymentMethodID == this.paymentMethod.id) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
 
                 return;

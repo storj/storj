@@ -44,7 +44,7 @@
 
             const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
             if (!paymentMethodsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch payment methods: ${paymentMethodsResponse.errorMessage}`);
             }
 
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Payment method deleted successfully');
