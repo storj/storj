@@ -53,7 +53,7 @@ type Kademlia struct {
 	refreshThreshold int64
 	RefreshBuckets   sync2.Cycle
 
-	vouchersdb     *vouchers.DB
+	vouchersdb *vouchers.DB
 
 	mu          sync.Mutex
 	lastPinged  time.Time
@@ -284,7 +284,7 @@ func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (_ pb.Node
 }
 
 // FindNodeWithVouchers looks up the provided NodeID first in the local Node, and if it is not found
-// begins searching the network for the NodeID. When it contacts nodes, it will send vouchers to them 
+// begins searching the network for the NodeID. When it contacts nodes, it will send vouchers to them
 // and request to be put into their routing table. Returns and error if node was not found
 func (k *Kademlia) FindNodeWithVouchers(ctx context.Context, nodeID storj.NodeID, vrs []*pb.Voucher, self *pb.Node) (_ pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)

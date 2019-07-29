@@ -24,7 +24,7 @@ type peerDiscovery struct {
 	k           int
 	concurrency int
 
-	vouchers    []*pb.Voucher
+	vouchers []*pb.Voucher
 
 	cond  sync.Cond
 	queue discoveryQueue
