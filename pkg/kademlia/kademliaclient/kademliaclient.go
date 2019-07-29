@@ -52,7 +52,7 @@ func (dialer *Dialer) Close() error {
 
 // Lookup queries ask about find, and also sends information about self.
 // If self is nil, pingback will be false.
-func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, find storj.NodeID, limit int) (_ []*pb.Node, err error) {
+func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, find storj.NodeID, limit int, vouchers []*pb.Voucher) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
@@ -66,6 +66,7 @@ func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, fi
 	if self != nil {
 		req.Pingback = true
 		req.Sender = self
+		req.Vouchers = vouchers
 	}
 
 	conn, err := dialer.dialNode(ctx, ask)
