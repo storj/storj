@@ -63,17 +63,17 @@ type Containment interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log            *zap.Logger
-	metainfo       *Service
-	orders         *orders.Service
-	cache          *overlay.Cache
-	partnerinfo    attribution.DB
-	projectUsage   *accounting.ProjectUsage
-	containment    Containment
-	apiKeys        APIKeys
-	createRequests *createRequests
-	rsConfig       RSConfig
-	satellite      signing.Signer
+	log              *zap.Logger
+	metainfo         *Service
+	orders           *orders.Service
+	cache            *overlay.Cache
+	partnerinfo      attribution.DB
+	projectUsage     *accounting.ProjectUsage
+	containment      Containment
+	apiKeys          APIKeys
+	createRequests   *createRequests
+	requiredRSConfig RSConfig
+	satellite        signing.Signer
 }
 
 // NewEndpoint creates new metainfo endpoint instance
@@ -81,17 +81,17 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:            log,
-		metainfo:       metainfo,
-		orders:         orders,
-		cache:          cache,
-		partnerinfo:    partnerinfo,
-		containment:    containment,
-		apiKeys:        apiKeys,
-		projectUsage:   projectUsage,
-		createRequests: newCreateRequests(),
-		rsConfig:       rsConfig,
-		satellite:      satellite,
+		log:              log,
+		metainfo:         metainfo,
+		orders:           orders,
+		cache:            cache,
+		partnerinfo:      partnerinfo,
+		containment:      containment,
+		apiKeys:          apiKeys,
+		projectUsage:     projectUsage,
+		createRequests:   newCreateRequests(),
+		requiredRSConfig: rsConfig,
+		satellite:        satellite,
 	}
 }
 
