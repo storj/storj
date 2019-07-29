@@ -299,22 +299,19 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 	args = append(args, count)
 
 	rows, err := cache.db.Query(cache.db.Rebind(`
-	WITH candidates AS (
-		SELECT * FROM nodes
-		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
-	)
-	SELECT
-		id, type, address, last_net, free_bandwidth, free_disk, total_audit_count,
+	SELECT *
+	FROM (
+		SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this IP or network
+		id, type, address, free_bandwidth, free_disk, total_audit_count,
 		audit_success_count, total_uptime_count, uptime_success_count,
 		audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha,
 		uptime_reputation_beta
-	FROM (
-		SELECT DISTINCT ON (last_net) *  -- choose at max 1 node from this IP or network
-		FROM candidates
-		WHERE last_net <> ''             -- don't try to IP-filter nodes with no known IP yet
-		ORDER BY last_net, RANDOM()      -- equal chance of choosing any qualified node at this IP or network
+		FROM nodes
+		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
+		AND last_net <> ''                         -- don't try to IP-filter nodes with no known IP yet
+		ORDER BY last_net, RANDOM()                -- equal chance of choosing any qualified node at this IP or network
 	) filteredcandidates
-	ORDER BY RANDOM()                       -- do the actual node selection from filtered pool
+	ORDER BY RANDOM()                                  -- do the actual node selection from filtered pool
 	LIMIT ?`), args...)
 
 	if err != nil {
@@ -324,8 +321,8 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 	var nodes []*pb.Node
 	for rows.Next() {
 		dbNode := &dbx.Node{}
-		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
+		err = rows.Scan(&dbNode.LastNet, &dbNode.Id, &dbNode.Type,
+			&dbNode.Address, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,

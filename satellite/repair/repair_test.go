@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package datarepair_test
+package repair_test
 
 import (
 	"context"
