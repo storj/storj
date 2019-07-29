@@ -43,13 +43,11 @@ type ListItem struct {
 
 // Store for segments
 type Store interface {
-	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
-	// Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
 	Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, encryption storj.SegmentEncryption, err error)
 	// Put(ctx context.Context, streamID storj.StreamID, encKey storj.EncryptedPrivateKey, encNonce storj.Nonce, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error)
-	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	// List(ctx context.Context, streamID storj.StreamID, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type segmentStore struct {
@@ -72,29 +70,27 @@ func NewSegmentStore(metainfo *metainfo.Client, ec ecclient.Client, rs eestream.
 }
 
 // Meta retrieves the metadata of the segment
-func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
-	defer mon.Task()(&ctx)(&err)
+// func (s *segmentStore) Meta(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (meta Meta, err error) {
+// 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, _, err := splitPathFragments(path)
-	if err != nil {
-		return Meta{}, err
-	}
+// 	items, _, err := s.metainfo.ListSegments(ctx, metainfo.ListSegmentsParams{
+// 		StreamID: streamID,
+// 		CursorPosition: storj.SegmentPosition{
+// 			Index: segmentIndex,
+// 		},
+// 		Limit: 1,
+// 	})
+// 	if err != nil {
+// 		return Meta{}, Error.Wrap(err)
+// 	}
 
-	object, _, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
-		Bucket:        []byte(bucket),
-		EncryptedPath: []byte(objectPath),
-	})
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	return Meta{
-		Modified:   object.Modified,
-		Expiration: object.Expires,
-		// Size: ,
-		Data: object.Metadata,
-	}, nil
-}
+// 	return Meta{
+// 		Modified:   object.Modified,
+// 		Expiration: object.Expires,
+// 		// Size: ,
+// 		Data: object.Metadata,
+// 	}, nil
+// }
 
 // Put uploads a segment to an erasure code client
 func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
@@ -341,30 +337,30 @@ func (s *segmentStore) Delete(ctx context.Context, streamID storj.StreamID, segm
 }
 
 // List retrieves paths to segments and their metadata stored in the metainfo
-func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
+// func (s *segmentStore) List2(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
+// 	defer mon.Task()(&ctx)(&err)
 
-	bucket, strippedPrefix, _, err := splitPathFragments(prefix)
-	if err != nil {
-		return nil, false, Error.Wrap(err)
-	}
+// 	bucket, strippedPrefix, _, err := splitPathFragments(prefix)
+// 	if err != nil {
+// 		return nil, false, Error.Wrap(err)
+// 	}
 
-	list, more, err := s.metainfo.ListSegments(ctx, bucket, strippedPrefix, startAfter, endBefore, recursive, int32(limit), metaFlags)
-	if err != nil {
-		return nil, false, Error.Wrap(err)
-	}
+// 	list, more, err := s.metainfo.ListSegmentsOld(ctx, bucket, strippedPrefix, startAfter, endBefore, recursive, int32(limit), metaFlags)
+// 	if err != nil {
+// 		return nil, false, Error.Wrap(err)
+// 	}
 
-	items = make([]ListItem, len(list))
-	for i, itm := range list {
-		items[i] = ListItem{
-			Path:     itm.Path,
-			Meta:     convertMeta(itm.Pointer),
-			IsPrefix: itm.IsPrefix,
-		}
-	}
+// 	items = make([]ListItem, len(list))
+// 	for i, itm := range list {
+// 		items[i] = ListItem{
+// 			Path:     itm.Path,
+// 			Meta:     convertMeta(itm.Pointer),
+// 			IsPrefix: itm.IsPrefix,
+// 		}
+// 	}
 
-	return items, more, nil
-}
+// 	return items, more, nil
+// }
 
 // CalcNeededNodes calculate how many minimum nodes are needed for download,
 // based on t = k + (n-o)k/o

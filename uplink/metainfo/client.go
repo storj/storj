@@ -112,8 +112,8 @@ func (client *Client) CommitSegment(ctx context.Context, bucket string, path sto
 	return response.GetPointer(), nil
 }
 
-// SegmentInfo requests the pointer of a segment
-func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
+// SegmentInfoOld requests the pointer of a segment
+func (client *Client) SegmentInfoOld(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.SegmentInfoOld(ctx, &pb.SegmentInfoRequestOld{
@@ -131,8 +131,8 @@ func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj
 	return response.GetPointer(), nil
 }
 
-// ReadSegment requests the order limits for reading a segment
-func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
+// ReadSegmentOld requests the order limits for reading a segment
+func (client *Client) ReadSegmentOld(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.DownloadSegmentOld(ctx, &pb.SegmentDownloadRequestOld{
@@ -169,7 +169,7 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 }
 
 // DeleteSegment requests the order limits for deleting a segment
-func (client *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
+func (client *Client) DeleteSegmentOld(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.DeleteSegmentOld(ctx, &pb.SegmentDeleteRequestOld{
@@ -187,8 +187,8 @@ func (client *Client) DeleteSegment(ctx context.Context, bucket string, path sto
 	return response.GetAddressedLimits(), response.PrivateKey, nil
 }
 
-// ListSegments lists the available segments
-func (client *Client) ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
+// ListSegmentsOld lists the available segments
+func (client *Client) ListSegmentsOld(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.ListSegmentsOld(ctx, &pb.ListSegmentsRequestOld{
@@ -745,8 +745,8 @@ type ListSegmentsParams struct {
 	Limit          int32
 }
 
-// ListSegments2 lists object segments
-func (client *Client) ListSegments2(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
+// ListSegments lists object segments
+func (client *Client) ListSegments(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
 	// TODO method name will be changed when new methods will be fully integrated with client side
 	defer mon.Task()(&ctx)(&err)
 

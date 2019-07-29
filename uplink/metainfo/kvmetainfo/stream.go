@@ -75,7 +75,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		index = -1
 	}
 
-	pointer, err := stream.db.metainfo.SegmentInfo(ctx, stream.bucket, stream.encPath, index)
+	pointer, err := stream.db.metainfo.SegmentInfoOld(ctx, stream.bucket, stream.encPath, index)
 	if err != nil {
 		return segment, err
 	}

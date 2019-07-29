@@ -40,11 +40,11 @@ type Meta struct {
 	Data       []byte
 }
 
-// convertMeta converts segment metadata to stream metadata
-func convertMeta(lastSegmentMeta segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta) Meta {
+// convertMeta converts object metadata to stream metadata
+func convertMeta(modified, expiration time.Time, stream pb.StreamInfo, streamMeta pb.StreamMeta) Meta {
 	return Meta{
-		Modified:   lastSegmentMeta.Modified,
-		Expiration: lastSegmentMeta.Expiration,
+		Modified:   modified,
+		Expiration: expiration,
 		Size:       ((stream.NumberOfSegments - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
 		Data:       stream.Metadata,
 	}
@@ -320,13 +320,8 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 	if err != nil {
 		return nil, Meta{}, err
 	}
-	lastSegmentMeta := segments.Meta{
-		Modified:   object.Modified,
-		Expiration: object.Expires,
-		Data:       object.Metadata,
-	}
 
-	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, lastSegmentMeta.Data, path, s.encStore)
+	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -344,11 +339,6 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 
 	var rangers []ranger.Ranger
 	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
-		// currentPath, err := createSegmentPath(ctx, i, path.Bucket(), encPath)
-		// if err != nil {
-		// 	return nil, Meta{}, err
-		// }
-
 		var contentNonce storj.Nonce
 		_, err = encryption.Increment(&contentNonce, i+1)
 		if err != nil {
@@ -356,12 +346,11 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		}
 
 		rangers = append(rangers, &lazySegmentRanger{
-			segments:     s.segments,
-			streamID:     streamID,
-			segmentIndex: int32(i),
-			rs:           object.RedundancyScheme,
-			m:            streamMeta.LastSegmentMeta,
-			// path:          currentPath,
+			segments:      s.segments,
+			streamID:      streamID,
+			segmentIndex:  int32(i),
+			rs:            object.RedundancyScheme,
+			m:             streamMeta.LastSegmentMeta,
 			size:          stream.SegmentsSize,
 			derivedKey:    derivedKey,
 			startingNonce: &contentNonce,
@@ -394,7 +383,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 
 	rangers = append(rangers, decryptedLastSegmentRanger)
 	catRangers := ranger.Concat(rangers...)
-	meta = convertMeta(lastSegmentMeta, stream, streamMeta)
+	meta = convertMeta(object.Modified, object.Expires, stream, streamMeta)
 	return catRangers, meta, nil
 }
 
@@ -407,17 +396,12 @@ func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.Ciph
 		return Meta{}, err
 	}
 
-	segmentPath, err := createSegmentPath(ctx, -1, path.Bucket(), encPath)
-	if err != nil {
-		return Meta{}, err
-	}
+	object, _, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
+		Bucket:        []byte(path.Bucket()),
+		EncryptedPath: []byte(encPath.Raw()),
+	})
 
-	lastSegmentMeta, err := s.segments.Meta(ctx, segmentPath)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, lastSegmentMeta.Data, path, s.encStore)
+	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -427,7 +411,7 @@ func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.Ciph
 		return Meta{}, err
 	}
 
-	return convertMeta(lastSegmentMeta, stream, streamMeta), nil
+	return convertMeta(object.Modified, object.Expires, stream, streamMeta), nil
 }
 
 // Delete all the segments, with the last one last
@@ -452,7 +436,7 @@ func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.Ci
 	}
 
 	// TODO handle `more`
-	items, _, err := s.metainfo.ListSegments2(ctx, metainfo.ListSegmentsParams{
+	items, _, err := s.metainfo.ListSegments(ctx, metainfo.ListSegmentsParams{
 		StreamID: streamID,
 		CursorPosition: storj.SegmentPosition{
 			Index: 0,
@@ -567,13 +551,6 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 			path = CreatePath(string(item.EncryptedPath), paths.Unencrypted{})
 		}
 
-		itemMeta := segments.Meta{
-			Modified:   item.CreatedAt,
-			Expiration: item.ExpiresAt,
-			// Size:       item.S,
-			Data: item.EncryptedMetadata,
-		}
-
 		streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, item.EncryptedMetadata, path, s.encStore)
 		if err != nil {
 			return nil, false, err
@@ -584,7 +561,7 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 			return nil, false, err
 		}
 
-		newMeta := convertMeta(itemMeta, stream, streamMeta)
+		newMeta := convertMeta(item.CreatedAt, item.ExpiresAt, stream, streamMeta)
 		items[i] = ListItem{
 			Path:     itemPath,
 			Meta:     newMeta,

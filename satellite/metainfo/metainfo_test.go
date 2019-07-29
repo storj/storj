@@ -64,16 +64,16 @@ func TestInvalidAPIKey(t *testing.T) {
 		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
 		assertUnauthenticated(t, err, false)
 
-		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
+		_, err = client.SegmentInfoOld(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, _, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
+		_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, _, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
+		_, _, err = client.DeleteSegmentOld(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, _, err = client.ListSegments(ctx, "testbucket", "", "", "", true, 1, 0)
+		_, _, err = client.ListSegmentsOld(ctx, "testbucket", "", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, false)
 	}
 }
@@ -178,19 +178,19 @@ func TestRestrictedAPIKey(t *testing.T) {
 		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
 		assertUnauthenticated(t, err, test.CommitSegmentAllowed)
 
-		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
+		_, err = client.SegmentInfoOld(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.SegmentInfoAllowed)
 
-		_, _, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
+		_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.ReadSegmentAllowed)
 
-		_, _, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
+		_, _, err = client.DeleteSegmentOld(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.DeleteSegmentAllowed)
 
-		_, _, err = client.ListSegments(ctx, "testbucket", "testpath", "", "", true, 1, 0)
+		_, _, err = client.ListSegmentsOld(ctx, "testbucket", "testpath", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, test.ListSegmentsAllowed)
 
-		_, _, _, err = client.ReadSegment(ctx, "testbucket", "", -1)
+		_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "", -1)
 		assertUnauthenticated(t, err, test.ReadBucketAllowed)
 	}
 }
@@ -1004,7 +1004,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		segments, _, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+		segments, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 			StreamID: streamID,
 		})
 		require.NoError(t, err)
@@ -1111,7 +1111,7 @@ func TestInlineSegment(t *testing.T) {
 				{Index: 0, Result: len(segments), More: false, Limit: len(segments)},
 				{Index: 0, Result: len(segments) - 1, More: true, Limit: len(segments) - 1},
 			} {
-				items, more, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+				items, more, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 					StreamID: streamID,
 					CursorPosition: storj.SegmentPosition{
 						Index: test.Index,
@@ -1145,7 +1145,7 @@ func TestInlineSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			items, _, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+			items, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
@@ -1165,7 +1165,7 @@ func TestInlineSegment(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			items, _, err = metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+			items, _, err = metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
@@ -1209,7 +1209,7 @@ func TestRemoteSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			segments, _, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+			segments, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
@@ -1237,7 +1237,7 @@ func TestRemoteSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			segments, _, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+			segments, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
