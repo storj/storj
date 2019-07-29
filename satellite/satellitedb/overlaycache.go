@@ -705,17 +705,19 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 			allSQL += sql
 		}
 
-		results, err := tx.Tx.Exec(allSQL)
-		if err != nil {
-			appendAll()
-			return duf, errs.Combine(err, tx.Rollback())
-		}
-		_, err = results.RowsAffected()
-		if err != nil {
-			appendAll()
-			return duf, errs.Combine(err, tx.Rollback())
-		}
+		if allSQL != "" {
+			results, err := tx.Tx.Exec(allSQL)
+			if results == nil || err != nil {
+				appendAll()
+				return duf, errs.Combine(err, tx.Rollback())
+			}
 
+			_, err = results.RowsAffected()
+			if err != nil {
+				appendAll()
+				return duf, errs.Combine(err, tx.Rollback())
+			}
+		}
 		return duf, Error.Wrap(tx.Commit())
 	}
 

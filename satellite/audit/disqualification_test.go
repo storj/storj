@@ -227,7 +227,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 			UptimeLambda: 0, // forget about history
 			UptimeWeight: 1,
 			UptimeDQ:     0, // make sure new reputation scores are larger than the DQ thresholds
-		}})
+		}}, 100)
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
