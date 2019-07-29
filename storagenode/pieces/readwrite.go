@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"encoding/binary"
 	"hash"
 	"io"
 
@@ -18,7 +19,8 @@ import (
 
 const (
 	// V1PieceHeaderSize is the size of the piece header used by piece storage format 1 (.sj1).
-	// It has a constant size because:
+	// It includes the size of the framing field (v1PieceHeaderFrameSize). It has a constant
+	// size because:
 	//
 	//  * we do not anticipate needing more than this
 	//  * we will be able to sum up all space used by a satellite (or all satellites) without
@@ -28,6 +30,11 @@ const (
 	//
 	// If more space than this is needed, we will need to use a new storage format version.
 	V1PieceHeaderSize = 512
+
+	// v1PieceHeaderFramingSize is the size of the field used at the beginning of piece
+	// files to indicate the size of the piece header (because protobufs are not self-
+	// delimiting, which is lame).
+	v1PieceHeaderFramingSize = 2
 )
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
@@ -94,7 +101,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	if err != nil {
 		return err
 	}
-	if len(headerBytes) > V1PieceHeaderSize {
+	if len(headerBytes) > (V1PieceHeaderSize - v1PieceHeaderFramingSize) {
 		// This should never happen under normal circumstances, and it might deserve a panic(),
 		// but I'm not *entirely* sure this case can't be triggered by a malicious uplink. Are
 		// google.protobuf.Timestamp fields variable-width?
@@ -106,6 +113,11 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	}
 	if _, err := w.blob.Seek(0, io.SeekStart); err != nil {
 		return err
+	}
+	var framingBytes [v1PieceHeaderFramingSize]byte
+	binary.BigEndian.PutUint16(framingBytes[:], uint16(len(headerBytes)))
+	if _, err = w.blob.Write(framingBytes[:]); err != nil {
+		return Error.New("failed writing piece framing field at file start: %v", err)
 	}
 	if _, err = w.blob.Write(headerBytes); err != nil {
 		return Error.New("failed writing piece header at file start: %v", err)
@@ -157,6 +169,11 @@ func NewReader(blob storage.BlobReader) (*Reader, error) {
 	return reader, nil
 }
 
+// GetStorageFormatVersion returns the storage format version of the piece being read.
+func (r *Reader) GetStorageFormatVersion() storage.FormatVersion {
+	return r.formatVersion
+}
+
 // GetPieceHeader reads, unmarshals, and returns the piece header. It may only be called
 // before any Read() calls. (Retrieving the header at any time could be supported, but for
 // the sake of performance we need to understand why and how often that would happen.)
@@ -168,13 +185,27 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 		return nil, Error.New("GetPieceHeader called when not at the beginning of the blob stream")
 	}
 	var headerBytes [V1PieceHeaderSize]byte
-	n, err := r.blob.Read(headerBytes[:])
+	framingBytes := headerBytes[:v1PieceHeaderFramingSize]
+	n, err := r.blob.Read(framingBytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if n != v1PieceHeaderFramingSize {
+		return nil, Error.New("Could not read whole PieceHeader framing field")
+	}
+	r.pos += int64(n)
+	headerSize := binary.BigEndian.Uint16(framingBytes)
+	if headerSize > (V1PieceHeaderSize - v1PieceHeaderFramingSize) {
+		return nil, Error.New("PieceHeader framing field claims impossible size of %d bytes", headerSize)
+	}
+	pieceHeaderBytes := headerBytes[v1PieceHeaderFramingSize : v1PieceHeaderFramingSize+headerSize]
+	n, err = r.blob.Read(pieceHeaderBytes)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	r.pos += int64(n)
 	header := &pb.PieceHeader{}
-	if err := proto.Unmarshal(headerBytes[:], header); err != nil {
+	if err := proto.Unmarshal(pieceHeaderBytes, header); err != nil {
 		return nil, Error.New("piece header: %v", err)
 	}
 	return header, nil
@@ -208,7 +239,12 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 	pos, err := r.blob.Seek(offset, whence)
 	r.pos = pos
 	if r.formatVersion >= storage.FormatV1 {
-		pos -= V1PieceHeaderSize
+		if pos < V1PieceHeaderSize {
+			// any position within the file header should show as 0 here
+			pos = 0
+		} else {
+			pos -= V1PieceHeaderSize
+		}
 	}
 	if err == io.EOF {
 		return pos, err
