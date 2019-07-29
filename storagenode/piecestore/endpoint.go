@@ -161,7 +161,6 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 		return nil, Error.Wrap(err)
 	}
 
-	// TODO: parallelize this and maybe return early
 	if err := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId); err != nil {
 		// explicitly ignoring error because the errors
 		// TODO: add more debug info
