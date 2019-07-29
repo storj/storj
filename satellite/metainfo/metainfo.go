@@ -1295,6 +1295,11 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
+	if len(req.UploadResult) < endpoint.requiredRSConfig.SuccessThreshold {
+		return nil, status.Errorf(codes.FailedPrecondition, "invalid number of upload results: wanted success threshold %d got %d",
+			endpoint.requiredRSConfig.SuccessThreshold, len(req.UploadResult))
+	}
+
 	if len(segmentID.OriginalOrderLimits) < len(req.UploadResult) {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid number of upload results: wanted max %d got %d",
 			len(segmentID.OriginalOrderLimits), len(req.UploadResult))
