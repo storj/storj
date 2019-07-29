@@ -6,6 +6,7 @@ package grpcmonkit
 
 import (
 	"context"
+	"reflect"
 
 	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -28,31 +29,34 @@ func NewStreamServerInterceptor() grpc.StreamServerInterceptor {
 		service, endpoint := parseFullMethod(info.FullMethod)
 		scope := monkit.ScopeNamed(service)
 		ctx := stream.Context()
-		defer scope.FuncNamed(endpoint).Task(&ctx)(&err)
+		defer scope.TaskNamed(endpoint)(&ctx)(&err)
 
-		return handler(srv, &ServerStream{stream, ctx})
+		return handler(srv, &ServerStream{stream, scope, ctx})
 	}
 }
 
 // ServerStream implements wrapping monkit server stream.
 type ServerStream struct {
 	grpc.ServerStream
-	ctx context.Context
+	scope *monkit.Scope
+	ctx   context.Context
 }
 
 // Context returns the context for this stream.
 func (stream *ServerStream) Context() context.Context { return stream.ctx }
 
-/*
-// SendMsg sends a message. On error, SendMsg aborts the stream and the
+// SendMsg sends a message.
 func (stream *ServerStream) SendMsg(m interface{}) (err error) {
-	msg := reflect.TypeOf(m).String()
+	msgtype := reflect.TypeOf(m).String()
+	ctx := stream.ctx
+	defer stream.scope.TaskNamed(msgtype)(&ctx)(&err)
 	return stream.ServerStream.SendMsg(m)
 }
 
-// RecvMsg blocks until it receives a message into m or the stream is
+// RecvMsg blocks until it receives a message into m or the stream is done.
 func (stream *ServerStream) RecvMsg(m interface{}) (err error) {
-	msg := reflect.TypeOf(m).String()
+	msgtype := reflect.TypeOf(m).String()
+	ctx := stream.ctx
+	defer stream.scope.TaskNamed(msgtype)(&ctx)(&err)
 	return stream.ServerStream.RecvMsg(m)
 }
-*/
