@@ -454,6 +454,10 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 		Metadata: response.Object.EncryptedMetadata,
 		Stream: storj.Stream{
 			Size: response.Object.TotalSize,
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.CipherSuite(response.Object.EncryptionParameters.CipherSuite),
+				BlockSize:   int32(response.Object.EncryptionParameters.BlockSize),
+			},
 		},
 		// TODO custom type for response object or modify storj.Object
 	}

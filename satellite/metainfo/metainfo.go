@@ -1051,6 +1051,12 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	streamMeta := &pb.StreamMeta{}
+	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
 	streamID, err := endpoint.packStreamID(ctx, &pb.SatStreamID{
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
@@ -1069,6 +1075,10 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		ExpiresAt:         pointer.ExpirationDate,
 		CreatedAt:         pointer.CreationDate,
 		EncryptedMetadata: pointer.Metadata,
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(streamMeta.EncryptionType),
+			BlockSize:   int64(streamMeta.EncryptionBlockSize),
+		},
 	}
 
 	if pointer.Remote != nil {
