@@ -17,4 +17,7 @@ type ObjectListItem struct {
 	ExpiresAt              time.Time
 	EncryptedMetadataNonce Nonce
 	EncryptedMetadata      []byte
+
+	// TODO should this be here ??
+	IsPrefix bool
 }

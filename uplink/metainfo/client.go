@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -540,6 +541,12 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 
 	objects := make([]storj.ObjectListItem, len(response.Items))
 	for i, object := range response.Items {
+		encryptedPath := object.EncryptedPath
+		isPrefix := false
+		if !params.Recursive && len(encryptedPath) != 0 && encryptedPath[len(encryptedPath)-1] == '/' && !bytes.Equal(encryptedPath, params.EncryptedPrefix) {
+			isPrefix = true
+		}
+
 		objects[i] = storj.ObjectListItem{
 			EncryptedPath:          object.EncryptedPath,
 			Version:                object.Version,
@@ -549,6 +556,8 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 			ExpiresAt:              object.ExpiresAt,
 			EncryptedMetadataNonce: object.EncryptedMetadataNonce,
 			EncryptedMetadata:      object.EncryptedMetadata,
+
+			IsPrefix: isPrefix,
 		}
 	}
 

@@ -534,9 +534,9 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 	objects, more, err := s.metainfo.ListObjects(ctx, metainfo.ListObjectsParams{
 		Bucket:          []byte(prefix.Bucket()),
 		EncryptedPrefix: []byte(encPrefix.Raw()),
-		// EncryptedCursor: []byte(startAfter),
-		Limit:     int32(limit),
-		Recursive: recursive,
+		EncryptedCursor: []byte(startAfter),
+		Limit:           int32(limit),
+		Recursive:       recursive,
 	})
 	if err != nil {
 		return nil, false, err
@@ -584,16 +584,11 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 			return nil, false, err
 		}
 
-		isPrefix := false
-		if itemPath[len(itemPath)-1] == '/' {
-			isPrefix = true
-		}
-
 		newMeta := convertMeta(itemMeta, stream, streamMeta)
 		items[i] = ListItem{
 			Path:     itemPath,
 			Meta:     newMeta,
-			IsPrefix: isPrefix,
+			IsPrefix: item.IsPrefix,
 		}
 	}
 
