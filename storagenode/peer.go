@@ -81,6 +81,8 @@ type Config struct {
 	Console consoleserver.Config
 
 	Version version.Config
+
+	Bandwidth bandwidth.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -132,6 +134,8 @@ type Peer struct {
 		Service  *console.Service
 		Endpoint *consoleserver.Server
 	}
+
+	Bandwidth *bandwidth.Service
 }
 
 // New creates a new Storage Node.
@@ -320,6 +324,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
 
+	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
+
 	return peer, nil
 }
 
@@ -353,9 +359,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
 	})
 
-	//group.Go(func() error {
-	//	return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
-	//})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
+	})
 
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -386,9 +392,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
-	//if peer.DB.Bandwidth() != nil {
-	//	errlist.Add(peer.DB.Bandwidth().Close())
-	//}
+	if peer.DB.Bandwidth() != nil {
+		errlist.Add(peer.Bandwidth.Close())
+	}
 	if peer.Vouchers != nil {
 		errlist.Add(peer.Vouchers.Close())
 	}
