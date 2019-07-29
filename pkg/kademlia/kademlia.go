@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
+	"storj.io/storj/storagenode/vouchers"
 )
 
 var (
@@ -45,6 +46,8 @@ type Kademlia struct {
 	dialer         *kademliaclient.Dialer
 	lookups        sync2.WorkGroup
 
+	vouchersdb     *vouchers.DB
+
 	bootstrapFinished    sync2.Fence
 	bootstrapBackoffMax  time.Duration
 	bootstrapBackoffBase time.Duration
@@ -58,11 +61,12 @@ type Kademlia struct {
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
+func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, vdb *vouchers.DB, config Config) (*Kademlia, error) {
 	k := &Kademlia{
 		log:                  log,
 		alpha:                config.Alpha,
 		routingTable:         rt,
+		vouchersdb:           vdb,
 		bootstrapNodes:       config.BootstrapNodes(),
 		bootstrapBackoffMax:  config.BootstrapBackoffMax,
 		bootstrapBackoffBase: config.BootstrapBackoffBase,

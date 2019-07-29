@@ -79,7 +79,7 @@ func TestPingTimeout(t *testing.T) {
 		slowClient := network.NewClient(self.Transport)
 		require.NotNil(t, slowClient)
 
-		newService, err := kademlia.NewService(zaptest.NewLogger(t), slowClient, routingTable, kademlia.Config{})
+		newService, err := kademlia.NewService(zaptest.NewLogger(t), slowClient, routingTable, nil, kademlia.Config{})
 		require.NoError(t, err)
 
 		target := pb.Node{

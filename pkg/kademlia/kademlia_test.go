@@ -437,7 +437,7 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 		Alpha:                alpha,
 	}
 
-	kad, err := NewService(log, transportClient, rt, kadConfig)
+	kad, err := NewService(log, transportClient, rt, nil, kadConfig)
 	if err != nil {
 		return nil, err
 	}
