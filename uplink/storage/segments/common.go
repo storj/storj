@@ -9,6 +9,3 @@ import (
 
 // Error is the errs class of standard segment errors
 var Error = errs.Class("segment error")
-
-// IrreparableError is the errs class of irreparable segment errors
-var IrreparableError = errs.Class("irreparable error")

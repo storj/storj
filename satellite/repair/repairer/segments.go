@@ -20,6 +20,9 @@ import (
 	"storj.io/storj/uplink/eestream"
 )
 
+// IrreparableError is the errs class of irreparable segment errors
+var IrreparableError = errs.Class("irreparable error")
+
 // SegmentRepairer for segments
 type SegmentRepairer struct {
 	log      *zap.Logger
