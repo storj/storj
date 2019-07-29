@@ -87,7 +87,7 @@ func TestNodeSelectionWithBatch(t *testing.T) {
 		for i, node := range planet.StorageNodes {
 			for k := 0; k < i; k++ {
 				// These are done individually b/c the previous stat data is important
-				_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{&overlay.UpdateRequest{
+				_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 					NodeID:       node.ID(),
 					IsUp:         true,
 					AuditSuccess: true,
@@ -240,7 +240,7 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 		// This sets a reputable audit count for nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
 			// These are done individually b/c the previous stat data is important
-			_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{&overlay.UpdateRequest{
+			_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
 				AuditSuccess: true,

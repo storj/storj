@@ -217,7 +217,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 
-		_, err = satellitePeer.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{&overlay.UpdateRequest{
+		_, err = satellitePeer.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:       disqualifiedNode.ID(),
 			IsUp:         true,
 			AuditSuccess: true,
@@ -241,7 +241,7 @@ func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *satellite
 	return node.Disqualified != nil
 }
 func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) {
-	_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{&overlay.UpdateRequest{
+	_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 		NodeID:       nodeID,
 		IsUp:         true,
 		AuditSuccess: false,
