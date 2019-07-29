@@ -122,8 +122,8 @@ func PromptForAPIKey() (string, error) {
 	return apiKey, nil
 }
 
-// PromptForEncryptionKey handles user input for an encryption key to be used with wizards
-func PromptForEncryptionKey() (string, error) {
+// PromptForEncryptionPassphrase handles user input for an encryption passphrase to be used with wizards
+func PromptForEncryptionPassphrase() (string, error) {
 	_, err := fmt.Print("Enter your encryption passphrase: ")
 	if err != nil {
 		return "", err
