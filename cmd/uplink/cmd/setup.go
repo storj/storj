@@ -152,7 +152,7 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilep
 	}
 
 	var override = map[string]interface{}{
-		"api-key":          apiKey,
+		"api-key":          apiKeyString,
 		"satellite-addr":   satelliteAddress,
 		"enc.key-filepath": encryptionKeyFilepath,
 	}
