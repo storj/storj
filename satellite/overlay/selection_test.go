@@ -54,7 +54,6 @@ func TestNodeSelection(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		var err error
 		satellite := planet.Satellites[0]
 
 		// This sets audit counts of 0, 1, 2, 3, ... 9
@@ -62,6 +61,7 @@ func TestNodeSelection(t *testing.T) {
 		// by modifying the audit count cutoff passed into FindStorageNodesWithPreferences
 		for i, node := range planet.StorageNodes {
 			for k := 0; k < i; k++ {
+				// These are done individually b/c the previous stat data is important
 				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       node.ID(),
 					IsUp:         true,
@@ -72,99 +72,128 @@ func TestNodeSelection(t *testing.T) {
 				require.NoError(t, err)
 			}
 		}
+		testNodeSelection(t, ctx, planet)
+	})
+}
 
-		// ensure all storagenodes are in overlay service
-		for _, storageNode := range planet.StorageNodes {
-			err = satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local().Node)
+func TestNodeSelectionWithBatch(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// This sets audit counts of 0, 1, 2, 3, ... 9
+		// so that we can fine-tune how many nodes are considered new or reputable
+		// by modifying the audit count cutoff passed into FindStorageNodesWithPreferences
+		for i, node := range planet.StorageNodes {
+			for k := 0; k < i; k++ {
+				_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{&overlay.UpdateRequest{
+					NodeID:       node.ID(),
+					IsUp:         true,
+					AuditSuccess: true,
+					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
+					UptimeLambda: 1, UptimeWeight: 1, UptimeDQ: 0.5,
+				}}, 100)
+				require.NoError(t, err)
+			}
+		}
+		testNodeSelection(t, ctx, planet)
+	})
+}
+
+func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	satellite := planet.Satellites[0]
+	// ensure all storagenodes are in overlay service
+	for _, storageNode := range planet.StorageNodes {
+		err := satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local().Node)
+		assert.NoError(t, err)
+	}
+
+	type test struct {
+		Preferences    overlay.NodeSelectionConfig
+		ExcludeCount   int
+		RequestCount   int
+		ExpectedCount  int
+		ShouldFailWith *errs.Class
+	}
+
+	for i, tt := range []test{
+		{ // all reputable nodes, only reputable nodes requested
+			Preferences:   testNodeSelectionConfig(0, 0, false),
+			RequestCount:  5,
+			ExpectedCount: 5,
+		},
+		{ // all reputable nodes, reputable and new nodes requested
+			Preferences:   testNodeSelectionConfig(0, 1, false),
+			RequestCount:  5,
+			ExpectedCount: 5,
+		},
+		{ // 50-50 reputable and new nodes, not enough reputable nodes
+			Preferences:    testNodeSelectionConfig(5, 0, false),
+			RequestCount:   10,
+			ExpectedCount:  5,
+			ShouldFailWith: &overlay.ErrNotEnoughNodes,
+		},
+		{ // 50-50 reputable and new nodes, reputable and new nodes requested, not enough reputable nodes
+			Preferences:    testNodeSelectionConfig(5, 0.2, false),
+			RequestCount:   10,
+			ExpectedCount:  7,
+			ShouldFailWith: &overlay.ErrNotEnoughNodes,
+		},
+		{ // all new nodes except one, reputable and new nodes requested (happy path)
+			Preferences:   testNodeSelectionConfig(9, 0.5, false),
+			RequestCount:  2,
+			ExpectedCount: 2,
+		},
+		{ // all new nodes except one, reputable and new nodes requested (not happy path)
+			Preferences:    testNodeSelectionConfig(9, 0.5, false),
+			RequestCount:   4,
+			ExpectedCount:  3,
+			ShouldFailWith: &overlay.ErrNotEnoughNodes,
+		},
+		{ // all new nodes, reputable and new nodes requested
+			Preferences:   testNodeSelectionConfig(50, 1, false),
+			RequestCount:  2,
+			ExpectedCount: 2,
+		},
+		{ // audit threshold edge case (1)
+			Preferences:   testNodeSelectionConfig(9, 0, false),
+			RequestCount:  1,
+			ExpectedCount: 1,
+		},
+		{ // excluded node ids being excluded
+			Preferences:    testNodeSelectionConfig(5, 0, false),
+			ExcludeCount:   7,
+			RequestCount:   5,
+			ExpectedCount:  3,
+			ShouldFailWith: &overlay.ErrNotEnoughNodes,
+		},
+	} {
+		t.Logf("#%2d. %+v", i, tt)
+		service := planet.Satellites[0].Overlay.Service
+
+		var excludedNodes []storj.NodeID
+		for _, storageNode := range planet.StorageNodes[:tt.ExcludeCount] {
+			excludedNodes = append(excludedNodes, storageNode.ID())
+		}
+
+		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+			FreeBandwidth:  0,
+			FreeDisk:       0,
+			RequestedCount: tt.RequestCount,
+			ExcludedNodes:  excludedNodes,
+		}, &tt.Preferences)
+
+		t.Log(len(response), err)
+		if tt.ShouldFailWith != nil {
+			assert.Error(t, err)
+			assert.True(t, tt.ShouldFailWith.Has(err))
+		} else {
 			assert.NoError(t, err)
 		}
 
-		type test struct {
-			Preferences    overlay.NodeSelectionConfig
-			ExcludeCount   int
-			RequestCount   int
-			ExpectedCount  int
-			ShouldFailWith *errs.Class
-		}
-
-		for i, tt := range []test{
-			{ // all reputable nodes, only reputable nodes requested
-				Preferences:   testNodeSelectionConfig(0, 0, false),
-				RequestCount:  5,
-				ExpectedCount: 5,
-			},
-			{ // all reputable nodes, reputable and new nodes requested
-				Preferences:   testNodeSelectionConfig(0, 1, false),
-				RequestCount:  5,
-				ExpectedCount: 5,
-			},
-			{ // 50-50 reputable and new nodes, not enough reputable nodes
-				Preferences:    testNodeSelectionConfig(5, 0, false),
-				RequestCount:   10,
-				ExpectedCount:  5,
-				ShouldFailWith: &overlay.ErrNotEnoughNodes,
-			},
-			{ // 50-50 reputable and new nodes, reputable and new nodes requested, not enough reputable nodes
-				Preferences:    testNodeSelectionConfig(5, 0.2, false),
-				RequestCount:   10,
-				ExpectedCount:  7,
-				ShouldFailWith: &overlay.ErrNotEnoughNodes,
-			},
-			{ // all new nodes except one, reputable and new nodes requested (happy path)
-				Preferences:   testNodeSelectionConfig(9, 0.5, false),
-				RequestCount:  2,
-				ExpectedCount: 2,
-			},
-			{ // all new nodes except one, reputable and new nodes requested (not happy path)
-				Preferences:    testNodeSelectionConfig(9, 0.5, false),
-				RequestCount:   4,
-				ExpectedCount:  3,
-				ShouldFailWith: &overlay.ErrNotEnoughNodes,
-			},
-			{ // all new nodes, reputable and new nodes requested
-				Preferences:   testNodeSelectionConfig(50, 1, false),
-				RequestCount:  2,
-				ExpectedCount: 2,
-			},
-			{ // audit threshold edge case (1)
-				Preferences:   testNodeSelectionConfig(9, 0, false),
-				RequestCount:  1,
-				ExpectedCount: 1,
-			},
-			{ // excluded node ids being excluded
-				Preferences:    testNodeSelectionConfig(5, 0, false),
-				ExcludeCount:   7,
-				RequestCount:   5,
-				ExpectedCount:  3,
-				ShouldFailWith: &overlay.ErrNotEnoughNodes,
-			},
-		} {
-			t.Logf("#%2d. %+v", i, tt)
-			service := planet.Satellites[0].Overlay.Service
-
-			var excludedNodes []storj.NodeID
-			for _, storageNode := range planet.StorageNodes[:tt.ExcludeCount] {
-				excludedNodes = append(excludedNodes, storageNode.ID())
-			}
-
-			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-				FreeBandwidth:  0,
-				FreeDisk:       0,
-				RequestedCount: tt.RequestCount,
-				ExcludedNodes:  excludedNodes,
-			}, &tt.Preferences)
-
-			t.Log(len(response), err)
-			if tt.ShouldFailWith != nil {
-				assert.Error(t, err)
-				assert.True(t, tt.ShouldFailWith.Has(err))
-			} else {
-				assert.NoError(t, err)
-			}
-
-			assert.Equal(t, tt.ExpectedCount, len(response))
-		}
-	})
+		assert.Equal(t, tt.ExpectedCount, len(response))
+	}
 }
 
 func TestDistinctIPs(t *testing.T) {
