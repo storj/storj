@@ -11,24 +11,25 @@ import (
 	"time"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/accounting/rollup"
-	"storj.io/storj/pkg/accounting/tally"
-	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/datarepair/checker"
-	"storj.io/storj/pkg/datarepair/repairer"
-	"storj.io/storj/pkg/discovery"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/discovery"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/vouchers"
 )
@@ -168,6 +169,13 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
+			},
+			GarbageCollection: gc.Config{
+				Interval:          1 * time.Minute,
+				Enabled:           true,
+				InitialPieces:     10,
+				FalsePositiveRate: 0.1,
+				ConcurrentSends:   1,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
