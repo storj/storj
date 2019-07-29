@@ -125,7 +125,7 @@ test-all-in-one: ## Test docker images locally
 	&& ./scripts/test-aio.sh
 
 .PHONY: test-sim-backwards-compatible
-test-sim: ## Test uploading a file with last release (jenkins)
+test-sim-backwards-compatible: ## Test uploading a file with last release (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim-backwards.sh
 

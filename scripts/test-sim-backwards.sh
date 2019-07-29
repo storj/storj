@@ -4,31 +4,22 @@ set +x
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-make -C "$SCRIPTDIR"/.. install-sim
+: "${RELEASE_DIR?Environment variable RELEASE_DIR needs to be set}"
 
-# setup tmpdir for testfiles and cleanup
-TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
-cleanup(){
-	rm -rf "$TMP"
-}
-trap cleanup EXIT
-
-export STORJ_NETWORK_DIR=$TMP
+make -C "$RELEASE_DIR" install-sim
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
-STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
-# setup the network with the code from the most recent release tag
-cd $RELEASE_DIR
+# setup the network
 storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
 
-# upload files on the release tag
+# run upload/download backward compatibility tests for last release branch
+# and master branch
 storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
-# download the file from the current branch under test to confirm backwards compatibility
-cd $WORKDIR
-storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
+# make -C "$BRANCH_DIR" install-sim
+make -C "$SCRIPTDIR"/.. install-sim
 
-storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh cleanup
+storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
 
 storj-sim -x --host $STORJ_NETWORK_HOST4 network destroy
