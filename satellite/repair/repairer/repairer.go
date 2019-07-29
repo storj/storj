@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
@@ -87,7 +87,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
 		seg, err := service.queue.Select(ctx)
-		service.log.Info("Dequeued segment from repair queue", zap.Binary("segment", seg.GetPath()))
+		service.log.Info("Retrieved segment from repair queue", zap.Binary("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil

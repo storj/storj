@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storage"
 	"storj.io/storj/uplink"
 )
 
@@ -156,6 +157,110 @@ func TestDataRepair(t *testing.T) {
 		newData, err := uplinkPeer.Download(ctx, satellitePeer, "testbucket", "test/path")
 		require.NoError(t, err)
 		require.Equal(t, newData, testData)
+	})
+}
+
+// TestRemoveIrreparableSegmentFromQueue
+// - Upload tests data to 7 nodes
+// - Kill nodes so that repair threshold > online nodes > minimum threshold
+// - Call checker to add segment to the repair queue
+// - Kill nodes so that online nodes < minimum threshold
+// - Run the repairer
+// - Verify segment is no longer in the repair queue and segment should be the same
+func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 10,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// first, upload some remote data
+		uplinkPeer := planet.Uplinks[0]
+		satellitePeer := planet.Satellites[0]
+		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
+		satellitePeer.Discovery.Service.Discovery.Stop()
+		satellitePeer.Discovery.Service.Refresh.Stop()
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellitePeer.Audit.Service.Loop.Stop()
+
+		satellitePeer.Repair.Checker.Loop.Pause()
+		satellitePeer.Repair.Repairer.Loop.Pause()
+		satellitePeer.Repair.Repairer.Loop.TriggerWait()
+
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := uplinkPeer.UploadWithConfig(ctx, satellitePeer, &uplink.RSConfig{
+			MinThreshold:     3,
+			RepairThreshold:  5,
+			SuccessThreshold: 7,
+			MaxThreshold:     7,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		originalPointer, originalPath := getRemoteSegment(t, ctx, satellitePeer)
+
+		// kill nodes and track lost pieces
+		nodesToKill := make(map[storj.NodeID]bool)
+		nodesToKeepAlive := make(map[storj.NodeID]bool)
+
+		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
+		toKill := 3
+
+		remotePieces := originalPointer.GetRemote().GetRemotePieces()
+
+		for i, piece := range remotePieces {
+			if i >= toKill {
+				nodesToKeepAlive[piece.NodeId] = true
+				continue
+			}
+			nodesToKill[piece.NodeId] = true
+		}
+
+		for _, node := range planet.StorageNodes {
+			if nodesToKill[node.ID()] {
+				err = planet.StopPeer(node)
+				require.NoError(t, err)
+				_, err = satellitePeer.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				require.NoError(t, err)
+			}
+		}
+
+		// trigger checker to add segment to repair queue
+		satellitePeer.Repair.Checker.Loop.Restart()
+		satellitePeer.Repair.Checker.Loop.TriggerWait()
+		satellitePeer.Repair.Checker.Loop.Pause()
+
+		// Kill nodes so that online nodes < minimum threshold
+		// This will make the segment irreparable
+		for _, node := range planet.StorageNodes {
+			if nodesToKeepAlive[node.ID()] {
+				err = planet.StopPeer(node)
+				require.NoError(t, err)
+				_, err = satellitePeer.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				require.NoError(t, err)
+			}
+		}
+
+		injured, err := satellitePeer.DB.RepairQueue().Select(ctx)
+		require.NotNil(t, injured)
+		require.NoError(t, err)
+
+		// Run the repairer
+		satellitePeer.Repair.Repairer.Loop.Restart()
+		satellitePeer.Repair.Repairer.Loop.TriggerWait()
+		satellitePeer.Repair.Repairer.Loop.Pause()
+		satellitePeer.Repair.Repairer.Limiter.Wait()
+
+		// Verify segment is no longer in the repair queue and segment should be the same
+		injured, err = satellitePeer.DB.RepairQueue().Select(ctx)
+		require.Nil(t, injured)
+		require.Error(t, err)
+		require.True(t, storage.ErrEmptyQueue.Has(err))
+
+		newPointer, newPath := getRemoteSegment(t, ctx, satellitePeer)
+		require.Equal(t, newPointer, originalPointer)
+		require.Equal(t, newPath, originalPath)
+
+		require.True(t, false)
 	})
 }
 
