@@ -24,11 +24,13 @@ type peerDiscovery struct {
 	k           int
 	concurrency int
 
+	vouchers    []*pb.Voucher
+
 	cond  sync.Cond
 	queue discoveryQueue
 }
 
-func newPeerDiscovery(log *zap.Logger, dialer *kademliaclient.Dialer, target storj.NodeID, startingNodes []*pb.Node, k, alpha int, self *pb.Node) *peerDiscovery {
+func newPeerDiscovery(log *zap.Logger, dialer *kademliaclient.Dialer, target storj.NodeID, startingNodes []*pb.Node, k, alpha int, self *pb.Node, vouchers []*pb.Voucher) *peerDiscovery {
 	discovery := &peerDiscovery{
 		log:         log,
 		dialer:      dialer,
@@ -36,6 +38,7 @@ func newPeerDiscovery(log *zap.Logger, dialer *kademliaclient.Dialer, target sto
 		target:      target,
 		k:           k,
 		concurrency: alpha,
+		vouchers:    vouchers,
 		cond:        sync.Cond{L: &sync.Mutex{}},
 		queue:       *newDiscoveryQueue(target, k),
 	}
