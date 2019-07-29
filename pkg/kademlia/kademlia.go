@@ -46,14 +46,14 @@ type Kademlia struct {
 	dialer         *kademliaclient.Dialer
 	lookups        sync2.WorkGroup
 
-	vouchersdb     *vouchers.DB
-
 	bootstrapFinished    sync2.Fence
 	bootstrapBackoffMax  time.Duration
 	bootstrapBackoffBase time.Duration
 
 	refreshThreshold int64
 	RefreshBuckets   sync2.Cycle
+
+	vouchersdb     *vouchers.DB
 
 	mu          sync.Mutex
 	lastPinged  time.Time
@@ -66,12 +66,12 @@ func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, v
 		log:                  log,
 		alpha:                config.Alpha,
 		routingTable:         rt,
-		vouchersdb:           vdb,
 		bootstrapNodes:       config.BootstrapNodes(),
 		bootstrapBackoffMax:  config.BootstrapBackoffMax,
 		bootstrapBackoffBase: config.BootstrapBackoffBase,
 		dialer:               kademliaclient.NewDialer(log.Named("dialer"), transport),
 		refreshThreshold:     int64(time.Minute),
+		vouchersdb:           vdb,
 	}
 
 	return k, nil
