@@ -29,6 +29,66 @@ import (
 	"storj.io/storj/storagenode"
 )
 
+// TODO: uncomment when antechamber is fully implemented
+// An example of a basic integration test of audit gating
+
+// func TestKademliaAuditGating(t *testing.T) {
+// 	testplanet.Run(t, testplanet.Config{
+// 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+// 		Reconfigure: testplanet.Reconfigure{
+// 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+// 				config.Overlay.Node.AuditCount = 1
+// 				config.Audit.Interval = time.Hour
+// 			},
+// 		},
+// 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+// 		node0 := planet.StorageNodes[0]
+// 		node1 := planet.StorageNodes[1]
+// 		satellite := planet.Satellites[0]
+// 		node1.Vouchers.Loop.Stop()
+// 		node1.Kademlia.Service.RefreshBuckets.Stop()
+// 		node0.Kademlia.Service.RefreshBuckets.Stop()
+
+// 		// check that node1 is in node0's antechamber
+// 		_, rt, ac := node0.DB.RoutingTable()
+// 		_, err := ac.Get(ctx, node1.ID().Bytes())
+// 		require.NoError(t, err)
+
+// 		// node type needs to be set to receive vouchers
+// 		_, err = satellite.Overlay.Service.UpdateNodeInfo(ctx, node1.ID(), &pb.InfoResponse{Type: pb.NodeType_STORAGE})
+// 		require.NoError(t, err)
+
+// 		// update node1's audit count above reputable threshold on each satellite
+// 		_, err = satellite.Overlay.Service.UpdateStats(ctx, &overlay.UpdateRequest{
+// 			NodeID:       node1.ID(),
+// 			IsUp:         true,
+// 			AuditSuccess: true,
+// 			AuditLambda:  1,
+// 			AuditWeight:  1,
+// 			AuditDQ:      0.5,
+// 			UptimeLambda: 1,
+// 			UptimeWeight: 1,
+// 			UptimeDQ:     0.5,
+// 		})
+// 		require.NoError(t, err)
+
+// 		// Node1 is now vetted. Run service to receive a voucher
+// 		err = node1.Vouchers.RunOnce(ctx)
+// 		require.NoError(t, err)
+
+// 		node1.Kademlia.Service.RefreshBuckets.Restart()
+// 		node1.Kademlia.Service.RefreshBuckets.TriggerWait()
+
+// 		// check that node1 is now in node0's routing table
+// 		_, err = rt.Get(ctx, node1.ID().Bytes())
+// 		require.NoError(t, err)
+
+// 		// check that node1 is no longer in node0's antechamber
+// 		_, err = ac.Get(ctx, node1.ID().Bytes())
+// 		require.Error(t, err)
+// 	})
+// }
+
 func TestFetchPeerIdentity(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
