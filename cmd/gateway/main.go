@@ -285,28 +285,52 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 func (flags GatewayFlags) interactive(
 	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
 ) error {
+	ctx := process.Ctx(cmd)
+
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	apiKey, err := wizard.PromptForAPIKey()
+	apiKeyString, err := wizard.PromptForAPIKey()
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	humanReadableKey, err := wizard.PromptForEncryptionKey()
+	apiKey, err := libuplink.ParseAPIKey(apiKeyString)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	passphrase, err := wizard.PromptForEncryptionPassphrase()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	uplk, err := libuplink.NewUplink(ctx, nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, uplk.Close()) }()
+
+	project, err := uplk.OpenProject(ctx, satelliteAddress, apiKey)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = setup.SaveEncryptionKey(string(key[:]), encryptionKeyFilepath)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	overrides["satellite-addr"] = satelliteAddress
-	overrides["api-key"] = apiKey
+	overrides["api-key"] = apiKeyString
 	overrides["enc.key-filepath"] = encryptionKeyFilepath
 
 	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
