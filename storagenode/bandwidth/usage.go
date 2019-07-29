@@ -19,10 +19,6 @@ type DB interface {
 	Rollup(ctx context.Context) (err error)
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
 	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
-	// Run starts the background process for rollups of bandwidth usage
-	Run(ctx context.Context) (err error)
-	// Close stop the background process for rollups of bandwidth usage
-	Close() (err error)
 }
 
 // Usage contains bandwidth usage information based on the type
