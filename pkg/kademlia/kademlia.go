@@ -206,10 +206,8 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		}
 
 		//find nodes most similar to self
-		k.routingTable.mutex.Lock()
-		id := k.routingTable.self.Id
-		k.routingTable.mutex.Unlock()
-		_, err := k.lookup(ctx, id, nil)
+		self := k.routingTable.Local().Node
+		_, err := k.lookup(ctx, self.Id, nil, &self)
 		if err != nil {
 			errGroup.Add(BootstrapErr.Wrap(err))
 			continue
@@ -282,20 +280,20 @@ func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoRespo
 // FindNode wraps a call to FindNodeWithVouchers with no vouchers
 func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (_ pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return k.FindNodeWithVouchers(ctx, nodeID, nil)
+	return k.FindNodeWithVouchers(ctx, nodeID, nil, nil)
 }
 
 // FindNodeWithVouchers looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. When it contacts nodes, it will send vouchers to them 
 // and request to be put into their routing table. Returns and error if node was not found
-func (k *Kademlia) FindNodeWithVouchers(ctx context.Context, nodeID storj.NodeID, vrs []*pb.Voucher) (_ pb.Node, err error) {
+func (k *Kademlia) FindNodeWithVouchers(ctx context.Context, nodeID storj.NodeID, vrs []*pb.Voucher, self *pb.Node) (_ pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
 		return pb.Node{}, context.Canceled
 	}
 	defer k.lookups.Done()
 
-	results, err := k.lookup(ctx, nodeID, vrs)
+	results, err := k.lookup(ctx, nodeID, vrs, self)
 	if err != nil {
 		return pb.Node{}, err
 	}
@@ -306,7 +304,7 @@ func (k *Kademlia) FindNodeWithVouchers(ctx context.Context, nodeID storj.NodeID
 }
 
 // lookup initiates a kadmelia node lookup
-func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, vrs []*pb.Voucher) (_ []*pb.Node, err error) {
+func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, vrs []*pb.Voucher, self *pb.Node) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
 		return nil, context.Canceled
@@ -318,8 +316,7 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, vrs []*pb.Vo
 		return nil, err
 	}
 
-	self := k.routingTable.Local().Node
-	lookup := newPeerDiscovery(k.log, k.dialer, nodeID, nodes, k.routingTable.K(), k.alpha, &self, vrs)
+	lookup := newPeerDiscovery(k.log, k.dialer, nodeID, nodes, k.routingTable.K(), k.alpha, self, vrs)
 	results, err := lookup.Run(ctx)
 	if err != nil {
 		return nil, err
@@ -397,8 +394,9 @@ func (k *Kademlia) refresh(ctx context.Context, threshold time.Duration) (err er
 		if tErr != nil {
 			errors.Add(tErr)
 		} else if now.After(ts.Add(threshold)) {
+			self := k.routingTable.Local().Node
 			rID, _ := randomIDInRange(startID, endID)
-			_, _ = k.FindNodeWithVouchers(ctx, rID, vrs) // ignore node not found
+			_, _ = k.FindNodeWithVouchers(ctx, rID, vrs, &self) // ignore node not found
 		}
 		startID = endID
 	}
