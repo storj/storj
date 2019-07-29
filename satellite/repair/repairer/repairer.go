@@ -13,9 +13,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -23,7 +21,6 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/ecclient"
-	"storj.io/storj/uplink/storage/segments"
 )
 
 // Error is a standard error class for this package.
@@ -41,48 +38,28 @@ type Config struct {
 	MaxExcessRateOptimalThreshold float64       `help:"ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload" default:"0.05"`
 }
 
-// GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	ec := ecclient.NewClient(log.Named("ecclient"), tc, c.MaxBufferMem.Int())
-
-	return segments.NewSegmentRepairer(
-		log.Named("repairer"), metainfo, orders, cache, ec, identity, c.Timeout, c.MaxExcessRateOptimalThreshold,
-	), nil
-}
-
-// SegmentRepairer is a repairer for segments
-type SegmentRepairer interface {
-	Repair(ctx context.Context, path storj.Path) (err error)
-}
-
 // Service contains the information needed to run the repair service
 type Service struct {
-	log       *zap.Logger
-	queue     queue.RepairQueue
-	config    *Config
-	Limiter   *sync2.Limiter
-	Loop      sync2.Cycle
-	transport transport.Client
-	metainfo  *metainfo.Service
-	orders    *orders.Service
-	cache     *overlay.Cache
-	repairer  SegmentRepairer
+	log      *zap.Logger
+	queue    queue.RepairQueue
+	config   *Config
+	Limiter  *sync2.Limiter
+	Loop     sync2.Cycle
+	repairer *SegmentRepairer
 }
 
 // NewService creates repairing service
 func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
+	client := ecclient.NewClient(log.Named("ecclient"), transport, config.MaxBufferMem.Int())
+	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, client, config.Timeout, config.MaxExcessRateOptimalThreshold)
+
 	return &Service{
-		log:       log,
-		queue:     queue,
-		config:    config,
-		Limiter:   sync2.NewLimiter(concurrency),
-		Loop:      *sync2.NewCycle(interval),
-		transport: transport,
-		metainfo:  metainfo,
-		orders:    orders,
-		cache:     cache,
+		log:      log,
+		queue:    queue,
+		config:   config,
+		Limiter:  sync2.NewLimiter(concurrency),
+		Loop:     *sync2.NewCycle(interval),
+		repairer: repairer,
 	}
 }
 
@@ -92,20 +69,6 @@ func (service *Service) Close() error { return nil }
 // Run runs the repairer service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// TODO: close segment repairer, currently this leaks connections
-	service.repairer, err = service.config.GetSegmentRepairer(
-		ctx,
-		service.log,
-		service.transport,
-		service.metainfo,
-		service.orders,
-		service.cache,
-		service.transport.Identity(),
-	)
-	if err != nil {
-		return err
-	}
 
 	// wait for all repairs to complete
 	defer service.Limiter.Wait()
