@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/monitor"
@@ -122,11 +123,15 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
 				},
+				RetainStatus: piecestore.RetainEnabled,
 			},
 			Vouchers: vouchers.Config{
 				Interval: time.Hour,
 			},
 			Version: planet.NewVersionConfig(),
+			Bandwidth: bandwidth.Config{
+				Interval: time.Hour,
+			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )

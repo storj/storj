@@ -6,7 +6,6 @@ package rewards
 import (
 	"encoding/base64"
 	"encoding/json"
-	"strings"
 )
 
 // PartnerInfo contains the name and ID of an Open Source Partner
@@ -14,16 +13,12 @@ type PartnerInfo struct {
 	ID, Name string
 }
 
-// FormattedName returns formatted partner name
-func (p PartnerInfo) FormattedName() string {
-	return p.ID + "-" + p.Name
-}
-
 // Partners contains a list of partners.
 type Partners map[string]PartnerInfo
 
 // LoadPartnerInfos returns our current Open Source Partners.
 func LoadPartnerInfos() Partners {
+	//TODO: implement actual function call to get partner infos
 	return Partners{
 		"Couchbase": PartnerInfo{
 			Name: "Couchbase",
@@ -74,9 +69,7 @@ func LoadPartnerInfos() Partners {
 
 // GeneratePartnerLink returns base64 encoded partner referral link
 func GeneratePartnerLink(offerName string) ([]string, error) {
-	partnerName := strings.Split(offerName, "-")[1]
-
-	referralInfo := &referralInfo{UserID: "", PartnerID: GetPartnerIDByName(partnerName)}
+	referralInfo := &referralInfo{UserID: "", PartnerID: GetPartnerIDByName(offerName)}
 	refJSON, err := json.Marshal(referralInfo)
 	if err != nil {
 		return nil, err
@@ -94,5 +87,9 @@ func GeneratePartnerLink(offerName string) ([]string, error) {
 
 // GetPartnerIDByName returns a partner id based on its name
 func GetPartnerIDByName(name string) string {
-	return LoadPartnerInfos()[name].ID
+	partner, ok := LoadPartnerInfos()[name]
+	if !ok {
+		return ""
+	}
+	return partner.ID
 }

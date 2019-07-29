@@ -87,15 +87,14 @@ func (client *Client) GetPath(ctx context.Context, bucket, key storage.Key) (_ s
 
 	q := "SELECT metadata FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
 	row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key))
+
 	var val []byte
 	err = row.Scan(&val)
 	if err == sql.ErrNoRows {
 		return nil, storage.ErrKeyNotFound.New(key.String())
 	}
-	if err != nil {
-		return nil, err
-	}
-	return val, nil
+
+	return val, Error.Wrap(err)
 }
 
 // Delete deletes the given key and its associated value.
@@ -316,4 +315,94 @@ func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, 
 	}()
 
 	return fn(ctx, opi)
+}
+
+// CompareAndSwap atomically compares and swaps oldValue with newValue
+func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return client.CompareAndSwapPath(ctx, storage.Key(defaultBucket), key, oldValue, newValue)
+}
+
+// CompareAndSwapPath atomically compares and swaps oldValue with newValue in the given bucket
+func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storage.Key, oldValue, newValue storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+
+	if oldValue == nil && newValue == nil {
+		q := "SELECT metadata FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
+		row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key))
+		var val []byte
+		err = row.Scan(&val)
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		return storage.ErrValueChanged.New(key.String())
+	}
+
+	if oldValue == nil {
+		q := `
+		INSERT INTO pathdata (bucket, fullpath, metadata) VALUES ($1::BYTEA, $2::BYTEA, $3::BYTEA)
+			ON CONFLICT DO NOTHING
+			RETURNING 1
+		`
+		row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(newValue))
+		var val []byte
+		err = row.Scan(&val)
+		if err == sql.ErrNoRows {
+			return storage.ErrValueChanged.New(key.String())
+		}
+		return Error.Wrap(err)
+	}
+
+	var row *sql.Row
+	if newValue == nil {
+		q := `
+		WITH matching_key AS (
+			SELECT * FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA
+		), updated AS (
+			DELETE FROM pathdata
+				USING matching_key mk
+				WHERE pathdata.metadata = $3::BYTEA
+					AND pathdata.bucket = mk.bucket
+					AND pathdata.fullpath = mk.fullpath
+				RETURNING 1
+		)
+		SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated
+		`
+		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue))
+	} else {
+		q := `
+		WITH matching_key AS (
+			SELECT * FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA
+		), updated AS (
+			UPDATE pathdata
+				SET metadata = $4::BYTEA
+				FROM matching_key mk
+				WHERE pathdata.metadata = $3::BYTEA
+					AND pathdata.bucket = mk.bucket
+					AND pathdata.fullpath = mk.fullpath
+				RETURNING 1
+		)
+		SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated;
+		`
+		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
+	}
+
+	var keyPresent, valueUpdated bool
+	err = row.Scan(&keyPresent, &valueUpdated)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if !keyPresent {
+		return storage.ErrKeyNotFound.New(key.String())
+	}
+	if !valueUpdated {
+		return storage.ErrValueChanged.New(key.String())
+	}
+	return nil
 }

@@ -92,7 +92,7 @@ func matchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
 		var partnerOffersByName Offers
 
 		for _, o := range offers {
-			if o.Name == partnerSet[i].PartnerInfo.FormattedName() {
+			if o.Name == partnerSet[i].PartnerInfo.Name {
 				partnerOffersByName = append(partnerOffersByName, o)
 			}
 		}

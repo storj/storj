@@ -40,19 +40,6 @@ type NewOffer struct {
 	Type   OfferType
 }
 
-// FormatPartnerName formats partner's name into combination of its partnerID and name
-func (o NewOffer) FormatPartnerName() string {
-	if o.Type != Partner {
-		return o.Name
-	}
-
-	partnerInfo := PartnerInfo{
-		ID:   LoadPartnerInfos()[o.Name].ID,
-		Name: o.Name,
-	}
-	return partnerInfo.FormattedName()
-}
-
 // UpdateOffer holds fields needed for update an offer
 type UpdateOffer struct {
 	ID        int
