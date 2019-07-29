@@ -11,10 +11,10 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/metainfo"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
 )
 
 const defaultUplinkDialTimeout = 20 * time.Second
@@ -92,7 +92,7 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 		cfg.Volatile.MaxMemory = 0
 	}
 	if cfg.Volatile.Log == nil {
-		cfg.Volatile.Log = zap.NewNop()
+		cfg.Volatile.Log = zap.L()
 	}
 	if cfg.Volatile.DialTimeout.Seconds() == 0 {
 		cfg.Volatile.DialTimeout = defaultUplinkDialTimeout

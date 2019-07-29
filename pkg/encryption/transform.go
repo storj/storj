@@ -95,6 +95,9 @@ func (t *transformedReader) Read(p []byte) (n int, err error) {
 		}
 		t.outbuf, err = t.t.Transform(t.outbuf, t.inbuf, t.blockNum)
 		if err != nil {
+			if err == io.EOF {
+				return 0, err
+			}
 			return 0, Error.Wrap(err)
 		}
 		t.blockNum++

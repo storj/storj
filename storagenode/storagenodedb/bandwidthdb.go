@@ -11,7 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
@@ -24,8 +23,6 @@ type bandwidthdb struct {
 	usedSince time.Time
 
 	*InfoDB
-
-	loop *sync2.Cycle
 }
 
 // Bandwidth returns table for storing bandwidth usage.
@@ -33,18 +30,6 @@ func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
 
 // Bandwidth returns table for storing bandwidth usage.
 func (db *InfoDB) Bandwidth() bandwidth.DB { return &db.bandwidthdb }
-
-// Run starts the background process for rollups of bandwidth usage
-func (db *bandwidthdb) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return db.loop.Run(ctx, db.Bandwidth().Rollup)
-}
-
-// Close stops the background process for rollups of bandwidth usage
-func (db *bandwidthdb) Close() (err error) {
-	db.loop.Close()
-	return nil
-}
 
 // Add adds bandwidth usage to the table
 func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
@@ -189,15 +174,31 @@ func (db *bandwidthdb) Rollup(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := time.Now().UTC()
+
 	// Go back an hour to give us room for late persists
 	hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location()).Add(-time.Hour)
 
-	result, err := db.db.Exec(`
+	tx, err := db.Begin()
+	if err != nil {
+		return ErrInfo.Wrap(err)
+	}
+
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			err = errs.Combine(err, tx.Rollback())
+		}
+	}()
+
+	result, err := tx.Exec(`
 		INSERT INTO bandwidth_usage_rollups (interval_start, satellite_id,  action, amount)
 		SELECT datetime(strftime('%Y-%m-%dT%H:00:00', created_at)) created_hr, satellite_id, action, SUM(amount)
 			FROM bandwidth_usage
 		WHERE datetime(created_at) < datetime(?)
-		GROUP BY created_hr, satellite_id, action;
+		GROUP BY created_hr, satellite_id, action
+		ON CONFLICT(interval_start, satellite_id,  action)
+		DO UPDATE SET amount = bandwidth_usage_rollups.amount + excluded.amount;
 
 		DELETE FROM bandwidth_usage WHERE datetime(created_at) < datetime(?);
 	`, hour, hour)

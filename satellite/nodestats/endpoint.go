@@ -10,10 +10,10 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/overlay"
 )
 
 var (
