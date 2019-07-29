@@ -183,8 +183,8 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellitePeer.Audit.Service.Loop.Stop()
 
 		satellitePeer.Repair.Checker.Loop.Pause()
-		satellitePeer.Repair.Repairer.Loop.Pause()
 		satellitePeer.Repair.Repairer.Loop.TriggerWait()
+		satellitePeer.Repair.Repairer.Loop.Pause()
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
@@ -199,7 +199,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		originalPointer, originalPath := getRemoteSegment(t, ctx, satellitePeer)
 
 		// kill nodes and track lost pieces
-		nodesToKill := make(map[storj.NodeID]bool)
+		nodesToDQ := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
 
 		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
@@ -212,16 +212,11 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 				nodesToKeepAlive[piece.NodeId] = true
 				continue
 			}
-			nodesToKill[piece.NodeId] = true
+			nodesToDQ[piece.NodeId] = true
 		}
 
-		for _, node := range planet.StorageNodes {
-			if nodesToKill[node.ID()] {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-				_, err = satellitePeer.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
-			}
+		for nodeID, _ := range nodesToDQ {
+			disqualifyNode(t, ctx, satellitePeer, nodeID)
 		}
 
 		// trigger checker to add segment to repair queue
@@ -231,13 +226,8 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 
 		// Kill nodes so that online nodes < minimum threshold
 		// This will make the segment irreparable
-		for _, node := range planet.StorageNodes {
-			if nodesToKeepAlive[node.ID()] {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-				_, err = satellitePeer.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
-			}
+		for nodeID, _ := range nodesToKeepAlive {
+			disqualifyNode(t, ctx, satellitePeer, nodeID)
 		}
 
 		injured, err := satellitePeer.DB.RepairQueue().Select(ctx)
