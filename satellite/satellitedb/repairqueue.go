@@ -104,13 +104,16 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 	}
 	//todo: strictly enforce order-by or change tests
 	rows, err := r.db.QueryContext(ctx, r.db.Rebind(`SELECT data FROM injuredsegments LIMIT ?`), limit)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	for rows.Next() {
 		var seg pb.InjuredSegment
 		err = rows.Scan(&seg)
 		if err != nil {
-			return
+			return segs, Error.Wrap(err)
 		}
 		segs = append(segs, seg)
 	}
-	return segs, rows.Err()
+	return segs, Error.Wrap(rows.Err())
 }
