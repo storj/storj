@@ -77,10 +77,7 @@ func createPartnerSet() PartnerSet {
 	var ps PartnerSet
 	for _, partner := range partners {
 		ps = append(ps, OpenSourcePartner{
-			PartnerInfo: PartnerInfo{
-				Name: partner.Name,
-				ID:   partner.ID,
-			},
+			PartnerInfo: partner,
 		})
 	}
 	return ps
