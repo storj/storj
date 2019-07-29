@@ -183,7 +183,6 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellitePeer.Audit.Service.Loop.Stop()
 
 		satellitePeer.Repair.Checker.Loop.Pause()
-		satellitePeer.Repair.Repairer.Loop.TriggerWait()
 		satellitePeer.Repair.Repairer.Loop.Pause()
 
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -200,7 +199,6 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 
 		// kill nodes and track lost pieces
 		nodesToDQ := make(map[storj.NodeID]bool)
-		nodesToKeepAlive := make(map[storj.NodeID]bool)
 
 		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
 		toKill := 3
@@ -209,7 +207,6 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 
 		for i, piece := range remotePieces {
 			if i >= toKill {
-				nodesToKeepAlive[piece.NodeId] = true
 				continue
 			}
 			nodesToDQ[piece.NodeId] = true
@@ -226,8 +223,8 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 
 		// Kill nodes so that online nodes < minimum threshold
 		// This will make the segment irreparable
-		for nodeID, _ := range nodesToKeepAlive {
-			disqualifyNode(t, ctx, satellitePeer, nodeID)
+		for _, piece := range remotePieces {
+			disqualifyNode(t, ctx, satellitePeer, piece.NodeId)
 		}
 
 		injured, err := satellitePeer.DB.RepairQueue().Select(ctx)
