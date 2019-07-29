@@ -189,7 +189,7 @@ func (db *v0PieceInfo) GetExpired(ctx context.Context, expiredAt time.Time, limi
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
-		SELECT satellite_id, piece_id, piece_size
+		SELECT satellite_id, piece_id
 		FROM pieceinfo_
 		WHERE piece_expiration IS NOT NULL
 		AND piece_expiration < ?
@@ -203,7 +203,7 @@ func (db *v0PieceInfo) GetExpired(ctx context.Context, expiredAt time.Time, limi
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 	for rows.Next() {
 		info := pieces.ExpiredInfo{InPieceInfo: true}
-		err = rows.Scan(&info.SatelliteID, &info.PieceID, &info.PieceSize)
+		err = rows.Scan(&info.SatelliteID, &info.PieceID)
 		if err != nil {
 			return infos, ErrInfo.Wrap(err)
 		}

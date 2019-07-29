@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -74,10 +73,9 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 	const batchSize = 1000
 
 	var count int64
-	var bytes int64
 	defer func() {
 		if count > 0 {
-			service.log.Info("collect", zap.Int64("count", count), zap.Stringer("size", memory.Size(bytes)))
+			service.log.Info("collect", zap.Int64("count", count))
 		}
 	}()
 
@@ -108,7 +106,6 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 			}
 
 			count++
-			bytes += expired.PieceSize
 		}
 	}
 

@@ -46,7 +46,6 @@ type Info struct {
 type ExpiredInfo struct {
 	SatelliteID storj.NodeID
 	PieceID     storj.PieceID
-	PieceSize   int64
 	InPieceInfo bool
 }
 
