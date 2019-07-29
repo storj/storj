@@ -1134,7 +1134,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
@@ -1168,6 +1168,19 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	streamID, err := storj.StreamIDFromBytes(encodedStreamID)
 	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	path, err := CreatePath(ctx, keyInfo.ProjectID, -1, satStreamID.Bucket, satStreamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -1496,9 +1509,10 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 	}
 
 	var limits []*pb.AddressedOrderLimit
+	var privateKey storj.PiecePrivateKey
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
 		bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)
-		limits, _, err = endpoint.orders.CreateDeleteOrderLimits(ctx, bucketID, pointer)
+		limits, privateKey, err = endpoint.orders.CreateDeleteOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -1514,6 +1528,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 	return &pb.SegmentBeginDeleteResponse{
 		SegmentId:       segmentID,
 		AddressedLimits: limits,
+		PrivateKey:      privateKey,
 	}, nil
 }
 

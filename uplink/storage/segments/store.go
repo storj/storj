@@ -48,7 +48,7 @@ type Store interface {
 	Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, encryption storj.SegmentEncryption, err error)
 	// Put(ctx context.Context, streamID storj.StreamID, encKey storj.EncryptedPrivateKey, encNonce storj.Nonce, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
-	Delete(ctx context.Context, path storj.Path) (err error)
+	Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
@@ -211,57 +211,6 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 }
 
 // Get requests the satellite to read a segment and downloaded the pieces from the storage nodes
-// func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
-// 	defer mon.Task()(&ctx)(&err)
-
-// 	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
-// 	if err != nil {
-// 		return nil, Meta{}, err
-// 	}
-
-// 	pointer, limits, piecePrivateKey, err := s.metainfo.ReadSegment(ctx, bucket, objectPath, segmentIndex)
-// 	if err != nil {
-// 		return nil, Meta{}, Error.Wrap(err)
-// 	}
-
-// 	switch pointer.GetType() {
-// 	case pb.Pointer_INLINE:
-// 		return ranger.ByteRanger(pointer.InlineSegment), convertMeta(pointer), nil
-// 	case pb.Pointer_REMOTE:
-// 		needed := CalcNeededNodes(pointer.GetRemote().GetRedundancy())
-// 		selected := make([]*pb.AddressedOrderLimit, len(limits))
-
-// 		for _, i := range rand.Perm(len(limits)) {
-// 			limit := limits[i]
-// 			if limit == nil {
-// 				continue
-// 			}
-
-// 			selected[i] = limit
-
-// 			needed--
-// 			if needed <= 0 {
-// 				break
-// 			}
-// 		}
-
-// 		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
-// 		if err != nil {
-// 			return nil, Meta{}, err
-// 		}
-
-// 		rr, err = s.ec.Get(ctx, selected, piecePrivateKey, redundancy, pointer.GetSegmentSize())
-// 		if err != nil {
-// 			return nil, Meta{}, Error.Wrap(err)
-// 		}
-
-// 		return rr, convertMeta(pointer), nil
-// 	default:
-// 		return nil, Meta{}, Error.New("unsupported pointer type: %d", pointer.GetType())
-// 	}
-// }
-
-// Get requests the satellite to read a segment and downloaded the pieces from the storage nodes
 func (s *segmentStore) Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, _ storj.SegmentEncryption, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -359,26 +308,31 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 
 // Delete requests the satellite to delete a segment and tells storage nodes
 // to delete the segment's pieces.
-func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
+func (s *segmentStore) Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
-	if err != nil {
-		return err
-	}
-
-	limits, privateKey, err := s.metainfo.DeleteSegment(ctx, bucket, objectPath, segmentIndex)
+	segmentID, limits, privateKey, err := s.metainfo.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
+		StreamID: streamID,
+		Position: storj.SegmentPosition{
+			Index: segmentIndex,
+		},
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	if len(limits) == 0 {
-		// inline segment - nothing else to do
-		return
+	if len(limits) != 0 {
+		// remote segment - delete the pieces from storage nodes
+		err = s.ec.Delete(ctx, limits, privateKey)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
-	// remote segment - delete the pieces from storage nodes
-	err = s.ec.Delete(ctx, limits, privateKey)
+	err = s.metainfo.FinishDeleteSegment(ctx, metainfo.FinishDeleteSegmentParams{
+		SegmentID: segmentID,
+		// TODO add delete results
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}

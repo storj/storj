@@ -453,8 +453,9 @@ message SegmentBeginDeleteRequest {
 }
 
 message SegmentBeginDeleteResponse {
-    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
-    repeated AddressedOrderLimit addressed_limits = 2;
+    bytes                           segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    repeated AddressedOrderLimit    addressed_limits = 2;
+    bytes                           private_key = 3 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
 }
 
 message SegmentFinishDeleteRequest {

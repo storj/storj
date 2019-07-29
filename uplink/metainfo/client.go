@@ -489,6 +489,11 @@ func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteO
 		Version:       params.Version,
 	})
 	if err != nil {
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return storj.StreamID{}, storage.ErrKeyNotFound.Wrap(err)
+			}
+		}
 		return storj.StreamID{}, Error.Wrap(err)
 	}
 
@@ -642,7 +647,7 @@ type BeginDeleteSegmentParams struct {
 }
 
 // BeginDeleteSegment begins segment upload process
-func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, err error) {
+func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.BeginDeleteSegment(ctx, &pb.SegmentBeginDeleteRequest{
@@ -653,10 +658,10 @@ func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDelete
 		},
 	})
 	if err != nil {
-		return storj.SegmentID{}, nil, Error.Wrap(err)
+		return storj.SegmentID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	return response.SegmentId, response.AddressedLimits, nil
+	return response.SegmentId, response.AddressedLimits, response.PrivateKey, nil
 }
 
 // FinishDeleteSegmentParams parameters for FinishDeleteSegment method

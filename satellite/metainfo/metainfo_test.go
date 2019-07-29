@@ -861,27 +861,6 @@ func TestBeginCommitObject(t *testing.T) {
 	})
 }
 
-func TestBeginFinishDeleteObject(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
-
-		streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
-			Bucket:        []byte("initial-bucket"),
-			EncryptedPath: []byte("encrypted-path"),
-		})
-		require.NoError(t, err)
-
-		err = metainfoClient.FinishDeleteObject(ctx, streamID)
-		require.NoError(t, err)
-	})
-}
-
 func TestListGetObjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -1171,7 +1150,7 @@ func TestInlineSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 			for _, item := range items {
-				segmentID, limits, err := metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
+				segmentID, limits, _, err := metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
 					StreamID: streamID,
 					Position: storj.SegmentPosition{
 						Index: item.Position.Index,
@@ -1264,7 +1243,7 @@ func TestRemoteSegment(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, segment := range segments {
-				segmentID, limits, err := metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
+				segmentID, limits, _, err := metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
 					StreamID: streamID,
 					Position: storj.SegmentPosition{
 						Index: segment.Position.Index,

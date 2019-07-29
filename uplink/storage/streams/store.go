@@ -439,38 +439,37 @@ func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.Ci
 		return err
 	}
 
-	lastSegmentPath, err := createSegmentPath(ctx, -1, path.Bucket(), encPath)
+	// TODO maybe for now just use GetObject and decrypt num of segments from metainfo
+	// to avoid two satellite requestes ??
+
+	// TODO do it in batch
+	streamID, err := s.metainfo.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+		Bucket:        []byte(path.Bucket()),
+		EncryptedPath: []byte(encPath.Raw()),
+	})
 	if err != nil {
 		return err
 	}
 
-	lastSegmentMeta, err := s.segments.Meta(ctx, lastSegmentPath)
+	// TODO handle `more`
+	items, _, err := s.metainfo.ListSegments2(ctx, metainfo.ListSegmentsParams{
+		StreamID: streamID,
+		CursorPosition: storj.SegmentPosition{
+			Index: 0,
+		},
+	})
 	if err != nil {
 		return err
 	}
 
-	streamInfo, _, err := TypedDecryptStreamInfo(ctx, lastSegmentMeta.Data, path, s.encStore)
-	if err != nil {
-		return err
-	}
-	var stream pb.StreamInfo
-	if err := proto.Unmarshal(streamInfo, &stream); err != nil {
-		return err
-	}
-
-	for i := 0; i < int(stream.NumberOfSegments-1); i++ {
-		currentPath, err := createSegmentPath(ctx, int64(i), path.Bucket(), encPath)
+	for _, item := range items {
+		err = s.segments.Delete(ctx, streamID, item.Position.Index)
 		if err != nil {
 			return err
 		}
-
-		err = s.segments.Delete(ctx, currentPath)
-		if err != nil {
-			return err
-		}
 	}
 
-	return s.segments.Delete(ctx, lastSegmentPath)
+	return nil
 }
 
 // ListItem is a single item in a listing
@@ -535,9 +534,9 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 	objects, more, err := s.metainfo.ListObjects(ctx, metainfo.ListObjectsParams{
 		Bucket:          []byte(prefix.Bucket()),
 		EncryptedPrefix: []byte(encPrefix.Raw()),
-		EncryptedCursor: []byte(startAfter),
-		Limit:           int32(limit),
-		Recursive:       recursive,
+		// EncryptedCursor: []byte(startAfter),
+		Limit:     int32(limit),
+		Recursive: recursive,
 	})
 	if err != nil {
 		return nil, false, err
@@ -688,17 +687,17 @@ func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, pa
 	}
 
 	for i := int64(0); i < totalSegments; i++ {
-		currentPath, err := createSegmentPath(ctx, i, path.Bucket(), encPath)
+		_, err = createSegmentPath(ctx, i, path.Bucket(), encPath)
 		if err != nil {
 			zap.S().Warnf("Failed deleting segment %d: %v", i, err)
 			continue
 		}
 
-		err = s.segments.Delete(ctx, currentPath)
-		if err != nil {
-			zap.S().Warnf("Failed deleting segment %v: %v", currentPath, err)
-			continue
-		}
+		// err = s.segments.Delete(ctx, currentPath)
+		// if err != nil {
+		// 	zap.S().Warnf("Failed deleting segment %v: %v", currentPath, err)
+		// 	continue
+		// }
 	}
 }
 
