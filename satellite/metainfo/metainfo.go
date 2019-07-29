@@ -510,6 +510,7 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		}
 
 		if allSizesValid {
+			// todo: use redundancy from endpoint.requiredRSConfig instead of the pointer?
 			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 			if err != nil {
 				return Error.Wrap(err)
@@ -523,7 +524,8 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			return Error.New("all pieces needs to have the same size")
 		}
 
-		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+		// todo: is it okay that this is using endpoint.requiredRSConfig instead of pointer rs values?
+		if len(remotePieces) < endpoint.requiredRSConfig.SuccessThreshold {
 			return Error.New("Number of valid pieces (%d) is less than the success threshold (%d)",
 				len(remotePieces),
 				remote.Redundancy.SuccessThreshold,
@@ -1291,11 +1293,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
-	}
-
-	if len(req.UploadResult) < endpoint.requiredRSConfig.SuccessThreshold {
-		return nil, status.Errorf(codes.FailedPrecondition, "invalid number of upload results: wanted success threshold %d got %d",
-			endpoint.requiredRSConfig.SuccessThreshold, len(req.UploadResult))
 	}
 
 	if len(segmentID.OriginalOrderLimits) < len(req.UploadResult) {
