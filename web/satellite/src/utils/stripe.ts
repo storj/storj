@@ -1,14 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Stripe contains
+// Stripe encapsulates Stripe related logic
 export default class Stripe {
+
+    // Stripe elements is using to create 'Add Card' form
     private cardElement: any;
 
+    // Stripe library
     private stripe: any;
 
+    // Callback which provides Stripe response back to client
     private createCardCallback: (result: any) => any;
 
+    // Performs 'Add Card' form setup and Stripe card token retrieval
     public newCardInput(resultCallback: (result: any) => any) {
         this.createCardCallback = resultCallback;
 
