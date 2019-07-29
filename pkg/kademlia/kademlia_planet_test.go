@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 )
 
