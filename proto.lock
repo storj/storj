@@ -4580,11 +4580,23 @@
                 "type": "node.Node"
               },
               {
-                "id": 2,
-                "name": "response",
+                "id": 3,
+                "name": "vetted",
+                "type": "node.Node",
+                "is_repeated": true
+              },
+              {
+                "id": 4,
+                "name": "unvetted",
                 "type": "node.Node",
                 "is_repeated": true
               }
+            ],
+            "reserved_ids": [
+              2
+            ],
+            "reserved_names": [
+              "response"
             ]
           },
           {
