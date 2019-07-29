@@ -21,15 +21,15 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import {
-    APP_STATE_ACTIONS,
-    PROJETS_ACTIONS,
-    NOTIFICATION_ACTIONS,
-    PM_ACTIONS,
-    API_KEYS_ACTIONS,
-    PROJECT_USAGE_ACTIONS,
-    BUCKET_USAGE_ACTIONS,
-    PROJECT_PAYMENT_METHODS_ACTIONS,
-} from '@/utils/constants/actionNames';
+        APP_STATE_ACTIONS,
+        PROJETS_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PM_ACTIONS,
+        API_KEYS_ACTIONS,
+        PROJECT_USAGE_ACTIONS,
+        BUCKET_USAGE_ACTIONS,
+        PROJECT_PAYMENT_METHODS_ACTIONS,
+    } from '@/utils/constants/actionNames';
     import { Project } from '@/types/projects';
 
     @Component

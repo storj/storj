@@ -82,6 +82,7 @@
         USER_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
     import Stripe from '@/utils/stripe';
+    import { AddPaymentMethodInput } from '@/types/invoices';
 
     @Component({
         components: {
@@ -97,7 +98,7 @@
             return this.$store.state.appStateModule.appState.isAttachStripeCardPopupShown;
         }
 
-        public updated(): void {
+        public mounted(): void {
             const stripe: Stripe = new Stripe();
             try {
                 stripe.newCardInput(this.onStripeResponse);
@@ -107,9 +108,7 @@
         }
 
         private async onStripeResponse(result: any) {
-            const input = {
-                token: result.token.id,
-                makeDefault: this.makeDefault} as AddPaymentMethodInput;
+            const input:AddPaymentMethodInput = new AddPaymentMethodInput(result.token.id, this.makeDefault);
 
             const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
             if (!response.isSuccess) {

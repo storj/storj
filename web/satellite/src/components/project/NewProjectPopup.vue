@@ -190,7 +190,6 @@
         private notifySuccess(message: string): void {
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
         }
-
     }
 </script>
 

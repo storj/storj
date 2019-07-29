@@ -4,6 +4,7 @@
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { RequestResponse } from '@/types/response';
+import { PaymentMethod } from '@/types/invoices';
 
 export async function addProjectPaymentMethodRequest(projectID: string, cardToken: string, makeDefault: boolean): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = new RequestResponse<null>();
@@ -118,7 +119,7 @@ export async function fetchProjectPaymentMethods(projectID: string): Promise<Req
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = response.data.project.paymentMethods;
+        result.data = getPaymentMethodList(response.data.project.paymentMethods);
     }
 
     return result;
@@ -177,7 +178,7 @@ export async function fetchUserPaymentMethods(): Promise<RequestResponse<Payment
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = response.data.userPaymentMethods;
+        result.data = getPaymentMethodList(response.data.userPaymentMethods);
     }
 
     return result;
@@ -210,3 +211,18 @@ export async function attachUserPaymentMethod(paymentMethodID: string, projectID
     return result;
 }
 
+function getPaymentMethodList(paymentMethods: any[]): PaymentMethod[] {
+    if (!paymentMethods) {
+        return [];
+    }
+
+    return paymentMethods.map(key => new PaymentMethod(
+        key.id,
+        key.expYear,
+        key.expMonth,
+        key.brand,
+        key.lastFour,
+        key.holderName,
+        key.addedAt,
+        key.isDefault));
+}

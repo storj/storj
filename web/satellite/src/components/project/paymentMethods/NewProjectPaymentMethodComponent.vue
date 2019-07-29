@@ -40,6 +40,7 @@
     } from '@/utils/constants/actionNames';
     import Checkbox from '@/components/common/Checkbox.vue';
     import Stripe from '@/utils/stripe';
+    import { AddPaymentMethodInput } from '@/types/invoices';
 
     @Component(
         {
@@ -64,9 +65,7 @@
         }
 
         private async onStripeResponse(result: any) {
-            const input = {
-                token: result.token.id,
-                makeDefault: this.makeDefault} as AddPaymentMethodInput;
+            const input:AddPaymentMethodInput = new AddPaymentMethodInput(result.token.id, this.makeDefault);
 
             const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
             this.isSaveButtonEnabled = true;
@@ -79,21 +78,17 @@
 
             const projectPaymentsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
             if (!projectPaymentsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + projectPaymentsResponse.errorMessage);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch payment methods: ${projectPaymentsResponse.errorMessage}`);
             }
 
             const userPaymentMethodResponse = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
             if (!userPaymentMethodResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch user payment methods: ${userPaymentMethodResponse.errorMessage}`);
             }
         }
 
         public get projectPaymentMethodsCount(): number {
-            if (this.$store.state.projectPaymentsMethodsModule.paymentMethods) {
-                return this.$store.state.projectPaymentsMethodsModule.paymentMethods.length;
-            }
-
-            return 0;
+            return this.$store.state.projectPaymentsMethodsModule.paymentMethods.length;
         }
 
         public toggleMakeDefault(value: boolean): void {

@@ -19,7 +19,7 @@
     import { Component, Vue } from 'vue-property-decorator';
     import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
     import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { RequestResponse } from '../../../types/response';
+    import { RequestResponse } from '@/types/response';
     import { Project } from '@/types/projects';
 
     @Component({

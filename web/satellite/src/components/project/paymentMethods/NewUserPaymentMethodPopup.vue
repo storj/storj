@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="isPopupShown" class="add-stripe-card-popup-container-overflow">
+    <div class="add-stripe-card-popup-container-overflow">
         <div class="add-stripe-card-popup-container">
             <div class="add-stripe-card-popup-container__title-container">
                 <svg width="113" height="90" viewBox="0 0 113 90" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -93,15 +93,11 @@
         private makeDefault: boolean = false;
         private isSaveButtonEnabled: boolean = true;
 
-        public get isPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isAddUserPaymentMethodPopupShown;
-        }
-
         public onCloseClick() {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_USER_PAYMENT_POPUP);
         }
 
-        public updated(): void {
+        public mounted(): void {
             const stripe: Stripe = new Stripe();
             try {
                 stripe.newCardInput(this.onStripeResponse);

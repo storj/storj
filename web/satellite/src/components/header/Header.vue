@@ -8,7 +8,7 @@
         </div>
         <div class="header-container__right-area">
             <SelectPaymentMethodPopup/>
-            <AddStripeCardPopup/>
+            <AttachStripeCardPopup v-if="isAttachUserPaymentPopupShown"/>
             <NewProjectArea class="header-container__right-area__new-project" />
             <AccountButton class="header-container__right-area__account-button" />
         </div>
@@ -21,7 +21,7 @@
     import NewProjectArea from '@/components/header/NewProjectArea.vue';
     import AccountButton from './AccountButton.vue';
     import SelectPaymentMethodPopup from '@/components/project/paymentMethods/SelectPaymentMethodPopup.vue';
-    import AddStripeCardPopup from '@/components/project/paymentMethods/AttachStripeCardPopup.vue';
+    import AttachStripeCardPopup from '@/components/project/paymentMethods/AttachStripeCardPopup.vue';
 
     @Component({
         components: {
@@ -29,10 +29,14 @@
             NewProjectArea,
             AccountButton,
             SelectPaymentMethodPopup,
-            AddStripeCardPopup
+            AttachStripeCardPopup
         },
     })
-    export default class DashboardHeader extends Vue {}
+    export default class DashboardHeader extends Vue {
+        public get isAttachUserPaymentPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isAttachStripeCardPopupShown;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

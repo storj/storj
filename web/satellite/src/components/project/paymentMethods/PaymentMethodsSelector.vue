@@ -8,7 +8,7 @@
                 isChosen
                 :lastDigits="defaultCard.lastFour"
                 expireLabel="Expires:"
-                :expireDate="defaultCard.expMonth + '/' + defaultCard.expYear"/>
+                :expireDate="`${defaultCard.expMonth} / ${defaultCard.expYear}`"/>
             <div class="chosen-card-container__button-area">
                 <Button
                     label="Default"
@@ -27,7 +27,7 @@
         <div class="expanded-area" :class="{'empty': !isPaymentSelectorShown}" >
             <div v-if="isPaymentSelectorShown" >
                 <div v-for="method in userPaymentMethods">
-                    <UserPaymentMethodCardComponent  :method="method" :key="method.id"/>
+                    <UserPaymentMethodCardComponent :method="method" :key="method.id"/>
                 </div>
             </div>
         </div>
@@ -39,6 +39,7 @@
     import Button from '@/components/common/Button.vue';
     import Card from '@/components/project/CardChoiceItem.vue';
     import UserPaymentMethodCardComponent from '@/components/project/paymentMethods/UserPaymentMethodCardComponent.vue';
+    import { PaymentMethod } from '@/types/invoices';
 
     @Component({
         components: {
@@ -67,6 +68,10 @@
 
         private get defaultCard(): PaymentMethod {
             return this.$store.state.userPaymentsMethodsModule.defaultPaymentMethod;
+        }
+
+        private stub(): void {
+            return;
         }
     }
 </script>

@@ -25,6 +25,7 @@
     import Button from '@/components/common/Button.vue';
     import Card from '@/components/project/CardChoiceItem.vue';
     import { USER_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
+    import { PaymentMethod } from '@/types/invoices';
 
     @Component({
         components: {

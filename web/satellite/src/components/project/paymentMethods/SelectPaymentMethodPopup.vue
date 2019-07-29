@@ -39,6 +39,7 @@
         NOTIFICATION_ACTIONS,
         PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
+    import { PaymentMethod } from '@/types/invoices';
 
     @Component({
         components: {

@@ -13,7 +13,7 @@
             height="48px"
             :onPress="onNewCardClick"
         />
-        <NewUserPaymentMethodPopup />
+        <NewUserPaymentMethodPopup v-if="isNewUserPaymentPopupShown" />
     </div>
 </template>
 
@@ -23,6 +23,7 @@
     import NewUserPaymentMethodPopup from '@/components/project/paymentMethods/NewUserPaymentMethodPopup.vue';
     import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { PaymentMethod } from '@/types/invoices';
 
     @Component({
         components: {
@@ -32,6 +33,10 @@
         }
     })
     export default class AccountPaymentMethods extends Vue {
+
+        public get isNewUserPaymentPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isAddUserPaymentMethodPopupShown;
+        }
 
         public get paymentMethods(): PaymentMethod[] {
             return this.$store.state.userPaymentsMethodsModule.userPaymentMethods;

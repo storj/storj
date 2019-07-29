@@ -13,6 +13,7 @@ import {
     setDefaultPaymentMethodRequest
 } from '@/api/paymentMethods';
 import { RequestResponse } from '@/types/response';
+import { AddPaymentMethodInput, PaymentMethod } from '@/types/invoices';
 
 export const projectPaymentsMethodsModule = {
     state: {

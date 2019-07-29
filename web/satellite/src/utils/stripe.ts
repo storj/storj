@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// Stripe contains
 export default class Stripe {
     private cardElement: any;
 
@@ -33,7 +34,7 @@ export default class Stripe {
         this.cardElement.mount('#card-element');
 
         this.cardElement.addEventListener('change', function (event) {
-            const displayError = document.getElementById('card-errors') as HTMLElement;
+            const displayError: HTMLElement = document.getElementById('card-errors') as HTMLElement;
             if (event.error) {
                 displayError.textContent = event.error.message;
             } else {
@@ -41,8 +42,8 @@ export default class Stripe {
             }
         });
 
-        const form = document.getElementById('payment-form') as HTMLElement;
-        form.addEventListener('submit', this.onSubmitEventListener.bind(this));
+        const form: HTMLElement = document.getElementById('payment-form') as HTMLElement;
+        form.addEventListener('submit', this.onSubmitEventListener);
     }
 
     private onSubmitEventListener = (event) => {
