@@ -91,6 +91,7 @@ func TestAntechamberFindNear(t *testing.T) {
 	rt := createRoutingTable(ctx, nodeID)
 	defer ctx.Check(rt.Close)
 
+	// FIND NEAR ON SELF
 	// Check empty antechamber, expect empty findNear
 	nodes, err := rt.antechamberFindNear(ctx, nodeID, 2)
 	assert.NoError(t, err)
@@ -116,13 +117,11 @@ func TestAntechamberFindNear(t *testing.T) {
 	assert.Equal(t, 2, len(nodes))
 	assert.Equal(t, node4.Id, nodes[0].Id)
 	assert.Equal(t, node1.Id, nodes[1].Id)
+
+	// FIND NEAR ON OTHER NODE
+
 }
 
 func TestFindOutsiderNodes(t *testing.T) {
 
-}
-
-func TestIterateAntechamber(t *testing.T) {
-	// forward
-	// reverse
 }
