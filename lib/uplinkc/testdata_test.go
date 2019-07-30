@@ -16,7 +16,6 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	_libuplink "storj.io/storj/lib/uplink"
 )
 
 func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplanet.Planet)) {
@@ -93,69 +92,6 @@ func TestC(t *testing.T) {
 					}
 				})
 			})
-		}
-	})
-}
-
-func TestLibstorj(t *testing.T) {
-	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
-	defer ctx.Cleanup()
-
-	libuplinkInclude := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
-
-	currentdir, err := os.Getwd()
-	require.NoError(t, err)
-
-	definition := testcontext.Include{
-		Header: filepath.Join(currentdir, "uplink_definitions.h"),
-	}
-
-	srcFiles := []string{
-		"storj.c",
-		"downloader.c",
-		"uploader.c",
-		"crypto.c",
-		"utils.c",
-	}
-	for i, base := range srcFiles {
-		srcFiles[i] = filepath.Join(currentdir, "..", "libstorj", "src", base)
-	}
-
-	includes := []testcontext.Include{
-		libuplinkInclude,
-		definition,
-		testcontext.CLibJSON,
-		testcontext.CLibUV,
-		testcontext.CLibNettle,
-		testcontext.CLibMath,
-	}
-
-	testSrc := filepath.Join(currentdir, "..", "libstorj", "test", "tests.c")
-	testexe := ctx.CompileC(t, testcontext.CompileCOptions{
-		Dest:     "libstorj",
-		Sources:  append(srcFiles, testSrc),
-		Includes: includes,
-		NoWarn:   true,
-	})
-
-	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
-		cfg := _libuplink.Config{}
-		cfg.Volatile.TLS.SkipPeerCAWhitelist = true
-
-		cmd := exec.Command(testexe)
-		cmd.Dir = filepath.Dir(testexe)
-		cmd.Env = append(os.Environ(),
-			"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
-			"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
-			"TMPDIR="+filepath.Dir(libuplinkInclude.Library),
-		)
-
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Error(string(out))
-			t.Fatal(err)
-		} else {
-			t.Log(string(out))
 		}
 	})
 }

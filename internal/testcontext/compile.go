@@ -11,16 +11,8 @@ import (
 	"testing"
 )
 
-var (
-	// CLibMath is the standard C math library (see `man math.h`).
-	CLibMath = Include{Standard: true, Library: "m"}
-	// CLibJSON is the C, JSON API used by libstorj (see: https://github.com/json-c/json-c).
-	CLibJSON = Include{Standard: true, Library: "json-c"}
-	// CLibUV is used for concurrency by libstorj (see: https://github.com/libuv/libuv).
-	CLibUV = Include{Standard: true, Library: "uv"}
-	// CLibNettle is used for encryption by libstorj (see: http://www.lysator.liu.se/~nisse/nettle/).
-	CLibNettle = Include{Standard: true, Library: "nettle"}
-)
+// CLibMath is the standard C math library (see `man math.h`).
+var CLibMath = Include{Standard: true, Library: "m"}
 
 // CompileCOptions stores options for compiling C source to an executable.
 type CompileCOptions struct {
