@@ -41,7 +41,6 @@
         padding-left: 10px;
         padding-right: 10px;
         background-color: #FFFFFF;
-        cursor: pointer;
     }
 
     .new-project-button-container {
@@ -54,6 +53,7 @@
         border-radius: 6px;
         border: 1px solid #AFB7C1;
         background-color: white;
+        cursor: pointer;
 
 
         h1 {
