@@ -112,13 +112,13 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 	service.log.Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
 	err = service.repairer.Repair(ctx, string(seg.GetPath()))
 	if err != nil {
-		//if IrreparableError.Has(err) {
-		//	service.log.Error(
-		//		"deleting irreparable segment from the queue:",
-		//		zap.Error(service.queue.Delete(ctx, seg)),
-		//		zap.Binary("segment", seg.GetPath()),
-		//	)
-		//}
+		if IrreparableError.Has(err) {
+			service.log.Error(
+				"deleting irreparable segment from the queue:",
+				zap.Error(service.queue.Delete(ctx, seg)),
+				zap.Binary("segment", seg.GetPath()),
+			)
+		}
 
 		return Error.New("repairing injured segment: %v", err)
 	}
