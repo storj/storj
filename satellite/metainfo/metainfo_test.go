@@ -349,7 +349,7 @@ func TestCommitSegment(t *testing.T) {
 			}
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "is less than the success threshold")
+			require.Contains(t, err.Error(), "is less than or equal to the repair threshold")
 		}
 
 		{

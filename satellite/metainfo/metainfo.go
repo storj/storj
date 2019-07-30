@@ -524,8 +524,14 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			return Error.New("all pieces needs to have the same size")
 		}
 
-		// todo: is it okay that this is using endpoint.requiredRSConfig instead of pointer rs values?
-		if len(remotePieces) < endpoint.requiredRSConfig.SuccessThreshold {
+		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold {
+			return Error.New("Number of valid pieces (%d) is less than or equal to the repair threshold (%d)",
+				len(remotePieces),
+				remote.Redundancy.RepairThreshold,
+			)
+		}
+
+		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
 			return Error.New("Number of valid pieces (%d) is less than the success threshold (%d)",
 				len(remotePieces),
 				remote.Redundancy.SuccessThreshold,
