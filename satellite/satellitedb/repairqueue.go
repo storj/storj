@@ -129,4 +129,3 @@ func (r *repairQueue) Count(ctx context.Context) (count int, err error) {
 
 	return count, nil
 }
-
