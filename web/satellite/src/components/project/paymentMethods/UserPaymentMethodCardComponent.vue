@@ -7,15 +7,13 @@
             class="option"
             :lastDigits="method.lastFour"
             expireLabel="Expires:"
-            :expireDate="method.expMonth + '/' + method.expYear"/>
-
+            :expireDate="`${method.expMonth} / ${method.expYear}`"/>
         <Button
             label="Choose"
             width="91px"
             height="36px"
             :isDisabled="isChosen"
             :onPress="()=>setSelectedCard(method)"/>
-
     </div>
 
 </template>

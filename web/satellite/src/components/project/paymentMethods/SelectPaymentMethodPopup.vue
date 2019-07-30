@@ -15,10 +15,10 @@
                     <p class="add-payment-popup-container__footer__new-card-button__label" >+ New Card</p>
                 </div>
                 <Button
-                        label="Done"
-                        width="205px"
-                        :onPress="onDoneClick"
-                        height="48px" />
+                    label="Done"
+                    width="205px"
+                    :onPress="onDoneClick"
+                    height="48px" />
             </div>
             <div class="cross" @click="onCloseClick">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -48,9 +48,7 @@
             PaymentMethodsSelector
         }
     })
-
     export default class SelectPaymentMethodPopup extends Vue {
-
         public get isPopupShown(): boolean {
             return this.$store.state.appStateModule.appState.isSelectPaymentMethodPopupShown;
         }

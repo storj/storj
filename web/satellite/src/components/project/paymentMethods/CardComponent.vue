@@ -25,7 +25,7 @@
                 <MakeDefaultPaymentMethodDialog :paymentMethodID="paymentMethod.id" v-if="isSetDefaultPaymentMethodPopupShown"/>
             </div>
         </div>
-        <div class="payment-methods-container__card-container__delete-button-container" v-if="isEditable">
+        <div class="payment-methods-container__card-container__delete-button-container" v-if="isEditable && !paymentMethod.isDefault">
             <div class="payment-methods-container__card-container__delete-button-container__delete-button" v-on:click="onDeletePaymentMethodClick" id="deletePaymentMethodButton">
                 <svg width="34"
                      height="34"
