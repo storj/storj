@@ -3,6 +3,11 @@
 
 package grpcmonkit
 
+const (
+	traceIDKey = "monkit-trace-id"
+	spanIDKey  = "monkit-span-id"
+)
+
 func parseFullMethod(fullMethod string) (service, endpoint string) {
 	for i, p := range fullMethod[1:] {
 		if p == '/' {

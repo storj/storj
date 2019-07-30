@@ -6,8 +6,10 @@ package grpcmonkit
 import (
 	"context"
 	"reflect"
+	"strconv"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
@@ -21,10 +23,17 @@ func ClientDialOptions() []grpc.DialOption {
 
 // NewUnaryClientInterceptor creates an monkit client interceptor.
 func NewUnaryClientInterceptor() grpc.UnaryClientInterceptor {
+	trace := monkit.NewTrace(monkit.NewId())
+
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
+		spanid := monkit.NewId()
+		ctx = metadata.AppendToOutgoingContext(ctx, traceIDKey, strconv.FormatInt(trace.Id(), 10))
+		ctx = metadata.AppendToOutgoingContext(ctx, spanIDKey, strconv.FormatInt(spanid, 10))
+
 		service, endpoint := parseFullMethod(method)
 		scope := monkit.ScopeNamed(service)
-		defer scope.TaskNamed(endpoint)(&ctx, req)(&err)
+		fn := scope.FuncNamed(endpoint)
+		defer fn.RemoteTrace(&ctx, spanid, trace)(&err)
 
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
@@ -32,10 +41,17 @@ func NewUnaryClientInterceptor() grpc.UnaryClientInterceptor {
 
 // NewStreamClientInterceptor creates an monkit client stream interceptor.
 func NewStreamClientInterceptor() grpc.StreamClientInterceptor {
+	trace := monkit.NewTrace(monkit.NewId())
+
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (stream grpc.ClientStream, err error) {
+		spanid := monkit.NewId()
+		ctx = metadata.AppendToOutgoingContext(ctx, traceIDKey, strconv.FormatInt(trace.Id(), 10))
+		ctx = metadata.AppendToOutgoingContext(ctx, spanIDKey, strconv.FormatInt(spanid, 10))
+
 		service, endpoint := parseFullMethod(method)
 		scope := monkit.ScopeNamed(service)
-		defer scope.TaskNamed(endpoint)(&ctx)(&err)
+		fn := scope.FuncNamed(endpoint)
+		defer fn.RemoteTrace(&ctx, spanid, trace)(&err)
 
 		stream, err = streamer(ctx, desc, cc, method, opts...)
 		if err != nil {
