@@ -99,7 +99,6 @@ pipeline {
                     }
 
                     steps {
-                        sh 'make setup-backwards'
                         sh 'make test-sim-backwards-compatible'
 
                     }
