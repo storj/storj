@@ -36,10 +36,6 @@ type Report struct {
 
 // NewReporter instantiates a reporter
 func NewReporter(log *zap.Logger, overlay *overlay.Cache, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
-	if log == nil {
-		log = log.Named("audit:reporter")
-	}
-
 	return &Reporter{
 		log:              log,
 		overlay:          overlay,
