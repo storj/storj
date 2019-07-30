@@ -297,12 +297,12 @@ message ObjectListRequest {
     bytes     bucket = 1;
     bytes     encrypted_prefix = 2;
     bytes     encrypted_cursor = 3;
-    int32     limit = 4;
+    bool      recursive = 4;
+    int32     limit = 5;
 
-    ObjectListItemIncludes object_includes = 5;
+    ObjectListItemIncludes object_includes = 6;
 
-    // TODO show we support it at all, clarify with JT
-    bool recursive = 6;
+
 }
 
 message ObjectListResponse {

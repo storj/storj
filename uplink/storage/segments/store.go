@@ -237,28 +237,6 @@ func (s *segmentStore) Delete(ctx context.Context, streamID storj.StreamID, segm
 
 // CalcNeededNodes calculate how many minimum nodes are needed for download,
 // based on t = k + (n-o)k/o
-// func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
-// 	extra := int32(1)
-
-// 	if rs.GetSuccessThreshold() > 0 {
-// 		extra = ((rs.GetTotal() - rs.GetSuccessThreshold()) * rs.GetMinReq()) / rs.GetSuccessThreshold()
-// 		if extra == 0 {
-// 			// ensure there is at least one extra node, so we can have error detection/correction
-// 			extra = 1
-// 		}
-// 	}
-
-// 	needed := rs.GetMinReq() + extra
-
-// 	if needed > rs.GetTotal() {
-// 		needed = rs.GetTotal()
-// 	}
-
-// 	return needed
-// }
-
-// CalcNeededNodes calculate how many minimum nodes are needed for download,
-// based on t = k + (n-o)k/o
 func CalcNeededNodes(rs storj.RedundancyScheme) int32 {
 	extra := int32(1)
 
@@ -287,25 +265,6 @@ func convertMeta(pr *pb.Pointer) Meta {
 		Size:       pr.GetSegmentSize(),
 		Data:       pr.GetMetadata(),
 	}
-}
-
-func splitPathFragments(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
-	components := storj.SplitPath(path)
-	if len(components) < 1 {
-		return "", "", -2, Error.New("empty path")
-	}
-
-	segmentIndex, err = convertSegmentIndex(components[0])
-	if err != nil {
-		return "", "", -2, err
-	}
-
-	if len(components) > 1 {
-		bucket = components[1]
-		objectPath = storj.JoinPaths(components[2:]...)
-	}
-
-	return bucket, objectPath, segmentIndex, nil
 }
 
 func convertSegmentIndex(segmentComp string) (segmentIndex int64, err error) {

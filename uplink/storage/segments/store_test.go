@@ -4,22 +4,12 @@
 package segments_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/vivint/infectious"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/uplink/ecclient"
-	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/segments"
 )
 
@@ -181,45 +171,45 @@ func TestCalcNeededNodes(t *testing.T) {
 	}
 }
 
-func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store)) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// TODO move apikey creation to testplanet
-		project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
-			Name: "testProject",
-		})
-		require.NoError(t, err)
+// func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store)) {
+// 	testplanet.Run(t, testplanet.Config{
+// 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+// 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+// 		// TODO move apikey creation to testplanet
+// 		project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+// 			Name: "testProject",
+// 		})
+// 		require.NoError(t, err)
 
-		apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
-		require.NoError(t, err)
+// 		apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
+// 		require.NoError(t, err)
 
-		apiKeyInfo := console.APIKeyInfo{
-			ProjectID: project.ID,
-			Name:      "testKey",
-			Secret:    []byte("testSecret"),
-		}
+// 		apiKeyInfo := console.APIKeyInfo{
+// 			ProjectID: project.ID,
+// 			Name:      "testKey",
+// 			Secret:    []byte("testSecret"),
+// 		}
 
-		// add api key to db
-		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
-		require.NoError(t, err)
+// 		// add api key to db
+// 		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
+// 		require.NoError(t, err)
 
-		TestAPIKey := apiKey.Serialize()
+// 		TestAPIKey := apiKey.Serialize()
 
-		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
-		require.NoError(t, err)
-		defer ctx.Check(metainfo.Close)
+// 		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
+// 		require.NoError(t, err)
+// 		defer ctx.Check(metainfo.Close)
 
-		ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
-		fc, err := infectious.NewFEC(2, 4)
-		require.NoError(t, err)
+// 		ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
+// 		fc, err := infectious.NewFEC(2, 4)
+// 		require.NoError(t, err)
 
-		rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 0, 0)
-		require.NoError(t, err)
+// 		rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 0, 0)
+// 		require.NoError(t, err)
 
-		segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
-		assert.NotNil(t, segmentStore)
+// 		segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+// 		assert.NotNil(t, segmentStore)
 
-		test(t, ctx, planet, segmentStore)
-	})
-}
+// 		test(t, ctx, planet, segmentStore)
+// 	})
+// }

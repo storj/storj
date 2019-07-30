@@ -216,7 +216,6 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 }
 
 type object struct {
-	streamID        storj.StreamID
 	fullpath        streams.Path
 	bucket          string
 	encPath         paths.Encrypted
@@ -245,7 +244,7 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 		return object{}, storj.Object{}, err
 	}
 
-	objectInfo, streamID, err := db.metainfo.GetObject(ctx, metainfo.GetObjectParams{
+	objectInfo, _, err := db.metainfo.GetObject(ctx, metainfo.GetObjectParams{
 		Bucket:        []byte(bucket),
 		EncryptedPath: []byte(encPath.Raw()),
 	})
@@ -294,7 +293,7 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 	}
 
 	return object{
-		streamID:        streamID,
+		// streamID:        streamID,
 		fullpath:        fullpath,
 		bucket:          bucket,
 		encPath:         encPath,

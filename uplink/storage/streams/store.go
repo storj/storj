@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"io"
 	"io/ioutil"
-	"strconv"
 	"strings"
 	"time"
 
@@ -690,34 +689,4 @@ func TypedDecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path Pa
 	// decrypt metadata with the content encryption key and zero nonce
 	streamInfo, err = encryption.Decrypt(streamMeta.EncryptedStreamInfo, cipher, contentKey, &storj.Nonce{})
 	return streamInfo, streamMeta, err
-}
-
-// createSegmentPath will create a storj.Path that the segment store expects.
-func createSegmentPath(ctx context.Context, segmentIndex int64, bucket string, encPath paths.Encrypted) (path storj.Path, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if segmentIndex < -1 {
-		return "", errs.New("invalid segment index")
-	}
-
-	var raw []byte
-	if segmentIndex > -1 {
-		raw = append(raw, 's')
-		raw = append(raw, strconv.FormatInt(segmentIndex, 10)...)
-	} else {
-		raw = append(raw, 'l')
-	}
-	raw = append(raw, '/')
-
-	if len(bucket) > 0 {
-		raw = append(raw, bucket...)
-		raw = append(raw, '/')
-
-		if encPath.Valid() {
-			raw = append(raw, encPath.Raw()...)
-			raw = append(raw, '/')
-		}
-	}
-
-	return storj.Path(raw[:len(raw)-1]), nil
 }

@@ -1030,6 +1030,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 	pointer.Metadata = req.EncryptedMetadata
 
+	// to update pointer we need to delete and add it
 	err = endpoint.metainfo.Delete(ctx, path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -1771,6 +1772,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 		limits = sortLimits(limits, pointer)
 
+		// workaround to avoid sending nil values on top level
 		for i := range limits {
 			if limits[i] == nil {
 				limits[i] = &pb.AddressedOrderLimit{}
