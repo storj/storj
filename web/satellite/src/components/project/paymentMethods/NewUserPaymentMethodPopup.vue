@@ -43,18 +43,8 @@
                 <h1>Add New Card</h1>
             </div>
             <div class="add-stripe-card-popup-container__input-container">
-                <!--Stripe card input here-->
                 <div class="card-form-input">
-                    <form id="payment-form">
-                        <div class="form-row">
-                            <div id="card-element">
-                                <!-- A Stripe Element will be inserted here. -->
-                            </div>
-
-                            <!-- Used to display form errors. -->
-                            <div id="card-errors" role="alert"></div>
-                        </div>
-                    </form>
+                    <StripeInput :onStripeResponseCallback="onStripeResponse"/>
                 </div>
             </div>
             <div class="add-stripe-card-popup-container__checkbox-container">
@@ -80,12 +70,13 @@
         NOTIFICATION_ACTIONS,
         USER_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
-    import Stripe from '@/utils/stripe';
+    import StripeInput from '@/components/common/StripeInput.vue';
 
     @Component({
         components: {
             Checkbox,
             Button,
+            StripeInput
         },
     })
 
@@ -97,16 +88,7 @@
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_USER_PAYMENT_POPUP);
         }
 
-        public mounted(): void {
-            const stripe: Stripe = new Stripe();
-            try {
-                stripe.newCardInput(this.onStripeResponse);
-            } catch (e) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.toString());
-            }
-        }
-
-        private async onStripeResponse(result:any) {
+        public async onStripeResponse(result:any) {
             const response = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.ADD, result.token.id);
             this.isSaveButtonEnabled = true;
             if (!response.isSuccess) {
@@ -134,9 +116,8 @@
                 return;
             }
 
-            const form = document.getElementById('payment-form') as HTMLElement;
-            const saveEvent = new CustomEvent('submit', {'bubbles': true});
-            form.dispatchEvent(saveEvent);
+            this.$emit('onSubmitStripeInputEvent');
+
             this.isSaveButtonEnabled = false;
         }
     }
@@ -227,39 +208,7 @@
         }
     }
 
-    .StripeElement {
-        box-sizing: border-box;
-
-        width: 100%;
-
-        padding: 13px 12px;
-
-        border: 1px solid transparent;
-        border-radius: 4px;
-        background-color: white;
-
-        box-shadow: 0 1px 3px 0 #e6ebf1;
-        -webkit-transition: box-shadow 150ms ease;
-        transition: box-shadow 150ms ease;
-    }
-
-    .StripeElement--focus {
-        box-shadow: 0 1px 3px 0 #cfd7df;
-    }
-
-    .StripeElement--invalid {
-        border-color: #fa755a;
-    }
-
-    .StripeElement--webkit-autofill {
-        background-color: #fefde5 !important;
-    }
-
     .card-form-input {
         width: 100%;
-
-        form {
-            width: 100%;
-        }
     }
 </style>

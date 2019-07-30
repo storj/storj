@@ -402,6 +402,14 @@ func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment
 		return err
 	}
 
+	payment, err := s.store.ProjectPayments().GetByID(ctx, projectPaymentID)
+	if err != nil {
+		return errs.New(internalErrMsg)
+	}
+	if payment.IsDefault {
+		return errs.New("")
+	}
+
 	err = s.store.ProjectPayments().Delete(ctx, projectPaymentID, projectID)
 	if err != nil {
 		return errs.New(internalErrMsg)

@@ -29,9 +29,8 @@
     .container {
         display: block;
         position: relative;
-        padding-left: 20px;
-        height: 23px;
-        width: 23px;
+        height: 29px;
+        width: 29px;
         cursor: pointer;
         font-size: 22px;
         -webkit-user-select: none;
@@ -39,14 +38,10 @@
         -ms-user-select: none;
         user-select: none;
         outline: none;
-    }
 
-    .container input {
-        position: absolute;
-        opacity: 0;
-        cursor: pointer;
-        height: 0;
-        width: 0;
+        input {
+            display: none;
+        }
     }
 
     .checkmark {

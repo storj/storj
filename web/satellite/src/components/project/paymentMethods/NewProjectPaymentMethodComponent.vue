@@ -6,25 +6,25 @@
         <div class="add-payment-popup-container">
             <div class="card-form-input">
                 <img src="../../../../static/images/Card.svg"/>
-                <form id="payment-form">
-                    <div class="form-row">
-                        <div id="card-element">
-                            <!-- A Stripe Element will be inserted here. -->
+                <div id="payment-form">
+                    <div class="stripe">
+                        <StripeInput class="stripe-input-container"
+                                     :onStripeResponseCallback="onStripeResponse"
+                        />
+                    </div>
+                    <div class="submit-container">
+                        <div class="checkbox-container" v-if="projectPaymentMethodsCount > 0">
+                            <Checkbox @setData="toggleMakeDefault"/>
+                            <h2>Make Default</h2>
                         </div>
+                        <Button
+                                label="Save"
+                                width="135px"
+                                height="48px"
+                                :on-press="onSaveClick"/>
+                    </div>
 
-                        <!-- Used to display form errors. -->
-                        <div id="card-errors" role="alert"></div>
-                    </div>
-                    <div class="checkbox-container" v-if="projectPaymentMethodsCount > 0">
-                        <Checkbox @setData="toggleMakeDefault"/>
-                        <h2>Make Default</h2>
-                    </div>
-                    <Button
-                            label="Save"
-                            width="135px"
-                            height="48px"
-                            :on-press="onSaveClick"/>
-                </form>
+                </div>
             </div>
         </div>
     </div>
@@ -39,14 +39,15 @@
         USER_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
     import Checkbox from '@/components/common/Checkbox.vue';
-    import Stripe from '@/utils/stripe';
     import { AddPaymentMethodInput } from '@/types/invoices';
+    import StripeInput from '@/components/common/StripeInput.vue';
 
     @Component(
         {
             components: {
                 Button,
                 Checkbox,
+                StripeInput
             }
         }
     )
@@ -55,16 +56,7 @@
         private makeDefault: boolean = false;
         private isSaveButtonEnabled: boolean = true;
 
-        public mounted(): void {
-            const stripe: Stripe = new Stripe();
-            try {
-                stripe.newCardInput(this.onStripeResponse);
-            } catch (e) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.toString());
-            }
-        }
-
-        private async onStripeResponse(result: any) {
+        public async onStripeResponse(result: any) {
             const input:AddPaymentMethodInput = new AddPaymentMethodInput(result.token.id, this.makeDefault);
 
             const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
@@ -100,9 +92,7 @@
                 return;
             }
 
-            const form = document.getElementById('payment-form') as HTMLElement;
-            const saveEvent = new CustomEvent('submit', {'bubbles': true});
-            form.dispatchEvent(saveEvent);
+            this.$emit('onSubmitStripeInputEvent');
 
             this.isSaveButtonEnabled = false;
         }
@@ -110,44 +100,29 @@
 </script>
 
 <style scoped lang="scss">
-    .StripeElement {
-        box-sizing: border-box;
-
-        width: 484px;
-
-        padding: 13px 12px;
-
-        border: 1px solid transparent;
-        border-radius: 4px;
-        background-color: white;
-
-        box-shadow: 0 1px 3px 0 #e6ebf1;
-        -webkit-transition: box-shadow 150ms ease;
-        transition: box-shadow 150ms ease;
-    }
-
-    .StripeElement--focus {
-        box-shadow: 0 1px 3px 0 #cfd7df;
-    }
-
-    .StripeElement--invalid {
-        border-color: #fa755a;
-    }
-
-    .StripeElement--webkit-autofill {
-        background-color: #fefde5 !important;
-    }
-
     .card-form-input {
         display: flex;
         justify-content: center;
         align-items: center;
         width: 100%;
 
-        form {
+        #payment-form {
             display: flex;
             width: 100%;
             justify-content: space-between;
+            align-items: center;
+
+            .submit-container {
+                display: flex;
+                min-width: 290px;
+                align-items: center;
+                justify-content: space-between;
+                margin-left: 41px;
+            }
+        }
+
+        .stripe {
+            width: 100%;
             align-items: center;
         }
 
@@ -156,6 +131,11 @@
             margin-right: 25px;
             margin-left: -20px;
         }
+
+    }
+
+    .stripe-input-container {
+        width: 100%;
     }
 
     .checkbox-container {
@@ -168,8 +148,8 @@
             font-size: 12px;
             line-height: 18px;
             color: #384B65;
+            margin-left: 5px;
         }
-
     }
 
     .add-payment-popup-overflow {

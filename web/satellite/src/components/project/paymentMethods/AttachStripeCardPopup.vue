@@ -43,18 +43,8 @@
                <h1>Add New Card</h1>
             </div>
             <div class="add-stripe-card-popup-container__input-container">
-                <!--Stripe card input here-->
                 <div class="card-form-input">
-                    <form id="payment-form">
-                        <div class="form-row">
-                            <div id="card-element">
-                                <!-- A Stripe Element will be inserted here. -->
-                            </div>
-
-                            <!-- Used to display form errors. -->
-                            <div id="card-errors" role="alert"></div>
-                        </div>
-                    </form>
+                    <StripeInput :onStripeResponseCallback="onStripeResponse"/>
                 </div>
             </div>
             <div class="add-stripe-card-popup-container__checkbox-container">
@@ -81,13 +71,14 @@
         PROJECT_PAYMENT_METHODS_ACTIONS,
         USER_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
-    import Stripe from '@/utils/stripe';
     import { AddPaymentMethodInput } from '@/types/invoices';
+    import StripeInput from '@/components/common/StripeInput.vue';
 
     @Component({
         components: {
             Checkbox,
             Button,
+            StripeInput
         },
     })
 
@@ -98,16 +89,7 @@
             return this.$store.state.appStateModule.appState.isAttachStripeCardPopupShown;
         }
 
-        public mounted(): void {
-            const stripe: Stripe = new Stripe();
-            try {
-                stripe.newCardInput(this.onStripeResponse);
-            } catch (e) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.toString());
-            }
-        }
-
-        private async onStripeResponse(result: any) {
+        public async onStripeResponse(result: any) {
             const input:AddPaymentMethodInput = new AddPaymentMethodInput(result.token.id, this.makeDefault);
 
             const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
@@ -121,12 +103,12 @@
 
             const projectPaymentsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
             if (!projectPaymentsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + projectPaymentsResponse.errorMessage);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch payment methods: ${projectPaymentsResponse.errorMessage}`);
             }
 
             const userPaymentMethodResponse = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
             if (!userPaymentMethodResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch user payment methods: userPaymentMethodResponse.errorMessage}`);
             }
 
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ATTACH_STRIPE_CARD_POPUP);
@@ -137,9 +119,7 @@
         }
 
         public onSaveCardClick(): void {
-            const form = document.getElementById('payment-form') as HTMLElement;
-            const saveEvent = new CustomEvent('submit', {'bubbles': true});
-            form.dispatchEvent(saveEvent);
+            this.$emit('onSubmitStripeInputEvent');
         }
 
         public onCloseClick(): void {
@@ -161,7 +141,7 @@
         font-size: 14px;
         line-height: 20px;
         color: #384B65;
-        margin-top: 17px;
+        margin-left: 10px;
     }
 
     .add-stripe-card-popup-container-overflow {
@@ -228,34 +208,6 @@
         width: 24px;
         cursor: pointer;
     }
-    .StripeElement {
-        box-sizing: border-box;
-
-        width: 100%;
-
-        padding: 13px 12px;
-
-        border: 1px solid transparent;
-        border-radius: 4px;
-        background-color: white;
-
-        box-shadow: 0 1px 3px 0 #e6ebf1;
-        -webkit-transition: box-shadow 150ms ease;
-        transition: box-shadow 150ms ease;
-    }
-
-    .StripeElement--focus {
-        box-shadow: 0 1px 3px 0 #cfd7df;
-    }
-
-    .StripeElement--invalid {
-        border-color: #fa755a;
-    }
-
-    .StripeElement--webkit-autofill {
-        background-color: #fefde5 !important;
-    }
-
     .card-form-input {
         width: 100%;
 
