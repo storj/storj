@@ -271,14 +271,22 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		Address: limit.GetStorageNodeAddress(),
 	})
 	if err != nil {
-		ec.log.Sugar().Debugf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
+		ec.log.Debug("Failed dialing for putting piece to node",
+			zap.String("pieceID", pieceID.String()),
+			zap.String("nodeID", storageNodeID.String()),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 
 	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
-		ec.log.Sugar().Debugf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err)
+		ec.log.Debug("Failed requesting upload of pieces to node",
+			zap.String("pieceID", pieceID.String()),
+			zap.String("nodeID", storageNodeID.String()),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 	defer func() {
@@ -307,7 +315,13 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if limit.GetStorageNodeAddress() != nil {
 			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
 		}
-		ec.log.Sugar().Debugf("Failed uploading piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
+
+		ec.log.Debug("Failed uploading piece to node",
+			zap.String("pieceID", pieceID.String()),
+			zap.String("nodeID", storageNodeID.String()),
+			zap.String("nodeAddress", nodeAddress),
+			zap.Error(err),
+		)
 	}
 
 	return hash, err
