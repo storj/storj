@@ -219,7 +219,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
-		return err // TODO: report grpc status unauthorized or bad request
+		return err
 	}
 
 	var pieceWriter *pieces.Writer

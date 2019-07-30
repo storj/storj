@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/pb"
@@ -33,34 +35,35 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	now := time.Now()
 	switch {
 	case limit.Limit < 0:
-		return ErrProtocol.New("order limit is negative")
+		return status.Error(codes.InvalidArgument, "order limit is negative")
 	case endpoint.signer.ID() != limit.StorageNodeId:
-		return ErrProtocol.New("order intended for other storagenode: %v", limit.StorageNodeId)
+		return status.Errorf(codes.InvalidArgument, "order intended for other storagenode: %v", limit.StorageNodeId)
 	case endpoint.IsExpired(limit.PieceExpiration):
-		return ErrProtocol.New("piece expired: %v", limit.PieceExpiration)
+		return status.Errorf(codes.InvalidArgument, "piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
-		return ErrProtocol.New("order expired: %v", limit.OrderExpiration)
+		return status.Errorf(codes.InvalidArgument, "order expired: %v", limit.OrderExpiration)
 	case now.Sub(limit.OrderCreation) > endpoint.config.OrderLimitGracePeriod:
-		return ErrProtocol.New("order created too long ago: %v", limit.OrderCreation)
+		return status.Errorf(codes.InvalidArgument, "order created too long ago: %v", limit.OrderCreation)
 	case limit.SatelliteId.IsZero():
-		return ErrProtocol.New("missing satellite id")
+		return status.Errorf(codes.InvalidArgument, "missing satellite id")
 	case limit.UplinkPublicKey.IsZero():
-		return ErrProtocol.New("missing uplink public key")
+		return status.Errorf(codes.InvalidArgument, "missing uplink public key")
 	case len(limit.SatelliteSignature) == 0:
-		return ErrProtocol.New("missing satellite signature")
+		return status.Errorf(codes.InvalidArgument, "missing satellite signature")
 	case limit.PieceId.IsZero():
-		return ErrProtocol.New("missing piece id")
+		return status.Errorf(codes.InvalidArgument, "missing piece id")
 	}
 
 	if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
-		return ErrVerifyUntrusted.Wrap(err)
+		return status.Errorf(codes.FailedPrecondition, "untrusted: %+v", err)
 	}
 
 	if err := endpoint.VerifyOrderLimitSignature(ctx, limit); err != nil {
 		if err == context.Canceled {
-			return err
+			return status.Error(codes.Canceled, "context has been canceled")
 		}
-		return ErrVerifyUntrusted.Wrap(err)
+
+		return status.Errorf(codes.FailedPrecondition, "untrusted: %+v", err)
 	}
 
 	serialExpiration := limit.OrderExpiration
@@ -71,7 +74,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	}
 
 	if err := endpoint.usedSerials.Add(ctx, limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
-		return ErrVerifyDuplicateRequest.Wrap(err)
+		return status.Errorf(codes.AlreadyExists, "serial number is already used: %+v", err)
 	}
 
 	return nil

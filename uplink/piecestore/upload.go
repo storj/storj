@@ -67,7 +67,11 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit, piecePri
 	})
 	if err != nil {
 		_, closeErr := stream.CloseAndRecv()
-		return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr))
+		if err != io.EOF {
+			return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr))
+		}
+
+		return nil, ErrProtocol.Wrap(closeErr)
 	}
 
 	upload := &Upload{
@@ -138,7 +142,13 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 			},
 		})
 		if err != nil {
-			err = ErrProtocol.Wrap(err)
+			_, closeErr := client.stream.CloseAndRecv()
+			if err != io.EOF {
+				err = ErrProtocol.Wrap(errs.Combine(err, closeErr))
+			} else {
+				err = ErrProtocol.Wrap(closeErr)
+			}
+
 			client.sendError = err
 			return written, err
 		}
