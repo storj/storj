@@ -168,7 +168,7 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 	}
 
 	failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
-	if err != nil && len(failed) > 0 {
+	if err != nil || len(failed) > 0 {
 		return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), err)
 	}
 	return nil, nil
@@ -201,10 +201,15 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 	if err != nil {
 		errlist.Add(err)
 	}
-	for _, nodeID := range failedBatch {
+	if len(failedBatch) > 0 {
+		pendingMap := make(map[storj.NodeID]*PendingAudit)
 		for _, pendingAudit := range pendingAudits {
-			if nodeID == pendingAudit.NodeID {
-				failed = append(failed, pendingAudit)
+			pendingMap[pendingAudit.NodeID] = pendingAudit
+		}
+		for _, nodeID := range failedBatch {
+			pending, ok := pendingMap[nodeID]
+			if ok {
+				failed = append(failed, pending)
 			}
 		}
 	}
