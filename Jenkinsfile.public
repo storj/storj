@@ -94,18 +94,12 @@ pipeline {
                 stage('Backwards Compatibility') {
                     // TODO: add a where clause and only run this check on master branch
                     environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.2'
-                        STORJ_NETWORK_HOST6 = '127.0.0.2'
+                        STORJ_NETWORK_HOST4 = '127.0.0.3'
+                        STORJ_NETWORK_HOST6 = '127.0.0.3'
                     }
 
                     steps {
-                        sh 'export BRANCH_DIR="$(pwd)"'
-                        sh 'export RELEASE_DIR="$(pwd)/release"'
-                        sh 'latestReleaseTag=$(git describe --tags `git rev-list --tags --max-count=1`)'
-                        sh 'latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")'
-                        sh 'echo "Checking out latest release tag: $latestReleaseTag"'
-                        sh 'git worktree add -f $RELEASE_DIR "$latestReleaseCommit"'
-
+                        sh 'make setup-backwards'
                         sh 'make test-sim-backwards-compatible'
 
                     }
