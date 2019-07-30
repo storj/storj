@@ -211,7 +211,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 			nodesToDQ[piece.NodeId] = true
 		}
 
-		for nodeID, _ := range nodesToDQ {
+		for nodeID := range nodesToDQ {
 			disqualifyNode(t, ctx, satellitePeer, nodeID)
 		}
 
