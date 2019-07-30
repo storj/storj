@@ -1044,7 +1044,7 @@ func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.Injure
 	return m.db.SelectN(ctx, limit)
 }
 
-// SelectN lists limit amount of injured segments.
+// Count counts the number of segments in the repair queue.
 func (m *lockedRepairQueue) Count(ctx context.Context) (int, error) {
 	m.Lock()
 	defer m.Unlock()
