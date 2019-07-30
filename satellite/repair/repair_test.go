@@ -194,7 +194,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		originalPointer, originalPath := getRemoteSegment(t, ctx, satellitePeer)
+		pointer, _ := getRemoteSegment(t, ctx, satellitePeer)
 
 		// kill nodes and track lost pieces
 		nodesToDQ := make(map[storj.NodeID]bool)
@@ -202,7 +202,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
 		toKill := 3
 
-		remotePieces := originalPointer.GetRemote().GetRemotePieces()
+		remotePieces := pointer.GetRemote().GetRemotePieces()
 
 		for i, piece := range remotePieces {
 			if i >= toKill {
@@ -228,10 +228,9 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 			disqualifyNode(t, ctx, satellitePeer, piece.NodeId)
 		}
 
-		// NB: Can't reselect again after this
-		//injured, err := satellitePeer.DB.RepairQueue().Select(ctx)
-		//require.NotNil(t, injured)
-		//require.NoError(t, err)
+		count, err := satellitePeer.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 1)
 
 		// Run the repairer
 		satellitePeer.Repair.Repairer.Loop.Restart()
@@ -239,15 +238,9 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellitePeer.Repair.Repairer.Loop.Pause()
 		satellitePeer.Repair.Repairer.Limiter.Wait()
 
-		// Verify segment is no longer in the repair queue and segment should be the same
-		//injured, err := satellitePeer.DB.RepairQueue().Select(ctx)
-		//require.Nil(t, injured)
-		//require.Error(t, err)
-		//require.True(t, storage.ErrEmptyQueue.Has(err))
-		//
-		//newPointer, newPath := getRemoteSegment(t, ctx, satellitePeer)
-		//require.Equal(t, newPointer, originalPointer)
-		//require.Equal(t, newPath, originalPath)
+		count, err = satellitePeer.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 0)
 	})
 }
 
