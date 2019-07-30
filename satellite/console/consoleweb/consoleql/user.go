@@ -144,8 +144,8 @@ func fillUserInfo(user *console.User, args map[string]interface{}) console.UserI
 	return info
 }
 
-// UserPaymentMethodCombined represents partial information about User Payment Method
-type UserPaymentMethodCombined struct {
+// UserPaymentMethodInfo represents partial information about User Payment Method
+type UserPaymentMethodInfo struct {
 	ID         string
 	ExpYear    int64
 	ExpMonth   int64
