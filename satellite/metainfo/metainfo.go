@@ -117,18 +117,9 @@ func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInf
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(ctx, path)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, status.Errorf(codes.NotFound, err.Error())
-		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	return &pb.SegmentInfoResponseOld{Pointer: pointer}, nil
@@ -347,18 +338,9 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(ctx, path)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, status.Errorf(codes.NotFound, err.Error())
-		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	if pointer.Type == pb.Pointer_INLINE {
@@ -1015,17 +997,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, -1, streamID.Bucket, streamID.EncryptedPath)
+	pointer, path, err := endpoint.getPointer(ctx, keyInfo.ProjectID, -1, streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	pointer, err := endpoint.metainfo.Get(ctx, path)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, status.Errorf(codes.NotFound, err.Error())
-		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	pointer.Metadata = req.EncryptedMetadata
@@ -1063,17 +1037,9 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.Bucket, req.EncryptedPath)
+	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, -1, req.Bucket, req.EncryptedPath)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	pointer, err := endpoint.metainfo.Get(ctx, path)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, status.Errorf(codes.NotFound, err.Error())
-		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	streamMeta := &pb.StreamMeta{}
@@ -1206,17 +1172,9 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, -1, satStreamID.Bucket, satStreamID.EncryptedPath)
+	_, _, err = endpoint.getPointer(ctx, keyInfo.ProjectID, -1, satStreamID.Bucket, satStreamID.EncryptedPath)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	_, err = endpoint.metainfo.Get(ctx, path)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, status.Errorf(codes.NotFound, err.Error())
-		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	return &pb.ObjectBeginDeleteResponse{
@@ -1516,17 +1474,9 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
+	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	pointer, err := endpoint.metainfo.Get(ctx, path)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, status.Errorf(codes.NotFound, err.Error())
-		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	var limits []*pb.AddressedOrderLimit
@@ -1574,17 +1524,9 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
+	pointer, path, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	pointer, err := endpoint.metainfo.Get(ctx, path)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, status.Errorf(codes.NotFound, err.Error())
-		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
@@ -1701,17 +1643,9 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(req.CursorPosition.Index), streamID.Bucket, streamID.EncryptedPath)
+	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(req.CursorPosition.Index), streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	pointer, err := endpoint.metainfo.Get(ctx, path)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			return nil, status.Errorf(codes.NotFound, err.Error())
-		}
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, err
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{})
@@ -1781,6 +1715,22 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	return &pb.SegmentDownloadResponse{}, status.Errorf(codes.Internal, "invalid type of pointer")
+}
+
+func (endpoint *Endpoint) getPointer(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte) (*pb.Pointer, string, error) {
+	path, err := CreatePath(ctx, projectID, segmentIndex, bucket, encryptedPath)
+	if err != nil {
+		return nil, "", status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	pointer, err := endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, "", status.Errorf(codes.NotFound, err.Error())
+		}
+		return nil, "", status.Errorf(codes.Internal, err.Error())
+	}
+	return pointer, path, nil
 }
 
 // sortLimits sorts order limits and fill missing ones with nil values

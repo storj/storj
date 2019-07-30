@@ -276,8 +276,8 @@ message ObjectBeginResponse {
 message ObjectCommitRequest {
     bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
 
-    bytes  encrypted_metadata_nonce = 5 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    bytes  encrypted_metadata = 6; // TODO: set maximum size limit
+    bytes  encrypted_metadata_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes  encrypted_metadata = 3; // TODO: set maximum size limit
 }
 
 message ObjectCommitResponse {
@@ -354,9 +354,6 @@ message SatStreamID {
 
     google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-
-    // bytes  encrypted_metadata_nonce = 7 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    // bytes  encrypted_metadata       = 8;
 
     bytes satellite_signature = 9;
 }

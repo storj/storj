@@ -2425,7 +2425,7 @@
                 ]
               },
               {
-                "id": 5,
+                "id": 2,
                 "name": "encrypted_metadata_nonce",
                 "type": "bytes",
                 "options": [
@@ -2440,7 +2440,7 @@
                 ]
               },
               {
-                "id": 6,
+                "id": 3,
                 "name": "encrypted_metadata",
                 "type": "bytes"
               }
