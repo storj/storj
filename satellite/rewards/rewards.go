@@ -22,7 +22,7 @@ var (
 // DB holds information about offer
 type DB interface {
 	ListAll(ctx context.Context) (Offers, error)
-	GetCurrentByType(ctx context.Context, offerType OfferType) (*Offer, error)
+	GetActiveOffersByType(ctx context.Context, offerType OfferType) (Offers, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
 	Finish(ctx context.Context, offerID int) error
 }
@@ -188,6 +188,32 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
 	offerSet.PartnerTables = organizePartnerData(p)
 	return offerSet
+}
+
+// GetActiveOffer returns an offer that is active based on its type
+func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offer *Offer, err error) {
+	switch offerType {
+	case Partner:
+		if partnerID == "" {
+			return nil, errs.New("partner ID is empty")
+		}
+		partnerInfo, ok := LoadPartnerInfos()[partnerID]
+		if !ok {
+			return nil, errs.New("partner not exist")
+		}
+		for _, o := range offers {
+			if o.Name == partnerInfo.Name {
+				offer = &o
+			}
+		}
+	default:
+		if len(offers) != 1 {
+			return nil, errs.New("multiple active offers found")
+		}
+		offer = &offers[0]
+	}
+
+	return offer, nil
 }
 
 // createPartnerSet generates a PartnerSet from the config file.

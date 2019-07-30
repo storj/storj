@@ -3,6 +3,8 @@
 
 package rewards
 
+import "github.com/zeebo/errs"
+
 // PartnerInfo contains the name and ID of an Open Source Partner
 type PartnerInfo struct {
 	ID, Name string
@@ -19,49 +21,61 @@ type Partners map[string]PartnerInfo
 // LoadPartnerInfos returns our current Open Source Partners.
 func LoadPartnerInfos() Partners {
 	return Partners{
-		"Couchbase": PartnerInfo{
+		"OSPP001": PartnerInfo{
 			Name: "Couchbase",
 			ID:   "OSPP001",
 		},
-		"MongoDB": PartnerInfo{
+		"OSPP002": PartnerInfo{
 			Name: "MongoDB",
 			ID:   "OSPP002",
 		},
-		"FileZilla": PartnerInfo{
+		"OSPP003": PartnerInfo{
 			Name: "FileZilla",
 			ID:   "OSPP003",
 		},
-		"InfluxDB": PartnerInfo{
+		"OSPP004": PartnerInfo{
 			Name: "InfluxDB",
 			ID:   "OSPP004",
 		},
-		"Kafka": PartnerInfo{
+		"OSPP005": PartnerInfo{
 			Name: "Kafka",
 			ID:   "OSPP005",
 		},
-		"Minio": PartnerInfo{
+		"OSPP006": PartnerInfo{
 			Name: "Minio",
 			ID:   "OSPP006",
 		},
-		"Nextcloud": PartnerInfo{
+		"OSPP007": PartnerInfo{
 			Name: "Nextcloud",
 			ID:   "OSPP007",
 		},
-		"MariaDB": PartnerInfo{
+		"OSPP008": PartnerInfo{
 			Name: "MariaDB",
 			ID:   "OSPP008",
 		},
-		"Plesk": PartnerInfo{
+		"OSPP009": PartnerInfo{
 			Name: "Plesk",
 			ID:   "OSPP009",
 		},
-		"Pydio": PartnerInfo{
+		"OSPP010": PartnerInfo{
 			Name: "Pydio",
 			ID:   "OSPP010",
 		},
-		"Zenko": PartnerInfo{
+		"OSPP011": PartnerInfo{
 			Name: "Zenko",
 			ID:   "OSPP011",
 		},
 	}
+}
+
+// GetPartnerID returns partner ID based on partner name
+func GetPartnerID(partnerName string) (partnerID string, err error) {
+	partners := LoadPartnerInfos()
+	for i := range partners {
+		if partners[i].Name == partnerName {
+			return partners[i].ID, nil
+		}
+	}
+
+	return "", errs.New("partner id not found")
 }
