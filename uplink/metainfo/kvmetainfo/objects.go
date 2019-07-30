@@ -249,25 +249,10 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 		EncryptedPath: []byte(encPath.Raw()),
 	})
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			err = storj.ErrObjectNotFound.Wrap(err)
-		}
 		return object{}, storj.Object{}, err
 	}
 
-	// var redundancyScheme *pb.RedundancyScheme
-	// if pointer.GetType() == pb.Pointer_REMOTE {
 	redundancyScheme := objectInfo.Stream.RedundancyScheme
-	// if redundancyScheme == nil
-	// redundancyScheme = storj.RedundancyScheme{
-	// 		Type:             pb.RedundancyScheme_RS,
-	// 		MinReq:           -1,
-	// 		Total:            -1,
-	// 		RepairThreshold:  -1,
-	// 		SuccessThreshold: -1,
-	// 		ErasureShareSize: -1,
-	// 	}
-	// }
 
 	lastSegmentMeta := segments.Meta{
 		Modified:   objectInfo.Created,

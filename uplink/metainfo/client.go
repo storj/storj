@@ -444,7 +444,7 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return storj.Object2{}, storj.StreamID{}, storage.ErrKeyNotFound.Wrap(err)
+			return storj.Object2{}, storj.StreamID{}, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return storj.Object2{}, storj.StreamID{}, Error.Wrap(err)
 	}
@@ -500,10 +500,8 @@ func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteO
 		Version:       params.Version,
 	})
 	if err != nil {
-		if err != nil {
-			if status.Code(err) == codes.NotFound {
-				return storj.StreamID{}, storage.ErrKeyNotFound.Wrap(err)
-			}
+		if status.Code(err) == codes.NotFound {
+			return storj.StreamID{}, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return storj.StreamID{}, Error.Wrap(err)
 	}
@@ -599,9 +597,9 @@ func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParam
 type CommitSegmentParams struct {
 	SegmentID         storj.SegmentID
 	Position          storj.SegmentPosition
-	SegmentEncryption storj.SegmentEncryption
+	Encryption        storj.SegmentEncryption
 	SizeEncryptedData int64
-	// TODO find better way for this
+
 	UploadResult []*pb.SegmentPieceUploadResult
 }
 
@@ -615,8 +613,8 @@ func (client *Client) CommitSegment(ctx context.Context, params CommitSegmentPar
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
-		EncryptedKeyNonce: params.SegmentEncryption.EncryptedKeyNonce,
-		EncryptedKey:      params.SegmentEncryption.EncryptedKey,
+		EncryptedKeyNonce: params.Encryption.EncryptedKeyNonce,
+		EncryptedKey:      params.Encryption.EncryptedKey,
 		SizeEncryptedData: params.SizeEncryptedData,
 		UploadResult:      params.UploadResult,
 	})
@@ -631,7 +629,7 @@ func (client *Client) CommitSegment(ctx context.Context, params CommitSegmentPar
 type MakeInlineSegmentParams struct {
 	StreamID            storj.StreamID
 	Position            storj.SegmentPosition
-	SegmentEncryption   storj.SegmentEncryption
+	Encryption          storj.SegmentEncryption
 	EncryptedInlineData []byte
 }
 
@@ -645,8 +643,8 @@ func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSe
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
-		EncryptedKeyNonce:   params.SegmentEncryption.EncryptedKeyNonce,
-		EncryptedKey:        params.SegmentEncryption.EncryptedKey,
+		EncryptedKeyNonce:   params.Encryption.EncryptedKeyNonce,
+		EncryptedKey:        params.Encryption.EncryptedKey,
 		EncryptedInlineData: params.EncryptedInlineData,
 	})
 	if err != nil {
@@ -683,7 +681,7 @@ func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDelete
 // FinishDeleteSegmentParams parameters for FinishDeleteSegment method
 type FinishDeleteSegmentParams struct {
 	SegmentID storj.SegmentID
-	// TODO find better way to pass this
+
 	DeleteResults []*pb.SegmentPieceDeleteResult
 }
 
@@ -754,7 +752,6 @@ type ListSegmentsParams struct {
 
 // ListSegments lists object segments
 func (client *Client) ListSegments(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
-	// TODO method name will be changed when new methods will be fully integrated with client side
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.ListSegments(ctx, &pb.SegmentListRequest{

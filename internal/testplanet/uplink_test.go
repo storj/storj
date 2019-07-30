@@ -28,10 +28,10 @@ import (
 )
 
 func TestUplinksParallel(t *testing.T) {
-	// t.Skip("flaky")
+	t.Skip("flaky")
 
-	const uplinkCount = 1
-	const parallelCount = 1
+	const uplinkCount = 3
+	const parallelCount = 2
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: uplinkCount,
@@ -45,7 +45,7 @@ func TestUplinksParallel(t *testing.T) {
 			for p := 0; p < parallelCount; p++ {
 				suffix := fmt.Sprintf("-%d-%d", i, p)
 				group.Go(func() error {
-					data := testrand.Bytes(10 * memory.KiB)
+					data := testrand.Bytes(memory.Size(100+testrand.Intn(500)) * memory.KiB)
 
 					err := uplink.Upload(ctx, satellite, "testbucket"+suffix, "test/path"+suffix, data)
 					if err != nil {

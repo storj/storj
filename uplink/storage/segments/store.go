@@ -87,7 +87,7 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 			Position: storj.SegmentPosition{
 				Index: int32(segmentIndex),
 			},
-			SegmentEncryption:   encryption,
+			Encryption:          encryption,
 			EncryptedInlineData: peekReader.thresholdBuf,
 		})
 		if err != nil {
@@ -133,7 +133,7 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 			Index: int32(segmentIndex),
 		},
 		SizeEncryptedData: sizedReader.Size(),
-		SegmentEncryption: encryption,
+		Encryption:        encryption,
 		UploadResult:      uploadResults,
 	})
 	if err != nil {
