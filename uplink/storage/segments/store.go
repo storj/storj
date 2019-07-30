@@ -7,8 +7,6 @@ import (
 	"context"
 	"io"
 	"math/rand"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/vivint/infectious"
@@ -44,7 +42,6 @@ type ListItem struct {
 // Store for segments
 type Store interface {
 	Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, encryption storj.SegmentEncryption, err error)
-	// Put(ctx context.Context, streamID storj.StreamID, encKey storj.EncryptedPrivateKey, encNonce storj.Nonce, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Put(ctx context.Context, streamID storj.StreamID, data io.Reader, expiration time.Time, segmentInfo func() (int64, storj.SegmentEncryption, error)) (meta Meta, err error)
 	Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error)
 	// List(ctx context.Context, streamID storj.StreamID, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -258,26 +255,11 @@ func CalcNeededNodes(rs storj.RedundancyScheme) int32 {
 }
 
 // convertMeta converts pointer to segment metadata
-func convertMeta(pr *pb.Pointer) Meta {
-	return Meta{
-		Modified:   pr.GetCreationDate(),
-		Expiration: pr.GetExpirationDate(),
-		Size:       pr.GetSegmentSize(),
-		Data:       pr.GetMetadata(),
-	}
-}
-
-func convertSegmentIndex(segmentComp string) (segmentIndex int64, err error) {
-	switch {
-	case segmentComp == "l":
-		return -1, nil
-	case strings.HasPrefix(segmentComp, "s"):
-		num, err := strconv.Atoi(segmentComp[1:])
-		if err != nil {
-			return -2, Error.Wrap(err)
-		}
-		return int64(num), nil
-	default:
-		return -2, Error.New("invalid segment component: %s", segmentComp)
-	}
-}
+// func convertMeta(pr *pb.Pointer) Meta {
+// 	return Meta{
+// 		Modified:   pr.GetCreationDate(),
+// 		Expiration: pr.GetExpirationDate(),
+// 		Size:       pr.GetSegmentSize(),
+// 		Data:       pr.GetMetadata(),
+// 	}
+// }

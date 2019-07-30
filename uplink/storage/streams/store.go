@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
-	"storj.io/storj/uplink/storage/meta"
 	"storj.io/storj/uplink/storage/segments"
 )
 
@@ -466,11 +465,13 @@ func pathForKey(raw string) paths.Unencrypted {
 func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefore string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if metaFlags&meta.Size != 0 {
-		// Calculating the stream's size require also the user-defined metadata,
-		// where stream store keeps info about the number of segments and their size.
-		metaFlags |= meta.UserDefined
-	}
+	// TODO use flags with listing
+
+	// if metaFlags&meta.Size != 0 {
+	// Calculating the stream's size require also the user-defined metadata,
+	// where stream store keeps info about the number of segments and their size.
+	// metaFlags |= meta.UserDefined
+	// }
 
 	prefixKey, err := encryption.DerivePathKey(prefix.Bucket(), pathForKey(prefix.UnencryptedPath().Raw()), s.encStore)
 	if err != nil {
@@ -498,10 +499,6 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 	needsEncryption := prefix.Bucket() != ""
 	if needsEncryption {
 		startAfter, err = encryption.EncryptPathRaw(startAfter, pathCipher, prefixKey)
-		if err != nil {
-			return nil, false, err
-		}
-		endBefore, err = encryption.EncryptPathRaw(endBefore, pathCipher, prefixKey)
 		if err != nil {
 			return nil, false, err
 		}
@@ -571,7 +568,6 @@ type lazySegmentRanger struct {
 	segmentIndex  int32
 	rs            storj.RedundancyScheme
 	m             *pb.SegmentMeta
-	path          storj.Path
 	size          int64
 	derivedKey    *storj.Key
 	startingNonce *storj.Nonce

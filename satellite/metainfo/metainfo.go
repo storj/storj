@@ -1317,8 +1317,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		StreamId:            streamID,
 		OriginalOrderLimits: addressedLimits,
 		RootPieceId:         rootPieceID,
-		// Index:               req.Position.Index,
-		CreationDate: time.Now(),
+		CreationDate:        time.Now(),
 	})
 
 	return &pb.SegmentBeginResponse{
@@ -1485,21 +1484,12 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		InlineSegment:  req.EncryptedInlineData,
 	}
 
-	// if req.Position.Index == lastSegment {
-	// 	pointer.Metadata = streamID.EncryptedMetadata
-	// }
-
 	err = endpoint.metainfo.Put(ctx, path, pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	err = endpoint.orders.UpdatePutInlineOrder(ctx, keyInfo.ProjectID, streamID.Bucket, inlineUsed)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	pointer, err = endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}

@@ -34,6 +34,7 @@ type Object struct {
 	Stream
 }
 
+// Object2 contains information about a specific object
 type Object2 struct {
 	Version  uint32
 	Bucket   Bucket

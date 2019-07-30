@@ -168,7 +168,7 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 	return nil
 }
 
-// DeleteSegment requests the order limits for deleting a segment
+// DeleteSegmentOld requests the order limits for deleting a segment
 func (client *Client) DeleteSegmentOld(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
