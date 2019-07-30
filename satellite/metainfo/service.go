@@ -13,9 +13,9 @@ import (
 
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/storage/meta"
 )
 
 // Service structure
