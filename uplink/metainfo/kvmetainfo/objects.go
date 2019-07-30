@@ -278,7 +278,6 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 	}
 
 	return object{
-		// streamID:        streamID,
 		fullpath:        fullpath,
 		bucket:          bucket,
 		encPath:         encPath,
