@@ -75,11 +75,12 @@ func GeneratePartnerLink(offerName string) ([]string, error) {
 		return nil, err
 	}
 
-	domians := getTardigradeDomains()
+	domains := getTardigradeDomains()
 	referralLinks := make([]string, len(domians))
+	encoded := base64.StdEncoding.EncodeToString(refJSON)
 
-	for i, url := range domians {
-		referralLinks[i] = url + base64.StdEncoding.EncodeToString(refJSON)
+	for i, url := range domains {
+		referralLinks[i] = path.Join(url, encoded)
 	}
 
 	return referralLinks, nil
