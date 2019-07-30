@@ -11,7 +11,7 @@
         <EmptyState
             v-if="!isProjectSelected"
             mainTitle="Create your first project"
-            additional-text='<p>Please click the button <span style="font-family: font_bold">"New Project"</span> in the right corner</p>'
+            additional-text='<p>Please click the button <b>"New Project"</b> in the right corner</p>'
             :imageSource="emptyImage" />
     </div>
 </template>
