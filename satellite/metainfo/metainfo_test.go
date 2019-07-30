@@ -642,14 +642,14 @@ func TestCommitSegmentPointer(t *testing.T) {
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash.Timestamp = time.Now().Add(-24 * time.Hour)
 			},
-			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
 			},
-			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			Modify: func(pointer *pb.Pointer) {
@@ -1058,6 +1058,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 			UploadResult: []*pb.SegmentPieceUploadResult{
 				makeResult(0),
 				makeResult(1),
+				makeResult(2),
 			},
 		})
 		require.NoError(t, err)
