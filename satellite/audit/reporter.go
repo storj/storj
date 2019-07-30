@@ -129,7 +129,7 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 	}
 	if len(updateRequests) > 0 {
 		failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
-		if err != nil && len(failed) > 0 {
+		if err != nil || len(failed) > 0 {
 			reporter.log.Debug("failed to record Failed Nodes ", zap.Strings("NodeIDs", failed.Strings()))
 			return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), err)
 		}
