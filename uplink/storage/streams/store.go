@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/storage/segments"
@@ -98,7 +97,7 @@ func (s *streamStore) Put(ctx context.Context, path Path, pathCipher storj.Ciphe
 
 	// previously file uploaded?
 	err = s.Delete(ctx, path, pathCipher)
-	if err != nil && !storage.ErrKeyNotFound.Has(err) {
+	if err != nil && !storj.ErrObjectNotFound.Has(err) {
 		// something wrong happened checking for an existing
 		// file with the same name
 		return Meta{}, err
