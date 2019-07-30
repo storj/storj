@@ -510,7 +510,6 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		}
 
 		if allSizesValid {
-			// todo: use redundancy from endpoint.requiredRSConfig instead of the pointer?
 			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 			if err != nil {
 				return Error.Wrap(err)
