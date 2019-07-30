@@ -524,7 +524,9 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			return Error.New("all pieces needs to have the same size")
 		}
 
-		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold {
+		// We repair when the number of healthy files is less than or equal to the repair threshold
+		// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
+		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
 			return Error.New("Number of valid pieces (%d) is less than or equal to the repair threshold (%d)",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
