@@ -39,7 +39,7 @@ const (
 	// MinStorageFormatVersionSupported is the lowest supported storage format version. If
 	// stored blobs claim a lower storage format version than this, this software will not know
 	// how to perform the read and an error will be returned.
-	MinStorageFormatVersionSupported = FormatV1
+	MinStorageFormatVersionSupported = FormatV0
 )
 
 // BlobRef is a reference to a blob
