@@ -36,9 +36,9 @@ func TestOffer_Database(t *testing.T) {
 			{
 				Name:                      "test",
 				Description:               "test offer 2",
-				AwardCredit:               currency.Cents(100),
+				AwardCredit:               currency.Cents(0),
 				InviteeCredit:             currency.Cents(50),
-				AwardCreditDurationDays:   60,
+				AwardCreditDurationDays:   0,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
@@ -84,9 +84,9 @@ func TestOffer_Database(t *testing.T) {
 			{
 				Name:                      "test",
 				Description:               "test offer",
-				AwardCredit:               currency.Cents(100),
+				AwardCredit:               currency.Cents(0),
 				InviteeCredit:             currency.Cents(50),
-				AwardCreditDurationDays:   60,
+				AwardCreditDurationDays:   0,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),

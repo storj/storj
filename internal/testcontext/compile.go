@@ -11,6 +11,17 @@ import (
 	"testing"
 )
 
+// CLibMath is the standard C math library (see `man math.h`).
+var CLibMath = Include{Standard: true, Library: "m"}
+
+// CompileCOptions stores options for compiling C source to an executable.
+type CompileCOptions struct {
+	Dest     string
+	Sources  []string
+	Includes []Include
+	NoWarn   bool
+}
+
 // Compile compiles the specified package and returns the executable name.
 func (ctx *Context) Compile(pkg string) string {
 	ctx.test.Helper()
@@ -57,15 +68,18 @@ func (ctx *Context) CompileShared(t *testing.T, name string, pkg string) Include
 }
 
 // CompileC compiles file as with gcc and adds the includes.
-func (ctx *Context) CompileC(t *testing.T, file string, includes ...Include) string {
+func (ctx *Context) CompileC(t *testing.T, opts CompileCOptions) string {
 	t.Helper()
 
-	exe := ctx.File("build", filepath.Base(file)+".exe")
+	exe := ctx.File("build", opts.Dest+".exe")
 
 	var args = []string{}
-	args = append(args, "-ggdb", "-Wall")
+	if !opts.NoWarn {
+		args = append(args, "-Wall")
+	}
+	args = append(args, "-ggdb")
 	args = append(args, "-o", exe)
-	for _, inc := range includes {
+	for _, inc := range opts.Includes {
 		if inc.Header != "" {
 			args = append(args, "-I", filepath.Dir(inc.Header))
 		}
@@ -86,7 +100,7 @@ func (ctx *Context) CompileC(t *testing.T, file string, includes ...Include) str
 			}
 		}
 	}
-	args = append(args, file)
+	args = append(args, opts.Sources...)
 
 	cmd := exec.Command("gcc", args...)
 	t.Log("exec:", cmd.Args)
