@@ -813,6 +813,13 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 						Timestamp: timestamp,
 					},
 				},
+				{
+					PieceNum: 2,
+					Hash: &pb.PieceHash{
+						PieceSize: pieceSize,
+						Timestamp: timestamp,
+					},
+				},
 			},
 		},
 		ExpirationDate: timestamp,
