@@ -309,3 +309,7 @@ func (mockRepairQueue *mockRepairQueue) Delete(ctx context.Context, s *pb.Injure
 func (mockRepairQueue *mockRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
 	return []pb.InjuredSegment{}, errs.New("mock SelectN error")
 }
+
+func (mockRepairQueue *mockRepairQueue) Count(ctx context.Context) (int, error) {
+	return len(mockRepairQueue.injuredSegments), nil
+}
