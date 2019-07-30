@@ -128,3 +128,28 @@ func TestRepairQueueOrder(t *testing.T) {
 		assert.Nil(t, injuredSeg)
 	})
 }
+
+func TestRepairQueueCount(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		repairQueue := db.RepairQueue()
+
+		// insert a bunch of segments
+		pathsMap := make(map[string]int)
+		numSegments := 100
+		for i := 0; i < numSegments; i++ {
+			path := "/path/" + string(i)
+			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
+			err := repairQueue.Insert(ctx, injuredSeg)
+			require.NoError(t, err)
+			pathsMap[path] = 0
+		}
+
+		count, err := repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, numSegments)
+	})
+
+}

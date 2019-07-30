@@ -7,6 +7,8 @@ package main
 import "C"
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"time"
 	"unsafe"
@@ -21,8 +23,8 @@ type Object struct {
 	*uplink.Object
 }
 
-// open_object returns an Object handle, if authorized.
 //export open_object
+// open_object returns an Object handle, if authorized.
 func open_object(bucketHandle C.BucketRef, objectPath *C.char, cerr **C.char) C.ObjectRef {
 	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
 	if !ok {
@@ -34,15 +36,15 @@ func open_object(bucketHandle C.BucketRef, objectPath *C.char, cerr **C.char) C.
 
 	object, err := bucket.OpenObject(scope.ctx, C.GoString(objectPath))
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.ObjectRef{}
 	}
 
 	return C.ObjectRef{universe.Add(&Object{scope, object})}
 }
 
-// close_object closes the object.
 //export close_object
+// close_object closes the object.
 func close_object(objectHandle C.ObjectRef, cerr **C.char) {
 	object, ok := universe.Get(objectHandle._handle).(*Object)
 	if !ok {
@@ -54,13 +56,13 @@ func close_object(objectHandle C.ObjectRef, cerr **C.char) {
 	defer object.cancel()
 
 	if err := object.Close(); err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }
 
-// get_object_meta returns the object meta which contains metadata about a specific Object.
 //export get_object_meta
+// get_object_meta returns the object meta which contains metadata about a specific Object.
 func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 	object, ok := universe.Get(cObject._handle).(*Object)
 	if !ok {
@@ -93,13 +95,13 @@ type Upload struct {
 	wc io.WriteCloser // 🚽
 }
 
-// upload uploads a new object, if authorized.
 //export upload
-func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.char) (downloader C.UploaderRef) {
+// upload uploads a new object, if authorized.
+func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.char) C.UploaderRef {
 	bucket, ok := universe.Get(cBucket._handle).(*Bucket)
 	if !ok {
 		*cErr = C.CString("invalid bucket")
-		return
+		return C.UploaderRef{}
 	}
 
 	scope := bucket.scope.child()
@@ -117,8 +119,8 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 
 	writeCloser, err := bucket.NewWriter(scope.ctx, C.GoString(path), opts)
 	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
+		return C.UploaderRef{}
 	}
 
 	return C.UploaderRef{universe.Add(&Upload{
@@ -128,10 +130,17 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 }
 
 //export upload_write
-func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cErr **C.char) (writeLength C.size_t) {
+func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cErr **C.char) C.size_t {
 	upload, ok := universe.Get(uploader._handle).(*Upload)
 	if !ok {
 		*cErr = C.CString("invalid uploader")
+		return C.size_t(0)
+	}
+
+	if err := upload.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 		return C.size_t(0)
 	}
 
@@ -139,7 +148,7 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 
 	n, err := upload.wc.Write(buf)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 	}
 	return C.size_t(n)
 }
@@ -152,18 +161,43 @@ func upload_commit(uploader C.UploaderRef, cErr **C.char) {
 		return
 	}
 
-	universe.Del(uploader._handle)
+	if err := upload.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return
+	}
 	defer upload.cancel()
 
 	err := upload.wc.Close()
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 		return
 	}
 }
 
-// list_objects lists objects a user is authorized to see.
+//export upload_cancel
+func upload_cancel(uploader C.UploaderRef, cErr **C.char) {
+	upload, ok := universe.Get(uploader._handle).(*Upload)
+	if !ok {
+		*cErr = C.CString("invalid uploader")
+		return
+	}
+
+	if err := upload.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return
+	}
+
+	upload.cancel()
+}
+
 //export list_objects
+// list_objects lists objects a user is authorized to see.
 func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char) (cObjList C.ObjectList) {
 	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
 	if !ok {
@@ -176,7 +210,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 	var opts *uplink.ListOptions
 	if unsafe.Pointer(cListOpts) != nil {
 		opts = &uplink.ListOptions{
-			Prefix:    C.GoString(cListOpts.cursor),
+			Prefix:    C.GoString(cListOpts.prefix),
 			Cursor:    C.GoString(cListOpts.cursor),
 			Delimiter: rune(cListOpts.delimiter),
 			Recursive: bool(cListOpts.recursive),
@@ -187,7 +221,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 
 	objectList, err := bucket.ListObjects(scope.ctx, opts)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return cObjList
 	}
 	objListLen := len(objectList.Items)
@@ -220,22 +254,22 @@ type Download struct {
 	}
 }
 
+//export download
 // download returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
-//export download
-func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) (downloader C.DownloaderRef) {
+func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRef {
 	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
 	if !ok {
 		*cErr = C.CString("invalid bucket")
-		return
+		return C.DownloaderRef{}
 	}
 
 	scope := bucket.scope.child()
 
 	rc, err := bucket.NewReader(scope.ctx, C.GoString(path))
 	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
+		return C.DownloaderRef{}
 	}
 
 	return C.DownloaderRef{universe.Add(&Download{
@@ -252,11 +286,18 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 		return C.size_t(0)
 	}
 
+	if err := download.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return C.size_t(0)
+	}
+
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := download.rc.Read(buf)
 	if err != nil && err != io.EOF {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 	}
 	return C.size_t(n)
 }
@@ -268,14 +309,64 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 		*cErr = C.CString("invalid downloader")
 	}
 
-	universe.Del(downloader._handle)
+	if err := download.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return
+	}
+
 	defer download.cancel()
 
 	err := download.rc.Close()
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
+}
+
+//export download_cancel
+func download_cancel(downloader C.DownloaderRef, cErr **C.char) {
+	download, ok := universe.Get(downloader._handle).(*Download)
+	if !ok {
+		*cErr = C.CString("invalid downloader")
+		return
+	}
+
+	if err := download.ctx.Err(); err != nil {
+		if err != context.Canceled {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
+		return
+	}
+
+	download.cancel()
+}
+
+//export delete_object
+func delete_object(bucketRef C.BucketRef, path *C.char, cerr **C.char) {
+	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
+	if !ok {
+		*cerr = C.CString("invalid downloader")
+		return
+	}
+
+	if err := bucket.DeleteObject(bucket.ctx, C.GoString(path)); err != nil {
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
+		return
+	}
+}
+
+//export free_uploader
+// free_uploader deletes the uploader reference from the universe
+func free_uploader(uploader C.UploaderRef) {
+	universe.Del(uploader._handle)
+}
+
+//export free_downloader
+// free_downloader deletes the downloader reference from the universe
+func free_downloader(downloader C.DownloaderRef) {
+	universe.Del(downloader._handle)
 }
 
 //export free_upload_opts
@@ -284,8 +375,8 @@ func free_upload_opts(uploadOpts *C.UploadOptions) {
 	uploadOpts.content_type = nil
 }
 
-// free_object_meta frees the object meta
 //export free_object_meta
+// free_object_meta frees the object meta
 func free_object_meta(objectMeta *C.ObjectMeta) {
 	C.free(unsafe.Pointer(objectMeta.bucket))
 	objectMeta.bucket = nil
@@ -300,8 +391,8 @@ func free_object_meta(objectMeta *C.ObjectMeta) {
 	objectMeta.checksum_bytes = nil
 }
 
-// free_object_info frees the object info
 //export free_object_info
+// free_object_info frees the object info
 func free_object_info(objectInfo *C.ObjectInfo) {
 	bucketInfo := objectInfo.bucket
 	free_bucket_info(&bucketInfo)
@@ -313,8 +404,8 @@ func free_object_info(objectInfo *C.ObjectInfo) {
 	objectInfo.content_type = nil
 }
 
-// free_list_objects frees the list of objects
 //export free_list_objects
+// free_list_objects frees the list of objects
 func free_list_objects(objectList *C.ObjectList) {
 	C.free(unsafe.Pointer(objectList.bucket))
 	objectList.bucket = nil
