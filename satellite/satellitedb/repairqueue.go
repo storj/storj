@@ -123,9 +123,6 @@ func (r *repairQueue) Count(ctx context.Context) (count int, err error) {
 
 	// Count every segment regardless of how recently repair was last attempted
 	err = r.db.QueryRowContext(ctx, r.db.Rebind(`SELECT COUNT(*) as count FROM injuredsegments`)).Scan(&count)
-	if err != nil {
-		return count, Error.Wrap(err)
-	}
-
-	return count, nil
+	
+	return count, Error.Wrap(err)
 }
