@@ -145,12 +145,12 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 			},
 		})
 		if err != nil {
-			cancelErr := client.Cancel(ctx)
+			_, closeErr := client.stream.CloseAndRecv()
 			switch {
-			case err != io.EOF && cancelErr != nil && cancelErr != io.EOF:
-				err = ErrProtocol.Wrap(errs.Combine(err, cancelErr))
-			case cancelErr != nil && cancelErr != io.EOF:
-				err = ErrProtocol.Wrap(cancelErr)
+			case err != io.EOF && closeErr != nil:
+				err = ErrProtocol.Wrap(errs.Combine(err, closeErr))
+			case closeErr != nil:
+				err = ErrProtocol.Wrap(closeErr)
 			}
 
 			client.sendError = err
