@@ -2,6 +2,9 @@
 set -ueo pipefail
 set +x
 
+export BRANCH_DIR="$(pwd)"
+export RELEASE_DIR="$(pwd)/release"
+
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 : "${RELEASE_DIR?Environment variable RELEASE_DIR needs to be set}"

@@ -96,8 +96,6 @@ pipeline {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
-                        BRANCH_DIR="$(pwd)"
-                        RELEASE_DIR="$(pwd)/release"
                     }
 
                     steps {
