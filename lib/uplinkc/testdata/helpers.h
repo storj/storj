@@ -14,11 +14,11 @@ BucketConfig test_bucket_config() {
     config.encryption_parameters.block_size = 2048;
 
     config.redundancy_scheme.algorithm = STORJ_REED_SOLOMON;
-    config.redundancy_scheme.share_size = 1024;
-    config.redundancy_scheme.required_shares = 2;
-    config.redundancy_scheme.repair_shares = 4;
-    config.redundancy_scheme.optimal_shares = 5;
-    config.redundancy_scheme.total_shares = 6;
+    config.redundancy_scheme.share_size = 256;
+    config.redundancy_scheme.required_shares = 4;
+    config.redundancy_scheme.repair_shares = 6;
+    config.redundancy_scheme.optimal_shares = 8;
+    config.redundancy_scheme.total_shares = 10;
 
     return config;
 }
@@ -36,7 +36,7 @@ void with_test_project(void (*handleProject)(ProjectRef)) {
 
     {
         UplinkConfig cfg = {};
-        cfg.Volatile.TLS.SkipPeerCAWhitelist = true; // TODO: add CA Whitelist
+        cfg.Volatile.tls.skip_peer_ca_whitelist = true; // TODO: add CA Whitelist
 
         // New uplink
         UplinkRef uplink = new_uplink(cfg, err);
