@@ -635,7 +635,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash = nil
 			},
-			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
