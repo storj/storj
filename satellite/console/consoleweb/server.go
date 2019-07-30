@@ -117,6 +117,18 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
+	header := w.Header()
+
+	cspValues := []string{
+		"default-src 'self'",
+		"script-src 'self' *.stripe.com cdn.segment.com",
+		"frame-src 'self' *.stripe.com",
+		"img-src 'self' data:",
+	}
+
+	header.Set("Content-Type", "text/html; charset=UTF-8")
+	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
+
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "index.html"))
 }
 
