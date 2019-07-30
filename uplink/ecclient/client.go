@@ -272,8 +272,8 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	})
 	if err != nil {
 		ec.log.Debug("Failed dialing for putting piece to node",
-			zap.Binary("pieceID", pieceID.Bytes()),
-			zap.Binary("nodeID", storageNodeID.Bytes()),
+			zap.String("pieceID", pieceID.String()),
+			zap.String("nodeID", storageNodeID.String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -283,8 +283,8 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
 		ec.log.Debug("Failed requesting upload of pieces to node",
-			zap.Binary("pieceID", pieceID.Bytes()),
-			zap.Binary("nodeID", storageNodeID.Bytes()),
+			zap.String("pieceID", pieceID.String()),
+			zap.String("nodeID", storageNodeID.String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -317,8 +317,8 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		}
 
 		ec.log.Debug("Failed uploading piece to node",
-			zap.Binary("pieceID", pieceID.Bytes()),
-			zap.Binary("nodeID", storageNodeID.Bytes()),
+			zap.String("pieceID", pieceID.String()),
+			zap.String("nodeID", storageNodeID.String()),
 			zap.String("nodeAddress", nodeAddress),
 			zap.Error(err),
 		)
