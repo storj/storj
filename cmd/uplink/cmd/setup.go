@@ -129,7 +129,7 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilep
 		return Error.Wrap(err)
 	}
 
-	uplk, err := libuplink.NewUplink(ctx, nil)
+	uplk, err := setupCfg.NewUplink(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
