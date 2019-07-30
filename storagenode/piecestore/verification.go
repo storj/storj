@@ -74,7 +74,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	}
 
 	if err := endpoint.usedSerials.Add(ctx, limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
-		return status.Errorf(codes.AlreadyExists, "serial number is already used: %+v", err)
+		return status.Errorf(codes.Unauthenticated, "serial number is already used: %+v", err)
 	}
 
 	return nil
