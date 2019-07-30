@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/grpcmonkit"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -95,6 +96,8 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
 		}),
 	}, opts...)
+
+	options = append(options, grpcmonkit.ClientDialOptions()...)
 
 	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
 	defer cancel()

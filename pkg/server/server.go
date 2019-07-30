@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/internal/grpcmonkit"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/tlsopts"
 )
@@ -49,17 +50,20 @@ func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc
 		unaryInterceptor = CombineInterceptors(unaryInterceptor, interceptor)
 	}
 
+	options := []grpc.ServerOption{
+		grpc.StreamInterceptor(logOnErrorStreamInterceptor),
+		grpc.UnaryInterceptor(unaryInterceptor),
+		opts.ServerOption(),
+	}
+	options = append(options, grpcmonkit.ServerOptions()...)
+
 	publicListener, err := net.Listen("tcp", publicAddr)
 	if err != nil {
 		return nil, err
 	}
 	public := public{
 		listener: publicListener,
-		grpc: grpc.NewServer(
-			grpc.StreamInterceptor(logOnErrorStreamInterceptor),
-			grpc.UnaryInterceptor(unaryInterceptor),
-			opts.ServerOption(),
-		),
+		grpc:     grpc.NewServer(options...),
 	}
 
 	privateListener, err := net.Listen("tcp", privateAddr)

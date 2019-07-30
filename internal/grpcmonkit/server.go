@@ -12,6 +12,14 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
+// ServerOptions returns options for adding monkit tracing.
+func ServerOptions() []grpc.ServerOption {
+	return []grpc.ServerOption{
+		grpc.UnaryInterceptor(NewUnaryServerInterceptor()),
+		grpc.StreamInterceptor(NewStreamServerInterceptor()),
+	}
+}
+
 // NewUnaryServerInterceptor creates an monkit server interceptor.
 func NewUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {

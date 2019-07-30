@@ -11,6 +11,14 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
+// ClientDialOptions returns options for adding monkit tracing.
+func ClientDialOptions() []grpc.DialOption {
+	return []grpc.DialOption{
+		grpc.WithUnaryInterceptor(NewUnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(NewStreamClientInterceptor()),
+	}
+}
+
 // NewUnaryClientInterceptor creates an monkit client interceptor.
 func NewUnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
