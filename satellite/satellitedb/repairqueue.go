@@ -121,6 +121,7 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 func (r *repairQueue) Count(ctx context.Context) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// Count every segment regardless of how recently repair was last attempted
 	rows, err := r.db.QueryContext(ctx, r.db.Rebind(`SELECT COUNT(*) as count FROM injuredsegments`))
 	if err != nil {
 		return count, Error.Wrap(err)
