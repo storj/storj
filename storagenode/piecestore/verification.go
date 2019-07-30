@@ -59,11 +59,11 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	}
 
 	if err := endpoint.VerifyOrderLimitSignature(ctx, limit); err != nil {
-		if err == context.Canceled {
+		if errs2.IsCanceled(err) {
 			return status.Error(codes.Canceled, "context has been canceled")
 		}
 
-		return status.Errorf(codes.FailedPrecondition, "untrusted: %+v", err)
+		return status.Errorf(codes.Unauthenticated, "untrusted: %+v", err)
 	}
 
 	serialExpiration := limit.OrderExpiration
