@@ -4,17 +4,13 @@
 package consoleql
 
 import (
-	"time"
-
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/currency"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -89,15 +85,13 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					secretInput, _ := p.Args[Secret].(string)
 					refUserID, _ := p.Args[ReferrerUserID].(string)
 
-					offerType := rewards.FreeCredit
-
 					createUser := fromMapCreateUser(input)
 
 					secret, err := console.RegistrationSecretFromBase64(secretInput)
 					if err != nil {
-						log.Error("register: failed to parse secret",
-							zap.String("rawSecret", secretInput),
+						log.Error("register: failed to create account",
 							zap.Error(err))
+						log.Debug("register: ", zap.String("rawSecret", secretInput))
 
 						return nil, err
 					}
@@ -105,42 +99,10 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					user, err := service.CreateUser(p.Context, createUser, secret, refUserID)
 					if err != nil {
 						log.Error("register: failed to create account",
-							zap.String("rawSecret", secretInput),
 							zap.Error(err))
+						log.Debug("register: ", zap.String("rawSecret", secretInput))
 
 						return nil, err
-					}
-
-					if createUser.PartnerID != "" {
-						offerType = rewards.Partner
-					}
-
-					//TODO: Create a current offer cache to replace database call
-					currentReward, err := service.GetCurrentRewardByType(p.Context, offerType)
-					if err != nil {
-						log.Error("register: failed to get current offer",
-							zap.String("rawSecret", secretInput),
-							zap.Error(err))
-					}
-
-					if currentReward != nil {
-						// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration
-						newCredit := console.UserCredit{
-							UserID:        user.ID,
-							OfferID:       currentReward.ID,
-							ReferredBy:    nil,
-							CreditsEarned: currency.Cents(0),
-							ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.InviteeCreditDurationDays),
-						}
-
-						err = service.CreateCredit(p.Context, newCredit)
-						if err != nil {
-							log.Error("register: failed to create credit",
-								zap.String("rawSecret", secretInput),
-								zap.Error(err))
-
-							return nil, err
-						}
 					}
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)

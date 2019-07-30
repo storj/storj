@@ -6,7 +6,7 @@ export class User {
     public fullName: string;
     public shortName: string;
     public email: string;
-    public partnerId: string;
+    public partnerId?: string;
 
     public constructor(fullName: string, shortName: string, email: string, partnerId?: string) {
         this.id = '';

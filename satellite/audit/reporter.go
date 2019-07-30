@@ -36,6 +36,10 @@ type Report struct {
 
 // NewReporter instantiates a reporter
 func NewReporter(log *zap.Logger, overlay *overlay.Cache, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
+	if log == nil {
+		log = log.Named("audit:reporter")
+	}
+
 	return &Reporter{
 		log:              log,
 		overlay:          overlay,
@@ -131,6 +135,7 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 		}
 	}
 	if len(failed) > 0 {
+		reporter.log.Debug("failed to record Failed Nodes ", zap.Strings("NodeIDs", failed.Strings()))
 		return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), errlist.Err())
 	}
 	return nil, nil
@@ -148,6 +153,7 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 		}
 	}
 	if len(failed) > 0 {
+		reporter.log.Debug("failed to record Offline Nodes ", zap.Strings("NodeIDs", failed.Strings()))
 		return failed, errs.Combine(Error.New("failed to record some audit offline statuses in overlay"), errlist.Err())
 	}
 	return nil, nil
@@ -169,6 +175,7 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 		}
 	}
 	if len(failed) > 0 {
+		reporter.log.Debug("failed to record Success Nodes ", zap.Strings("NodeIDs", failed.Strings()))
 		return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), errlist.Err())
 	}
 	return nil, nil
@@ -199,6 +206,9 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 		}
 	}
 	if len(failed) > 0 {
+		for _, v := range failed {
+			reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", v.NodeID), zap.String("Path", v.Path))
+		}
 		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}
 	return nil, nil
