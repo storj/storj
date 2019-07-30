@@ -7,10 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +22,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
@@ -104,7 +106,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		mux.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
@@ -407,4 +409,81 @@ func (s *Server) Run(ctx context.Context) (err error) {
 // Close closes server and underlying listener
 func (s *Server) Close() error {
 	return s.server.Close()
+}
+
+// gzipHandler is used to gzip static content to minify resources if browser support such decoding
+func (s *Server) gzipHandler(fn http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		isBrowserDecodesGzip := strings.Contains(request.Header.Get("Accept-Encoding"), "gzip")
+		extension := filepath.Ext(request.RequestURI)
+		// we have gzipped only fonts, js and css bundles
+		isNeededFormatToGzip := stringInSlice(extension, []string{".js", ".ttf", ".css"})
+
+		// in case if old browser doesn't support gzip decoding or if file extension is not recommended to gzip
+		// just return original file
+		if !isBrowserDecodesGzip || !isNeededFormatToGzip {
+			fn.ServeHTTP(writer, request)
+			return
+		}
+
+		filePath, err := s.getFilePathFromRequest(request)
+		if err != nil {
+			s.log.Info(err.Error())
+			fn.ServeHTTP(writer, request)
+			return
+		}
+
+		gzippedFilePath := filePath + ".gz"
+
+		// loading gzipped analog of original file
+		byt, err := ioutil.ReadFile(gzippedFilePath)
+		if err != nil {
+			s.log.Info("can't read file " + err.Error())
+			fn.ServeHTTP(writer, request)
+			return
+		}
+
+		s.setContentType(writer, extension)
+
+		writer.Header().Set("Content-Encoding", "gzip")
+		_, err = writer.Write(byt)
+		if err != nil {
+			s.log.Info("can't write gzipped file " + err.Error())
+			fn.ServeHTTP(writer, request)
+			return
+		}
+	})
+}
+
+func (s *Server) getFilePathFromRequest(request *http.Request) (string, error) {
+	_, path, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", Error.Wrap(errs.New("can't get path"))
+	}
+
+	storjRoot := strings.TrimSuffix(path, "/satellite/console/consoleweb/server.go")
+
+	return storjRoot + "/web/satellite" + strings.TrimPrefix(request.RequestURI, "/static"), nil
+}
+
+// setContentType is used to set Content-Type header depends on file extension
+func (s *Server) setContentType(writer http.ResponseWriter, extension string) {
+	switch extension {
+	case ".js":
+		writer.Header().Set("Content-Type", "application/javascript")
+	case ".css":
+		writer.Header().Set("Content-Type", "text/css; charset=utf-8")
+	case ".ttf":
+		writer.Header().Set("Content-Type", "application/font-sfnt")
+	}
+}
+
+func stringInSlice(stringToFind string, list []string) bool {
+	for _, v := range list {
+		if v == stringToFind {
+			return true
+		}
+	}
+
+	return false
 }
