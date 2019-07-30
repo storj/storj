@@ -26,7 +26,7 @@ var (
 
 // VerifyOrderLimit verifies that the order limit is properly signed and has sane values.
 // It also verifies that the serial number has not been used.
-func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderLimit) (err error) {
+func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// sanity checks
