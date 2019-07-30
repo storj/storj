@@ -31,7 +31,19 @@ var (
 var _ overlay.DB = (*overlaycache)(nil)
 
 type overlaycache struct {
-	db *dbx.DB
+	db          *dbx.DB
+	updateCache *overlay.UpdateCache
+}
+
+func newOverlayCache(db *dbx.DB) *overlaycache {
+	return &overlaycache{
+		db: db,
+	}
+}
+
+func (cache *overlaycache) WithUpdateCache(updateCache *overlay.UpdateCache) overlay.DB {
+	cache.updateCache = updateCache
+	return cache
 }
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
@@ -600,6 +612,10 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 		return overlay.ErrEmptyNode
 	}
 
+	if cache.updateCache != nil && !cache.updateCache.SetAndCompareAddress(info) {
+		return nil
+	}
+
 	tx, err := cache.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -824,6 +840,13 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if cache.updateCache != nil {
+		stats = cache.updateCache.GetNodeStats(nodeID, isUp)
+		if stats != nil {
+			return stats, nil
+		}
+	}
+
 	tx, err := cache.db.Open(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -899,7 +922,17 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
 	}
 
-	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+	err = tx.Commit()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	stats = getNodeStats(dbNode)
+	if cache.updateCache != nil {
+		cache.updateCache.SetNodeStats(nodeID, isUp, stats)
+	}
+
+	return stats, nil
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {

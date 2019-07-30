@@ -962,6 +962,11 @@ func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.Node
 	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
 
+func (m *lockedOverlayCache) WithUpdateCache(updateCache *overlay.UpdateCache) overlay.DB {
+	m.db.WithUpdateCache(updateCache)
+	return m
+}
+
 // ProjectAccounting returns database for storing information about project data use
 func (m *locked) ProjectAccounting() accounting.ProjectAccounting {
 	m.Lock()

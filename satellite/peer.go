@@ -268,10 +268,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 	}
 
+	overlayCacheUpdateCache := overlay.NewUpdateCache(config.Overlay.UptimeFlushInterval)
+
 	{ // setup overlay
 		log.Debug("Starting overlay")
 
-		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Overlay)
+		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache().WithUpdateCache(overlayCacheUpdateCache), config.Overlay)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
@@ -483,7 +485,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("garbage collection"),
 			config.GarbageCollection,
 			peer.Transport,
-			peer.DB.OverlayCache(),
+			peer.DB.OverlayCache().WithUpdateCache(overlayCacheUpdateCache),
 			peer.Metainfo.Loop,
 		)
 	}
@@ -641,7 +643,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
-			peer.DB.OverlayCache(),
+			peer.DB.OverlayCache().WithUpdateCache(overlayCacheUpdateCache),
 			peer.DB.StoragenodeAccounting())
 
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)

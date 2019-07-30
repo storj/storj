@@ -69,6 +69,8 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
+	// WithUpdateCache allows you to add an update cache to the DB
+	WithUpdateCache(updateCache *UpdateCache) DB
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -308,6 +310,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if value.Address == nil {
 		return errors.New("node has no address")
 	}
+
 	// Resolve IP Address Network to ensure it is set
 	value.LastIp, err = GetNetwork(ctx, value.Address.Address)
 	if err != nil {
