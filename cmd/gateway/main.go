@@ -253,24 +253,33 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 	), nil
 }
 
-func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, error) {
-	cfg := libuplink.Config{}
-	cfg.Volatile.TLS = struct {
+func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, error) {
+	// Transform the gateway config flags to the libuplink config object
+	libuplinkCfg := &libuplink.Config{}
+	libuplinkCfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
+	libuplinkCfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
+	libuplinkCfg.Volatile.PeerIDVersion = flags.TLS.PeerIDVersions
+	libuplinkCfg.Volatile.TLS = struct {
 		SkipPeerCAWhitelist bool
 		PeerCAWhitelistPath string
 	}{
 		SkipPeerCAWhitelist: !flags.TLS.UsePeerCAWhitelist,
 		PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
 	}
-	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
-	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
 
+	libuplinkCfg.Volatile.DialTimeout = flags.Client.DialTimeout
+	libuplinkCfg.Volatile.RequestTimeout = flags.Client.RequestTimeout
+
+	return libuplink.NewUplink(ctx, libuplinkCfg)
+}
+
+func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, error) {
 	apiKey, err := libuplink.ParseAPIKey(flags.Client.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
-	uplk, err := libuplink.NewUplink(ctx, &cfg)
+	uplk, err := flags.newUplink(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +316,7 @@ func (flags GatewayFlags) interactive(
 		return Error.Wrap(err)
 	}
 
-	uplk, err := libuplink.NewUplink(ctx, nil)
+	uplk, err := flags.newUplink(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
