@@ -20,6 +20,9 @@ import (
 	"storj.io/storj/uplink/eestream"
 )
 
+// IrreparableError is the errs class of irreparable segment errors
+var IrreparableError = errs.Class("irreparable error")
+
 // SegmentRepairer for segments
 type SegmentRepairer struct {
 	log      *zap.Logger
@@ -99,7 +102,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (e
 	// irreparable piece, we need k+1 to detect corrupted pieces
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq+1 {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
-		return Error.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1)
+		return Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
 	}
 
 	// repair not needed

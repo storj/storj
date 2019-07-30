@@ -177,6 +177,26 @@ func TestUsercredits(t *testing.T) {
 					hasCreateErr: false,
 				},
 			},
+			{
+				// simulate credit on account creation
+				userCredit: console.UserCredit{
+					UserID:        user.ID,
+					OfferID:       defaultOffer.ID,
+					ReferredBy:    &referrer.ID,
+					CreditsEarned: currency.Cents(0),
+					ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
+				},
+				redeemableCap: 0,
+				expected: result{
+					usage: console.UserCreditUsage{
+						Referred:         0,
+						AvailableCredits: currency.Cents(220),
+						UsedCredits:      currency.Cents(180),
+					},
+					referred:     3,
+					hasCreateErr: false,
+				},
+			},
 		}
 
 		for _, vc := range validUserCredits {
@@ -184,6 +204,11 @@ func TestUsercredits(t *testing.T) {
 			if vc.expected.hasCreateErr {
 				require.Error(t, err)
 			} else {
+				require.NoError(t, err)
+			}
+
+			if vc.userCredit.CreditsEarned.Cents() == 0 {
+				err = consoleDB.UserCredits().UpdateEarnedCredits(ctx, vc.userCredit.UserID)
 				require.NoError(t, err)
 			}
 
@@ -259,9 +284,10 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 	defaultOffer, err = offersDB.Create(ctx, &rewards.NewOffer{
 		Name:                      "default",
 		Description:               "default offer",
-		AwardCredit:               currency.Cents(100),
-		InviteeCredit:             currency.Cents(50),
-		InviteeCreditDurationDays: 30,
+		AwardCredit:               currency.Cents(0),
+		InviteeCredit:             currency.Cents(100),
+		AwardCreditDurationDays:   0,
+		InviteeCreditDurationDays: 14,
 		RedeemableCap:             0,
 		ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
 		Status:                    rewards.Default,
