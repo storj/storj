@@ -258,9 +258,6 @@ message ObjectBeginRequest {
 
     google.protobuf.Timestamp expires_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes  encrypted_metadata_nonce = 5 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    bytes  encrypted_metadata = 6; // TODO: set maximum size limit
-
     pointerdb.RedundancyScheme      redundancy_scheme = 7; // can be zero
     encryption.EncryptionParameters encryption_parameters = 8; // can be zero
 }
@@ -278,6 +275,9 @@ message ObjectBeginResponse {
 
 message ObjectCommitRequest {
     bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+
+    bytes  encrypted_metadata_nonce = 5 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes  encrypted_metadata = 6; // TODO: set maximum size limit
 }
 
 message ObjectCommitResponse {
@@ -355,8 +355,8 @@ message SatStreamID {
     google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes  encrypted_metadata_nonce = 7 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    bytes  encrypted_metadata       = 8;
+    // bytes  encrypted_metadata_nonce = 7 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    // bytes  encrypted_metadata       = 8;
 
     bytes satellite_signature = 9;
 }
@@ -390,7 +390,6 @@ message SegmentPosition {
 
 message SegmentBeginRequest {
     bytes           stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
-    SegmentPosition position = 2;
 
     int64 max_order_limit = 3;
 }
@@ -402,14 +401,15 @@ message SegmentBeginResponse {
 }
 
 message SegmentCommitRequest {
-    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    bytes           segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    SegmentPosition position = 2;
 
-    bytes encrypted_key_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    bytes encrypted_key = 3;
+    bytes encrypted_key_nonce = 3 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes encrypted_key = 4;
 
-    int64 size_encrypted_data = 4; // refers to segment size not piece size
+    int64 size_encrypted_data = 5; // refers to segment size not piece size
 
-    repeated SegmentPieceUploadResult upload_result = 5;
+    repeated SegmentPieceUploadResult upload_result = 6;
 }
 
 message SegmentPieceUploadResult {

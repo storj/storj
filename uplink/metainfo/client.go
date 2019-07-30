@@ -75,8 +75,8 @@ func (client *Client) Close() error {
 	return nil
 }
 
-// CreateSegment requests the order limits for creating a new segment
-func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, piecePrivateKey storj.PiecePrivateKey, err error) {
+// CreateSegmentOld requests the order limits for creating a new segment
+func (client *Client) CreateSegmentOld(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.CreateSegmentOld(ctx, &pb.SegmentWriteRequestOld{
@@ -94,8 +94,8 @@ func (client *Client) CreateSegment(ctx context.Context, bucket string, path sto
 	return response.GetAddressedLimits(), response.RootPieceId, response.PrivateKey, nil
 }
 
-// CommitSegment requests to store the pointer for the segment
-func (client *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (savedPointer *pb.Pointer, err error) {
+// CommitSegmentOld requests to store the pointer for the segment
+func (client *Client) CommitSegmentOld(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (savedPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.CommitSegmentOld(ctx, &pb.SegmentCommitRequestOld{
@@ -368,14 +368,12 @@ func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) 
 
 // BeginObjectParams parmaters for BeginObject method
 type BeginObjectParams struct {
-	Bucket                 []byte
-	EncryptedPath          []byte
-	Version                int32
-	Redundancy             storj.RedundancyScheme
-	EncryptionParameters   storj.EncryptionParameters
-	ExpiresAt              time.Time
-	EncryptedMetadataNonce storj.Nonce
-	EncryptedMetadata      []byte
+	Bucket               []byte
+	EncryptedPath        []byte
+	Version              int32
+	Redundancy           storj.RedundancyScheme
+	EncryptionParameters storj.EncryptionParameters
+	ExpiresAt            time.Time
 }
 
 // BeginObject begins object creation
@@ -383,12 +381,10 @@ func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams)
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.BeginObject(ctx, &pb.ObjectBeginRequest{
-		Bucket:                 params.Bucket,
-		EncryptedPath:          params.EncryptedPath,
-		Version:                params.Version,
-		ExpiresAt:              params.ExpiresAt,
-		EncryptedMetadataNonce: params.EncryptedMetadataNonce,
-		EncryptedMetadata:      params.EncryptedMetadata,
+		Bucket:        params.Bucket,
+		EncryptedPath: params.EncryptedPath,
+		Version:       params.Version,
+		ExpiresAt:     params.ExpiresAt,
 		RedundancyScheme: &pb.RedundancyScheme{
 			Type:             pb.RedundancyScheme_SchemeType(params.Redundancy.Algorithm),
 			ErasureShareSize: params.Redundancy.ShareSize,
@@ -409,12 +405,22 @@ func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams)
 	return response.StreamId, nil
 }
 
+// CommitObjectParams parmaters for CommitObject method
+type CommitObjectParams struct {
+	StreamID storj.StreamID
+
+	EncryptedMetadataNonce storj.Nonce
+	EncryptedMetadata      []byte
+}
+
 // CommitObject commits created object
-func (client *Client) CommitObject(ctx context.Context, streamID storj.StreamID) (err error) {
+func (client *Client) CommitObject(ctx context.Context, params CommitObjectParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = client.client.CommitObject(ctx, &pb.ObjectCommitRequest{
-		StreamId: streamID,
+		StreamId:               params.StreamID,
+		EncryptedMetadataNonce: params.EncryptedMetadataNonce,
+		EncryptedMetadata:      params.EncryptedMetadata,
 	})
 	return Error.Wrap(err)
 }
@@ -571,7 +577,6 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 // BeginSegmentParams parameters for BeginSegment method
 type BeginSegmentParams struct {
 	StreamID     storj.StreamID
-	Position     storj.SegmentPosition
 	MaxOderLimit int64
 }
 
@@ -580,11 +585,7 @@ func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParam
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.BeginSegment(ctx, &pb.SegmentBeginRequest{
-		StreamId: params.StreamID,
-		Position: &pb.SegmentPosition{
-			PartNumber: params.Position.PartNumber,
-			Index:      params.Position.Index,
-		},
+		StreamId:      params.StreamID,
 		MaxOrderLimit: params.MaxOderLimit,
 	})
 	if err != nil {
@@ -597,22 +598,25 @@ func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParam
 // CommitSegmentParams parameters for CommitSegment method
 type CommitSegmentParams struct {
 	SegmentID         storj.SegmentID
-	EncryptedKeyNonce storj.Nonce
-	EncryptedKey      []byte
+	Position          storj.SegmentPosition
+	SegmentEncryption storj.SegmentEncryption
 	SizeEncryptedData int64
 	// TODO find better way for this
 	UploadResult []*pb.SegmentPieceUploadResult
 }
 
-// CommitSegment2 commits segment after upload
-func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentParams) (err error) {
-	// TODO method name will be changed when new methods will be fully integrated with client side
+// CommitSegment commits segment after upload
+func (client *Client) CommitSegment(ctx context.Context, params CommitSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
-		SegmentId:         params.SegmentID,
-		EncryptedKeyNonce: params.EncryptedKeyNonce,
-		EncryptedKey:      params.EncryptedKey,
+		SegmentId: params.SegmentID,
+		Position: &pb.SegmentPosition{
+			PartNumber: params.Position.PartNumber,
+			Index:      params.Position.Index,
+		},
+		EncryptedKeyNonce: params.SegmentEncryption.EncryptedKeyNonce,
+		EncryptedKey:      params.SegmentEncryption.EncryptedKey,
 		SizeEncryptedData: params.SizeEncryptedData,
 		UploadResult:      params.UploadResult,
 	})
@@ -627,8 +631,7 @@ func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentPa
 type MakeInlineSegmentParams struct {
 	StreamID            storj.StreamID
 	Position            storj.SegmentPosition
-	EncryptedKeyNonce   storj.Nonce
-	EncryptedKey        []byte
+	SegmentEncryption   storj.SegmentEncryption
 	EncryptedInlineData []byte
 }
 
@@ -642,8 +645,8 @@ func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSe
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
-		EncryptedKeyNonce:   params.EncryptedKeyNonce,
-		EncryptedKey:        params.EncryptedKey,
+		EncryptedKeyNonce:   params.SegmentEncryption.EncryptedKeyNonce,
+		EncryptedKey:        params.SegmentEncryption.EncryptedKey,
 		EncryptedInlineData: params.EncryptedInlineData,
 	})
 	if err != nil {

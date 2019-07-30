@@ -937,6 +937,9 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	// take bucket RS values if not set in request
 	pbRS := req.RedundancyScheme
+	if pbRS.Type == 0 {
+		pbRS.Type = pb.RedundancyScheme_SchemeType(bucket.DefaultRedundancyScheme.Algorithm)
+	}
 	if pbRS.ErasureShareSize == 0 {
 		pbRS.ErasureShareSize = bucket.DefaultRedundancyScheme.ShareSize
 	}
@@ -962,14 +965,12 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	streamID, err := endpoint.packStreamID(ctx, &pb.SatStreamID{
-		Bucket:                 req.Bucket,
-		EncryptedPath:          req.EncryptedPath,
-		Version:                req.Version,
-		Redundancy:             pbRS,
-		CreationDate:           time.Now(),
-		ExpirationDate:         req.ExpiresAt,
-		EncryptedMetadataNonce: req.EncryptedMetadataNonce,
-		EncryptedMetadata:      req.EncryptedMetadata,
+		Bucket:         req.Bucket,
+		EncryptedPath:  req.EncryptedPath,
+		Version:        req.Version,
+		Redundancy:     pbRS,
+		CreationDate:   time.Now(),
+		ExpirationDate: req.ExpiresAt,
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -1004,7 +1005,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Errorf(codes.InvalidArgument, "stream ID expired")
 	}
 
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1014,7 +1015,30 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	// we don't need to do anything for shim implementation
+	path, err := CreatePath(ctx, keyInfo.ProjectID, -1, streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	pointer, err := endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	pointer.Metadata = req.EncryptedMetadata
+
+	err = endpoint.metainfo.Delete(ctx, path)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	err = endpoint.metainfo.Put(ctx, path, pointer)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
 
 	return &pb.ObjectCommitResponse{}, nil
 }
@@ -1292,8 +1316,8 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		StreamId:            streamID,
 		OriginalOrderLimits: addressedLimits,
 		RootPieceId:         rootPieceID,
-		Index:               req.Position.Index,
-		CreationDate:        time.Now(),
+		// Index:               req.Position.Index,
+		CreationDate: time.Now(),
 	})
 
 	return &pb.SegmentBeginResponse{
@@ -1324,18 +1348,13 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	if len(segmentID.OriginalOrderLimits) < len(req.UploadResult) {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid number of upload results: wanted max %d got %d",
-			len(segmentID.OriginalOrderLimits), len(req.UploadResult))
-	}
-
-	pieces := make([]*pb.RemotePiece, len(req.UploadResult))
-	for i, result := range req.UploadResult {
-		pieces[i] = &pb.RemotePiece{
+	pieces := make([]*pb.RemotePiece, 0)
+	for _, result := range req.UploadResult {
+		pieces = append(pieces, &pb.RemotePiece{
 			PieceNum: result.PieceNum,
 			NodeId:   result.NodeId,
 			Hash:     result.Hash,
-		}
+		})
 	}
 	remote := &pb.RemoteSegment{
 		Redundancy:   streamID.Redundancy,
@@ -1350,10 +1369,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 		CreationDate:   streamID.CreationDate,
 		ExpirationDate: streamID.ExpirationDate,
-	}
-
-	if segmentID.Index == lastSegment {
-		pointer.Metadata = streamID.EncryptedMetadata
 	}
 
 	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
@@ -1371,7 +1386,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
+	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -1385,6 +1400,11 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 			limit, keyInfo.ProjectID,
 		)
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
+	}
+
+	// clear hashes so we don't store them
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		piece.Hash = nil
 	}
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(pointer)
@@ -1464,9 +1484,9 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		InlineSegment:  req.EncryptedInlineData,
 	}
 
-	if req.Position.Index == lastSegment {
-		pointer.Metadata = streamID.EncryptedMetadata
-	}
+	// if req.Position.Index == lastSegment {
+	// 	pointer.Metadata = streamID.EncryptedMetadata
+	// }
 
 	err = endpoint.metainfo.Put(ctx, path, pointer)
 	if err != nil {

@@ -45,7 +45,7 @@ func TestUplinksParallel(t *testing.T) {
 			for p := 0; p < parallelCount; p++ {
 				suffix := fmt.Sprintf("-%d-%d", i, p)
 				group.Go(func() error {
-					data := testrand.Bytes(memory.Size(100+testrand.Intn(500)) * memory.KiB)
+					data := testrand.Bytes(10 * memory.KiB)
 
 					err := uplink.Upload(ctx, satellite, "testbucket"+suffix, "test/path"+suffix, data)
 					if err != nil {

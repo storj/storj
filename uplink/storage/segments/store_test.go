@@ -16,57 +16,12 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/segments"
 )
-
-func TestSegmentStoreMeta(t *testing.T) {
-	// for i, tt := range []struct {
-	// 	path       string
-	// 	data       []byte
-	// 	metadata   []byte
-	// 	expiration time.Time
-	// 	err        string
-	// }{
-	// 	{"l/path/1/2/3", []byte("content"), []byte("metadata"), time.Now().UTC().Add(time.Hour * 12), ""},
-	// 	{"l/not-exists-path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
-	// 	{"", []byte{}, []byte{}, time.Now(), "invalid segment component"},
-	// } {
-	// 	test := tt
-	// 	t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
-	// 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-	// 			// expectedSize := int64(len(test.data))
-	// 			reader := bytes.NewReader(test.data)
-
-	// 			beforeModified := time.Now()
-	// 			if test.err == "" {
-	// 				meta, err := segmentStore.Put(ctx, reader, test.expiration, func() (storj.Path, []byte, error) {
-	// 					return test.path, test.metadata, nil
-	// 				})
-	// 				require.NoError(t, err)
-	// 				// assert.Equal(t, expectedSize, meta.Size)
-	// 				assert.Equal(t, test.metadata, meta.Data)
-	// 				assert.True(t, test.expiration.Equal(meta.Expiration))
-	// 				assert.True(t, meta.Modified.After(beforeModified))
-	// 			}
-
-	// 			meta, err := segmentStore.Meta(ctx, test.path)
-	// 			if test.err == "" {
-	// 				require.NoError(t, err)
-	// 				// assert.Equal(t, expectedSize, meta.Size)
-	// 				assert.Equal(t, test.metadata, meta.Data)
-	// 				assert.True(t, test.expiration.Equal(meta.Expiration))
-	// 				assert.True(t, meta.Modified.After(beforeModified))
-	// 			} else {
-	// 				require.Contains(t, err.Error(), test.err)
-	// 			}
-	// 		})
-	// 	})
-	// }
-}
 
 func TestSegmentStorePutGet(t *testing.T) {
 	// for _, tt := range []struct {
@@ -201,7 +156,7 @@ func TestSegmentStoreList(t *testing.T) {
 
 func TestCalcNeededNodes(t *testing.T) {
 	for i, tt := range []struct {
-		k, m, o, n int32
+		k, m, o, n int16
 		needed     int32
 	}{
 		{k: 0, m: 0, o: 0, n: 0, needed: 0},
@@ -215,14 +170,14 @@ func TestCalcNeededNodes(t *testing.T) {
 	} {
 		tag := fmt.Sprintf("#%d. %+v", i, tt)
 
-		rs := pb.RedundancyScheme{
-			MinReq:           tt.k,
-			RepairThreshold:  tt.m,
-			SuccessThreshold: tt.o,
-			Total:            tt.n,
+		rs := storj.RedundancyScheme{
+			RequiredShares: tt.k,
+			RepairShares:   tt.m,
+			OptimalShares:  tt.o,
+			TotalShares:    tt.n,
 		}
 
-		assert.Equal(t, tt.needed, segments.CalcNeededNodes(&rs), tag)
+		assert.Equal(t, tt.needed, segments.CalcNeededNodes(rs), tag)
 	}
 }
 
