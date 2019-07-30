@@ -201,9 +201,9 @@ func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offe
 		if !ok {
 			return nil, errs.New("partner not exist")
 		}
-		for _, o := range offers {
-			if o.Name == partnerInfo.Name {
-				offer = &o
+		for i := range offers {
+			if offers[i].Name == partnerInfo.Name {
+				offer = &offers[i]
 			}
 		}
 	default:
