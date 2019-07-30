@@ -13,137 +13,6 @@ import (
 	"storj.io/storj/uplink/storage/segments"
 )
 
-func TestSegmentStorePutGet(t *testing.T) {
-	// for _, tt := range []struct {
-	// 	name       string
-	// 	path       string
-	// 	metadata   []byte
-	// 	expiration time.Time
-	// 	content    []byte
-	// }{
-	// 	{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
-	// 	{"test remote put/get", "s0/test-bucket/mypath/1", []byte("metadata-remote"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
-	// } {
-	// 	test := tt
-	// 	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-	// 		metadata, err := segmentStore.Put(ctx, bytes.NewReader(test.content), test.expiration, func() (storj.Path, []byte, error) {
-	// 			return test.path, test.metadata, nil
-	// 		})
-	// 		require.NoError(t, err, test.name)
-	// 		require.Equal(t, test.metadata, metadata.Data)
-
-	// 		rr, metadata, err := segmentStore.Get(ctx, test.path)
-	// 		require.NoError(t, err, test.name)
-	// 		require.Equal(t, test.metadata, metadata.Data)
-
-	// 		reader, err := rr.Range(ctx, 0, rr.Size())
-	// 		require.NoError(t, err, test.name)
-	// 		content, err := ioutil.ReadAll(reader)
-	// 		require.NoError(t, err, test.name)
-	// 		require.Equal(t, test.content, content)
-
-	// 		require.NoError(t, reader.Close(), test.name)
-	// 	})
-	// }
-}
-
-func TestSegmentStoreDelete(t *testing.T) {
-	// for _, tt := range []struct {
-	// 	name       string
-	// 	path       string
-	// 	metadata   []byte
-	// 	expiration time.Time
-	// 	content    []byte
-	// }{
-	// 	{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
-	// 	{"test remote delete", "s0/test-bucket/mypath/1", []byte("metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
-	// } {
-	// 	test := tt
-	// 	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-	// 		_, err := segmentStore.Put(ctx, bytes.NewReader(test.content), test.expiration, func() (storj.Path, []byte, error) {
-	// 			return test.path, test.metadata, nil
-	// 		})
-	// 		require.NoError(t, err, test.name)
-
-	// 		_, _, err = segmentStore.Get(ctx, test.path)
-	// 		require.NoError(t, err, test.name)
-
-	// 		// delete existing
-	// 		err = segmentStore.Delete(ctx, test.path)
-	// 		require.NoError(t, err, test.name)
-
-	// 		_, _, err = segmentStore.Get(ctx, test.path)
-	// 		require.Error(t, err, test.name)
-	// 		require.True(t, storage.ErrKeyNotFound.Has(err))
-
-	// 		// delete non existing
-	// 		err = segmentStore.Delete(ctx, test.path)
-	// 		require.Error(t, err, test.name)
-	// 		require.True(t, storage.ErrKeyNotFound.Has(err))
-	// 	})
-	// }
-}
-
-func TestSegmentStoreList(t *testing.T) {
-	// runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-	// 	expiration := time.Now().Add(24 * time.Hour * 10)
-
-	// 	segments := []struct {
-	// 		path    string
-	// 		content []byte
-	// 	}{
-	// 		{"l/aaaa/afile1", []byte("content")},
-	// 		{"l/aaaa/bfile2", []byte("content")},
-	// 		{"l/bbbb/afile1", []byte("content")},
-	// 		{"l/bbbb/bfile2", []byte("content")},
-	// 		{"l/bbbb/bfolder/file1", []byte("content")},
-	// 	}
-	// 	for _, seg := range segments {
-	// 		segment := seg
-	// 		_, err := segmentStore.Put(ctx, bytes.NewReader(segment.content), expiration, func() (storj.Path, []byte, error) {
-	// 			return segment.path, []byte{}, nil
-	// 		})
-	// 		require.NoError(t, err)
-	// 	}
-
-	// 	// should list all
-	// 	items, more, err := segmentStore.List(ctx, "l", "", "", true, 10, meta.None)
-	// 	require.NoError(t, err)
-	// 	require.False(t, more)
-	// 	require.Equal(t, len(segments), len(items))
-
-	// 	// should list first two and more = true
-	// 	items, more, err = segmentStore.List(ctx, "l", "", "", true, 2, meta.None)
-	// 	require.NoError(t, err)
-	// 	require.True(t, more)
-	// 	require.Equal(t, 2, len(items))
-
-	// 	// should list only prefixes
-	// 	items, more, err = segmentStore.List(ctx, "l", "", "", false, 10, meta.None)
-	// 	require.NoError(t, err)
-	// 	require.False(t, more)
-	// 	require.Equal(t, 2, len(items))
-
-	// 	// should list only BBBB bucket
-	// 	items, more, err = segmentStore.List(ctx, "l/bbbb", "", "", false, 10, meta.None)
-	// 	require.NoError(t, err)
-	// 	require.False(t, more)
-	// 	require.Equal(t, 3, len(items))
-
-	// 	// should list only BBBB bucket after afile1
-	// 	items, more, err = segmentStore.List(ctx, "l/bbbb", "afile1", "", false, 10, meta.None)
-	// 	require.NoError(t, err)
-	// 	require.False(t, more)
-	// 	require.Equal(t, 2, len(items))
-
-	// 	// should list nothing
-	// 	items, more, err = segmentStore.List(ctx, "l/cccc", "", "", true, 10, meta.None)
-	// 	require.NoError(t, err)
-	// 	require.False(t, more)
-	// 	require.Equal(t, 0, len(items))
-	// })
-}
-
 func TestCalcNeededNodes(t *testing.T) {
 	for i, tt := range []struct {
 		k, m, o, n int16
@@ -171,7 +40,7 @@ func TestCalcNeededNodes(t *testing.T) {
 	}
 }
 
-// func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store)) {
+// func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store)) {
 // 	testplanet.Run(t, testplanet.Config{
 // 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 // 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -210,6 +79,11 @@ func TestCalcNeededNodes(t *testing.T) {
 // 		segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 // 		assert.NotNil(t, segmentStore)
 
-// 		test(t, ctx, planet, segmentStore)
+// 		streamStore, err := streams.NewStreamStore(metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.maxInlineSize.Int())
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		test(t, ctx, planet, streamStore)
 // 	})
 // }

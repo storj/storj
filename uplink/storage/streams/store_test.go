@@ -1,395 +1,227 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package streams
+package streams_test
 
-// import (
-// 	"context"
-// 	"fmt"
-// 	"io"
-// 	"strings"
-// 	"testing"
-// 	"time"
+import (
+	"bytes"
+	"context"
+	"io/ioutil"
+	"testing"
+	"time"
 
-// 	"github.com/gogo/protobuf/proto"
-// 	"github.com/golang/mock/gomock"
-// 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-// 	"storj.io/storj/pkg/encryption"
-// 	"storj.io/storj/pkg/pb"
-// 	"storj.io/storj/pkg/ranger"
-// 	"storj.io/storj/uplink/storage/segments"
-// 	"storj.io/storj/pkg/storj"
-// )
+	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/macaroon"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/uplink/ecclient"
+	"storj.io/storj/uplink/eestream"
+	"storj.io/storj/uplink/storage/meta"
+	"storj.io/storj/uplink/storage/segments"
+	"storj.io/storj/uplink/storage/streams"
+)
 
-// var (
-// 	ctx = context.Background()
-// )
+const (
+	TestEncKey = "test-encryption-key"
+)
 
-// func newStore() *encryption.Store {
-// 	store := encryption.NewStore()
-// 	store.SetDefaultKey(new(storj.Key))
-// 	return store
-// }
+func TestSegmentStorePutGet(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		path       string
+		metadata   []byte
+		expiration time.Time
+		content    []byte
+	}{
+		{"test inline put/get", "path/1", []byte("inline"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+		{"test remote put/get", "mypath/1", []byte("remote"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
+	} {
+		test := tt
+		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
+			bucketName := "bucket-name"
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			require.NoError(t, err)
 
-// func TestStreamStoreMeta(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
+			path := storj.JoinPaths(bucketName, test.path)
+			_, err = streamStore.Put(ctx, path, storj.EncNull, bytes.NewReader(test.content), test.metadata, test.expiration)
+			require.NoError(t, err, test.name)
 
-// 	mockSegmentStore := segments.NewMockStore(ctrl)
+			rr, metadata, err := streamStore.Get(ctx, path, storj.EncNull)
+			require.NoError(t, err, test.name)
+			require.Equal(t, test.metadata, metadata.Data)
 
-// 	streamInfo := pb.StreamInfo{
-// 		NumberOfSegments: 2,
-// 		SegmentsSize:     10,
-// 		LastSegmentSize:  0,
-// 		Metadata:         nil,
-// 	}
-// 	stream, err := proto.Marshal(&streamInfo)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+			reader, err := rr.Range(ctx, 0, rr.Size())
+			require.NoError(t, err, test.name)
+			content, err := ioutil.ReadAll(reader)
+			require.NoError(t, err, test.name)
+			require.Equal(t, test.content, content)
 
-// 	lastSegmentMetadata, err := proto.Marshal(&pb.StreamMeta{
-// 		EncryptedStreamInfo: stream, EncryptionType: int32(storj.EncNull),
+			require.NoError(t, reader.Close(), test.name)
+		})
+	}
+}
+
+// TODO convert
+// func TestSegmentStoreDelete(t *testing.T) {
+// for _, tt := range []struct {
+// 	name       string
+// 	path       string
+// 	metadata   []byte
+// 	expiration time.Time
+// 	content    []byte
+// }{
+// 	{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+// 	{"test remote delete", "s0/test-bucket/mypath/1", []byte("metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
+// } {
+// 	test := tt
+// 	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
+// 		_, err := segmentStore.Put(ctx, bytes.NewReader(test.content), test.expiration, func() (storj.Path, []byte, error) {
+// 			return test.path, test.metadata, nil
+// 		})
+// 		require.NoError(t, err, test.name)
+
+// 		_, _, err = segmentStore.Get(ctx, test.path)
+// 		require.NoError(t, err, test.name)
+
+// 		// delete existing
+// 		err = segmentStore.Delete(ctx, test.path)
+// 		require.NoError(t, err, test.name)
+
+// 		_, _, err = segmentStore.Get(ctx, test.path)
+// 		require.Error(t, err, test.name)
+// 		require.True(t, storage.ErrKeyNotFound.Has(err))
+
+// 		// delete non existing
+// 		err = segmentStore.Delete(ctx, test.path)
+// 		require.Error(t, err, test.name)
+// 		require.True(t, storage.ErrKeyNotFound.Has(err))
 // 	})
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	staticTime := time.Now()
-// 	segmentMeta := segments.Meta{
-// 		Modified:   staticTime,
-// 		Expiration: staticTime,
-// 		Size:       50,
-// 		Data:       lastSegmentMetadata,
-// 	}
-
-// 	streamMetaUnmarshaled := pb.StreamMeta{}
-// 	err = proto.Unmarshal(segmentMeta.Data, &streamMetaUnmarshaled)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	segmentMetaStreamInfo := segments.Meta{
-// 		Modified:   staticTime,
-// 		Expiration: staticTime,
-// 		Size:       50,
-// 		Data:       streamMetaUnmarshaled.EncryptedStreamInfo,
-// 	}
-
-// 	streamMeta := convertMeta(segmentMetaStreamInfo, streamInfo, streamMetaUnmarshaled)
-
-// 	for i, test := range []struct {
-// 		// input for test function
-// 		path string
-// 		// output for mock function
-// 		segmentMeta  segments.Meta
-// 		segmentError error
-// 		// assert on output of test function
-// 		streamMeta  Meta
-// 		streamError error
-// 	}{
-// 		{"bucket", segmentMeta, nil, streamMeta, nil},
-// 	} {
-// 		errTag := fmt.Sprintf("Test case #%d", i)
-
-// 		mockSegmentStore.EXPECT().
-// 			Meta(gomock.Any(), gomock.Any()).
-// 			Return(test.segmentMeta, test.segmentError)
-
-// 		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, storj.EncAESGCM, 4)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-
-// 		meta, err := streamStore.Meta(ctx, test.path, storj.EncAESGCM)
-// 		if err != nil {
-// 			t.Fatalf("%+v", err)
-// 		}
-
-// 		assert.Equal(t, test.streamMeta, meta, errTag)
-// 	}
+// }
 // }
 
-// func TestStreamStorePut(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
+func TestStreamStoreList(t *testing.T) {
+	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
+		expiration := time.Now().Add(10 * 24 * time.Hour)
 
-// 	mockSegmentStore := segments.NewMockStore(ctrl)
+		bucketName := "bucket-name"
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		require.NoError(t, err)
 
-// 	const (
-// 		encBlockSize = 10
-// 		segSize      = 10
-// 		pathCipher   = storj.EncAESGCM
-// 		dataCipher   = storj.EncNull
-// 		inlineSize   = 0
-// 	)
+		objects := []struct {
+			path    string
+			content []byte
+		}{
+			{"aaaa/afile1", []byte("content")},
+			{"aaaa/bfile2", []byte("content")},
+			{"bbbb/afile1", []byte("content")},
+			{"bbbb/bfile2", []byte("content")},
+			{"bbbb/bfolder/file1", []byte("content")},
+		}
+		for _, test := range objects {
+			test := test
+			data := bytes.NewReader(test.content)
+			path := storj.JoinPaths(bucketName, test.path)
+			_, err := streamStore.Put(ctx, path, storj.EncNull, data, []byte{}, expiration)
+			require.NoError(t, err)
+		}
 
-// 	staticTime := time.Now()
-// 	segmentMeta := segments.Meta{
-// 		Modified:   staticTime,
-// 		Expiration: staticTime,
-// 		Size:       segSize,
-// 		Data:       []byte{},
-// 	}
+		prefix := bucketName
 
-// 	streamMeta := Meta{
-// 		Modified:   segmentMeta.Modified,
-// 		Expiration: segmentMeta.Expiration,
-// 		Size:       4,
-// 		Data:       []byte("metadata"),
-// 	}
+		// should list all
+		items, more, err := streamStore.List(ctx, prefix, "", "", storj.EncNull, true, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, len(objects), len(items))
 
-// 	for i, test := range []struct {
-// 		// input for test function
-// 		path       string
-// 		data       io.Reader
-// 		metadata   []byte
-// 		expiration time.Time
-// 		// output for mock function
-// 		segmentMeta  segments.Meta
-// 		segmentError error
-// 		// assert on output of test function
-// 		streamMeta  Meta
-// 		streamError error
-// 	}{
-// 		{"bucket", strings.NewReader("data"), []byte("metadata"), staticTime, segmentMeta, nil, streamMeta, nil},
-// 	} {
-// 		errTag := fmt.Sprintf("Test case #%d", i)
+		// should list first two and more = true
+		items, more, err = streamStore.List(ctx, prefix, "", "", storj.EncNull, true, 2, meta.None)
+		require.NoError(t, err)
+		require.True(t, more)
+		require.Equal(t, 2, len(items))
 
-// 		mockSegmentStore.EXPECT().
-// 			Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-// 			Return(test.segmentMeta, test.segmentError).
-// 			Do(func(ctx context.Context, data io.Reader, expiration time.Time, info func() (storj.Path, []byte, error)) {
-// 				for {
-// 					buf := make([]byte, 4)
-// 					_, err := data.Read(buf)
-// 					if err == io.EOF {
-// 						break
-// 					}
-// 				}
-// 			})
+		// // should list only prefixes
+		items, more, err = streamStore.List(ctx, prefix, "", "", storj.EncNull, false, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, 2, len(items))
 
-// 		mockSegmentStore.EXPECT().
-// 			Meta(gomock.Any(), gomock.Any()).
-// 			Return(test.segmentMeta, test.segmentError)
-// 		mockSegmentStore.EXPECT().
-// 			Delete(gomock.Any(), gomock.Any()).
-// 			Return(test.segmentError)
+		// should list only BBBB bucket
+		prefix = storj.JoinPaths(bucketName, "bbbb")
+		items, more, err = streamStore.List(ctx, prefix, "", "", storj.EncNull, false, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, 3, len(items))
 
-// 		streamStore, err := NewStreamStore(mockSegmentStore, segSize, newStore(), encBlockSize, dataCipher, inlineSize)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
+		// should list only BBBB bucket after afile
+		items, more, err = streamStore.List(ctx, prefix, "afile1", "", storj.EncNull, false, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, 2, len(items))
 
-// 		meta, err := streamStore.Put(ctx, test.path, pathCipher, test.data, test.metadata, test.expiration)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
+		// should list nothing
+		prefix = storj.JoinPaths(bucketName, "cccc")
+		items, more, err = streamStore.List(ctx, prefix, "", "", storj.EncNull, true, 10, meta.None)
+		require.NoError(t, err)
+		require.False(t, more)
+		require.Equal(t, 0, len(items))
+	})
+}
 
-// 		assert.Equal(t, test.streamMeta, meta, errTag)
-// 	}
-// }
+func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamsStore streams.Store)) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// TODO move apikey creation to testplanet
+		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
 
-// type stubRanger struct {
-// 	len    int64
-// 	closer io.ReadCloser
-// }
+		apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
+		require.NoError(t, err)
 
-// func (r stubRanger) Size() int64 {
-// 	return r.len
-// }
-// func (r stubRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-// 	return r.closer, nil
-// }
+		apiKeyInfo := console.APIKeyInfo{
+			ProjectID: projects[0].ID,
+			Name:      "testKey",
+			Secret:    []byte("testSecret"),
+		}
 
-// type readCloserStub struct{}
+		// add api key to db
+		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
+		require.NoError(t, err)
 
-// func (r readCloserStub) Read(p []byte) (n int, err error) { return 10, nil }
-// func (r readCloserStub) Close() error                     { return nil }
+		TestAPIKey := apiKey.Serialize()
 
-// func TestStreamStoreGet(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
+		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
-// 	const (
-// 		segSize      = 10
-// 		inlineSize   = 5
-// 		encBlockSize = 10
-// 		dataCipher   = storj.EncNull
-// 		pathCipher   = storj.EncAESGCM
-// 	)
+		ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
 
-// 	mockSegmentStore := segments.NewMockStore(ctrl)
+		cfg := planet.Uplinks[0].GetConfig(planet.Satellites[0])
+		rs, err := eestream.NewRedundancyStrategyFromStorj(cfg.GetRedundancyScheme())
+		require.NoError(t, err)
 
-// 	staticTime := time.Now()
+		segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+		assert.NotNil(t, segmentStore)
 
-// 	segmentRanger := stubRanger{
-// 		len:    10,
-// 		closer: readCloserStub{},
-// 	}
+		key := new(storj.Key)
+		copy(key[:], TestEncKey)
 
-// 	stream, err := proto.Marshal(&pb.StreamInfo{
-// 		NumberOfSegments: 1,
-// 		SegmentsSize:     segSize,
-// 		LastSegmentSize:  0,
-// 	})
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+		encStore := encryption.NewStore()
+		encStore.SetDefaultKey(key)
 
-// 	lastSegmentMeta, err := proto.Marshal(&pb.StreamMeta{
-// 		EncryptedStreamInfo: stream,
-// 		EncryptionType:      int32(dataCipher),
-// 		EncryptionBlockSize: encBlockSize,
-// 	})
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+		const stripesPerBlock = 2
+		blockSize := stripesPerBlock * rs.StripeSize()
+		inlineThreshold := 8 * memory.KiB.Int()
+		streamStore, err := streams.NewStreamStore(metainfo, segmentStore, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncNull, inlineThreshold)
+		require.NoError(t, err)
 
-// 	segmentMeta := segments.Meta{
-// 		Modified:   staticTime,
-// 		Expiration: staticTime,
-// 		Size:       segSize,
-// 		Data:       lastSegmentMeta,
-// 	}
-
-// 	streamRanger := ranger.ByteRanger(nil)
-
-// 	streamMeta := Meta{
-// 		Modified:   staticTime,
-// 		Expiration: staticTime,
-// 		Size:       0,
-// 		Data:       nil,
-// 	}
-
-// 	for i, test := range []struct {
-// 		// input for test function
-// 		path string
-// 		// output for mock function
-// 		segmentRanger ranger.Ranger
-// 		segmentMeta   segments.Meta
-// 		segmentError  error
-// 		// assert on output of test function
-// 		streamRanger ranger.Ranger
-// 		streamMeta   Meta
-// 		streamError  error
-// 	}{
-// 		{"bucket", segmentRanger, segmentMeta, nil, streamRanger, streamMeta, nil},
-// 	} {
-// 		errTag := fmt.Sprintf("Test case #%d", i)
-
-// 		calls := []*gomock.Call{
-// 			mockSegmentStore.EXPECT().
-// 				Get(gomock.Any(), gomock.Any()).
-// 				Return(test.segmentRanger, test.segmentMeta, test.segmentError),
-// 		}
-
-// 		gomock.InOrder(calls...)
-
-// 		streamStore, err := NewStreamStore(mockSegmentStore, segSize, newStore(), encBlockSize, dataCipher, inlineSize)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-
-// 		ranger, meta, err := streamStore.Get(ctx, test.path, pathCipher)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-
-// 		assert.Equal(t, test.streamRanger.Size(), ranger.Size(), errTag)
-// 		assert.Equal(t, test.streamMeta, meta, errTag)
-// 	}
-// }
-
-// func TestStreamStoreDelete(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
-
-// 	mockSegmentStore := segments.NewMockStore(ctrl)
-
-// 	staticTime := time.Now()
-// 	segmentMeta := segments.Meta{
-// 		Modified:   staticTime,
-// 		Expiration: staticTime,
-// 		Size:       10,
-// 		Data:       []byte{},
-// 	}
-
-// 	for i, test := range []struct {
-// 		// input for test function
-// 		path string
-// 		// output for mock functions
-// 		segmentMeta  segments.Meta
-// 		segmentError error
-// 		// assert on output of test function
-// 		streamError error
-// 	}{
-// 		{"bucket", segmentMeta, nil, nil},
-// 	} {
-// 		errTag := fmt.Sprintf("Test case #%d", i)
-
-// 		mockSegmentStore.EXPECT().
-// 			Meta(gomock.Any(), gomock.Any()).
-// 			Return(test.segmentMeta, test.segmentError)
-// 		mockSegmentStore.EXPECT().
-// 			Delete(gomock.Any(), gomock.Any()).
-// 			Return(test.segmentError)
-
-// 		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, 0, 0)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-
-// 		err = streamStore.Delete(ctx, test.path, storj.EncAESGCM)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-
-// 		assert.Equal(t, test.streamError, err, errTag)
-// 	}
-// }
-// func TestStreamStoreList(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
-
-// 	mockSegmentStore := segments.NewMockStore(ctrl)
-
-// 	for i, test := range []struct {
-// 		// input for test function
-// 		prefix     string
-// 		startAfter string
-// 		endBefore  string
-// 		recursive  bool
-// 		limit      int
-// 		metaFlags  uint32
-// 		// output for mock function
-// 		segments     []segments.ListItem
-// 		segmentMore  bool
-// 		segmentError error
-// 		// assert on output of test function
-// 		streamItems []ListItem
-// 		streamMore  bool
-// 		streamError error
-// 	}{
-// 		{"bucket", "", "", false, 1, 0, []segments.ListItem{}, false, nil, []ListItem{}, false, nil},
-// 	} {
-// 		errTag := fmt.Sprintf("Test case #%d", i)
-
-// 		mockSegmentStore.EXPECT().
-// 			List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-// 			Return(test.segments, test.segmentMore, test.segmentError)
-
-// 		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, 0, 0)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-
-// 		items, more, err := streamStore.List(ctx, test.prefix, test.startAfter, test.endBefore, storj.EncAESGCM, test.recursive, test.limit, test.metaFlags)
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-
-// 		assert.Equal(t, test.streamItems, items, errTag)
-// 		assert.Equal(t, test.streamMore, more, errTag)
-// 	}
-// }
+		test(t, ctx, planet, streamStore)
+	})
+}

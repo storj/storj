@@ -1667,12 +1667,14 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 				return nil, status.Errorf(codes.Internal, err.Error())
 			}
 		}
-		encryptedKeyNonce, err = storj.NonceFromBytes(segmentMeta.KeyNonce)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
-		}
+		if segmentMeta != nil {
+			encryptedKeyNonce, err = storj.NonceFromBytes(segmentMeta.KeyNonce)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, err.Error())
+			}
 
-		encryptedKey = segmentMeta.EncryptedKey
+			encryptedKey = segmentMeta.EncryptedKey
+		}
 	}
 
 	if pointer.Type == pb.Pointer_INLINE {
