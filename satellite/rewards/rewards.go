@@ -7,11 +7,17 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/currency"
 )
 
-// MaxRedemptionErr is the error message used when an offer has reached its redemption capacity
-var MaxRedemptionErr = "This offer redemption has reached its capacity"
+var (
+	// MaxRedemptionErr is the error class used when an offer has reached its redemption capacity
+	MaxRedemptionErr = errs.Class("offer redemption has reached its capacity")
+	// NoCurrentOfferErr is the error class used when no current offer is set
+	NoCurrentOfferErr = errs.Class("no current offer")
+)
 
 // DB holds information about offer
 type DB interface {

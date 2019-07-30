@@ -56,6 +56,12 @@
 </script>
 
 <style lang="scss">
+    body {
+        margin: 0px !important;
+        height: 100vh;
+        zoom: 100%;
+    }
+
     @font-face {
         font-family: "font_regular";
         src: url("../static/fonts/font_regular.ttf");

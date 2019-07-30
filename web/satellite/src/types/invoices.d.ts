@@ -11,9 +11,9 @@ declare type PaymentMethod = {
     holderName: string,
     addedAt: Date,
     isDefault: boolean,
-}
+};
 
 declare type AddPaymentMethodInput = {
     token: string,
     makeDefault: boolean,
-}
+};

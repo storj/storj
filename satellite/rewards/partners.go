@@ -6,6 +6,9 @@ package rewards
 import (
 	"encoding/base64"
 	"encoding/json"
+	"path"
+
+	"github.com/zeebo/errs"
 )
 
 // PartnerInfo contains the name and ID of an Open Source Partner
