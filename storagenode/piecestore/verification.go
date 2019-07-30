@@ -55,7 +55,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	}
 
 	if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
-		return status.Errorf(codes.FailedPrecondition, "untrusted: %+v", err)
+		return status.Errorf(codes.PermissionDenied, "untrusted: %+v", err)
 	}
 
 	if err := endpoint.VerifyOrderLimitSignature(ctx, limit); err != nil {
