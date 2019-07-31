@@ -1066,13 +1066,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						ADD COLUMN owner_id BYTEA;
 
 					UPDATE projects as proj
-    					SET owner_id = 
-        					(SELECT member_id
-								FROM project_members
-             						WHERE project_id = proj.id
-                						GROUP BY member_id
-                    						ORDER BY MAX(created_at) ASC
-                     							LIMIT 1);`,
+                        SET owner_id = 
+                            (SELECT member_id
+                                FROM project_members
+                                    WHERE project_id = proj.id
+                                        GROUP BY member_id    
+                                            ORDER BY MAX(created_at) ASC
+                                                LIMIT 1);`,
 				},
 			},
 		},
