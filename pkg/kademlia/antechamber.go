@@ -58,6 +58,7 @@ func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, nodeID storj.
 
 // antechamberFindNear returns the closest nodes to target from the antechamber up to the limit
 // it is called in conjunction with RT FindNear in some circumstances
+// TODO UNTESTED
 func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.acMutex.Lock()
@@ -90,6 +91,7 @@ func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.No
 }
 
 // findOutsiderNodes returns the nodes outside the rt node neighborhood, to be removed
+// TODO UNTESTED
 func (rt *RoutingTable) findOutsiderNodes(ctx context.Context) (keys storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.mutex.Lock()
