@@ -840,8 +840,59 @@ func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.
 }
 
 // SetBucketAttribution sets the bucket attribution.
-func (endpoint *Endpoint) SetBucketAttribution(context.Context, *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
-	return resp, status.Error(codes.Unimplemented, "not implemented")
+func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
+
+	// try to add an attribution that doesn't exist
+	partnerID, err := bytesToUUID(req.GetAttributionId())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.GetName(),
+		EncryptedPath: []byte(""),
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// check if attribution is set for given bucket
+	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetName())
+	if err == nil {
+		endpoint.log.Sugar().Info("Bucket:", string(req.GetName()), " PartnerID:", partnerID.String(), "already attributed")
+		return &pb.BucketSetAttributionResponse{}, nil
+	}
+
+	if !attribution.ErrBucketNotAttributed.Has(err) {
+		// try only to set the attribution, when it's missing
+		return nil, Error.Wrap(err)
+	}
+
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.GetName(), []byte(""))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if len(items) > 0 {
+		return nil, Error.New("Bucket(%q) , PartnerID(%s) cannot be attributed", req.GetName(), req.GetAttributionId())
+	}
+
+	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: req.GetName(),
+		PartnerID:  partnerID,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &pb.BucketSetAttributionResponse{}, status.Error(codes.Unimplemented, "not implemented")
 }
 
 func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (bucket storj.Bucket, err error) {
