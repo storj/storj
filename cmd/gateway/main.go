@@ -149,7 +149,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	ctx := process.Ctx(cmd)
 
-	if err := process.InitMetrics(ctx, nil, ""); err != nil {
+	if err := process.InitMetrics(ctx, zap.L(), nil, ""); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 

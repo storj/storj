@@ -42,7 +42,7 @@ func flagDefault(dev, release string) string {
 
 // InitMetrics initializes telemetry reporting. Makes a telemetry.Client and calls
 // its Run() method in a goroutine.
-func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (err error) {
+func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, instanceID string) (err error) {
 	if *metricCollector == "" || *metricInterval == 0 {
 		return Error.New("telemetry disabled")
 	}
@@ -56,7 +56,7 @@ func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (er
 	if len(instanceID) > maxInstanceLength {
 		instanceID = instanceID[:maxInstanceLength]
 	}
-	c, err := telemetry.NewClient(*metricCollector, telemetry.ClientOpts{
+	c, err := telemetry.NewClient(log, *metricCollector, telemetry.ClientOpts{
 		Interval:      *metricInterval,
 		Application:   *metricApp + *metricAppSuffix,
 		Instance:      instanceID,
@@ -84,5 +84,5 @@ func InitMetricsWithCertPath(ctx context.Context, log *zap.Logger, r *monkit.Reg
 	} else {
 		metricsID = nodeID.String()
 	}
-	return InitMetrics(ctx, r, metricsID)
+	return InitMetrics(ctx, log, r, metricsID)
 }
