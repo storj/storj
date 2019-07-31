@@ -84,6 +84,10 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 		}
 		results = append(results, o)
 	}
+
+	if len(results) < 1 {
+		return results, rewards.NoCurrentOfferErr.New("offerType: %d", offerType)
+	}
 	return results, nil
 }
 

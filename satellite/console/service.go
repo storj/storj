@@ -135,7 +135,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, errs.New(internalErrMsg)
 	}
 	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
-	if err != nil {
+	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
 		return nil, errs.New(internalErrMsg)
 	}
 

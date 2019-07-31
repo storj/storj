@@ -5,6 +5,11 @@ package rewards
 
 import "github.com/zeebo/errs"
 
+var (
+	// NoMatchPartnerIDErr is the error class used when an offer has reached its redemption capacity
+	NoMatchPartnerIDErr = errs.Class("partner not exist")
+)
+
 // PartnerInfo contains the name and ID of an Open Source Partner
 type PartnerInfo struct {
 	ID, Name string

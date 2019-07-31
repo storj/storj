@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -75,7 +76,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				FullName:  "John Roll",
 				ShortName: "Roll",
 				Email:     "test@mail.test",
-				PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
+				PartnerID: "",
 			},
 			Password: "123a123",
 		}
@@ -86,7 +87,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
 		require.NoError(t, err)
-		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
+		require.True(t, rootUser.PartnerID.IsZero())
 
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
@@ -117,7 +118,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,partnerId,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\", referrerUserId: \"\"){id,shortName,fullName,email,partnerId,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
@@ -134,6 +135,9 @@ func TestGrapqhlMutation(t *testing.T) {
 			})
 
 			for _, err := range result.Errors {
+				if rewards.NoMatchPartnerIDErr.Has(err) {
+					assert.Error(t, err)
+				}
 				assert.NoError(t, err)
 			}
 			require.False(t, result.HasErrors())

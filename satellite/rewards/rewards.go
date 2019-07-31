@@ -192,6 +192,9 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 
 // GetActiveOffer returns an offer that is active based on its type
 func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offer *Offer, err error) {
+	if len(offers) < 1 {
+		return nil, NoCurrentOfferErr.New("no active offers")
+	}
 	switch offerType {
 	case Partner:
 		if partnerID == "" {
@@ -199,7 +202,7 @@ func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offe
 		}
 		partnerInfo, ok := LoadPartnerInfos()[partnerID]
 		if !ok {
-			return nil, errs.New("partner not exist")
+			return nil, NoMatchPartnerIDErr.New("no partnerInfo found")
 		}
 		for i := range offers {
 			if offers[i].Name == partnerInfo.Name {
@@ -207,7 +210,7 @@ func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offe
 			}
 		}
 	default:
-		if len(offers) != 1 {
+		if len(offers) > 1 {
 			return nil, errs.New("multiple active offers found")
 		}
 		offer = &offers[0]
