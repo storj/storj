@@ -4,11 +4,13 @@
 package filestore_test
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -393,7 +395,117 @@ func TestStoreSpaceUsed(t *testing.T) {
 	}
 }
 
+// Check that GetAllNamespaces and ForAllKeysInNamespace work as expected.
 func TestStoreTraversals(t *testing.T) {
-	// FIXME stub
-	// GetAllNamespaces, ForAllKeysInNamespace
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
+	require.NoError(t, err)
+
+	// invent some namespaces and store stuff in them
+	type namespaceWithBlobs struct {
+		namespace []byte
+		blobs     []storage.BlobRef
+	}
+	const numNamespaces = 4
+	recordsToInsert := make([]namespaceWithBlobs, numNamespaces)
+
+	var namespaceBase = testrand.Bytes(namespaceSize - 1)
+	for i := range recordsToInsert {
+		recordsToInsert[i].namespace = append(namespaceBase, byte(i))
+
+		// put varying numbers of blobs in the namespaces
+		recordsToInsert[i].blobs = make([]storage.BlobRef, i+1)
+		for j := range recordsToInsert[i].blobs {
+			recordsToInsert[i].blobs[j] = storage.BlobRef{
+				Namespace: recordsToInsert[i].namespace,
+				Key:       testrand.Bytes(keySize),
+			}
+			blobWriter, err := store.Create(ctx, recordsToInsert[i].blobs[j], 0)
+			require.NoError(t, err)
+			// also vary the sizes of the blobs so we can check Stat results
+			_, err = blobWriter.Write(testrand.Bytes(memory.Size(j)))
+			require.NoError(t, err)
+			err = blobWriter.Commit(ctx)
+			require.NoError(t, err)
+		}
+	}
+
+	// test GetAllNamespaces
+	gotNamespaces, err := store.GetAllNamespaces(ctx)
+	require.NoError(t, err)
+	sort.Slice(gotNamespaces, func(i, j int) bool {
+		return bytes.Compare(gotNamespaces[i], gotNamespaces[j]) < 0
+	})
+	sort.Slice(recordsToInsert, func(i, j int) bool {
+		return bytes.Compare(recordsToInsert[i].namespace, recordsToInsert[j].namespace) < 0
+	})
+	for i, expected := range recordsToInsert {
+		require.Equalf(t, expected.namespace, gotNamespaces[i], "mismatch at index %d: recordsToInsert is %+v and gotNamespaces is %v", i, recordsToInsert, gotNamespaces)
+	}
+
+	// test ForAllKeysInNamespace
+	for _, expected := range recordsToInsert {
+		// keep track of which blobs we visit with ForAllKeysInNamespace
+		found := make([]bool, len(expected.blobs))
+
+		err = store.ForAllKeysInNamespace(ctx, expected.namespace, func(access storage.StoredBlobAccess) error {
+			gotBlobRef := access.BlobRef()
+			assert.Equal(t, expected.namespace, gotBlobRef.Namespace)
+			// find which blob this is in expected.blobs
+			blobIdentified := -1
+			for i, expectedBlobRef := range expected.blobs {
+				if bytes.Equal(gotBlobRef.Key, expectedBlobRef.Key) {
+					found[i] = true
+					blobIdentified = i
+				}
+			}
+			// make sure this is a blob we actually put in
+			require.NotEqualf(t, -1, blobIdentified,
+				"ForAllKeysInNamespace gave BlobRef %v, but I don't remember storing that",
+				gotBlobRef)
+
+			// check StoredBlobAccess sanity
+			stat, err := access.Stat(ctx)
+			require.NoError(t, err)
+			nameFromStat := stat.Name()
+			fullPath, err := access.FullPath(ctx)
+			require.NoError(t, err)
+			basePath := filepath.Base(fullPath)
+			assert.Equal(t, nameFromStat, basePath)
+			assert.Equal(t, int64(blobIdentified), stat.Size())
+			assert.False(t, stat.IsDir())
+			return nil
+		})
+		require.NoError(t, err)
+
+		// make sure all blobs were visited
+		for i := range found {
+			assert.True(t, found[i],
+				"ForAllKeysInNamespace never yielded blob at index %d: %v",
+				i, expected.blobs[i])
+		}
+	}
+
+	// test ForAllKeysInNamespace on a nonexistent namespace also
+	err = store.ForAllKeysInNamespace(ctx, append(namespaceBase, byte(numNamespaces)), func(access storage.StoredBlobAccess) error {
+		t.Fatal("this should not have been called")
+		return nil
+	})
+	require.NoError(t, err)
+
+	// check that ForAllKeysInNamespace stops iterating after an error return
+	iterations := 0
+	expectedErr := errs.New("an expected error")
+	err = store.ForAllKeysInNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, func(access storage.StoredBlobAccess) error {
+		iterations++
+		if iterations == 2 {
+			return expectedErr
+		}
+		return nil
+	})
+	assert.Error(t, err)
+	assert.Equal(t, err, expectedErr)
+	assert.Equal(t, 2, iterations)
 }
