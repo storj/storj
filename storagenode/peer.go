@@ -393,7 +393,7 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
-	if peer.DB.Bandwidth() != nil {
+	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
 	}
 	if peer.Vouchers != nil {
