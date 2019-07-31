@@ -92,7 +92,7 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 		cfg.Volatile.MaxMemory = 0
 	}
 	if cfg.Volatile.Log == nil {
-		cfg.Volatile.Log = zap.NewNop()
+		cfg.Volatile.Log = zap.L()
 	}
 	if cfg.Volatile.DialTimeout.Seconds() == 0 {
 		cfg.Volatile.DialTimeout = defaultUplinkDialTimeout
