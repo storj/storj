@@ -23,6 +23,7 @@ func InterceptAPIKey(ctx context.Context, req interface{}, info *grpc.UnaryServe
 	if !ok {
 		return handler(ctx, req)
 	}
+
 	apikeys, ok := md["apikey"]
 	if !ok || len(apikeys) == 0 {
 		return handler(ctx, req)
