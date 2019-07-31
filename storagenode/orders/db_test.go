@@ -99,11 +99,11 @@ func TestDB(t *testing.T) {
 		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
 
 		// test archival
-		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusAccepted)
+		err = ordersdb.Archive(ctx, orders.ArchiveRequest{satellite0.ID, serialNumber, orders.StatusAccepted})
 		require.NoError(t, err)
 
 		// duplicate archive
-		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusRejected)
+		err = ordersdb.Archive(ctx, orders.ArchiveRequest{satellite0.ID, serialNumber, orders.StatusRejected})
 		require.Error(t, err)
 
 		// shouldn't be in unsent list
@@ -159,7 +159,7 @@ func TestDB_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure Archive works at all
-			err := db.Orders().Archive(ctx, satelliteID, serial, orders.StatusAccepted)
+			err := db.Orders().Archive(ctx, orders.ArchiveRequest{satelliteID, serial, orders.StatusAccepted})
 			require.NoError(t, err)
 		}
 

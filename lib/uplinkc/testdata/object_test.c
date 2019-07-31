@@ -47,7 +47,6 @@ void handle_project(ProjectRef project) {
     BucketRef bucket = open_bucket(project, bucket_name, enc_ctx, err);
     require_noerror(*err);
 
-
     for(int i = 0; i < num_of_objects; i++) {
         // NB: 5KB, 50KB, 500KB, 5000KB
         size_t data_len = pow(10, (double)i) * 1024 * 5;
@@ -84,7 +83,7 @@ void handle_project(ProjectRef project) {
             upload_commit(uploader, err);
             require_noerror(*err);
 
-            free_uploader_ref(uploader);
+            free_uploader(uploader);
         }
 
         { // object meta
@@ -110,7 +109,7 @@ void handle_project(ProjectRef project) {
             DownloaderRef downloader = download(bucket, object_paths[i], err);
             require_noerror(*err);
 
-            uint8_t downloaded_data[data_len];
+            uint8_t *downloaded_data = malloc(data_len);
             memset(downloaded_data, '\0', data_len);
             size_t downloaded_total = 0;
 
@@ -130,7 +129,9 @@ void handle_project(ProjectRef project) {
             require_noerror(*err);
             require(memcmp(data, downloaded_data, data_len) == 0);
 
-            free_downloader_ref(downloader);
+            free(downloaded_data);
+
+            free_downloader(downloader);
         }
 
         if (data != NULL) {

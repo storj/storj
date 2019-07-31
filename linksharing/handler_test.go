@@ -99,7 +99,7 @@ func TestNewHandler(t *testing.T) {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 
-			handler, err := NewHandler(testCase.config)
+			handler, err := NewHandler(zaptest.NewLogger(t), testCase.config)
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
 				return
@@ -253,8 +253,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 			uplink := newUplink(ctx, t)
 			defer ctx.Check(uplink.Close)
 
-			handler, err := NewHandler(HandlerConfig{
-				Log:     zaptest.NewLogger(t),
+			handler, err := NewHandler(zaptest.NewLogger(t), HandlerConfig{
 				Uplink:  uplink,
 				URLBase: "http://localhost",
 			})

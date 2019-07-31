@@ -63,17 +63,17 @@ type Containment interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log            *zap.Logger
-	metainfo       *Service
-	orders         *orders.Service
-	cache          *overlay.Cache
-	partnerinfo    attribution.DB
-	projectUsage   *accounting.ProjectUsage
-	containment    Containment
-	apiKeys        APIKeys
-	createRequests *createRequests
-	rsConfig       RSConfig
-	satellite      signing.Signer
+	log              *zap.Logger
+	metainfo         *Service
+	orders           *orders.Service
+	cache            *overlay.Cache
+	partnerinfo      attribution.DB
+	projectUsage     *accounting.ProjectUsage
+	containment      Containment
+	apiKeys          APIKeys
+	createRequests   *createRequests
+	requiredRSConfig RSConfig
+	satellite        signing.Signer
 }
 
 // NewEndpoint creates new metainfo endpoint instance
@@ -81,17 +81,17 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:            log,
-		metainfo:       metainfo,
-		orders:         orders,
-		cache:          cache,
-		partnerinfo:    partnerinfo,
-		containment:    containment,
-		apiKeys:        apiKeys,
-		projectUsage:   projectUsage,
-		createRequests: newCreateRequests(),
-		rsConfig:       rsConfig,
-		satellite:      satellite,
+		log:              log,
+		metainfo:         metainfo,
+		orders:           orders,
+		cache:            cache,
+		partnerinfo:      partnerinfo,
+		containment:      containment,
+		apiKeys:          apiKeys,
+		projectUsage:     projectUsage,
+		createRequests:   newCreateRequests(),
+		requiredRSConfig: rsConfig,
+		satellite:        satellite,
 	}
 }
 
@@ -523,12 +523,19 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			return Error.New("all pieces needs to have the same size")
 		}
 
-		// we repair when the number of healthy files is less than or equal to the repair threshold
-		// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
+		// We repair when the number of healthy files is less than or equal to the repair threshold
+		// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
 		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
 			return Error.New("Number of valid pieces (%d) is less than or equal to the repair threshold (%d)",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
+			)
+		}
+
+		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+			return Error.New("Number of valid pieces (%d) is less than the success threshold (%d)",
+				len(remotePieces),
+				remote.Redundancy.SuccessThreshold,
 			)
 		}
 

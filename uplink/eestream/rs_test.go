@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/readcloser"
@@ -41,7 +42,7 @@ func TestRS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +50,7 @@ func TestRS(t *testing.T) {
 	for i, reader := range readers {
 		readerMap[i] = reader
 	}
-	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0, false)
+	decoder := DecodeReaders(ctx, zaptest.NewLogger(t), readerMap, rs, 32*1024, 0, false)
 	defer func() { assert.NoError(t, decoder.Close()) }()
 	data2, err := ioutil.ReadAll(decoder)
 	if err != nil {
@@ -72,7 +73,7 @@ func TestRSUnexpectedEOF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +81,7 @@ func TestRSUnexpectedEOF(t *testing.T) {
 	for i, reader := range readers {
 		readerMap[i] = reader
 	}
-	decoder := DecodeReaders(ctx, readerMap, rs, 32*1024, 0, false)
+	decoder := DecodeReaders(ctx, zaptest.NewLogger(t), readerMap, rs, 32*1024, 0, false)
 	defer func() { assert.NoError(t, decoder.Close()) }()
 	// Try ReadFull more data from DecodeReaders than available
 	data2 := make([]byte, len(data)+1024)
@@ -108,7 +109,7 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, encryption.TransformReader(PadReader(ioutil.NopCloser(
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), encryption.TransformReader(PadReader(ioutil.NopCloser(
 		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs)
 	if err != nil {
 		t.Fatal(err)
@@ -125,7 +126,7 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rc, err := Decode(rrs, rs, 0, false)
+	rc, err := Decode(zaptest.NewLogger(t), rrs, rs, 0, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +387,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
@@ -405,7 +406,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	for i := tt.problematic; i < tt.total; i++ {
 		readerMap[i] = ioutil.NopCloser(bytes.NewReader(pieces[i]))
 	}
-	decoder := DecodeReaders(ctx, readerMap, rs, int64(tt.dataSize), 3*1024, false)
+	decoder := DecodeReaders(ctx, zaptest.NewLogger(t), readerMap, rs, int64(tt.dataSize), 3*1024, false)
 	defer func() { assert.NoError(t, decoder.Close()) }()
 	data2, err := ioutil.ReadAll(decoder)
 	if tt.fail {
@@ -462,7 +463,7 @@ func TestEncoderStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -508,7 +509,7 @@ func TestDecoderErrorWithStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -531,7 +532,7 @@ func TestDecoderErrorWithStalledReaders(t *testing.T) {
 	for i := 7; i < 20; i++ {
 		readerMap[i] = readcloser.FatalReadCloser(errors.New("I am an error piece"))
 	}
-	decoder := DecodeReaders(ctx, readerMap, rs, int64(10*1024), 0, false)
+	decoder := DecodeReaders(ctx, zaptest.NewLogger(t), readerMap, rs, int64(10*1024), 0, false)
 	defer func() { assert.NoError(t, decoder.Close()) }()
 	// record the time for reading the data from the decoder
 	start := time.Now()
@@ -663,7 +664,7 @@ func TestCalcPieceSize(t *testing.T) {
 		calculatedSize := CalcPieceSize(dataSize, es)
 
 		randReader := ioutil.NopCloser(io.LimitReader(testrand.Reader(), dataSize))
-		readers, err := EncodeReader(ctx, PadReader(randReader, es.StripeSize()), rs)
+		readers, err := EncodeReader(ctx, zaptest.NewLogger(t), PadReader(randReader, es.StripeSize()), rs)
 		require.NoError(t, err, errTag)
 
 		for _, reader := range readers {
