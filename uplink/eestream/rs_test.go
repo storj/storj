@@ -41,7 +41,7 @@ func TestRS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestRSUnexpectedEOF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestRSRanger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, encryption.TransformReader(PadReader(ioutil.NopCloser(
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), encryption.TransformReader(PadReader(ioutil.NopCloser(
 		bytes.NewReader(data)), encrypter.InBlockSize()), encrypter, 0), rs)
 	if err != nil {
 		t.Fatal(err)
@@ -386,7 +386,7 @@ func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadClose
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if !assert.NoError(t, err, errTag) {
 		return
 	}
@@ -462,7 +462,7 @@ func TestEncoderStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -508,7 +508,7 @@ func TestDecoderErrorWithStalledReaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readers, err := EncodeReader(ctx, bytes.NewReader(data), rs)
+	readers, err := EncodeReader(ctx, zaptest.NewLogger(t), bytes.NewReader(data), rs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -663,7 +663,7 @@ func TestCalcPieceSize(t *testing.T) {
 		calculatedSize := CalcPieceSize(dataSize, es)
 
 		randReader := ioutil.NopCloser(io.LimitReader(testrand.Reader(), dataSize))
-		readers, err := EncodeReader(ctx, PadReader(randReader, es.StripeSize()), rs)
+		readers, err := EncodeReader(ctx, zaptest.NewLogger(t), PadReader(randReader, es.StripeSize()), rs)
 		require.NoError(t, err, errTag)
 
 		for _, reader := range readers {
