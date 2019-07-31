@@ -23,7 +23,7 @@ type Config struct {
 }
 
 // Run will run the given responsibilities with the configured identity.
-func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
+func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	opts, err := tlsopts.NewOptions(identity, sc.Config)
@@ -32,7 +32,7 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	}
 	defer func() { err = errs.Combine(err, opts.RevDB.Close()) }()
 
-	server, err := New(opts, sc.Address, sc.PrivateAddress, interceptor, services...)
+	server, err := New(log.Named("server"), opts, sc.Address, sc.PrivateAddress, interceptor, services...)
 	if err != nil {
 		return err
 	}

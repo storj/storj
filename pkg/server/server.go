@@ -8,6 +8,7 @@ import (
 	"net"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
@@ -36,6 +37,7 @@ type private struct {
 // Server represents a bundle of services defined by a specific ID.
 // Examples of servers are the satellite, the storagenode, and the uplink.
 type Server struct {
+	log      *zap.Logger
 	public   public
 	private  private
 	next     []Service
@@ -44,13 +46,19 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
-	unaryInterceptors := CombineUnaryInterceptors(grpcmonkit.UnaryServerInterceptor, logOnErrorUnaryInterceptor)
+func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
+	server := &Server{
+		log:      log,
+		next:     services,
+		identity: opts.Ident,
+	}
+
+	unaryInterceptors := CombineUnaryInterceptors(grpcmonkit.UnaryServerInterceptor, server.logOnErrorUnaryInterceptor)
 	if interceptor != nil {
 		unaryInterceptors = CombineUnaryInterceptors(unaryInterceptors, interceptor)
 	}
 
-	streamInterceptors := CombineStreamInterceptors(grpcmonkit.StreamServerInterceptor, logOnErrorStreamInterceptor)
+	streamInterceptors := CombineStreamInterceptors(grpcmonkit.StreamServerInterceptor, server.logOnErrorStreamInterceptor)
 
 	options := []grpc.ServerOption{
 		grpc.UnaryInterceptor(unaryInterceptors),
@@ -62,7 +70,7 @@ func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc
 	if err != nil {
 		return nil, err
 	}
-	public := public{
+	server.public = public{
 		listener: publicListener,
 		grpc:     grpc.NewServer(options...),
 	}
@@ -71,17 +79,12 @@ func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc
 	if err != nil {
 		return nil, errs.Combine(err, publicListener.Close())
 	}
-	private := private{
+	server.private = private{
 		listener: privateListener,
 		grpc:     grpc.NewServer(),
 	}
 
-	return &Server{
-		public:   public,
-		private:  private,
-		next:     services,
-		identity: opts.Ident,
-	}, nil
+	return server, nil
 }
 
 // Identity returns the server's identity
