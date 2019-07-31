@@ -232,7 +232,7 @@ func (b *PieceBuffer) buffered() int {
 func (b *PieceBuffer) HasShare(num int64) bool {
 	if num < b.currentShare {
 		// we should never get here!
-		b.log.Fatalf("Checking for erasure share %d while the current erasure share is %d.", num, b.currentShare)
+		b.log.Sugar().Fatalf("Checking for erasure share %d while the current erasure share is %d.", num, b.currentShare)
 	}
 
 	if b.getError() != nil {
@@ -258,7 +258,7 @@ func (b *PieceBuffer) HasShare(num int64) bool {
 func (b *PieceBuffer) ReadShare(num int64, p []byte) error {
 	if num < b.currentShare {
 		// we should never get here!
-		b.log.Fatalf("Trying to read erasure share %d while the current erasure share is already %d.", num, b.currentShare)
+		b.log.Sugar().Fatalf("Trying to read erasure share %d while the current erasure share is already %d.", num, b.currentShare)
 	}
 
 	err := b.discardUntil(num)
