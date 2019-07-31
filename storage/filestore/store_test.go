@@ -4,14 +4,16 @@
 package filestore_test
 
 import (
-	"errors"
+	"context"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
@@ -214,9 +216,134 @@ func TestDeleteWhileReading(t *testing.T) {
 		if info.IsDir() {
 			return nil
 		}
-		return errors.New("found file " + path)
+		return errs.New("found file %q", path)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func writeABlob(ctx context.Context, t testing.TB, store *filestore.Store, blobRef storage.BlobRef, data []byte, formatVersion storage.FormatVersion) {
+	var (
+		blobWriter storage.BlobWriter
+		err        error
+	)
+	switch formatVersion {
+	case storage.FormatV0:
+		tStore := &filestore.StoreForTest{store}
+		blobWriter, err = tStore.CreateV0(ctx, blobRef)
+	case storage.FormatV1:
+		blobWriter, err = store.Create(ctx, blobRef, int64(len(data)))
+	default:
+		t.Fatalf("please teach me how to make a V%d blob", formatVersion)
+	}
+	require.NoError(t, err)
+	require.Equal(t, formatVersion, blobWriter.GetStorageFormatVersion())
+	_, err = blobWriter.Write(data)
+	require.NoError(t, err)
+	size, err := blobWriter.Size()
+	require.NoError(t, err)
+	assert.Equal(t, int64(len(data)), size)
+	err = blobWriter.Commit(ctx)
+	require.NoError(t, err)
+}
+
+func verifyBlobHandle(t testing.TB, reader storage.BlobReader, expectDataLen int, expectFormat storage.FormatVersion) {
+	assert.Equal(t, expectFormat, reader.GetStorageFormatVersion())
+	size, err := reader.Size()
+	require.NoError(t, err)
+	assert.Equal(t, int64(expectDataLen), size)
+}
+
+func verifyBlobAccess(ctx context.Context, t testing.TB, blobAccess storage.StoredBlobAccess, expectDataLen int, expectFormat storage.FormatVersion) {
+	assert.Equal(t, expectFormat, blobAccess.StorageFormatVersion())
+	stat, err := blobAccess.Stat(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(expectDataLen), stat.Size())
+}
+
+func tryOpeningABlob(ctx context.Context, t testing.TB, store *filestore.Store, blobRef storage.BlobRef, expectDataLen int, expectFormat storage.FormatVersion) {
+	reader, err := store.Open(ctx, blobRef)
+	require.NoError(t, err)
+	verifyBlobHandle(t, reader, expectDataLen, expectFormat)
+	require.NoError(t, reader.Close())
+
+	blobAccess, err := store.Lookup(ctx, blobRef)
+	require.NoError(t, err)
+	verifyBlobAccess(ctx, t, blobAccess, expectDataLen, expectFormat)
+
+	blobAccess, err = store.LookupSpecific(ctx, blobRef, expectFormat)
+	require.NoError(t, err)
+	verifyBlobAccess(ctx, t, blobAccess, expectDataLen, expectFormat)
+
+	reader, err = store.OpenLocated(ctx, blobAccess)
+	verifyBlobHandle(t, reader, expectDataLen, expectFormat)
+	require.NoError(t, reader.Close())
+}
+
+func TestMultipleStorageFormatVersions(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
+	require.NoError(t, err)
+
+	const (
+		blobSize      = 1024
+		namespaceSize = 32
+		keySize       = 32
+	)
+
+	var (
+		data      = testrand.Bytes(blobSize)
+		namespace = testrand.Bytes(namespaceSize)
+		v0BlobKey = testrand.Bytes(keySize)
+		v1BlobKey = testrand.Bytes(keySize)
+
+		v0Ref = storage.BlobRef{Namespace: namespace, Key: v0BlobKey}
+		v1Ref = storage.BlobRef{Namespace: namespace, Key: v1BlobKey}
+	)
+
+	// write a V0 blob
+	writeABlob(ctx, t, store, v0Ref, data, storage.FormatV0)
+
+	// write a V1 blob
+	writeABlob(ctx, t, store, v1Ref, data, storage.FormatV1)
+
+	// look up the different blobs with Open and Lookup and OpenLocated
+	tryOpeningABlob(ctx, t, store, v0Ref, len(data), storage.FormatV0)
+	tryOpeningABlob(ctx, t, store, v1Ref, len(data), storage.FormatV1)
+
+	// write a V1 blob with the same ID as the V0 blob (to simulate it being rewritten as
+	// V1 during a migration)
+	differentData := append(data, 255, 24)
+	writeABlob(ctx, t, store, v0Ref, differentData, storage.FormatV1)
+
+	// if we try to access the blob at that key, we should see only the V1 blob
+	tryOpeningABlob(ctx, t, store, v0Ref, len(differentData), storage.FormatV1)
+
+	// unless we ask specifically for a V0 blob
+	blobAccess, err := store.LookupSpecific(ctx, v0Ref, storage.FormatV0)
+	verifyBlobAccess(ctx, t, blobAccess, len(data), storage.FormatV0)
+	reader, err := store.OpenLocated(ctx, blobAccess)
+	verifyBlobHandle(t, reader, len(data), storage.FormatV0)
+	require.NoError(t, reader.Close())
+
+	// delete the v0BlobKey; both the V0 and the V1 blobs should go away
+	err = store.Delete(ctx, v0Ref)
+	require.NoError(t, err)
+
+	reader, err = store.Open(ctx, v0Ref)
+	require.Error(t, err)
+	assert.Nil(t, reader)
+}
+
+func TestStoreSpaceUsed(t *testing.T) {
+	// FIXME stub
+	// SpaceUsed, SpaceUsedInNamespace
+}
+
+func TestStoreTraversals(t *testing.T) {
+	// FIXME stub
+	// GetAllNamespaces, ForAllKeysInNamespace
 }
