@@ -16,10 +16,16 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
+)
+
+const (
+	namespaceSize = 32
+	keySize       = 32
 )
 
 func TestStoreLoad(t *testing.T) {
@@ -277,6 +283,7 @@ func tryOpeningABlob(ctx context.Context, t testing.TB, store *filestore.Store, 
 	verifyBlobAccess(ctx, t, blobAccess, expectDataLen, expectFormat)
 
 	reader, err = store.OpenLocated(ctx, blobAccess)
+	require.NoError(t, err)
 	verifyBlobHandle(t, reader, expectDataLen, expectFormat)
 	require.NoError(t, reader.Close())
 }
@@ -288,11 +295,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
 	require.NoError(t, err)
 
-	const (
-		blobSize      = 1024
-		namespaceSize = 32
-		keySize       = 32
-	)
+	const blobSize = 1024
 
 	var (
 		data      = testrand.Bytes(blobSize)
@@ -326,6 +329,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	blobAccess, err := store.LookupSpecific(ctx, v0Ref, storage.FormatV0)
 	verifyBlobAccess(ctx, t, blobAccess, len(data), storage.FormatV0)
 	reader, err := store.OpenLocated(ctx, blobAccess)
+	require.NoError(t, err)
 	verifyBlobHandle(t, reader, len(data), storage.FormatV0)
 	require.NoError(t, reader.Close())
 
@@ -338,9 +342,55 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	assert.Nil(t, reader)
 }
 
+// Check that the SpaceUsed and SpaceUsedInNamespace methods on filestore.Store
+// work as expected.
 func TestStoreSpaceUsed(t *testing.T) {
-	// FIXME stub
-	// SpaceUsed, SpaceUsedInNamespace
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
+	require.NoError(t, err)
+
+	var (
+		namespaceBase  = testrand.Bytes(namespaceSize - 1)
+		namespace      = append(namespaceBase, 0)
+		otherNamespace = append(namespaceBase, 1)
+		sizesToStore   = []memory.Size{4093, 0, 512, 1, memory.MB}
+	)
+
+	spaceUsed, err := store.SpaceUsed(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), spaceUsed)
+	spaceUsed, err = store.SpaceUsedInNamespace(ctx, namespace)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), spaceUsed)
+	spaceUsed, err = store.SpaceUsedInNamespace(ctx, otherNamespace)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), spaceUsed)
+
+	var totalSoFar memory.Size
+	for _, size := range sizesToStore {
+		contents := testrand.Bytes(size)
+		blobRef := storage.BlobRef{Namespace: namespace, Key: testrand.Bytes(keySize)}
+
+		blobWriter, err := store.Create(ctx, blobRef, int64(len(contents)))
+		require.NoError(t, err)
+		_, err = blobWriter.Write(contents)
+		require.NoError(t, err)
+		err = blobWriter.Commit(ctx)
+		require.NoError(t, err)
+		totalSoFar += size
+
+		spaceUsed, err := store.SpaceUsed(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, int64(totalSoFar), spaceUsed)
+		spaceUsed, err = store.SpaceUsedInNamespace(ctx, namespace)
+		require.NoError(t, err)
+		assert.Equal(t, int64(totalSoFar), spaceUsed)
+		spaceUsed, err = store.SpaceUsedInNamespace(ctx, otherNamespace)
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), spaceUsed)
+	}
 }
 
 func TestStoreTraversals(t *testing.T) {
