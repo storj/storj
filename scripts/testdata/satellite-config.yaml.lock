@@ -304,6 +304,9 @@ kademlia.operator.wallet: ""
 # the normalization weight used to calculate the uptime SNs reputation
 # overlay.node.uptime-reputation-weight: 1
 
+# number of update requests to process per transaction
+# overlay.update-stats-batch-size: 100
+
 # how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
 

@@ -123,6 +123,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					UptimeReputationWeight:       1,
 					UptimeReputationDQ:           0.6,
 				},
+				UpdateStatsBatchSize: 100,
 			},
 			Discovery: discovery.Config{
 				DiscoveryInterval:  1 * time.Second,
