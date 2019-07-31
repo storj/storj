@@ -75,11 +75,11 @@ func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (er
 
 // InitMetricsWithCertPath initializes telemetry reporting, using the node ID
 // corresponding to the given certificate as the telemetry instance ID.
-func InitMetricsWithCertPath(ctx context.Context, r *monkit.Registry, certPath string) error {
+func InitMetricsWithCertPath(ctx context.Context, log *zap.Logger, r *monkit.Registry, certPath string) error {
 	var metricsID string
 	nodeID, err := identity.NodeIDFromCertPath(certPath)
 	if err != nil {
-		zap.S().Errorf("Could not read identity for telemetry setup: %v", err)
+		log.Sugar().Errorf("Could not read identity for telemetry setup: %v", err)
 		metricsID = "" // InitMetrics() will fill in a default value
 	} else {
 		metricsID = nodeID.String()
