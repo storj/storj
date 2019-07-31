@@ -67,7 +67,7 @@ func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.No
 	closestNodes := make([]*pb.Node, 0, limit+1)
 	err = rt.iterateAntechamber(ctx, storj.NodeID{}, func(ctx context.Context, newIdXOR storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)
-		// A xor targetXOR =  (A xor self) xor (self xor target) = A xor target
+		//  newId xor target =  (newId xor self) xor (self xor target) = newIdXOR xor targetXOR
 		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newIdXOR, targetXOR) > 0; newPos-- {
 		}
 		if newPos != limit {
