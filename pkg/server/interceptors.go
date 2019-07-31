@@ -47,13 +47,25 @@ func logOnErrorUnaryInterceptor(ctx context.Context, req interface{}, info *grpc
 	return resp, err
 }
 
-// CombineInterceptors combines two UnaryServerInterceptors so they act as one
+// CombineUnaryInterceptors combines two UnaryServerInterceptors so they act as one
 // (because grpc only allows you to pass one in).
-func CombineInterceptors(a, b grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+func CombineUnaryInterceptors(a, b grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		return a(ctx, req, info, func(actx context.Context, areq interface{}) (interface{}, error) {
 			return b(actx, areq, info, func(bctx context.Context, breq interface{}) (interface{}, error) {
 				return handler(bctx, breq)
+			})
+		})
+	}
+}
+
+// CombineStreamInterceptors combines two StreamServerInterceptor so they act as one
+// (because grpc only allows you to pass one in).
+func CombineStreamInterceptors(a, b grpc.StreamServerInterceptor) grpc.StreamServerInterceptor {
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+		return a(srv, stream, info, func(asrv interface{}, astream grpc.ServerStream) error {
+			return b(asrv, astream, info, func(bsrv interface{}, bstream grpc.ServerStream) error {
+				return handler(bsrv, bstream)
 			})
 		})
 	}

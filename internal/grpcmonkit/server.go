@@ -14,43 +14,31 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
-// ServerOptions returns options for adding monkit tracing.
-func ServerOptions() []grpc.ServerOption {
-	return []grpc.ServerOption{
-		grpc.UnaryInterceptor(NewUnaryServerInterceptor()),
-		grpc.StreamInterceptor(NewStreamServerInterceptor()),
-	}
+// UnaryServerInterceptor uses monkit to intercept server requests.
+func UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	traceid, spanid := traceFromRequest(ctx)
+	trace := monkit.NewTrace(traceid)
+
+	service, endpoint := parseFullMethod(info.FullMethod)
+	scope := monkit.ScopeNamed(service)
+	fn := scope.FuncNamed(endpoint)
+	defer fn.RemoteTrace(&ctx, spanid, trace)(&err)
+
+	return handler(ctx, req)
 }
 
-// NewUnaryServerInterceptor creates an monkit server interceptor.
-func NewUnaryServerInterceptor() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		traceid, spanid := traceFromRequest(ctx)
-		trace := monkit.NewTrace(traceid)
+// StreamServerInterceptor uses monkit to intercept server stream requests.
+func StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+	ctx := stream.Context()
+	traceid, spanid := traceFromRequest(ctx)
+	trace := monkit.NewTrace(traceid)
 
-		service, endpoint := parseFullMethod(info.FullMethod)
-		scope := monkit.ScopeNamed(service)
-		fn := scope.FuncNamed(endpoint)
-		defer fn.RemoteTrace(&ctx, spanid, trace)(&err)
+	service, endpoint := parseFullMethod(info.FullMethod)
+	scope := monkit.ScopeNamed(service)
+	fn := scope.FuncNamed(endpoint)
+	defer fn.RemoteTrace(&ctx, spanid, trace)(&err)
 
-		return handler(ctx, req)
-	}
-}
-
-// NewStreamServerInterceptor creates an monkit server stream interceptor.
-func NewStreamServerInterceptor() grpc.StreamServerInterceptor {
-	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
-		ctx := stream.Context()
-		traceid, spanid := traceFromRequest(ctx)
-		trace := monkit.NewTrace(traceid)
-
-		service, endpoint := parseFullMethod(info.FullMethod)
-		scope := monkit.ScopeNamed(service)
-		fn := scope.FuncNamed(endpoint)
-		defer fn.RemoteTrace(&ctx, spanid, trace)(&err)
-
-		return handler(srv, &ServerStream{stream, scope, ctx})
-	}
+	return handler(srv, &ServerStream{stream, scope, ctx})
 }
 
 func traceFromRequest(ctx context.Context) (traceid, spanid int64) {

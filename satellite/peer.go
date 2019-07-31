@@ -260,7 +260,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		unaryInterceptor := grpcauth.NewAPIKeyInterceptor()
 		if sc.DebugLogTraffic {
-			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
+			unaryInterceptor = server.CombineUnaryInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
 		}
 		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {

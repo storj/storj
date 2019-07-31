@@ -45,17 +45,18 @@ type Server struct {
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
 func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
-	unaryInterceptor := logOnErrorUnaryInterceptor
+	unaryInterceptors := CombineUnaryInterceptors(grpcmonkit.UnaryServerInterceptor, logOnErrorUnaryInterceptor)
 	if interceptor != nil {
-		unaryInterceptor = CombineInterceptors(unaryInterceptor, interceptor)
+		unaryInterceptors = CombineUnaryInterceptors(unaryInterceptors, interceptor)
 	}
 
+	streamInterceptors := CombineStreamInterceptors(grpcmonkit.StreamServerInterceptor, logOnErrorStreamInterceptor)
+
 	options := []grpc.ServerOption{
-		grpc.StreamInterceptor(logOnErrorStreamInterceptor),
-		grpc.UnaryInterceptor(unaryInterceptor),
+		grpc.UnaryInterceptor(unaryInterceptors),
+		grpc.StreamInterceptor(streamInterceptors),
 		opts.ServerOption(),
 	}
-	options = append(options, grpcmonkit.ServerOptions()...)
 
 	publicListener, err := net.Listen("tcp", publicAddr)
 	if err != nil {
