@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/readcloser"
@@ -531,7 +532,7 @@ func TestDecoderErrorWithStalledReaders(t *testing.T) {
 	for i := 7; i < 20; i++ {
 		readerMap[i] = readcloser.FatalReadCloser(errors.New("I am an error piece"))
 	}
-	decoder := DecodeReaders(ctx, readerMap, rs, int64(10*1024), 0, false)
+	decoder := DecodeReaders(ctx, zaptest.NewLogger(t), readerMap, rs, int64(10*1024), 0, false)
 	defer func() { assert.NoError(t, decoder.Close()) }()
 	// record the time for reading the data from the decoder
 	start := time.Now()
