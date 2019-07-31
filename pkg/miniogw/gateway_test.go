@@ -721,12 +721,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	kvm := kvmetainfo.New(p, m, strms, segments, encStore)
 
 	cfg := libuplink.Config{}
-	cfg.Volatile.TLS = struct {
-		SkipPeerCAWhitelist bool
-		PeerCAWhitelistPath string
-	}{
-		SkipPeerCAWhitelist: true,
-	}
+	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 	uplink, err := libuplink.NewUplink(ctx, &cfg)
 	if err != nil {
