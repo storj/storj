@@ -115,7 +115,7 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 		return Meta{}, Error.Wrap(err)
 	}
 
-	uploadResults := make([]*pb.SegmentPieceUploadResult, len(successfulNodes))
+	uploadResults := make([]*pb.SegmentPieceUploadResult, 0, len(successfulNodes))
 	for i := range successfulNodes {
 		if successfulNodes[i] == nil {
 			continue

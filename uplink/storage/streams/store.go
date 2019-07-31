@@ -464,7 +464,6 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO use flags with listing
-
 	// if metaFlags&meta.Size != 0 {
 	// Calculating the stream's size require also the user-defined metadata,
 	// where stream store keeps info about the number of segments and their size.
