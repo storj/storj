@@ -10,8 +10,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/errs2"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -24,7 +24,7 @@ var (
 func (service *Service) VerifyVoucher(ctx context.Context, satellite storj.NodeID, voucher *pb.Voucher) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if self := service.kademlia.Local().Id; voucher.StorageNodeId != self {
+	if self := service.transport.Identity().ID; voucher.StorageNodeId != self {
 		return ErrVerify.New("Storage node ID does not match expected: (%v) (%v)", voucher.StorageNodeId, self)
 	}
 

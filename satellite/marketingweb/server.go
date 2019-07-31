@@ -115,6 +115,8 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "partner-offers-modal.html"),
 		filepath.Join(s.templateDir, "stop-free-credit.html"),
 		filepath.Join(s.templateDir, "stop-referral-offer.html"),
+		filepath.Join(s.templateDir, "partner-offers.html"),
+		filepath.Join(s.templateDir, "stop-partner-offer.html"),
 	)
 
 	pageNotFoundFiles := append(s.commonPages(),
@@ -130,7 +132,7 @@ func (s *Server) parseTemplates() (err error) {
 	)
 
 	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
-		"isEmpty": rewards.Offer.IsEmpty,
+		"referralLink": rewards.GeneratePartnerLink,
 	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
@@ -171,6 +173,8 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		offer.Type = rewards.Referral
 	case "free-credit":
 		offer.Type = rewards.FreeCredit
+	case "partner-offer":
+		offer.Type = rewards.Partner
 	default:
 		err := errs.New("response status %d : invalid offer type", http.StatusBadRequest)
 		s.serveBadRequest(w, req, err)

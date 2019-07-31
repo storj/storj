@@ -11,7 +11,7 @@
         <EmptyState
             v-if="!isProjectSelected"
             mainTitle="Create your first project"
-            additional-text='<p>Please click the button <span style="font-family: font_bold">"New Project"</span> in the right corner</p>'
+            additional-text='<p>Please click the button <b>"New Project"</b> in the right corner</p>'
             :imageSource="emptyImage" />
     </div>
 </template>
@@ -24,27 +24,27 @@
     import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
 
     @Component({
-        data: function () {
-            return {
-                emptyImage: EMPTY_STATE_IMAGES.PROJECT,
-                navigation: PROJECT_ROUTES,
-            };
-        },
-        computed: {
-            isProjectSelected: function (): boolean {
-                return this.$store.getters.selectedProject.id !== '';
-            },
-        },
-        mounted() {
-            this.$router.push(PROJECT_ROUTES.DETAILS.path);
-        },
         components: {
             EmptyState,
             TabNavigation,
         }
     })
+    export default class ProjectDetailsArea extends Vue {
+        // TODO: make type for project routes
+        public navigation: any = PROJECT_ROUTES;
 
-    export default class ProjectDetailsArea extends Vue {}
+        public mounted(): void {
+            this.$router.push(PROJECT_ROUTES.DETAILS.path);
+        }
+
+        public get isProjectSelected(): boolean {
+            return this.$store.getters.selectedProject.id !== '';
+        }
+
+        public get emptyImage(): string {
+            return EMPTY_STATE_IMAGES.PROJECT;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

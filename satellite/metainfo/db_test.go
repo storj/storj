@@ -35,7 +35,7 @@ func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
 		},
 		DefaultEncryptionParameters: storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
-			BlockSize:   32,
+			BlockSize:   9 * 10,
 		},
 	}
 }

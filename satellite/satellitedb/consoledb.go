@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -63,7 +63,7 @@ func (db *ConsoleDB) UsageRollups() console.UsageRollups {
 
 // UserCredits is a getter for console.UserCredits repository
 func (db *ConsoleDB) UserCredits() console.UserCredits {
-	return &usercredits{db: db.db}
+	return &usercredits{db.db, db.tx}
 }
 
 // UserPayments is a getter for console.UserPayments repository
@@ -94,6 +94,8 @@ func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
 
 	return &DBTx{
 		ConsoleDB: &ConsoleDB{
+			// Need to expose dbx.DB for when database methods need access to check database driver type
+			db:      db.db,
 			tx:      tx,
 			methods: tx,
 		},

@@ -11,9 +11,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/uplink/setup"
@@ -105,29 +107,52 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFi
 // encryptionKeyFilepath should be set to the filepath indicated by the user or
 // or to a default path whose directory tree exists.
 func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
+	ctx := process.Ctx(cmd)
 
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
 		return err
 	}
 
-	apiKey, err := wizard.PromptForAPIKey()
+	apiKeyString, err := wizard.PromptForAPIKey()
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	humanReadableKey, err := wizard.PromptForEncryptionKey()
+	apiKey, err := libuplink.ParseAPIKey(apiKeyString)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	passphrase, err := wizard.PromptForEncryptionPassphrase()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	uplk, err := setupCfg.NewUplink(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, uplk.Close()) }()
+
+	project, err := uplk.OpenProject(ctx, satelliteAddress, apiKey)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = setup.SaveEncryptionKey(string(key[:]), encryptionKeyFilepath)
 	if err != nil {
 		return err
 	}
 
 	var override = map[string]interface{}{
-		"api-key":          apiKey,
+		"api-key":          apiKeyString,
 		"satellite-addr":   satelliteAddress,
 		"enc.key-filepath": encryptionKeyFilepath,
 	}

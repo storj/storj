@@ -15,15 +15,11 @@
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
     @Component({
-        data: function () {
-            return {
-                emptyImage: EMPTY_STATE_IMAGES.PROJECT,
-            };
-        },
         components: {
             EmptyState,
         }
     })
-
-    export default class DashboardArea extends Vue {}
+    export default class DashboardArea extends Vue {
+        public emptyImage: string = EMPTY_STATE_IMAGES.PROJECT;
+    }
 </script>

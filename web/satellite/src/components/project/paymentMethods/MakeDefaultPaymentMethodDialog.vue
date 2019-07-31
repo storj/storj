@@ -7,15 +7,15 @@
             <h1>Update Default Card</h1>
             <h2>We will automatically charge your default card at the close of the current billing period</h2>
             <div class="button-container">
-                <Button height="48px" width="128px" label="Cancel" isWhite :on-press="onCancelClick"/>
-                <Button class="delete-button" height="48px" width="128px" label="Update" :on-press="onUpdateClick"/>
+                <Button height="48px" width="128px" label="Cancel" isWhite="true" :onPress="onCancelClick"/>
+                <Button class="delete-button" height="48px" width="128px" label="Update" :onPress="onUpdateClick"/>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import {
         APP_STATE_ACTIONS,
@@ -24,56 +24,47 @@
     } from '@/utils/constants/actionNames';
 
     @Component({
-        props: {
-            paymentMethodID: {
-                type: String,
-                default: ''
-            },
-        },
-        methods: {
-            onCancelClick: function () {
-                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-            },
-            onUpdateClick: async function () {
-                const result = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.SET_DEFAULT, this.$props.paymentMethodID);
-                if (!result.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
-
-                    return;
-                }
-
-                const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
-                if (!paymentMethodsResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
-                }
-
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully set default payment method');
-            }
-        },
         components: {
             Button,
         }
     })
     export default class MakeDefaultPaymentMethodDialog extends Vue {
+        @Prop({default: ''})
+        private readonly paymentMethodID: string;
+
+        public onCancelClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        }
+
+        public async onUpdateClick(): Promise<void> {
+            const result = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.SET_DEFAULT, this.paymentMethodID);
+            if (!result.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
+
+                return;
+            }
+
+            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!paymentMethodsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch payment methods: ${paymentMethodsResponse.errorMessage}`);
+            }
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Default payment method set successfully');
+        }
     }
 </script>
 
 <style scoped lang="scss">
     .dialog-container {
-        background-image: url('../../../../static/images/ContainerCentered.svg');
-        background-size: cover;
-        background-repeat: no-repeat;
-
+        background-image: url('../../../../static/images/ContainerCentered.png');
+        background-size: 340px 240px;
         z-index: 1;
-
         position: absolute;
         left: 50%;
+        bottom: 40px;
         transform: translate(-50%);
-        top: 40px;
-
         height: 240px;
-        width: 351px;
-
+        width: 340px;
     }
 
     h1 {
@@ -94,17 +85,13 @@
         flex-direction: column;
         padding: 25px 32px 33px 32px;
         box-shadow: 0px 4px 20px rgba(204, 208, 214, 0.25);
-        margin-top: 12px;
+        margin-top: 4px;
     }
 
     .button-container {
         display: flex;
         flex-direction: row;
         margin-top: 25px;
-    }
-
-    .delete-button {
-        margin-left: 11px;
-
+        justify-content: space-between;
     }
 </style>

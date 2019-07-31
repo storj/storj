@@ -7,7 +7,16 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/currency"
+)
+
+var (
+	// MaxRedemptionErr is the error class used when an offer has reached its redemption capacity
+	MaxRedemptionErr = errs.Class("offer redemption has reached its capacity")
+	// NoCurrentOfferErr is the error class used when no current offer is set
+	NoCurrentOfferErr = errs.Class("no current offer")
 )
 
 // DB holds information about offer
@@ -54,6 +63,8 @@ const (
 	FreeCredit = OfferType(1)
 	// Referral is a type of offers used for Referral Program
 	Referral = OfferType(2)
+	// Partner is an OfferType used be the Open Source Partner Program
+	Partner = OfferType(3)
 )
 
 // OfferStatus represents the different stage an offer can have in its life-cycle.
@@ -99,56 +110,3 @@ func (o Offer) IsEmpty() bool {
 
 // Offers contains a slice of offers.
 type Offers []Offer
-
-// OrganizedOffers contains a list of offers organized by status.
-type OrganizedOffers struct {
-	Active  Offer
-	Default Offer
-	Done    Offers
-}
-
-// OfferSet provides a separation of marketing offers by type.
-type OfferSet struct {
-	ReferralOffers OrganizedOffers
-	FreeCredits    OrganizedOffers
-}
-
-// OrganizeOffersByStatus organizes offers by OfferStatus.
-func (offers Offers) OrganizeOffersByStatus() OrganizedOffers {
-	var oo OrganizedOffers
-
-	for _, offer := range offers {
-		switch offer.Status {
-		case Active:
-			oo.Active = offer
-		case Default:
-			oo.Default = offer
-		case Done:
-			oo.Done = append(oo.Done, offer)
-		}
-	}
-	return oo
-}
-
-// OrganizeOffersByType organizes offers by OfferType.
-func (offers Offers) OrganizeOffersByType() OfferSet {
-	var (
-		fc, ro   Offers
-		offerSet OfferSet
-	)
-
-	for _, offer := range offers {
-		switch offer.Type {
-		case FreeCredit:
-			fc = append(fc, offer)
-		case Referral:
-			ro = append(ro, offer)
-		default:
-			continue
-		}
-	}
-
-	offerSet.FreeCredits = fc.OrganizeOffersByStatus()
-	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
-	return offerSet
-}

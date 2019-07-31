@@ -7,6 +7,7 @@ package main
 import "C"
 
 import (
+	"fmt"
 	"unsafe"
 
 	"storj.io/storj/lib/uplink"
@@ -19,8 +20,8 @@ type Bucket struct {
 	*uplink.Bucket
 }
 
-// create_bucket creates a new bucket if authorized.
 //export create_bucket
+// create_bucket creates a new bucket if authorized.
 func create_bucket(projectHandle C.ProjectRef, name *C.char, bucketConfig *C.BucketConfig, cerr **C.char) C.BucketInfo {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
@@ -49,15 +50,15 @@ func create_bucket(projectHandle C.ProjectRef, name *C.char, bucketConfig *C.Buc
 
 	bucket, err := project.CreateBucket(project.scope.ctx, C.GoString(name), config)
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketInfo{}
 	}
 
 	return newBucketInfo(&bucket)
 }
 
-// get_bucket_info returns info about the requested bucket if authorized.
 //export get_bucket_info
+// get_bucket_info returns info about the requested bucket if authorized.
 func get_bucket_info(projectHandle C.ProjectRef, bucketName *C.char, cerr **C.char) C.BucketInfo {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
@@ -67,15 +68,15 @@ func get_bucket_info(projectHandle C.ProjectRef, bucketName *C.char, cerr **C.ch
 
 	bucket, _, err := project.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketInfo{}
 	}
 
 	return newBucketInfo(&bucket)
 }
 
-// open_bucket returns a Bucket handle with the given encryption context information.
 //export open_bucket
+// open_bucket returns a Bucket handle with the given encryption context information.
 func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionAccess *C.char, cerr **C.char) C.BucketRef {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
@@ -85,7 +86,7 @@ func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionAccess *C.c
 
 	access, err := uplink.ParseEncryptionAccess(C.GoString(encryptionAccess))
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketRef{}
 	}
 
@@ -93,15 +94,15 @@ func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionAccess *C.c
 
 	bucket, err := project.OpenBucket(scope.ctx, C.GoString(name), access)
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketRef{}
 	}
 
 	return C.BucketRef{universe.Add(&Bucket{scope, bucket})}
 }
 
-// list_buckets will list authorized buckets.
 //export list_buckets
+// list_buckets will list authorized buckets.
 func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOptions, cerr **C.char) C.BucketList {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
@@ -120,7 +121,7 @@ func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOpt
 
 	bucketList, err := project.ListBuckets(project.scope.ctx, opts)
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketList{}
 	}
 
@@ -141,9 +142,9 @@ func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOpt
 	}
 }
 
+//export delete_bucket
 // delete_bucket deletes a bucket if authorized. If the bucket contains any
 // Objects at the time of deletion, they may be lost permanently.
-//export delete_bucket
 func delete_bucket(projectHandle C.ProjectRef, bucketName *C.char, cerr **C.char) {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
@@ -152,13 +153,13 @@ func delete_bucket(projectHandle C.ProjectRef, bucketName *C.char, cerr **C.char
 	}
 
 	if err := project.DeleteBucket(project.scope.ctx, C.GoString(bucketName)); err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }
 
-// close_bucket closes a Bucket handle.
 //export close_bucket
+// close_bucket closes a Bucket handle.
 func close_bucket(bucketHandle C.BucketRef, cerr **C.char) {
 	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
 	if !ok {
@@ -170,20 +171,20 @@ func close_bucket(bucketHandle C.BucketRef, cerr **C.char) {
 	defer bucket.cancel()
 
 	if err := bucket.Close(); err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }
 
-// free_bucket_info frees bucket info.
 //export free_bucket_info
+// free_bucket_info frees bucket info.
 func free_bucket_info(bucketInfo *C.BucketInfo) {
 	C.free(unsafe.Pointer(bucketInfo.name))
 	bucketInfo.name = nil
 }
 
-// free_bucket_list will free a list of buckets
 //export free_bucket_list
+// free_bucket_list will free a list of buckets
 func free_bucket_list(bucketlist *C.BucketList) {
 	items := (*[1 << 30]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
 	for i := 0; i < int(bucketlist.length); i++ {

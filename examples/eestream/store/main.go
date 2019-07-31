@@ -13,10 +13,11 @@ import (
 	"path/filepath"
 
 	"github.com/vivint/infectious"
+	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/eestream"
 )
 
 var (
@@ -60,7 +61,7 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	readers, err := eestream.EncodeReader(context.Background(),
+	readers, err := eestream.EncodeReader(context.Background(), zap.L(),
 		encryption.TransformReader(eestream.PadReader(os.Stdin,
 			encrypter.InBlockSize()), encrypter, 0), rs)
 	if err != nil {

@@ -176,7 +176,7 @@ func (db *ordersdb) archiveOne(ctx context.Context, txn *sql.Tx, req orders.Arch
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := txn.Exec(`
-		INSERT INTO order_archive (
+		INSERT INTO order_archive_ (
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized,
 			uplink_cert_id,
@@ -191,7 +191,7 @@ func (db *ordersdb) archiveOne(ctx context.Context, txn *sql.Tx, req orders.Arch
 
 		DELETE FROM unsent_order
 		WHERE satellite_id = ? AND serial_number = ?;
-	`, int(req.Status), time.Now(), req.Satellite, req.Serial, req.Satellite, req.Serial)
+	`, int(req.Status), time.Now().UTC(), req.Satellite, req.Serial, req.Satellite, req.Serial)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
@@ -213,7 +213,7 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 
 	rows, err := db.db.Query(`
 		SELECT order_limit_serialized, order_serialized, status, archived_at
-		FROM order_archive
+		FROM order_archive_
 		LIMIT ?
 	`, limit)
 	if err != nil {

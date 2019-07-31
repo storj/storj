@@ -16,8 +16,8 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
@@ -55,7 +55,7 @@ func TestInMemoryConcurrency(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 
-	db, err := storagenodedb.NewInMemory(log, ctx.Dir("storage"))
+	db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
 	if err != nil {
 		t.Fatal(err)
 	}

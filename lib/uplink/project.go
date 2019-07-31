@@ -10,15 +10,15 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	ecclient "storj.io/storj/pkg/storage/ec"
-	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/uplink/ecclient"
+	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
+	"storj.io/storj/uplink/metainfo/kvmetainfo"
+	"storj.io/storj/uplink/storage/segments"
+	"storj.io/storj/uplink/storage/streams"
 )
 
 // Project represents a specific project access session.
@@ -157,6 +157,26 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		return nil, err
 	}
 
+	// partnerID set and bucket's attribution is not set
+	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.PartnerID.IsZero() {
+		// make an entry into the attribution table
+		err = p.checkBucketAttribution(ctx, bucketName)
+		if err != nil {
+			return nil, err
+		}
+
+		partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		// update the bucket metainfo table with corresponding partner info
+		bucketInfo.PartnerID = *partnerID
+		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
+		if err != nil {
+			return nil, err
+		}
+	}
 	encryptionParameters := cfg.EncryptionParameters
 
 	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
@@ -232,4 +252,19 @@ func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string)
 	}
 
 	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
+}
+
+// updateBucket updates an existing bucket's attribution info.
+func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bucket = storj.Bucket{
+		Name:                        bucketInfo.Name,
+		PartnerID:                   bucketInfo.PartnerID,
+		PathCipher:                  bucketInfo.PathCipher,
+		DefaultEncryptionParameters: bucketInfo.DefaultEncryptionParameters,
+		DefaultRedundancyScheme:     bucketInfo.DefaultRedundancyScheme,
+		DefaultSegmentsSize:         bucketInfo.DefaultSegmentsSize,
+	}
+	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }

@@ -11,26 +11,26 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue, Prop } from 'vue-property-decorator';
 
-    @Component({
-	    props: {
-	        bucket: Object
-	    },
-	    computed: {
-	        storage: function (): string {
-	            return (this as any).bucket.storage.toFixed(4);
-	        },
-	        egress: function (): string {
-	            return (this as any).bucket.egress.toFixed(4);
-	        },
-	        objectCount: function (): string {
-	            return (this as any).bucket.objectCount.toString();
-	        }
-	    }
-	})
-
-    export default class BucketItem extends Vue {}
+    // TODO: should it be functional?
+    @Component
+    export default class BucketItem extends Vue {
+        @Prop()
+        private readonly bucket: BucketUsage;
+    
+        public get storage(): string {
+            return this.bucket.storage.toFixed(4);
+        }
+    
+        public get egress(): string {
+            return this.bucket.egress.toFixed(4);
+        }
+        
+        public get objectCount(): string {
+            return this.bucket.objectCount.toString();
+        }
+    }
 </script>
 
 <style scoped lang="scss">

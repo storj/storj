@@ -2,7 +2,7 @@
 /storagenode/ @aleitner
 
 # audits
-/pkg/audit/ @navillasa
+/satellite/audit/ @navillasa
 
 # node identity
 /pkg/certificates/ @bryanchriswhite
@@ -11,8 +11,7 @@
 /pkg/transport/ @bryanchriswhite
 
 # repair
-/pkg/datarepair/ @jenlij
+/satellite/repair/ @jenlij
 
 # kademlia
-/pkg/dht/ @jenlij
 /pkg/kademlia/ @jenlij

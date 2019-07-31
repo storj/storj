@@ -18,8 +18,10 @@ import (
 	"storj.io/storj/satellite/satellitedb/pbold"
 )
 
-// ErrMigrate is for tracking migration errors
-var ErrMigrate = errs.Class("migrate")
+var (
+	// ErrMigrate is for tracking migration errors
+	ErrMigrate = errs.Class("migrate")
+)
 
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
@@ -878,7 +880,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					where a.interval_start = b.interval_start
 					  and a.bucket_name = b.bucket_name
 					  and a.action = b.action
-					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')  
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')
 					  and length(b.project_id) = 36
 					  and length(a.project_id) = 16
 					;`,
@@ -888,7 +890,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					where a.interval_start = b.interval_start
 					  and a.bucket_name = b.bucket_name
 					  and a.action = b.action
-					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')  
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')
 					  and length(b.project_id) = 36
 					  and length(a.project_id) = 16
 					;`,
@@ -1017,6 +1019,42 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN partner_id BYTEA`,
 					`ALTER TABLE api_keys ADD COLUMN partner_id BYTEA`,
 					`ALTER TABLE bucket_metainfos ADD COLUMN partner_id BYTEA`,
+				},
+			},
+			{
+				Description: "Add pending audit path",
+				Version:     46,
+				Action: migrate.SQL{
+					`DELETE FROM pending_audits;`, // clearing pending_audits is the least-bad choice to deal with the added 'path' column
+					`ALTER TABLE pending_audits ADD COLUMN path bytea NOT NULL;`,
+					`UPDATE nodes SET contained = false;`,
+				},
+			},
+			{
+				Description: "Modify default offers configuration",
+				Version:     47,
+				Action: migrate.SQL{
+					`UPDATE offers SET
+						award_credit_duration_days = 365,
+						invitee_credit_duration_days = 14
+						WHERE type=2 AND status=1 AND id=1`,
+					`UPDATE offers SET
+						invitee_credit_duration_days = 14,
+						award_credit_duration_days = NULL,
+						award_credit_in_cents = 0,
+						invitee_credit_in_cents = 300
+						WHERE type=1 AND status=1 AND id=2;`,
+				},
+			},
+			{
+				// This partial unique index enforces uniqueness among (id, offer_id) pairs for users that have signed up
+				// but are not yet activated (credits_earned_in_cents=0).
+				// Among users that are activated, uniqueness of (id, offer_id) pairs is not required or desirable.
+				Description: "Create partial index for user_credits table",
+				Version:     48,
+				Action: migrate.SQL{
+					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id)
+						WHERE credits_earned_in_cents=0;`,
 				},
 			},
 		},

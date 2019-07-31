@@ -17,11 +17,12 @@ import (
 	"time"
 
 	"github.com/vivint/infectious"
+	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/eestream"
 )
 
 var (
@@ -74,7 +75,7 @@ func Main() error {
 		}
 		rrs[piecenum] = r
 	}
-	rc, err := eestream.Decode(rrs, es, 4*1024*1024, false)
+	rc, err := eestream.Decode(zap.L(), rrs, es, 4*1024*1024, false)
 	if err != nil {
 		return err
 	}

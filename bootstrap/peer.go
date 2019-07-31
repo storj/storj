@@ -17,12 +17,12 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
 
@@ -99,7 +99,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(config.Version, versionInfo, "Bootstrap")
+		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Bootstrap")
 	}
 
 	{ // setup listener and server
@@ -111,7 +111,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil)
+		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -224,7 +224,6 @@ func (peer *Peer) Run(ctx context.Context) error {
 // Close closes all the resources.
 func (peer *Peer) Close() error {
 	var errlist errs.Group
-
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close servers, to avoid new connections to closing subsystems

@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
 
@@ -192,10 +192,16 @@ func (rt *RoutingTable) DumpNodes(ctx context.Context) (_ []*pb.Node, err error)
 // returns all Nodes (excluding self) closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(ctx context.Context, target storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
+	// initialize a slice  of limit+1 to allow for expansion while reordering
 	closestNodes := make([]*pb.Node, 0, limit+1)
+	// Insertion sort the nodes by xor
 	err = rt.iterateNodes(ctx, storj.NodeID{}, func(ctx context.Context, newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)
-		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0; newPos-- {
+		// compare values starting with the greatest xor to newID in the iteration
+		for newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0 {
+			// decrement newPos until newID has a greater xor (farther away) than closestNode[newPos-1]
+			// this final newPos is the index at which the newID belongs
+			newPos--
 		}
 		if newPos != limit {
 			newNode := pb.Node{}
@@ -204,7 +210,8 @@ func (rt *RoutingTable) FindNear(ctx context.Context, target storj.NodeID, limit
 				return err
 			}
 			closestNodes = append(closestNodes, &newNode)
-			if newPos != len(closestNodes) { //reorder
+			// if the new node is not the furthest away, insert the node at its correct index
+			if newPos != len(closestNodes) {
 				copy(closestNodes[newPos+1:], closestNodes[newPos:])
 				closestNodes[newPos] = &newNode
 				if len(closestNodes) > limit {
@@ -307,7 +314,7 @@ func (rt *RoutingTable) iterateNodes(ctx context.Context, start storj.NodeID, f 
 func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
 	err2 := rt.ConnectionFailed(ctx, node)
 	if err2 != nil {
-		zap.L().Debug(fmt.Sprintf("error with ConnFailure hook  %+v : %+v", err, err2))
+		rt.log.Debug(fmt.Sprintf("error with ConnFailure hook  %+v : %+v", err, err2))
 	}
 }
 
@@ -315,6 +322,6 @@ func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err erro
 func (rt *RoutingTable) ConnSuccess(ctx context.Context, node *pb.Node) {
 	err := rt.ConnectionSuccess(ctx, node)
 	if err != nil {
-		zap.L().Debug("connection success error:", zap.Error(err))
+		rt.log.Debug("connection success error:", zap.Error(err))
 	}
 }

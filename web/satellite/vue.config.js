@@ -1,15 +1,21 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-module.exports = {
-    chainWebpack: config => {
-      config
-        .plugin('html')
-        .tap(args => {
-          args[0].template = './index.html'
-          return args
-        })
-    },
-    publicPath: "/static/dist"
-}
+const path = require('path');
 
+module.exports = {
+    publicPath: "/static/dist",
+    productionSourceMap: false,
+    parallel: true,
+    chainWebpack: config => {
+        config.resolve.alias
+            .set('@', path.resolve('src'));
+
+        config
+            .plugin('html')
+            .tap(args => {
+                args[0].template = './index.html';
+                return args
+            });
+    }
+};

@@ -15,15 +15,15 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
@@ -80,6 +80,8 @@ type Config struct {
 	Console consoleserver.Config
 
 	Version version.Config
+
+	Bandwidth bandwidth.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -131,6 +133,8 @@ type Peer struct {
 		Service  *console.Service
 		Endpoint *consoleserver.Server
 	}
+
+	Bandwidth *bandwidth.Service
 }
 
 // New creates a new Storage Node.
@@ -149,7 +153,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(config.Version, versionInfo, "Storagenode")
+		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server
@@ -161,7 +165,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil)
+		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -216,8 +220,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup storage
-		trustAllSatellites := !config.Storage.SatelliteIDRestriction
-		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatellites)
+		peer.Storage2.Trust, err = trust.NewPool(peer.Transport, config.Storage.WhitelistedSatellites)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -257,8 +260,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		peer.Storage2.Sender = orders.NewSender(
 			log.Named("piecestore:orderssender"),
 			peer.Transport,
-			peer.Kademlia.Service,
 			peer.DB.Orders(),
+			peer.Storage2.Trust,
 			config.Storage2.Sender,
 		)
 	}
@@ -273,7 +276,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{ // setup vouchers
 		interval := config.Vouchers.Interval
 		buffer := interval + time.Hour
-		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Transport, peer.DB.Vouchers(),
 			peer.Storage2.Trust, interval, buffer)
 	}
 
@@ -322,6 +325,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
 
+	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
+
 	return peer, nil
 }
 
@@ -356,6 +361,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
+	})
+
+	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
@@ -384,6 +393,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.Bandwidth != nil {
+		errlist.Add(peer.Bandwidth.Close())
+	}
 	if peer.Vouchers != nil {
 		errlist.Add(peer.Vouchers.Close())
 	}

@@ -7,15 +7,15 @@
             <h1>Confirm Delete Card</h1>
             <h2>Are you sure you want to remove your card?</h2>
             <div class="button-container">
-                <Button height="48px" width="128px" label="Cancel" isWhite :on-press="onCancelClick"/>
-                <Button class="delete-button" height="48px" width="128px" label="Delete" :on-press="onDeleteClick"/>
+                <Button height="48px" width="128px" label="Cancel" isWhite="true" :onPress="onCancelClick"/>
+                <Button class="delete-button" height="48px" width="128px" label="Delete" :onPress="onDeleteClick"/>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import {
         APP_STATE_ACTIONS,
@@ -24,54 +24,46 @@
     } from '@/utils/constants/actionNames';
 
     @Component({
-        props: {
-            paymentMethodID: {
-                type: String,
-                default: ''
-            },
-        },
-        methods: {
-            onCancelClick: function () {
-                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-            },
-            onDeleteClick: async function () {
-                const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.DELETE, this.$props.paymentMethodID);
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-                }
-
-                const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
-                if (!paymentMethodsResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
-                }
-
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully delete payment method');
-            }
-        },
         components: {
             Button,
         }
     })
     export default class DeletePaymentMethodDialog extends Vue {
+        @Prop({default: ''})
+        private readonly paymentMethodID: string;
+
+        public onCancelClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        }
+
+        public async onDeleteClick(): Promise<void> {
+            const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.DELETE, this.paymentMethodID);
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+            }
+
+            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!paymentMethodsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch payment methods: ${paymentMethodsResponse.errorMessage}`);
+            }
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Payment method deleted successfully');
+        }
     }
 </script>
 
 <style scoped lang="scss">
-    .dialog-container{
-        background-image: url('../../../../static/images/container.svg');
-        background-size: cover;
-        background-repeat: no-repeat;
-
+    .dialog-container {
+        background-image: url('../../../../static/images/container.png');
+        background-size: 340px 240px;
         z-index: 1;
-
         position: absolute;
-        top: 40px;
-        right: -38px;
-
-        height: 223px;
-        width: 351px;
-
+        bottom: 40px;
+        right: -17px;
+        height: 240px;
+        width: 340px;
     }
+
     h1 {
         font-family: 'font_bold';
         font-size: 16px;
@@ -83,45 +75,31 @@
         font-family: 'font_regular';
         font-size: 12px;
         color: #384B65;
+        margin-top: 20px;
     }
 
     .delete-container {
         display: flex;
         flex-direction: column;
+        justify-content: space-between;
         padding: 25px 32px 33px 32px;
         box-shadow: 0px 4px 20px rgba(204, 208, 214, 0.25);
-        margin-top: 12px;
     }
 
     .button-container {
         display: flex;
         flex-direction: row;
-        margin-top: 25px;
+        justify-content: space-between;
+        margin-top: 35px;
     }
 
     .delete-button {
-        margin-left: 11px;
-
-        /*&:hover {*/
-        /*&.container {*/
-        /*box-shadow: none;*/
-        /*background-color: #d24949;*/
-        /*}*/
-        /*}*/
-
-    }
-    .delete-button.container {
         background-color: #EB5757;
-    &:hover {
-
-         box-shadow: none;
-         background-color: #d24949;
-
-     }
-    }
-
-    .delete-button.label {
         color: white;
-    }
 
+        &:hover {
+            box-shadow: none;
+            background-color: #d24949;
+        }
+    }
 </style>

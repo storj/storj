@@ -27,19 +27,19 @@
                 <div class="project-details-info-container__description-container--editing" v-if="isEditing">
                     <HeaderedInput
                         label="Description"
-                        placeholder ="Enter Description"
+                        placeholder="Enter Description"
                         width="70vw"
                         height="10vh"
-                        isMultiline
+                        isMultiline="true"
                         @setData="setNewDescription" />
                     <div class="project-details-info-container__description-container__buttons-area">
-                        <Button label="Cancel" width="180px" height="48px" :onPress="toggleEditing" isWhite/>
+                        <Button label="Cancel" width="180px" height="48px" :onPress="toggleEditing" isWhite="true"/>
                         <Button label="Save" width="180px" height="48px" :onPress="onSaveButtonClick"/>
                     </div>
                 </div>
             </div>
             <div class="project-details__button-area" id="deleteProjectPopupButton">
-                <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
+                <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion="true"/>
             </div>
         </div>
         <DeleteProjectPopup v-if="isPopupShown" />
@@ -57,60 +57,6 @@
     import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
 
     @Component({
-        mounted: function() {
-            this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-        },
-        data: function () {
-            return {
-                isEditing: false,
-                newDescription: '',
-            };
-        },
-        methods: {
-            toggleEditing: function (): void {
-                this.$data.isEditing = !this.$data.isEditing;
-                // TODO: cache this value in future
-                this.$data.newDescription = '';
-            },
-            setNewDescription: function (value: string): void {
-                this.$data.newDescription = value;
-            },
-            onSaveButtonClick: async function (): Promise<any> {
-                let response = await this.$store.dispatch(
-                    PROJETS_ACTIONS.UPDATE, {
-                        id: this.$store.getters.selectedProject.id,
-                        description: this.$data.newDescription
-                    }
-                );
-
-                response.isSuccess
-                    ? (() => {
-                        this.$data.isEditing = !this.$data.isEditing;
-                        this.$data.newDescription = '';
-                        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
-                    })()
-                    : this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-            },
-            toggleDeleteDialog: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-            },
-            onMoreClick: function (): void {
-                this.$router.push(ROUTES.USAGE_REPORT);
-            },
-        },
-        computed: {
-            name: function (): string {
-                return this.$store.getters.selectedProject.name;
-            },
-            description: function (): string {
-                return this.$store.getters.selectedProject.description ?
-                this.$store.getters.selectedProject.description :
-                'No description yet. Please enter some information about the project if any.';
-            },
-            isPopupShown: function (): boolean {
-                return this.$store.state.appStateModule.appState.isDeleteProjectPopupShown;
-            }
-        },
         components: {
             Button,
             HeaderedInput,
@@ -119,8 +65,64 @@
             DeleteProjectPopup,
         }
     })
+    export default class ProjectDetailsArea extends Vue {
+        private isEditing: boolean = false;
+        private newDescription: string = '';
 
-    export default class ProjectDetailsArea extends Vue {}
+        public mounted(): void {
+            this.$store.dispatch(PROJETS_ACTIONS.FETCH);
+        }
+
+        public get name(): string {
+            return this.$store.getters.selectedProject.name;
+        }
+
+        public get description(): string {
+            return this.$store.getters.selectedProject.description ?
+                this.$store.getters.selectedProject.description :
+                'No description yet. Please enter some information about the project if any.';
+        }
+
+        public get isPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isDeleteProjectPopupShown;
+        }
+
+        public setNewDescription(value: string): void {
+            this.newDescription = value;
+        }
+
+        public async onSaveButtonClick(): Promise<any> {
+            let response = await this.$store.dispatch(
+                PROJETS_ACTIONS.UPDATE, {
+                    id: this.$store.getters.selectedProject.id,
+                    description: this.newDescription
+                }
+            );
+
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+
+                return;
+            }
+
+            this.toggleEditing();
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
+        }
+
+        public toggleDeleteDialog(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+        }
+
+        public onMoreClick(): void {
+            this.$router.push(ROUTES.USAGE_REPORT);
+        }
+
+        private toggleEditing(): void {
+            this.isEditing = !this.isEditing;
+            // TODO: cache this value in future
+            this.newDescription = '';
+        }
+    }
 </script>
 
 <style scoped lang="scss">

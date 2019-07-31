@@ -11,32 +11,29 @@
 </template>
 
 <script lang="ts">
-    import { mapState } from 'vuex';
     import { Component, Vue } from 'vue-property-decorator';
     import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
     // Button and popup for adding new Project
     @Component({
-        methods: {
-            toggleSelection: function () {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-            }
-        },
         components: {
             NewProjectPopup
-        },
-        computed: mapState({
-            isPopupShown: function (state: any): boolean {
-                return state.appStateModule.appState.isNewProjectPopupShown;
-            },
-            hasProjects: function (state: any): boolean {
-                return state.projectsModule.projects.length;
-            }
-        }),
+        }
     })
+    export default class NewProjectArea extends Vue {
+        public toggleSelection(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+        }
 
-    export default class NewProjectArea extends Vue {}
+        public get isPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isNewProjectPopupShown;
+        }
+
+        public get hasProjects(): boolean {
+            return this.$store.state.projectsModule.projects.length;
+        }
+    }
 </script>
 
 <style scoped lang="scss">
@@ -44,7 +41,6 @@
         padding-left: 10px;
         padding-right: 10px;
         background-color: #FFFFFF;
-        cursor: pointer;
     }
 
     .new-project-button-container {
@@ -57,6 +53,7 @@
         border-radius: 6px;
         border: 1px solid #AFB7C1;
         background-color: white;
+        cursor: pointer;
 
 
         h1 {
