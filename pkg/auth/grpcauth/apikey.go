@@ -14,18 +14,21 @@ import (
 
 // NewAPIKeyInterceptor creates instance of apikey interceptor
 func NewAPIKeyInterceptor() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		md, ok := metadata.FromIncomingContext(ctx)
-		if !ok {
-			return handler(ctx, req)
-		}
-		apikeys, ok := md["apikey"]
-		if !ok || len(apikeys) == 0 {
-			return handler(ctx, req)
-		}
+	return InterceptAPIKey
+}
 
-		return handler(auth.WithAPIKey(ctx, []byte(apikeys[0])), req)
+// InterceptAPIKey reads apikey from requests and puts the value into the context.
+func InterceptAPIKey(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return handler(ctx, req)
 	}
+	apikeys, ok := md["apikey"]
+	if !ok || len(apikeys) == 0 {
+		return handler(ctx, req)
+	}
+
+	return handler(auth.WithAPIKey(ctx, []byte(apikeys[0])), req)
 }
 
 // APIKeyCredentials implements grpc/credentials.PerRPCCredentials
@@ -48,5 +51,5 @@ func (creds *APIKeyCredentials) GetRequestMetadata(ctx context.Context, uri ...s
 
 // RequireTransportSecurity indicates whether the credentials requires transport security.
 func (creds *APIKeyCredentials) RequireTransportSecurity() bool {
-	return true
+	return false
 }
