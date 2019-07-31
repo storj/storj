@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "require.h"
 #include "uplink.h"
@@ -19,7 +20,15 @@ void handle_project(ProjectRef project) {
     char **err = &_err;
 
     char *bucket_name = "test-bucket";
-    char *enc_ctx = "12VtN2sbbn9PvaEvNbNUBiSKnRcSUNxBADwDWGsPY7UV85e82tT6u";
+
+    uint8_t *salted_key = project_salted_key_from_passphrase(project,
+                                                             "It's dangerous to go alone, take this!",
+                                                             err);
+    require_noerror(*err);
+
+    EncryptionAccessRef encryption_access = new_encryption_access_with_default_key(salted_key);
+    char *enc_ctx = serialize_encryption_access(encryption_access, err);
+    require_noerror(*err);
 
     char *object_paths[] = {"test-object1","test-object2","test-object3","test-object4"};
     int num_of_objects = 4;
@@ -38,9 +47,9 @@ void handle_project(ProjectRef project) {
     BucketRef bucket = open_bucket(project, bucket_name, enc_ctx, err);
     require_noerror(*err);
 
-
     for(int i = 0; i < num_of_objects; i++) {
-        size_t data_len = 1024 * (i + 1) * (i + 1);
+        // NB: 5KB, 50KB, 500KB, 5000KB
+        size_t data_len = pow(10, (double)i) * 1024 * 5;
         uint8_t *data = malloc(data_len);
         fill_random_data(data, data_len);
 
@@ -56,6 +65,11 @@ void handle_project(ProjectRef project) {
             size_t uploaded_total = 0;
             while (uploaded_total < data_len) {
                 size_t size_to_write = (data_len - uploaded_total > 256) ? 256 : data_len - uploaded_total;
+
+                if (size_to_write == 0) {
+                    break;
+                }
+
                 size_t write_size = upload_write(uploader, (uint8_t *)data+uploaded_total, size_to_write, err);
                 require_noerror(*err);
 
@@ -68,6 +82,8 @@ void handle_project(ProjectRef project) {
 
             upload_commit(uploader, err);
             require_noerror(*err);
+
+            free_uploader(uploader);
         }
 
         { // object meta
@@ -93,7 +109,7 @@ void handle_project(ProjectRef project) {
             DownloaderRef downloader = download(bucket, object_paths[i], err);
             require_noerror(*err);
 
-            uint8_t downloaded_data[data_len];
+            uint8_t *downloaded_data = malloc(data_len);
             memset(downloaded_data, '\0', data_len);
             size_t downloaded_total = 0;
 
@@ -112,6 +128,10 @@ void handle_project(ProjectRef project) {
             download_close(downloader, err);
             require_noerror(*err);
             require(memcmp(data, downloaded_data, data_len) == 0);
+
+            free(downloaded_data);
+
+            free_downloader(downloader);
         }
 
         if (data != NULL) {
@@ -138,6 +158,24 @@ void handle_project(ProjectRef project) {
         free_list_objects(&objects_list);
     }
 
+    { // Delete objects
+        for (int i = 0; i < num_of_objects; i++) {
+            delete_object(bucket, object_paths[i], err);
+            require_noerror(*err);
+
+            // ensure object deletion
+            ObjectList objects_list = list_objects(bucket, NULL, err);
+            require_noerror(*err);
+            require(objects_list.items);
+            require(objects_list.length == num_of_objects - i - 1);
+
+            free_list_objects(&objects_list);
+        }
+    }
+
     close_bucket(bucket, err);
     require_noerror(*err);
+
+    free_encryption_access(encryption_access);
+    free(salted_key);
 }

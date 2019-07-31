@@ -20,10 +20,10 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
@@ -59,9 +59,54 @@ type Config struct {
 	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
+	RetainStatus          RetainStatus  `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
+}
+
+// RetainStatus is a type defining the enabled/disabled status of retain requests
+type RetainStatus uint32
+
+const (
+	// RetainDisabled means we do not do anything with retain requests
+	RetainDisabled RetainStatus = iota + 1
+	// RetainEnabled means we fully enable retain requests and delete data not defined by bloom filter
+	RetainEnabled
+	// RetainDebug means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
+	RetainDebug
+)
+
+// Set implements pflag.Value
+func (v *RetainStatus) Set(s string) error {
+	switch s {
+	case "disabled":
+		*v = RetainDisabled
+	case "enabled":
+		*v = RetainEnabled
+	case "debug":
+		*v = RetainDebug
+	default:
+		return Error.New("invalid RetainStatus %q", s)
+	}
+	return nil
+}
+
+// Type implements pflag.Value
+func (*RetainStatus) Type() string { return "storj.RetainStatus" }
+
+// String implements pflag.Value
+func (v *RetainStatus) String() string {
+	switch *v {
+	case RetainDisabled:
+		return "disabled"
+	case RetainEnabled:
+		return "enabled"
+	case RetainDebug:
+		return "debug"
+	default:
+		return "invalid"
+	}
 }
 
 // Endpoint implements uploading, downloading and deleting for a storage node.
@@ -113,7 +158,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
-	if err := endpoint.VerifyOrderLimit(ctx, delete.Limit); err != nil {
+	if err := endpoint.verifyOrderLimit(ctx, delete.Limit); err != nil {
 		// TODO: report grpc status unauthorized or bad request
 		return nil, Error.Wrap(err)
 	}
@@ -173,8 +218,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return ErrProtocol.New("expected put or put repair action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
-	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
-		return err // TODO: report grpc status unauthorized or bad request
+	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+		return err
 	}
 
 	var pieceWriter *pieces.Writer
@@ -365,7 +410,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return ErrProtocol.New("requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
-	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
+	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
 	}
 
@@ -447,7 +492,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				return ErrInternal.Wrap(err)
 			}
 
-			_, err = pieceReader.Read(chunkData)
+			// ReadFull is required to ensure we are sending the right amount of data.
+			_, err = io.ReadFull(pieceReader, chunkData)
 			if err != nil {
 				return ErrInternal.Wrap(err)
 			}
@@ -541,6 +587,11 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// if retain status is disabled, quit immediately
+	if endpoint.config.RetainStatus == RetainDisabled {
+		return &pb.RetainResponse{}, nil
+	}
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, Error.Wrap(err).Error())
@@ -571,18 +622,25 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		}
 		for _, pieceID := range pieceIDs {
 			if !filter.Contains(pieceID) {
-				if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
-					endpoint.log.Error("failed to delete a piece", zap.Error(Error.Wrap(err)))
-					// continue because if we fail to delete from file system,
-					// we need to keep the pieceinfo so we can delete next time
-					continue
+				endpoint.log.Sugar().Debugf("About to delete piece id (%s) from satellite (%s). RetainStatus: %s", pieceID.String(), peer.ID.String(), endpoint.config.RetainStatus.String())
+
+				// if retain status is enabled, delete pieceid
+				if endpoint.config.RetainStatus == RetainEnabled {
+					if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
+						endpoint.log.Error("failed to delete a piece", zap.Error(err))
+						// continue because if we fail to delete from file system,
+						// we need to keep the pieceinfo so we can delete next time
+						continue
+					}
+					if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
+						endpoint.log.Error("failed to delete piece info", zap.Error(err))
+					}
 				}
-				if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
-					endpoint.log.Error("failed to delete piece info", zap.Error(Error.Wrap(err)))
-				}
+
 				numDeleted++
 			}
 		}
+
 		hasMorePieces = (len(pieceIDs) == limit)
 		offset += len(pieceIDs)
 		offset -= numDeleted
@@ -590,6 +648,9 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()
 	}
+
+	endpoint.log.Sugar().Debugf("Deleted %d pieces during retain. RetainStatus: %s", numDeleted, endpoint.config.RetainStatus.String())
+
 	return &pb.RetainResponse{}, nil
 }
 

@@ -253,24 +253,33 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 	), nil
 }
 
-func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, error) {
-	cfg := libuplink.Config{}
-	cfg.Volatile.TLS = struct {
+func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, error) {
+	// Transform the gateway config flags to the libuplink config object
+	libuplinkCfg := &libuplink.Config{}
+	libuplinkCfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
+	libuplinkCfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
+	libuplinkCfg.Volatile.PeerIDVersion = flags.TLS.PeerIDVersions
+	libuplinkCfg.Volatile.TLS = struct {
 		SkipPeerCAWhitelist bool
 		PeerCAWhitelistPath string
 	}{
 		SkipPeerCAWhitelist: !flags.TLS.UsePeerCAWhitelist,
 		PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
 	}
-	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
-	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
 
+	libuplinkCfg.Volatile.DialTimeout = flags.Client.DialTimeout
+	libuplinkCfg.Volatile.RequestTimeout = flags.Client.RequestTimeout
+
+	return libuplink.NewUplink(ctx, libuplinkCfg)
+}
+
+func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, error) {
 	apiKey, err := libuplink.ParseAPIKey(flags.Client.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
-	uplk, err := libuplink.NewUplink(ctx, &cfg)
+	uplk, err := flags.newUplink(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -285,28 +294,52 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 func (flags GatewayFlags) interactive(
 	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
 ) error {
+	ctx := process.Ctx(cmd)
+
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	apiKey, err := wizard.PromptForAPIKey()
+	apiKeyString, err := wizard.PromptForAPIKey()
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	humanReadableKey, err := wizard.PromptForEncryptionKey()
+	apiKey, err := libuplink.ParseAPIKey(apiKeyString)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	passphrase, err := wizard.PromptForEncryptionPassphrase()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	uplk, err := flags.newUplink(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, uplk.Close()) }()
+
+	project, err := uplk.OpenProject(ctx, satelliteAddress, apiKey)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = setup.SaveEncryptionKey(string(key[:]), encryptionKeyFilepath)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	overrides["satellite-addr"] = satelliteAddress
-	overrides["api-key"] = apiKey
+	overrides["api-key"] = apiKeyString
 	overrides["enc.key-filepath"] = encryptionKeyFilepath
 
 	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)

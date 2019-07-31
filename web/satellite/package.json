@@ -7,7 +7,7 @@
     "lint": "vue-cli-service lint",
     "test:unit": "vue-cli-service test:unit",
     "test": "jest",
-    "build": "vue-cli-service build --mode=production"
+    "build": "vue-cli-service build"
   },
   "dependencies": {
     "@types/graphql": "^14.0.3",
@@ -20,11 +20,11 @@
     "graphql-tag": "^2.10.0",
     "moment": "^2.24.0",
     "stripe": "^7.0.1",
-    "vue": "^2.5.17",
+    "vue": "^2.6.10",
     "vue-clipboards": "^1.2.4",
-    "vue-property-decorator": "^7.0.0",
+    "vue-property-decorator": "^8.1.0",
     "vue-router": "^3.0.1",
-    "vuex": "^3.0.1"
+    "vuex": "^3.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.0.0",
@@ -32,34 +32,26 @@
     "@types/jest": "^23.1.4",
     "@types/sinon": "^5.0.5",
     "@types/stripe": "^6.26.0",
-    "@vue/cli-plugin-babel": "^3.0.5",
-    "@vue/cli-plugin-typescript": "^3.6.0",
-    "@vue/cli-plugin-unit-jest": "^3.6.3",
-    "@vue/cli-service": "^3.6.0",
+    "@vue/cli-plugin-babel": "^3.9.2",
+    "@vue/cli-plugin-typescript": "^3.9.0",
+    "@vue/cli-plugin-unit-jest": "^3.9.0",
+    "@vue/cli-service": "^3.9.3",
     "@vue/test-utils": "^1.0.0-beta.25",
     "babel-core": "7.0.0-bridge.0",
-    "css-loader": "^1.0.0",
-    "eslint": "^5.9.0",
-    "eslint-plugin-vue": "^5.0.0",
     "jest-fetch-mock": "^2.1.0",
     "node-sass": "^4.11.0",
-    "sass-loader": "^7.0.1",
+    "sass-loader": "^7.1.0",
     "sinon": "^7.0.0",
     "ts-jest": "^23.0.0",
     "tslint": "^5.11.0",
     "tslint-consistent-codestyle": "^1.14.1",
     "tslint-loader": "^3.5.4",
     "typescript": "^3.0.0",
-    "vue-html-webpack-plugin": "^3.2.2",
-    "vue-loader": "^15.4.2",
     "vue-segment-analytics": "^0.3.2",
-    "vue-style-loader": "^4.1.2",
-    "vue-template-compiler": "^2.5.17",
     "vue-tslint": "^0.3.2",
     "vue-tslint-loader": "^3.5.6",
-    "webpack": "^4.21.0",
-    "webpack-cli": "^3.1.2",
-    "webpack-node-externals": "^1.7.2"
+    "vue-template-compiler": "^2.6.10",
+    "webpack": "^4.38.0"
   },
   "postcss": {
     "plugins": {

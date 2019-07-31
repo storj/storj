@@ -117,6 +117,18 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
+	header := w.Header()
+
+	cspValues := []string{
+		"default-src 'self'",
+		"script-src 'self' *.stripe.com cdn.segment.com",
+		"frame-src 'self' *.stripe.com",
+		"img-src 'self' data:",
+	}
+
+	header.Set("Content-Type", "text/html; charset=UTF-8")
+	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
+
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "index.html"))
 }
 
@@ -267,6 +279,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 		err := req.ParseForm()
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
 
 		password := req.FormValue("password")
@@ -279,17 +292,21 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 		err = s.service.ResetPassword(ctx, recoveryToken, password)
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
+
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "resetPassword", "success.html"))
 	case http.MethodGet:
 		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
 
 		err = t.Execute(w, nil)
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
 	default:
 		s.serveError(w, req)

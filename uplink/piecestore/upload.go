@@ -11,10 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -67,7 +67,14 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit, piecePri
 	})
 	if err != nil {
 		_, closeErr := stream.CloseAndRecv()
-		return nil, ErrProtocol.Wrap(errs.Combine(err, closeErr))
+		switch {
+		case err != io.EOF && closeErr != nil:
+			err = ErrProtocol.Wrap(errs.Combine(err, closeErr))
+		case closeErr != nil:
+			err = ErrProtocol.Wrap(closeErr)
+		}
+
+		return nil, err
 	}
 
 	upload := &Upload{
@@ -138,7 +145,14 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 			},
 		})
 		if err != nil {
-			err = ErrProtocol.Wrap(err)
+			_, closeErr := client.stream.CloseAndRecv()
+			switch {
+			case err != io.EOF && closeErr != nil:
+				err = ErrProtocol.Wrap(errs.Combine(err, closeErr))
+			case closeErr != nil:
+				err = ErrProtocol.Wrap(closeErr)
+			}
+
 			client.sendError = err
 			return written, err
 		}

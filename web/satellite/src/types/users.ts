@@ -6,14 +6,14 @@ export class User {
     public fullName: string;
     public shortName: string;
     public email: string;
-    public partnerId: string;
+    public partnerId?: string;
 
-    public constructor(fullName: string, shortName: string, email: string, partnerId: string) {
+    public constructor(fullName: string, shortName: string, email: string, partnerId?: string) {
         this.id = '';
         this.fullName = fullName;
         this.shortName = shortName;
         this.email = email;
-        this.partnerId = partnerId;
+        this.partnerId = partnerId || '';
     }
 
     public getFullName(): string {

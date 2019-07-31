@@ -6,7 +6,11 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 
-import "storj.io/storj/lib/uplink"
+import (
+	"fmt"
+
+	"storj.io/storj/lib/uplink"
+)
 
 // Uplink is a scoped uplink.Uplink.
 type Uplink struct {
@@ -20,14 +24,14 @@ type Uplink struct {
 //
 // Caller must call close_uplink to close associated resources.
 func new_uplink(cfg C.UplinkConfig, cerr **C.char) C.UplinkRef {
-	scope := rootScope("inmemory") // TODO: pass in as argument
+	scope := rootScope("") // TODO: pass in as argument
 
 	libcfg := &uplink.Config{} // TODO: figure out a better name
-	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.TLS.SkipPeerCAWhitelist == C.bool(true)
+	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.tls.skip_peer_ca_whitelist == C.bool(true)
 
 	lib, err := uplink.NewUplink(scope.ctx, libcfg)
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.UplinkRef{}
 	}
 
@@ -46,7 +50,7 @@ func close_uplink(uplinkHandle C.UplinkRef, cerr **C.char) {
 	defer uplink.cancel()
 
 	if err := uplink.Close(); err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }

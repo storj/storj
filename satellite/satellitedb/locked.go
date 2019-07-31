@@ -14,20 +14,20 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/certdb"
-	"storj.io/storj/pkg/datarepair/irreparable"
-	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
+	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/irreparable"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -596,6 +596,12 @@ func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsT
 	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
 }
 
+func (m *lockedUserCredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateEarnedCredits(ctx, userID)
+}
+
 // UserPayments is a getter for UserPayments repository
 func (m *lockedConsole) UserPayments() console.UserPayments {
 	m.Lock()
@@ -1036,6 +1042,13 @@ func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.Injure
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectN(ctx, limit)
+}
+
+// Count counts the number of segments in the repair queue.
+func (m *lockedRepairQueue) Count(ctx context.Context) (int, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Count(ctx)
 }
 
 // returns database for marketing admin GUI
