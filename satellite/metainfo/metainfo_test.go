@@ -58,22 +58,22 @@ func TestInvalidAPIKey(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
-		_, _, _, err = client.CreateSegmentOld(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
+		_, _, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, false)
 
-		_, err = client.CommitSegmentOld(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
+		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
 		assertUnauthenticated(t, err, false)
 
-		_, err = client.SegmentInfoOld(ctx, "testbucket", "testpath", 0)
+		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "testpath", 0)
+		_, _, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, _, err = client.DeleteSegmentOld(ctx, "testbucket", "testpath", 0)
+		_, _, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, _, err = client.ListSegmentsOld(ctx, "testbucket", "", "", "", true, 1, 0)
+		_, _, err = client.ListSegments(ctx, "testbucket", "", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, false)
 	}
 }
@@ -172,25 +172,25 @@ func TestRestrictedAPIKey(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
-		_, _, _, err = client.CreateSegmentOld(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
+		_, _, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, test.CreateSegmentAllowed)
 
-		_, err = client.CommitSegmentOld(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
+		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
 		assertUnauthenticated(t, err, test.CommitSegmentAllowed)
 
-		_, err = client.SegmentInfoOld(ctx, "testbucket", "testpath", 0)
+		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.SegmentInfoAllowed)
 
-		_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "testpath", 0)
+		_, _, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.ReadSegmentAllowed)
 
-		_, _, err = client.DeleteSegmentOld(ctx, "testbucket", "testpath", 0)
+		_, _, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.DeleteSegmentAllowed)
 
-		_, _, err = client.ListSegmentsOld(ctx, "testbucket", "testpath", "", "", true, 1, 0)
+		_, _, err = client.ListSegments(ctx, "testbucket", "testpath", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, test.ListSegmentsAllowed)
 
-		_, _, _, err = client.ReadSegmentOld(ctx, "testbucket", "", -1)
+		_, _, _, err = client.ReadSegment(ctx, "testbucket", "", -1)
 		assertUnauthenticated(t, err, test.ReadBucketAllowed)
 	}
 }
@@ -300,7 +300,7 @@ func TestCommitSegment(t *testing.T) {
 
 		{
 			// error if pointer is nil
-			_, err = metainfo.CommitSegmentOld(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit{})
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit{})
 			require.Error(t, err)
 		}
 		{
@@ -313,7 +313,7 @@ func TestCommitSegment(t *testing.T) {
 				ErasureShareSize: 256,
 			}
 			expirationDate := time.Now().Add(time.Hour)
-			addresedLimits, rootPieceID, _, err := metainfo.CreateSegmentOld(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			addresedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
 			require.NoError(t, err)
 
 			// create number of pieces below repair threshold
@@ -347,7 +347,7 @@ func TestCommitSegment(t *testing.T) {
 			for i, addresedLimit := range addresedLimits {
 				limits[i] = addresedLimit.Limit
 			}
-			_, err = metainfo.CommitSegmentOld(ctx, "bucket", "path", -1, pointer, limits)
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "less than or equal to the repair threshold")
 		}
@@ -444,7 +444,7 @@ func TestCreateSegment(t *testing.T) {
 				fail: false,
 			},
 		} {
-			_, _, _, err := metainfo.CreateSegmentOld(ctx, "bucket", "path", -1, r.rs, 1000, time.Now().Add(time.Hour))
+			_, _, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, r.rs, 1000, time.Now().Add(time.Hour))
 			if r.fail {
 				require.Error(t, err)
 			} else {
@@ -494,7 +494,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 			},
 		} {
 
-			_, _, _, err := metainfo.CreateSegmentOld(ctx, "my-bucket-name", "file/path", -1, rs, memory.MiB.Int64(), r.expirationDate)
+			_, _, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, rs, memory.MiB.Int64(), r.expirationDate)
 			if err != nil {
 				assert.True(t, r.errFlag)
 			} else {
@@ -516,10 +516,10 @@ func TestDoubleCommitSegment(t *testing.T) {
 
 		pointer, limits := runCreateSegment(ctx, t, metainfo)
 
-		_, err = metainfo.CommitSegmentOld(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.NoError(t, err)
 
-		_, err = metainfo.CommitSegmentOld(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing create request or request expired")
 	})
@@ -629,7 +629,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
 			test.Modify(pointer)
 
-			_, err = metainfo.CommitSegmentOld(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
+			_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 			require.Error(t, err, "Case #%v", i)
 			require.Contains(t, err.Error(), test.ErrorMessage, "Case #%v", i)
 		}
@@ -710,7 +710,7 @@ func TestGetProjectInfo(t *testing.T) {
 func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit) {
 	pointer := createTestPointer(t)
 
-	addressedLimits, rootPieceID, _, err := metainfo.CreateSegmentOld(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), pointer.ExpirationDate)
+	addressedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), pointer.ExpirationDate)
 	require.NoError(t, err)
 
 	pointer.Remote.RootPieceId = rootPieceID
@@ -799,7 +799,7 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-63-0123456789012345678901234567890123456789012345abc",
 		}
 		for _, name := range validNames {
-			_, _, _, err = metainfo.CreateSegmentOld(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			_, _, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
 			require.NoError(t, err, "bucket name: %v", name)
 		}
 
@@ -813,53 +813,11 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
 		}
 		for _, name := range invalidNames {
-			_, _, _, err = metainfo.CreateSegmentOld(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			_, _, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
 			require.Error(t, err, "bucket name: %v", name)
 		}
 	})
 }
-
-// func TestBeginCommitObject(t *testing.T) {
-// 	testplanet.Run(t, testplanet.Config{
-// 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-// 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-// 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-// 		uplink := planet.Uplinks[0]
-
-// 		config := uplink.GetConfig(planet.Satellites[0])
-// 		metainfoService := planet.Satellites[0].Metainfo.Service
-
-// 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-// 		require.NoError(t, err)
-// 		projectID := projects[0].ID
-
-// 		bucket := storj.Bucket{
-// 			Name:       "initial-bucket",
-// 			ProjectID:  projectID,
-// 			PathCipher: config.GetEncryptionParameters().CipherSuite,
-// 		}
-// 		_, err = metainfoService.CreateBucket(ctx, bucket)
-// 		require.NoError(t, err)
-
-// 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-// 		require.NoError(t, err)
-// 		defer ctx.Check(metainfoClient.Close)
-
-// 		streamID, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
-// 			Bucket:               []byte(bucket.Name),
-// 			EncryptedPath:        []byte("encrypted-path"),
-// 			Redundancy:           storj.RedundancyScheme{},
-// 			EncryptionParameters: storj.EncryptionParameters{},
-// 			ExpiresAt:            time.Time{},
-// 		})
-// 		require.NoError(t, err)
-
-// 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-// 			StreamID: streamID,
-// 		})
-// 		require.NoError(t, err)
-// 	})
-// }
 
 func TestListGetObjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -970,7 +928,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 				},
 			}
 		}
-		err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = metainfoClient.CommitSegmentNew(ctx, metainfo.CommitSegmentParams{
 			SegmentID: segmentID,
 			Position: storj.SegmentPosition{
 				Index: -1,
@@ -1004,7 +962,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		segments, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
+		segments, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
 			StreamID: streamID,
 		})
 		require.NoError(t, err)
@@ -1113,7 +1071,7 @@ func TestInlineSegment(t *testing.T) {
 				{Index: 0, Result: len(segments), More: false, Limit: len(segments)},
 				{Index: 0, Result: len(segments) - 1, More: true, Limit: len(segments) - 1},
 			} {
-				items, more, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
+				items, more, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
 					StreamID: streamID,
 					CursorPosition: storj.SegmentPosition{
 						Index: test.Index,
@@ -1147,7 +1105,7 @@ func TestInlineSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			items, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
+			items, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
@@ -1167,7 +1125,7 @@ func TestInlineSegment(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			items, _, err = metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
+			items, _, err = metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
@@ -1211,7 +1169,7 @@ func TestRemoteSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			segments, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
+			segments, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
@@ -1239,7 +1197,7 @@ func TestRemoteSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			segments, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
+			segments, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.NoError(t, err)
@@ -1290,7 +1248,7 @@ func TestIDs(t *testing.T) {
 			require.Error(t, err) // invalid streamID
 
 			segmentID := testrand.SegmentID(512)
-			err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
+			err = metainfoClient.CommitSegmentNew(ctx, metainfo.CommitSegmentParams{
 				SegmentID: segmentID,
 			})
 			require.Error(t, err) // invalid segmentID
@@ -1328,7 +1286,7 @@ func TestIDs(t *testing.T) {
 			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
 			require.NoError(t, err)
 
-			err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
+			err = metainfoClient.CommitSegmentNew(ctx, metainfo.CommitSegmentParams{
 				SegmentID: segmentID,
 			})
 			require.Error(t, err)

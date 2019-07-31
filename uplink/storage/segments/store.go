@@ -127,7 +127,7 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 			Hash:     successfulHashes[i],
 		})
 	}
-	err = s.metainfo.CommitSegment(ctx, metainfo.CommitSegmentParams{
+	err = s.metainfo.CommitSegmentNew(ctx, metainfo.CommitSegmentParams{
 		SegmentID: segmentID,
 		Position: storj.SegmentPosition{
 			Index: int32(segmentIndex),
