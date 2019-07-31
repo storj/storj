@@ -262,7 +262,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if sc.DebugLogTraffic {
 			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
 		}
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, unaryInterceptor)
+		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
