@@ -256,17 +256,12 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, error) {
 	// Transform the gateway config flags to the libuplink config object
 	libuplinkCfg := &libuplink.Config{}
+	libuplinkCfg.Volatile.Log = zap.L()
 	libuplinkCfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
 	libuplinkCfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
 	libuplinkCfg.Volatile.PeerIDVersion = flags.TLS.PeerIDVersions
-	libuplinkCfg.Volatile.TLS = struct {
-		SkipPeerCAWhitelist bool
-		PeerCAWhitelistPath string
-	}{
-		SkipPeerCAWhitelist: !flags.TLS.UsePeerCAWhitelist,
-		PeerCAWhitelistPath: flags.TLS.PeerCAWhitelistPath,
-	}
-
+	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !flags.TLS.UsePeerCAWhitelist
+	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = flags.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = flags.Client.DialTimeout
 	libuplinkCfg.Volatile.RequestTimeout = flags.Client.RequestTimeout
 
