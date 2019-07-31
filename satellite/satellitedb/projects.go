@@ -87,6 +87,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		dbx.Project_Name(project.Name),
 		dbx.Project_Description(project.Description),
 		dbx.Project_UsageLimit(0),
+		dbx.Project_OwnerId(project.OwnerID[:]),
 		partnerID,
 	)
 
@@ -135,11 +136,17 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, err
 	}
 
+	ownerID, err := bytesToUUID(project.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
 	u := &console.Project{
 		ID:          id,
 		Name:        project.Name,
 		Description: project.Description,
 		CreatedAt:   project.CreatedAt,
+		OwnerID:     ownerID,
 	}
 
 	return u, nil

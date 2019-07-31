@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/currency"
 	"storj.io/storj/pkg/auth"
@@ -708,6 +708,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 			&Project{
 				Description: projectInfo.Description,
 				Name:        projectInfo.Name,
+				OwnerID:     auth.User.ID,
 			},
 		)
 		if err != nil {
@@ -737,8 +738,8 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 		return err
 	}
 
-	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
-		return ErrUnauthorized.Wrap(err)
+	if err = s.isProjectOwner(ctx, auth.User.ID, projectID); err != nil {
+		return err
 	}
 
 	err = s.store.Projects().Delete(ctx, projectID)
@@ -1330,6 +1331,21 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	}
 
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
+}
+
+// isProjectMember checks if the user is an owner of a project
+func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	project, err := s.store.Projects().Get(ctx, projectID)
+	if err != nil {
+		return errs.New(internalErrMsg)
+	}
+
+	if project.OwnerID != userID {
+		return errs.New(unauthorizedErrMsg)
+	}
+
+	return nil
 }
 
 // withTx is a helper function for executing db operations

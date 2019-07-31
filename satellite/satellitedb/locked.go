@@ -1023,6 +1023,13 @@ type lockedRepairQueue struct {
 	db queue.RepairQueue
 }
 
+// Count counts the number of segments in the repair queue.
+func (m *lockedRepairQueue) Count(ctx context.Context) (count int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Count(ctx)
+}
+
 // Delete removes an injured segment.
 func (m *lockedRepairQueue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
@@ -1049,13 +1056,6 @@ func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.Injure
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectN(ctx, limit)
-}
-
-// Count counts the number of segments in the repair queue.
-func (m *lockedRepairQueue) Count(ctx context.Context) (int, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Count(ctx)
 }
 
 // returns database for marketing admin GUI

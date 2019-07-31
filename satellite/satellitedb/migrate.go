@@ -1057,6 +1057,24 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						WHERE credits_earned_in_cents=0;`,
 				},
 			},
+			{
+				// Creating owner_id column for project. And populating this column with first project member id
+				Description: "Create partial index for user_credits table",
+				Version:     49,
+				Action: migrate.SQL{
+					`ALTER TABLE projects
+						ADD COLUMN owner_id BYTEA;
+
+					UPDATE projects as proj
+    					SET owner_id = 
+        					(SELECT member_id
+								FROM project_members
+             						WHERE project_id = proj.id
+                						GROUP BY member_id
+                    						ORDER BY MAX(created_at) ASC
+                     							LIMIT 1);`,
+				},
+			},
 		},
 	}
 }
