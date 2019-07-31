@@ -59,7 +59,7 @@ func DecodeReaders(ctx context.Context, log *zap.Logger, rs map[int]io.ReadClose
 		log:             log,
 		readers:         rs,
 		scheme:          es,
-		stripeReader:    NewStripeReader(rs, es, mbm, forceErrorDetection),
+		stripeReader:    NewStripeReader(log, rs, es, mbm, forceErrorDetection),
 		outbuf:          make([]byte, 0, es.StripeSize()),
 		expectedStripes: expectedSize / int64(es.StripeSize()),
 	}
