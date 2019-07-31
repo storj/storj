@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-func TestPieceInfo(t *testing.T) {
+func TestV0PieceInfo(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
