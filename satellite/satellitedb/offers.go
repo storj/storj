@@ -100,11 +100,19 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 	}
 
 	// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
-	statement := db.db.Rebind(`
-		UPDATE offers SET status=?, expires_at=?
-		WHERE status=? AND type=? AND expires_at>?;
-	`)
-	_, err = tx.Tx.ExecContext(ctx, statement, rewards.Done, currentTime, o.Status, o.Type, currentTime)
+	switch o.Type {
+	case rewards.Partner:
+		statement := `
+			UPDATE offers SET status=?, expires_at=?
+			WHERE status=? AND type=? AND expires_at>? AND name=?;`
+		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(statement), rewards.Done, currentTime, o.Status, o.Type, currentTime, o.Name)
+
+	default:
+		statement := `
+			UPDATE offers SET status=?, expires_at=?
+			WHERE status=? AND type=? AND expires_at>?;`
+		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(statement), rewards.Done, currentTime, o.Status, o.Type, currentTime)
+	}
 	if err != nil {
 		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}
