@@ -15,50 +15,53 @@ import (
 
 // ClientDialOptions returns options for adding monkit tracing.
 func ClientDialOptions() []grpc.DialOption {
+	trace := monkit.NewTrace(monkit.NewId())
+	intercept := &ClientInterceptor{trace}
 	return []grpc.DialOption{
-		grpc.WithUnaryInterceptor(NewUnaryClientInterceptor()),
-		grpc.WithStreamInterceptor(NewStreamClientInterceptor()),
+		grpc.WithUnaryInterceptor(intercept.Unary),
+		//grpc.WithStreamInterceptor(intercept.Stream),
 	}
 }
 
-// NewUnaryClientInterceptor creates an monkit client interceptor.
-func NewUnaryClientInterceptor() grpc.UnaryClientInterceptor {
-	trace := monkit.NewTrace(monkit.NewId())
-
-	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
-		spanid := monkit.NewId()
-		ctx = metadata.AppendToOutgoingContext(ctx, traceIDKey, strconv.FormatInt(trace.Id(), 10))
-		ctx = metadata.AppendToOutgoingContext(ctx, spanIDKey, strconv.FormatInt(spanid, 10))
-
-		service, endpoint := parseFullMethod(method)
-		scope := monkit.ScopeNamed(service)
-		fn := scope.FuncNamed(endpoint)
-		defer fn.RemoteTrace(&ctx, spanid, trace)(&err)
-
-		return invoker(ctx, method, req, reply, cc, opts...)
-	}
+// ClientInterceptor intercepts with traces
+type ClientInterceptor struct {
+	trace *monkit.Trace
 }
 
-// NewStreamClientInterceptor creates an monkit client stream interceptor.
-func NewStreamClientInterceptor() grpc.StreamClientInterceptor {
-	trace := monkit.NewTrace(monkit.NewId())
+// Unary intercepts RPC calls.
+func (intercept *ClientInterceptor) Unary(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
+	spanid := monkit.NewId()
+	ctx = metadata.AppendToOutgoingContext(ctx,
+		traceIDKey, strconv.FormatInt(intercept.trace.Id(), 10),
+		spanIDKey, strconv.FormatInt(spanid, 10),
+	)
 
-	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (stream grpc.ClientStream, err error) {
-		spanid := monkit.NewId()
-		ctx = metadata.AppendToOutgoingContext(ctx, traceIDKey, strconv.FormatInt(trace.Id(), 10))
-		ctx = metadata.AppendToOutgoingContext(ctx, spanIDKey, strconv.FormatInt(spanid, 10))
+	service, endpoint := parseFullMethod(method)
+	scope := monkit.ScopeNamed(service)
+	fn := scope.FuncNamed(endpoint)
+	defer fn.RemoteTrace(&ctx, spanid, intercept.trace)(&err)
 
-		service, endpoint := parseFullMethod(method)
-		scope := monkit.ScopeNamed(service)
-		fn := scope.FuncNamed(endpoint)
-		defer fn.RemoteTrace(&ctx, spanid, trace)(&err)
+	return invoker(ctx, method, req, reply, cc, opts...)
+}
 
-		stream, err = streamer(ctx, desc, cc, method, opts...)
-		if err != nil {
-			return stream, err
-		}
-		return &ClientStream{stream, scope, ctx}, err
+// Stream creates an monkit client stream interceptor.
+func (intercept *ClientInterceptor) Stream(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (stream grpc.ClientStream, err error) {
+	spanid := monkit.NewId()
+	ctx = metadata.AppendToOutgoingContext(ctx,
+		traceIDKey, strconv.FormatInt(intercept.trace.Id(), 10),
+		spanIDKey, strconv.FormatInt(spanid, 10),
+	)
+
+	service, endpoint := parseFullMethod(method)
+	scope := monkit.ScopeNamed(service)
+	fn := scope.FuncNamed(endpoint)
+	defer fn.RemoteTrace(&ctx, spanid, intercept.trace)(&err)
+
+	stream, err = streamer(ctx, desc, cc, method, opts...)
+	if err != nil {
+		return stream, err
 	}
+	return &ClientStream{stream, scope, ctx}, err
 }
 
 // ClientStream implements wrapping monkit server stream.
