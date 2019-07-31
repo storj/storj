@@ -11,8 +11,11 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
+	"github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -52,6 +55,8 @@ type SQLDB interface {
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
+	conlock     sync.Mutex
+	connections map[string]*sqlite3.SQLiteConn
 	db          SQLDB
 	bandwidthdb bandwidthdb
 	pieceinfo   pieceinfo
@@ -64,14 +69,30 @@ func newInfo(path string) (*InfoDB, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	infoDb := &InfoDB{
+		conlock:     sync.Mutex{},
+		connections: make(map[string]*sqlite3.SQLiteConn),
+	}
+
+	// The sqlite driver is needed in order to perform backups. We use a connect hook to intercept it.
+	sql.Register(dbutil.Sqlite3DriverName, &sqlite3.SQLiteDriver{
+		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+			fileName := strings.ToLower(filepath.Base(conn.GetFilename("")))
+			infoDb.conlock.Lock()
+			infoDb.connections[fileName] = conn
+			infoDb.conlock.Unlock()
+			return nil
+		},
+	})
+
+	db, err := sql.Open(dbutil.Sqlite3DriverName, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
 
 	dbutil.Configure(db, mon)
 
-	infoDb := &InfoDB{db: db}
+	infoDb.db = db
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
 	infoDb.location = path
@@ -401,6 +422,59 @@ func (db *InfoDB) Migration() *migrate.Migration {
 						log.Sugar().Debug(err)
 					}
 					// To prevent the node from starting up, we just log errors and return nil
+					return nil
+				}),
+			},
+			{
+				Description: "Split into multiple sqlite databases",
+				Version:     15,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					// We keep database version information in the info.db but we migrate
+					// the other tables into their own individual SQLite3 databases
+					// and we drop them from the info.db.
+					ctx := context.TODO()
+					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "vouchers.db", "vouchers"); err != nil {
+						return ErrInfo.Wrap(err)
+					}
+					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "certificate.db", "certificate"); err != nil {
+						return ErrInfo.Wrap(err)
+					}
+					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "order_archive.db", "order_archive_"); err != nil {
+						return ErrInfo.Wrap(err)
+					}
+					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "unsent_order.db", "unsent_order"); err != nil {
+						return ErrInfo.Wrap(err)
+					}
+					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "bandwidth_usage.db", "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
+						return ErrInfo.Wrap(err)
+					}
+					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "pieceinfo.db", "pieceinfo_"); err != nil {
+						return ErrInfo.Wrap(err)
+					}
+					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "used_serial.db", "used_serial_"); err != nil {
+						return ErrInfo.Wrap(err)
+					}
+
+					// Create a list of tables we have migrated to new databases
+					// that we can delete from the original database.
+					tablesToDrop := []string{
+						"vouchers",
+						"certificate",
+						"order_archive_",
+						"unsent_order",
+						"bandwidth_usage",
+						"bandwidth_usage_rollups",
+						"pieceinfo_",
+						"used_serial_",
+					}
+
+					// Delete tables we have migrated from the original database.
+					for _, tableName := range tablesToDrop {
+						_, err := db.db.Exec("DROP TABLE "+tableName+";", nil)
+						if err != nil {
+							return ErrInfo.Wrap(err)
+						}
+					}
 					return nil
 				}),
 			},
