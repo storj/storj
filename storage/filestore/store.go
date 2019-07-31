@@ -109,7 +109,7 @@ func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, store, file), nil
+	return newBlobWriter(ref, store, storage.MaxStorageFormatVersionSupported, file), nil
 }
 
 // SpaceUsed adds up the space used in all namespaces for blob storage
@@ -170,4 +170,21 @@ func (store *Store) GetAllNamespaces(ctx context.Context) (ids [][]byte, err err
 // iterating and return the error immediately.
 func (store *Store) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) (err error) {
 	return store.dir.ForAllKeysInNamespace(ctx, namespace, doForEach)
+}
+
+// StoreForTest is a wrapper for Store that also allows writing new V0 blobs (in order to test
+// situations involving those)
+type StoreForTest struct {
+	*Store
+}
+
+// CreateV0 creates a new V0 blob that can be written. This is only appropriate in test situations.
+func (testStore *StoreForTest) CreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error) {
+
+	defer mon.Task()(&ctx)(&err)
+	file, err := testStore.dir.CreateTemporaryFile(ctx, -1)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return newBlobWriter(ref, testStore.Store, storage.FormatV0, file), nil
 }

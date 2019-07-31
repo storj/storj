@@ -123,7 +123,7 @@ func (dir *Dir) blobToTrashPath(ref storage.BlobRef) string {
 }
 
 // Commit commits temporary file to the permanent storage
-func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef) (err error) {
+func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef, formatVersion storage.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	position, seekErr := file.Seek(0, io.SeekCurrent)
 	truncErr := file.Truncate(position)
@@ -141,7 +141,7 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef) 
 		removeErr := os.Remove(file.Name())
 		return errs.Combine(err, removeErr)
 	}
-	path = blobPathForFormatVersion(path, storage.MaxStorageFormatVersionSupported)
+	path = blobPathForFormatVersion(path, formatVersion)
 
 	mkdirErr := os.MkdirAll(filepath.Dir(path), dirPermission)
 	if os.IsExist(mkdirErr) {
@@ -249,7 +249,10 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	}
 	trashPath := dir.blobToTrashPath(ref)
 
-	var moveErr error
+	var (
+		moveErr        error
+		combinedErrors error
+	)
 
 	// Try deleting all possible paths, starting with the oldest format version. It is more
 	// likely, in the general case, that we will find the piece with the newest format version
@@ -265,7 +268,8 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 		moveErr = rename(verPath, trashPath)
 		if os.IsNotExist(moveErr) {
 			// no piece at that path; either it has a different storage format version or there
-			// was a concurrent delete
+			// was a concurrent delete. (this function is expected by callers to return a nil
+			// error in the case of concurrent deletes.)
 			continue
 		}
 		if moveErr != nil {
@@ -278,7 +282,9 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 
 		// ignore concurrent deletes
 		if os.IsNotExist(err) {
-			return nil
+			// something is happening at the same time as this; possibly a concurrent delete,
+			// or possibly a rewrite of the blob. keep checking for more versions.
+			continue
 		}
 
 		// the remove may have failed because of an open file handle. put it in a queue to be
@@ -294,13 +300,10 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 		if isBusy(err) {
 			err = nil
 		}
-		return err
+		combinedErrors = errs.Combine(combinedErrors, err)
 	}
 
-	// there must have been at least one iteration of the above loop, and we didn't find the
-	// blob, so moveErr must have been some kind of NotExist error. this function is required
-	// to ignore such errors, on the assumption that there was a concurrent delete.
-	return nil
+	return combinedErrors
 }
 
 // GarbageCollect collects files that are pending deletion

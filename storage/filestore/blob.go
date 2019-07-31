@@ -32,21 +32,29 @@ func (blob *blobReader) Size() (int64, error) {
 	return stat.Size(), err
 }
 
+// GetStorageFormatVersion gets the storage format version being used by the blob.
 func (blob *blobReader) GetStorageFormatVersion() storage.FormatVersion {
 	return blob.formatVersion
 }
 
 // blobWriter implements writing blobs
 type blobWriter struct {
-	ref    storage.BlobRef
-	store  *Store
-	closed bool
+	ref           storage.BlobRef
+	store         *Store
+	closed        bool
+	formatVersion storage.FormatVersion
 
 	*os.File
 }
 
-func newBlobWriter(ref storage.BlobRef, store *Store, file *os.File) *blobWriter {
-	return &blobWriter{ref, store, false, file}
+func newBlobWriter(ref storage.BlobRef, store *Store, formatVersion storage.FormatVersion, file *os.File) *blobWriter {
+	return &blobWriter{
+		ref:           ref,
+		store:         store,
+		closed:        false,
+		formatVersion: formatVersion,
+		File:          file,
+	}
 }
 
 // Cancel discards the blob.
@@ -68,7 +76,7 @@ func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 		return Error.New("already closed")
 	}
 	blob.closed = true
-	err = blob.store.dir.Commit(ctx, blob.File, blob.ref)
+	err = blob.store.dir.Commit(ctx, blob.File, blob.ref, blob.formatVersion)
 	return Error.Wrap(err)
 }
 
@@ -83,6 +91,5 @@ func (blob *blobWriter) Size() (int64, error) {
 
 // GetStorageFormatVersion indicates what storage format version the blob is using.
 func (blob *blobWriter) GetStorageFormatVersion() storage.FormatVersion {
-	// Only one storage format needs to be supported for writing.
-	return storage.MaxStorageFormatVersionSupported
+	return blob.formatVersion
 }
