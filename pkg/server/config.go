@@ -40,10 +40,10 @@ func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.Fu
 	go func() {
 		<-ctx.Done()
 		if closeErr := server.Close(); closeErr != nil {
-			zap.S().Errorf("Failed to close server: %s", closeErr)
+			log.Sugar().Errorf("Failed to close server: %s", closeErr)
 		}
 	}()
 
-	zap.S().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
+	log.Sugar().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
 	return server.Run(ctx)
 }
