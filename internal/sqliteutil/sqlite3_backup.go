@@ -1,4 +1,4 @@
-package dbutil
+package sqliteutil
 
 import (
 	"context"
@@ -22,7 +22,6 @@ func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLi
 	sourceDir := filepath.Dir(sourceConn.GetFilename(""))
 	destinationPath := filepath.Join(sourceDir, destinationFileName)
 
-	// zap.S().Infof("HIT 1 START MIGRATING %s TO %s for %v", sourceFileName, destinationFileName, tablesToKeep)
 	destinationDB, err := sql.Open(Sqlite3DriverName, "file:"+destinationPath+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return ErrSqlite3Backup.Wrap(err)
@@ -88,8 +87,6 @@ func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLi
 	if err != nil {
 		return ErrSqlite3Backup.Wrap(err)
 	}
-
-	// zap.S().Infof("HIT 1 END MIGRATING DATABASE %s", filepath.Base(destinationPath))
 	return nil
 }
 
