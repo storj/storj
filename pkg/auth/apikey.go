@@ -5,16 +5,6 @@ package auth
 
 import (
 	"context"
-
-	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-)
-
-// Error is the default auth error class
-var Error = errs.Class("auth error")
-
-var (
-	mon = monkit.Package()
 )
 
 // The key type is unexported to prevent collisions with context keys defined in
