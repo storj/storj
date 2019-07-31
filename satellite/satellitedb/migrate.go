@@ -1063,7 +1063,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     49,
 				Action: migrate.SQL{
 					`ALTER TABLE projects
-						ADD COLUMN owner_id BYTEA;
+						ADD COLUMN owner_id BYTEA NOT NULL;
 
 					UPDATE projects as proj
                         SET owner_id = 
