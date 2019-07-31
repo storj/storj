@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
@@ -76,7 +76,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.process(ctx)
 		if err != nil {
-			zap.L().Error("process", zap.Error(Error.Wrap(err)))
+			service.log.Error("process", zap.Error(Error.Wrap(err)))
 		}
 		return nil
 	})
@@ -87,7 +87,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
 		seg, err := service.queue.Select(ctx)
-		zap.L().Info("Dequeued segment from repair queue", zap.Binary("segment", seg.GetPath()))
+		service.log.Info("Retrieved segment from repair queue", zap.Binary("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
@@ -98,7 +98,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 		service.Limiter.Go(ctx, func() {
 			err := service.worker(ctx, seg)
 			if err != nil {
-				zap.L().Error("repair worker failed:", zap.Error(err))
+				service.log.Error("repair worker failed:", zap.Error(err))
 			}
 		})
 	}
@@ -109,13 +109,21 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 
 	workerStartTime := time.Now().UTC()
 
-	zap.L().Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
+	service.log.Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
 	err = service.repairer.Repair(ctx, string(seg.GetPath()))
 	if err != nil {
+		if IrreparableError.Has(err) {
+			service.log.Error(
+				"deleting irreparable segment from the queue:",
+				zap.Error(service.queue.Delete(ctx, seg)),
+				zap.Binary("segment", seg.GetPath()),
+			)
+		}
+
 		return Error.New("repairing injured segment: %v", err)
 	}
 
-	zap.L().Info("Deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
+	service.log.Info("Deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
 	err = service.queue.Delete(ctx, seg)
 	if err != nil {
 		return Error.New("deleting repaired segment from the queue: %v", err)

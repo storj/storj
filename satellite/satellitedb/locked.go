@@ -596,6 +596,12 @@ func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsT
 	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
 }
 
+func (m *lockedUserCredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateEarnedCredits(ctx, userID)
+}
+
 // UserPayments is a getter for UserPayments repository
 func (m *lockedConsole) UserPayments() console.UserPayments {
 	m.Lock()
@@ -1036,6 +1042,13 @@ func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.Injure
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectN(ctx, limit)
+}
+
+// Count counts the number of segments in the repair queue.
+func (m *lockedRepairQueue) Count(ctx context.Context) (int, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Count(ctx)
 }
 
 // returns database for marketing admin GUI
