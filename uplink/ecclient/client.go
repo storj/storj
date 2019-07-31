@@ -355,7 +355,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		}
 	}
 
-	rr, err = eestream.Decode(rrs, es, ec.memoryLimit, ec.forceErrorDetection)
+	rr, err = eestream.Decode(ec.log, rrs, es, ec.memoryLimit, ec.forceErrorDetection)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
