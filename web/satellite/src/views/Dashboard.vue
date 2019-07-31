@@ -1,4 +1,3 @@
-import {AppState} from "../utils/constants/appStateEnum";
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
