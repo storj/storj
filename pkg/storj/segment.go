@@ -25,7 +25,7 @@ type SegmentDownloadInfo struct {
 	SegmentEncryption SegmentEncryption
 }
 
-// SegmentEncryption TODO
+// SegmentEncryption represents segment encryption key and nonce
 type SegmentEncryption struct {
 	EncryptedKeyNonce Nonce
 	EncryptedKey      EncryptedPrivateKey

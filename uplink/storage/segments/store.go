@@ -44,7 +44,6 @@ type Store interface {
 	Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, encryption storj.SegmentEncryption, err error)
 	Put(ctx context.Context, streamID storj.StreamID, data io.Reader, expiration time.Time, segmentInfo func() (int64, storj.SegmentEncryption, error)) (meta Meta, err error)
 	Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error)
-	// List(ctx context.Context, streamID storj.StreamID, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type segmentStore struct {
@@ -116,7 +115,7 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 		return Meta{}, Error.Wrap(err)
 	}
 
-	uploadResults := make([]*pb.SegmentPieceUploadResult, 0)
+	uploadResults := make([]*pb.SegmentPieceUploadResult, len(successfulNodes))
 	for i := range successfulNodes {
 		if successfulNodes[i] == nil {
 			continue
@@ -140,7 +139,6 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 		return Meta{}, Error.Wrap(err)
 	}
 
-	// return convertMeta(savedPointer), nil
 	return Meta{}, nil
 }
 
@@ -253,13 +251,3 @@ func CalcNeededNodes(rs storj.RedundancyScheme) int32 {
 
 	return needed
 }
-
-// convertMeta converts pointer to segment metadata
-// func convertMeta(pr *pb.Pointer) Meta {
-// 	return Meta{
-// 		Modified:   pr.GetCreationDate(),
-// 		Expiration: pr.GetExpirationDate(),
-// 		Size:       pr.GetSegmentSize(),
-// 		Data:       pr.GetMetadata(),
-// 	}
-// }

@@ -1306,13 +1306,13 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	pieces := make([]*pb.RemotePiece, 0)
-	for _, result := range req.UploadResult {
-		pieces = append(pieces, &pb.RemotePiece{
+	pieces := make([]*pb.RemotePiece, len(req.UploadResult))
+	for i, result := range req.UploadResult {
+		pieces[i] = &pb.RemotePiece{
 			PieceNum: result.PieceNum,
 			NodeId:   result.NodeId,
 			Hash:     result.Hash,
-		})
+		}
 	}
 	remote := &pb.RemoteSegment{
 		Redundancy:   streamID.Redundancy,
@@ -1670,7 +1670,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		if segmentMeta != nil {
 			encryptedKeyNonce, err = storj.NonceFromBytes(segmentMeta.KeyNonce)
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, err.Error())
+				return nil, status.Errorf(codes.Internal, "unable to get encryption key nonce from metadata: %v", err.Error())
 			}
 
 			encryptedKey = segmentMeta.EncryptedKey

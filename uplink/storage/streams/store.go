@@ -641,7 +641,7 @@ func (s *streamStore) cancelHandler(ctx context.Context, streamID storj.StreamID
 	for i := int64(0); i < totalSegments; i++ {
 		err := s.segments.Delete(ctx, streamID, int32(i))
 		if err != nil {
-			zap.S().Warnf("Failed deleting segment %v(%d): %v", path, i, err)
+			zap.S().Warn("Failed deleting segment", zap.String("path", path.String()), zap.Int64("segmentIndex", i), zap.Error(err))
 			continue
 		}
 	}
