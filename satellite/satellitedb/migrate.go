@@ -1046,6 +1046,17 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						WHERE type=1 AND status=1 AND id=2;`,
 				},
 			},
+			{
+				// This partial unique index enforces uniqueness among (id, offer_id) pairs for users that have signed up
+				// but are not yet activated (credits_earned_in_cents=0).
+				// Among users that are activated, uniqueness of (id, offer_id) pairs is not required or desirable.
+				Description: "Create partial index for user_credits table",
+				Version:     48,
+				Action: migrate.SQL{
+					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id)
+						WHERE credits_earned_in_cents=0;`,
+				},
+			},
 		},
 	}
 }
