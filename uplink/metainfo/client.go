@@ -53,7 +53,7 @@ func Dial(ctx context.Context, tc transport.Client, address string, apikey strin
 	conn, err := tc.DialAddress(
 		ctx,
 		address,
-		grpc.WithPerRPCCredentials(&grpcauth.APIKeyCredentials{apikey}),
+		grpc.WithPerRPCCredentials(grpcauth.NewAPIKeyCredentials(apikey)),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
