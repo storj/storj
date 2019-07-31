@@ -575,6 +575,7 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 // BeginSegmentParams parameters for BeginSegment method
 type BeginSegmentParams struct {
 	StreamID     storj.StreamID
+	Position     storj.SegmentPosition
 	MaxOderLimit int64
 }
 
@@ -583,7 +584,11 @@ func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParam
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.BeginSegment(ctx, &pb.SegmentBeginRequest{
-		StreamId:      params.StreamID,
+		StreamId: params.StreamID,
+		Position: &pb.SegmentPosition{
+			PartNumber: params.Position.PartNumber,
+			Index:      params.Position.Index,
+		},
 		MaxOrderLimit: params.MaxOderLimit,
 	})
 	if err != nil {
@@ -596,7 +601,6 @@ func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParam
 // CommitSegmentParams parameters for CommitSegment method
 type CommitSegmentParams struct {
 	SegmentID         storj.SegmentID
-	Position          storj.SegmentPosition
 	Encryption        storj.SegmentEncryption
 	SizeEncryptedData int64
 
@@ -609,10 +613,7 @@ func (client *Client) CommitSegmentNew(ctx context.Context, params CommitSegment
 
 	_, err = client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
 		SegmentId: params.SegmentID,
-		Position: &pb.SegmentPosition{
-			PartNumber: params.Position.PartNumber,
-			Index:      params.Position.Index,
-		},
+
 		EncryptedKeyNonce: params.Encryption.EncryptedKeyNonce,
 		EncryptedKey:      params.Encryption.EncryptedKey,
 		SizeEncryptedData: params.SizeEncryptedData,

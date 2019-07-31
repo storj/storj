@@ -997,20 +997,44 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	pointer, path, err := endpoint.getPointer(ctx, keyInfo.ProjectID, -1, streamID.Bucket, streamID.EncryptedPath)
-	if err != nil {
-		return nil, err
+	segmentIndex := int64(0)
+	var lastSegmentPointer *pb.Pointer
+	var lastSegmentPath string
+	for {
+		path, err := CreatePath(ctx, keyInfo.ProjectID, segmentIndex, streamID.Bucket, streamID.EncryptedPath)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "unable to create segment path: %v", err.Error())
+		}
+
+		pointer, err := endpoint.metainfo.Get(ctx, path)
+		if err != nil {
+			if storage.ErrKeyNotFound.Has(err) {
+				break
+			}
+			return nil, status.Errorf(codes.Internal, "unable to create get segment: %v", err.Error())
+		}
+
+		lastSegmentPointer = pointer
+		lastSegmentPath = path
+		segmentIndex++
+	}
+	if lastSegmentPointer == nil {
+		return nil, status.Errorf(codes.NotFound, "unable to find object: %s/%s", streamID.Bucket, streamID.EncryptedPath)
 	}
 
-	pointer.Metadata = req.EncryptedMetadata
+	lastSegmentPointer.Metadata = req.EncryptedMetadata
 
-	// to update pointer we need to delete and add it
-	err = endpoint.metainfo.Delete(ctx, path)
+	err = endpoint.metainfo.Delete(ctx, lastSegmentPath)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.Put(ctx, path, pointer)
+	lastSegmentPath, err = CreatePath(ctx, keyInfo.ProjectID, -1, streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.metainfo.Put(ctx, lastSegmentPath, lastSegmentPointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -1237,6 +1261,10 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	// no need to validate streamID fields because it was validated during BeginObject
 
+	if req.Position.Index < 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "segment index must be greater then 0")
+	}
+
 	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("retrieving project storage totals", zap.Error(err))
@@ -1273,6 +1301,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{
 		StreamId:            streamID,
+		Index:               req.Position.Index,
 		OriginalOrderLimits: addressedLimits,
 		RootPieceId:         rootPieceID,
 		CreationDate:        time.Now(),
@@ -1344,7 +1373,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
+	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -1408,6 +1437,10 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	if req.Position.Index < 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "segment index must be greater then 0")
 	}
 
 	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)

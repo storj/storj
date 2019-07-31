@@ -205,57 +205,50 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 			transformedReader = bytes.NewReader(cipherData)
 		}
 
-		putMeta, err = s.segments.Put(ctx, streamID, transformedReader, expiration, func() (int64, storj.SegmentEncryption, error) {
-			if !eofReader.isEOF() {
-				if s.cipher == storj.EncNull {
-					return currentSegment, storj.SegmentEncryption{}, nil
-				}
-
-				segmentEncryption := storj.SegmentEncryption{
+		putMeta, err = s.segments.Put(ctx, streamID, transformedReader, expiration, func() (_ int64, segmentEncryption storj.SegmentEncryption, err error) {
+			if s.cipher != storj.EncNull {
+				segmentEncryption = storj.SegmentEncryption{
 					EncryptedKeyNonce: keyNonce,
 					EncryptedKey:      encryptedKey,
 				}
-
-				return currentSegment, segmentEncryption, nil
 			}
-			// upload last segment
-
-			streamInfo, err := proto.Marshal(&pb.StreamInfo{
-				NumberOfSegments: currentSegment + 1,
-				SegmentsSize:     s.segmentSize,
-				LastSegmentSize:  sizeReader.Size(),
-				Metadata:         metadata,
-			})
-			if err != nil {
-				return -2, storj.SegmentEncryption{}, err
-			}
-
-			// encrypt metadata with the content encryption key and zero nonce
-			encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.cipher, &contentKey, &storj.Nonce{})
-			if err != nil {
-				return -2, storj.SegmentEncryption{}, err
-			}
-
-			streamMeta := pb.StreamMeta{
-				EncryptedStreamInfo: encryptedStreamInfo,
-				EncryptionType:      int32(s.cipher),
-				EncryptionBlockSize: int32(s.encBlockSize),
-			}
-
-			if s.cipher != storj.EncNull {
-				streamMeta.LastSegmentMeta = &pb.SegmentMeta{
-					EncryptedKey: encryptedKey,
-					KeyNonce:     keyNonce[:],
-				}
-			}
-
-			lastSegmentMeta, err = proto.Marshal(&streamMeta)
-			if err != nil {
-				return -2, storj.SegmentEncryption{}, err
-			}
-			// for last segment we are setting metadata (also encryption) with CommitObject
-			return -1, storj.SegmentEncryption{}, nil
+			return currentSegment, segmentEncryption, nil
 		})
+		if err != nil {
+			return Meta{}, currentSegment, streamID, err
+		}
+
+		streamInfo, err := proto.Marshal(&pb.StreamInfo{
+			NumberOfSegments: currentSegment + 1,
+			SegmentsSize:     s.segmentSize,
+			LastSegmentSize:  sizeReader.Size(),
+			Metadata:         metadata,
+		})
+		if err != nil {
+			return Meta{}, currentSegment, streamID, err
+		}
+
+		// encrypt metadata with the content encryption key and zero nonce
+		encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.cipher, &contentKey, &storj.Nonce{})
+		if err != nil {
+			return Meta{}, currentSegment, streamID, err
+		}
+
+		streamMeta := pb.StreamMeta{
+			EncryptedStreamInfo: encryptedStreamInfo,
+			EncryptionType:      int32(s.cipher),
+			EncryptionBlockSize: int32(s.encBlockSize),
+		}
+
+		if s.cipher != storj.EncNull {
+			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+				EncryptedKey: encryptedKey,
+				KeyNonce:     keyNonce[:],
+			}
+
+		}
+
+		lastSegmentMeta, err = proto.Marshal(&streamMeta)
 		if err != nil {
 			return Meta{}, currentSegment, streamID, err
 		}

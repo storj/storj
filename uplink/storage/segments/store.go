@@ -95,9 +95,17 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 		return Meta{}, nil
 	}
 
+	segmentIndex, encryption, err := segmentInfo()
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
+	}
+
 	segmentID, limits, piecePrivateKey, err := s.metainfo.BeginSegment(ctx, metainfo.BeginSegmentParams{
 		StreamID:     streamID,
 		MaxOderLimit: s.maxEncryptedSegmentSize,
+		Position: storj.SegmentPosition{
+			Index: int32(segmentIndex),
+		},
 	})
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
@@ -106,11 +114,6 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 	sizedReader := SizeReader(peekReader)
 
 	successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, piecePrivateKey, s.rs, sizedReader, expiration)
-	if err != nil {
-		return Meta{}, Error.Wrap(err)
-	}
-
-	segmentIndex, encryption, err := segmentInfo()
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -127,10 +130,7 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 		})
 	}
 	err = s.metainfo.CommitSegmentNew(ctx, metainfo.CommitSegmentParams{
-		SegmentID: segmentID,
-		Position: storj.SegmentPosition{
-			Index: int32(segmentIndex),
-		},
+		SegmentID:         segmentID,
 		SizeEncryptedData: sizedReader.Size(),
 		Encryption:        encryption,
 		UploadResult:      uploadResults,

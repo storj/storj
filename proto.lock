@@ -2868,6 +2868,11 @@
                 ]
               },
               {
+                "id": 2,
+                "name": "position",
+                "type": "SegmentPosition"
+              },
+              {
                 "id": 3,
                 "name": "max_order_limit",
                 "type": "int64"
@@ -2932,11 +2937,6 @@
                     "value": "false"
                   }
                 ]
-              },
-              {
-                "id": 2,
-                "name": "position",
-                "type": "SegmentPosition"
               },
               {
                 "id": 3,

@@ -911,7 +911,10 @@ func TestBeginCommitListSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		segmentID, limits, _, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
-			StreamID:     streamID,
+			StreamID: streamID,
+			Position: storj.SegmentPosition{
+				Index: 0,
+			},
 			MaxOderLimit: memory.MiB.Int64(),
 		})
 		require.NoError(t, err)
@@ -930,9 +933,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		}
 		err = metainfoClient.CommitSegmentNew(ctx, metainfo.CommitSegmentParams{
 			SegmentID: segmentID,
-			Position: storj.SegmentPosition{
-				Index: -1,
-			},
+
 			SizeEncryptedData: memory.MiB.Int64(),
 			UploadResult: []*pb.SegmentPieceUploadResult{
 				makeResult(0),
@@ -1023,7 +1024,7 @@ func TestInlineSegment(t *testing.T) {
 		streamID, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
 
-		segments := []int32{0, 1, 2, 3, 4, 5, -1}
+		segments := []int32{0, 1, 2, 3, 4, 5, 6}
 		segmentsData := make([][]byte, len(segments))
 		for i, segment := range segments {
 			segmentsData[i] = testrand.Bytes(memory.KiB)
@@ -1084,11 +1085,17 @@ func TestInlineSegment(t *testing.T) {
 		}
 
 		{ // test download inline segments
-			for i, segment := range segments {
+			items, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+				StreamID: streamID,
+			})
+			require.NoError(t, err)
+			require.Equal(t, len(segments), len(items))
+
+			for i, item := range items {
 				info, limits, err := metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
 					StreamID: streamID,
 					Position: storj.SegmentPosition{
-						Index: segment,
+						Index: item.Position.Index,
 					},
 				})
 				require.NoError(t, err)

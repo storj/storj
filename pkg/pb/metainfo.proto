@@ -387,6 +387,7 @@ message SegmentPosition {
 
 message SegmentBeginRequest {
     bytes           stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    SegmentPosition position = 2;
 
     int64 max_order_limit = 3;
 }
@@ -398,8 +399,7 @@ message SegmentBeginResponse {
 }
 
 message SegmentCommitRequest {
-    bytes           segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
-    SegmentPosition position = 2;
+    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
 
     bytes encrypted_key_nonce = 3 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
     bytes encrypted_key = 4;
