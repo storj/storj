@@ -32,7 +32,7 @@ const (
 	TestEncKey = "test-encryption-key"
 )
 
-func TestSegmentStorePutGet(t *testing.T) {
+func TestStreamsStorePutGet(t *testing.T) {
 	for _, tt := range []struct {
 		name       string
 		path       string
@@ -40,8 +40,8 @@ func TestSegmentStorePutGet(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline put/get", "path/1", []byte("inline"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
-		{"test remote put/get", "mypath/1", []byte("remote"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
+		{"test inline put/get", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+		{"test remote put/get", "mypath/1", []byte("remote-metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
 	} {
 		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
@@ -68,43 +68,42 @@ func TestSegmentStorePutGet(t *testing.T) {
 	}
 }
 
-// TODO convert
-// func TestSegmentStoreDelete(t *testing.T) {
-// for _, tt := range []struct {
-// 	name       string
-// 	path       string
-// 	metadata   []byte
-// 	expiration time.Time
-// 	content    []byte
-// }{
-// 	{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
-// 	{"test remote delete", "s0/test-bucket/mypath/1", []byte("metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
-// } {
-// 	test := tt
-// 	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-// 		_, err := segmentStore.Put(ctx, bytes.NewReader(test.content), test.expiration, func() (storj.Path, []byte, error) {
-// 			return test.path, test.metadata, nil
-// 		})
-// 		require.NoError(t, err, test.name)
+func TestStreamsStoreDelete(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		path       string
+		metadata   []byte
+		expiration time.Time
+		content    []byte
+	}{
+		{"test inline delete", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+		{"test remote delete", "mypath/1", []byte("remote-metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
+	} {
+		test := tt
+		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
+			bucketName := "bucket-name"
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			require.NoError(t, err)
 
-// 		_, _, err = segmentStore.Get(ctx, test.path)
-// 		require.NoError(t, err, test.name)
+			path := storj.JoinPaths(bucketName, test.path)
+			_, err = streamStore.Put(ctx, path, storj.EncNull, bytes.NewReader(test.content), test.metadata, test.expiration)
+			require.NoError(t, err, test.name)
 
-// 		// delete existing
-// 		err = segmentStore.Delete(ctx, test.path)
-// 		require.NoError(t, err, test.name)
+			// delete existing
+			err = streamStore.Delete(ctx, path, storj.EncNull)
+			require.NoError(t, err, test.name)
 
-// 		_, _, err = segmentStore.Get(ctx, test.path)
-// 		require.Error(t, err, test.name)
-// 		require.True(t, storage.ErrKeyNotFound.Has(err))
+			_, _, err = streamStore.Get(ctx, path, storj.EncNull)
+			require.Error(t, err, test.name)
+			require.True(t, storj.ErrObjectNotFound.Has(err))
 
-// 		// delete non existing
-// 		err = segmentStore.Delete(ctx, test.path)
-// 		require.Error(t, err, test.name)
-// 		require.True(t, storage.ErrKeyNotFound.Has(err))
-// 	})
-// }
-// }
+			// delete non existing
+			err = streamStore.Delete(ctx, path, storj.EncNull)
+			require.Error(t, err, test.name)
+			require.True(t, storj.ErrObjectNotFound.Has(err))
+		})
+	}
+}
 
 func TestStreamStoreList(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
