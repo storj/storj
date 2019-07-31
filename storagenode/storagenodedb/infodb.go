@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/utccheck"
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/internal/sqliteutil"
 )
 
 // ErrInfo is the default error class for InfoDB
@@ -75,7 +76,7 @@ func newInfo(path string) (*InfoDB, error) {
 	}
 
 	// The sqlite driver is needed in order to perform backups. We use a connect hook to intercept it.
-	sql.Register(dbutil.Sqlite3DriverName, &sqlite3.SQLiteDriver{
+	sql.Register(sqliteutil.Sqlite3DriverName, &sqlite3.SQLiteDriver{
 		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
 			fileName := strings.ToLower(filepath.Base(conn.GetFilename("")))
 			infoDb.conlock.Lock()
@@ -85,7 +86,7 @@ func newInfo(path string) (*InfoDB, error) {
 		},
 	})
 
-	db, err := sql.Open(dbutil.Sqlite3DriverName, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	db, err := sql.Open(sqliteutil.Sqlite3DriverName, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
@@ -433,25 +434,25 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					// the other tables into their own individual SQLite3 databases
 					// and we drop them from the info.db.
 					ctx := context.TODO()
-					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "vouchers.db", "vouchers"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, "info.db", "vouchers.db", "vouchers"); err != nil {
 						return ErrInfo.Wrap(err)
 					}
-					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "certificate.db", "certificate"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, "info.db", "certificate.db", "certificate"); err != nil {
 						return ErrInfo.Wrap(err)
 					}
-					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "order_archive.db", "order_archive_"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, "info.db", "order_archive.db", "order_archive_"); err != nil {
 						return ErrInfo.Wrap(err)
 					}
-					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "unsent_order.db", "unsent_order"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, "info.db", "unsent_order.db", "unsent_order"); err != nil {
 						return ErrInfo.Wrap(err)
 					}
-					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "bandwidth_usage.db", "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, "info.db", "bandwidth_usage.db", "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrInfo.Wrap(err)
 					}
-					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "pieceinfo.db", "pieceinfo_"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, "info.db", "pieceinfo.db", "pieceinfo_"); err != nil {
 						return ErrInfo.Wrap(err)
 					}
-					if err := dbutil.MigrateToDatabase(ctx, db.connections, "info.db", "used_serial.db", "used_serial_"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, "info.db", "used_serial.db", "used_serial_"); err != nil {
 						return ErrInfo.Wrap(err)
 					}
 

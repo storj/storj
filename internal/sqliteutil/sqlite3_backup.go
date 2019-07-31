@@ -1,4 +1,4 @@
-package dbutil
+package sqliteutil
 
 import (
 	"context"
@@ -17,16 +17,16 @@ var ErrSqlite3Backup = errs.Class("sqlite3_backup")
 const Sqlite3DriverName = "sqlite3_custom"
 
 // MigrateToDatabase backs up the specified Sqlite3 database and drops all tables not specified to keep in the destination database.
-func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLiteConn, sourceFileName string, destinationFileName string, tablesToKeep ...string) error {
+func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLiteConn, sourceFileName string, destinationFileName string, tablesToKeep ...string) (err error) {
 	sourceConn := connections[sourceFileName]
 	sourceDir := filepath.Dir(sourceConn.GetFilename(""))
 	destinationPath := filepath.Join(sourceDir, destinationFileName)
 
-	// zap.S().Infof("HIT 1 START MIGRATING %s TO %s for %v", sourceFileName, destinationFileName, tablesToKeep)
 	destinationDB, err := sql.Open(Sqlite3DriverName, "file:"+destinationPath+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return ErrSqlite3Backup.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, destinationDB.Close()) }()
 
 	// Required to start the sqlite3 backup process.
 	err = destinationDB.Ping()
@@ -88,8 +88,6 @@ func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLi
 	if err != nil {
 		return ErrSqlite3Backup.Wrap(err)
 	}
-
-	// zap.S().Infof("HIT 1 END MIGRATING DATABASE %s", filepath.Base(destinationPath))
 	return nil
 }
 
