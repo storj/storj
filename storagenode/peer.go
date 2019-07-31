@@ -153,7 +153,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(config.Version, versionInfo, "Storagenode")
+		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server
