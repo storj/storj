@@ -290,7 +290,7 @@ func TestServiceList(t *testing.T) {
 
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -304,7 +304,7 @@ func TestCommitSegment(t *testing.T) {
 			require.Error(t, err)
 		}
 		{
-			// error if number of remote pieces is lower then repair threshold
+			// error if number of remote pieces is lower than repair threshold
 			redundancy := &pb.RedundancyScheme{
 				MinReq:           1,
 				RepairThreshold:  2,
@@ -313,11 +313,11 @@ func TestCommitSegment(t *testing.T) {
 				ErasureShareSize: 256,
 			}
 			expirationDate := time.Now().Add(time.Hour)
-			addresedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			addressedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
 			require.NoError(t, err)
 
 			// create number of pieces below repair threshold
-			usedForPieces := addresedLimits[:redundancy.RepairThreshold-1]
+			usedForPieces := addressedLimits[:redundancy.RepairThreshold-1]
 			pieces := make([]*pb.RemotePiece, len(usedForPieces))
 			for i, limit := range usedForPieces {
 				pieces[i] = &pb.RemotePiece{
@@ -343,13 +343,62 @@ func TestCommitSegment(t *testing.T) {
 				ExpirationDate: expirationDate,
 			}
 
-			limits := make([]*pb.OrderLimit, len(addresedLimits))
-			for i, addresedLimit := range addresedLimits {
-				limits[i] = addresedLimit.Limit
+			limits := make([]*pb.OrderLimit, len(addressedLimits))
+			for i, addressedLimit := range addressedLimits {
+				limits[i] = addressedLimit.Limit
 			}
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "less than or equal to the repair threshold")
+			require.Contains(t, err.Error(), "is less than or equal to the repair threshold")
+		}
+
+		{
+			// error if number of remote pieces is lower than success threshold
+			redundancy := &pb.RedundancyScheme{
+				MinReq:           1,
+				RepairThreshold:  2,
+				SuccessThreshold: 5,
+				Total:            6,
+				ErasureShareSize: 256,
+			}
+			expirationDate := time.Now().Add(time.Hour)
+			addressedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			require.NoError(t, err)
+
+			// create number of pieces below success threshold
+			usedForPieces := addressedLimits[:redundancy.SuccessThreshold-1]
+			pieces := make([]*pb.RemotePiece, len(usedForPieces))
+			for i, limit := range usedForPieces {
+				pieces[i] = &pb.RemotePiece{
+					PieceNum: int32(i),
+					NodeId:   limit.Limit.StorageNodeId,
+					Hash: &pb.PieceHash{
+						PieceId:   limit.Limit.PieceId,
+						PieceSize: 256,
+						Timestamp: time.Now(),
+					},
+				}
+			}
+
+			pointer := &pb.Pointer{
+				CreationDate: time.Now(),
+				Type:         pb.Pointer_REMOTE,
+				SegmentSize:  10,
+				Remote: &pb.RemoteSegment{
+					RootPieceId:  rootPieceID,
+					Redundancy:   redundancy,
+					RemotePieces: pieces,
+				},
+				ExpirationDate: expirationDate,
+			}
+
+			limits := make([]*pb.OrderLimit, len(addressedLimits))
+			for i, addressedLimit := range addressedLimits {
+				limits[i] = addressedLimit.Limit
+			}
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "is less than the success threshold")
 		}
 	})
 }
@@ -586,21 +635,21 @@ func TestCommitSegmentPointer(t *testing.T) {
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash = nil
 			},
-			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash.Timestamp = time.Now().Add(-24 * time.Hour)
 			},
-			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
 			},
-			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+			ErrorMessage: "Number of valid pieces (2) is less than the success threshold (3)",
 		},
 		{
 			Modify: func(pointer *pb.Pointer) {
@@ -759,6 +808,13 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 				},
 				{
 					PieceNum: 1,
+					Hash: &pb.PieceHash{
+						PieceSize: pieceSize,
+						Timestamp: timestamp,
+					},
+				},
+				{
+					PieceNum: 2,
 					Hash: &pb.PieceHash{
 						PieceSize: pieceSize,
 						Timestamp: timestamp,
@@ -1002,6 +1058,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 			UploadResult: []*pb.SegmentPieceUploadResult{
 				makeResult(0),
 				makeResult(1),
+				makeResult(2),
 			},
 		})
 		require.NoError(t, err)
