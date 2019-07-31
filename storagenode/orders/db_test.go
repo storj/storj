@@ -159,7 +159,7 @@ func TestDB_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure Archive works at all
-			err := db.Orders().Archive(ctx, satelliteID, serial, orders.StatusAccepted)
+			err := db.Orders().Archive(ctx, orders.ArchiveRequest{satelliteID, serial, orders.StatusAccepted})
 			require.NoError(t, err)
 		}
 
