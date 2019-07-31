@@ -389,7 +389,7 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 	// it differently.
 	_, err = cache.db.UpdateUptime(ctx, node.Id, false, lambda, weight, uptimeDQ)
 	if err != nil {
-		zap.L().Debug("error updating uptime for node", zap.Error(err))
+		cache.log.Debug("error updating uptime for node", zap.Error(err))
 	}
 }
 
@@ -400,7 +400,7 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 
 	err = cache.Put(ctx, node.Id, *node)
 	if err != nil {
-		zap.L().Debug("error updating uptime for node", zap.Error(err))
+		cache.log.Debug("error updating uptime for node", zap.Error(err))
 	}
 
 	lambda := cache.config.Node.UptimeReputationLambda
@@ -409,7 +409,7 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 
 	_, err = cache.db.UpdateUptime(ctx, node.Id, true, lambda, weight, uptimeDQ)
 	if err != nil {
-		zap.L().Debug("error updating node connection info", zap.Error(err))
+		cache.log.Debug("error updating node connection info", zap.Error(err))
 	}
 }
 
