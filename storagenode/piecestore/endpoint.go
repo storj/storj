@@ -158,7 +158,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
-	if err := endpoint.VerifyOrderLimit(ctx, delete.Limit); err != nil {
+	if err := endpoint.verifyOrderLimit(ctx, delete.Limit); err != nil {
 		// TODO: report grpc status unauthorized or bad request
 		return nil, Error.Wrap(err)
 	}
@@ -218,8 +218,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return ErrProtocol.New("expected put or put repair action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
-	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
-		return err // TODO: report grpc status unauthorized or bad request
+	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+		return err
 	}
 
 	var pieceWriter *pieces.Writer
@@ -410,7 +410,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return ErrProtocol.New("requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
-	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
+	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
 	}
 
