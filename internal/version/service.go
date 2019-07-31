@@ -61,9 +61,9 @@ func (srv *Service) CheckVersion(ctx context.Context) (err error) {
 
 // CheckProcessVersion is not meant to be used for peers but is meant to be
 // used for other utilities
-func CheckProcessVersion(ctx context.Context, config Config, info Info, service string) (err error) {
+func CheckProcessVersion(ctx context.Context, log *zap.Logger, config Config, info Info, service string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return NewService(config, info, service).CheckVersion(ctx)
+	return NewService(log, config, info, service).CheckVersion(ctx)
 }
 
 // Run logs the current version information
