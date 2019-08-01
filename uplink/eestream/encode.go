@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storj"
 )
 
 // ErasureScheme represents the general format of any erasure scheme algorithm.
@@ -104,6 +105,17 @@ func NewRedundancyStrategyFromProto(scheme *pb.RedundancyScheme) (RedundancyStra
 	}
 	es := NewRSScheme(fc, int(scheme.GetErasureShareSize()))
 	return NewRedundancyStrategy(es, int(scheme.GetRepairThreshold()), int(scheme.GetSuccessThreshold()))
+}
+
+// NewRedundancyStrategyFromStorj creates new RedundancyStrategy from the given
+// storj.RedundancyScheme.
+func NewRedundancyStrategyFromStorj(scheme storj.RedundancyScheme) (RedundancyStrategy, error) {
+	fc, err := infectious.NewFEC(int(scheme.RequiredShares), int(scheme.TotalShares))
+	if err != nil {
+		return RedundancyStrategy{}, Error.Wrap(err)
+	}
+	es := NewRSScheme(fc, int(scheme.ShareSize))
+	return NewRedundancyStrategy(es, int(scheme.RepairShares), int(scheme.OptimalShares))
 }
 
 // RepairThreshold is the number of available erasure pieces below which
