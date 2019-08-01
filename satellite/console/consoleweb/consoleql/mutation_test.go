@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
@@ -76,18 +77,32 @@ func TestGrapqhlMutation(t *testing.T) {
 				FullName:  "John Roll",
 				ShortName: "Roll",
 				Email:     "test@mail.test",
-				PartnerID: "",
+				PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
 			},
 			Password: "123a123",
 		}
 		refUserID := ""
+
+		_, err = db.Rewards().Create(ctx, &rewards.NewOffer{
+			Name:                      "Couchbase",
+			Description:               "",
+			AwardCredit:               currency.Cents(0),
+			InviteeCredit:             currency.Cents(20),
+			RedeemableCap:             0,
+			AwardCreditDurationDays:   0,
+			InviteeCreditDurationDays: 14,
+			ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
+			Status:                    rewards.Active,
+			Type:                      rewards.Partner,
+		})
+		require.NoError(t, err)
 
 		regToken, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
 		require.NoError(t, err)
-		require.True(t, rootUser.PartnerID.IsZero())
+		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
 
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
