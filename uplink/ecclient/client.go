@@ -83,7 +83,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		rs.ErasureShareSize(), rs.StripeSize(), rs.RepairThreshold(), rs.OptimalThreshold())
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
-	readers, err := eestream.EncodeReader(ctx, padded, rs)
+	readers, err := eestream.EncodeReader(ctx, ec.log, padded, rs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -171,7 +171,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	}
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
-	readers, err := eestream.EncodeReader(ctx, padded, rs)
+	readers, err := eestream.EncodeReader(ctx, ec.log, padded, rs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -355,7 +355,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		}
 	}
 
-	rr, err = eestream.Decode(rrs, es, ec.memoryLimit, ec.forceErrorDetection)
+	rr, err = eestream.Decode(ec.log, rrs, es, ec.memoryLimit, ec.forceErrorDetection)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

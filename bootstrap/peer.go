@@ -99,7 +99,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(config.Version, versionInfo, "Bootstrap")
+		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Bootstrap")
 	}
 
 	{ // setup listener and server
@@ -111,7 +111,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil)
+		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

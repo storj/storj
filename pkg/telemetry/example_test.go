@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/admission/admproto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -45,7 +46,7 @@ func Example() {
 
 	// sender
 	group.Go(func() error {
-		client, err := telemetry.NewClient(receiver.Addr(), telemetry.ClientOpts{
+		client, err := telemetry.NewClient(zap.L(), receiver.Addr(), telemetry.ClientOpts{
 			Interval:      time.Second,
 			Application:   "example",
 			Instance:      telemetry.DefaultInstanceID(),
