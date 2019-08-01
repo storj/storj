@@ -18,9 +18,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"math/rand"
-
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -524,9 +523,10 @@ CREATE TABLE used_serials (
 );
 CREATE TABLE user_credits (
 	id serial NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ),
+	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	offer_id integer NOT NULL REFERENCES offers( id ),
-	referred_by bytea REFERENCES users( id ),
+	referred_by bytea REFERENCES users( id ) ON DELETE SET NULL,
+	type text NOT NULL,
 	credits_earned_in_cents integer NOT NULL,
 	credits_used_in_cents integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
@@ -870,9 +870,10 @@ CREATE TABLE used_serials (
 );
 CREATE TABLE user_credits (
 	id INTEGER NOT NULL,
-	user_id BLOB NOT NULL REFERENCES users( id ),
+	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	offer_id INTEGER NOT NULL REFERENCES offers( id ),
-	referred_by BLOB REFERENCES users( id ),
+	referred_by BLOB REFERENCES users( id ) ON DELETE SET NULL,
+	type TEXT NOT NULL,
 	credits_earned_in_cents INTEGER NOT NULL,
 	credits_used_in_cents INTEGER NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
@@ -4854,6 +4855,7 @@ type UserCredit struct {
 	UserId               []byte
 	OfferId              int
 	ReferredBy           []byte
+	Type                 string
 	CreditsEarnedInCents int
 	CreditsUsedInCents   int
 	ExpiresAt            time.Time
@@ -4959,6 +4961,25 @@ func (f UserCredit_ReferredBy_Field) value() interface{} {
 }
 
 func (UserCredit_ReferredBy_Field) _Column() string { return "referred_by" }
+
+type UserCredit_Type_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func UserCredit_Type(v string) UserCredit_Type_Field {
+	return UserCredit_Type_Field{_set: true, _value: v}
+}
+
+func (f UserCredit_Type_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserCredit_Type_Field) _Column() string { return "type" }
 
 type UserCredit_CreditsEarnedInCents_Field struct {
 	_set   bool
@@ -6134,6 +6155,7 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 func (obj *postgresImpl) Create_UserCredit(ctx context.Context,
 	user_credit_user_id UserCredit_UserId_Field,
 	user_credit_offer_id UserCredit_OfferId_Field,
+	user_credit_type UserCredit_Type_Field,
 	user_credit_credits_earned_in_cents UserCredit_CreditsEarnedInCents_Field,
 	user_credit_expires_at UserCredit_ExpiresAt_Field,
 	optional UserCredit_Create_Fields) (
@@ -6143,18 +6165,19 @@ func (obj *postgresImpl) Create_UserCredit(ctx context.Context,
 	__user_id_val := user_credit_user_id.value()
 	__offer_id_val := user_credit_offer_id.value()
 	__referred_by_val := optional.ReferredBy.value()
+	__type_val := user_credit_type.value()
 	__credits_earned_in_cents_val := user_credit_credits_earned_in_cents.value()
 	__credits_used_in_cents_val := int(0)
 	__expires_at_val := user_credit_expires_at.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_credits ( user_id, offer_id, referred_by, credits_earned_in_cents, credits_used_in_cents, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_credits ( user_id, offer_id, referred_by, type, credits_earned_in_cents, credits_used_in_cents, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.type, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
+	obj.logStmt(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
 
 	user_credit = &UserCredit{}
-	err = obj.driver.QueryRow(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7621,7 +7644,7 @@ func (obj *postgresImpl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_Cred
 	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
 	rows []*UserCredit, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents ORDER BY user_credits.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.type, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents ORDER BY user_credits.expires_at")
 
 	var __values []interface{}
 	__values = append(__values, user_credit_user_id.value(), user_credit_expires_at_greater.value())
@@ -7637,7 +7660,7 @@ func (obj *postgresImpl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_Cred
 
 	for __rows.Next() {
 		user_credit := &UserCredit{}
-		err = __rows.Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+		err = __rows.Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -9957,6 +9980,7 @@ func (obj *sqlite3Impl) Create_Offer(ctx context.Context,
 func (obj *sqlite3Impl) Create_UserCredit(ctx context.Context,
 	user_credit_user_id UserCredit_UserId_Field,
 	user_credit_offer_id UserCredit_OfferId_Field,
+	user_credit_type UserCredit_Type_Field,
 	user_credit_credits_earned_in_cents UserCredit_CreditsEarnedInCents_Field,
 	user_credit_expires_at UserCredit_ExpiresAt_Field,
 	optional UserCredit_Create_Fields) (
@@ -9966,17 +9990,18 @@ func (obj *sqlite3Impl) Create_UserCredit(ctx context.Context,
 	__user_id_val := user_credit_user_id.value()
 	__offer_id_val := user_credit_offer_id.value()
 	__referred_by_val := optional.ReferredBy.value()
+	__type_val := user_credit_type.value()
 	__credits_earned_in_cents_val := user_credit_credits_earned_in_cents.value()
 	__credits_used_in_cents_val := int(0)
 	__expires_at_val := user_credit_expires_at.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_credits ( user_id, offer_id, referred_by, credits_earned_in_cents, credits_used_in_cents, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_credits ( user_id, offer_id, referred_by, type, credits_earned_in_cents, credits_used_in_cents, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
+	obj.logStmt(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __type_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11450,7 +11475,7 @@ func (obj *sqlite3Impl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_Credi
 	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
 	rows []*UserCredit, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents ORDER BY user_credits.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.type, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents ORDER BY user_credits.expires_at")
 
 	var __values []interface{}
 	__values = append(__values, user_credit_user_id.value(), user_credit_expires_at_greater.value())
@@ -11466,7 +11491,7 @@ func (obj *sqlite3Impl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_Credi
 
 	for __rows.Next() {
 		user_credit := &UserCredit{}
-		err = __rows.Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+		err = __rows.Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -13280,13 +13305,13 @@ func (obj *sqlite3Impl) getLastUserCredit(ctx context.Context,
 	pk int64) (
 	user_credit *UserCredit, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.type, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	user_credit = &UserCredit{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14166,6 +14191,7 @@ func (rx *Rx) Create_User(ctx context.Context,
 func (rx *Rx) Create_UserCredit(ctx context.Context,
 	user_credit_user_id UserCredit_UserId_Field,
 	user_credit_offer_id UserCredit_OfferId_Field,
+	user_credit_type UserCredit_Type_Field,
 	user_credit_credits_earned_in_cents UserCredit_CreditsEarnedInCents_Field,
 	user_credit_expires_at UserCredit_ExpiresAt_Field,
 	optional UserCredit_Create_Fields) (
@@ -14174,7 +14200,7 @@ func (rx *Rx) Create_UserCredit(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_UserCredit(ctx, user_credit_user_id, user_credit_offer_id, user_credit_credits_earned_in_cents, user_credit_expires_at, optional)
+	return tx.Create_UserCredit(ctx, user_credit_user_id, user_credit_offer_id, user_credit_type, user_credit_credits_earned_in_cents, user_credit_expires_at, optional)
 
 }
 
@@ -15153,6 +15179,7 @@ type Methods interface {
 	Create_UserCredit(ctx context.Context,
 		user_credit_user_id UserCredit_UserId_Field,
 		user_credit_offer_id UserCredit_OfferId_Field,
+		user_credit_type UserCredit_Type_Field,
 		user_credit_credits_earned_in_cents UserCredit_CreditsEarnedInCents_Field,
 		user_credit_expires_at UserCredit_ExpiresAt_Field,
 		optional UserCredit_Create_Fields) (

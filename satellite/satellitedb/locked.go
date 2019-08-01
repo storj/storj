@@ -1083,10 +1083,10 @@ func (m *lockedRewards) Finish(ctx context.Context, offerID int) error {
 	return m.db.Finish(ctx, offerID)
 }
 
-func (m *lockedRewards) GetCurrentByType(ctx context.Context, offerType rewards.OfferType) (*rewards.Offer, error) {
+func (m *lockedRewards) GetActiveOffersByType(ctx context.Context, offerType rewards.OfferType) (rewards.Offers, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetCurrentByType(ctx, offerType)
+	return m.db.GetActiveOffersByType(ctx, offerType)
 }
 
 func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {
