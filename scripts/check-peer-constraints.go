@@ -17,6 +17,10 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+var IgnorePackages = []string{
+	"storj.io/storj/pkg/kademlia",
+}
+
 var Libraries = []string{
 	"storj.io/storj/pkg/...",
 	"storj.io/storj/lib/...",
@@ -91,7 +95,7 @@ func match(pkgs []*packages.Package, globs ...string) []*packages.Package {
 func links(source, destination []*packages.Package) bool {
 	targets := map[string]bool{}
 	for _, dst := range destination {
-		targets[dst.ID] = true
+		targets[dst.PkgPath] = true
 	}
 
 	links := false
@@ -112,7 +116,13 @@ func links(source, destination []*packages.Package) bool {
 		}
 	}
 
+nextSource:
 	for _, pkg := range source {
+		for _, ignorePkg := range IgnorePackages {
+			if strings.HasPrefix(pkg.PkgPath, ignorePkg) {
+				continue nextSource
+			}
+		}
 		visit(pkg, nil)
 	}
 
@@ -149,7 +159,7 @@ func flatten(pkgs []*packages.Package) []*packages.Package {
 func pathstr(path []*packages.Package) string {
 	ids := []string{}
 	for _, pkg := range path {
-		ids = append(ids, pkg.ID)
+		ids = append(ids, pkg.PkgPath)
 	}
 
 	return strings.Join(ids, " > ")
