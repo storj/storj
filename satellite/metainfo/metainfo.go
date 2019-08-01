@@ -571,57 +571,9 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 func (endpoint *Endpoint) SetAttributionOld(ctx context.Context, req *pb.SetAttributionRequestOld) (_ *pb.SetAttributionResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// try to add an attribution that doesn't exist
-	partnerID, err := bytesToUUID(req.GetPartnerId())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+	err = endpoint.setBucketAttribution(ctx, req.BucketName, req.PartnerId)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
-		Op:            macaroon.ActionList,
-		Bucket:        req.BucketName,
-		EncryptedPath: []byte(""),
-		Time:          time.Now(),
-	})
-	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, err.Error())
-	}
-
-	// check if attribution is set for given bucket
-	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetBucketName())
-	if err == nil {
-		endpoint.log.Sugar().Info("Bucket:", string(req.BucketName), " PartnerID:", partnerID.String(), "already attributed")
-		return &pb.SetAttributionResponseOld{}, nil
-	}
-
-	if !attribution.ErrBucketNotAttributed.Has(err) {
-		// try only to set the attribution, when it's missing
-		return nil, Error.Wrap(err)
-	}
-
-	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketName, []byte(""))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	if len(items) > 0 {
-		return nil, Error.New("Bucket(%q) , PartnerID(%s) cannot be attributed", req.BucketName, req.PartnerId)
-	}
-
-	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
-		ProjectID:  keyInfo.ProjectID,
-		BucketName: req.GetBucketName(),
-		PartnerID:  partnerID,
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return &pb.SetAttributionResponseOld{}, nil
+	return &pb.SetAttributionResponseOld{}, err
 }
 
 // bytesToUUID is used to convert []byte to UUID
@@ -848,58 +800,67 @@ func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.
 
 // SetBucketAttribution sets the bucket attribution.
 func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	// try to add an attribution that doesn't exist
-	partnerID, err := bytesToUUID(req.GetAttributionId())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+	err = endpoint.setBucketAttribution(ctx, req.Name, req.AttributionId)
 
+	return &pb.BucketSetAttributionResponse{}, err
+}
+
+func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, bucketName []byte, parterID []byte) error {
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionList,
-		Bucket:        req.GetName(),
+		Bucket:        bucketName,
 		EncryptedPath: []byte(""),
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+		return status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	partnerID, err := bytesToUUID(parterID)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "unable to parse partner ID: %v", err.Error())
 	}
 
 	// check if attribution is set for given bucket
-	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetName())
+	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, bucketName)
 	if err == nil {
-		endpoint.log.Sugar().Info("Bucket:", string(req.GetName()), " PartnerID:", partnerID.String(), "already attributed")
-		return &pb.BucketSetAttributionResponse{}, nil
+		endpoint.log.Info("Bucket already attributed", zap.ByteString("bucketName", bucketName), zap.String("partnerID", partnerID.String()))
+		return nil
 	}
 
 	if !attribution.ErrBucketNotAttributed.Has(err) {
 		// try only to set the attribution, when it's missing
-		return nil, Error.Wrap(err)
+		endpoint.log.Error("error while getting attribution from DB", zap.Error(err))
+		return status.Error(codes.Internal, err.Error())
 	}
 
-	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.GetName(), []byte(""))
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, bucketName, []byte{})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		endpoint.log.Error("error while listing segments", zap.Error(err))
+		return status.Error(codes.Internal, err.Error())
 	}
 
 	if len(items) > 0 {
-		return nil, Error.New("Bucket(%q) , PartnerID(%s) cannot be attributed", req.GetName(), req.GetAttributionId())
+		return status.Errorf(codes.AlreadyExists, "Bucket(%q) is not empty, PartnerID(%s) cannot be attributed", bucketName, partnerID)
 	}
 
 	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
 		ProjectID:  keyInfo.ProjectID,
-		BucketName: req.GetName(),
+		BucketName: bucketName,
 		PartnerID:  partnerID,
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		endpoint.log.Error("error while inserting attribution to DB", zap.Error(err))
+		return status.Error(codes.Internal, err.Error())
 	}
-	return &pb.BucketSetAttributionResponse{}, status.Error(codes.Unimplemented, "not implemented")
+	return nil
 }
 
 func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (bucket storj.Bucket, err error) {
