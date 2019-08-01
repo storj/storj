@@ -24,6 +24,7 @@ type UserCredits interface {
 	UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error)
 }
 
+// CreditType indicates a type of a credit
 type CreditType string
 
 const (
