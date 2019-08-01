@@ -4,7 +4,6 @@
 package pieces_test
 
 import (
-	"storj.io/storj/storagenode/pieces"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
