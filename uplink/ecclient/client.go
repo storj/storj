@@ -459,19 +459,61 @@ func (lr *lazyPieceRanger) Size() int64 {
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
-	ps, err := lr.dialPiecestore(ctx, &pb.Node{
-		Id:      lr.limit.GetLimit().StorageNodeId,
-		Address: lr.limit.GetStorageNodeAddress(),
-	})
-	if err != nil {
-		return nil, err
+
+	reader := &lazyPieceReader{}
+	reader.lazyPieceRanger = lr
+	reader.ctx = ctx
+	reader.offset = offset
+	reader.length = length
+	return reader, nil
+}
+
+type lazyPieceReader struct {
+	*lazyPieceRanger
+	ctx    context.Context
+	offset int64
+	length int64
+
+	dialed bool
+	piecestore.Downloader
+	client *piecestore.Client
+}
+
+func (lr *lazyPieceReader) Read(data []byte) (int, error) {
+	if !lr.dialed {
+		// TODO: add tracing for the dial
+		lr.dialed = true
+		ps, err := lr.dialPiecestore(lr.ctx, &pb.Node{
+			Id:      lr.limit.GetLimit().StorageNodeId,
+			Address: lr.limit.GetStorageNodeAddress(),
+		})
+		if err != nil {
+			return 0, err
+		}
+		lr.client = ps
+
+		download, err := ps.Download(lr.ctx, lr.limit.GetLimit(), lr.privateKey, lr.offset, lr.length)
+		if err != nil {
+			return 0, errs.Combine(err, ps.Close())
+		}
+		lr.Downloader = download
 	}
 
-	download, err := ps.Download(ctx, lr.limit.GetLimit(), lr.privateKey, offset, length)
-	if err != nil {
-		return nil, errs.Combine(err, ps.Close())
+	if lr.dialed && lr.Downloader == nil {
+		return 0, io.EOF
 	}
-	return &clientCloser{download, ps}, nil
+
+	return lr.Downloader.Read(data)
+}
+func (lr *lazyPieceReader) Close() error {
+	if lr.Downloader == nil {
+		return nil
+	}
+
+	return errs.Combine(
+		lr.Downloader.Close(),
+		lr.client.Close(),
+	)
 }
 
 type clientCloser struct {
