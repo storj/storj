@@ -244,7 +244,7 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 		return object{}, storj.Object{}, err
 	}
 
-	objectInfo, _, err := db.metainfo.GetObject(ctx, metainfo.GetObjectParams{
+	objectInfo, err := db.metainfo.GetObject(ctx, metainfo.GetObjectParams{
 		Bucket:        []byte(bucket),
 		EncryptedPath: []byte(encPath.Raw()),
 	})

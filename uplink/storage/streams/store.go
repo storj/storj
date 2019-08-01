@@ -290,7 +290,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		return nil, Meta{}, err
 	}
 
-	object, streamID, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
+	object, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
 		Bucket:        []byte(path.Bucket()),
 		EncryptedPath: []byte(encPath.Raw()),
 	})
@@ -298,7 +298,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		return nil, Meta{}, err
 	}
 
-	lastSegmentRanger, _, err := s.segments.Get(ctx, streamID, -1, object.RedundancyScheme)
+	lastSegmentRanger, _, err := s.segments.Get(ctx, object.StreamID, -1, object.RedundancyScheme)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -329,7 +329,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 
 		rangers = append(rangers, &lazySegmentRanger{
 			segments:      s.segments,
-			streamID:      streamID,
+			streamID:      object.StreamID,
 			segmentIndex:  int32(i),
 			rs:            object.RedundancyScheme,
 			m:             streamMeta.LastSegmentMeta,
@@ -378,7 +378,7 @@ func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.Ciph
 		return Meta{}, err
 	}
 
-	object, _, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
+	object, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
 		Bucket:        []byte(path.Bucket()),
 		EncryptedPath: []byte(encPath.Raw()),
 	})

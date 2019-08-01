@@ -432,7 +432,7 @@ type GetObjectParams struct {
 }
 
 // GetObject gets single object
-func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.Object2, _ storj.StreamID, err error) {
+func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.GetObject(ctx, &pb.ObjectGetRequest{
@@ -443,16 +443,17 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return storj.Object2{}, storj.StreamID{}, storj.ErrObjectNotFound.Wrap(err)
+			return storj.ObjectInfo{}, storj.ErrObjectNotFound.Wrap(err)
 		}
-		return storj.Object2{}, storj.StreamID{}, Error.Wrap(err)
+		return storj.ObjectInfo{}, Error.Wrap(err)
 	}
 
-	object := storj.Object2{
-		Bucket: storj.Bucket{
-			Name: string(response.Object.Bucket),
-		},
-		Path:     storj.Path(response.Object.EncryptedPath),
+	object := storj.ObjectInfo{
+		Bucket: string(response.Object.Bucket),
+		Path:   storj.Path(response.Object.EncryptedPath),
+
+		StreamID: response.Object.StreamId,
+
 		Created:  response.Object.CreatedAt,
 		Modified: response.Object.CreatedAt,
 		Expires:  response.Object.ExpiresAt,
@@ -464,7 +465,6 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 				BlockSize:   int32(response.Object.EncryptionParameters.BlockSize),
 			},
 		},
-		// TODO custom type for response object or modify storj.Object
 	}
 
 	pbRS := response.Object.RedundancyScheme
@@ -479,7 +479,7 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 		}
 	}
 
-	return object, response.Object.StreamId, nil
+	return object, nil
 }
 
 // BeginDeleteObjectParams parameters for BeginDeleteObject method

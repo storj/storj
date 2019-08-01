@@ -34,12 +34,14 @@ type Object struct {
 	Stream
 }
 
-// Object2 contains information about a specific object
-type Object2 struct {
+// ObjectInfo contains information about a specific object
+type ObjectInfo struct {
 	Version  uint32
-	Bucket   Bucket
+	Bucket   string
 	Path     Path
 	IsPrefix bool
+
+	StreamID StreamID
 
 	Metadata []byte
 

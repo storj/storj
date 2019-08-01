@@ -904,14 +904,14 @@ func TestListGetObjects(t *testing.T) {
 			require.NotEmpty(t, item.EncryptedPath)
 			require.True(t, item.CreatedAt.Before(time.Now()))
 
-			object, streamID, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+			object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 				Bucket:        []byte(expectedBucketName),
 				EncryptedPath: item.EncryptedPath,
 			})
 			require.NoError(t, err)
 			require.Equal(t, item.EncryptedPath, []byte(object.Path))
 
-			require.NotEmpty(t, streamID)
+			require.NotEmpty(t, object.StreamID)
 		}
 
 		items, _, err = metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
@@ -1013,14 +1013,14 @@ func TestBeginCommitListSegment(t *testing.T) {
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
 		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
 
-		_, streamID, err = metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        []byte(bucket.Name),
 			EncryptedPath: objects[0].EncryptedPath,
 		})
 		require.NoError(t, err)
 
 		segments, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
-			StreamID: streamID,
+			StreamID: object.StreamID,
 		})
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
@@ -1109,7 +1109,7 @@ func TestInlineSegment(t *testing.T) {
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
 		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
 
-		_, streamID, err = metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        params.Bucket,
 			EncryptedPath: params.EncryptedPath,
 		})
@@ -1129,7 +1129,7 @@ func TestInlineSegment(t *testing.T) {
 				{Index: 0, Result: len(segments) - 1, More: true, Limit: len(segments) - 1},
 			} {
 				items, more, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
-					StreamID: streamID,
+					StreamID: object.StreamID,
 					CursorPosition: storj.SegmentPosition{
 						Index: test.Index,
 					},
@@ -1143,14 +1143,14 @@ func TestInlineSegment(t *testing.T) {
 
 		{ // test download inline segments
 			items, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
-				StreamID: streamID,
+				StreamID: object.StreamID,
 			})
 			require.NoError(t, err)
 			require.Equal(t, len(segments), len(items))
 
 			for i, item := range items {
 				info, limits, err := metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
-					StreamID: streamID,
+					StreamID: object.StreamID,
 					Position: storj.SegmentPosition{
 						Index: item.Position.Index,
 					},
@@ -1226,20 +1226,20 @@ func TestRemoteSegment(t *testing.T) {
 			// List segments
 			// Download segment
 
-			_, streamID, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+			object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 				Bucket:        []byte(expectedBucketName),
 				EncryptedPath: items[0].EncryptedPath,
 			})
 			require.NoError(t, err)
 
 			segments, _, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
-				StreamID: streamID,
+				StreamID: object.StreamID,
 			})
 			require.NoError(t, err)
 			require.Len(t, segments, 1)
 
 			_, limits, err := metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
-				StreamID: streamID,
+				StreamID: object.StreamID,
 				Position: storj.SegmentPosition{
 					Index: segments[0].Position.Index,
 				},
