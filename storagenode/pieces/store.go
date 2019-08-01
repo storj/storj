@@ -10,12 +10,13 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/filestore"
 )
 
 const (
@@ -158,7 +159,38 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(blob, storage.MaxStorageFormatVersionSupported)
+	writer, err := NewWriter(blob)
+	return writer, Error.Wrap(err)
+}
+
+// WriterForFormatVersion allows opening a piece writer with a specified storage format version.
+// This is meant to be used externally only in test situations (thus the StoreForTest receiver
+// type).
+func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Writer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	blobRef := storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	}
+	var blob storage.BlobWriter
+	switch formatVersion {
+	case storage.FormatV0:
+		fStore, ok := store.blobs.(*filestore.Store)
+		if !ok {
+			return nil, Error.New("can't make a WriterForFormatVersion with this blob store (%T)", store.blobs)
+		}
+		tStore := filestore.StoreForTest{Store: fStore}
+		blob, err = tStore.CreateV0(ctx, blobRef)
+	case storage.FormatV1:
+		blob, err = store.blobs.Create(ctx, blobRef, preallocSize.Int64())
+	default:
+		return nil, Error.New("please teach me how to make V%d pieces", formatVersion)
+	}
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	writer, err := NewWriter(blob)
 	return writer, Error.Wrap(err)
 }
 

@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode/pieces"
 )
 
 const oneWeek = 7 * 24 * time.Hour

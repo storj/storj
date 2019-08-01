@@ -64,14 +64,21 @@ type Writer struct {
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(blob storage.BlobWriter, formatVersion storage.FormatVersion) (*Writer, error) {
+func NewWriter(blob storage.BlobWriter) (*Writer, error) {
 	w := &Writer{}
-	if formatVersion < storage.FormatV1 {
-		return nil, Error.New("writing to storage format version 0 is not supported")
-	}
-	// skip header area for now; fill in on commit
-	if _, err := blob.Seek(V1PieceHeaderSize, io.SeekStart); err != nil {
-		return nil, Error.Wrap(err)
+	if blob.GetStorageFormatVersion() >= storage.FormatV1 {
+		// We skip past the reserved header area for now- we want the header to be at the
+		// beginning of the file, to make it quick to seek there and also to make it easier
+		// to identify situations where a blob file has been truncated incorrectly. And we
+		// don't know what exactly is going to be in the header yet--we won't know what the
+		// hash or size or timestamp or expiration or signature fields need to be until we
+		// have received the whole piece.
+		//
+		// Once the writer calls Commit() on this writer, we will seek back to the beginning
+		// of the file and write the header.
+		if _, err := blob.Seek(V1PieceHeaderReservedArea, io.SeekStart); err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 	w.blob = blob
 	w.hash = pkcrypto.NewHash()
@@ -113,7 +120,11 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 		}
 	}()
 
-	pieceHeader.FormatVersion = int32(w.blob.GetStorageFormatVersion())
+	formatVer := w.blob.GetStorageFormatVersion()
+	pieceHeader.FormatVersion = int32(formatVer)
+	if formatVer == storage.FormatV0 {
+		return nil
+	}
 	headerBytes, err := proto.Marshal(pieceHeader)
 	if err != nil {
 		return err
