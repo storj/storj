@@ -114,7 +114,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	}
 	err = checker.metaLoop.Join(ctx, observer)
 	if err != nil {
-		return Error.New("IdentifyInjuredSegments err %v", err)
+		return err
 	}
 
 	mon.IntVal("remote_files_checked").Observe(observer.monStats.remoteFilesChecked)
