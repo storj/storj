@@ -76,8 +76,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	handler, err := linksharing.NewHandler(linksharing.HandlerConfig{
-		Log:     log,
+	handler, err := linksharing.NewHandler(log, linksharing.HandlerConfig{
 		Uplink:  uplink,
 		URLBase: runCfg.PublicURL,
 	})

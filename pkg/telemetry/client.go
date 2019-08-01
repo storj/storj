@@ -58,6 +58,7 @@ type ClientOpts struct {
 // Client is a telemetry client for sending UDP packets at a regular interval
 // from a monkit.Registry
 type Client struct {
+	log      *zap.Logger
 	interval time.Duration
 	opts     admmonkit.Options
 	send     func(context.Context, admmonkit.Options) error
@@ -65,7 +66,7 @@ type Client struct {
 
 // NewClient constructs a telemetry client that sends packets to remoteAddr
 // over UDP.
-func NewClient(remoteAddr string, opts ClientOpts) (rv *Client, err error) {
+func NewClient(log *zap.Logger, remoteAddr string, opts ClientOpts) (rv *Client, err error) {
 	if opts.Interval == 0 {
 		opts.Interval = DefaultInterval
 	}
@@ -88,6 +89,7 @@ func NewClient(remoteAddr string, opts ClientOpts) (rv *Client, err error) {
 	}
 
 	return &Client{
+		log:      log,
 		interval: opts.Interval,
 		send:     admmonkit.Send,
 		opts: admmonkit.Options{
@@ -103,7 +105,7 @@ func NewClient(remoteAddr string, opts ClientOpts) (rv *Client, err error) {
 
 // Run calls Report roughly every Interval
 func (c *Client) Run(ctx context.Context) {
-	zap.S().Debugf("Initialized telemetry batcher with id = %q", c.opts.InstanceId)
+	c.log.Sugar().Debugf("Initialized telemetry batcher with id = %q", c.opts.InstanceId)
 	for {
 		time.Sleep(jitter(c.interval))
 		if ctx.Err() != nil {
@@ -112,7 +114,7 @@ func (c *Client) Run(ctx context.Context) {
 
 		err := c.Report(ctx)
 		if err != nil {
-			zap.S().Errorf("failed sending telemetry report: %v", err)
+			c.log.Sugar().Errorf("failed sending telemetry report: %v", err)
 		}
 	}
 }

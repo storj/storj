@@ -140,13 +140,9 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 	}
 
 	cfg := libuplink.Config{}
-	cfg.Volatile.TLS = struct {
-		SkipPeerCAWhitelist bool
-		PeerCAWhitelistPath string
-	}{
-		SkipPeerCAWhitelist: !uplinkCfg.TLS.UsePeerCAWhitelist,
-		PeerCAWhitelistPath: uplinkCfg.TLS.PeerCAWhitelistPath,
-	}
+	cfg.Volatile.Log = log
+	cfg.Volatile.TLS.SkipPeerCAWhitelist = !uplinkCfg.TLS.UsePeerCAWhitelist
+	cfg.Volatile.TLS.PeerCAWhitelistPath = uplinkCfg.TLS.PeerCAWhitelistPath
 	cfg.Volatile.MaxInlineSize = uplinkCfg.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = uplinkCfg.RS.MaxBufferMem
 

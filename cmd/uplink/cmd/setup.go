@@ -102,7 +102,7 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 	satelliteAddress, err = ApplyDefaultHostAndPortToAddr(
 		satelliteAddress, vip.GetString("satellite-addr"))
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	apiKeyString, err := wizard.PromptForAPIKey()
@@ -110,12 +110,12 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 		return Error.Wrap(err)
 	}
 
-	passphrase, err := wizard.PromptForEncryptionKey()
+	apiKey, err := libuplink.ParseAPIKey(apiKeyString)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	apiKey, err := libuplink.ParseAPIKey(apiKeyString)
+	passphrase, err := wizard.PromptForEncryptionPassphrase()
 	if err != nil {
 		return Error.Wrap(err)
 	}

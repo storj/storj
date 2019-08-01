@@ -7,6 +7,8 @@ package main
 import "C"
 
 import (
+	"fmt"
+
 	libuplink "storj.io/storj/lib/uplink"
 )
 
@@ -15,7 +17,7 @@ import (
 func parse_api_key(val *C.char, cerr **C.char) C.APIKeyRef {
 	apikey, err := libuplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.APIKeyRef{}
 	}
 

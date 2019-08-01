@@ -11,4 +11,4 @@ declare type Reward = {
     type: number,
     status: number,
     expiresAt: string,
-}
+};

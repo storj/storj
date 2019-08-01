@@ -59,7 +59,7 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		zap.S().Fatal(err)
 	}
 
-	return config.Server.Run(ctx, identity, nil, config.Signer)
+	return config.Server.Run(ctx, zap.L(), identity, nil, config.Signer)
 }
 
 func main() {

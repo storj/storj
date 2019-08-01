@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -23,6 +24,7 @@ func TestProjectListBuckets(t *testing.T) {
 		UplinkCount:      1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			cfg := uplink.Config{}
+			cfg.Volatile.Log = zaptest.NewLogger(t)
 			cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 			scope, err := planet.Uplinks[0].GetConfig(planet.Satellites[0]).GetScope()
