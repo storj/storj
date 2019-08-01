@@ -39,6 +39,7 @@ func TestStoreLoad(t *testing.T) {
 
 	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
 	require.NoError(t, err)
+	ctx.Check(store.Close)
 
 	data := testrand.Bytes(blobSize)
 	temp := make([]byte, len(data))
@@ -168,6 +169,7 @@ func TestDeleteWhileReading(t *testing.T) {
 
 	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
 	require.NoError(t, err)
+	ctx.Check(store.Close)
 
 	data := testrand.Bytes(blobSize)
 
@@ -296,6 +298,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 
 	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
 	require.NoError(t, err)
+	ctx.Check(store.Close)
 
 	const blobSize = 1024
 
@@ -352,6 +355,7 @@ func TestStoreSpaceUsed(t *testing.T) {
 
 	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
 	require.NoError(t, err)
+	ctx.Check(store.Close)
 
 	var (
 		namespaceBase  = testrand.Bytes(namespaceSize - 1)
@@ -402,6 +406,7 @@ func TestStoreTraversals(t *testing.T) {
 
 	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
 	require.NoError(t, err)
+	ctx.Check(store.Close)
 
 	// invent some namespaces and store stuff in them
 	type namespaceWithBlobs struct {
