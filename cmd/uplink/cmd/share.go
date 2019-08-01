@@ -158,7 +158,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	newScope := &libuplink.Scope{
-		SatelliteAddr:    cfg.Legacy.Client.SatelliteAddr,
+		SatelliteAddr:    scope.SatelliteAddr,
 		APIKey:           key,
 		EncryptionAccess: access,
 	}
