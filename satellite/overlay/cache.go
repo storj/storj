@@ -61,6 +61,8 @@ type DB interface {
 	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
+	// BatchUpdateStats updates multiple storagenode's stats in one transaction
+	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -138,17 +140,17 @@ type NodeStats struct {
 
 // Cache is used to store and handle node information
 type Cache struct {
-	log         *zap.Logger
-	db          DB
-	preferences NodeSelectionConfig
+	log    *zap.Logger
+	db     DB
+	config Config
 }
 
 // NewCache returns a new Cache
-func NewCache(log *zap.Logger, db DB, preferences NodeSelectionConfig) *Cache {
+func NewCache(log *zap.Logger, db DB, config Config) *Cache {
 	return &Cache{
-		log:         log,
-		db:          db,
-		preferences: preferences,
+		log:    log,
+		db:     db,
+		config: config,
 	}
 }
 
@@ -185,14 +187,14 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow ||
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.config.Node.OnlineWindow ||
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return cache.FindStorageNodesWithPreferences(ctx, req, &cache.preferences)
+	return cache.FindStorageNodesWithPreferences(ctx, req, &cache.config.Node)
 }
 
 // FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
@@ -268,7 +270,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 func (cache *Cache) KnownOffline(ctx context.Context, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		OnlineWindow: cache.preferences.OnlineWindow,
+		OnlineWindow: cache.config.Node.OnlineWindow,
 	}
 	return cache.db.KnownOffline(ctx, criteria, nodeIds)
 }
@@ -277,7 +279,7 @@ func (cache *Cache) KnownOffline(ctx context.Context, nodeIds storj.NodeIDList) 
 func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		OnlineWindow: cache.preferences.OnlineWindow,
+		OnlineWindow: cache.config.Node.OnlineWindow,
 	}
 	return cache.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
@@ -286,7 +288,7 @@ func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.
 func (cache *Cache) Reliable(ctx context.Context) (nodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		OnlineWindow: cache.preferences.OnlineWindow,
+		OnlineWindow: cache.config.Node.OnlineWindow,
 	}
 	return cache.db.Reliable(ctx, criteria)
 }
@@ -311,15 +313,15 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if err != nil {
 		return OverlayError.Wrap(err)
 	}
-	return cache.db.UpdateAddress(ctx, &value, cache.preferences)
+	return cache.db.UpdateAddress(ctx, &value, cache.config.Node)
 }
 
 // IsVetted returns whether or not the node reaches reputable thresholds
 func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		AuditCount:  cache.preferences.AuditCount,
-		UptimeCount: cache.preferences.UptimeCount,
+		AuditCount:  cache.config.Node.AuditCount,
+		UptimeCount: cache.config.Node.UptimeCount,
 	}
 	reputable, err = cache.db.IsVetted(ctx, nodeID, criteria)
 	if err != nil {
@@ -328,16 +330,31 @@ func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputabl
 	return reputable, nil
 }
 
+// BatchUpdateStats updates multiple storagenode's stats in one transaction
+func (cache *Cache) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, request := range requests {
+		request.AuditLambda = cache.config.Node.AuditReputationLambda
+		request.AuditWeight = cache.config.Node.AuditReputationWeight
+		request.AuditDQ = cache.config.Node.AuditReputationDQ
+		request.UptimeLambda = cache.config.Node.UptimeReputationLambda
+		request.UptimeWeight = cache.config.Node.UptimeReputationWeight
+		request.UptimeDQ = cache.config.Node.UptimeReputationDQ
+	}
+	return cache.db.BatchUpdateStats(ctx, requests, cache.config.UpdateStatsBatchSize)
+}
+
 // UpdateStats all parts of single storagenode's stats.
 func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	request.AuditLambda = cache.preferences.AuditReputationLambda
-	request.AuditWeight = cache.preferences.AuditReputationWeight
-	request.AuditDQ = cache.preferences.AuditReputationDQ
-	request.UptimeLambda = cache.preferences.UptimeReputationLambda
-	request.UptimeWeight = cache.preferences.UptimeReputationWeight
-	request.UptimeDQ = cache.preferences.UptimeReputationDQ
+	request.AuditLambda = cache.config.Node.AuditReputationLambda
+	request.AuditWeight = cache.config.Node.AuditReputationWeight
+	request.AuditDQ = cache.config.Node.AuditReputationDQ
+	request.UptimeLambda = cache.config.Node.UptimeReputationLambda
+	request.UptimeWeight = cache.config.Node.UptimeReputationWeight
+	request.UptimeDQ = cache.config.Node.UptimeReputationDQ
 
 	return cache.db.UpdateStats(ctx, request)
 }
@@ -351,9 +368,9 @@ func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeI
 // UpdateUptime updates a single storagenode's uptime stats.
 func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-	lambda := cache.preferences.UptimeReputationLambda
-	weight := cache.preferences.UptimeReputationWeight
-	uptimeDQ := cache.preferences.UptimeReputationDQ
+	lambda := cache.config.Node.UptimeReputationLambda
+	weight := cache.config.Node.UptimeReputationWeight
+	uptimeDQ := cache.config.Node.UptimeReputationDQ
 
 	return cache.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
@@ -363,9 +380,9 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	lambda := cache.preferences.UptimeReputationLambda
-	weight := cache.preferences.UptimeReputationWeight
-	uptimeDQ := cache.preferences.UptimeReputationDQ
+	lambda := cache.config.Node.UptimeReputationLambda
+	weight := cache.config.Node.UptimeReputationWeight
+	uptimeDQ := cache.config.Node.UptimeReputationDQ
 
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the cache so maybe we want to treat
@@ -386,9 +403,9 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 		cache.log.Debug("error updating uptime for node", zap.Error(err))
 	}
 
-	lambda := cache.preferences.UptimeReputationLambda
-	weight := cache.preferences.UptimeReputationWeight
-	uptimeDQ := cache.preferences.UptimeReputationDQ
+	lambda := cache.config.Node.UptimeReputationLambda
+	weight := cache.config.Node.UptimeReputationWeight
+	uptimeDQ := cache.config.Node.UptimeReputationDQ
 
 	_, err = cache.db.UpdateUptime(ctx, node.Id, true, lambda, weight, uptimeDQ)
 	if err != nil {
