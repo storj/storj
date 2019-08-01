@@ -148,8 +148,6 @@ waitformore:
 			observers = append(observers, observer)
 		case <-timer.C:
 			break waitformore
-		case <-ctx.Done():
-			return ctx.Err()
 		}
 	}
 
