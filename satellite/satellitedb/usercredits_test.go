@@ -203,6 +203,27 @@ func TestUsercredits(t *testing.T) {
 					hasCreateErr: false,
 				},
 			},
+			{
+				// simulate credit redemption for referrer
+				userCredit: console.UserCredit{
+					UserID:        referrer.ID,
+					OfferID:       activeOffer.ID,
+					ReferredBy:    nil,
+					Type:          console.Referrer,
+					CreditsEarned: activeOffer.AwardCredit,
+					ExpiresAt:     time.Now().UTC().AddDate(0, 0, activeOffer.AwardCreditDurationDays),
+				},
+				redeemableCap: activeOffer.RedeemableCap,
+				expected: result{
+					usage: console.UserCreditUsage{
+						Referred:         1,
+						AvailableCredits: activeOffer.AwardCredit,
+						UsedCredits:      currency.Cents(0),
+					},
+					referred:     1,
+					hasCreateErr: false,
+				},
+			},
 		}
 
 		for _, vc := range validUserCredits {
