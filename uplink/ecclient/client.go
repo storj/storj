@@ -83,7 +83,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		rs.ErasureShareSize(), rs.StripeSize(), rs.RepairThreshold(), rs.OptimalThreshold())
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
-	readers, err := eestream.EncodeReader(ctx, padded, rs)
+	readers, err := eestream.EncodeReader(ctx, ec.log, padded, rs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -171,7 +171,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	}
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
-	readers, err := eestream.EncodeReader(ctx, padded, rs)
+	readers, err := eestream.EncodeReader(ctx, ec.log, padded, rs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -271,14 +271,22 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		Address: limit.GetStorageNodeAddress(),
 	})
 	if err != nil {
-		ec.log.Sugar().Debugf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
+		ec.log.Debug("Failed dialing for putting piece to node",
+			zap.String("pieceID", pieceID.String()),
+			zap.String("nodeID", storageNodeID.String()),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 
 	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
-		ec.log.Sugar().Debugf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err)
+		ec.log.Debug("Failed requesting upload of pieces to node",
+			zap.String("pieceID", pieceID.String()),
+			zap.String("nodeID", storageNodeID.String()),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 	defer func() {
@@ -307,7 +315,13 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if limit.GetStorageNodeAddress() != nil {
 			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
 		}
-		ec.log.Sugar().Debugf("Failed uploading piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
+
+		ec.log.Debug("Failed uploading piece to node",
+			zap.String("pieceID", pieceID.String()),
+			zap.String("nodeID", storageNodeID.String()),
+			zap.String("nodeAddress", nodeAddress),
+			zap.Error(err),
+		)
 	}
 
 	return hash, err
@@ -341,7 +355,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		}
 	}
 
-	rr, err = eestream.Decode(rrs, es, ec.memoryLimit, ec.forceErrorDetection)
+	rr, err = eestream.Decode(ec.log, rrs, es, ec.memoryLimit, ec.forceErrorDetection)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

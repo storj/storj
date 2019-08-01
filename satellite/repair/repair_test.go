@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package datarepair_test
+package repair_test
 
 import (
 	"context"
@@ -156,6 +156,91 @@ func TestDataRepair(t *testing.T) {
 		newData, err := uplinkPeer.Download(ctx, satellitePeer, "testbucket", "test/path")
 		require.NoError(t, err)
 		require.Equal(t, newData, testData)
+	})
+}
+
+// TestRemoveIrreparableSegmentFromQueue
+// - Upload tests data to 7 nodes
+// - Kill nodes so that repair threshold > online nodes > minimum threshold
+// - Call checker to add segment to the repair queue
+// - Kill nodes so that online nodes < minimum threshold
+// - Run the repairer
+// - Verify segment is no longer in the repair queue and segment should be the same
+func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 10,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// first, upload some remote data
+		uplinkPeer := planet.Uplinks[0]
+		satellitePeer := planet.Satellites[0]
+		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
+		satellitePeer.Discovery.Service.Discovery.Stop()
+		satellitePeer.Discovery.Service.Refresh.Stop()
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellitePeer.Audit.Service.Loop.Stop()
+
+		satellitePeer.Repair.Checker.Loop.Pause()
+		satellitePeer.Repair.Repairer.Loop.Pause()
+
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := uplinkPeer.UploadWithConfig(ctx, satellitePeer, &uplink.RSConfig{
+			MinThreshold:     3,
+			RepairThreshold:  5,
+			SuccessThreshold: 7,
+			MaxThreshold:     7,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		pointer, _ := getRemoteSegment(t, ctx, satellitePeer)
+
+		// kill nodes and track lost pieces
+		nodesToDQ := make(map[storj.NodeID]bool)
+
+		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
+		toKill := 3
+
+		remotePieces := pointer.GetRemote().GetRemotePieces()
+
+		for i, piece := range remotePieces {
+			if i >= toKill {
+				continue
+			}
+			nodesToDQ[piece.NodeId] = true
+		}
+
+		for nodeID := range nodesToDQ {
+			disqualifyNode(t, ctx, satellitePeer, nodeID)
+		}
+
+		// trigger checker to add segment to repair queue
+		satellitePeer.Repair.Checker.Loop.Restart()
+		satellitePeer.Repair.Checker.Loop.TriggerWait()
+		satellitePeer.Repair.Checker.Loop.Pause()
+
+		// TODO: Verify segment is in queue by making a query to the database
+
+		// Kill nodes so that online nodes < minimum threshold
+		// This will make the segment irreparable
+		for _, piece := range remotePieces {
+			disqualifyNode(t, ctx, satellitePeer, piece.NodeId)
+		}
+
+		count, err := satellitePeer.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 1)
+
+		// Run the repairer
+		satellitePeer.Repair.Repairer.Loop.Restart()
+		satellitePeer.Repair.Repairer.Loop.TriggerWait()
+		satellitePeer.Repair.Repairer.Loop.Pause()
+		satellitePeer.Repair.Repairer.Limiter.Wait()
+
+		count, err = satellitePeer.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 0)
 	})
 }
 

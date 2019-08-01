@@ -251,9 +251,10 @@ CREATE TABLE used_serials (
 );
 CREATE TABLE user_credits (
 	id serial NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ),
+	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	offer_id integer NOT NULL REFERENCES offers( id ),
-	referred_by bytea REFERENCES users( id ),
+	referred_by bytea REFERENCES users( id ) ON DELETE SET NULL,
+	type text NOT NULL,
 	credits_earned_in_cents integer NOT NULL,
 	credits_used_in_cents integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,

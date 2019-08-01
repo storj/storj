@@ -17,6 +17,16 @@ type SegmentListItem struct {
 // SegmentDownloadInfo represents segment download information inline/remote
 type SegmentDownloadInfo struct {
 	SegmentID           SegmentID
+	Size                int64
 	EncryptedInlineData []byte
 	Next                SegmentPosition
+	PiecePrivateKey     PiecePrivateKey
+
+	SegmentEncryption SegmentEncryption
+}
+
+// SegmentEncryption represents segment encryption key and nonce
+type SegmentEncryption struct {
+	EncryptedKeyNonce Nonce
+	EncryptedKey      EncryptedPrivateKey
 }

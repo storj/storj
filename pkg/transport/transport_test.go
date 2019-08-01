@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
@@ -188,7 +188,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.NewCustom(
-		zap.L(),
+		zaptest.NewLogger(t),
 		testplanet.Config{
 			SatelliteCount:   0,
 			StorageNodeCount: 2,

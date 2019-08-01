@@ -732,9 +732,10 @@ model user_credit (
 
 	field id				serial
 
-	field user_id user.id	restrict
+	field user_id user.id	cascade
 	field offer_id offer.id	restrict
-	field referred_by user.id	restrict ( nullable )
+	field referred_by user.id setnull ( nullable )
+	field type       text
 
 	field credits_earned_in_cents	int
 	field credits_used_in_cents	int ( updatable, autoinsert )

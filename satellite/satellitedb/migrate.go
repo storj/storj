@@ -1046,6 +1046,32 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						WHERE type=1 AND status=1 AND id=2;`,
 				},
 			},
+			{
+				// This partial unique index enforces uniqueness among (id, offer_id) pairs for users that have signed up
+				// but are not yet activated (credits_earned_in_cents=0).
+				// Among users that are activated, uniqueness of (id, offer_id) pairs is not required or desirable.
+				Description: "Create partial index for user_credits table",
+				Version:     48,
+				Action: migrate.SQL{
+					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id)
+						WHERE credits_earned_in_cents=0;`,
+				},
+			},
+			{
+				Description: "Add cascade to user_id for deleting an account",
+				Version:     49,
+				Action: migrate.SQL{
+					`ALTER TABLE user_credits DROP CONSTRAINT user_credits_referred_by_fkey;
+					ALTER TABLE user_credits ADD CONSTRAINT user_credits_referred_by_fkey
+						FOREIGN KEY (referred_by) REFERENCES users(id) ON DELETE SET NULL;
+					ALTER TABLE user_credits DROP CONSTRAINT user_credits_user_id_fkey;
+					ALTER TABLE user_credits ADD CONSTRAINT user_credits_user_id_fkey
+						FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+					ALTER TABLE user_credits ADD COLUMN type text;
+					UPDATE user_credits SET type='invalid';
+					ALTER TABLE user_credits ALTER COLUMN type SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }
