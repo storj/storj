@@ -15,7 +15,7 @@ import (
 )
 
 func TestCachedChecker(t *testing.T) {
-	cachedChecker := overlay.NewUpdateCache(30 * time.Minute)
+	cachedChecker := overlay.NewCombinedCache(nil, 30*time.Minute)
 
 	nodeID := teststorj.NodeIDFromString("testid")
 

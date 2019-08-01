@@ -307,6 +307,9 @@ kademlia.operator.wallet: ""
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
+# the length of time we will cache uptime status before updating the overlay cache again
+# overlay.uptime-flush-interval: 1m0s
+
 # how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
 

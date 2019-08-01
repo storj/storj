@@ -111,7 +111,7 @@ func (db *DB) Attribution() attribution.DB {
 
 // OverlayCache is a getter for overlay cache repository
 func (db *DB) OverlayCache() overlay.DB {
-	return newOverlayCache(db.db)
+	return &overlaycache{db: db.db}
 }
 
 // RepairQueue is a getter for RepairQueue repository

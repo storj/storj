@@ -4,6 +4,7 @@
 package overlay
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -23,10 +24,11 @@ type uptimeInfo struct {
 	stats      *NodeStats
 }
 
-// UpdateCache is a simple caching mechanism for overlaycache updates. It
+// CombinedCache is a simple caching mechanism for overlaycache updates. It
 // provdes methods to help reduce calls to UpdateAddress and UpdateTime, but can
 // be extended for other calls in the future.
-type UpdateCache struct {
+type CombinedCache struct {
+	DB
 	addressLock  sync.RWMutex
 	addressCache map[storj.NodeID]*addressInfo
 
@@ -35,18 +37,46 @@ type UpdateCache struct {
 	uptimeFlushInterval time.Duration
 }
 
-// NewUpdateCache instantiates a new UpdateCache
-func NewUpdateCache(uptimeFlushInterval time.Duration) *UpdateCache {
-	return &UpdateCache{
+// NewCombinedCache instantiates a new CombinedCache
+func NewCombinedCache(db DB, uptimeFlushInterval time.Duration) *CombinedCache {
+	return &CombinedCache{
+		DB:                  db,
 		addressCache:        make(map[storj.NodeID]*addressInfo),
 		uptimeCache:         make(map[storj.NodeID]*uptimeInfo),
 		uptimeFlushInterval: uptimeFlushInterval,
 	}
 }
 
+// UpdateUptime overrides the underlying db.UpdateUptime and provides a simple
+// caching layer to reduce calls to the underlying db.
+func (c *CombinedCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error) {
+	// First check the internal cache. If it returns stats, use them.
+	stats = c.GetNodeStats(nodeID, isUp)
+	if stats != nil {
+		return stats, nil
+	}
+	stats, err = c.DB.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
+	if err != nil {
+		return nil, err
+	}
+	// Refresh internal stats
+	c.SetNodeStats(nodeID, isUp, stats)
+	return stats, nil
+}
+
+// UpdateAddress overrides the underlying db.UpdateAddress and provides a simple
+// caching layer to reduce calls to the underlying db.
+func (c *CombinedCache) UpdateAddress(ctx context.Context, info *pb.Node, defaults NodeSelectionConfig) (err error) {
+	// Update internal cache and check if this call requires a db call
+	if !c.SetAndCompareAddress(info) {
+		return nil
+	}
+	return c.DB.UpdateAddress(ctx, info, defaults)
+}
+
 // SetAndCompareAddress returns true if the address should be updated in the
 // underlying db, and false if not. It also keeps the internal cache up-to-date.
-func (c *UpdateCache) SetAndCompareAddress(node *pb.Node) bool {
+func (c *CombinedCache) SetAndCompareAddress(node *pb.Node) bool {
 	// There's nothing we can do with a nil node, or nil address, we're just
 	// gonna say don't update it
 	if node == nil {
@@ -84,7 +114,7 @@ func (c *UpdateCache) SetAndCompareAddress(node *pb.Node) bool {
 // GetNodeStats returns cached NodeStats for the supplied nodeID. If the
 // returned stats are not nil the caller should use them as up-to-date stats. If
 // nil, the called should re-cache NodeStats for this nodeID.
-func (c *UpdateCache) GetNodeStats(nodeID storj.NodeID, isUp bool) (stats *NodeStats) {
+func (c *CombinedCache) GetNodeStats(nodeID storj.NodeID, isUp bool) (stats *NodeStats) {
 	c.uptimeLock.RLock()
 	cached, ok := c.uptimeCache[nodeID]
 	c.uptimeLock.RUnlock()
@@ -100,7 +130,7 @@ func (c *UpdateCache) GetNodeStats(nodeID storj.NodeID, isUp bool) (stats *NodeS
 }
 
 // SetNodeStats will cache the supplied stats, keyed by nodeID
-func (c *UpdateCache) SetNodeStats(nodeID storj.NodeID, isUp bool, stats *NodeStats) {
+func (c *CombinedCache) SetNodeStats(nodeID storj.NodeID, isUp bool, stats *NodeStats) {
 	c.uptimeLock.Lock()
 	c.uptimeCache[nodeID] = &uptimeInfo{
 		isUp:       isUp,
