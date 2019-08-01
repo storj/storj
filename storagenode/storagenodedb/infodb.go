@@ -21,9 +21,9 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/dbutil/utccheck"
 	"storj.io/storj/internal/migrate"
-	"storj.io/storj/internal/sqliteutil"
 )
 
 // ErrInfo is the default error class for InfoDB
