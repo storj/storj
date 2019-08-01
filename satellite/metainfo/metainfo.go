@@ -819,7 +819,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, bucketName [
 	}
 
 	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, bucketName, []byte{})
-	if err != nil { 
+	if err != nil {
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
