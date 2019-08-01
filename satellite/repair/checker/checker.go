@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -113,6 +114,9 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	}
 	err = checker.metaLoop.Join(ctx, observer)
 	if err != nil {
+		if !errs2.IsCanceled(err) {
+			checker.logger.Error("IdentifyInjuredSegments error", zap.Error(err))
+		}
 		return err
 	}
 
