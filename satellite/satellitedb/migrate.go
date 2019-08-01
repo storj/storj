@@ -1061,7 +1061,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				// Creating owner_id column for project.
 				// Removing projects without project members
 				// And populating this column with first project member id
-				Description: "Create partial index for user_credits table",
+				Description: "Creating owner_id column for projects table",
 				Version:     49,
 				Action: migrate.SQL{
 					`ALTER TABLE projects
@@ -1074,7 +1074,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
                                     ON projects.id = project_members.project_id);
 
 					UPDATE projects as proj
-                        SET owner_id = 
+                        SET owner_id =
                             (SELECT member_id
                                 FROM project_members
                                     WHERE project_id = proj.id
