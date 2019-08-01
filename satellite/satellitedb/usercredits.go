@@ -29,7 +29,7 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 	usageRows, err := c.db.DB.QueryContext(ctx, c.db.Rebind(`SELECT a.used_credit, b.available_credit, c.referred
 		FROM (SELECT SUM(credits_used_in_cents) AS used_credit FROM user_credits WHERE user_id = ?) AS a,
 		(SELECT SUM(credits_earned_in_cents - credits_used_in_cents) AS available_credit FROM user_credits WHERE expires_at > ? AND user_id = ?) AS b,
-		(SELECT count(id) AS referred FROM user_credits WHERE user_credits.referred_by = ?) AS c;`), userID[:], expirationEndDate, userID[:], userID[:])
+		(SELECT count(id) AS referred FROM user_credits WHERE user_credits.user_id = ? AND user_credits.type = ?) AS c;`), userID[:], expirationEndDate, userID[:], userID[:], console.Referrer)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -65,23 +65,6 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 		return errs.New("user credit is already expired")
 	}
 
-	switch t := c.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		statement = `
-			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
-				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, time('now'))) AS v
-					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
-		`
-	case *pq.Driver:
-		statement = `
-			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
-				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), now())) AS v
-					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
-		`
-	default:
-		return errs.New("Unsupported database %t", t)
-	}
-
 	var referrerID []byte
 	if userCredit.ReferredBy != nil {
 		referrerID = userCredit.ReferredBy[:]
@@ -89,11 +72,34 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 
 	var result sql.Result
 	var err error
-	if c.tx != nil {
-		result, err = c.tx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.OfferID, userCredit.OfferID)
-	} else {
-		result, err = c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.OfferID, userCredit.OfferID)
+
+	switch t := c.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		statement = `
+			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
+				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, ?, time('now'))) AS v
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
+		`
+		if c.tx != nil {
+			result, err = c.tx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferID)
+		} else {
+			result, err = c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferID)
+		}
+	case *pq.Driver:
+		statement = `
+			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
+				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), ?::text, now())) AS v
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
+		`
+		if c.tx != nil {
+			result, err = c.tx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferID)
+		} else {
+			result, err = c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferID)
+		}
+	default:
+		return errs.New("Unsupported database %t", t)
 	}
+
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -110,7 +116,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 	return nil
 }
 
-// UpdateEarnedCredits updates user credits after
+// UpdateEarnedCredits updates user credits after user activated their account
 func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID) error {
 	var statement string
 
