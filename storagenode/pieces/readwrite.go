@@ -18,22 +18,39 @@ import (
 )
 
 const (
-	// V1PieceHeaderSize is the size of the piece header used by piece storage format 1 (.sj1).
-	// It includes the size of the framing field (v1PieceHeaderFrameSize). It has a constant
-	// size because:
+	// V1PieceHeaderReservedArea is the amount of space to be reserved at the beginning of
+	// pieces stored with storage.FormatV1 or greater. Serialized piece headers should be
+	// written into that space, and the remaining space afterward should be zeroes.
+	// V1PieceHeaderReservedArea includes the size of the framing field
+	// (v1PieceHeaderFrameSize). It has a constant size because:
 	//
-	//  * we do not anticipate needing more than this
-	//  * we will be able to sum up all space used by a satellite (or all satellites) without
-	//    opening and reading from each piece file
-	//  * this simplifies piece file writing (no need to precalculate the necessary header
-	//    size before writing)
+	//  * We do not anticipate needing more than this.
+	//  * We will be able to sum up all space used by a satellite (or all satellites) without
+	//    opening and reading from each piece file (stat() is faster than open()).
+	//  * This simplifies piece file writing (if we needed to know the exact header size
+	//    before writing, then we'd need to spool the entire contents of the piece somewhere
+	//    before we could calculate the hash and size). This way, we can simply reserve the
+	//    header space, write the piece content as it comes in, and then seek back to the
+	//    beginning and fill in the header.
+	//
+	// We put it at the beginning of piece files because:
+	//
+	//  * If we put it at the end instead, we would have to seek to the end of a file (to find
+	//    out the real size while avoiding race conditions with stat()) and then seek backward
+	//    again to get the header, and then seek back to the beginning to get the content.
+	//    Seeking on spinning platter hard drives is very slow compared to reading sequential
+	//    bytes.
+	//  * Putting the header in the middle of piece files might be entertaining, but it would
+	//    also be silly.
+	//  * If piece files are incorrectly truncated or not completely written, it will be
+	//    much easier to identify those cases when the header is intact and findable.
 	//
 	// If more space than this is needed, we will need to use a new storage format version.
-	V1PieceHeaderSize = 512
+	V1PieceHeaderReservedArea = 512
 
 	// v1PieceHeaderFramingSize is the size of the field used at the beginning of piece
-	// files to indicate the size of the piece header (because protobufs are not self-
-	// delimiting, which is lame).
+	// files to indicate the size of the marshaled piece header within the reserved header
+	// area (because protobufs are not self-delimiting, which is lame).
 	v1PieceHeaderFramingSize = 2
 )
 
@@ -101,7 +118,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	if err != nil {
 		return err
 	}
-	if len(headerBytes) > (V1PieceHeaderSize - v1PieceHeaderFramingSize) {
+	if len(headerBytes) > (V1PieceHeaderReservedArea - v1PieceHeaderFramingSize) {
 		// This should never happen under normal circumstances, and it might deserve a panic(),
 		// but I'm not *entirely* sure this case can't be triggered by a malicious uplink. Are
 		// google.protobuf.Timestamp fields variable-width?
@@ -114,14 +131,23 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	if _, err := w.blob.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
+
+	// We need to store some "framing" bytes first, because protobufs are not self-delimiting.
+	// In cases where the serialized pieceHeader is not exactly V1PieceHeaderReservedArea bytes
+	// (probably _all_ cases), without this marker, we wouldn't have any way to take the
+	// V1PieceHeaderReservedArea bytes from a piece blob and trim off the right number of zeroes
+	// at the end so that the protobuf unmarshals correctly.
 	var framingBytes [v1PieceHeaderFramingSize]byte
 	binary.BigEndian.PutUint16(framingBytes[:], uint16(len(headerBytes)))
 	if _, err = w.blob.Write(framingBytes[:]); err != nil {
 		return Error.New("failed writing piece framing field at file start: %v", err)
 	}
+
+	// Now write the serialized header bytes.
 	if _, err = w.blob.Write(headerBytes); err != nil {
 		return Error.New("failed writing piece header at file start: %v", err)
 	}
+
 	// seek back to the end, as blob.Commit will truncate from the current file position.
 	// (don't try to seek(0, io.SeekEnd), because dir.CreateTemporaryFile preallocs space
 	// and the actual end of the file might be far past the intended end of the piece.)
@@ -157,14 +183,17 @@ func NewReader(blob storage.BlobReader) (*Reader, error) {
 		return nil, Error.Wrap(err)
 	}
 	formatVersion := blob.GetStorageFormatVersion()
-	if formatVersion >= storage.FormatV1 && size < V1PieceHeaderSize {
-		return nil, Error.New("invalid piece file for storage format version %d: too small for header (%d < %d)", formatVersion, size, V1PieceHeaderSize)
+	if formatVersion >= storage.FormatV1 {
+		if size < V1PieceHeaderReservedArea {
+			return nil, Error.New("invalid piece file for storage format version %d: too small for header (%d < %d)", formatVersion, size, V1PieceHeaderReservedArea)
+		}
+		size -= V1PieceHeaderReservedArea
 	}
 
 	reader := &Reader{
 		formatVersion: formatVersion,
 		blob:          blob,
-		size:          size - V1PieceHeaderSize,
+		size:          size,
 	}
 	return reader, nil
 }
@@ -184,7 +213,11 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	if r.pos != 0 {
 		return nil, Error.New("GetPieceHeader called when not at the beginning of the blob stream")
 	}
-	var headerBytes [V1PieceHeaderSize]byte
+	// We need to read the size of the serialized header protobuf before we read the header
+	// itself. The headers aren't a constant size, although V1PieceHeaderReservedArea is
+	// constant. Without this marker, we wouldn't have any way to know how much of the
+	// reserved header area is supposed to make up the serialized header protobuf.
+	var headerBytes [V1PieceHeaderReservedArea]byte
 	framingBytes := headerBytes[:v1PieceHeaderFramingSize]
 	n, err := r.blob.Read(framingBytes)
 	if err != nil {
@@ -195,15 +228,19 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	}
 	r.pos += int64(n)
 	headerSize := binary.BigEndian.Uint16(framingBytes)
-	if headerSize > (V1PieceHeaderSize - v1PieceHeaderFramingSize) {
+	if headerSize > (V1PieceHeaderReservedArea - v1PieceHeaderFramingSize) {
 		return nil, Error.New("PieceHeader framing field claims impossible size of %d bytes", headerSize)
 	}
+
+	// Now we can read the actual serialized header.
 	pieceHeaderBytes := headerBytes[v1PieceHeaderFramingSize : v1PieceHeaderFramingSize+headerSize]
 	n, err = r.blob.Read(pieceHeaderBytes)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	r.pos += int64(n)
+
+	// Deserialize and return.
 	header := &pb.PieceHeader{}
 	if err := proto.Unmarshal(pieceHeaderBytes, header); err != nil {
 		return nil, Error.New("piece header: %v", err)
@@ -213,7 +250,7 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 
 // Read reads data from the underlying blob, buffering as necessary.
 func (r *Reader) Read(data []byte) (int, error) {
-	if r.formatVersion >= storage.FormatV1 && r.pos < V1PieceHeaderSize {
+	if r.formatVersion >= storage.FormatV1 && r.pos < V1PieceHeaderReservedArea {
 		// should only be necessary once per reader. or zero times, if GetPieceHeader is used
 		if _, err := r.Seek(0, io.SeekStart); err != nil {
 			return 0, Error.Wrap(err)
@@ -230,7 +267,7 @@ func (r *Reader) Read(data []byte) (int, error) {
 // Seek seeks to the specified location within the piece content (ignoring the header).
 func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 	if whence == io.SeekStart && r.formatVersion >= storage.FormatV1 {
-		offset += V1PieceHeaderSize
+		offset += V1PieceHeaderReservedArea
 	}
 	if whence == io.SeekStart && r.pos == offset {
 		return r.pos, nil
@@ -239,11 +276,11 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 	pos, err := r.blob.Seek(offset, whence)
 	r.pos = pos
 	if r.formatVersion >= storage.FormatV1 {
-		if pos < V1PieceHeaderSize {
+		if pos < V1PieceHeaderReservedArea {
 			// any position within the file header should show as 0 here
 			pos = 0
 		} else {
-			pos -= V1PieceHeaderSize
+			pos -= V1PieceHeaderReservedArea
 		}
 	}
 	if err == io.EOF {
@@ -255,7 +292,7 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 // ReadAt reads data at the specified offset
 func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
 	if r.formatVersion >= storage.FormatV1 {
-		offset += V1PieceHeaderSize
+		offset += V1PieceHeaderReservedArea
 	}
 	n, err := r.blob.ReadAt(data, offset)
 	if err == io.EOF {

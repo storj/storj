@@ -86,7 +86,10 @@ func (dir *Dir) DeleteTemporary(ctx context.Context, file *os.File) (err error) 
 	return errs.Combine(closeErr, os.Remove(file.Name()))
 }
 
-// blobToBasePath converts blob reference to a filepath in permanent storage
+// blobToBasePath converts a blob reference to a filepath in permanent storage. This may not be the
+// entire path; blobPathForFormatVersion() must also be used. This is a separate call because this
+// part of the filepath is constant, and blobPathForFormatVersion may need to be called multiple
+// times with different storage.FormatVersion values.
 func (dir *Dir) blobToBasePath(ref storage.BlobRef) (string, error) {
 	if !ref.IsValid() {
 		return "", storage.ErrInvalidBlobRef.New("")
@@ -113,8 +116,9 @@ func blobPathForFormatVersion(path string, formatVersion storage.FormatVersion) 
 	return path + unknownPieceFileSuffix
 }
 
-// blobToTrashPath converts blob reference to a filepath in transient storage
-// the files in trash are deleted in an interval (in case the initial deletion didn't work for some reason)
+// blobToTrashPath converts a blob reference to a filepath in transient storage.
+// The files in trash are deleted on an interval (in case the initial deletion didn't work for
+// some reason).
 func (dir *Dir) blobToTrashPath(ref storage.BlobRef) string {
 	var name []byte
 	name = append(name, ref.Namespace...)
@@ -122,7 +126,7 @@ func (dir *Dir) blobToTrashPath(ref storage.BlobRef) string {
 	return filepath.Join(dir.garbagedir(), pathEncoding.EncodeToString(name))
 }
 
-// Commit commits temporary file to the permanent storage
+// Commit commits the temporary file to permanent storage.
 func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef, formatVersion storage.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	position, seekErr := file.Seek(0, io.SeekCurrent)
@@ -162,7 +166,10 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef, 
 	return nil
 }
 
-// Open opens the file with the specified ref
+// Open opens the file with the specified ref. It may need to check in more than one location in
+// order to find the blob, if it was stored with an older version of the storage node software.
+// In cases where the storage format version of a blob is already known, OpenSpecific() might be
+// a better choice.
 func (dir *Dir) Open(ctx context.Context, ref storage.BlobRef) (_ *os.File, _ storage.FormatVersion, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
@@ -201,7 +208,10 @@ func (dir *Dir) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, forma
 	return nil, Error.New("unable to open %q: %v", vPath, err)
 }
 
-// Lookup looks up disk metadata on the blob file
+// Lookup looks up disk metadata on the blob file. It may need to check in more than one location
+// in order to find the blob, if it was stored with an older version of the storage node software.
+// In cases where the storage format version of a blob is already known, LookupSpecific() might be
+// a better choice.
 func (dir *Dir) Lookup(ctx context.Context, ref storage.BlobRef) (_ storage.StoredBlobAccess, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
@@ -240,7 +250,7 @@ func (dir *Dir) LookupSpecific(ctx context.Context, ref storage.BlobRef, formatV
 	return nil, Error.New("unable to stat %q: %v", vPath, err)
 }
 
-// Delete deletes file with the specified ref
+// Delete deletes blobs with the specified ref (in all supported storage formats).
 func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	pathBase, err := dir.blobToBasePath(ref)
@@ -306,7 +316,7 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	return combinedErrors
 }
 
-// GarbageCollect collects files that are pending deletion
+// GarbageCollect collects files that are pending deletion.
 func (dir *Dir) GarbageCollect(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	offset := int(math.MaxInt32)

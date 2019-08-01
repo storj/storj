@@ -123,7 +123,18 @@ type Store struct {
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
 
+	// The value of reservedSpace is always added to the return value from the
+	// SpaceUsedForPieces() method.
+	// The reservedSpace field is part of an unfortunate hack that enables testing of low-space
+	// or no-space conditions. It is not (or should not be) used under regular operating
+	// conditions.
 	reservedSpace int64
+}
+
+// StoreForTest is a wrapper around Store to be used only in test scenarios. It enables writing
+// pieces with older storage formats and allows use of the ReserveSpace() method.
+type StoreForTest struct {
+	*Store
 }
 
 // NewStore creates a new piece store
@@ -274,6 +285,9 @@ func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when 
 // SpaceUsedForPieces returns the disk space used by all local pieces (both V0 and later).
 // Important note: this metric does not include space used by piece headers, whereas
 // storj/filestore/store.(*Store).SpaceUsed() includes all space used by the blobs.
+//
+// The value of reservedSpace for this Store is added to the result, but this should only
+// affect tests (reservedSpace should always be 0 in real usage).
 func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
 	satellites, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
@@ -329,9 +343,9 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 
 // ReserveSpace marks some amount of free space as used, even if it's not, so that future calls
 // to SpaceUsedForPieces() are raised by this amount. Calls to ReserveSpace invalidate earlier
-// calls, so ReserveSpace(0) undoes all prior space reservation. This may only be useful for test
-// scenarios.
-func (store *Store) ReserveSpace(amount int64) {
+// calls, so ReserveSpace(0) undoes all prior space reservation. This should only be used in
+// test scenarios.
+func (store StoreForTest) ReserveSpace(amount int64) {
 	store.reservedSpace = amount
 }
 
@@ -391,7 +405,7 @@ func (access storedPieceAccess) ContentSize(ctx context.Context) (size int64, er
 	}
 	size = stat.Size()
 	if access.StorageFormatVersion() >= storage.FormatV1 {
-		size -= V1PieceHeaderSize
+		size -= V1PieceHeaderReservedArea
 	}
 	return size, nil
 }
