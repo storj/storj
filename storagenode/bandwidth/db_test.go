@@ -116,7 +116,7 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 
-		y, m, _ := time.Now().Date()
+		y, m, _ := time.Now().UTC().Date()
 		// Last second of the previous month
 		previousMonth := time.Date(y, m, 0, 23, 59, 59, 0, time.Now().UTC().Location())
 
