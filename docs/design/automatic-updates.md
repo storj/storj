@@ -1,11 +1,11 @@
 
-#Storage Node automatic updates DesignDocument
+# Storage Node automatic updates DesignDocument
 
-##OVERVIEW
+## Overview
 
 As more Storage Node Operators join the network we must ensure these nodes have a mechanism to automatically keep their nodes software up to date. If a Storage Node Operator fails to keep their node up to date with the minimum version required by satellites they will no longer be selected for upload or download requests.
 
-##GOALS
+## Goals
 
 Create an automatic update system into the Storage Node software so that node operators do not have to worry about updating their nodes.
 Keep the Storage Nodes on the network up to date with the latest software to improve stability and performance. 
@@ -14,20 +14,20 @@ Concerns
 A majority or substantial amount of nodes update their software at the same time causing instability in the network or temporary file lose.
 We must ensure the automatic update system we build into the Storage nodes works on ALL OS we support.
 
-##SCENARIOS
+## Scenarios
 
 
-##DESIGN OVERVIEW
+## Design Overview
 
 When starting a storj node:
-Main process starts an updater service which starts a (12 hour?) interval loop
-Updater service spawns a storj node process 
-Updater service Interval checks the current storj node version and compares with the version server ("https://version.alpha.storj.io/") 
-Updater service Downloads the Binary for the minimum version returned from the version server
-Updater service sends a message through a channel to storj node process to kill it
-Updater service spawns a new storj node process
+* Main process starts an updater service which starts a (12 hour?) interval loop
+* Updater service spawns a storj node process 
+* Updater service Interval checks the current storj node version and compares with the version server ("https://version.alpha.storj.io/") 
+* Updater service Downloads the Binary for the minimum version returned from the version server
+* Updater service sends a message through a channel to storj node process to kill it
+* Updater service spawns a new storj node process
 
-##IMPLEMENTATION MILESTONES
+## Implementation Milestones
 
 * Determine which libraries will be used for the binary downloading
   * https://github.com/rhysd/go-github-selfupdate
@@ -35,3 +35,4 @@ Updater service spawns a new storj node process
 * Create and start an updater service that runs on an interval loop
 * Implement rhysd/go-github-selfupdate 
 * Tests
+  
