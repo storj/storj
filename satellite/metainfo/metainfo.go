@@ -784,7 +784,7 @@ func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.
 func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.setBucketAttribution(ctx, req.Name, req.AttributionId)
+	err = endpoint.setBucketAttribution(ctx, req.Name, req.PartnerId)
 
 	return &pb.BucketSetAttributionResponse{}, err
 }
@@ -819,7 +819,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, bucketName [
 	}
 
 	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, bucketName, []byte{})
-	if err != nil {
+	if err != nil { 
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
