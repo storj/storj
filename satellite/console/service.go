@@ -1338,6 +1338,7 @@ func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectI
 	defer mon.Task()(&ctx)(&err)
 	project, err := s.store.Projects().Get(ctx, projectID)
 	if err != nil {
+		s.log.Error("internal error", zap.Error(err))
 		return errs.New(internalErrMsg)
 	}
 

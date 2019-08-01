@@ -1070,17 +1070,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
                     DELETE FROM projects WHERE id NOT IN (
                         SELECT project_id
                             FROM project_members
-                                LEFT OUTER JOIN projects
-                                    ON projects.id = project_members.project_id);
+                                GROUP BY (project_id));
 
-					UPDATE projects as proj
+                    UPDATE projects as proj
                         SET owner_id =
                             (SELECT member_id
                                 FROM project_members
                                     WHERE project_id = proj.id
-                                        GROUP BY member_id    
-                                            ORDER BY MAX(created_at) ASC
-                                                LIMIT 1);
+                                        ORDER BY created_at ASC
+                                            LIMIT 1);
 
 					ALTER TABLE projects
 					    ALTER COLUMN owner_id SET NOT NULL;`,
