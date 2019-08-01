@@ -151,7 +151,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 
 	missingPieces, err := checker.nodestate.MissingPieces(ctx, pointer.CreationDate, pieces)
 	if err != nil {
-		return Error.New("error getting missing pieces %s", err)
+		return errs.Combine(Error.New("error getting missing pieces"), err)
 	}
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
@@ -175,7 +175,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 			InsertedTime: time.Now().UTC(),
 		})
 		if err != nil {
-			return Error.New("error adding injured segment to queue %s", err)
+			return errs.Combine(Error.New("error adding injured segment to queue"), err)
 		}
 
 		// delete always returns nil when something was deleted and also when element didn't exists
@@ -199,7 +199,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		// add the entry if new or update attempt count if already exists
 		err := checker.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
 		if err != nil {
-			return Error.New("error handling irreparable segment to queue %s", err)
+			return errs.Combine(Error.New("error handling irreparable segment to queue"), err)
 		}
 	}
 	return nil
@@ -228,7 +228,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 
 	missingPieces, err := obs.nodestate.MissingPieces(ctx, pointer.CreationDate, pieces)
 	if err != nil {
-		return Error.New("error getting missing pieces %s", err)
+		return errs.Combine(Error.New("error getting missing pieces"), err)
 	}
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
@@ -326,7 +326,7 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	for {
 		segments, err := checker.irrdb.GetLimited(ctx, limit, lastSeenSegmentPath)
 		if err != nil {
-			return Error.New("error reading segment from the queue %s", err)
+			return errs.Combine(Error.New("error reading segment from the queue"), err)
 		}
 
 		// zero segments returned with nil err
