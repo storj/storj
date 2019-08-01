@@ -18,7 +18,8 @@ import (
 )
 
 var IgnorePackages = []string{
-	"storj.io/storj/pkg/kademlia",
+	// Currently overlay contains NodeDossier which is used in multiple places.
+	"storj.io/storj/satellite/overlay",
 }
 
 var Libraries = []string{
@@ -35,6 +36,9 @@ var Peers = []string{
 	"storj.io/storj/bootstrap/...",
 	"storj.io/storj/versioncontrol/...",
 	"storj.io/storj/linksharing/...",
+}
+
+var Cmds = []string{
 	"storj.io/storj/cmd/...",
 }
 
@@ -62,9 +66,10 @@ func main() {
 
 	exitcode := 0
 
+	// libraries shouldn't depend on peers nor commands
 	for _, library := range Libraries {
 		source := match(pkgs, library)
-		for _, peer := range Peers {
+		for _, peer := range include(Cmds, Peers) {
 			destination := match(pkgs, peer)
 			if links(source, destination) {
 				fmt.Fprintf(os.Stdout, "%q is importing %q\n", library, peer)
@@ -73,7 +78,44 @@ func main() {
 		}
 	}
 
+	// peer code shouldn't depend on command code
+	for _, peer := range Peers {
+		source := match(pkgs, peer)
+		for _, cmd := range Cmds {
+			destination := match(pkgs, cmd)
+			if links(source, destination) {
+				fmt.Fprintf(os.Stdout, "%q is importing %q\n", peer, cmd)
+				exitcode = 1
+			}
+		}
+	}
+
+	// one peer shouldn't depend on another peers
+	for _, peerA := range Peers {
+		source := match(pkgs, peerA)
+		for _, peerB := range Peers {
+			// ignore subpackages
+			if strings.HasPrefix(peerA, peerB) || strings.HasPrefix(peerB, peerA) {
+				continue
+			}
+
+			destination := match(pkgs, peerB)
+			if links(source, destination) {
+				fmt.Fprintf(os.Stdout, "%q is importing %q\n", peerA, peerB)
+				exitcode = 1
+			}
+		}
+	}
+
 	os.Exit(exitcode)
+}
+
+func include(globlists ...[]string) []string {
+	var xs []string
+	for _, globs := range globlists {
+		xs = append(xs, globs...)
+	}
+	return xs
 }
 
 func match(pkgs []*packages.Package, globs ...string) []*packages.Package {
@@ -95,6 +137,9 @@ func match(pkgs []*packages.Package, globs ...string) []*packages.Package {
 func links(source, destination []*packages.Package) bool {
 	targets := map[string]bool{}
 	for _, dst := range destination {
+		if ignorePkg(dst) {
+			continue
+		}
 		targets[dst.PkgPath] = true
 	}
 
@@ -116,17 +161,20 @@ func links(source, destination []*packages.Package) bool {
 		}
 	}
 
-nextSource:
 	for _, pkg := range source {
-		for _, ignorePkg := range IgnorePackages {
-			if strings.HasPrefix(pkg.PkgPath, ignorePkg) {
-				continue nextSource
-			}
-		}
 		visit(pkg, nil)
 	}
 
 	return links
+}
+
+func ignorePkg(pkg *packages.Package) bool {
+	for _, ignorePkg := range IgnorePackages {
+		if strings.HasPrefix(pkg.PkgPath, ignorePkg) {
+			return true
+		}
+	}
+	return false
 }
 
 func flatten(pkgs []*packages.Package) []*packages.Package {
