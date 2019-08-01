@@ -323,8 +323,10 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	tryOpeningABlob(ctx, t, store, v1Ref, len(data), storage.FormatV1)
 
 	// write a V1 blob with the same ID as the V0 blob (to simulate it being rewritten as
-	// V1 during a migration)
-	differentData := append(data, 255, 24)
+	// V1 during a migration), with different data so we can distinguish them
+	differentData := make([]byte, len(data)+2)
+	copy(differentData, data)
+	copy(differentData[len(data):], "\xff\x00")
 	writeABlob(ctx, t, store, v0Ref, differentData, storage.FormatV1)
 
 	// if we try to access the blob at that key, we should see only the V1 blob
@@ -332,6 +334,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 
 	// unless we ask specifically for a V0 blob
 	blobAccess, err := store.LookupSpecific(ctx, v0Ref, storage.FormatV0)
+	require.NoError(t, err)
 	verifyBlobAccess(ctx, t, blobAccess, len(data), storage.FormatV0)
 	reader, err := store.OpenSpecific(ctx, blobAccess.BlobRef(), blobAccess.StorageFormatVersion())
 	require.NoError(t, err)
@@ -358,9 +361,8 @@ func TestStoreSpaceUsed(t *testing.T) {
 	ctx.Check(store.Close)
 
 	var (
-		namespaceBase  = testrand.Bytes(namespaceSize - 1)
-		namespace      = append(namespaceBase, 0)
-		otherNamespace = append(namespaceBase, 1)
+		namespace      = testrand.Bytes(namespaceSize)
+		otherNamespace = testrand.Bytes(namespaceSize)
 		sizesToStore   = []memory.Size{4093, 0, 512, 1, memory.MB}
 	)
 
@@ -416,9 +418,12 @@ func TestStoreTraversals(t *testing.T) {
 	const numNamespaces = 4
 	recordsToInsert := make([]namespaceWithBlobs, numNamespaces)
 
-	var namespaceBase = testrand.Bytes(namespaceSize - 1)
+	var namespaceBase = testrand.Bytes(namespaceSize)
 	for i := range recordsToInsert {
-		recordsToInsert[i].namespace = append(namespaceBase, byte(i))
+		// give each namespace a similar ID but modified in the last byte to distinguish
+		recordsToInsert[i].namespace = make([]byte, len(namespaceBase))
+		copy(recordsToInsert[i].namespace, namespaceBase)
+		recordsToInsert[i].namespace[len(namespaceBase)-1] = byte(i)
 
 		// put varying numbers of blobs in the namespaces
 		recordsToInsert[i].blobs = make([]storage.BlobRef, i+1)
@@ -452,6 +457,10 @@ func TestStoreTraversals(t *testing.T) {
 
 	// test ForAllKeysInNamespace
 	for _, expected := range recordsToInsert {
+		// this isn't strictly necessary, since the function closure below is not persisted
+		// past the end of a loop iteration, but this keeps the linter from complaining.
+		expected := expected
+
 		// keep track of which blobs we visit with ForAllKeysInNamespace
 		found := make([]bool, len(expected.blobs))
 
@@ -494,7 +503,8 @@ func TestStoreTraversals(t *testing.T) {
 	}
 
 	// test ForAllKeysInNamespace on a nonexistent namespace also
-	err = store.ForAllKeysInNamespace(ctx, append(namespaceBase, byte(numNamespaces)), func(access storage.StoredBlobAccess) error {
+	namespaceBase[len(namespaceBase)-1] = byte(numNamespaces)
+	err = store.ForAllKeysInNamespace(ctx, namespaceBase, func(access storage.StoredBlobAccess) error {
 		t.Fatal("this should not have been called")
 		return nil
 	})
