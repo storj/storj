@@ -17,7 +17,7 @@ import (
 // Cycle control methods PANICS after Close has been called and don't have any
 // effect after Stop has been called.
 //
-// Start or Run (only of of them, not both) must be only called once.
+// Start or Run (only one of them, not both) must be only called once.
 type Cycle struct {
 	stopsent int32
 	runexec  int32
