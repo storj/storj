@@ -144,6 +144,13 @@ func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (crypt
 	return m.db.GetPublicKey(ctx, a1)
 }
 
+// GetPublicKey gets the public keys of a storagenode corresponding to storagenode id
+func (m *lockedCertDB) GetPublicKeys(ctx context.Context, nodeID storj.NodeID) (pubkeys []crypto.PublicKey, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetPublicKeys(ctx, nodeID)
+}
+
 // SavePublicKey adds a new bandwidth agreement.
 func (m *lockedCertDB) SavePublicKey(ctx context.Context, a1 storj.NodeID, a2 crypto.PublicKey) error {
 	m.Lock()
@@ -864,6 +871,13 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
+// BatchUpdateStats updates multiple storagenode's stats in one transaction
+func (m *lockedOverlayCache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.BatchUpdateStats(ctx, updateRequests, batchSize)
+}
+
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
@@ -941,13 +955,6 @@ func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.Node
 	return m.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
-// BatchUpdateStats updates multiple storagenode's stats in one transaction
-func (m *lockedOverlayCache) BatchUpdateStats(ctx context.Context, request []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.BatchUpdateStats(ctx, request, batchSize)
-}
-
 // UpdateStats all parts of single storagenode's stats.
 func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
 	m.Lock()
@@ -1023,6 +1030,13 @@ type lockedRepairQueue struct {
 	db queue.RepairQueue
 }
 
+// Count counts the number of segments in the repair queue.
+func (m *lockedRepairQueue) Count(ctx context.Context) (count int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Count(ctx)
+}
+
 // Delete removes an injured segment.
 func (m *lockedRepairQueue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
@@ -1049,13 +1063,6 @@ func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.Injure
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectN(ctx, limit)
-}
-
-// Count counts the number of segments in the repair queue.
-func (m *lockedRepairQueue) Count(ctx context.Context) (int, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Count(ctx)
 }
 
 // returns database for marketing admin GUI

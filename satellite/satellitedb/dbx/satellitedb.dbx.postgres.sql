@@ -59,7 +59,7 @@ CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
 	id bytea NOT NULL,
 	update_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( publickey )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
