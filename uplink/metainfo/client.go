@@ -49,12 +49,11 @@ func New(client pb.MetainfoClient) *Client {
 }
 
 // Dial dials to metainfo endpoint with the specified api key.
-func Dial(ctx context.Context, tc transport.Client, address string, apiKey string) (*Client, error) {
-	apiKeyInjector := grpcauth.NewAPIKeyInjector(apiKey)
+func Dial(ctx context.Context, tc transport.Client, address string, apikey string) (*Client, error) {
 	conn, err := tc.DialAddress(
 		ctx,
 		address,
-		grpc.WithUnaryInterceptor(apiKeyInjector),
+		grpc.WithPerRPCCredentials(grpcauth.NewAPIKeyCredentials(apikey)),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)

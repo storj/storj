@@ -23,7 +23,7 @@ type Config struct {
 }
 
 // Run will run the given responsibilities with the configured identity.
-func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
+func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	opts, err := tlsopts.NewOptions(identity, sc.Config)
@@ -32,7 +32,7 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	}
 	defer func() { err = errs.Combine(err, opts.RevDB.Close()) }()
 
-	server, err := New(opts, sc.Address, sc.PrivateAddress, interceptor, services...)
+	server, err := New(log.Named("server"), opts, sc.Address, sc.PrivateAddress, interceptor, services...)
 	if err != nil {
 		return err
 	}
@@ -40,10 +40,10 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	go func() {
 		<-ctx.Done()
 		if closeErr := server.Close(); closeErr != nil {
-			zap.S().Errorf("Failed to close server: %s", closeErr)
+			log.Sugar().Errorf("Failed to close server: %s", closeErr)
 		}
 	}()
 
-	zap.S().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
+	log.Sugar().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
 	return server.Run(ctx)
 }

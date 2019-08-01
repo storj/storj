@@ -98,7 +98,7 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 
 // GetProject returns a *libuplink.Project for interacting with a specific project
 func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
-	err := version.CheckProcessVersion(ctx, cliCfg.Version, version.Build, "Uplink")
+	err := version.CheckProcessVersion(ctx, zap.L(), cliCfg.Version, version.Build, "Uplink")
 	if err != nil {
 		return nil, err
 	}

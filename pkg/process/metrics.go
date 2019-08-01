@@ -42,7 +42,7 @@ func flagDefault(dev, release string) string {
 
 // InitMetrics initializes telemetry reporting. Makes a telemetry.Client and calls
 // its Run() method in a goroutine.
-func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (err error) {
+func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, instanceID string) (err error) {
 	if *metricCollector == "" || *metricInterval == 0 {
 		return Error.New("telemetry disabled")
 	}
@@ -56,7 +56,7 @@ func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (er
 	if len(instanceID) > maxInstanceLength {
 		instanceID = instanceID[:maxInstanceLength]
 	}
-	c, err := telemetry.NewClient(*metricCollector, telemetry.ClientOpts{
+	c, err := telemetry.NewClient(log, *metricCollector, telemetry.ClientOpts{
 		Interval:      *metricInterval,
 		Application:   *metricApp + *metricAppSuffix,
 		Instance:      instanceID,
@@ -75,14 +75,14 @@ func InitMetrics(ctx context.Context, r *monkit.Registry, instanceID string) (er
 
 // InitMetricsWithCertPath initializes telemetry reporting, using the node ID
 // corresponding to the given certificate as the telemetry instance ID.
-func InitMetricsWithCertPath(ctx context.Context, r *monkit.Registry, certPath string) error {
+func InitMetricsWithCertPath(ctx context.Context, log *zap.Logger, r *monkit.Registry, certPath string) error {
 	var metricsID string
 	nodeID, err := identity.NodeIDFromCertPath(certPath)
 	if err != nil {
-		zap.S().Errorf("Could not read identity for telemetry setup: %v", err)
+		log.Sugar().Errorf("Could not read identity for telemetry setup: %v", err)
 		metricsID = "" // InitMetrics() will fill in a default value
 	} else {
 		metricsID = nodeID.String()
 	}
-	return InitMetrics(ctx, r, metricsID)
+	return InitMetrics(ctx, log, r, metricsID)
 }
