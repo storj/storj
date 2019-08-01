@@ -427,6 +427,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
 			signing.SignerFromFullIdentity(peer.Identity),
+			peer.DB.CertDB(),
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)

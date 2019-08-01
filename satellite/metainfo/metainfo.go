@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
+	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -74,11 +75,13 @@ type Endpoint struct {
 	createRequests   *createRequests
 	requiredRSConfig RSConfig
 	satellite        signing.Signer
+	certdb           certdb.DB
 }
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo attribution.DB,
-	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
+	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer,
+	certdb certdb.DB) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:              log,
@@ -92,6 +95,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		createRequests:   newCreateRequests(),
 		requiredRSConfig: rsConfig,
 		satellite:        satellite,
+		certdb:           certdb,
 	}
 }
 

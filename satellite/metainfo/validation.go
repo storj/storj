@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 )
@@ -369,5 +370,20 @@ func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.Remot
 			return errs.New("piece hash PieceSize is larger than order limit, removing from pointer (%v > %v)", piece.Hash.PieceSize, limit.Limit)
 		}
 	}
+
+	publicKey, err := endpoint.certdb.GetPublicKey(ctx, piece.NodeId)
+	if err != nil {
+		return errs.New("could not retrieve certificate to verify piece hash")
+	}
+
+	signee := &signing.PublicKey {
+		Self: piece.NodeId,
+		Key:  publicKey,
+	}
+
+	if err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash); err != nil {
+		return errs.New("piece hash could not be verified with signature")
+	}
+
 	return nil
 }
