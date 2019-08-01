@@ -129,5 +129,6 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 var rxPostgresForeignKey = regexp.MustCompile(
 	`^FOREIGN KEY \([[:word:]]+\) ` +
 		`REFERENCES ([[:word:]]+)\(([[:word:]]+)\)` +
-		`(?:\s*ON (DELETE|UPDATE) (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION))*$`,
+		`(?:\s*ON UPDATE (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION))?` +
+		`(?:\s*ON DELETE (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION))?$`,
 )
