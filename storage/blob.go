@@ -87,9 +87,9 @@ type Blobs interface {
 	Create(ctx context.Context, ref BlobRef, size int64) (BlobWriter, error)
 	// Open opens a reader with the specified namespace and key
 	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
-	// OpenLocated opens a reader for the already-located blob, avoiding the potential need
+	// OpenSpecific opens a reader for the already-located blob, avoiding the potential need
 	// to check multiple storage formats to find the blob.
-	OpenLocated(ctx context.Context, access StoredBlobAccess) (_ BlobReader, err error)
+	OpenSpecific(ctx context.Context, ref BlobRef, formatVer FormatVersion) (_ BlobReader, err error)
 	// Delete deletes the blob with the namespace and key
 	Delete(ctx context.Context, ref BlobRef) error
 	// Lookup looks up disk metadata on the blob file

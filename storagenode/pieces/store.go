@@ -169,11 +169,12 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 	return reader, Error.Wrap(err)
 }
 
-// readerLocated returns a new piece reader for a located piece, which avoids the potential
+// ReaderSpecific returns a new piece reader for a located piece, which avoids the potential
 // need to check multiple storage formats to find the right blob.
-func (store *Store) readerLocated(ctx context.Context, pieceAccess StoredPieceAccess) (_ *Reader, err error) {
+func (store *Store) ReaderSpecific(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
-	blob, err := store.blobs.OpenLocated(ctx, pieceAccess)
+	ref := storage.BlobRef{Namespace: satellite.Bytes(), Key: pieceID.Bytes()}
+	blob, err := store.blobs.OpenSpecific(ctx, ref, formatVersion)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, err
@@ -400,7 +401,11 @@ func (access storedPieceAccess) ContentSize(ctx context.Context) (size int64, er
 // header. If exact precision is not required, ModTime() may be a better solution.
 func (access storedPieceAccess) CreationTime(ctx context.Context) (cTime time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
-	reader, err := access.store.readerLocated(ctx, access)
+	satellite, err := access.Satellite()
+	if err != nil {
+		return time.Time{}, err
+	}
+	reader, err := access.store.ReaderSpecific(ctx, satellite, access.PieceID(), access.StorageFormatVersion())
 	if err != nil {
 		return time.Time{}, err
 	}

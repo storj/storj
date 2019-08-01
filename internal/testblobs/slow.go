@@ -71,11 +71,11 @@ func (slow *SlowBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.B
 	return slow.blobs.Open(ctx, ref)
 }
 
-// OpenLocated opens a reader for the already-located blob, avoiding the potential need
+// OpenSpecific opens a reader for the already-located blob, avoiding the potential need
 // to check multiple storage formats to find the blob.
-func (slow *SlowBlobs) OpenLocated(ctx context.Context, access storage.StoredBlobAccess) (storage.BlobReader, error) {
+func (slow *SlowBlobs) OpenSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobReader, error) {
 	slow.sleep()
-	return slow.blobs.OpenLocated(ctx, access)
+	return slow.blobs.OpenSpecific(ctx, ref, formatVer)
 }
 
 // Delete deletes the blob with the namespace and key.

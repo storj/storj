@@ -59,18 +59,18 @@ func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (_ storage.Bl
 	return newBlobReader(file, formatVer), nil
 }
 
-// OpenLocated loads the already-located blob, avoiding the potential need to check multiple
+// OpenSpecific loads the already-located blob, avoiding the potential need to check multiple
 // storage formats to find the blob.
-func (store *Store) OpenLocated(ctx context.Context, access storage.StoredBlobAccess) (_ storage.BlobReader, err error) {
+func (store *Store) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobReader, err error) {
 	defer mon.Task()(&ctx)(&err)
-	file, err := store.dir.OpenLocated(ctx, access)
+	file, err := store.dir.OpenSpecific(ctx, blobRef, formatVer)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, err
 		}
 		return nil, Error.Wrap(err)
 	}
-	return newBlobReader(file, access.StorageFormatVersion()), nil
+	return newBlobReader(file, formatVer), nil
 }
 
 // Lookup looks up disk metadata on the blob file

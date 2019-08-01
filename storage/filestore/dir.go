@@ -182,15 +182,15 @@ func (dir *Dir) Open(ctx context.Context, ref storage.BlobRef) (_ *os.File, _ st
 	return nil, storage.FormatV0, os.ErrNotExist
 }
 
-// OpenLocated opens an already-located blob file according to the given StoredBlobAccess, which
+// OpenSpecific opens an already-located blob file with a known storage format version, which
 // avoids the potential need to search through multiple storage formats to find the blob.
-func (dir *Dir) OpenLocated(ctx context.Context, access storage.StoredBlobAccess) (_ *os.File, err error) {
+func (dir *Dir) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, formatVer storage.FormatVersion) (_ *os.File, err error) {
 	defer mon.Task()(&ctx)(&err)
-	path, err := dir.blobToBasePath(access.BlobRef())
+	path, err := dir.blobToBasePath(blobRef)
 	if err != nil {
 		return nil, err
 	}
-	vPath := blobPathForFormatVersion(path, access.StorageFormatVersion())
+	vPath := blobPathForFormatVersion(path, formatVer)
 	file, err := openFileReadOnly(vPath, blobPermission)
 	if err == nil {
 		return file, nil
