@@ -181,6 +181,7 @@ type StoreForTest struct {
 // CreateV0 creates a new V0 blob that can be written. This is only appropriate in test situations.
 func (testStore *StoreForTest) CreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	file, err := testStore.dir.CreateTemporaryFile(ctx, -1)
 	if err != nil {
 		return nil, Error.Wrap(err)
