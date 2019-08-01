@@ -256,14 +256,14 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 			InsertedTime: time.Now().UTC(),
 		})
 		if err != nil {
-			obs.log.Sugar().Errorf("error adding injured segment to queue %s", err)
+			obs.log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil
 		}
 
 		// delete always returns nil when something was deleted and also when element didn't exists
 		err = obs.irrdb.Delete(ctx, []byte(path))
 		if err != nil {
-			obs.log.Sugar().Errorf("error deleting entry from irreparable db: ", zap.Error(err))
+			obs.log.Error("error deleting entry from irreparable db", zap.Error(err))
 			return nil
 		}
 		// we need one additional piece for error correction. If only the minimum is remaining the file can't be repaired and is lost.
@@ -295,7 +295,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 		// add the entry if new or update attempt count if already exists
 		err := obs.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
 		if err != nil {
-			obs.log.Sugar().Errorf("error handling irreparable segment to queue %s", err)
+			obs.log.Error("error handling irreparable segment to queue", zap.Error(err))
 			return nil
 		}
 	}
