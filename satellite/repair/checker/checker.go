@@ -46,30 +46,29 @@ type durabilityStats struct {
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	metainfo        *metainfo.Service
-	lastChecked     string
-	repairQueue     queue.RepairQueue
-	nodestate       *ReliabilityCache
-	irrdb           irreparable.DB
 	logger          *zap.Logger
+	repairQueue     queue.RepairQueue
+	irrdb           irreparable.DB
+	metainfo        *metainfo.Service
+	metaLoop        *metainfo.Loop
+	nodestate       *ReliabilityCache
 	Loop            sync2.Cycle
 	IrreparableLoop sync2.Cycle
-	metaLoop        *metainfo.Loop
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, metaLoop *metainfo.Loop, logger *zap.Logger, config Config) *Checker {
-	// TODO: reorder arguments
+func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metainfo *metainfo.Service, metaLoop *metainfo.Loop, overlay *overlay.Cache, config Config) *Checker {
 	return &Checker{
-		metainfo:        metainfo,
-		lastChecked:     "",
-		repairQueue:     repairQueue,
-		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
-		irrdb:           irrdb,
-		logger:          logger,
+		logger: logger,
+
+		repairQueue: repairQueue,
+		irrdb:       irrdb,
+		metainfo:    metainfo,
+		metaLoop:    metaLoop,
+		nodestate:   NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+
 		Loop:            *sync2.NewCycle(config.Interval),
 		IrreparableLoop: *sync2.NewCycle(config.IrreparableInterval),
-		metaLoop:        metaLoop,
 	}
 }
 
