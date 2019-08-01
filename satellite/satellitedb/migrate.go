@@ -1057,6 +1057,21 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						WHERE credits_earned_in_cents=0;`,
 				},
 			},
+			{
+				Description: "Add cascade to user_id for deleting an account",
+				Version:     49,
+				Action: migrate.SQL{
+					`ALTER TABLE user_credits DROP CONSTRAINT user_credits_referred_by_fkey;
+					ALTER TABLE user_credits ADD CONSTRAINT user_credits_referred_by_fkey
+						FOREIGN KEY (referred_by) REFERENCES users(id) ON DELETE SET NULL;
+					ALTER TABLE user_credits DROP CONSTRAINT user_credits_user_id_fkey;
+					ALTER TABLE user_credits ADD CONSTRAINT user_credits_user_id_fkey
+						FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+					ALTER TABLE user_credits ADD COLUMN type text;
+					UPDATE user_credits SET type='invalid';
+					ALTER TABLE user_credits ALTER COLUMN type SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }

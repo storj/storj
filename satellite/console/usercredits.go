@@ -24,12 +24,23 @@ type UserCredits interface {
 	UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error)
 }
 
+// CreditType indicates a type of a credit
+type CreditType string
+
+const (
+	// Invitee is a type of credits earned by invitee
+	Invitee CreditType = "invitee"
+	// Referrer is a type of credits earned by referrer
+	Referrer CreditType = "referrer"
+)
+
 // UserCredit holds information about an user's credit
 type UserCredit struct {
 	ID            int
 	UserID        uuid.UUID
 	OfferID       int
 	ReferredBy    *uuid.UUID
+	Type          CreditType
 	CreditsEarned currency.USD
 	CreditsUsed   currency.USD
 	ExpiresAt     time.Time
