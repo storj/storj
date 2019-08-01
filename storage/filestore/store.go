@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
@@ -137,7 +137,7 @@ func (store *Store) SpaceUsedInNamespace(ctx context.Context, namespace []byte) 
 	err := store.ForAllKeysInNamespace(ctx, namespace, func(access storage.StoredBlobAccess) error {
 		statInfo, statErr := access.Stat(ctx)
 		if statErr != nil {
-			store.log.Sugar().Errorf("failed to stat: %v", statErr)
+			store.log.Error("failed to stat blob", zap.Binary("namespace", namespace), zap.Binary("key", access.BlobRef().Key), zap.Error(statErr))
 			// keep iterating; we want a best effort total here.
 			return nil
 		}

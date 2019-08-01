@@ -56,9 +56,9 @@ const (
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
 type Writer struct {
-	hash     hash.Hash
-	blob     storage.BlobWriter
-	dataSize int64 // piece size only; i.e., not including piece header
+	hash      hash.Hash
+	blob      storage.BlobWriter
+	pieceSize int64 // piece size only; i.e., not including piece header
 
 	closed bool
 }
@@ -88,7 +88,7 @@ func NewWriter(blob storage.BlobWriter) (*Writer, error) {
 // Write writes data to the blob and calculates the hash.
 func (w *Writer) Write(data []byte) (int, error) {
 	n, err := w.blob.Write(data)
-	w.dataSize += int64(n)
+	w.pieceSize += int64(n)
 	_, _ = w.hash.Write(data[:n]) // guaranteed not to return an error
 	if err == io.EOF {
 		return n, err
@@ -98,7 +98,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 
 // Size returns the amount of data written to the piece so far, not including the size of
 // the piece header.
-func (w *Writer) Size() int64 { return w.dataSize }
+func (w *Writer) Size() int64 { return w.pieceSize }
 
 // Hash returns the hash of data written so far.
 func (w *Writer) Hash() []byte { return w.hash.Sum(nil) }

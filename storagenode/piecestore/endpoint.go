@@ -623,12 +623,18 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		}
 		pieceID := access.PieceID()
 		if !filter.Contains(pieceID) {
-			endpoint.log.Sugar().Debugf("About to delete piece id (%s) from satellite (%s). RetainStatus: %s", pieceID.String(), peer.ID.String(), endpoint.config.RetainStatus.String())
+			endpoint.log.Debug("About to delete piece id",
+				zap.String("satellite", peer.ID.String()),
+				zap.String("pieceID", pieceID.String()),
+				zap.String("retainStatus", endpoint.config.RetainStatus.String()))
 
 			// if retain status is enabled, delete pieceid
 			if endpoint.config.RetainStatus == RetainEnabled {
 				if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
-					endpoint.log.Error("failed to delete a piece", zap.Error(err))
+					endpoint.log.Error("failed to delete piece",
+						zap.String("satellite", peer.ID.String()),
+						zap.String("pieceID", pieceID.String()),
+						zap.Error(err))
 					return nil
 				}
 			}

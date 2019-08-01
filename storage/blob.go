@@ -89,7 +89,7 @@ type Blobs interface {
 	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
 	// OpenSpecific opens a reader for the already-located blob, avoiding the potential need
 	// to check multiple storage formats to find the blob.
-	OpenSpecific(ctx context.Context, ref BlobRef, formatVer FormatVersion) (_ BlobReader, err error)
+	OpenSpecific(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobReader, error)
 	// Delete deletes the blob with the namespace and key
 	Delete(ctx context.Context, ref BlobRef) error
 	// Lookup looks up disk metadata on the blob file
