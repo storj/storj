@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -366,14 +367,12 @@ func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) 
 
 // BeginObjectParams parmaters for BeginObject method
 type BeginObjectParams struct {
-	Bucket                 []byte
-	EncryptedPath          []byte
-	Version                int32
-	Redundancy             storj.RedundancyScheme
-	EncryptionParameters   storj.EncryptionParameters
-	ExpiresAt              time.Time
-	EncryptedMetadataNonce storj.Nonce
-	EncryptedMetadata      []byte
+	Bucket               []byte
+	EncryptedPath        []byte
+	Version              int32
+	Redundancy           storj.RedundancyScheme
+	EncryptionParameters storj.EncryptionParameters
+	ExpiresAt            time.Time
 }
 
 // BeginObject begins object creation
@@ -381,12 +380,10 @@ func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams)
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.BeginObject(ctx, &pb.ObjectBeginRequest{
-		Bucket:                 params.Bucket,
-		EncryptedPath:          params.EncryptedPath,
-		Version:                params.Version,
-		ExpiresAt:              params.ExpiresAt,
-		EncryptedMetadataNonce: params.EncryptedMetadataNonce,
-		EncryptedMetadata:      params.EncryptedMetadata,
+		Bucket:        params.Bucket,
+		EncryptedPath: params.EncryptedPath,
+		Version:       params.Version,
+		ExpiresAt:     params.ExpiresAt,
 		RedundancyScheme: &pb.RedundancyScheme{
 			Type:             pb.RedundancyScheme_SchemeType(params.Redundancy.Algorithm),
 			ErasureShareSize: params.Redundancy.ShareSize,
@@ -407,12 +404,22 @@ func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams)
 	return response.StreamId, nil
 }
 
+// CommitObjectParams parmaters for CommitObject method
+type CommitObjectParams struct {
+	StreamID storj.StreamID
+
+	EncryptedMetadataNonce storj.Nonce
+	EncryptedMetadata      []byte
+}
+
 // CommitObject commits created object
-func (client *Client) CommitObject(ctx context.Context, streamID storj.StreamID) (err error) {
+func (client *Client) CommitObject(ctx context.Context, params CommitObjectParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = client.client.CommitObject(ctx, &pb.ObjectCommitRequest{
-		StreamId: streamID,
+		StreamId:               params.StreamID,
+		EncryptedMetadataNonce: params.EncryptedMetadataNonce,
+		EncryptedMetadata:      params.EncryptedMetadata,
 	})
 	return Error.Wrap(err)
 }
@@ -425,7 +432,7 @@ type GetObjectParams struct {
 }
 
 // GetObject gets single object
-func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.Object, _ storj.StreamID, err error) {
+func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.GetObject(ctx, &pb.ObjectGetRequest{
@@ -433,21 +440,46 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 		EncryptedPath: params.EncryptedPath,
 		Version:       params.Version,
 	})
+
 	if err != nil {
-		return storj.Object{}, storj.StreamID{}, Error.Wrap(err)
+		if status.Code(err) == codes.NotFound {
+			return storj.ObjectInfo{}, storj.ErrObjectNotFound.Wrap(err)
+		}
+		return storj.ObjectInfo{}, Error.Wrap(err)
 	}
 
-	object := storj.Object{
-		Bucket: storj.Bucket{
-			Name: string(response.Object.Bucket),
+	object := storj.ObjectInfo{
+		Bucket: string(response.Object.Bucket),
+		Path:   storj.Path(response.Object.EncryptedPath),
+
+		StreamID: response.Object.StreamId,
+
+		Created:  response.Object.CreatedAt,
+		Modified: response.Object.CreatedAt,
+		Expires:  response.Object.ExpiresAt,
+		Metadata: response.Object.EncryptedMetadata,
+		Stream: storj.Stream{
+			Size: response.Object.TotalSize,
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.CipherSuite(response.Object.EncryptionParameters.CipherSuite),
+				BlockSize:   int32(response.Object.EncryptionParameters.BlockSize),
+			},
 		},
-		Path:    storj.Path(response.Object.EncryptedPath),
-		Created: response.Object.CreatedAt,
-		Expires: response.Object.ExpiresAt,
-		// TODO custom type for response object or modify storj.Object
 	}
 
-	return object, response.Object.StreamId, nil
+	pbRS := response.Object.RedundancyScheme
+	if pbRS != nil {
+		object.Stream.RedundancyScheme = storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(pbRS.Type),
+			ShareSize:      pbRS.ErasureShareSize,
+			RequiredShares: int16(pbRS.MinReq),
+			RepairShares:   int16(pbRS.RepairThreshold),
+			OptimalShares:  int16(pbRS.SuccessThreshold),
+			TotalShares:    int16(pbRS.Total),
+		}
+	}
+
+	return object, nil
 }
 
 // BeginDeleteObjectParams parameters for BeginDeleteObject method
@@ -467,6 +499,9 @@ func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteO
 		Version:       params.Version,
 	})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.StreamID{}, storj.ErrObjectNotFound.Wrap(err)
+		}
 		return storj.StreamID{}, Error.Wrap(err)
 	}
 
@@ -490,6 +525,7 @@ type ListObjectsParams struct {
 	EncryptedCursor []byte
 	Limit           int32
 	IncludeMetadata bool
+	Recursive       bool
 }
 
 // ListObjects lists objects according to specific parameters
@@ -504,6 +540,7 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 		ObjectIncludes: &pb.ObjectListItemIncludes{
 			Metadata: params.IncludeMetadata,
 		},
+		Recursive: params.Recursive,
 	})
 	if err != nil {
 		return []storj.ObjectListItem{}, false, Error.Wrap(err)
@@ -511,6 +548,12 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 
 	objects := make([]storj.ObjectListItem, len(response.Items))
 	for i, object := range response.Items {
+		encryptedPath := object.EncryptedPath
+		isPrefix := false
+		if !params.Recursive && len(encryptedPath) != 0 && encryptedPath[len(encryptedPath)-1] == '/' && !bytes.Equal(encryptedPath, params.EncryptedPrefix) {
+			isPrefix = true
+		}
+
 		objects[i] = storj.ObjectListItem{
 			EncryptedPath:          object.EncryptedPath,
 			Version:                object.Version,
@@ -520,6 +563,8 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 			ExpiresAt:              object.ExpiresAt,
 			EncryptedMetadataNonce: object.EncryptedMetadataNonce,
 			EncryptedMetadata:      object.EncryptedMetadata,
+
+			IsPrefix: isPrefix,
 		}
 	}
 
@@ -555,22 +600,21 @@ func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParam
 // CommitSegmentParams parameters for CommitSegment method
 type CommitSegmentParams struct {
 	SegmentID         storj.SegmentID
-	EncryptedKeyNonce storj.Nonce
-	EncryptedKey      []byte
+	Encryption        storj.SegmentEncryption
 	SizeEncryptedData int64
-	// TODO find better way for this
+
 	UploadResult []*pb.SegmentPieceUploadResult
 }
 
-// CommitSegment2 commits segment after upload
-func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentParams) (err error) {
-	// TODO method name will be changed when new methods will be fully integrated with client side
+// CommitSegmentNew commits segment after upload
+func (client *Client) CommitSegmentNew(ctx context.Context, params CommitSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
-		SegmentId:         params.SegmentID,
-		EncryptedKeyNonce: params.EncryptedKeyNonce,
-		EncryptedKey:      params.EncryptedKey,
+		SegmentId: params.SegmentID,
+
+		EncryptedKeyNonce: params.Encryption.EncryptedKeyNonce,
+		EncryptedKey:      params.Encryption.EncryptedKey,
 		SizeEncryptedData: params.SizeEncryptedData,
 		UploadResult:      params.UploadResult,
 	})
@@ -585,8 +629,7 @@ func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentPa
 type MakeInlineSegmentParams struct {
 	StreamID            storj.StreamID
 	Position            storj.SegmentPosition
-	EncryptedKeyNonce   storj.Nonce
-	EncryptedKey        []byte
+	Encryption          storj.SegmentEncryption
 	EncryptedInlineData []byte
 }
 
@@ -600,8 +643,8 @@ func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSe
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
-		EncryptedKeyNonce:   params.EncryptedKeyNonce,
-		EncryptedKey:        params.EncryptedKey,
+		EncryptedKeyNonce:   params.Encryption.EncryptedKeyNonce,
+		EncryptedKey:        params.Encryption.EncryptedKey,
 		EncryptedInlineData: params.EncryptedInlineData,
 	})
 	if err != nil {
@@ -618,7 +661,7 @@ type BeginDeleteSegmentParams struct {
 }
 
 // BeginDeleteSegment begins segment upload process
-func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, err error) {
+func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.BeginDeleteSegment(ctx, &pb.SegmentBeginDeleteRequest{
@@ -629,16 +672,16 @@ func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDelete
 		},
 	})
 	if err != nil {
-		return storj.SegmentID{}, nil, Error.Wrap(err)
+		return storj.SegmentID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	return response.SegmentId, response.AddressedLimits, nil
+	return response.SegmentId, response.AddressedLimits, response.PrivateKey, nil
 }
 
 // FinishDeleteSegmentParams parameters for FinishDeleteSegment method
 type FinishDeleteSegmentParams struct {
 	SegmentID storj.SegmentID
-	// TODO find better way to pass this
+
 	DeleteResults []*pb.SegmentPieceDeleteResult
 }
 
@@ -676,12 +719,24 @@ func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmen
 
 	info := storj.SegmentDownloadInfo{
 		SegmentID:           response.SegmentId,
+		Size:                response.SegmentSize,
 		EncryptedInlineData: response.EncryptedInlineData,
+		PiecePrivateKey:     response.PrivateKey,
+		SegmentEncryption: storj.SegmentEncryption{
+			EncryptedKeyNonce: response.EncryptedKeyNonce,
+			EncryptedKey:      response.EncryptedKey,
+		},
 	}
 	if response.Next != nil {
 		info.Next = storj.SegmentPosition{
 			PartNumber: response.Next.PartNumber,
 			Index:      response.Next.Index,
+		}
+	}
+
+	for i := range response.AddressedLimits {
+		if response.AddressedLimits[i].Limit == nil {
+			response.AddressedLimits[i] = nil
 		}
 	}
 
@@ -695,9 +750,8 @@ type ListSegmentsParams struct {
 	Limit          int32
 }
 
-// ListSegments2 lists object segments
-func (client *Client) ListSegments2(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
-	// TODO method name will be changed when new methods will be fully integrated with client side
+// ListSegmentsNew lists object segments
+func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.ListSegments(ctx, &pb.SegmentListRequest{

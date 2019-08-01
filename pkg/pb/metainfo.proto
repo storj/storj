@@ -258,9 +258,6 @@ message ObjectBeginRequest {
 
     google.protobuf.Timestamp expires_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes  encrypted_metadata_nonce = 5 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    bytes  encrypted_metadata = 6; // TODO: set maximum size limit
-
     pointerdb.RedundancyScheme      redundancy_scheme = 7; // can be zero
     encryption.EncryptionParameters encryption_parameters = 8; // can be zero
 }
@@ -278,6 +275,9 @@ message ObjectBeginResponse {
 
 message ObjectCommitRequest {
     bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+
+    bytes  encrypted_metadata_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes  encrypted_metadata = 3; // TODO: set maximum size limit
 }
 
 message ObjectCommitResponse {
@@ -297,9 +297,12 @@ message ObjectListRequest {
     bytes     bucket = 1;
     bytes     encrypted_prefix = 2;
     bytes     encrypted_cursor = 3;
-    int32     limit = 4;
+    bool      recursive = 4;
+    int32     limit = 5;
 
-    ObjectListItemIncludes object_includes = 5;
+    ObjectListItemIncludes object_includes = 6;
+
+
 }
 
 message ObjectListResponse {
@@ -351,9 +354,6 @@ message SatStreamID {
 
     google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-
-    bytes  encrypted_metadata_nonce = 7 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    bytes  encrypted_metadata       = 8;
 
     bytes satellite_signature = 9;
 }
@@ -450,8 +450,9 @@ message SegmentBeginDeleteRequest {
 }
 
 message SegmentBeginDeleteResponse {
-    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
-    repeated AddressedOrderLimit addressed_limits = 2;
+    bytes                           segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    repeated AddressedOrderLimit    addressed_limits = 2;
+    bytes                           private_key = 3 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
 }
 
 message SegmentFinishDeleteRequest {
@@ -488,8 +489,15 @@ message SegmentDownloadRequest {
 }
 
 message SegmentDownloadResponse {
-    bytes                        segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+
     repeated AddressedOrderLimit addressed_limits = 2;
-    bytes                        encrypted_inline_data = 3;
-    SegmentPosition              next = 4; // can be nil
+    bytes                        private_key = 3 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
+
+    bytes encrypted_inline_data = 4;
+    int64 segment_size = 5;
+    bytes encrypted_key_nonce = 6 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes encrypted_key = 7;
+
+    SegmentPosition next = 8; // can be nil
 }
