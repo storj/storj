@@ -1067,11 +1067,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE projects
 						ADD COLUMN owner_id BYTEA;
 
-                    DELETE FROM projects WHERE id NOT IN (
-                        SELECT project_id
-                            FROM project_members
-                                GROUP BY (project_id));
-
                     UPDATE projects as proj
                         SET owner_id =
                             (SELECT member_id
@@ -1079,6 +1074,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
                                     WHERE project_id = proj.id
                                         ORDER BY created_at ASC
                                             LIMIT 1);
+
+                    DELETE FROM projects 
+                        WHERE owner_id is null;
 
 					ALTER TABLE projects
 					    ALTER COLUMN owner_id SET NOT NULL;`,
