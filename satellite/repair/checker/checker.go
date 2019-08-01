@@ -161,7 +161,12 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
-			checker.logger.Warn("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme.")
+			checker.logger.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
+				zap.String("path", path),
+				zap.Int32("min", redundancy.MinReq),
+				zap.Int32("repair", redundancy.RepairThreshold),
+				zap.Int32("success", redundancy.SuccessThreshold),
+				zap.Int32("total", redundancy.Total))
 			return nil
 		}
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
@@ -182,7 +187,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		// except for the case when minimum and repair thresholds are the same (a case usually seen during testing)
 	} else if numHealthy <= redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
 
-		// make an entry in to the irreparable table
+		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
 			Path:               []byte(path),
 			SegmentDetail:      pointer,
@@ -227,15 +232,21 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 	}
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
-	redundancy := pointer.Remote.Redundancy
 	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))
 	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy))
+
+	redundancy := pointer.Remote.Redundancy
 
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
-			obs.log.Warn("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme.")
+			obs.log.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
+				zap.String("path", path),
+				zap.Int32("min", redundancy.MinReq),
+				zap.Int32("repair", redundancy.RepairThreshold),
+				zap.Int32("success", redundancy.SuccessThreshold),
+				zap.Int32("total", redundancy.Total))
 			return nil
 		}
 		obs.monStats.remoteSegmentsNeedingRepair++
@@ -272,7 +283,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 		}
 
 		obs.monStats.remoteSegmentsLost++
-		// make an entry in to the irreparable table
+		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
 			Path:               []byte(path),
 			SegmentDetail:      pointer,
