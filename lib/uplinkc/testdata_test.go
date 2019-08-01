@@ -26,7 +26,7 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 		zaptest.NewLogger(t, zaptest.Level(zapcore.WarnLevel)),
 		testplanet.Config{
 			SatelliteCount:   1,
-			StorageNodeCount: 6,
+			StorageNodeCount: 10,
 			UplinkCount:      1,
 			Reconfigure:      testplanet.DisablePeerCAWhitelist,
 		},
@@ -46,7 +46,7 @@ func TestC(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
-	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
+	libuplink_include := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
@@ -61,10 +61,19 @@ func TestC(t *testing.T) {
 	t.Run("ALL", func(t *testing.T) {
 		for _, ctest := range ctests {
 			ctest := ctest
-			t.Run(filepath.Base(ctest), func(t *testing.T) {
+			testName := filepath.Base(ctest)
+			t.Run(testName, func(t *testing.T) {
 				t.Parallel()
 
-				testexe := ctx.CompileC(t, ctest, libuplink, definition)
+				testexe := ctx.CompileC(t, testcontext.CompileCOptions{
+					Dest:    testName,
+					Sources: []string{ctest},
+					Includes: []testcontext.Include{
+						libuplink_include,
+						definition,
+						testcontext.CLibMath,
+					},
+				})
 
 				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 					cmd := exec.Command(testexe)

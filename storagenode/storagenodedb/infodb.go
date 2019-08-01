@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/utccheck"
 	"storj.io/storj/internal/migrate"
-	"storj.io/storj/internal/sync2"
 )
 
 // ErrInfo is the default error class for InfoDB
@@ -74,7 +73,7 @@ func newInfo(path string) (*InfoDB, error) {
 
 	infoDb := &InfoDB{db: db}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, loop: sync2.NewCycle(time.Hour)}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
 	infoDb.location = path
 
 	return infoDb, nil
@@ -101,7 +100,7 @@ func NewInfoTest() (*InfoDB, error) {
 
 	infoDb := &InfoDB{db: utccheck.New(db)}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, loop: sync2.NewCycle(time.Hour)}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
 
 	return infoDb, nil
 }

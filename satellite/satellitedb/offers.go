@@ -40,7 +40,7 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type"
 	statement = `
 		WITH o AS (
-			SELECT ` + columns + ` FROM offers WHERE status=? AND type=? AND expires_at>? 
+			SELECT ` + columns + ` FROM offers WHERE status=? AND type=? AND expires_at>?
 		)
 		SELECT ` + columns + ` FROM o
 		UNION ALL
@@ -63,7 +63,7 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 	o := rewards.Offer{}
 	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &awardCreditDurationDays, &inviteeCreditDurationDays, &redeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
 	if err == sql.ErrNoRows {
-		return nil, offerErr.New("no current offer")
+		return nil, rewards.NoCurrentOfferErr.New("offerType=%d", offerType)
 	}
 	if err != nil {
 		return nil, offerErr.Wrap(err)
@@ -92,7 +92,6 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 
 	if o.Status == rewards.Default {
 		o.ExpiresAt = time.Now().UTC().AddDate(100, 0, 0)
-		o.RedeemableCap = 1
 	}
 
 	tx, err := db.db.Open(ctx)
@@ -101,11 +100,19 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 	}
 
 	// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
-	statement := db.db.Rebind(`
-		UPDATE offers SET status=?, expires_at=?
-		WHERE status=? AND type=? AND expires_at>?;
-	`)
-	_, err = tx.Tx.ExecContext(ctx, statement, rewards.Done, currentTime, o.Status, o.Type, currentTime)
+	switch o.Type {
+	case rewards.Partner:
+		statement := `
+			UPDATE offers SET status=?, expires_at=?
+			WHERE status=? AND type=? AND expires_at>? AND name=?;`
+		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(statement), rewards.Done, currentTime, o.Status, o.Type, currentTime, o.Name)
+
+	default:
+		statement := `
+			UPDATE offers SET status=?, expires_at=?
+			WHERE status=? AND type=? AND expires_at>?;`
+		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(statement), rewards.Done, currentTime, o.Status, o.Type, currentTime)
+	}
 	if err != nil {
 		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}

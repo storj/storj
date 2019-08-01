@@ -82,6 +82,21 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 		})
 
+		b.Run("BatchUpdateStats", func(b *testing.B) {
+			var updateRequests []*overlay.UpdateRequest
+			for i := 0; i < b.N; i++ {
+				id := all[i%len(all)]
+				updateRequests = append(updateRequests, &overlay.UpdateRequest{
+					NodeID:       id,
+					AuditSuccess: i&1 == 0,
+					IsUp:         i&2 == 0,
+				})
+
+			}
+			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100)
+			require.NoError(b, err)
+		})
+
 		b.Run("UpdateNodeInfo", func(b *testing.B) {
 			now := time.Now()
 			for i := 0; i < b.N; i++ {

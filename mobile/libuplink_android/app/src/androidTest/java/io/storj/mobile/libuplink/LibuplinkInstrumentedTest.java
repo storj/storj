@@ -64,7 +64,15 @@ public class LibuplinkInstrumentedTest {
                 project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
 
                 String expectedBucket = "test-bucket";
-                project.createBucket(expectedBucket, new BucketConfig());
+                BucketConfig bucketConfig = new BucketConfig();
+                RedundancyScheme scheme = new RedundancyScheme();
+                scheme.setRequiredShares((short) 4);
+                scheme.setRepairShares((short) 6);
+                scheme.setOptimalShares((short) 8);
+                scheme.setTotalShares((short) 10);
+                bucketConfig.setRedundancyScheme(scheme);
+
+                project.createBucket(expectedBucket, bucketConfig);
                 BucketInfo bucketInfo = project.getBucketInfo(expectedBucket);
                 Assert.assertEquals(expectedBucket, bucketInfo.getName());
 
@@ -73,7 +81,7 @@ public class LibuplinkInstrumentedTest {
                 try {
                     project.getBucketInfo(expectedBucket);
                 } catch (Exception e) {
-                    Assert.assertTrue(e.getMessage().startsWith("bucket not found"));
+                    Assert.assertTrue(e.getMessage().contains("bucket not found"));
                 }
             } finally {
                 if (project != null) {
@@ -94,6 +102,13 @@ public class LibuplinkInstrumentedTest {
             Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
                 BucketConfig bucketConfig = new BucketConfig();
+                RedundancyScheme scheme = new RedundancyScheme();
+                scheme.setRequiredShares((short) 4);
+                scheme.setRepairShares((short) 6);
+                scheme.setOptimalShares((short) 8);
+                scheme.setTotalShares((short) 10);
+                bucketConfig.setRedundancyScheme(scheme);
+
                 Set<String> expectedBuckets = new HashSet<>();
                 for (int i = 0; i < 10; i++) {
                     String expectedBucket = "test-bucket" + i;
@@ -101,7 +116,7 @@ public class LibuplinkInstrumentedTest {
                     expectedBuckets.add(expectedBucket);
                 }
 
-                BucketList bucketList = project.listBuckets("", 1, 100);
+                BucketList bucketList = project.listBuckets("", 100);
                 assertEquals(false, bucketList.more());
                 String aa = "";
                 for (int i = 0; i < bucketList.length(); i++) {
@@ -114,7 +129,7 @@ public class LibuplinkInstrumentedTest {
                     project.deleteBucket(bucket);
                 }
 
-                bucketList = project.listBuckets("", 1, 100);
+                bucketList = project.listBuckets("", 1);
                 assertEquals(false, bucketList.more());
                 assertEquals(0, bucketList.length());
             } finally {
@@ -136,13 +151,12 @@ public class LibuplinkInstrumentedTest {
                 EncryptionAccess access = new EncryptionAccess();
                 access.setDefaultKey("TestEncryptionKey".getBytes());
 
+                BucketConfig bucketConfig = new BucketConfig();
                 RedundancyScheme scheme = new RedundancyScheme();
                 scheme.setRequiredShares((short) 4);
                 scheme.setRepairShares((short) 6);
                 scheme.setOptimalShares((short) 8);
                 scheme.setTotalShares((short) 10);
-
-                BucketConfig bucketConfig = new BucketConfig();
                 bucketConfig.setRedundancyScheme(scheme);
 
                 project.createBucket("test", bucketConfig);
@@ -213,7 +227,7 @@ public class LibuplinkInstrumentedTest {
 
                 Bucket bucket = project.openBucket("test", access);
 
-                byte[] expectedData = new byte[1024 * 100];
+                byte[] expectedData = new byte[2 * 1024 * 1024];
                 Random random = new Random();
                 random.nextBytes(expectedData);
                 {
@@ -272,7 +286,12 @@ public class LibuplinkInstrumentedTest {
                 access.setDefaultKey("TestEncryptionKey".getBytes());
 
                 BucketConfig bucketConfig = new BucketConfig();
-                bucketConfig.setRedundancyScheme(new RedundancyScheme());
+                RedundancyScheme scheme = new RedundancyScheme();
+                scheme.setRequiredShares((short) 4);
+                scheme.setRepairShares((short) 6);
+                scheme.setOptimalShares((short) 8);
+                scheme.setTotalShares((short) 10);
+                bucketConfig.setRedundancyScheme(scheme);
 
                 BucketInfo bucketInfo = project.createBucket("test-bucket", bucketConfig);
                 assertEquals("test-bucket", bucketInfo.getName());
