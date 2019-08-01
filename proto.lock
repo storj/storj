@@ -2939,7 +2939,7 @@
                 ]
               },
               {
-                "id": 3,
+                "id": 2,
                 "name": "encrypted_key_nonce",
                 "type": "bytes",
                 "options": [
@@ -2954,17 +2954,17 @@
                 ]
               },
               {
-                "id": 4,
+                "id": 3,
                 "name": "encrypted_key",
                 "type": "bytes"
               },
               {
-                "id": 5,
+                "id": 4,
                 "name": "size_encrypted_data",
                 "type": "int64"
               },
               {
-                "id": 6,
+                "id": 5,
                 "name": "upload_result",
                 "type": "SegmentPieceUploadResult",
                 "is_repeated": true

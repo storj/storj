@@ -401,12 +401,12 @@ message SegmentBeginResponse {
 message SegmentCommitRequest {
     bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
 
-    bytes encrypted_key_nonce = 3 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    bytes encrypted_key = 4;
+    bytes encrypted_key_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes encrypted_key = 3;
 
-    int64 size_encrypted_data = 5; // refers to segment size not piece size
+    int64 size_encrypted_data = 4; // refers to segment size not piece size
 
-    repeated SegmentPieceUploadResult upload_result = 6;
+    repeated SegmentPieceUploadResult upload_result = 5;
 }
 
 message SegmentPieceUploadResult {
