@@ -125,11 +125,19 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 	if user.PartnerID != "" {
 		offerType = rewards.Partner
+	} else if refUserID != "" {
+		offerType = rewards.Referral
 	}
 
 	//TODO: Create a current offer cache to replace database call
-	currentReward, err := s.rewards.GetCurrentByType(ctx, offerType)
+	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+		s.log.Error("internal error", zap.Error(err))
+		return nil, errs.New(internalErrMsg)
+	}
+	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
+	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+		s.log.Error("internal error", zap.Error(err))
 		return nil, errs.New(internalErrMsg)
 	}
 
@@ -657,15 +665,15 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 }
 
 // GetCurrentRewardByType is a method for querying current active reward offer based on its type
-func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.OfferType) (reward *rewards.Offer, err error) {
+func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.OfferType) (offer *rewards.Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	reward, err = s.rewards.GetCurrentByType(ctx, offerType)
+	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil {
+		s.log.Error("internal error", zap.Error(err))
 		return nil, errs.New(internalErrMsg)
 	}
-
-	return reward, nil
+	return offers.GetActiveOffer(offerType, "")
 }
 
 // GetUserCreditUsage is a method for querying users' credit information up until now

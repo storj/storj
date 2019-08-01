@@ -276,6 +276,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 
 func newUplink(ctx context.Context, tb testing.TB) *uplink.Uplink {
 	cfg := new(uplink.Config)
+	cfg.Volatile.Log = zaptest.NewLogger(tb)
 	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 	up, err := uplink.NewUplink(ctx, cfg)
 	require.NoError(tb, err)

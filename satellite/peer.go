@@ -270,9 +270,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup overlay
 		log.Debug("Starting overlay")
-		config := config.Overlay
 
-		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Node)
+		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Overlay)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
@@ -437,10 +436,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
-			peer.Metainfo.Service,
+			peer.Log.Named("checker"),
 			peer.DB.RepairQueue(),
-			peer.Overlay.Service, peer.DB.Irreparable(),
-			0, peer.Log.Named("checker"),
+			peer.DB.Irreparable(),
+			peer.Metainfo.Service,
+			peer.Metainfo.Loop,
+			peer.Overlay.Service,
 			config.Checker)
 
 		peer.Repair.Repairer = repairer.NewService(

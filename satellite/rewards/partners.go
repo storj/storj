@@ -11,6 +11,11 @@ import (
 	"github.com/zeebo/errs"
 )
 
+var (
+	// NoMatchPartnerIDErr is the error class used when an offer has reached its redemption capacity
+	NoMatchPartnerIDErr = errs.Class("partner not exist")
+)
+
 // PartnerInfo contains the name and ID of an Open Source Partner
 type PartnerInfo struct {
 	ID, Name string
@@ -22,7 +27,7 @@ type Partners map[string]PartnerInfo
 // LoadPartnerInfos returns our current Open Source Partners.
 func LoadPartnerInfos() Partners {
 	return Partners{
-		"OSPP001": PartnerInfo{
+		"e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c": PartnerInfo{
 			Name: "Couchbase",
 			ID:   "OSPP001",
 		},

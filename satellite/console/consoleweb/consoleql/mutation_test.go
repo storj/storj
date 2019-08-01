@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -75,11 +77,25 @@ func TestGrapqhlMutation(t *testing.T) {
 				FullName:  "John Roll",
 				ShortName: "Roll",
 				Email:     "test@mail.test",
-				PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
+				PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
 			},
 			Password: "123a123",
 		}
 		refUserID := ""
+
+		_, err = db.Rewards().Create(ctx, &rewards.NewOffer{
+			Name:                      "Couchbase",
+			Description:               "",
+			AwardCredit:               currency.Cents(0),
+			InviteeCredit:             currency.Cents(20),
+			RedeemableCap:             0,
+			AwardCreditDurationDays:   0,
+			InviteeCreditDurationDays: 14,
+			ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
+			Status:                    rewards.Active,
+			Type:                      rewards.Partner,
+		})
+		require.NoError(t, err)
 
 		regToken, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
@@ -117,7 +133,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,partnerId,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\", referrerUserId: \"\"){id,shortName,fullName,email,partnerId,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
@@ -134,6 +150,9 @@ func TestGrapqhlMutation(t *testing.T) {
 			})
 
 			for _, err := range result.Errors {
+				if rewards.NoMatchPartnerIDErr.Has(err) {
+					assert.Error(t, err)
+				}
 				assert.NoError(t, err)
 			}
 			require.False(t, result.HasErrors())
