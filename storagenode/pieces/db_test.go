@@ -202,7 +202,11 @@ func TestPieceInfo_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure Archive works at all
-			err := db.Orders().Archive(ctx, satelliteID, serial, orders.StatusAccepted)
+			err := db.Orders().Archive(ctx, orders.ArchiveRequest{
+				Satellite: satelliteID,
+				Serial:    serial,
+				Status:    orders.StatusAccepted,
+			})
 			require.NoError(t, err)
 		}
 

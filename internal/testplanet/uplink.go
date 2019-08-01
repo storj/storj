@@ -330,6 +330,7 @@ func atLeastOne(value int) int {
 func (client *Uplink) NewLibuplink(ctx context.Context) (*libuplink.Uplink, error) {
 	config := getDefaultConfig()
 	libuplinkCfg := &libuplink.Config{}
+	libuplinkCfg.Volatile.Log = client.Log
 	libuplinkCfg.Volatile.MaxInlineSize = config.Client.MaxInlineSize
 	libuplinkCfg.Volatile.MaxMemory = config.RS.MaxBufferMem
 	libuplinkCfg.Volatile.PeerIDVersion = config.TLS.PeerIDVersions

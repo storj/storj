@@ -314,7 +314,7 @@ func (rt *RoutingTable) iterateNodes(ctx context.Context, start storj.NodeID, f 
 func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
 	err2 := rt.ConnectionFailed(ctx, node)
 	if err2 != nil {
-		zap.L().Debug(fmt.Sprintf("error with ConnFailure hook  %+v : %+v", err, err2))
+		rt.log.Debug(fmt.Sprintf("error with ConnFailure hook  %+v : %+v", err, err2))
 	}
 }
 
@@ -322,6 +322,6 @@ func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err erro
 func (rt *RoutingTable) ConnSuccess(ctx context.Context, node *pb.Node) {
 	err := rt.ConnectionSuccess(ctx, node)
 	if err != nil {
-		zap.L().Debug("connection success error:", zap.Error(err))
+		rt.log.Debug("connection success error:", zap.Error(err))
 	}
 }
