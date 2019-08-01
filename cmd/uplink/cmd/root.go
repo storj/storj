@@ -79,17 +79,12 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 
 	// Transform the uplink cli config flags to the libuplink config object
 	libuplinkCfg := &libuplink.Config{}
+	libuplinkCfg.Volatile.Log = zap.L()
 	libuplinkCfg.Volatile.MaxInlineSize = cliCfg.Client.MaxInlineSize
 	libuplinkCfg.Volatile.MaxMemory = cliCfg.RS.MaxBufferMem
 	libuplinkCfg.Volatile.PeerIDVersion = cliCfg.TLS.PeerIDVersions
-	libuplinkCfg.Volatile.TLS = struct {
-		SkipPeerCAWhitelist bool
-		PeerCAWhitelistPath string
-	}{
-		SkipPeerCAWhitelist: !cliCfg.TLS.UsePeerCAWhitelist,
-		PeerCAWhitelistPath: cliCfg.TLS.PeerCAWhitelistPath,
-	}
-
+	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !cliCfg.TLS.UsePeerCAWhitelist
+	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = cliCfg.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = cliCfg.Client.DialTimeout
 	libuplinkCfg.Volatile.RequestTimeout = cliCfg.Client.RequestTimeout
 

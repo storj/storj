@@ -2350,26 +2350,6 @@
                 ]
               },
               {
-                "id": 5,
-                "name": "encrypted_metadata_nonce",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "Nonce"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 6,
-                "name": "encrypted_metadata",
-                "type": "bytes"
-              },
-              {
                 "id": 7,
                 "name": "redundancy_scheme",
                 "type": "pointerdb.RedundancyScheme"
@@ -2443,6 +2423,26 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 2,
+                "name": "encrypted_metadata_nonce",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "encrypted_metadata",
+                "type": "bytes"
               }
             ]
           },
@@ -2499,11 +2499,16 @@
               },
               {
                 "id": 4,
+                "name": "recursive",
+                "type": "bool"
+              },
+              {
+                "id": 5,
                 "name": "limit",
                 "type": "int32"
               },
               {
-                "id": 5,
+                "id": 6,
                 "name": "object_includes",
                 "type": "ObjectListItemIncludes"
               }
@@ -2735,26 +2740,6 @@
                     "value": "false"
                   }
                 ]
-              },
-              {
-                "id": 7,
-                "name": "encrypted_metadata_nonce",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "Nonce"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 8,
-                "name": "encrypted_metadata",
-                "type": "bytes"
               },
               {
                 "id": 9,
@@ -3171,6 +3156,21 @@
                 "name": "addressed_limits",
                 "type": "AddressedOrderLimit",
                 "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -3330,11 +3330,51 @@
               },
               {
                 "id": 3,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 4,
                 "name": "encrypted_inline_data",
                 "type": "bytes"
               },
               {
-                "id": 4,
+                "id": 5,
+                "name": "segment_size",
+                "type": "int64"
+              },
+              {
+                "id": 6,
+                "name": "encrypted_key_nonce",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 7,
+                "name": "encrypted_key",
+                "type": "bytes"
+              },
+              {
+                "id": 8,
                 "name": "next",
                 "type": "SegmentPosition"
               }

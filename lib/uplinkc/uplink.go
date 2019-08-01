@@ -27,6 +27,7 @@ func new_uplink(cfg C.UplinkConfig, cerr **C.char) C.UplinkRef {
 	scope := rootScope("") // TODO: pass in as argument
 
 	libcfg := &uplink.Config{} // TODO: figure out a better name
+	// TODO: V3-2302, add a way to support logging
 	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.tls.skip_peer_ca_whitelist == C.bool(true)
 
 	lib, err := uplink.NewUplink(scope.ctx, libcfg)
