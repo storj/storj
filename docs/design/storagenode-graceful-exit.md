@@ -91,7 +91,7 @@ This process including the Storage nodes transferring their pieces to other node
 	- Receiving storage nodes should be uploaded to as if they were receiving any other upload (orders, etc).
 - We need to have the storage node keep track how its progress during graceful exit by calculating how much data it had when it started the graceful exit and keeping track of how much data it has deleted (data is deleted from the exiting node as it sends pieces to new nodes). This is an estimation since the storage node is likely holding more data than it will gracefully exit (garbage data). 
 
-## Implementation
+## Implementation (MVP)
 
 #### Satellite
 - Update DBX - Add updateable `exit_initiated` and `exit_completed` timestamps to nodes table with indexes
@@ -133,20 +133,35 @@ This process including the Storage nodes transferring their pieces to other node
   - Batches orders and sends them to the exiting storagenode `GracefulExit.ProcessOrders` endpoint
   - // TODO: how will we know when there are no more pieces so we can mark the exit "completed"
   - Execution intervals and batch sizes should be configurable
+- Create gracefulexitreport command in satellite cli
+  - Accepts 2 parameter: start date and end date
+  - Generates a list of all completed exits with NodeID, Wallet address, Date joined, Date exited, GB Transferred (calculated using `PieceAction_PUT_EXIT` bandwidth actions), ordered by date exited descending.
 
 #### Storagenode
 - Add `gracefulexit` command to storagenode CLI
   - When executed, the user should be prompted with a numbered list of satellites (what would we display as a name?)
   - After selecting a satellite, the user should be prompted for a confirmation
   - Once confirmed, the command should call the `GracefulExit.Initiate` endpoint for that satellite
-- Add `gexit` DB implementation with `exit_order` table
+  - Records starting disk usage in `gexit.exit_status`
+- Add `gexit` DB implementation with `exit_order`  and `exit_order` tables
   - ```
 	model exit_order (
 		key satellite_id xxxx
 
 		field satellite_id           blob
+		field completed	             timestamp ( updateable )
 		// TODO
 	)
+
+	model exit_status (
+		key satellite_id xxxx
+
+		field satellite_id           blob
+		field initiated              timestamp ( autoinsert )
+		field completed	             timestamp ( updateable )
+		field starting_disk_usage    int64
+		field bytes_deleted          int64
+	)	
 	```
 - Add GracefulExit endpoint
   - Endpoint used by satellites to tell the exiting storage node what pieces to process
@@ -164,10 +179,12 @@ This process including the Storage nodes transferring their pieces to other node
 		// TODO
 	}
 	```
+- Update bandwidth usage monitors to ignore `PieceAction_PUT_EXIT` bandwidth actions
 - Add GracefulExit service
-  - Iterates over `exit_order`...
+  - Iterates over `exit_order` where `completed` is null
     - Pushes the pieces to the storage node identified in the order using `ecclient`
     - Sends the signed new node response to the satellite via a new `Commit` method (uses `metainfo.UpdatePieces`).  TODO: new commit service
+    - Updates `bytes_deleted` with the number of bytes deleted and sets `completed` to current time
   - Execution intervals and batch sizes should be configurable
 
 ## Open Questions
