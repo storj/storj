@@ -6,14 +6,14 @@ import gql from 'graphql-tag';
 import { ApiKey } from '@/types/apiKeys';
 import { RequestResponse } from '@/types/response';
 
-export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<ApiKey[]>> {
+export async function fetchAPIKeys(projectId: string): Promise<RequestResponse<ApiKey[]>> {
     let result: RequestResponse<ApiKey[]> = new RequestResponse<ApiKey[]>();
 
     let response: any = await apollo.query({
         query: gql(`
-            query($projectID: String!) {
+            query($projectId: String!) {
                 project(
-                    id: $projectID,
+                    id: $projectId,
                 ) {
                     apiKeys {
                         id,
@@ -24,7 +24,7 @@ export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<A
             }`
         ),
         variables: {
-            projectID: projectID
+            projectId: projectId
         },
         fetchPolicy: 'no-cache',
         errorPolicy: 'all',
@@ -40,14 +40,14 @@ export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<A
     return result;
 }
 
-export async function createAPIKey(projectID: string, name: string): Promise<RequestResponse<ApiKey>> {
+export async function createAPIKey(projectId: string, name: string): Promise<RequestResponse<ApiKey>> {
     let result: RequestResponse<ApiKey> = new RequestResponse<ApiKey>();
 
     let response: any = await apollo.mutate({
         mutation: gql(`
-            mutation($projectID: String!, $name: String!) {
+            mutation($projectId: String!, $name: String!) {
                 createAPIKey(
-                    projectID: $projectID,
+                    projectID: $projectId,
                     name: $name
                 ) {
                     key,
@@ -60,7 +60,7 @@ export async function createAPIKey(projectID: string, name: string): Promise<Req
             }`
         ),
         variables: {
-            projectID: projectID,
+            projectId: projectId,
             name: name
         },
         fetchPolicy: 'no-cache',

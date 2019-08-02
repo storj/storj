@@ -6,14 +6,14 @@ import gql from 'graphql-tag';
 import { RequestResponse } from '@/types/response';
 
 // fetchProjectUsage retrieves total project usage for a given period
-export async function fetchProjectUsage(projectID: string, since: Date, before: Date): Promise<RequestResponse<ProjectUsage>> {
+export async function fetchProjectUsage(projectId: string, since: Date, before: Date): Promise<RequestResponse<ProjectUsage>> {
     let result: RequestResponse<ProjectUsage> = new RequestResponse<ProjectUsage>();
 
     let response: any = await apollo.query(
         {
             query: gql(`
-                query($projectID: String!, $since: DateTime!, $before: DateTime!) {
-                    project(id: $projectID) {
+                query($projectId: String!, $since: DateTime!, $before: DateTime!) {
+                    project(id: $projectId) {
                         usage(since: $since, before: $before) {
                             storage,
                             egress,
@@ -25,7 +25,7 @@ export async function fetchProjectUsage(projectID: string, since: Date, before: 
                 }`
             ),
             variables: {
-                projectID: projectID,
+                projectId: projectId,
                 since: since.toISOString(),
                 before: before.toISOString()
             },
@@ -45,14 +45,14 @@ export async function fetchProjectUsage(projectID: string, since: Date, before: 
 }
 
 // fetchBucketUsages retrieves bucket usage totals for a particular project
-export async function fetchBucketUsages(projectID: string, before: Date, cursor: BucketUsageCursor): Promise<RequestResponse<BucketUsagePage>> {
+export async function fetchBucketUsages(projectId: string, before: Date, cursor: BucketUsageCursor): Promise<RequestResponse<BucketUsagePage>> {
     let result: RequestResponse<BucketUsagePage> = new RequestResponse<BucketUsagePage>();
 
     let response: any = await apollo.query(
         {
             query: gql(`
-                query($projectID: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
-                    project(id: $projectID) {
+                query($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
+                    project(id: $projectId) {
                         bucketUsages(before: $before, cursor: {
                                 limit: $limit, search: $search, page: $page
                             }) {
@@ -75,7 +75,7 @@ export async function fetchBucketUsages(projectID: string, before: Date, cursor:
                 }`
             ),
             variables: {
-                projectID: projectID,
+                projectId: projectId,
                 before: before.toISOString(),
                 limit: cursor.limit,
                 search: cursor.search,

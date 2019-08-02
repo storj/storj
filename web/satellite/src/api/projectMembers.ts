@@ -8,7 +8,7 @@ import { TeamMember } from '@/types/teamMembers';
 import { RequestResponse } from '@/types/response';
 
 // Performs graqhQL request.
-export async function addProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+export async function addProjectMembersRequest(projectId: string, emails: string[]): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -18,15 +18,15 @@ export async function addProjectMembersRequest(projectID: string, emails: string
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-                mutation($projectID: String!, $emails:[String!]!) {
+                mutation($projectId: String!, $emails:[String!]!) {
                     addProjectMembers(
-                        projectID: $projectID,
+                        projectID: $projectId,
                         email: $emails
                     ) {id}
                 }`,
             ),
             variables: {
-                projectID: projectID,
+                projectId: projectId,
                 emails: emails
             },
             fetchPolicy: 'no-cache',
@@ -44,7 +44,7 @@ export async function addProjectMembersRequest(projectID: string, emails: string
 }
 
 // Performs graqhQL request.
-export async function deleteProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+export async function deleteProjectMembersRequest(projectId: string, emails: string[]): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -54,15 +54,15 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-                mutation($projectID: String!, $emails:[String!]!) {
+                mutation($projectId: String!, $emails:[String!]!) {
                     deleteProjectMembers(
-                        projectID: $projectID,
+                        projectID: $projectId,
                         email: $emails
                     ) {id}
                 }`
             ),
             variables: {
-                projectID: projectID,
+                projectId: projectId,
                 emails: emails
             },
             fetchPolicy: 'no-cache',
@@ -80,7 +80,7 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
 }
 
 // Performs graqhQL request.
-export async function fetchProjectMembersRequest(projectID: string, limit: number, offset: number, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMember[]>> {
+export async function fetchProjectMembersRequest(projectId: string, limit: number, offset: number, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMember[]>> {
     let result: RequestResponse<TeamMember[]> = {
         errorMessage: '',
         isSuccess: false,
@@ -90,9 +90,9 @@ export async function fetchProjectMembersRequest(projectID: string, limit: numbe
     let response: any = await apollo.query(
         {
             query: gql(`
-                query($projectID: String!, $limit: Int!, $offset: Int!, $order: Int!, $search: String!) {
+                query($projectId: String!, $limit: Int!, $offset: Int!, $order: Int!, $search: String!) {
                     project(
-                        id: $projectID,
+                        id: $projectId,
                     ) {
                         members(limit: $limit, offset: $offset, order: $order, search: $search) {
                             user {
@@ -107,7 +107,7 @@ export async function fetchProjectMembersRequest(projectID: string, limit: numbe
                 }`
             ),
             variables: {
-                projectID: projectID,
+                projectId: projectId,
                 limit: limit,
                 offset: offset,
                 order: sortBy,

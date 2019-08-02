@@ -74,21 +74,21 @@ export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>
 }
 
 // Performs graqhQL request for updating selected project description
-export async function updateProjectRequest(projectID: string, description: string): Promise<RequestResponse<null>> {
+export async function updateProjectRequest(projectId: string, description: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null>  = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-                mutation($projectID: String!, $description: String!) {
+                mutation($projectId: String!, $description: String!) {
                     updateProjectDescription(
-                        id: $projectID,
+                        id: $projectId,
                         description: $description
                     ) {name}
                 }`
             ),
             variables: {
-                projectID: projectID,
+                projectId: projectId,
                 description: description
             },
             fetchPolicy: 'no-cache',
@@ -106,20 +106,20 @@ export async function updateProjectRequest(projectID: string, description: strin
 }
 
 // Performs graqhQL request for deleting selected project
-export async function deleteProjectRequest(projectID: string): Promise<RequestResponse<null>> {
+export async function deleteProjectRequest(projectId: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null>  = new RequestResponse<null>();
 
     let response = await apollo.mutate(
         {
             mutation: gql(`
-                mutation($projectID: String!) {
+                mutation($projectId: String!) {
                     deleteProject(
-                        id: $projectID
+                        id: $projectId
                     ) {name}
                 }`
             ),
             variables: {
-                projectID: projectID
+                projectId: projectId
             },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
