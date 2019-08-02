@@ -110,6 +110,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	successfulHashes = make([]*pb.PieceHash, pieceCount)
 	var successfulCount int32
 
+	var failures int
 	for range limits {
 		info := <-infos
 
@@ -118,6 +119,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		}
 
 		if info.err != nil {
+			failures++
 			ec.log.Sugar().Debugf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
@@ -149,17 +151,10 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	}()
 
 	successes := int(atomic.LoadInt32(&successfulCount))
-	mon.IntVal("segment_pieces").Observe(int64(pieceCount))
-	mon.FloatVal("segment_pieces_percent_success").Observe(float64(successes) / float64(rs.OptimalThreshold()))
-
-	var failures int
-	for range limits {
-		info := <-infos
-		if info.err != nil && err != context.Canceled {
-			failures++
-		}
-	}
-	mon.FloatVal("segment_piece_percent_failure").Observe(float64(failures) / float64(rs.OptimalThreshold()))
+	mon.IntVal("segment_pieces_total").Observe(int64(pieceCount))
+	mon.IntVal("segment_pieces_optimal").Observe(int64(rs.OptimalThreshold()))
+	mon.FloatVal("segment_pieces_successful").Observe(float64(successes))
+	mon.FloatVal("segment_pieces_failed").Observe(float64(failures))
 
 	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
 		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
