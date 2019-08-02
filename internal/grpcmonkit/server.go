@@ -46,33 +46,29 @@ func StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *gr
 
 }
 
+func parseInt(a []string) *int64 {
+	if len(a) != 1 {
+		return nil
+	}
+	v, err := strconv.ParseInt(a[0], 16, 64)
+	if err != nil {
+		return nil
+	}
+	return &v
+}
+
 func traceFromRequest(ctx context.Context) (trace *monkit.Trace, spanid int64) {
 	var zreq zipkin.Request
 
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		parseInt := func(a string) *int64 {
-			v, err := strconv.ParseInt(a, 16, 64)
-			if err != nil {
-				return nil
-			}
-			return &v
-		}
-		if traceIDs := md[traceIDKey]; len(traceIDs) == 1 {
-			zreq.TraceId = parseInt(traceIDs[0])
-		}
-		if spanIDs := md[spanIDKey]; len(spanIDs) == 1 {
-			zreq.SpanId = parseInt(spanIDs[0])
-		}
-		if parentIDs := md[parentIDKey]; len(parentIDs) == 1 {
-			zreq.ParentId = parseInt(parentIDs[0])
-		}
+		zreq.TraceId = parseInt(md[traceIDKey])
+		zreq.SpanId = parseInt(md[spanIDKey])
+		zreq.ParentId = parseInt(md[parentIDKey])
+		zreq.Flags = parseInt(md[flagsKey])
 		if sampleds := md[sampledKey]; len(sampleds) == 1 {
 			if sampled, err := strconv.ParseBool(sampleds[0]); err == nil {
 				zreq.Sampled = &sampled
 			}
-		}
-		if flagses := md[flagsKey]; len(flagses) == 1 {
-			zreq.Flags = parseInt(flagses[0])
 		}
 	}
 

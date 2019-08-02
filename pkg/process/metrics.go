@@ -74,7 +74,7 @@ func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, insta
 	}
 	environment.Register(r)
 	hw.Register(r)
-	if *zipkinCollector != "" && *zipkinFraction > 0 {
+	if *zipkinCollector != "" {
 		collector, err := zipkin.NewUDPCollector(*zipkinCollector, *zipkinBuffer)
 		if err != nil {
 			return err
