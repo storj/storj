@@ -28,7 +28,7 @@ Two different loops will select audits:
 After selection, the rest of the auditing process will occur the same way (picking a segment, picking a stripe, downloading all erasure shares associated with that stripe).
 The chances of selecting the same stripe are rare, but should be accounted for.
 
-With both loops, we should have auditing that occurs statistically uniform acorss both nodes and bytes.
+With both loops, we should have auditing that occurs statistically uniform across both nodes and bytes.
 
 ### **Selection via Reservoir Sampling**
 
