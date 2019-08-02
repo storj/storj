@@ -22,14 +22,14 @@ describe('SearchComponent.vue', () => {
     it('functions onMouseEnter/onMouseLeave work correctly', () => {
         const wrapper = mount(SearchComponent);
 
-        (wrapper.vm as any).onMouseEnter();
+        wrapper.vm.onMouseEnter();
 
-        expect(wrapper.vm.$data.inputWidth).toMatch('602px');
+        expect(wrapper.vm.inputWidth).toMatch('602px');
 
-        (wrapper.vm as any).onMouseLeave();
+        wrapper.vm.onMouseLeave();
 
-        expect(wrapper.vm.$data.searchQuery).toMatch('');
-        expect(wrapper.vm.$data.inputWidth).toMatch('56px');
+        expect(wrapper.vm.searchQuery).toMatch('');
+        expect(wrapper.vm.inputWidth).toMatch('56px');
     });
 
     it('function onInput works correctly', () => {
@@ -43,7 +43,7 @@ describe('SearchComponent.vue', () => {
             }
         });
 
-        (wrapper.vm as any).onInput();
+        wrapper.vm.onInput();
 
         expect(onMouseLeaveSpy.callCount).toBe(1);
         expect(processSearchQuerySpy.callCount).toBe(1);
@@ -52,8 +52,8 @@ describe('SearchComponent.vue', () => {
     it('function processSearchQuery works correctly', async () => {
         const wrapper = mount(SearchComponent);
 
-        (wrapper.vm as any).processSearchQuery();
+        wrapper.vm.processSearchQuery();
 
-        expect((wrapper.vm as any).search).resolves;
+        expect(wrapper.vm.search).resolves;
     });
 });
