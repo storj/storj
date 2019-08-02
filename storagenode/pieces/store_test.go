@@ -23,7 +23,9 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestPieces(t *testing.T) {
@@ -226,4 +228,76 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, os.IsNotExist(err))
 	assert.Nil(t, reader)
+}
+
+func TestGetExpired(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
+		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
+		require.NotNil(t, v0PieceInfo)
+		expirationInfo := db.PieceExpirationDB()
+		require.NotNil(t, expirationInfo)
+
+		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo)
+
+		now := time.Now()
+		testDates := []struct {
+			years, months, days int
+		}{
+			{-20, -1, -2},
+			{1, 6, 14},
+			{0, -1, 0},
+			{0, 0, 1},
+		}
+		testPieces := make([]pieces.Info, 4)
+		for p := range testPieces {
+			testPieces[p] = pieces.Info{
+				SatelliteID:     testrand.NodeID(),
+				PieceID:         testrand.PieceID(),
+				OrderLimit:      &pb.OrderLimit{},
+				UplinkPieceHash: &pb.PieceHash{},
+				PieceExpiration: now.AddDate(testDates[p].years, testDates[p].months, testDates[p].days),
+			}
+		}
+
+		// put testPieces 0 and 1 in the v0 pieceinfo db
+		err := v0PieceInfo.Add(ctx, &testPieces[0])
+		require.NoError(t, err)
+		err = v0PieceInfo.Add(ctx, &testPieces[1])
+		require.NoError(t, err)
+
+		// put testPieces 2 and 3 in the piece_expirations db
+		err = expirationInfo.SetExpiration(ctx, testPieces[2].SatelliteID, testPieces[2].PieceID, testPieces[2].PieceExpiration)
+		require.NoError(t, err)
+		err = expirationInfo.SetExpiration(ctx, testPieces[3].SatelliteID, testPieces[3].PieceID, testPieces[3].PieceExpiration)
+		require.NoError(t, err)
+
+		// GetExpired with limit 0 gives empty result
+		expired, err := store.GetExpired(ctx, now, 0)
+		require.NoError(t, err)
+		assert.Empty(t, expired)
+
+		// GetExpired with limit 1 gives only 1 result, although there are 2 possible
+		expired, err = store.GetExpired(ctx, now, 1)
+		require.NoError(t, err)
+		require.Len(t, expired, 1)
+		assert.Equal(t, testPieces[2].PieceID, expired[0].PieceID)
+		assert.Equal(t, testPieces[2].SatelliteID, expired[0].SatelliteID)
+		assert.False(t, expired[0].InPieceInfo)
+
+		// GetExpired with 2 or more gives all expired results correctly; one from
+		// piece_expirations, and one from pieceinfo
+		expired, err = store.GetExpired(ctx, now, 1000)
+		require.NoError(t, err)
+		require.Len(t, expired, 2)
+		assert.Equal(t, testPieces[2].PieceID, expired[0].PieceID)
+		assert.Equal(t, testPieces[2].SatelliteID, expired[0].SatelliteID)
+		assert.False(t, expired[0].InPieceInfo)
+		assert.Equal(t, testPieces[0].PieceID, expired[1].PieceID)
+		assert.Equal(t, testPieces[0].SatelliteID, expired[1].SatelliteID)
+		assert.True(t, expired[1].InPieceInfo)
+	})
 }

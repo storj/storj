@@ -288,15 +288,18 @@ func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellit
 func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (_ []ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	v1expired, err := store.expirationInfo.GetExpired(ctx, expiredAt, limit)
+	expired, err := store.expirationInfo.GetExpired(ctx, expiredAt, limit)
 	if err != nil {
 		return nil, err
 	}
-	v0expired, err := store.v0PieceInfo.GetExpired(ctx, expiredAt, limit)
-	if err != nil {
-		return nil, err
+	if int64(len(expired)) < limit && store.v0PieceInfo != nil {
+		v0Expired, err := store.v0PieceInfo.GetExpired(ctx, expiredAt, limit-int64(len(expired)))
+		if err != nil {
+			return nil, err
+		}
+		expired = append(expired, v0Expired...)
 	}
-	return append(v1expired, v0expired...), nil
+	return expired, nil
 }
 
 // SetExpiration records an expiration time for the specified piece ID owned by the specified satellite
