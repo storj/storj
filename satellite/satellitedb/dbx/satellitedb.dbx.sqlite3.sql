@@ -251,9 +251,10 @@ CREATE TABLE used_serials (
 );
 CREATE TABLE user_credits (
 	id INTEGER NOT NULL,
-	user_id BLOB NOT NULL REFERENCES users( id ),
+	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	offer_id INTEGER NOT NULL REFERENCES offers( id ),
-	referred_by BLOB REFERENCES users( id ),
+	referred_by BLOB REFERENCES users( id ) ON DELETE SET NULL,
+	type TEXT NOT NULL,
 	credits_earned_in_cents INTEGER NOT NULL,
 	credits_used_in_cents INTEGER NOT NULL,
 	expires_at TIMESTAMP NOT NULL,

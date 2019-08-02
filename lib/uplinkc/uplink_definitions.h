@@ -3,8 +3,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
 typedef enum CipherSuite {
     STORJ_ENC_UNSPECIFIED = 0,

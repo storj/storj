@@ -68,7 +68,8 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	address := &pb.NodeAddress{Address: "127.0.0.1:0"}
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, 0, false)
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, nodeSelectionConfig)
+	cacheConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100}
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, cacheConfig)
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
@@ -169,20 +170,21 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		dqTime := *stats.Disqualified
 
 		// should not update once already disqualified
-		stats, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = cache.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:       valid2ID,
 			IsUp:         false,
 			AuditSuccess: true,
-		})
+		}})
 		require.NoError(t, err)
+		dossier, err := cache.Get(ctx, valid2ID)
 
 		require.NoError(t, err)
-		require.EqualValues(t, stats.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
-		require.EqualValues(t, stats.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
-		require.EqualValues(t, stats.UptimeReputationAlpha, newUptimeAlpha)
-		require.EqualValues(t, stats.UptimeReputationBeta, newUptimeBeta)
-		require.NotNil(t, stats.Disqualified)
-		require.Equal(t, *stats.Disqualified, dqTime)
+		require.EqualValues(t, dossier.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
+		require.EqualValues(t, dossier.Reputation.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
+		require.EqualValues(t, dossier.Reputation.UptimeReputationAlpha, newUptimeAlpha)
+		require.EqualValues(t, dossier.Reputation.UptimeReputationBeta, newUptimeBeta)
+		require.NotNil(t, dossier.Disqualified)
+		require.Equal(t, *dossier.Disqualified, dqTime)
 
 	}
 }
