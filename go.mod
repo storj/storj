@@ -38,7 +38,6 @@ require (
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang-migrate/migrate/v3 v3.5.2
-	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
