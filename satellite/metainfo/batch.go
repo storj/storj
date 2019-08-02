@@ -17,6 +17,8 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 
 	resp.Responses = make([]*pb.BatchResponseItem, 0, len(req.Requests))
 
+	// TODO find a way to pass some parameters between request -> response > request
+
 	for _, request := range req.Requests {
 		switch singleRequest := request.Request.(type) {
 		case *pb.BatchRequestItem_BucketCreate:

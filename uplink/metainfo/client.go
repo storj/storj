@@ -274,8 +274,8 @@ type CreateBucketResponse struct {
 	Bucket storj.Bucket
 }
 
-// NewCreateBucketResponse TODOD
-func NewCreateBucketResponse(response *pb.BucketCreateResponse) CreateBucketResponse {
+// newCreateBucketResponse TODOD
+func newCreateBucketResponse(response *pb.BucketCreateResponse) CreateBucketResponse {
 	return CreateBucketResponse{
 		Bucket: convertProtoToBucket(response.Bucket),
 	}
@@ -304,6 +304,18 @@ type GetBucketParams struct {
 
 func (params *GetBucketParams) toRequest() *pb.BucketGetRequest {
 	return &pb.BucketGetRequest{Name: []byte(params.Name)}
+}
+
+// GetBucketResponse TODO
+type GetBucketResponse struct {
+	Bucket storj.Bucket
+}
+
+// newGetBucketResponse TODO
+func newGetBucketResponse(response *pb.BucketGetResponse) GetBucketResponse {
+	return GetBucketResponse{
+		Bucket: convertProtoToBucket(response.Bucket),
+	}
 }
 
 // GetBucket returns a bucket
@@ -354,6 +366,28 @@ func (params *ListBucketsParams) toRequest() *pb.BucketListRequest {
 		Cursor:    []byte(params.ListOpts.Cursor),
 		Limit:     int32(params.ListOpts.Limit),
 		Direction: int32(params.ListOpts.Direction),
+	}
+}
+
+// ListBucketsResponse TODO
+type ListBucketsResponse struct {
+	BucketList storj.BucketList
+}
+
+// newListBucketsResponse TODO
+func newListBucketsResponse(response *pb.BucketListResponse) ListBucketsResponse {
+	bucketList := storj.BucketList{
+		More: response.More,
+	}
+	bucketList.Items = make([]storj.Bucket, len(response.Items))
+	for i, item := range response.GetItems() {
+		bucketList.Items[i] = storj.Bucket{
+			Name:    string(item.Name),
+			Created: item.CreatedAt,
+		}
+	}
+	return ListBucketsResponse{
+		BucketList: bucketList,
 	}
 }
 

@@ -1367,6 +1367,8 @@ func TestBatch(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
+		// create few buckets and list them in one batch
+
 		batch := metainfoClient.NewBatch()
 		numOfBuckets := 5
 		for i := 0; i < numOfBuckets; i++ {
@@ -1376,15 +1378,27 @@ func TestBatch(t *testing.T) {
 				DefaultSegmentsSize: memory.MiB.Int64(),
 			})
 		}
-		err = batch.Send(ctx)
-		require.NoError(t, err)
-
-		bucketsList, err := metainfoClient.ListBuckets(ctx, metainfo.ListBucketsParams{
+		batch.AddListBuckets(metainfo.ListBucketsParams{
 			ListOpts: storj.BucketListOptions{
 				Cursor:    "",
 				Direction: storj.After,
 			},
 		})
-		require.Equal(t, numOfBuckets, len(bucketsList.Items))
+		responses, err := batch.Send(ctx)
+		require.NoError(t, err)
+		require.Equal(t, numOfBuckets+1, len(responses))
+
+		for i := 0; i < numOfBuckets; i++ {
+			response, err := responses[i].CreateBucket()
+			require.NoError(t, err)
+			require.Equal(t, "test-bucket-"+strconv.Itoa(i), response.Bucket.Name)
+
+			_, err = responses[i].GetBucket()
+			require.Error(t, err)
+		}
+
+		bucketsListResp, err := responses[numOfBuckets].ListBuckets()
+		require.NoError(t, err)
+		require.Equal(t, numOfBuckets, len(bucketsListResp.BucketList.Items))
 	})
 }

@@ -6,6 +6,8 @@ package metainfo
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/pb"
 )
 
@@ -52,12 +54,52 @@ func (batch *Batch) AddListBuckets(params ListBucketsParams) {
 }
 
 // Send TODO
-func (batch *Batch) Send(ctx context.Context) error {
-	_, err := batch.client.Batch(ctx, &pb.BatchRequest{
+func (batch *Batch) Send(ctx context.Context) (responses []Response, err error) {
+	response, err := batch.client.Batch(ctx, &pb.BatchRequest{
 		Requests: batch.requests,
 	})
 	if err != nil {
-		return err
+		return []Response{}, err
 	}
-	return nil
+
+	responses = make([]Response, len(response.Responses))
+	for i, response := range response.Responses {
+		responses[i] = Response{
+			pbResponse: response.Response,
+		}
+	}
+
+	return responses, nil
+}
+
+// Response TODO
+type Response struct {
+	pbResponse interface{}
+}
+
+// CreateBucket TODO
+func (resp *Response) CreateBucket() (CreateBucketResponse, error) {
+	item, ok := resp.pbResponse.(*pb.BatchResponseItem_BucketCreate)
+	if !ok {
+		return CreateBucketResponse{}, errs.New("invalid response type")
+	}
+	return newCreateBucketResponse(item.BucketCreate), nil
+}
+
+// GetBucket TODO
+func (resp *Response) GetBucket() (GetBucketResponse, error) {
+	item, ok := resp.pbResponse.(*pb.BatchResponseItem_BucketGet)
+	if !ok {
+		return GetBucketResponse{}, errs.New("invalid response type")
+	}
+	return newGetBucketResponse(item.BucketGet), nil
+}
+
+// ListBuckets TODO
+func (resp *Response) ListBuckets() (ListBucketsResponse, error) {
+	item, ok := resp.pbResponse.(*pb.BatchResponseItem_BucketList)
+	if !ok {
+		return ListBucketsResponse{}, errs.New("invalid response type")
+	}
+	return newListBucketsResponse(item.BucketList), nil
 }
