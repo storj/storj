@@ -6,6 +6,7 @@ package pieces
 import (
 	"context"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -124,12 +125,21 @@ type Store struct {
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
 
+	liveUsedSpace LiveUsedSpace
+
 	// The value of reservedSpace is always added to the return value from the
 	// SpaceUsedForPieces() method.
 	// The reservedSpace field is part of an unfortunate hack that enables testing of low-space
 	// or no-space conditions. It is not (or should not be) used under regular operating
 	// conditions.
 	reservedSpace int64
+}
+
+// LiveUsedSpace stores the live totals of used space in bytes
+type LiveUsedSpace struct {
+	mu                    sync.RWMutex
+	totalUsed             int64
+	usedSpaceBySatellites map[storj.NodeID]int64
 }
 
 // StoreForTest is a wrapper around Store to be used only in test scenarios. It enables writing
@@ -140,12 +150,16 @@ type StoreForTest struct {
 
 // NewStore creates a new piece store
 func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB) *Store {
-	return &Store{
+	newStore := Store{
 		log:            log,
 		blobs:          blobs,
 		v0PieceInfo:    v0PieceInfo,
 		expirationInfo: expirationInfo,
+		liveUsedSpace:  LiveUsedSpace{},
 	}
+	newStore.InitLiveUsedSpace()
+
+	return &newStore
 }
 
 // Writer returns a new piece writer.
@@ -328,6 +342,7 @@ func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	var total int64
 	for _, satellite := range satellites {
 		spaceUsed, err := store.SpaceUsedBySatellite(ctx, satellite)
@@ -360,6 +375,7 @@ func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID
 // include all space used by the blobs.
 func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error) {
 	var totalUsed int64
+
 	err := store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access StoredPieceAccess) error {
 		contentSize, statErr := access.ContentSize(ctx)
 		if statErr != nil {
@@ -401,6 +417,49 @@ func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err err
 		DiskUsed: -1, // TODO set value
 		DiskFree: diskFree,
 	}, nil
+}
+
+// InitLiveUsedSpace gets the initial values of space used for all pieces organized and by
+// Satellite ID and also total. When we create a newStore it will get an initial value
+// to set
+func (store *Store) InitLiveUsedSpace() (err error) {
+	satelliteIDs, err := store.getAllStoringSatellites(nil)
+	if err != nil {
+		return err
+	}
+
+	var totalUsed int64
+	totalsBySatellites := map[storj.NodeID]int64{}
+	for _, satelliteID := range satelliteIDs {
+		spaceUsed, err := store.SpaceUsedBySatellite(nil, satelliteID)
+		if err != nil {
+			return err
+		}
+		totalsBySatellites[satelliteID] = spaceUsed
+		totalUsed += spaceUsed
+	}
+
+	store.liveUsedSpace.mu.Lock()
+	defer store.liveUsedSpace.mu.Unlock()
+	store.liveUsedSpace.totalUsed = totalUsed
+	store.liveUsedSpace.usedSpaceBySatellites = totalsBySatellites
+	return nil
+}
+
+// LiveUsedSpaceTotal returns the current total used space for
+// all pieces (not headers).
+func (store *Store) LiveUsedSpaceTotal() int64 {
+	store.liveUsedSpace.mu.Lock()
+	defer store.liveUsedSpace.mu.Unlock()
+	return store.liveUsedSpace.totalUsed
+}
+
+// LiveUsedSpaceBySatellite returns the current totals by satellite
+// used space for all pieces (not headers).
+func (store *Store) LiveUsedSpaceBySatellite() map[storj.NodeID]int64 {
+	store.liveUsedSpace.mu.Lock()
+	defer store.liveUsedSpace.mu.Unlock()
+	return store.liveUsedSpace.usedSpaceBySatellites
 }
 
 type storedPieceAccess struct {
