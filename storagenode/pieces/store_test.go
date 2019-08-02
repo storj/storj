@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testrand"
@@ -135,7 +137,7 @@ func TestPieces(t *testing.T) {
 	}
 }
 
-func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte, atTime time.Time, formatVersion storage.FormatVersion) {
+func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte, atTime time.Time, expireTime *time.Time, formatVersion storage.FormatVersion) {
 	tStore := &pieces.StoreForTest{store}
 	writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, formatVersion)
 	require.NoError(t, err)
@@ -145,8 +147,9 @@ func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelli
 	size := writer.Size()
 	assert.Equal(t, int64(len(data)), size)
 	err = writer.Commit(ctx, &pb.PieceHeader{
-		Hash:         writer.Hash(),
-		CreationTime: atTime,
+		Hash:           writer.Hash(),
+		CreationTime:   atTime,
+		ExpirationTime: expireTime,
 	})
 	require.NoError(t, err)
 }
@@ -193,14 +196,14 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 		satellite = testrand.NodeID()
 		v0PieceID = testrand.PieceID()
 		v1PieceID = testrand.PieceID()
-		now       = time.Now()
+		now       = time.Now().UTC()
 	)
 
 	// write a V0 piece
-	writeAPiece(ctx, t, store, satellite, v0PieceID, data, now, storage.FormatV0)
+	writeAPiece(ctx, t, store, satellite, v0PieceID, data, now, nil, storage.FormatV0)
 
 	// write a V1 piece
-	writeAPiece(ctx, t, store, satellite, v1PieceID, data, now, storage.FormatV1)
+	writeAPiece(ctx, t, store, satellite, v1PieceID, data, now, nil, storage.FormatV1)
 
 	// look up the different pieces with Reader and ReaderSpecific
 	tryOpeningAPiece(ctx, t, store, satellite, v0PieceID, len(data), now, storage.FormatV0)
@@ -209,7 +212,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	// write a V1 piece with the same ID as the V0 piece (to simulate it being rewritten as
 	// V1 during a migration)
 	differentData := append(data, 111, 104, 97, 105)
-	writeAPiece(ctx, t, store, satellite, v0PieceID, differentData, now, storage.FormatV1)
+	writeAPiece(ctx, t, store, satellite, v0PieceID, differentData, now, nil, storage.FormatV1)
 
 	// if we try to access the piece at that key, we should see only the V1 piece
 	tryOpeningAPiece(ctx, t, store, satellite, v0PieceID, len(differentData), now, storage.FormatV1)
@@ -237,13 +240,11 @@ func TestGetExpired(t *testing.T) {
 
 		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
-		require.NotNil(t, v0PieceInfo)
 		expirationInfo := db.PieceExpirationDB()
-		require.NotNil(t, expirationInfo)
 
 		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo)
 
-		now := time.Now()
+		now := time.Now().UTC()
 		testDates := []struct {
 			years, months, days int
 		}{
@@ -299,5 +300,134 @@ func TestGetExpired(t *testing.T) {
 		assert.Equal(t, testPieces[0].PieceID, expired[1].PieceID)
 		assert.Equal(t, testPieces[0].SatelliteID, expired[1].SatelliteID)
 		assert.True(t, expired[1].InPieceInfo)
+	})
+}
+
+func TestOverwriteV0WithV1(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
+		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
+		expirationInfo := db.PieceExpirationDB()
+
+		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo)
+
+		satelliteID := testrand.NodeID()
+		pieceID := testrand.PieceID()
+		v0Data := testrand.Bytes(4 * memory.MiB)
+		v1Data := testrand.Bytes(3 * memory.MiB)
+
+		// write the piece as V0. We can't provide the expireTime via writeAPiece, because
+		// BlobWriter.Commit only knows how to store expiration times in piece_expirations.
+		v0CreateTime := time.Now().UTC()
+		v0ExpireTime := v0CreateTime.AddDate(5, 0, 0)
+		writeAPiece(ctx, t, store, satelliteID, pieceID, v0Data, v0CreateTime, nil, storage.FormatV0)
+		// now put the piece in the pieceinfo db directly, because store won't do that for us.
+		// this is where the expireTime takes effect.
+		err := v0PieceInfo.Add(ctx, &pieces.Info{
+			SatelliteID:     satelliteID,
+			PieceID:         pieceID,
+			PieceSize:       int64(len(v0Data)),
+			PieceCreation:   v0CreateTime,
+			PieceExpiration: v0ExpireTime,
+			OrderLimit:      &pb.OrderLimit{},
+			UplinkPieceHash: &pb.PieceHash{},
+		})
+		require.NoError(t, err)
+
+		// ensure we can see it via store.Reader
+		{
+			reader, err := store.Reader(ctx, satelliteID, pieceID)
+			require.NoError(t, err)
+			assert.Equal(t, int64(len(v0Data)), reader.Size())
+			assert.Equal(t, storage.FormatV0, reader.GetStorageFormatVersion())
+			gotData, err := ioutil.ReadAll(reader)
+			require.NoError(t, err)
+			assert.Equal(t, v0Data, gotData)
+			require.NoError(t, reader.Close())
+		}
+
+		// ensure we can see it via ForAllPieceIDsOwnedBySatellite
+		calledTimes := 0
+		err = store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
+			calledTimes++
+			require.Equal(t, 1, calledTimes)
+			gotCreateTime, err := access.CreationTime(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, v0CreateTime, gotCreateTime)
+			gotSize, err := access.ContentSize(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, int64(len(v0Data)), gotSize)
+			return nil
+		})
+		require.NoError(t, err)
+
+		// now "overwrite" the piece (write a new blob with the same id, but with V1 storage)
+		v1CreateTime := time.Now().UTC()
+		v1ExpireTime := v1CreateTime.AddDate(5, 0, 0)
+		writeAPiece(ctx, t, store, satelliteID, pieceID, v1Data, v1CreateTime, &v1ExpireTime, storage.FormatV1)
+
+		// ensure we can see it (the new piece) via store.Reader
+		{
+			reader, err := store.Reader(ctx, satelliteID, pieceID)
+			require.NoError(t, err)
+			assert.Equal(t, int64(len(v1Data)), reader.Size())
+			assert.Equal(t, storage.FormatV1, reader.GetStorageFormatVersion())
+			gotData, err := ioutil.ReadAll(reader)
+			require.NoError(t, err)
+			assert.Equal(t, v1Data, gotData)
+			require.NoError(t, reader.Close())
+		}
+
+		// now _both_ pieces should show up under ForAllPieceIDsOwnedBySatellite. this may
+		// be counter-intuitive, but the V0 piece still exists for now (so we can avoid
+		// hitting the pieceinfo db with every new piece write). I believe this is OK, because
+		// (a) I don't think that writing different pieces with the same piece ID is a normal
+		// use case, unless we make a V0->V1 migrator tool, which should know about these
+		// semantics; (b) the V0 piece should not ever become visible again to the user; it
+		// should not be possible under normal conditions to delete one without deleting the
+		// other.
+		calledTimes = 0
+		err = store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
+			calledTimes++
+			switch calledTimes {
+			case 1:
+				// expect the V1 piece
+				assert.Equal(t, pieceID, access.PieceID())
+				assert.Equal(t, storage.FormatV1, access.StorageFormatVersion())
+				gotCreateTime, err := access.CreationTime(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, v1CreateTime, gotCreateTime)
+				gotSize, err := access.ContentSize(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, int64(len(v1Data)), gotSize)
+			case 2:
+				// expect the V0 piece
+				assert.Equal(t, pieceID, access.PieceID())
+				assert.Equal(t, storage.FormatV0, access.StorageFormatVersion())
+				gotCreateTime, err := access.CreationTime(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, v0CreateTime, gotCreateTime)
+				gotSize, err := access.ContentSize(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, int64(len(v0Data)), gotSize)
+			default:
+				t.Fatalf("calledTimes should be 1 or 2, but it is %d", calledTimes)
+			}
+			return nil
+		})
+		require.NoError(t, err)
+
+		// delete the pieceID; this should get both V0 and V1
+		err = store.Delete(ctx, satelliteID, pieceID)
+		require.NoError(t, err)
+
+		err = store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
+			t.Fatalf("this should not have been called. pieceID=%x, format=%d", access.PieceID(), access.StorageFormatVersion())
+			return nil
+		})
+		require.NoError(t, err)
 	})
 }
