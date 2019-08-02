@@ -66,8 +66,9 @@ func (ec *ecClient) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore
 func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(limits) != rs.TotalCount() {
-		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), rs.TotalCount())
+	pieceCount := len(limits)
+	if pieceCount != rs.TotalCount() {
+		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", pieceCount, rs.TotalCount())
 	}
 
 	nonNilLimits := nonNilCount(limits)
@@ -93,7 +94,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		err  error
 		hash *pb.PieceHash
 	}
-	infos := make(chan info, len(limits))
+	infos := make(chan info, pieceCount)
 
 	psCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -105,8 +106,8 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		}(i, addressedLimit)
 	}
 
-	successfulNodes = make([]*pb.Node, len(limits))
-	successfulHashes = make([]*pb.PieceHash, len(limits))
+	successfulNodes = make([]*pb.Node, pieceCount)
+	successfulHashes = make([]*pb.PieceHash, pieceCount)
 	var successfulCount int32
 
 	for range limits {
@@ -148,6 +149,18 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	}()
 
 	successes := int(atomic.LoadInt32(&successfulCount))
+	mon.IntVal("segment_pieces").Observe(int64(len(limits)))
+	mon.FloatVal("segment_pieces_percent_success").Observe(float64(successes) / float64(rs.OptimalThreshold()))
+
+	var failures int
+	for range limits {
+		info := <-infos
+		if info.err != nil && err != context.Canceled {
+			failures++
+		}
+	}
+	mon.FloatVal("segment_piece_percent_failure").Observe(float64(failures) / float64(rs.OptimalThreshold()))
+
 	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
 		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
 	}
