@@ -10,10 +10,10 @@ export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<A
     let result: RequestResponse<ApiKey[]> = new RequestResponse<ApiKey[]>();
 
     let response: any = await apollo.query({
-        query: gql(
-            `query {
+        query: gql(`
+            query($projectID: String!) {
                 project(
-                    id: "${projectID}",
+                    id: $projectID,
                 ) {
                     apiKeys {
                         id,
@@ -23,6 +23,9 @@ export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<A
                 }
             }`
         ),
+        variables: {
+            projectID: projectID
+        },
         fetchPolicy: 'no-cache',
         errorPolicy: 'all',
     });
@@ -41,11 +44,11 @@ export async function createAPIKey(projectID: string, name: string): Promise<Req
     let result: RequestResponse<ApiKey> = new RequestResponse<ApiKey>();
 
     let response: any = await apollo.mutate({
-        mutation: gql(
-            `mutation {
+        mutation: gql(`
+            mutation($projectID: String!, $name: String!) {
                 createAPIKey(
-                    projectID: "${projectID}",
-                    name: "${name}"
+                    projectID: $projectID,
+                    name: $name
                 ) {
                     key,
                     keyInfo {
@@ -56,6 +59,10 @@ export async function createAPIKey(projectID: string, name: string): Promise<Req
                 }
             }`
         ),
+        variables: {
+            projectID: projectID,
+            name: name
+        },
         fetchPolicy: 'no-cache',
         errorPolicy: 'all',
     });
@@ -79,12 +86,15 @@ export async function deleteAPIKeys(ids: string[]): Promise<RequestResponse<null
 
     let response: any = await apollo.mutate({
         mutation: gql(
-            `mutation {
-                deleteAPIKeys(id: [${prepareIdList(ids)}]) {
+            `mutation($id: [String!]!) {
+                deleteAPIKeys(id: $id) {
                     id
                 }
             }`
         ),
+        variables:{
+            id: ids
+        },
         fetchPolicy: 'no-cache',
         errorPolicy: 'all',
     });
@@ -97,16 +107,6 @@ export async function deleteAPIKeys(ids: string[]): Promise<RequestResponse<null
     }
 
     return result;
-}
-
-function prepareIdList(ids: string[]): string {
-    let idString: string = '';
-
-    ids.forEach(id => {
-        idString += `"${id}", `;
-    });
-
-    return idString;
 }
 
 function getApiKeysList(apiKeys: ApiKey[]): ApiKey[] {
