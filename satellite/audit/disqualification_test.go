@@ -217,7 +217,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 
-		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = satellitePeer.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:       disqualifiedNode.ID(),
 			IsUp:         true,
 			AuditSuccess: true,
@@ -227,7 +227,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 			UptimeLambda: 0, // forget about history
 			UptimeWeight: 1,
 			UptimeDQ:     0, // make sure new reputation scores are larger than the DQ thresholds
-		})
+		}}, 100)
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
@@ -241,7 +241,7 @@ func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *satellite
 	return node.Disqualified != nil
 }
 func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) {
-	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+	_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 		NodeID:       nodeID,
 		IsUp:         true,
 		AuditSuccess: false,
@@ -251,7 +251,7 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite
 		UptimeLambda: 1,
 		UptimeWeight: 1,
 		UptimeDQ:     0.5,
-	})
+	}}, 100)
 	require.NoError(t, err)
 	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }

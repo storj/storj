@@ -357,15 +357,15 @@ func delete_object(bucketRef C.BucketRef, path *C.char, cerr **C.char) {
 	}
 }
 
-//export free_uploader_ref
-// free_uploader_ref deletes the uploader reference from the universe
-func free_uploader_ref(uploader C.UploaderRef) {
+//export free_uploader
+// free_uploader deletes the uploader reference from the universe
+func free_uploader(uploader C.UploaderRef) {
 	universe.Del(uploader._handle)
 }
 
-//export free_downloader_ref
-// free_downloader_ref deletes the downloader reference from the universe
-func free_downloader_ref(downloader C.DownloaderRef) {
+//export free_downloader
+// free_downloader deletes the downloader reference from the universe
+func free_downloader(downloader C.DownloaderRef) {
 	universe.Del(downloader._handle)
 }
 
