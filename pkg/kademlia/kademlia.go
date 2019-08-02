@@ -145,6 +145,7 @@ func (k *Kademlia) DumpNodes(ctx context.Context) (_ []*pb.Node, err error) {
 func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer k.bootstrapFinished.Release()
+	defer k.timeTrack(time.Now(), "Bootstrap")
 
 	if !k.lookups.Start() {
 		return context.Canceled
@@ -152,7 +153,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 	defer k.lookups.Done()
 
 	if len(k.bootstrapNodes) == 0 {
-		k.log.Warn("No bootstrap address specified.")
+		k.log.Warn("No bootsrap address specified", zap.Stringer(k.routingTable.self.Type.String(), k.routingTable.self.Id))
 		return nil
 	}
 
@@ -168,13 +169,14 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		var foundOnlineBootstrap bool
 		for i, node := range k.bootstrapNodes {
 			if ctx.Err() != nil {
+				k.log.Debug("Context Error received while Boostraping ", zap.Stringer(k.routingTable.self.Type.String(), k.routingTable.self.Id), zap.Stringer("Bootstrap Node", node.Id))
 				errGroup.Add(ctx.Err())
 				return errGroup.Err()
 			}
 
 			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 			if err != nil {
-				errGroup.Add(BootstrapErr.Wrap(err))
+				errGroup.Add(BootstrapErr.Wrap(BootstrapErr.New("%s : %s unable to fetch unverified peer identity node address %s: %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), node.Address.Address, err)))
 				continue
 			}
 
@@ -197,7 +199,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		}
 
 		if !foundOnlineBootstrap {
-			errGroup.Add(BootstrapErr.New("no bootstrap node found online"))
+			errGroup.Add(BootstrapErr.New("%s : %s found no bootstrap node found online", k.routingTable.self.Type.String(), k.routingTable.self.Id.String()))
 			continue
 		}
 
@@ -219,7 +221,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		// ```
 	}
 
-	errGroup.Add(BootstrapErr.New("unable to start bootstrap after final wait time of %s", waitInterval))
+	errGroup.Add(BootstrapErr.New("%s : %s unable to start bootstrap after final wait time of %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), waitInterval))
 	return errGroup.Err()
 }
 
@@ -255,7 +257,7 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (_ pb.Node, err error
 		return pb.Node{}, NodeErr.Wrap(err)
 	}
 	if !ok {
-		return pb.Node{}, NodeErr.New("Failed pinging node")
+		return pb.Node{}, NodeErr.New("%s : %s failed to ping node ID %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), node.Id.String())
 	}
 	return node, nil
 }
@@ -270,7 +272,7 @@ func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoRespo
 
 	info, err := k.dialer.FetchInfo(ctx, node)
 	if err != nil {
-		return nil, NodeErr.Wrap(err)
+		return nil, NodeErr.Wrap(NodeErr.New("%s : %s failed to fetch info from node ID %s: %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), node.Id.String(), err))
 	}
 	return info, nil
 }
@@ -289,7 +291,7 @@ func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (_ pb.Node
 		return pb.Node{}, err
 	}
 	if len(results) < 1 {
-		return pb.Node{}, NodeNotFound.Wrap(err)
+		return pb.Node{}, NodeNotFound.Wrap(NodeNotFound.New("%s : %s couldn't find node ID %s: %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), nodeID.String(), err))
 	}
 	return *results[0], nil
 }
@@ -315,11 +317,11 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID) (_ []*pb.Nod
 	}
 	bucket, err := k.routingTable.getKBucketID(ctx, nodeID)
 	if err != nil {
-		k.log.Warn("Error getting getKBucketID in kad lookup")
+		k.log.Warn("Error getting getKBucketID in kad lookup", zap.Stringer(k.routingTable.self.Type.String(), k.routingTable.self.Id))
 	} else {
 		err = k.routingTable.SetBucketTimestamp(ctx, bucket[:], time.Now())
 		if err != nil {
-			k.log.Warn("Error updating bucket timestamp in kad lookup")
+			k.log.Warn("Error updating bucket timestamp in kad lookup", zap.Stringer(k.routingTable.self.Type.String(), k.routingTable.self.Id))
 		}
 	}
 	return results, nil
@@ -343,6 +345,7 @@ func (k *Kademlia) SetBucketRefreshThreshold(threshold time.Duration) {
 // Run occasionally refreshes stale kad buckets
 func (k *Kademlia) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer k.timeTrack(time.Now(), "Kad Refresh")
 
 	if !k.lookups.Start() {
 		return context.Canceled
@@ -354,7 +357,7 @@ func (k *Kademlia) Run(ctx context.Context) (err error) {
 		threshold := time.Duration(atomic.LoadInt64(&k.refreshThreshold))
 		err := k.refresh(ctx, threshold)
 		if err != nil {
-			k.log.Warn("bucket refresh failed", zap.Error(err))
+			k.log.Warn("bucket refresh failed", zap.Stringer(k.routingTable.self.Type.String(), k.routingTable.self.Id), zap.Error(err))
 		}
 		return nil
 	})
@@ -422,4 +425,10 @@ func randomIDInRange(start, end bucketID) (storj.NodeID, error) {
 		}
 	}
 	return randID, nil
+}
+
+// timeTrack tracks how long a function ran for
+func (k *Kademlia) timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	k.log.Debug("", zap.Stringer(k.routingTable.self.Type.String(), k.routingTable.self.Id), zap.Duration(name, elapsed))
 }
