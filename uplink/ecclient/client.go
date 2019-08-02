@@ -149,7 +149,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	}()
 
 	successes := int(atomic.LoadInt32(&successfulCount))
-	mon.IntVal("segment_pieces").Observe(int64(len(limits)))
+	mon.IntVal("segment_pieces").Observe(int64(pieceCount))
 	mon.FloatVal("segment_pieces_percent_success").Observe(float64(successes) / float64(rs.OptimalThreshold()))
 
 	var failures int
