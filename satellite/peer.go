@@ -347,7 +347,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	{ // setup discovery
 		log.Debug("Setting up discovery")
 		config := config.Discovery
-		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
+		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.DB.CertDB(), peer.Kademlia.Service, config)
 	}
 
 	{ // setup vouchers

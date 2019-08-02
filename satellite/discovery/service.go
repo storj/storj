@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -36,9 +37,10 @@ type Config struct {
 
 // Discovery struct loads on cache, kad
 type Discovery struct {
-	log   *zap.Logger
-	cache *overlay.Service
-	kad   *kademlia.Kademlia
+	log    *zap.Logger
+	cache  *overlay.Cache
+	certdb certdb.DB
+	kad    *kademlia.Kademlia
 
 	refreshLimit       int
 	refreshConcurrency int
@@ -48,11 +50,12 @@ type Discovery struct {
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Service, kad *kademlia.Kademlia, config Config) *Discovery {
+func New(logger *zap.Logger, ol *overlay.Cache, cert certdb.DB, kad *kademlia.Kademlia, config Config) *Discovery {
 	discovery := &Discovery{
-		log:   logger,
-		cache: ol,
-		kad:   kad,
+		log:    logger,
+		cache:  ol,
+		certdb: cert,
+		kad:    kad,
 
 		refreshLimit:       config.RefreshLimit,
 		refreshConcurrency: config.RefreshConcurrency,
@@ -118,7 +121,7 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 
 			limiter.Go(ctx, func() {
 				// NB: FetchInfo updates node uptime already
-				info, err := discovery.kad.FetchInfo(ctx, *node)
+				info, _, err := discovery.kad.FetchInfo(ctx, *node)
 				if ctx.Err() != nil {
 					return
 				}

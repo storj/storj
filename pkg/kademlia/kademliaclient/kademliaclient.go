@@ -147,21 +147,27 @@ func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address s
 }
 
 // FetchInfo connects to a node and returns its node info.
-func (dialer *Dialer) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.InfoResponse, err error) {
+func (dialer *Dialer) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.InfoResponse, _ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
-		return nil, context.Canceled
+		return nil, nil, context.Canceled
 	}
 	defer dialer.limit.Unlock()
 
 	conn, err := dialer.dialNode(ctx, target)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	p := &peer.Peer{}
+	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, grpc.Peer(p))
+	ident, err := identity.PeerIdentityFromPeer(p)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{})
 
-	return resp, errs.Combine(err, conn.disconnect())
+	return resp, ident, errs.Combine(err, conn.disconnect())
 }
 
 // AlertSuccess alerts the transport observers of a successful connection
