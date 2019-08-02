@@ -12,6 +12,7 @@ import (
 	hw "github.com/jtolds/monkit-hw"
 	"github.com/zeebo/admission/admproto"
 	"go.uber.org/zap"
+	zipkin "gopkg.in/spacemonkeygo/monkit-zipkin.v2"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/environment"
 
@@ -27,6 +28,11 @@ var (
 	metricApp            = flag.String("metrics.app", filepath.Base(os.Args[0]), "application name for telemetry identification")
 	metricAppSuffix      = flag.String("metrics.app-suffix", flagDefault("-dev", "-release"), "application suffix")
 	metricInstancePrefix = flag.String("metrics.instance-prefix", "", "instance id prefix")
+
+	zipkinCollector = flag.String("zipkin.addr", "", "address to send traces to")
+	zipkinFraction  = flag.Float64("zipkin.fraction", 0, "fraction of traces to observe")
+	zipkinDebug     = flag.Bool("zipkin.debug", false, "whether to set debug flag on new traces")
+	zipkinBuffer    = flag.Int("zipkin.buffer", 64, "how many outstanding spans can be buffered before being dropped")
 )
 
 const (
@@ -68,6 +74,16 @@ func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, insta
 	}
 	environment.Register(r)
 	hw.Register(r)
+	if *zipkinCollector != "" && *zipkinFraction > 0 {
+		collector, err := zipkin.NewUDPCollector(*zipkinCollector, *zipkinBuffer)
+		if err != nil {
+			return err
+		}
+		zipkin.RegisterZipkin(r, collector, zipkin.Options{
+			Fraction: *zipkinFraction,
+			Debug:    *zipkinDebug,
+		})
+	}
 	r.ScopeNamed("env").Chain("version", monkit.StatSourceFunc(version.Build.Stats))
 	go c.Run(ctx)
 	return nil

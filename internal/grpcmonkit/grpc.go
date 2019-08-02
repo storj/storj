@@ -4,15 +4,9 @@
 package grpcmonkit
 
 const (
-	traceIDKey = "monkit-trace-id"
-	spanIDKey  = "monkit-span-id"
+	traceIDKey  = "monkit-trace-id"
+	spanIDKey   = "monkit-span-id"
+	parentIDKey = "monkit-parent-id"
+	sampledKey  = "monkit-sampled"
+	flagsKey    = "monkit-flags"
 )
-
-func parseFullMethod(fullMethod string) (service, endpoint string) {
-	for i, p := range fullMethod[1:] {
-		if p == '/' {
-			return fullMethod[:i+1], fullMethod[i+1:]
-		}
-	}
-	return fullMethod, ""
-}

@@ -5,87 +5,80 @@ package grpcmonkit
 
 import (
 	"context"
-	"reflect"
 	"strconv"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	zipkin "gopkg.in/spacemonkeygo/monkit-zipkin.v2"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 // ClientDialOptions returns options for adding monkit tracing.
 func ClientDialOptions() []grpc.DialOption {
-	trace := monkit.NewTrace(monkit.NewId())
-	intercept := &ClientInterceptor{trace}
+	intercept := &ClientInterceptor{}
 	return []grpc.DialOption{
 		grpc.WithUnaryInterceptor(intercept.Unary),
-		//grpc.WithStreamInterceptor(intercept.Stream),
+		grpc.WithStreamInterceptor(intercept.Stream),
 	}
 }
 
 // ClientInterceptor intercepts with traces
-type ClientInterceptor struct {
-	trace *monkit.Trace
+type ClientInterceptor struct{}
+
+func appendSpanToOutgoingContext(ctx context.Context, span *monkit.Span) context.Context {
+	zreq := zipkin.RequestFromSpan(span)
+
+	md := make([]string, 0, 10)
+	if zreq.TraceId != nil {
+		md = append(md, traceIDKey, strconv.FormatInt(*zreq.TraceId, 16))
+	}
+	if zreq.SpanId != nil {
+		md = append(md, spanIDKey, strconv.FormatInt(*zreq.SpanId, 16))
+	}
+	if zreq.ParentId != nil {
+		md = append(md, parentIDKey, strconv.FormatInt(*zreq.ParentId, 16))
+	}
+	if zreq.Sampled != nil {
+		md = append(md, traceIDKey, strconv.FormatBool(*zreq.Sampled))
+	}
+	if zreq.Flags != nil {
+		md = append(md, flagsKey, strconv.FormatInt(*zreq.Flags, 16))
+	}
+
+	return metadata.AppendToOutgoingContext(ctx, md...)
 }
 
 // Unary intercepts RPC calls.
 func (intercept *ClientInterceptor) Unary(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
-	spanid := monkit.NewId()
-	ctx = metadata.AppendToOutgoingContext(ctx,
-		traceIDKey, strconv.FormatInt(intercept.trace.Id(), 10),
-		spanIDKey, strconv.FormatInt(spanid, 10),
-	)
-
-	service, endpoint := parseFullMethod(method)
-	scope := monkit.ScopeNamed(service)
-	fn := scope.FuncNamed(endpoint)
-	defer fn.RemoteTrace(&ctx, spanid, intercept.trace)(&err)
-
-	return invoker(ctx, method, req, reply, cc, opts...)
+	span := monkit.SpanFromCtx(ctx)
+	span.Annotate("endpoint", method)
+	ctx = appendSpanToOutgoingContext(ctx, span)
+	err = invoker(ctx, method, req, reply, cc, opts...)
+	if err != nil {
+		span.Annotate("error", err.Error())
+		return err
+	}
+	return nil
 }
 
-// Stream creates an monkit client stream interceptor.
+// Stream intercepts stream calls
 func (intercept *ClientInterceptor) Stream(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (stream grpc.ClientStream, err error) {
-	spanid := monkit.NewId()
-	ctx = metadata.AppendToOutgoingContext(ctx,
-		traceIDKey, strconv.FormatInt(intercept.trace.Id(), 10),
-		spanIDKey, strconv.FormatInt(spanid, 10),
-	)
-
-	service, endpoint := parseFullMethod(method)
-	scope := monkit.ScopeNamed(service)
-	fn := scope.FuncNamed(endpoint)
-	defer fn.RemoteTrace(&ctx, spanid, intercept.trace)(&err)
-
+	span := monkit.SpanFromCtx(ctx)
+	span.Annotate("endpoint", method)
+	ctx = appendSpanToOutgoingContext(ctx, span)
 	stream, err = streamer(ctx, desc, cc, method, opts...)
 	if err != nil {
+		span.Annotate("error", err.Error())
 		return stream, err
 	}
-	return &ClientStream{stream, scope, ctx}, err
+	return &ClientStream{ClientStream: stream, ctx: ctx}, nil
 }
 
 // ClientStream implements wrapping monkit server stream.
 type ClientStream struct {
 	grpc.ClientStream
-	scope *monkit.Scope
-	ctx   context.Context
+	ctx context.Context
 }
 
 // Context returns the context for this stream.
 func (stream *ClientStream) Context() context.Context { return stream.ctx }
-
-// SendMsg sends a message.
-func (stream *ClientStream) SendMsg(m interface{}) (err error) {
-	msgtype := reflect.TypeOf(m).String()
-	ctx := stream.ctx
-	defer stream.scope.TaskNamed(msgtype)(&ctx)(&err)
-	return stream.ClientStream.SendMsg(m)
-}
-
-// RecvMsg blocks until it receives a message into m or the stream is done.
-func (stream *ClientStream) RecvMsg(m interface{}) (err error) {
-	msgtype := reflect.TypeOf(m).String()
-	ctx := stream.ctx
-	defer stream.scope.TaskNamed(msgtype)(&ctx)(&err)
-	return stream.ClientStream.RecvMsg(m)
-}
