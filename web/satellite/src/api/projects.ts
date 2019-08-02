@@ -12,15 +12,19 @@ export async function createProjectRequest(createProjectModel: CreateProjectMode
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                createProject(
-                    input: {
-                        name: "${createProjectModel.name}",
-                        description: "${createProjectModel.description}",
-                    }
-                ) {id}
-            }`
+                mutation($name: String!, $description: String!) {
+                    createProject(
+                        input: {
+                            name: $name,
+                            description: $description,
+                        }
+                    ) {id}
+                }`
             ),
+            variables: {
+                name: createProjectModel.name,
+                description: createProjectModel.description
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -45,14 +49,14 @@ export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>
     let response: any = await apollo.query(
         {
             query: gql(`
-            query {
-                myProjects{
-                    name
-                    id
-                    description
-                    createdAt
-                }
-            }`
+                query {
+                    myProjects{
+                        name
+                        id
+                        description
+                        createdAt
+                    }
+                }`
             ),
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
@@ -76,13 +80,17 @@ export async function updateProjectRequest(projectID: string, description: strin
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                updateProjectDescription(
-                    id: "${projectID}",
-                    description: "${description}"
-                ) {name}
-            }`
+                mutation($projectID: String!, $description: String!) {
+                    updateProjectDescription(
+                        id: $projectID,
+                        description: $description
+                    ) {name}
+                }`
             ),
+            variables: {
+                projectID: projectID,
+                description: description
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -104,12 +112,15 @@ export async function deleteProjectRequest(projectID: string): Promise<RequestRe
     let response = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                deleteProject(
-                    id: "${projectID}"
-                ) {name}
-            }`
+                mutation($projectID: String!) {
+                    deleteProject(
+                        id: $projectID
+                    ) {name}
+                }`
             ),
+            variables: {
+                projectID: projectID
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
