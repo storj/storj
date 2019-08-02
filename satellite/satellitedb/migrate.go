@@ -1069,21 +1069,21 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 
                     UPDATE projects as proj
                         SET owner_id =
-                            (SELECT member_id
+                            (SELECT me    mber_id
                                 FROM project_members
                                     WHERE project_id = proj.id
                                         ORDER BY created_at ASC
                                             LIMIT 1);
-
+                    
                     DELETE FROM bucket_metainfos 
                         WHERE project_id in (
                             SELECT id FROM projects WHERE owner_id is null);
-
+                    
                     DELETE FROM projects 
                         WHERE owner_id is null;
-
-					ALTER TABLE projects
-					    ALTER COLUMN owner_id SET NOT NULL;`,
+                    
+                    ALTER TABLE projects
+                        ALTER COLUMN owner_id SET NOT NULL;`,
 				},
 			},
 		},
