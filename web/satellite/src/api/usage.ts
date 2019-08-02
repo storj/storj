@@ -12,9 +12,9 @@ export async function fetchProjectUsage(projectID: string, since: Date, before: 
     let response: any = await apollo.query(
         {
             query: gql(`
-                query {
-                    project(id: "${projectID}") {
-                        usage(since: "${since.toISOString()}", before: "${before.toISOString()}") {
+                query($projectID: String!, $since: DateTime!, $before: DateTime!) {
+                    project(id: $projectID) {
+                        usage(since: $since, before: $before) {
                             storage,
                             egress,
                             objectCount,
@@ -24,6 +24,11 @@ export async function fetchProjectUsage(projectID: string, since: Date, before: 
                     }
                 }`
             ),
+            variables: {
+                projectID: projectID,
+                since: since.toISOString(),
+                before: before.toISOString()
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all'
         }
@@ -46,10 +51,10 @@ export async function fetchBucketUsages(projectID: string, before: Date, cursor:
     let response: any = await apollo.query(
         {
             query: gql(`
-                query {
-                    project(id: "${projectID}") {
-                        bucketUsages(before: "${before.toISOString()}", cursor: {
-                                limit: ${cursor.limit}, search: "${cursor.search}", page: ${cursor.page}
+                query($projectID: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
+                    project(id: $projectID) {
+                        bucketUsages(before: $before, cursor: {
+                                limit: $limit, search: $search, page: $page
                             }) {
                                 bucketUsages{
                                     bucketName,
@@ -69,6 +74,13 @@ export async function fetchBucketUsages(projectID: string, before: Date, cursor:
                     }
                 }`
             ),
+            variables: {
+                projectID: projectID,
+                before: before.toISOString(),
+                limit: cursor.limit,
+                search: cursor.search,
+                page: cursor.page
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all'
         }
