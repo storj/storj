@@ -91,6 +91,84 @@ This process including the Storage nodes transferring their pieces to other node
 	- Receiving storage nodes should be uploaded to as if they were receiving any other upload (orders, etc).
 - We need to have the storage node keep track how its progress during graceful exit by calculating how much data it had when it started the graceful exit and keeping track of how much data it has deleted (data is deleted from the exiting node as it sends pieces to new nodes). This is an estimation since the storage node is likely holding more data than it will gracefully exit (garbage data). 
 
+## Implementation
+
+#### Satellite
+- Update DBX - Add updateable `exit_initiated` and `exit_completed` timestamps to nodes table with indexes
+  - Add GetExitingNodeIds method to overlaycache. Returns nodes IDs where `exit_initiated` is not null and `exit_completed` is null.
+- Create GracefulExit endpoint
+  - Initiates the exit by setting `nodes.exit_initiated` to current time
+  - ``` 
+	service GracefulExit {
+		rpc Initiate(stream InitiateRequest) returns (stream InitiateResponse) {}
+	}
+
+	message InitiateRequest {
+		// TODO
+	}
+
+	message InitiateResponse {
+		// TODO
+	}
+	```
+- Update DBX - Add table exit_pieceinfos
+-  ```
+	model exit_pieceinfo (
+		key node_id path
+
+		field node_id           blob
+		field path              blob
+		field peice_info        blob
+		field durability_ratio  float64 // TODO: what is this?
+		field queued            timestamp ( autoinsert )
+		field completed	        timestamp ( updateable )
+	)
+   ```
+- Update node selection logic to ignore exiting nodes for uploads and repairs.
+- Update Repairer service
+  - Modify `checker` to check segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
+- Add `PieceAction_PUT_EXIT` to orders protobuf
+- Create GracefulExit service
+  - Iterates over `exit_pieceinfo`, creates signed orders with action type `PieceAction_PUT_EXIT`
+  - Batches orders and sends them to the exiting storagenode `GracefulExit.ProcessOrders` endpoint
+  - // TODO: how will we know when there are no more pieces so we can mark the exit "completed"
+  - Execution intervals and batch sizes should be configurable
+
+#### Storagenode
+- Add `gracefulexit` command to storagenode CLI
+  - When executed, the user should be prompted with a numbered list of satellites (what would we display as a name?)
+  - After selecting a satellite, the user should be prompted for a confirmation
+  - Once confirmed, the command should call the `GracefulExit.Initiate` endpoint for that satellite
+- Add `gexit` DB implementation with `exit_order` table
+  - ```
+	model exit_order (
+		key satellite_id xxxx
+
+		field satellite_id           blob
+		// TODO
+	)
+	```
+- Add GracefulExit endpoint
+  - Endpoint used by satellites to tell the exiting storage node what pieces to process
+
+  - ``` 
+	service GracefulExit {
+		rpc ProcessOrders(stream OrderRequest) returns (stream OrderResponse) {}
+	}
+
+	message OrderRequest {
+		// TODO
+	}
+
+	message OrderResponse {
+		// TODO
+	}
+	```
+- Add GracefulExit service
+  - Iterates over `exit_order`...
+    - Pushes the pieces to the storage node identified in the order using `ecclient`
+    - Sends the signed new node response to the satellite via a new `Commit` method (uses `metainfo.UpdatePieces`).  TODO: new commit service
+  - Execution intervals and batch sizes should be configurable
 
 ## Open Questions
 
@@ -98,3 +176,4 @@ This process including the Storage nodes transferring their pieces to other node
 	- Option 1. Leave the transferred piece as garbage on the new node. The GC process will take care of it.
 	- Option 2. Once the exiting node sends the proof of transfer to the satellite, the satellite can check if the segment of this piece is still in the pointer db. If it was deleted, the satellite can send a delete request to the new node.
 - What happens if a piece is deleted when the piece is in the process of being transferred from the exiting node to other node in the network?
+  - ???? The exiting node should be read only.  Should the satellite remove deleted segments from the `exit_pieceinfo` table?
