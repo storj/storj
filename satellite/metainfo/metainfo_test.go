@@ -1356,3 +1356,35 @@ func TestIDs(t *testing.T) {
 		}
 	})
 }
+
+func TestBatch(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		batch := metainfoClient.NewBatch()
+		numOfBuckets := 5
+		for i := 0; i < numOfBuckets; i++ {
+			batch.AddCreateBucket(metainfo.CreateBucketParams{
+				Name:                []byte("test-bucket-" + strconv.Itoa(i)),
+				PathCipher:          storj.EncAESGCM,
+				DefaultSegmentsSize: memory.MiB.Int64(),
+			})
+		}
+		err = batch.Send(ctx)
+		require.NoError(t, err)
+
+		bucketsList, err := metainfoClient.ListBuckets(ctx, metainfo.ListBucketsParams{
+			ListOpts: storj.BucketListOptions{
+				Cursor:    "",
+				Direction: storj.After,
+			},
+		})
+		require.Equal(t, numOfBuckets, len(bucketsList.Items))
+	})
+}

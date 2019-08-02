@@ -235,29 +235,82 @@ func (client *Client) GetProjectInfo(ctx context.Context) (resp *pb.ProjectInfoR
 	return client.client.ProjectInfo(ctx, &pb.ProjectInfoRequest{})
 }
 
-// CreateBucket creates a new bucket
-func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (respBucket storj.Bucket, err error) {
-	defer mon.Task()(&ctx)(&err)
-	req, err := convertBucketToProtoRequest(bucket)
-	if err != nil {
-		return respBucket, Error.Wrap(err)
+// CreateBucketParams parameters for CreateBucket method
+type CreateBucketParams struct {
+	Name                        []byte
+	PathCipher                  storj.CipherSuite
+	PartnerID                   []byte
+	DefaultSegmentsSize         int64
+	DefaultRedundancyScheme     storj.RedundancyScheme
+	DefaultEncryptionParameters storj.EncryptionParameters
+}
+
+func (params *CreateBucketParams) toRequest() *pb.BucketCreateRequest {
+	defaultRS := params.DefaultRedundancyScheme
+	defaultEP := params.DefaultEncryptionParameters
+	return &pb.BucketCreateRequest{
+		Name:               params.Name,
+		PathCipher:         pb.CipherSuite(params.PathCipher),
+		PartnerId:          params.PartnerID,
+		DefaultSegmentSize: params.DefaultSegmentsSize,
+		DefaultRedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_SchemeType(defaultRS.Algorithm),
+			MinReq:           int32(defaultRS.RequiredShares),
+			Total:            int32(defaultRS.TotalShares),
+			RepairThreshold:  int32(defaultRS.RepairShares),
+			SuccessThreshold: int32(defaultRS.OptimalShares),
+			ErasureShareSize: defaultRS.ShareSize,
+		},
+		DefaultEncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(defaultEP.CipherSuite),
+			BlockSize:   int64(defaultEP.BlockSize),
+		},
 	}
-	resp, err := client.client.CreateBucket(ctx, &req)
+}
+
+// TODO potential names *Response/*Out/*Result
+// CreateBucketResponse TODO
+type CreateBucketResponse struct {
+	Bucket storj.Bucket
+}
+
+// NewCreateBucketResponse TODOD
+func NewCreateBucketResponse(response *pb.BucketCreateResponse) CreateBucketResponse {
+	return CreateBucketResponse{
+		Bucket: convertProtoToBucket(response.Bucket),
+	}
+}
+
+// CreateBucket creates a new bucket
+func (client *Client) CreateBucket(ctx context.Context, params CreateBucketParams) (respBucket storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.CreateBucket(ctx, params.toRequest())
 	if err != nil {
 		return storj.Bucket{}, Error.Wrap(err)
 	}
 
-	respBucket, err = convertProtoToBucket(resp.Bucket)
+	respBucket = convertProtoToBucket(response.Bucket)
 	if err != nil {
 		return respBucket, Error.Wrap(err)
 	}
 	return respBucket, nil
 }
 
+// GetBucketParams TODO
+type GetBucketParams struct {
+	Name []byte
+}
+
+func (params *GetBucketParams) toRequest() *pb.BucketGetRequest {
+	return &pb.BucketGetRequest{Name: []byte(params.Name)}
+}
+
 // GetBucket returns a bucket
-func (client *Client) GetBucket(ctx context.Context, bucketName string) (respBucket storj.Bucket, err error) {
+func (client *Client) GetBucket(ctx context.Context, params GetBucketParams) (respBucket storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	resp, err := client.client.GetBucket(ctx, &pb.BucketGetRequest{Name: []byte(bucketName)})
+
+	resp, err := client.client.GetBucket(ctx, params.toRequest())
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
@@ -265,17 +318,23 @@ func (client *Client) GetBucket(ctx context.Context, bucketName string) (respBuc
 		return storj.Bucket{}, Error.Wrap(err)
 	}
 
-	respBucket, err = convertProtoToBucket(resp.Bucket)
-	if err != nil {
-		return respBucket, Error.Wrap(err)
-	}
+	respBucket = convertProtoToBucket(resp.Bucket)
 	return respBucket, nil
 }
 
+// DeleteBucketParams TODO
+type DeleteBucketParams struct {
+	Name []byte
+}
+
+func (params *DeleteBucketParams) toRequest() *pb.BucketDeleteRequest {
+	return &pb.BucketDeleteRequest{Name: []byte(params.Name)}
+}
+
 // DeleteBucket deletes a bucket
-func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err error) {
+func (client *Client) DeleteBucket(ctx context.Context, params DeleteBucketParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = client.client.DeleteBucket(ctx, &pb.BucketDeleteRequest{Name: []byte(bucketName)})
+	_, err = client.client.DeleteBucket(ctx, params.toRequest())
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return storj.ErrBucketNotFound.Wrap(err)
@@ -285,15 +344,24 @@ func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err 
 	return nil
 }
 
-// ListBuckets lists buckets
-func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketListOptions) (_ storj.BucketList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	req := &pb.BucketListRequest{
-		Cursor:    []byte(listOpts.Cursor),
-		Limit:     int32(listOpts.Limit),
-		Direction: int32(listOpts.Direction),
+// ListBucketsParams TODO
+type ListBucketsParams struct {
+	ListOpts storj.BucketListOptions
+}
+
+func (params *ListBucketsParams) toRequest() *pb.BucketListRequest {
+	return &pb.BucketListRequest{
+		Cursor:    []byte(params.ListOpts.Cursor),
+		Limit:     int32(params.ListOpts.Limit),
+		Direction: int32(params.ListOpts.Direction),
 	}
-	resp, err := client.client.ListBuckets(ctx, req)
+}
+
+// ListBuckets lists buckets
+func (client *Client) ListBuckets(ctx context.Context, params ListBucketsParams) (_ storj.BucketList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	resp, err := client.client.ListBuckets(ctx, params.toRequest())
 	if err != nil {
 		return storj.BucketList{}, Error.Wrap(err)
 	}
@@ -336,14 +404,15 @@ func convertBucketToProtoRequest(bucket storj.Bucket) (bucketReq pb.BucketCreate
 	}, nil
 }
 
-func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) {
+func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket) {
 	defaultRS := pbBucket.GetDefaultRedundancyScheme()
 	defaultEP := pbBucket.GetDefaultEncryptionParameters()
 	var partnerID uuid.UUID
-	err = partnerID.UnmarshalJSON(pbBucket.GetPartnerId())
-	if err != nil && !partnerID.IsZero() {
-		return bucket, errs.New("Invalid uuid")
-	}
+	copy(partnerID[:], pbBucket.GetPartnerId())
+	// err = partnerID.UnmarshalJSON(pbBucket.GetPartnerId())
+	// if err != nil && !partnerID.IsZero() {
+	// 	return bucket, errs.New("Invalid uuid")
+	// }
 	return storj.Bucket{
 		Name:                string(pbBucket.GetName()),
 		PartnerID:           partnerID,
@@ -362,7 +431,7 @@ func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) 
 			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
 			BlockSize:   int32(defaultEP.BlockSize),
 		},
-	}, nil
+	}
 }
 
 // BeginObjectParams parmaters for BeginObject method
@@ -776,4 +845,12 @@ func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsPa
 		}
 	}
 	return items, response.More, Error.Wrap(err)
+}
+
+// NewBatch TODO
+func (client *Client) NewBatch() *Batch {
+	return &Batch{
+		client:   client.client,
+		requests: make([]*pb.BatchRequestItem, 0),
+	}
 }
