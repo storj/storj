@@ -148,9 +148,11 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 	}, nil
 }
 
+var monLiveRequests = mon.TaskNamed("live-request")
+
 // Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
-	defer mon.TaskNamed("live-request")(&ctx)(&err)
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -185,7 +187,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
-	defer mon.TaskNamed("live-request")(&ctx)(&err)
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -381,7 +383,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 // Download implements downloading a piece from piece store.
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
-	defer mon.TaskNamed("live-request")(&ctx)(&err)
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	atomic.AddInt32(&endpoint.liveRequests, 1)
