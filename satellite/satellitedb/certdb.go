@@ -62,14 +62,15 @@ func (certs *certDB) tryAddPublicKey(ctx context.Context, nodeID storj.NodeID, p
 }
 
 // GetPublicKey gets the public key of uplink corresponding to uplink id
-func (certs *certDB) GetPublicKey(ctx context.Context, uplinkID storj.NodeID) (_ crypto.PublicKey, err error) {
+func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ crypto.PublicKey, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxInfo, err := certs.db.Get_CertRecord_By_Id(ctx, dbx.CertRecord_Id(uplinkID.Bytes()))
+	dbxInfo, err := certs.db.All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_Id(nodeID.Bytes()))
 	if err != nil {
 		return nil, err
 	}
 
-	pubkey, err := pkcrypto.PublicKeyFromPKIX(dbxInfo.Publickey)
+	// the first indext always holds the lastest of the keys
+	pubkey, err := pkcrypto.PublicKeyFromPKIX(dbxInfo[0].Publickey)
 	if err != nil {
 		return nil, Error.New("Failed to extract Public Key from Order: %+v", err)
 	}
@@ -77,15 +78,15 @@ func (certs *certDB) GetPublicKey(ctx context.Context, uplinkID storj.NodeID) (_
 }
 
 // GetPublicKeys gets the public keys of a storagenode corresponding to storagenode id
-func (certs *certDB) GetPublicKeys(ctx context.Context, storagenodeID storj.NodeID) (pubkeys []crypto.PublicKey, err error) {
+func (certs *certDB) GetPublicKeys(ctx context.Context, nodeID storj.NodeID) (pubkeys []crypto.PublicKey, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxInfo, err := certs.db.All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_Id(storagenodeID.Bytes()))
+	dbxInfo, err := certs.db.All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_Id(nodeID.Bytes()))
 	if err != nil {
 		return nil, err
 	}
 
 	if len(dbxInfo) == 0 {
-		return nil, Error.New("Failed to extract Public Key from ID: %+v", storagenodeID.String())
+		return nil, Error.New("Failed to extract Public Key from ID: %+v", nodeID.String())
 	}
 
 	for _, v := range dbxInfo {

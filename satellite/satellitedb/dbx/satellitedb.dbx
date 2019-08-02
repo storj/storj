@@ -619,6 +619,11 @@ read all (
 model certRecord (
 	key publickey
 
+	index (
+		name certrecord_id_update_at
+		fields id update_at 
+	)
+
 	field publickey  blob		//--uplink public key--//
 	field id         blob		//--uplink node id  --//
 	field update_at timestamp ( autoinsert, autoupdate )

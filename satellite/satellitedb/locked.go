@@ -137,18 +137,18 @@ type lockedCertDB struct {
 	db certdb.DB
 }
 
-// GetPublicKey gets the public key of uplink corresponding to uplink id
+// GetPublicKey gets one latest public key of a node
 func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (crypto.PublicKey, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetPublicKey(ctx, a1)
 }
 
-// GetPublicKey gets the public keys of a storagenode corresponding to storagenode id
-func (m *lockedCertDB) GetPublicKeys(ctx context.Context, nodeID storj.NodeID) (pubkeys []crypto.PublicKey, err error) {
+// GetPublicKey gets all the public keys of a node
+func (m *lockedCertDB) GetPublicKeys(ctx context.Context, a1 storj.NodeID) ([]crypto.PublicKey, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetPublicKeys(ctx, nodeID)
+	return m.db.GetPublicKeys(ctx, a1)
 }
 
 // SavePublicKey adds a new bandwidth agreement.

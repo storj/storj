@@ -77,12 +77,20 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 			assert.NoError(t, err)
 		}
 
-		{ // add another key for the same storagenode ID
+		{ // add another key for the same storagenode ID, this the latest key
 			err := upldb.SavePublicKey(ctx, sn1ID.ID, sn2ID.Leaf.PublicKey)
 			assert.NoError(t, err)
 		}
 
 		{ // Get the corresponding Public key for the serialnum
+			// test to return one key but the latest of the keys
+			pkey, err := upldb.GetPublicKey(ctx, sn1ID.ID)
+			assert.NoError(t, err)
+			pbytes, err := x509.MarshalPKIXPublicKey(pkey)
+			assert.NoError(t, err)
+			assert.EqualValues(t, sn2IDpubbytes, pbytes)
+
+			// test all the keys for a given ID
 			pubkey, err := upldb.GetPublicKeys(ctx, sn1ID.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, 2, len(pubkey))

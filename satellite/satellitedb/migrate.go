@@ -1072,6 +1072,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER TABLE user_credits ALTER COLUMN type SET NOT NULL;`,
 				},
 			},
+			{
+				Description: "Changing the primary key constraint",
+				Version:     50,
+				Action: migrate.SQL{
+					`ALTER TABLE certRecords DROP CONSTRAINT certrecords_pkey;
+					ALTER TABLE certRecords ADD CONSTRAINT certrecords_pkey PRIMARY KEY (publickey);
+					CREATE INDEX certrecord_id_update_at ON certRecords ( id, update_at );`,
+				},
+			},
 		},
 	}
 }
