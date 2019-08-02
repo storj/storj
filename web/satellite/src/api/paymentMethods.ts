@@ -5,7 +5,7 @@ import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { RequestResponse } from '@/types/response';
 
-export async function addProjectPaymentMethodRequest(projectId: string, cardToken: string, makeDefault: boolean): Promise<RequestResponse<null>> {
+export async function addProjectPaymentMethodRequest(projectId: string, cardToken: string, isDefault: boolean): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
@@ -15,14 +15,14 @@ export async function addProjectPaymentMethodRequest(projectId: string, cardToke
                         addPaymentMethod(
                             projectID: $projectId,
                             cardToken: $cardToken,
-                            isDefault: $makeDefault
+                            isDefault: $isDefault
                         ) 
                 }
             `),
             variables: {
                 projectId: projectId,
                 cardToken: cardToken,
-                isDefault: makeDefault
+                isDefault: isDefault
             },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all'
