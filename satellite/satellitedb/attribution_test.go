@@ -47,13 +47,14 @@ func TestUsers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		partnerID := testrand.UUID()
 		// create a project with partnerID
 		_, err = consoleDB.Projects().Insert(ctx, &console.Project{
 			ID:          testrand.UUID(),
 			Name:        "John Doe",
 			Description: "some description",
 			UsageLimit:  int64(1000),
-			PartnerID:   testrand.UUID(),
+			PartnerID:   &partnerID,
 			CreatedAt:   time.Now(),
 		})
 		require.NoError(t, err)
