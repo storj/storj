@@ -158,9 +158,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	successes := int(atomic.LoadInt32(&successfulCount))
 	mon.IntVal("segment_pieces_total").Observe(int64(pieceCount))
 	mon.IntVal("segment_pieces_optimal").Observe(int64(rs.OptimalThreshold()))
-	mon.FloatVal("segment_pieces_successful").Observe(float64(successes))
-	mon.FloatVal("segment_pieces_failed").Observe(float64(failures))
-	mon.FloatVal("segment_pieces_canceled").Observe(float64(cancelations))
+	mon.IntVal("segment_pieces_successful").Observe(int64(successes))
+	mon.IntVal("segment_pieces_failed").Observe(int64(failures))
+	mon.IntVal("segment_pieces_canceled").Observe(int64(cancelations))
 
 	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
 		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
