@@ -427,33 +427,6 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	return totalUsed, nil
 }
 
-// ReserveSpace marks some amount of free space as used, even if it's not, so that future calls
-// to SpaceUsedForPieces() are raised by this amount. Calls to ReserveSpace invalidate earlier
-// calls, so ReserveSpace(0) undoes all prior space reservation. This should only be used in
-// test scenarios.
-func (store StoreForTest) ReserveSpace(amount int64) {
-	store.reservedSpace = amount
-}
-
-// StorageStatus contains information about the disk store is using.
-type StorageStatus struct {
-	DiskUsed int64
-	DiskFree int64
-}
-
-// StorageStatus returns information about the disk.
-func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err error) {
-	defer mon.Task()(&ctx)(&err)
-	diskFree, err := store.blobs.FreeSpace()
-	if err != nil {
-		return StorageStatus{}, err
-	}
-	return StorageStatus{
-		DiskUsed: -1, // TODO set value
-		DiskFree: diskFree,
-	}, nil
-}
-
 // InitLiveUsedSpace gets the initial values of space used for all pieces organized and by
 // Satellite ID and also total. When we create a newStore it will get an initial value
 // to set
@@ -481,20 +454,47 @@ func (store *Store) InitLiveUsedSpace() (err error) {
 	return nil
 }
 
-// LiveUsedSpaceTotal returns the current total used space for
-// all pieces (not headers).
-func (store *Store) LiveUsedSpaceTotal() int64 {
+// LiveSpaceUsedForPieces returns the current total used space for
+// all pieces content (not including header bytes)
+func (store *Store) LiveSpaceUsedForPieces(ctx context.Context) int64 {
 	store.liveUsedSpace.mu.Lock()
 	defer store.liveUsedSpace.mu.Unlock()
 	return store.liveUsedSpace.totalUsed
 }
 
-// LiveUsedSpaceBySatellite returns the current totals by satellite
-// used space for all pieces (not headers).
-func (store *Store) LiveUsedSpaceBySatellite() map[storj.NodeID]int64 {
+// LiveSpaceUsedBySatellite returns the current total space used for a specific
+// satellite for all pieces (not including header bytes)
+func (store *Store) LiveSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) int64 {
 	store.liveUsedSpace.mu.Lock()
 	defer store.liveUsedSpace.mu.Unlock()
-	return store.liveUsedSpace.usedSpaceBySatellites
+	return store.liveUsedSpace.usedSpaceBySatellites[satelliteID]
+}
+
+// ReserveSpace marks some amount of free space as used, even if it's not, so that future calls
+// to SpaceUsedForPieces() are raised by this amount. Calls to ReserveSpace invalidate earlier
+// calls, so ReserveSpace(0) undoes all prior space reservation. This should only be used in
+// test scenarios.
+func (store StoreForTest) ReserveSpace(amount int64) {
+	store.reservedSpace = amount
+}
+
+// StorageStatus contains information about the disk store is using.
+type StorageStatus struct {
+	DiskUsed int64
+	DiskFree int64
+}
+
+// StorageStatus returns information about the disk.
+func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+	diskFree, err := store.blobs.FreeSpace()
+	if err != nil {
+		return StorageStatus{}, err
+	}
+	return StorageStatus{
+		DiskUsed: -1, // TODO set value
+		DiskFree: diskFree,
+	}, nil
 }
 
 type storedPieceAccess struct {

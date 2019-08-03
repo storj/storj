@@ -5,7 +5,6 @@ package piecestore
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"runtime"

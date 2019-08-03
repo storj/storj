@@ -73,10 +73,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 	freeDiskSpace := storageStatus.DiskFree
 
-	totalUsed, err := service.usedSpace(ctx)
-	if err != nil {
-		return err
-	}
+	totalUsed := service.store.LiveSpaceUsedForPieces(ctx)
 
 	usedBandwidth, err := service.usedBandwidth(ctx)
 	if err != nil {
@@ -140,10 +137,7 @@ func (service *Service) Close() (err error) {
 func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usedSpace, err := service.usedSpace(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	usedSpace := service.store.LiveSpaceUsedForPieces(ctx)
 
 	usedBandwidth, err := service.usedBandwidth(ctx)
 	if err != nil {
@@ -158,15 +152,6 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return usedSpace, nil
-}
-
 func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	usage, err := service.usageDB.MonthSummary(ctx)
@@ -179,10 +164,7 @@ func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) 
 // AvailableSpace returns available disk space for upload
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
+	usedSpace := service.store.LiveSpaceUsedForPieces(ctx)
 	allocatedSpace := service.allocatedDiskSpace
 	return allocatedSpace - usedSpace, nil
 }

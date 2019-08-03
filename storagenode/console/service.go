@@ -145,24 +145,14 @@ func (s *Service) GetBandwidthBySatellite(ctx context.Context, satelliteID storj
 // GetUsedStorageTotal returns all info about storagenode disk space usage
 func (s *Service) GetUsedStorageTotal(ctx context.Context) (_ *DiskSpaceInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	spaceUsed, err := s.pieceStore.SpaceUsedForPieces(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+	spaceUsed := s.pieceStore.LiveSpaceUsedForPieces(ctx)
 	return &DiskSpaceInfo{Available: s.allocatedDiskSpace.Int64() - spaceUsed, Used: spaceUsed}, nil
 }
 
 // GetUsedStorageBySatellite returns all info about storagenode disk space usage
 func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ *DiskSpaceInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	spaceUsed, err := s.pieceStore.SpaceUsedBySatellite(ctx, satelliteID)
-	if err != nil {
-		return nil, err
-	}
-
+	spaceUsed := s.pieceStore.LiveSpaceUsedBySatellite(ctx, satelliteID)
 	return &DiskSpaceInfo{Available: s.allocatedDiskSpace.Int64() - spaceUsed, Used: spaceUsed}, nil
 }
 
