@@ -47,6 +47,9 @@ type Info struct {
 type ExpiredInfo struct {
 	SatelliteID storj.NodeID
 	PieceID     storj.PieceID
+
+	// This can be removed when we no longer need to support the pieceinfo db. Its only purpose
+	// is to keep track of whether expired entries came from piece_expirations or pieceinfo.
 	InPieceInfo bool
 }
 
@@ -474,5 +477,6 @@ func (access storedPieceAccess) ModTime(ctx context.Context) (mTime time.Time, e
 	if err != nil {
 		return time.Time{}, err
 	}
+
 	return stat.ModTime(), nil
 }
