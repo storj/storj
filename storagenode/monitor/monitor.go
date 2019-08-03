@@ -124,6 +124,11 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		if err != nil {
 			service.log.Error("error during updating node information: ", zap.Error(err))
 		}
+
+		err = service.RecalculateLiveSpaceUsed(ctx)
+		if err != nil {
+			service.log.Error("error recalculating live space used: ", zap.Error(err))
+		}
 		return err
 	})
 }
@@ -178,4 +183,13 @@ func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err er
 	}
 	allocatedBandwidth := service.allocatedBandwidth
 	return allocatedBandwidth - usage, nil
+}
+
+// RecalculateLiveSpaceUsed walks through all the pieces stored on disk
+// and adds up the total bytes that are stores and updates the in memory
+// live used space totals
+func (service *Service) RecalculateLiveSpaceUsed(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.store.UpdateLiveUsedSpace()
 }

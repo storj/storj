@@ -157,7 +157,7 @@ func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, e
 		expirationInfo: expirationInfo,
 		liveUsedSpace:  LiveUsedSpace{},
 	}
-	newStore.InitLiveUsedSpace()
+	newStore.UpdateLiveUsedSpace()
 
 	return &newStore
 }
@@ -427,10 +427,10 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	return totalUsed, nil
 }
 
-// InitLiveUsedSpace gets the initial values of space used for all pieces organized and by
+// UpdateLiveUsedSpace gets the initial values of space used for all pieces organized and by
 // Satellite ID and also total. When we create a newStore it will get an initial value
 // to set
-func (store *Store) InitLiveUsedSpace() (err error) {
+func (store *Store) UpdateLiveUsedSpace() (err error) {
 	satelliteIDs, err := store.getAllStoringSatellites(nil)
 	if err != nil {
 		return err
@@ -451,6 +451,7 @@ func (store *Store) InitLiveUsedSpace() (err error) {
 	defer store.liveUsedSpace.mu.Unlock()
 	store.liveUsedSpace.totalUsed = totalUsed
 	store.liveUsedSpace.usedSpaceBySatellites = totalsBySatellites
+	store.log.Debug("updating live used space totals with:", zap.Int64("totalUsed", totalUsed))
 	return nil
 }
 
