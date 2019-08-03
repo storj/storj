@@ -5,6 +5,7 @@ package piecestore
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"runtime"
@@ -229,6 +230,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			uploadRate = float64(uploadSize) / dt.Seconds()
 		}
 		uploadDuration := dt.Nanoseconds()
+
+		endpoint.store.UpdateLiveUsedSpaceTotals(ctx, limit.SatelliteId, uploadSize)
 
 		if err != nil {
 			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)

@@ -246,13 +246,26 @@ func (store *Store) ReaderSpecific(ctx context.Context, satellite storj.NodeID, 
 // Delete deletes the specified piece.
 func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = store.blobs.Delete(ctx, storage.BlobRef{
+
+	blobRef := storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
-	})
+	}
+
+	// Get the size of the piece before we delete it
+	// so that we can keep track of how many bytes deleted
+	// after successfully deleted
+	pieceSize, err := store.getPieceSize(ctx, blobRef)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	err = store.blobs.Delete(ctx, blobRef)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	store.UpdateLiveUsedSpaceTotals(ctx, satellite, -pieceSize)
+
 	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
 	// both of these calls should return no error if the requested record is not found.
 	if store.expirationInfo != nil {
@@ -262,6 +275,28 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
 	}
 	return Error.Wrap(err)
+}
+
+func (store *Store) getPieceSize(ctx context.Context, blobRef storage.BlobRef) (int64, error) {
+	blobAccess, err := store.blobs.Lookup(ctx, blobRef)
+	if err != nil {
+		return 0, err
+	}
+	pieceAccess, err := newStoredPieceAccess(store, blobAccess)
+	if err != nil {
+		return 0, err
+	}
+	return pieceAccess.ContentSize(ctx)
+}
+
+// UpdateLiveUsedSpaceTotals modifies the real time count of total space used.
+// This is updated when a piece is deleted or created. These values do not include
+// the header bytes, but only the piece content size.
+func (store *Store) UpdateLiveUsedSpaceTotals(ctx context.Context, satelliteID storj.NodeID, pieceSize int64) {
+	store.liveUsedSpace.mu.Lock()
+	defer store.liveUsedSpace.mu.Unlock()
+	store.liveUsedSpace.totalUsed += pieceSize
+	store.liveUsedSpace.usedSpaceBySatellites[satelliteID] += pieceSize
 }
 
 // GetV0PieceInfoDB returns this piece-store's reference to the V0 piece info DB (or nil,
