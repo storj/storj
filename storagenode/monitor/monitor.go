@@ -73,7 +73,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 	freeDiskSpace := storageStatus.DiskFree
 
-	totalUsed := service.store.LiveSpaceUsedForPieces(ctx)
+	totalUsed := service.store.SpaceUsedForPiecesLive(ctx)
 
 	usedBandwidth, err := service.usedBandwidth(ctx)
 	if err != nil {
@@ -125,7 +125,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			service.log.Error("error during updating node information: ", zap.Error(err))
 		}
 
-		err = service.RecalculateLiveSpaceUsed(ctx)
+		err = service.RecalculateSpaceUsedLive(ctx)
 		if err != nil {
 			service.log.Error("error recalculating live space used: ", zap.Error(err))
 		}
@@ -142,7 +142,7 @@ func (service *Service) Close() (err error) {
 func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usedSpace := service.store.LiveSpaceUsedForPieces(ctx)
+	usedSpace := service.store.SpaceUsedForPiecesLive(ctx)
 
 	usedBandwidth, err := service.usedBandwidth(ctx)
 	if err != nil {
@@ -169,7 +169,7 @@ func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) 
 // AvailableSpace returns available disk space for upload
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace := service.store.LiveSpaceUsedForPieces(ctx)
+	usedSpace := service.store.SpaceUsedForPiecesLive(ctx)
 	allocatedSpace := service.allocatedDiskSpace
 	return allocatedSpace - usedSpace, nil
 }
@@ -185,11 +185,10 @@ func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err er
 	return allocatedBandwidth - usage, nil
 }
 
-// RecalculateLiveSpaceUsed walks through all the pieces stored on disk
+// RecalculateSpaceUsedLive walks through all the pieces stored on disk
 // and adds up the total bytes that are stores and updates the in memory
 // live used space totals
-func (service *Service) RecalculateLiveSpaceUsed(ctx context.Context) (err error) {
+func (service *Service) RecalculateSpaceUsedLive(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	return service.store.CalculateLiveSpaceUsed()
+	return service.store.RecalculateSpaceUsedLive(ctx)
 }

@@ -65,7 +65,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
-	totalUsedSpace := inspector.pieceStore.LiveSpaceUsedForPieces(ctx)
+	totalUsedSpace := inspector.pieceStore.SpaceUsedForPiecesLive(ctx)
 	usage, err := bandwidth.TotalMonthlySummary(ctx, inspector.usageDB)
 	if err != nil {
 		return nil, err

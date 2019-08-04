@@ -32,7 +32,8 @@ func BenchmarkReadWrite(b *testing.B) {
 	blobs := filestore.New(dir, zap.NewNop())
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(zap.NewNop(), blobs, nil, nil)
+	store, err := pieces.NewStore(zap.NewNop(), blobs, nil, nil)
+	require.NoError(b, err)
 
 	// setup test parameters
 	const blockSize = int(256 * memory.KiB)
@@ -98,7 +99,8 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	blobs := filestore.New(dir, zaptest.NewLogger(t))
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
+	store, err := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
+	require.NoError(t, err)
 
 	// test parameters
 	satelliteID := testrand.NodeID()

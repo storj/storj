@@ -40,7 +40,8 @@ func TestPieces(t *testing.T) {
 	blobs := filestore.New(dir, zaptest.NewLogger(t))
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
+	store, err := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
+	require.NoError(t, err)
 
 	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 	pieceID := storj.NewPieceID()
@@ -187,7 +188,8 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
+	store, err := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
+	require.NoError(t, err)
 
 	const pieceSize = 1024
 
@@ -242,8 +244,8 @@ func TestGetExpired(t *testing.T) {
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 		expirationInfo := db.PieceExpirationDB()
 
-		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo)
-
+		store, err := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo)
+		require.NoError(t, err)
 		now := time.Now().UTC()
 		testDates := []struct {
 			years, months, days int
@@ -265,7 +267,7 @@ func TestGetExpired(t *testing.T) {
 		}
 
 		// put testPieces 0 and 1 in the v0 pieceinfo db
-		err := v0PieceInfo.Add(ctx, &testPieces[0])
+		err = v0PieceInfo.Add(ctx, &testPieces[0])
 		require.NoError(t, err)
 		err = v0PieceInfo.Add(ctx, &testPieces[1])
 		require.NoError(t, err)
@@ -312,8 +314,8 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 		expirationInfo := db.PieceExpirationDB()
 
-		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo)
-
+		store, err := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo)
+		require.NoError(t, err)
 		satelliteID := testrand.NodeID()
 		pieceID := testrand.PieceID()
 		v0Data := testrand.Bytes(4 * memory.MiB)
@@ -326,7 +328,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		writeAPiece(ctx, t, store, satelliteID, pieceID, v0Data, v0CreateTime, nil, storage.FormatV0)
 		// now put the piece in the pieceinfo db directly, because store won't do that for us.
 		// this is where the expireTime takes effect.
-		err := v0PieceInfo.Add(ctx, &pieces.Info{
+		err = v0PieceInfo.Add(ctx, &pieces.Info{
 			SatelliteID:     satelliteID,
 			PieceID:         pieceID,
 			PieceSize:       int64(len(v0Data)),

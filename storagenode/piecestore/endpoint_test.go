@@ -507,8 +507,8 @@ func TestRetain(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
-		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB())
-
+		store, err := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB())
+		require.NoError(t, err)
 		const numPieces = 1000
 		const numPiecesToKeep = 990
 		// pieces from numPiecesToKeep + numOldPieces to numPieces will

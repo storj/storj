@@ -230,7 +230,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		}
 		uploadDuration := dt.Nanoseconds()
 
-		endpoint.store.UpdateLiveSpaceUsedTotals(ctx, limit.SatelliteId, uploadSize)
+		endpoint.store.UpdateSpaceUsedLiveTotals(ctx, limit.SatelliteId, uploadSize)
 
 		if err != nil {
 			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)

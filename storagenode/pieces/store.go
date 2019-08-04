@@ -125,7 +125,8 @@ type Store struct {
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
 
-	liveSpaceUsed LiveSpaceUsed
+	SpaceUsedLive  SpaceUsedLive
+	liveSpaceMutex sync.RWMutex
 
 	// The value of reservedSpace is always added to the return value from the
 	// SpaceUsedForPieces() method.
@@ -135,11 +136,10 @@ type Store struct {
 	reservedSpace int64
 }
 
-// LiveSpaceUsed stores the live totals of used space for all
+// SpaceUsedLive stores the live totals of used space for all
 // piece content (not including headers) and also total used space
 // by satellites
-type LiveSpaceUsed struct {
-	mu                    sync.RWMutex
+type SpaceUsedLive struct {
 	totalUsed             int64
 	usedSpaceBySatellites map[storj.NodeID]int64
 }
@@ -151,17 +151,20 @@ type StoreForTest struct {
 }
 
 // NewStore creates a new piece store
-func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB) *Store {
+func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB) (*Store, error) {
 	newStore := Store{
 		log:            log,
 		blobs:          blobs,
 		v0PieceInfo:    v0PieceInfo,
 		expirationInfo: expirationInfo,
-		liveSpaceUsed:  LiveSpaceUsed{},
+		SpaceUsedLive:  SpaceUsedLive{},
 	}
-	newStore.CalculateLiveSpaceUsed()
+	err := newStore.InitSpaceUsedLive()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return &newStore
+	return &newStore, nil
 }
 
 // Writer returns a new piece writer.
@@ -263,7 +266,7 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	store.UpdateLiveSpaceUsedTotals(ctx, satellite, -pieceSize)
+	store.UpdateSpaceUsedLiveTotals(ctx, satellite, -pieceSize)
 
 	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
 	// both of these calls should return no error if the requested record is not found.
@@ -288,14 +291,14 @@ func (store *Store) getPieceSize(ctx context.Context, blobRef storage.BlobRef) (
 	return pieceAccess.ContentSize(ctx)
 }
 
-// UpdateLiveSpaceUsedTotals updates the live used space totals
+// UpdateSpaceUsedLiveTotals updates the live used space totals
 // with a pieceSize that was either created or deleted where the pieceSize is
 // only the content size and does not include header bytes
-func (store *Store) UpdateLiveSpaceUsedTotals(ctx context.Context, satelliteID storj.NodeID, pieceSize int64) {
-	store.liveSpaceUsed.mu.Lock()
-	defer store.liveSpaceUsed.mu.Unlock()
-	store.liveSpaceUsed.totalUsed += pieceSize
-	store.liveSpaceUsed.usedSpaceBySatellites[satelliteID] += pieceSize
+func (store *Store) UpdateSpaceUsedLiveTotals(ctx context.Context, satelliteID storj.NodeID, pieceSize int64) {
+	store.liveSpaceMutex.Lock()
+	defer store.liveSpaceMutex.Unlock()
+	store.SpaceUsedLive.totalUsed += pieceSize
+	store.SpaceUsedLive.usedSpaceBySatellites[satelliteID] += pieceSize
 }
 
 // GetV0PieceInfoDB returns this piece-store's reference to the V0 piece info DB (or nil,
@@ -428,13 +431,13 @@ func (store *Store) SpaceUsedBySatelliteSlow(ctx context.Context, satelliteID st
 	return totalUsed, nil
 }
 
-// CalculateLiveSpaceUsed walks through all the pieces stored on disk
-// and sums up the bytes of all pieces stored. Then updates the in-memory
-// live used space totals with those new sums.
-func (store *Store) CalculateLiveSpaceUsed() (err error) {
+// SpaceUsedForPiecesAndBySatellitesSlow walks through all the pieces stored on disk
+// and sums up the bytes for all pieces (not including headers) currently stored. These
+// new summed up values are used for the live in memory values.
+func (store *Store) SpaceUsedForPiecesAndBySatellitesSlow() (SpaceUsedLive, error) {
 	satelliteIDs, err := store.getAllStoringSatellites(nil)
 	if err != nil {
-		return err
+		return SpaceUsedLive{}, err
 	}
 
 	var totalUsed int64
@@ -442,34 +445,109 @@ func (store *Store) CalculateLiveSpaceUsed() (err error) {
 	for _, satelliteID := range satelliteIDs {
 		spaceUsed, err := store.SpaceUsedBySatelliteSlow(nil, satelliteID)
 		if err != nil {
-			return err
+			return SpaceUsedLive{}, err
 		}
 		totalsBySatellites[satelliteID] = spaceUsed
 		totalUsed += spaceUsed
 	}
 
-	store.liveSpaceUsed.mu.Lock()
-	defer store.liveSpaceUsed.mu.Unlock()
-	store.liveSpaceUsed.totalUsed = totalUsed
-	store.liveSpaceUsed.usedSpaceBySatellites = totalsBySatellites
-	store.log.Debug("updating live used space totals with:", zap.Int64("totalUsed", totalUsed))
+	return SpaceUsedLive{
+		totalUsed:             totalUsed,
+		usedSpaceBySatellites: totalsBySatellites,
+	}, nil
+}
+
+// InitSpaceUsedLive sets the live values for space used
+// where the sums are calculated by iterating over all saved pieces on disk
+// to get their size
+func (store *Store) InitSpaceUsedLive() error {
+	newSpaceUsedLive, err := store.SpaceUsedForPiecesAndBySatellitesSlow()
+	if err != nil {
+		return err
+	}
+
+	store.liveSpaceMutex.Lock()
+	defer store.liveSpaceMutex.Unlock()
+	store.SpaceUsedLive = newSpaceUsedLive
 	return nil
 }
 
-// LiveSpaceUsedForPieces returns the current total used space for
+// SpaceUsedForPiecesLive returns the current total used space for
 // all pieces content (not including header bytes)
-func (store *Store) LiveSpaceUsedForPieces(ctx context.Context) int64 {
-	store.liveSpaceUsed.mu.Lock()
-	defer store.liveSpaceUsed.mu.Unlock()
-	return store.liveSpaceUsed.totalUsed
+func (store *Store) SpaceUsedForPiecesLive(ctx context.Context) int64 {
+	store.liveSpaceMutex.Lock()
+	defer store.liveSpaceMutex.Unlock()
+	return store.SpaceUsedLive.totalUsed
 }
 
-// LiveSpaceUsedBySatellite returns the current total space used for a specific
+// SpaceUsedBySatelliteLive returns the current total space used for a specific
 // satellite for all pieces (not including header bytes)
-func (store *Store) LiveSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) int64 {
-	store.liveSpaceUsed.mu.Lock()
-	defer store.liveSpaceUsed.mu.Unlock()
-	return store.liveSpaceUsed.usedSpaceBySatellites[satelliteID]
+func (store *Store) SpaceUsedBySatelliteLive(ctx context.Context, satelliteID storj.NodeID) int64 {
+	store.liveSpaceMutex.Lock()
+	defer store.liveSpaceMutex.Unlock()
+	return store.SpaceUsedLive.usedSpaceBySatellites[satelliteID]
+}
+
+// RecalculateSpaceUsedLive sums up the bytes for all pieces (not including headers) currently stored.
+// The live values for used space are initially calculated when the storagenode starts up, then
+// incrememted/decremeted when pieces are created/deleted. In addition we want to occasionally recalculate
+// the live values to confirm correctness. This method RecalculateSpaceUsedLive is responsible for doing that.
+func (store *Store) RecalculateSpaceUsedLive(ctx context.Context) error {
+	store.liveSpaceMutex.Lock()
+	// Save the current live values before we start recalculating
+	// so we can compare them to what we recalculate
+	spaceUsedWhenIterationStarted := store.SpaceUsedLive
+	store.liveSpaceMutex.Unlock()
+
+	// Iterate over all the pieces currently stored to get their size and sum those sizes.
+	// This iteration can take a long time if there are a lot of pieces stored.
+	spaceUsedResultOfIteration, err := store.SpaceUsedForPiecesAndBySatellitesSlow()
+	if err != nil {
+		return err
+	}
+
+	store.liveSpaceMutex.Lock()
+	defer store.liveSpaceMutex.Unlock()
+	// Since it might have taken a long time to iterate over all the pieces, here we need to check if
+	// we missed any additions/deletions of pieces while we were iterating and add those bytes to
+	// the space used result of iteration.
+	store.SpaceUsedLive.estimateAndSave(spaceUsedWhenIterationStarted, spaceUsedResultOfIteration)
+
+	return nil
+}
+
+// estimateAndSave estimates how many bytes were missed for writes/deletes while iterating over pieces
+// to sum size. Then we save that estimation along with the result of the iteration to the live in-memory
+// used space values.
+func (live *SpaceUsedLive) estimateAndSave(oldSpaceUsedLive, newSpaceUsed SpaceUsedLive) {
+	estimatedTotalsBySatellites := map[storj.NodeID]int64{}
+	for satelliteID, newSpaceUsedTotal := range newSpaceUsed.usedSpaceBySatellites {
+		estimatedTotalsBySatellites[satelliteID] = estimateRecalculation(newSpaceUsedTotal,
+			oldSpaceUsedLive.usedSpaceBySatellites[satelliteID],
+			live.usedSpaceBySatellites[satelliteID],
+		)
+	}
+
+	live.usedSpaceBySatellites = estimatedTotalsBySatellites
+	live.totalUsed = estimateRecalculation(newSpaceUsed.totalUsed,
+		oldSpaceUsedLive.totalUsed,
+		live.totalUsed,
+	)
+}
+
+func estimateRecalculation(newSpaceUsedTotal, spaceUsedWhenIterationStarted, spaceUsedWhenIterationEnded int64) int64 {
+	// If the new space used result from the iterations matches the
+	// live value of space used when the iteration ended, then there is no
+	// missed bytes during the iteration
+	if newSpaceUsedTotal == spaceUsedWhenIterationEnded {
+		return newSpaceUsedTotal
+	}
+
+	// If we missed writes/deletes while iterating, we will assume that half of those missed occurred before
+	// the iteration and half occurred after. So here we add half of the delta to the result space used totals
+	// from the iteration to account for those missed.
+	spaceUsedDeltaDuringIteration := spaceUsedWhenIterationStarted - spaceUsedWhenIterationEnded
+	return newSpaceUsedTotal + (spaceUsedDeltaDuringIteration / 2)
 }
 
 // ReserveSpace marks some amount of free space as used, even if it's not, so that future calls
