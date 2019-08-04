@@ -125,7 +125,7 @@ type Store struct {
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
 
-	liveUsedSpace LiveUsedSpace
+	liveSpaceUsed LiveSpaceUsed
 
 	// The value of reservedSpace is always added to the return value from the
 	// SpaceUsedForPieces() method.
@@ -135,10 +135,10 @@ type Store struct {
 	reservedSpace int64
 }
 
-// LiveUsedSpace stores the live totals of used space for all
+// LiveSpaceUsed stores the live totals of used space for all
 // piece content (not including headers) and also total used space
 // by satellites
-type LiveUsedSpace struct {
+type LiveSpaceUsed struct {
 	mu                    sync.RWMutex
 	totalUsed             int64
 	usedSpaceBySatellites map[storj.NodeID]int64
@@ -157,9 +157,9 @@ func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, e
 		blobs:          blobs,
 		v0PieceInfo:    v0PieceInfo,
 		expirationInfo: expirationInfo,
-		liveUsedSpace:  LiveUsedSpace{},
+		liveSpaceUsed:  LiveSpaceUsed{},
 	}
-	newStore.CalculateLiveUsedSpace()
+	newStore.CalculateLiveSpaceUsed()
 
 	return &newStore
 }
@@ -263,7 +263,7 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	store.UpdateLiveUsedSpaceTotals(ctx, satellite, -pieceSize)
+	store.UpdateLiveSpaceUsedTotals(ctx, satellite, -pieceSize)
 
 	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
 	// both of these calls should return no error if the requested record is not found.
@@ -288,14 +288,14 @@ func (store *Store) getPieceSize(ctx context.Context, blobRef storage.BlobRef) (
 	return pieceAccess.ContentSize(ctx)
 }
 
-// UpdateLiveUsedSpaceTotals updates the live used space totals
+// UpdateLiveSpaceUsedTotals updates the live used space totals
 // with a pieceSize that was either created or deleted where the pieceSize is
 // only the content size and does not include header bytes
-func (store *Store) UpdateLiveUsedSpaceTotals(ctx context.Context, satelliteID storj.NodeID, pieceSize int64) {
-	store.liveUsedSpace.mu.Lock()
-	defer store.liveUsedSpace.mu.Unlock()
-	store.liveUsedSpace.totalUsed += pieceSize
-	store.liveUsedSpace.usedSpaceBySatellites[satelliteID] += pieceSize
+func (store *Store) UpdateLiveSpaceUsedTotals(ctx context.Context, satelliteID storj.NodeID, pieceSize int64) {
+	store.liveSpaceUsed.mu.Lock()
+	defer store.liveSpaceUsed.mu.Unlock()
+	store.liveSpaceUsed.totalUsed += pieceSize
+	store.liveSpaceUsed.usedSpaceBySatellites[satelliteID] += pieceSize
 }
 
 // GetV0PieceInfoDB returns this piece-store's reference to the V0 piece info DB (or nil,
@@ -428,10 +428,10 @@ func (store *Store) SpaceUsedBySatelliteSlow(ctx context.Context, satelliteID st
 	return totalUsed, nil
 }
 
-// CalculateLiveUsedSpace walks through all the pieces stored on disk
+// CalculateLiveSpaceUsed walks through all the pieces stored on disk
 // and sums up the bytes of all pieces stored. Then updates the in-memory
 // live used space totals with those new sums.
-func (store *Store) CalculateLiveUsedSpace() (err error) {
+func (store *Store) CalculateLiveSpaceUsed() (err error) {
 	satelliteIDs, err := store.getAllStoringSatellites(nil)
 	if err != nil {
 		return err
@@ -448,10 +448,10 @@ func (store *Store) CalculateLiveUsedSpace() (err error) {
 		totalUsed += spaceUsed
 	}
 
-	store.liveUsedSpace.mu.Lock()
-	defer store.liveUsedSpace.mu.Unlock()
-	store.liveUsedSpace.totalUsed = totalUsed
-	store.liveUsedSpace.usedSpaceBySatellites = totalsBySatellites
+	store.liveSpaceUsed.mu.Lock()
+	defer store.liveSpaceUsed.mu.Unlock()
+	store.liveSpaceUsed.totalUsed = totalUsed
+	store.liveSpaceUsed.usedSpaceBySatellites = totalsBySatellites
 	store.log.Debug("updating live used space totals with:", zap.Int64("totalUsed", totalUsed))
 	return nil
 }
@@ -459,17 +459,17 @@ func (store *Store) CalculateLiveUsedSpace() (err error) {
 // LiveSpaceUsedForPieces returns the current total used space for
 // all pieces content (not including header bytes)
 func (store *Store) LiveSpaceUsedForPieces(ctx context.Context) int64 {
-	store.liveUsedSpace.mu.Lock()
-	defer store.liveUsedSpace.mu.Unlock()
-	return store.liveUsedSpace.totalUsed
+	store.liveSpaceUsed.mu.Lock()
+	defer store.liveSpaceUsed.mu.Unlock()
+	return store.liveSpaceUsed.totalUsed
 }
 
 // LiveSpaceUsedBySatellite returns the current total space used for a specific
 // satellite for all pieces (not including header bytes)
 func (store *Store) LiveSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) int64 {
-	store.liveUsedSpace.mu.Lock()
-	defer store.liveUsedSpace.mu.Unlock()
-	return store.liveUsedSpace.usedSpaceBySatellites[satelliteID]
+	store.liveSpaceUsed.mu.Lock()
+	defer store.liveSpaceUsed.mu.Unlock()
+	return store.liveSpaceUsed.usedSpaceBySatellites[satelliteID]
 }
 
 // ReserveSpace marks some amount of free space as used, even if it's not, so that future calls
