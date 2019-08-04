@@ -191,5 +191,5 @@ func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err er
 func (service *Service) RecalculateLiveSpaceUsed(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.store.UpdateLiveUsedSpace()
+	return service.store.CalculateLiveUsedSpace()
 }
