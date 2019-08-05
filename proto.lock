@@ -1795,7 +1795,7 @@
               },
               {
                 "id": 2,
-                "name": "attribution_id",
+                "name": "partner_id",
                 "type": "bytes"
               }
             ]
