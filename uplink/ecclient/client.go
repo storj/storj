@@ -480,8 +480,8 @@ type lazyPieceReader struct {
 }
 
 func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
-	mon.Task()(&lr.ctx)(&err)
 	if !lr.dialed {
+		mon.Task()(&lr.ctx)(&err)
 		lr.dialed = true
 		ps, err := lr.dialPiecestore(lr.ctx, &pb.Node{
 			Id:      lr.limit.GetLimit().StorageNodeId,
