@@ -268,7 +268,11 @@ func cleanup(cmd *cobra.Command) {
 			if err != nil {
 				return err
 			}
-			err = present.SpansToSVG(fh, collect.CollectSpans(ctx, work))
+			if strings.HasSuffix(*traceOut, ".json") {
+				err = present.SpansToJSON(fh, collect.CollectSpans(ctx, work))
+			} else {
+				err = present.SpansToSVG(fh, collect.CollectSpans(ctx, work))
+			}
 			err = errs.Combine(err, fh.Close())
 			if err != nil {
 				logger.Error("failed to write svg", zap.Error(err))
