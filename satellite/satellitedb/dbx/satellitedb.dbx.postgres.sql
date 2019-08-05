@@ -57,11 +57,11 @@ CREATE TABLE bucket_usages (
 );
 CREATE TABLE certRecords (
 	id bigserial NOT NULL,
-	publickey bytea NOT NULL,
+	peer_identity bytea NOT NULL,
 	node_id bytea NOT NULL,
 	update_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( publickey )
+	UNIQUE ( peer_identity )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,

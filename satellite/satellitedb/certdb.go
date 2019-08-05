@@ -41,12 +41,12 @@ func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pub
 	}
 
 	var node []byte
-	query := `SELECT node_id FROM certRecords WHERE publickey = ?;`
+	query := `SELECT node_id FROM certRecords WHERE peer_identity = ?;`
 	err = tx.QueryRow(certs.db.Rebind(query), pubbytes).Scan(&node)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// create a new entry
-			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO certRecords ( publickey, node_id, update_at ) VALUES ( ?, ?, ? );`), pubbytes, nodeID.Bytes(), time.Now())
+			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO certRecords ( peer_identity, node_id, update_at ) VALUES ( ?, ?, ? );`), pubbytes, nodeID.Bytes(), time.Now())
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -71,7 +71,7 @@ func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ c
 	}
 
 	// the first indext always holds the lastest of the keys
-	pubkey, err := pkcrypto.PublicKeyFromPKIX(dbxInfo[0].Publickey)
+	pubkey, err := pkcrypto.PublicKeyFromPKIX(dbxInfo[0].PeerIdentity)
 	if err != nil {
 		return nil, Error.New("Failed to extract Public Key from Order: %+v", err)
 	}
@@ -91,7 +91,7 @@ func (certs *certDB) GetPublicKeys(ctx context.Context, nodeID storj.NodeID) (pu
 	}
 
 	for _, v := range dbxInfo {
-		pubkey, err := pkcrypto.PublicKeyFromPKIX(v.Publickey)
+		pubkey, err := pkcrypto.PublicKeyFromPKIX(v.PeerIdentity)
 		if err != nil {
 			return nil, Error.New("Failed to extract Public Key from Order: %+v", err)
 		}

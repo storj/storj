@@ -619,16 +619,16 @@ read all (
 
 model certRecord (
 	key id 
-    unique publickey
+    unique peer_identity
 
 	index (
 		name certrecord_node_id_update_at
 		fields node_id update_at 
 	)
     
-    field id         serial64
-	field publickey  blob		//--uplink public key--//
-	field node_id    blob		//--uplink node id  --//
+    field id             serial64
+	field peer_identity  blob
+	field node_id        blob
 	field update_at timestamp ( autoinsert, autoupdate )
 )
 
@@ -642,7 +642,7 @@ read one (
 
 read one (
 	select certRecord
-	where  certRecord.publickey = ?
+	where  certRecord.peer_identity = ?
 )
 
 read all (

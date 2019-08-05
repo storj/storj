@@ -57,11 +57,11 @@ CREATE TABLE bucket_usages (
 );
 CREATE TABLE certRecords (
 	id INTEGER NOT NULL,
-	publickey BLOB NOT NULL,
+	peer_identity BLOB NOT NULL,
 	node_id BLOB NOT NULL,
 	update_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( publickey )
+	UNIQUE ( peer_identity )
 );
 CREATE TABLE injuredsegments (
 	path BLOB NOT NULL,
