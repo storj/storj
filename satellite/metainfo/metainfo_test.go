@@ -1425,6 +1425,7 @@ func TestBatch(t *testing.T) {
 				Bucket:        []byte("second-test-bucket"),
 				EncryptedPath: []byte("encrypted-path"),
 			})
+			require.NoError(t, err)
 
 			batch := metainfoClient.NewBatch()
 			numOfSegments := 10

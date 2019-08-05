@@ -308,7 +308,7 @@ type GetBucketParams struct {
 }
 
 func (params *GetBucketParams) toRequest() *pb.BucketGetRequest {
-	return &pb.BucketGetRequest{Name: []byte(params.Name)}
+	return &pb.BucketGetRequest{Name: params.Name}
 }
 
 // GetBucketResponse response for GetBucket request
@@ -351,7 +351,7 @@ type DeleteBucketParams struct {
 }
 
 func (params *DeleteBucketParams) toRequest() *pb.BucketDeleteRequest {
-	return &pb.BucketDeleteRequest{Name: []byte(params.Name)}
+	return &pb.BucketDeleteRequest{Name: params.Name}
 }
 
 // DeleteBucket deletes a bucket
