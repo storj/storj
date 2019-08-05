@@ -621,21 +621,21 @@ model certRecord (
 	key publickey
 
 	index (
-		name certrecord_id_update_at
-		fields id update_at 
+		name certrecord_node_id_update_at
+		fields node_id update_at 
 	)
 
 	field publickey  blob		//--uplink public key--//
-	field id         blob		//--uplink node id  --//
+	field node_id    blob		//--uplink node id  --//
 	field update_at timestamp ( autoinsert, autoupdate )
 )
 
 create certRecord ( )
-delete certRecord ( where certRecord.id = ? )
+delete certRecord ( where certRecord.node_id = ? )
 
 read one (
 	select certRecord
-	where  certRecord.id = ?
+	where  certRecord.node_id = ?
 )
 
 read one (
@@ -645,7 +645,7 @@ read one (
 
 read all (
 	select certRecord
-	where  certRecord.id = ?
+	where  certRecord.node_id = ?
 	orderby desc certRecord.update_at
 )
 

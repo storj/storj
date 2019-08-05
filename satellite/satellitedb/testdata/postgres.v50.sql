@@ -57,11 +57,11 @@ CREATE TABLE bucket_usages (
 );
 CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
-	id bytea NOT NULL,
+	node_id bytea NOT NULL,
 	update_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( publickey )
 );
-CREATE INDEX certrecord_id_update_at ON certRecords ( id, update_at );
+CREATE INDEX certrecord_node_id_update_at ON certRecords ( node_id, update_at );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,

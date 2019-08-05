@@ -40,13 +40,13 @@ func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pub
 		return Error.Wrap(err)
 	}
 
-	var id []byte
-	query := `SELECT id FROM certRecords WHERE publickey = ?;`
-	err = tx.QueryRow(certs.db.Rebind(query), pubbytes).Scan(&id)
+	var node []byte
+	query := `SELECT node_id FROM certRecords WHERE publickey = ?;`
+	err = tx.QueryRow(certs.db.Rebind(query), pubbytes).Scan(&node)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// create a new entry
-			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO certRecords ( publickey, id, update_at ) VALUES ( ?, ?, ? );`), pubbytes, nodeID.Bytes(), time.Now())
+			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO certRecords ( publickey, node_id, update_at ) VALUES ( ?, ?, ? );`), pubbytes, nodeID.Bytes(), time.Now())
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -61,13 +61,13 @@ func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pub
 // GetPublicKey gets the public key of uplink corresponding to uplink id
 func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ crypto.PublicKey, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxInfo, err := certs.db.All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_Id(nodeID.Bytes()))
+	dbxInfo, err := certs.db.All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_NodeId(nodeID.Bytes()))
 	if err != nil {
 		return nil, err
 	}
 
 	if len(dbxInfo) == 0 {
-		return nil, Error.New("Invalid nodeID : %+v", err)
+		return nil, Error.New("Invalid nodeID : %+v: %+v ", nodeID.String(), err)
 	}
 
 	// the first indext always holds the lastest of the keys
@@ -81,13 +81,13 @@ func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ c
 // GetPublicKeys gets the public keys of a storagenode corresponding to storagenode id
 func (certs *certDB) GetPublicKeys(ctx context.Context, nodeID storj.NodeID) (pubkeys []crypto.PublicKey, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxInfo, err := certs.db.All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_Id(nodeID.Bytes()))
+	dbxInfo, err := certs.db.All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_NodeId(nodeID.Bytes()))
 	if err != nil {
 		return nil, err
 	}
 
 	if len(dbxInfo) == 0 {
-		return nil, Error.New("Failed to extract Public Key from ID: %+v", nodeID.String())
+		return nil, Error.New("Invalid nodeID : %+v: %+v ", nodeID.String(), err)
 	}
 
 	for _, v := range dbxInfo {

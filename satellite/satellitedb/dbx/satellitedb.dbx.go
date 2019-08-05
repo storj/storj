@@ -329,7 +329,7 @@ CREATE TABLE bucket_usages (
 );
 CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
-	id bytea NOT NULL,
+	node_id bytea NOT NULL,
 	update_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( publickey )
 );
@@ -552,7 +552,7 @@ CREATE TABLE project_payments (
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
-CREATE INDEX certrecord_id_update_at ON certRecords ( id, update_at );
+CREATE INDEX certrecord_node_id_update_at ON certRecords ( node_id, update_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
@@ -678,7 +678,7 @@ CREATE TABLE bucket_usages (
 );
 CREATE TABLE certRecords (
 	publickey BLOB NOT NULL,
-	id BLOB NOT NULL,
+	node_id BLOB NOT NULL,
 	update_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( publickey )
 );
@@ -901,7 +901,7 @@ CREATE TABLE project_payments (
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
-CREATE INDEX certrecord_id_update_at ON certRecords ( id, update_at );
+CREATE INDEX certrecord_node_id_update_at ON certRecords ( node_id, update_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
@@ -1817,7 +1817,7 @@ func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
 
 type CertRecord struct {
 	Publickey []byte
-	Id        []byte
+	NodeId    []byte
 	UpdateAt  time.Time
 }
 
@@ -1845,24 +1845,24 @@ func (f CertRecord_Publickey_Field) value() interface{} {
 
 func (CertRecord_Publickey_Field) _Column() string { return "publickey" }
 
-type CertRecord_Id_Field struct {
+type CertRecord_NodeId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func CertRecord_Id(v []byte) CertRecord_Id_Field {
-	return CertRecord_Id_Field{_set: true, _value: v}
+func CertRecord_NodeId(v []byte) CertRecord_NodeId_Field {
+	return CertRecord_NodeId_Field{_set: true, _value: v}
 }
 
-func (f CertRecord_Id_Field) value() interface{} {
+func (f CertRecord_NodeId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (CertRecord_Id_Field) _Column() string { return "id" }
+func (CertRecord_NodeId_Field) _Column() string { return "node_id" }
 
 type CertRecord_UpdateAt_Field struct {
 	_set   bool
@@ -6068,21 +6068,21 @@ func (obj *postgresImpl) Create_StoragenodeStorageTally(ctx context.Context,
 
 func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
-	certRecord_id CertRecord_Id_Field) (
+	certRecord_node_id CertRecord_NodeId_Field) (
 	certRecord *CertRecord, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__publickey_val := certRecord_publickey.value()
-	__id_val := certRecord_id.value()
+	__node_id_val := certRecord_node_id.value()
 	__update_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( publickey, id, update_at ) VALUES ( ?, ?, ? ) RETURNING certRecords.publickey, certRecords.id, certRecords.update_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( publickey, node_id, update_at ) VALUES ( ?, ?, ? ) RETURNING certRecords.publickey, certRecords.node_id, certRecords.update_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __publickey_val, __id_val, __update_at_val)
+	obj.logStmt(__stmt, __publickey_val, __node_id_val, __update_at_val)
 
 	certRecord = &CertRecord{}
-	err = obj.driver.QueryRow(__stmt, __publickey_val, __id_val, __update_at_val).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, __publickey_val, __node_id_val, __update_at_val).Scan(&certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7500,14 +7500,14 @@ func (obj *postgresImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterO
 
 }
 
-func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
-	certRecord_id CertRecord_Id_Field) (
+func (obj *postgresImpl) Get_CertRecord_By_NodeId(ctx context.Context,
+	certRecord_node_id CertRecord_NodeId_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, certRecord_id.value())
+	__values = append(__values, certRecord_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7526,13 +7526,13 @@ func (obj *postgresImpl) Get_CertRecord_By_Id(ctx context.Context,
 	}
 
 	certRecord = &CertRecord{}
-	err = __rows.Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	err = __rows.Scan(&certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("CertRecord_By_Id")
+		return nil, tooManyRows("CertRecord_By_NodeId")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -7547,7 +7547,7 @@ func (obj *postgresImpl) Get_CertRecord_By_Publickey(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.publickey = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.publickey = ?")
 
 	var __values []interface{}
 	__values = append(__values, certRecord_publickey.value())
@@ -7556,7 +7556,7 @@ func (obj *postgresImpl) Get_CertRecord_By_Publickey(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	certRecord = &CertRecord{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7564,14 +7564,14 @@ func (obj *postgresImpl) Get_CertRecord_By_Publickey(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx context.Context,
-	certRecord_id CertRecord_Id_Field) (
+func (obj *postgresImpl) All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx context.Context,
+	certRecord_node_id CertRecord_NodeId_Field) (
 	rows []*CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ? ORDER BY certRecords.update_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? ORDER BY certRecords.update_at DESC")
 
 	var __values []interface{}
-	__values = append(__values, certRecord_id.value())
+	__values = append(__values, certRecord_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7584,7 +7584,7 @@ func (obj *postgresImpl) All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx context.
 
 	for __rows.Next() {
 		certRecord := &CertRecord{}
-		err = __rows.Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+		err = __rows.Scan(&certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -8941,14 +8941,14 @@ func (obj *postgresImpl) Delete_StoragenodeStorageTally_By_Id(ctx context.Contex
 
 }
 
-func (obj *postgresImpl) Delete_CertRecord_By_Id(ctx context.Context,
-	certRecord_id CertRecord_Id_Field) (
+func (obj *postgresImpl) Delete_CertRecord_By_NodeId(ctx context.Context,
+	certRecord_node_id CertRecord_NodeId_Field) (
 	count int64, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM certRecords WHERE certRecords.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM certRecords WHERE certRecords.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, certRecord_id.value())
+	__values = append(__values, certRecord_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -9923,20 +9923,20 @@ func (obj *sqlite3Impl) Create_StoragenodeStorageTally(ctx context.Context,
 
 func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
-	certRecord_id CertRecord_Id_Field) (
+	certRecord_node_id CertRecord_NodeId_Field) (
 	certRecord *CertRecord, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__publickey_val := certRecord_publickey.value()
-	__id_val := certRecord_id.value()
+	__node_id_val := certRecord_node_id.value()
 	__update_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( publickey, id, update_at ) VALUES ( ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( publickey, node_id, update_at ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __publickey_val, __id_val, __update_at_val)
+	obj.logStmt(__stmt, __publickey_val, __node_id_val, __update_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __publickey_val, __id_val, __update_at_val)
+	__res, err := obj.driver.Exec(__stmt, __publickey_val, __node_id_val, __update_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11373,14 +11373,14 @@ func (obj *sqlite3Impl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOr
 
 }
 
-func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
-	certRecord_id CertRecord_Id_Field) (
+func (obj *sqlite3Impl) Get_CertRecord_By_NodeId(ctx context.Context,
+	certRecord_node_id CertRecord_NodeId_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, certRecord_id.value())
+	__values = append(__values, certRecord_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -11399,13 +11399,13 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Id(ctx context.Context,
 	}
 
 	certRecord = &CertRecord{}
-	err = __rows.Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	err = __rows.Scan(&certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("CertRecord_By_Id")
+		return nil, tooManyRows("CertRecord_By_NodeId")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -11420,7 +11420,7 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Publickey(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.publickey = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.publickey = ?")
 
 	var __values []interface{}
 	__values = append(__values, certRecord_publickey.value())
@@ -11429,7 +11429,7 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Publickey(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	certRecord = &CertRecord{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11437,14 +11437,14 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Publickey(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx context.Context,
-	certRecord_id CertRecord_Id_Field) (
+func (obj *sqlite3Impl) All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx context.Context,
+	certRecord_node_id CertRecord_NodeId_Field) (
 	rows []*CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE certRecords.id = ? ORDER BY certRecords.update_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? ORDER BY certRecords.update_at DESC")
 
 	var __values []interface{}
-	__values = append(__values, certRecord_id.value())
+	__values = append(__values, certRecord_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -11457,7 +11457,7 @@ func (obj *sqlite3Impl) All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx context.C
 
 	for __rows.Next() {
 		certRecord := &CertRecord{}
-		err = __rows.Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+		err = __rows.Scan(&certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -12924,14 +12924,14 @@ func (obj *sqlite3Impl) Delete_StoragenodeStorageTally_By_Id(ctx context.Context
 
 }
 
-func (obj *sqlite3Impl) Delete_CertRecord_By_Id(ctx context.Context,
-	certRecord_id CertRecord_Id_Field) (
+func (obj *sqlite3Impl) Delete_CertRecord_By_NodeId(ctx context.Context,
+	certRecord_node_id CertRecord_NodeId_Field) (
 	count int64, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM certRecords WHERE certRecords.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM certRecords WHERE certRecords.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, certRecord_id.value())
+	__values = append(__values, certRecord_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -13331,13 +13331,13 @@ func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 	pk int64) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.id, certRecords.update_at FROM certRecords WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	certRecord = &CertRecord{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&certRecord.Publickey, &certRecord.Id, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13803,14 +13803,14 @@ func (rx *Rx) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalSta
 	return tx.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx, bucket_storage_tally_project_id, bucket_storage_tally_bucket_name, bucket_storage_tally_interval_start_greater_or_equal, bucket_storage_tally_interval_start_less_or_equal)
 }
 
-func (rx *Rx) All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx context.Context,
-	certRecord_id CertRecord_Id_Field) (
+func (rx *Rx) All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx context.Context,
+	certRecord_node_id CertRecord_NodeId_Field) (
 	rows []*CertRecord, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx, certRecord_id)
+	return tx.All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx, certRecord_node_id)
 }
 
 func (rx *Rx) All_Node_Id(ctx context.Context) (
@@ -14063,13 +14063,13 @@ func (rx *Rx) Create_BucketUsage(ctx context.Context,
 
 func (rx *Rx) Create_CertRecord(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field,
-	certRecord_id CertRecord_Id_Field) (
+	certRecord_node_id CertRecord_NodeId_Field) (
 	certRecord *CertRecord, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_CertRecord(ctx, certRecord_publickey, certRecord_id)
+	return tx.Create_CertRecord(ctx, certRecord_publickey, certRecord_node_id)
 
 }
 
@@ -14379,14 +14379,14 @@ func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
 }
 
-func (rx *Rx) Delete_CertRecord_By_Id(ctx context.Context,
-	certRecord_id CertRecord_Id_Field) (
+func (rx *Rx) Delete_CertRecord_By_NodeId(ctx context.Context,
+	certRecord_node_id CertRecord_NodeId_Field) (
 	count int64, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_CertRecord_By_Id(ctx, certRecord_id)
+	return tx.Delete_CertRecord_By_NodeId(ctx, certRecord_node_id)
 
 }
 
@@ -14609,14 +14609,14 @@ func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
 	return tx.Get_BucketUsage_By_Id(ctx, bucket_usage_id)
 }
 
-func (rx *Rx) Get_CertRecord_By_Id(ctx context.Context,
-	certRecord_id CertRecord_Id_Field) (
+func (rx *Rx) Get_CertRecord_By_NodeId(ctx context.Context,
+	certRecord_node_id CertRecord_NodeId_Field) (
 	certRecord *CertRecord, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_CertRecord_By_Id(ctx, certRecord_id)
+	return tx.Get_CertRecord_By_NodeId(ctx, certRecord_node_id)
 }
 
 func (rx *Rx) Get_CertRecord_By_Publickey(ctx context.Context,
@@ -15033,8 +15033,8 @@ type Methods interface {
 		bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
 		rows []*BucketStorageTally, err error)
 
-	All_CertRecord_By_Id_OrderBy_Desc_UpdateAt(ctx context.Context,
-		certRecord_id CertRecord_Id_Field) (
+	All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx context.Context,
+		certRecord_node_id CertRecord_NodeId_Field) (
 		rows []*CertRecord, err error)
 
 	All_Node_Id(ctx context.Context) (
@@ -15161,7 +15161,7 @@ type Methods interface {
 
 	Create_CertRecord(ctx context.Context,
 		certRecord_publickey CertRecord_Publickey_Field,
-		certRecord_id CertRecord_Id_Field) (
+		certRecord_node_id CertRecord_NodeId_Field) (
 		certRecord *CertRecord, err error)
 
 	Create_Irreparabledb(ctx context.Context,
@@ -15327,8 +15327,8 @@ type Methods interface {
 		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
 
-	Delete_CertRecord_By_Id(ctx context.Context,
-		certRecord_id CertRecord_Id_Field) (
+	Delete_CertRecord_By_NodeId(ctx context.Context,
+		certRecord_node_id CertRecord_NodeId_Field) (
 		count int64, err error)
 
 	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -15423,8 +15423,8 @@ type Methods interface {
 		bucket_usage_id BucketUsage_Id_Field) (
 		bucket_usage *BucketUsage, err error)
 
-	Get_CertRecord_By_Id(ctx context.Context,
-		certRecord_id CertRecord_Id_Field) (
+	Get_CertRecord_By_NodeId(ctx context.Context,
+		certRecord_node_id CertRecord_NodeId_Field) (
 		certRecord *CertRecord, err error)
 
 	Get_CertRecord_By_Publickey(ctx context.Context,
