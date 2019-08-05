@@ -479,9 +479,9 @@ type lazyPieceReader struct {
 	client *piecestore.Client
 }
 
-func (lr *lazyPieceReader) Read(data []byte) (int, error) {
+func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
+	mon.Task()(&lr.ctx)(&err)
 	if !lr.dialed {
-		// TODO: add tracing for the dial
 		lr.dialed = true
 		ps, err := lr.dialPiecestore(lr.ctx, &pb.Node{
 			Id:      lr.limit.GetLimit().StorageNodeId,
