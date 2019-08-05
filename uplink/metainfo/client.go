@@ -777,3 +777,21 @@ func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsPa
 	}
 	return items, response.More, Error.Wrap(err)
 }
+
+// SetBucketAttributionParams parameters for SetBucketAttribution method
+type SetBucketAttributionParams struct {
+	Bucket    string
+	PartnerID uuid.UUID
+}
+
+// SetBucketAttribution tries to set the attribution information on the bucket.
+func (client *Client) SetBucketAttribution(ctx context.Context, params SetBucketAttributionParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.SetBucketAttribution(ctx, &pb.BucketSetAttributionRequest{
+		PartnerId: params.PartnerID[:], // TODO: implement storj.UUID that can be sent using pb
+		Name:      []byte(params.Bucket),
+	})
+
+	return Error.Wrap(err)
+}
