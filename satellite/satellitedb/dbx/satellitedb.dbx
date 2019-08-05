@@ -618,13 +618,14 @@ read all (
 //--- certRecord ---//
 
 model certRecord (
-	key publickey
+	key id 
 
 	index (
 		name certrecord_node_id_update_at
 		fields node_id update_at 
 	)
-
+    
+    field id         serial64
 	field publickey  blob		//--uplink public key--//
 	field node_id    blob		//--uplink node id  --//
 	field update_at timestamp ( autoinsert, autoupdate )
