@@ -584,6 +584,7 @@ func (params *GetObjectParams) toRequest() *pb.ObjectGetRequest {
 	}
 }
 
+// GetObjectResponse TODO
 type GetObjectResponse struct {
 	Info storj.ObjectInfo
 }
@@ -656,6 +657,17 @@ func (params *BeginDeleteObjectParams) toRequest() *pb.ObjectBeginDeleteRequest 
 	}
 }
 
+// BeginDeleteObjectResponse TODO
+type BeginDeleteObjectResponse struct {
+	StreamID storj.StreamID
+}
+
+func newBeginDeleteObjectResponse(response *pb.ObjectBeginDeleteResponse) BeginDeleteObjectResponse {
+	return BeginDeleteObjectResponse{
+		StreamID: response.StreamId,
+	}
+}
+
 // BeginDeleteObject begins object deletion process
 func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteObjectParams) (_ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -714,20 +726,18 @@ func (params *ListObjectsParams) toRequest() *pb.ObjectListRequest {
 	}
 }
 
-// ListObjects lists objects according to specific parameters
-func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams) (_ []storj.ObjectListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
+// ListObjectsResponse TODO
+type ListObjectsResponse struct {
+	Items []storj.ObjectListItem
+	More  bool
+}
 
-	response, err := client.client.ListObjects(ctx, params.toRequest())
-	if err != nil {
-		return []storj.ObjectListItem{}, false, Error.Wrap(err)
-	}
-
+func newListObjectsResponse(response *pb.ObjectListResponse, encryptedPrefix []byte, recursive bool) ListObjectsResponse {
 	objects := make([]storj.ObjectListItem, len(response.Items))
 	for i, object := range response.Items {
 		encryptedPath := object.EncryptedPath
 		isPrefix := false
-		if !params.Recursive && len(encryptedPath) != 0 && encryptedPath[len(encryptedPath)-1] == '/' && !bytes.Equal(encryptedPath, params.EncryptedPrefix) {
+		if !recursive && len(encryptedPath) != 0 && encryptedPath[len(encryptedPath)-1] == '/' && !bytes.Equal(encryptedPath, encryptedPrefix) {
 			isPrefix = true
 		}
 
@@ -745,7 +755,23 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 		}
 	}
 
-	return objects, response.More, Error.Wrap(err)
+	return ListObjectsResponse{
+		Items: objects,
+		More:  response.More,
+	}
+}
+
+// ListObjects lists objects according to specific parameters
+func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams) (_ []storj.ObjectListItem, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.ListObjects(ctx, params.toRequest())
+	if err != nil {
+		return []storj.ObjectListItem{}, false, Error.Wrap(err)
+	}
+
+	listResponse := newListObjectsResponse(response, params.EncryptedPrefix, params.Recursive)
+	return listResponse.Items, listResponse.More, Error.Wrap(err)
 }
 
 // BeginSegmentParams parameters for BeginSegment method
@@ -763,6 +789,21 @@ func (params *BeginSegmentParams) toRequest() *pb.SegmentBeginRequest {
 			Index:      params.Position.Index,
 		},
 		MaxOrderLimit: params.MaxOderLimit,
+	}
+}
+
+// BeginSegmentResponse TODO
+type BeginSegmentResponse struct {
+	SegmentID       storj.SegmentID
+	Limits          []*pb.AddressedOrderLimit
+	PiecePrivateKey storj.PiecePrivateKey
+}
+
+func newBeginSegmentResponse(response *pb.SegmentBeginResponse) BeginSegmentResponse {
+	return BeginSegmentResponse{
+		SegmentID:       response.SegmentId,
+		Limits:          response.AddressedLimits,
+		PiecePrivateKey: response.PrivateKey,
 	}
 }
 
@@ -850,6 +891,21 @@ func (params *BeginDeleteSegmentParams) toRequest() *pb.SegmentBeginDeleteReques
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
+	}
+}
+
+// BeginDeleteSegmentResponse TODO
+type BeginDeleteSegmentResponse struct {
+	SegmentID       storj.SegmentID
+	Limits          []*pb.AddressedOrderLimit
+	PiecePrivateKey storj.PiecePrivateKey
+}
+
+func newBeginDeleteSegmentResponse(response *pb.SegmentBeginDeleteResponse) BeginDeleteSegmentResponse {
+	return BeginDeleteSegmentResponse{
+		SegmentID:       response.SegmentId,
+		Limits:          response.AddressedLimits,
+		PiecePrivateKey: response.PrivateKey,
 	}
 }
 

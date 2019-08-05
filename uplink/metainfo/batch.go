@@ -12,10 +12,11 @@ import (
 )
 
 var (
+	// ErrInvalidType error for inalid response type casting
 	ErrInvalidType = errs.New("invalid response type")
 )
 
-// Batch TODO
+// Batch represents sending requests in batch
 type Batch struct {
 	client   pb.MetainfoClient
 	requests []*pb.BatchRequestItem
@@ -195,6 +196,7 @@ func (batch *Batch) Send(ctx context.Context) (responses []Response, err error) 
 	responses = make([]Response, len(response.Responses))
 	for i, response := range response.Responses {
 		responses[i] = Response{
+			pbRequest:  batch.requests[i].Request,
 			pbResponse: response.Response,
 		}
 	}
@@ -202,12 +204,13 @@ func (batch *Batch) Send(ctx context.Context) (responses []Response, err error) 
 	return responses, nil
 }
 
-// Response TODO
+// Response single response from batch call
 type Response struct {
+	pbRequest  interface{}
 	pbResponse interface{}
 }
 
-// CreateBucket TODO
+// CreateBucket returns response for CreateBucket request
 func (resp *Response) CreateBucket() (CreateBucketResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_BucketCreate)
 	if !ok {
@@ -216,7 +219,7 @@ func (resp *Response) CreateBucket() (CreateBucketResponse, error) {
 	return newCreateBucketResponse(item.BucketCreate), nil
 }
 
-// GetBucket TODO
+// GetBucket returns response for GetBucket request
 func (resp *Response) GetBucket() (GetBucketResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_BucketGet)
 	if !ok {
@@ -225,7 +228,7 @@ func (resp *Response) GetBucket() (GetBucketResponse, error) {
 	return newGetBucketResponse(item.BucketGet), nil
 }
 
-// ListBuckets TODO
+// ListBuckets returns response for ListBuckets request
 func (resp *Response) ListBuckets() (ListBucketsResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_BucketList)
 	if !ok {
@@ -234,16 +237,25 @@ func (resp *Response) ListBuckets() (ListBucketsResponse, error) {
 	return newListBucketsResponse(item.BucketList), nil
 }
 
-// ListSegment TODO
-func (resp *Response) ListSegment() (ListSegmentsResponse, error) {
-	item, ok := resp.pbResponse.(*pb.BatchResponseItem_SegmentList)
+// BeginObject returns response for BeginObject request
+func (resp *Response) BeginObject() (BeginObjectResponse, error) {
+	item, ok := resp.pbResponse.(*pb.BatchResponseItem_ObjectBegin)
 	if !ok {
-		return ListSegmentsResponse{}, ErrInvalidType
+		return BeginObjectResponse{}, ErrInvalidType
 	}
-	return newListSegmentsResponse(item.SegmentList), nil
+	return newBeginObjectResponse(item.ObjectBegin), nil
 }
 
-// GetObject TODO
+// BeginDeleteObject returns response for BeginDeleteObject request
+func (resp *Response) BeginDeleteObject() (BeginDeleteObjectResponse, error) {
+	item, ok := resp.pbResponse.(*pb.BatchResponseItem_ObjectBeginDelete)
+	if !ok {
+		return BeginDeleteObjectResponse{}, ErrInvalidType
+	}
+	return newBeginDeleteObjectResponse(item.ObjectBeginDelete), nil
+}
+
+// GetObject returns response for GetObject request
 func (resp *Response) GetObject() (GetObjectResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_ObjectGet)
 	if !ok {
@@ -252,7 +264,51 @@ func (resp *Response) GetObject() (GetObjectResponse, error) {
 	return newGetObjectResponse(item.ObjectGet), nil
 }
 
-// DownloadSegment TODO
+// ListObjects returns response for ListObjects request
+func (resp *Response) ListObjects() (ListObjectsResponse, error) {
+	item, ok := resp.pbResponse.(*pb.BatchResponseItem_ObjectList)
+	if !ok {
+		return ListObjectsResponse{}, ErrInvalidType
+	}
+
+	requestItem, ok := resp.pbRequest.(*pb.BatchRequestItem_ObjectList)
+	if !ok {
+		return ListObjectsResponse{}, ErrInvalidType
+	}
+
+	return newListObjectsResponse(item.ObjectList, requestItem.ObjectList.EncryptedPrefix, requestItem.ObjectList.Recursive), nil
+}
+
+// BeginSegment returns response for BeginSegment request
+func (resp *Response) BeginSegment() (BeginSegmentResponse, error) {
+	item, ok := resp.pbResponse.(*pb.BatchResponseItem_SegmentBegin)
+	if !ok {
+		return BeginSegmentResponse{}, ErrInvalidType
+	}
+
+	return newBeginSegmentResponse(item.SegmentBegin), nil
+}
+
+// BeginDeleteSegment returns response for BeginDeleteSegment request
+func (resp *Response) BeginDeleteSegment() (BeginDeleteSegmentResponse, error) {
+	item, ok := resp.pbResponse.(*pb.BatchResponseItem_SegmentBeginDelete)
+	if !ok {
+		return BeginDeleteSegmentResponse{}, ErrInvalidType
+	}
+
+	return newBeginDeleteSegmentResponse(item.SegmentBeginDelete), nil
+}
+
+// ListSegment returns response for ListSegment request
+func (resp *Response) ListSegment() (ListSegmentsResponse, error) {
+	item, ok := resp.pbResponse.(*pb.BatchResponseItem_SegmentList)
+	if !ok {
+		return ListSegmentsResponse{}, ErrInvalidType
+	}
+	return newListSegmentsResponse(item.SegmentList), nil
+}
+
+// DownloadSegment returns response for DownloadSegment request
 func (resp *Response) DownloadSegment() (DownloadSegmentResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_SegmentDownload)
 	if !ok {
