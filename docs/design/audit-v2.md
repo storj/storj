@@ -33,6 +33,8 @@ With both loops, we should have auditing that occurs statistically uniform acros
 Reservoir sampling: a family of algorithms for randomly choosing a sample of items with uniform probability from a stream of data (of unknown size).
 
 As the audit observer uses the metainfo loop to iterate through the pointerdb, we're going through all segments and creating reservoirs per unvetted node, and filling the reservoirs with segments to audit.
+The reason for not having reservoirs for all nodes it to minimize memory consumption. We're adding this new method of audit selection is to increase audit frequency for unvetted nodes.
+Once vetted, they should be selected for auditing based on the per stripe (existing selection method), but there is no need to increase the frequency of audits for already-vetted nodes.
 
 We could generate 5 random segments per node, then randomly select some segments per node.
 By choosing nodes out of the reservoirs, we would receive a random sample for auditing.
@@ -50,11 +52,10 @@ While we initially considered integrating the audit system's random node selecti
 An initial idea for implementation was to sort the nodes table for nodes with least amount of audits, then select one node randomly within that low amount of audits.
 However, we decided it may not be necessary to keep track of how many audits per storage node if we're able to randomly select across nodes.
 
-We were also considering implementing a reverse way of looking up segments or pieces by node IDs.
-e.g. a table where each row is a node ID and an encrypted metainfo path. 
+Another approach that we decided not to pursue was the a reverse method of looking up segments or pieces by node ID e.g. a table where each row is a node ID and an encrypted metainfo path.
 Every time a segment is committed or deleted, that table (and every node) gets updated.
-The advantage is that it can super simplify the garbage collection process, but complexify upload and download.
-We ended up deciding to avoid adding new tables if possible.
+This could simplify the garbage collection process, but complexify upload and download.
+We decided that this would increase database size too significantly to be viable.
 
 ## Implementation
 
@@ -74,5 +75,5 @@ From Moby: "The main issue with integrating it into the gc observer is it means 
     - We want uploads to be performant with minimal db transactions, but we know that audits need to happen very frequently.
     - We'll create a new audit observer.
 
-2. Should we run both audit selection processes within the same loop or in separate loops?
-- We'll use one audit observer that attaches to the metainfo loop. This observer will be in charge of both methods of selection. It will create reservoir samples for segments following the current selection method (randomly across bytes), and also create a small reservoir for each unvetted node.
+2. Should we run both audit selection processes within the same loop or in separate loops? (resolved)
+- We'll use one audit observer that joins with the metainfo loop. This observer will be in charge of both methods of selection. It will create reservoir samples for segments following the current selection method (randomly across bytes), and also create a small reservoir for each unvetted node.
