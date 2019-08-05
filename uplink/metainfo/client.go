@@ -248,6 +248,7 @@ type CreateBucketParams struct {
 func (params *CreateBucketParams) toRequest() *pb.BucketCreateRequest {
 	defaultRS := params.DefaultRedundancyScheme
 	defaultEP := params.DefaultEncryptionParameters
+
 	return &pb.BucketCreateRequest{
 		Name:               params.Name,
 		PathCipher:         pb.CipherSuite(params.PathCipher),
@@ -269,16 +270,20 @@ func (params *CreateBucketParams) toRequest() *pb.BucketCreateRequest {
 }
 
 // TODO potential names *Response/*Out/*Result
-// CreateBucketResponse TODO
+
+// CreateBucketResponse response for CreateBucket request
 type CreateBucketResponse struct {
 	Bucket storj.Bucket
 }
 
-// newCreateBucketResponse TODOD
-func newCreateBucketResponse(response *pb.BucketCreateResponse) CreateBucketResponse {
-	return CreateBucketResponse{
-		Bucket: convertProtoToBucket(response.Bucket),
+func newCreateBucketResponse(response *pb.BucketCreateResponse) (CreateBucketResponse, error) {
+	bucket, err := convertProtoToBucket(response.Bucket)
+	if err != nil {
+		return CreateBucketResponse{}, err
 	}
+	return CreateBucketResponse{
+		Bucket: bucket,
+	}, nil
 }
 
 // CreateBucket creates a new bucket
@@ -290,14 +295,14 @@ func (client *Client) CreateBucket(ctx context.Context, params CreateBucketParam
 		return storj.Bucket{}, Error.Wrap(err)
 	}
 
-	respBucket = convertProtoToBucket(response.Bucket)
+	respBucket, err = convertProtoToBucket(response.Bucket)
 	if err != nil {
-		return respBucket, Error.Wrap(err)
+		return storj.Bucket{}, Error.Wrap(err)
 	}
 	return respBucket, nil
 }
 
-// GetBucketParams TODO
+// GetBucketParams parmaters for GetBucketParams method
 type GetBucketParams struct {
 	Name []byte
 }
@@ -306,16 +311,19 @@ func (params *GetBucketParams) toRequest() *pb.BucketGetRequest {
 	return &pb.BucketGetRequest{Name: []byte(params.Name)}
 }
 
-// GetBucketResponse TODO
+// GetBucketResponse response for GetBucket request
 type GetBucketResponse struct {
 	Bucket storj.Bucket
 }
 
-// newGetBucketResponse TODO
-func newGetBucketResponse(response *pb.BucketGetResponse) GetBucketResponse {
-	return GetBucketResponse{
-		Bucket: convertProtoToBucket(response.Bucket),
+func newGetBucketResponse(response *pb.BucketGetResponse) (GetBucketResponse, error) {
+	bucket, err := convertProtoToBucket(response.Bucket)
+	if err != nil {
+		return GetBucketResponse{}, err
 	}
+	return GetBucketResponse{
+		Bucket: bucket,
+	}, nil
 }
 
 // GetBucket returns a bucket
@@ -330,11 +338,14 @@ func (client *Client) GetBucket(ctx context.Context, params GetBucketParams) (re
 		return storj.Bucket{}, Error.Wrap(err)
 	}
 
-	respBucket = convertProtoToBucket(resp.Bucket)
+	respBucket, err = convertProtoToBucket(resp.Bucket)
+	if err != nil {
+		return storj.Bucket{}, Error.Wrap(err)
+	}
 	return respBucket, nil
 }
 
-// DeleteBucketParams TODO
+// DeleteBucketParams parmaters for DeleteBucket method
 type DeleteBucketParams struct {
 	Name []byte
 }
@@ -356,7 +367,7 @@ func (client *Client) DeleteBucket(ctx context.Context, params DeleteBucketParam
 	return nil
 }
 
-// ListBucketsParams TODO
+// ListBucketsParams parmaters for ListBucketsParams method
 type ListBucketsParams struct {
 	ListOpts storj.BucketListOptions
 }
@@ -369,12 +380,11 @@ func (params *ListBucketsParams) toRequest() *pb.BucketListRequest {
 	}
 }
 
-// ListBucketsResponse TODO
+// ListBucketsResponse response for ListBucket request
 type ListBucketsResponse struct {
 	BucketList storj.BucketList
 }
 
-// newListBucketsResponse TODO
 func newListBucketsResponse(response *pb.BucketListResponse) ListBucketsResponse {
 	bucketList := storj.BucketList{
 		More: response.More,
@@ -412,41 +422,14 @@ func (client *Client) ListBuckets(ctx context.Context, params ListBucketsParams)
 	return resultBucketList, nil
 }
 
-func convertBucketToProtoRequest(bucket storj.Bucket) (bucketReq pb.BucketCreateRequest, err error) {
-	rs := bucket.DefaultRedundancyScheme
-	partnerID, err := bucket.PartnerID.MarshalJSON()
-	if err != nil {
-		return bucketReq, Error.Wrap(err)
-	}
-	return pb.BucketCreateRequest{
-		Name:               []byte(bucket.Name),
-		PathCipher:         pb.CipherSuite(bucket.PathCipher),
-		PartnerId:          partnerID,
-		DefaultSegmentSize: bucket.DefaultSegmentsSize,
-		DefaultRedundancyScheme: &pb.RedundancyScheme{
-			Type:             pb.RedundancyScheme_SchemeType(rs.Algorithm),
-			MinReq:           int32(rs.RequiredShares),
-			Total:            int32(rs.TotalShares),
-			RepairThreshold:  int32(rs.RepairShares),
-			SuccessThreshold: int32(rs.OptimalShares),
-			ErasureShareSize: rs.ShareSize,
-		},
-		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
-			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
-		},
-	}, nil
-}
-
-func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket) {
+func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) {
 	defaultRS := pbBucket.GetDefaultRedundancyScheme()
 	defaultEP := pbBucket.GetDefaultEncryptionParameters()
 	var partnerID uuid.UUID
-	copy(partnerID[:], pbBucket.GetPartnerId())
-	// err = partnerID.UnmarshalJSON(pbBucket.GetPartnerId())
-	// if err != nil && !partnerID.IsZero() {
-	// 	return bucket, errs.New("Invalid uuid")
-	// }
+	err = partnerID.UnmarshalJSON(pbBucket.GetPartnerId())
+	if err != nil && !partnerID.IsZero() {
+		return bucket, errs.New("Invalid uuid")
+	}
 	return storj.Bucket{
 		Name:                string(pbBucket.GetName()),
 		PartnerID:           partnerID,
@@ -465,7 +448,7 @@ func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket) {
 			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
 			BlockSize:   int32(defaultEP.BlockSize),
 		},
-	}
+	}, nil
 }
 
 // SetBucketAttributionParams parameters for SetBucketAttribution method
@@ -521,7 +504,7 @@ func (params *BeginObjectParams) toRequest() *pb.ObjectBeginRequest {
 	}
 }
 
-// BeginObjectResponse TODO
+// BeginObjectResponse response for BeginObject request
 type BeginObjectResponse struct {
 	StreamID storj.StreamID
 }
@@ -584,7 +567,7 @@ func (params *GetObjectParams) toRequest() *pb.ObjectGetRequest {
 	}
 }
 
-// GetObjectResponse TODO
+// GetObjectResponse response for GetObject request
 type GetObjectResponse struct {
 	Info storj.ObjectInfo
 }
@@ -657,7 +640,7 @@ func (params *BeginDeleteObjectParams) toRequest() *pb.ObjectBeginDeleteRequest 
 	}
 }
 
-// BeginDeleteObjectResponse TODO
+// BeginDeleteObjectResponse response for BeginDeleteObject request
 type BeginDeleteObjectResponse struct {
 	StreamID storj.StreamID
 }
@@ -726,7 +709,7 @@ func (params *ListObjectsParams) toRequest() *pb.ObjectListRequest {
 	}
 }
 
-// ListObjectsResponse TODO
+// ListObjectsResponse response for ListObjects request
 type ListObjectsResponse struct {
 	Items []storj.ObjectListItem
 	More  bool
@@ -792,7 +775,7 @@ func (params *BeginSegmentParams) toRequest() *pb.SegmentBeginRequest {
 	}
 }
 
-// BeginSegmentResponse TODO
+// BeginSegmentResponse response for BeginSegment request
 type BeginSegmentResponse struct {
 	SegmentID       storj.SegmentID
 	Limits          []*pb.AddressedOrderLimit
@@ -894,7 +877,7 @@ func (params *BeginDeleteSegmentParams) toRequest() *pb.SegmentBeginDeleteReques
 	}
 }
 
-// BeginDeleteSegmentResponse TODO
+// BeginDeleteSegmentResponse response for BeginDeleteSegment request
 type BeginDeleteSegmentResponse struct {
 	SegmentID       storj.SegmentID
 	Limits          []*pb.AddressedOrderLimit
@@ -960,7 +943,7 @@ func (params *DownloadSegmentParams) toRequest() *pb.SegmentDownloadRequest {
 	}
 }
 
-// DownloadSegmentResponse TODO
+// DownloadSegmentResponse response for DownloadSegment request
 type DownloadSegmentResponse struct {
 	Info storj.SegmentDownloadInfo
 
@@ -1016,7 +999,7 @@ type ListSegmentsParams struct {
 	Limit          int32
 }
 
-// ListSegmentsResponse TODO
+// ListSegmentsResponse response for ListSegments request
 type ListSegmentsResponse struct {
 	Items []storj.SegmentListItem
 	More  bool
@@ -1062,7 +1045,7 @@ func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsPa
 	return listResponse.Items, listResponse.More, Error.Wrap(err)
 }
 
-// NewBatch TODO
+// NewBatch creates new batch
 func (client *Client) NewBatch() *Batch {
 	return &Batch{
 		client:   client.client,

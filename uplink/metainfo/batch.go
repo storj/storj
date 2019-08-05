@@ -22,7 +22,7 @@ type Batch struct {
 	requests []*pb.BatchRequestItem
 }
 
-// AddCreateBucket TODO
+// AddCreateBucket adds request to batch
 func (batch *Batch) AddCreateBucket(params CreateBucketParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_BucketCreate{
@@ -31,7 +31,7 @@ func (batch *Batch) AddCreateBucket(params CreateBucketParams) {
 	})
 }
 
-// AddGetBucket TODO
+// AddGetBucket adds request to batch
 func (batch *Batch) AddGetBucket(params GetBucketParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_BucketGet{
@@ -40,7 +40,7 @@ func (batch *Batch) AddGetBucket(params GetBucketParams) {
 	})
 }
 
-// AddDeleteBucket TODO
+// AddDeleteBucket adds request to batch
 func (batch *Batch) AddDeleteBucket(params DeleteBucketParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_BucketDelete{
@@ -49,7 +49,7 @@ func (batch *Batch) AddDeleteBucket(params DeleteBucketParams) {
 	})
 }
 
-// AddListBuckets TODO
+// AddListBuckets adds request to batch
 func (batch *Batch) AddListBuckets(params ListBucketsParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_BucketList{
@@ -58,7 +58,7 @@ func (batch *Batch) AddListBuckets(params ListBucketsParams) {
 	})
 }
 
-// AddSetBucketAttribution TODO
+// AddSetBucketAttribution adds request to batch
 func (batch *Batch) AddSetBucketAttribution(params SetBucketAttributionParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_BucketSetAttribution{
@@ -67,7 +67,7 @@ func (batch *Batch) AddSetBucketAttribution(params SetBucketAttributionParams) {
 	})
 }
 
-// AddBeginObject TODO
+// AddBeginObject adds request to batch
 func (batch *Batch) AddBeginObject(params BeginObjectParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_ObjectBegin{
@@ -76,7 +76,7 @@ func (batch *Batch) AddBeginObject(params BeginObjectParams) {
 	})
 }
 
-// AddCommitObject TODO
+// AddCommitObject adds request to batch
 func (batch *Batch) AddCommitObject(params CommitObjectParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_ObjectCommit{
@@ -85,7 +85,7 @@ func (batch *Batch) AddCommitObject(params CommitObjectParams) {
 	})
 }
 
-// AddGetObject TODO
+// AddGetObject adds request to batch
 func (batch *Batch) AddGetObject(params GetObjectParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_ObjectGet{
@@ -94,7 +94,7 @@ func (batch *Batch) AddGetObject(params GetObjectParams) {
 	})
 }
 
-// AddListObjects TODO
+// AddListObjects adds request to batch
 func (batch *Batch) AddListObjects(params ListObjectsParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_ObjectList{
@@ -103,7 +103,7 @@ func (batch *Batch) AddListObjects(params ListObjectsParams) {
 	})
 }
 
-// AddBeginDeleteObject TODO
+// AddBeginDeleteObject adds request to batch
 func (batch *Batch) AddBeginDeleteObject(params BeginDeleteObjectParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_ObjectBeginDelete{
@@ -112,7 +112,7 @@ func (batch *Batch) AddBeginDeleteObject(params BeginDeleteObjectParams) {
 	})
 }
 
-// AddFinishDeleteObject TODO
+// AddFinishDeleteObject adds request to batch
 func (batch *Batch) AddFinishDeleteObject(params FinishDeleteObjectParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_ObjectFinishDelete{
@@ -121,7 +121,7 @@ func (batch *Batch) AddFinishDeleteObject(params FinishDeleteObjectParams) {
 	})
 }
 
-// AddBeginSegment TODO
+// AddBeginSegment adds request to batch
 func (batch *Batch) AddBeginSegment(params BeginSegmentParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_SegmentBegin{
@@ -130,7 +130,7 @@ func (batch *Batch) AddBeginSegment(params BeginSegmentParams) {
 	})
 }
 
-// AddCommitSegment TODO
+// AddCommitSegment adds request to batch
 func (batch *Batch) AddCommitSegment(params CommitSegmentParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_SegmentCommit{
@@ -139,7 +139,7 @@ func (batch *Batch) AddCommitSegment(params CommitSegmentParams) {
 	})
 }
 
-// AddListSegments TODO
+// AddListSegments adds request to batch
 func (batch *Batch) AddListSegments(params ListSegmentsParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_SegmentList{
@@ -148,7 +148,7 @@ func (batch *Batch) AddListSegments(params ListSegmentsParams) {
 	})
 }
 
-// AddMakeInlineSegment TODO
+// AddMakeInlineSegment adds request to batch
 func (batch *Batch) AddMakeInlineSegment(params MakeInlineSegmentParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_SegmentMakeInline{
@@ -157,7 +157,7 @@ func (batch *Batch) AddMakeInlineSegment(params MakeInlineSegmentParams) {
 	})
 }
 
-// AddDownloadSegment TODO
+// AddDownloadSegment adds request to batch
 func (batch *Batch) AddDownloadSegment(params DownloadSegmentParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_SegmentDownload{
@@ -166,7 +166,7 @@ func (batch *Batch) AddDownloadSegment(params DownloadSegmentParams) {
 	})
 }
 
-// AddBeginDeleteSegment TODO
+// AddBeginDeleteSegment adds request to batch
 func (batch *Batch) AddBeginDeleteSegment(params BeginDeleteSegmentParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_SegmentBeginDelete{
@@ -175,7 +175,7 @@ func (batch *Batch) AddBeginDeleteSegment(params BeginDeleteSegmentParams) {
 	})
 }
 
-// AddFinishDeleteSegment TODO
+// AddFinishDeleteSegment adds request to batch
 func (batch *Batch) AddFinishDeleteSegment(params FinishDeleteSegmentParams) {
 	batch.requests = append(batch.requests, &pb.BatchRequestItem{
 		Request: &pb.BatchRequestItem_SegmentFinishDelete{
@@ -184,7 +184,7 @@ func (batch *Batch) AddFinishDeleteSegment(params FinishDeleteSegmentParams) {
 	})
 }
 
-// Send TODO
+// Send sends batch request
 func (batch *Batch) Send(ctx context.Context) (responses []Response, err error) {
 	response, err := batch.client.Batch(ctx, &pb.BatchRequest{
 		Requests: batch.requests,
@@ -216,7 +216,12 @@ func (resp *Response) CreateBucket() (CreateBucketResponse, error) {
 	if !ok {
 		return CreateBucketResponse{}, ErrInvalidType
 	}
-	return newCreateBucketResponse(item.BucketCreate), nil
+
+	createResponse, err := newCreateBucketResponse(item.BucketCreate)
+	if err != nil {
+		return CreateBucketResponse{}, err
+	}
+	return createResponse, nil
 }
 
 // GetBucket returns response for GetBucket request
@@ -225,7 +230,11 @@ func (resp *Response) GetBucket() (GetBucketResponse, error) {
 	if !ok {
 		return GetBucketResponse{}, ErrInvalidType
 	}
-	return newGetBucketResponse(item.BucketGet), nil
+	getResponse, err := newGetBucketResponse(item.BucketGet)
+	if err != nil {
+		return GetBucketResponse{}, err
+	}
+	return getResponse, nil
 }
 
 // ListBuckets returns response for ListBuckets request
