@@ -332,7 +332,8 @@ CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
 	node_id bytea NOT NULL,
 	update_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( publickey )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
@@ -682,7 +683,8 @@ CREATE TABLE certRecords (
 	publickey BLOB NOT NULL,
 	node_id BLOB NOT NULL,
 	update_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( publickey )
 );
 CREATE TABLE injuredsegments (
 	path BLOB NOT NULL,
@@ -7569,7 +7571,7 @@ func (obj *postgresImpl) Get_CertRecord_By_Publickey(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.publickey = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.publickey = ?")
 
 	var __values []interface{}
 	__values = append(__values, certRecord_publickey.value())
@@ -7577,33 +7579,11 @@ func (obj *postgresImpl) Get_CertRecord_By_Publickey(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
 	certRecord = &CertRecord{}
-	err = __rows.Scan(&certRecord.Id, &certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Id, &certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("CertRecord_By_Publickey")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
 	return certRecord, nil
 
 }
@@ -11464,7 +11444,7 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Publickey(ctx context.Context,
 	certRecord_publickey CertRecord_Publickey_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.publickey = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.publickey, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.publickey = ?")
 
 	var __values []interface{}
 	__values = append(__values, certRecord_publickey.value())
@@ -11472,33 +11452,11 @@ func (obj *sqlite3Impl) Get_CertRecord_By_Publickey(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
 	certRecord = &CertRecord{}
-	err = __rows.Scan(&certRecord.Id, &certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Id, &certRecord.Publickey, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("CertRecord_By_Publickey")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
 	return certRecord, nil
 
 }

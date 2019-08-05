@@ -619,6 +619,7 @@ read all (
 
 model certRecord (
 	key id 
+    unique publickey
 
 	index (
 		name certrecord_node_id_update_at

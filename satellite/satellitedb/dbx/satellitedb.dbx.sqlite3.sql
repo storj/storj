@@ -60,7 +60,8 @@ CREATE TABLE certRecords (
 	publickey BLOB NOT NULL,
 	node_id BLOB NOT NULL,
 	update_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( publickey )
 );
 CREATE TABLE injuredsegments (
 	path BLOB NOT NULL,

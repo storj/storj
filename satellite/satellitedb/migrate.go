@@ -1078,6 +1078,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE certRecords RENAME COLUMN id TO node_id;
 					ALTER TABLE certRecords ADD COLUMN id bigserial;
+					ALTER TABLE certRecords ADD UNIQUE (publickey);
 					ALTER TABLE certRecords DROP CONSTRAINT certrecords_pkey;
 					ALTER TABLE certRecords ADD CONSTRAINT certrecords_pkey PRIMARY KEY (id);
 					CREATE INDEX certrecord_node_id_update_at ON certRecords ( node_id, update_at );`,

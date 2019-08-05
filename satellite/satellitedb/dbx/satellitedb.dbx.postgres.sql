@@ -60,7 +60,8 @@ CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
 	node_id bytea NOT NULL,
 	update_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( id ),
+	UNIQUE ( publickey )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
