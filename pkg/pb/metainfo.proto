@@ -108,7 +108,7 @@ message BucketListResponse {
 
 message BucketSetAttributionRequest {
     bytes name = 1;
-    bytes attribution_id = 2;
+    bytes partner_id = 2;
 }
 
 message BucketSetAttributionResponse {
