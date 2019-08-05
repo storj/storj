@@ -283,7 +283,7 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			return Error.New("invalid no order limit for piece")
 		}
 
-		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.rsConfig.MaxSegmentSize.Int64(), storj.EncryptionParameters{
+		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.requiredRSConfig.MaxSegmentSize.Int64(), storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
 			BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
 		})
@@ -323,18 +323,18 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if endpoint.rsConfig.Validate == true {
-		if endpoint.rsConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
-			endpoint.rsConfig.MaxThreshold != int(redundancy.Total) ||
-			endpoint.rsConfig.MinThreshold != int(redundancy.MinReq) ||
-			endpoint.rsConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
-			endpoint.rsConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
+	if endpoint.requiredRSConfig.Validate == true {
+		if endpoint.requiredRSConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
+			endpoint.requiredRSConfig.MaxThreshold != int(redundancy.Total) ||
+			endpoint.requiredRSConfig.MinThreshold != int(redundancy.MinReq) ||
+			endpoint.requiredRSConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
+			endpoint.requiredRSConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
 			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d, %d] got [%d, %d, %d, %d, %d]",
-				endpoint.rsConfig.MinThreshold,
-				endpoint.rsConfig.RepairThreshold,
-				endpoint.rsConfig.SuccessThreshold,
-				endpoint.rsConfig.MaxThreshold,
-				endpoint.rsConfig.ErasureShareSize.Int32(),
+				endpoint.requiredRSConfig.MinThreshold,
+				endpoint.requiredRSConfig.RepairThreshold,
+				endpoint.requiredRSConfig.SuccessThreshold,
+				endpoint.requiredRSConfig.MaxThreshold,
+				endpoint.requiredRSConfig.ErasureShareSize.Int32(),
 
 				redundancy.MinReq,
 				redundancy.RepairThreshold,

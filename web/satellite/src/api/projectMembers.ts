@@ -8,7 +8,7 @@ import { TeamMember } from '@/types/teamMembers';
 import { RequestResponse } from '@/types/response';
 
 // Performs graqhQL request.
-export async function addProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+export async function addProjectMembersRequest(projectId: string, emails: string[]): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -18,13 +18,17 @@ export async function addProjectMembersRequest(projectID: string, emails: string
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                addProjectMembers(
-                    projectID: "${projectID}",
-                    email: [${prepareEmailList(emails)}]
-                ) {id}
-            }`,
+                mutation($projectId: String!, $emails:[String!]!) {
+                    addProjectMembers(
+                        projectID: $projectId,
+                        email: $emails
+                    ) {id}
+                }`,
             ),
+            variables: {
+                projectId: projectId,
+                emails: emails
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -40,7 +44,7 @@ export async function addProjectMembersRequest(projectID: string, emails: string
 }
 
 // Performs graqhQL request.
-export async function deleteProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+export async function deleteProjectMembersRequest(projectId: string, emails: string[]): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -50,13 +54,17 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                deleteProjectMembers(
-                    projectID: "${projectID}",
-                    email: [${prepareEmailList(emails)}]
-                ) {id}
-            }`
+                mutation($projectId: String!, $emails:[String!]!) {
+                    deleteProjectMembers(
+                        projectID: $projectId,
+                        email: $emails
+                    ) {id}
+                }`
             ),
+            variables: {
+                projectId: projectId,
+                emails: emails
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -72,7 +80,7 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
 }
 
 // Performs graqhQL request.
-export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMember[]>> {
+export async function fetchProjectMembersRequest(projectId: string, limit: number, offset: number, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMember[]>> {
     let result: RequestResponse<TeamMember[]> = {
         errorMessage: '',
         isSuccess: false,
@@ -82,22 +90,29 @@ export async function fetchProjectMembersRequest(projectID: string, limit: strin
     let response: any = await apollo.query(
         {
             query: gql(`
-            query {
-                project(
-                    id: "${projectID}",
-                ) {
-                    members(limit: ${limit}, offset: ${offset}, order: ${sortBy}, search: "${searchQuery}") {
-                        user {
-                            id,
-                            fullName,
-                            shortName,
-                            email
-                        },
-                        joinedAt
+                query($projectId: String!, $limit: Int!, $offset: Int!, $order: Int!, $search: String!) {
+                    project(
+                        id: $projectId,
+                    ) {
+                        members(limit: $limit, offset: $offset, order: $order, search: $search) {
+                            user {
+                                id,
+                                fullName,
+                                shortName,
+                                email
+                            },
+                            joinedAt
+                        }
                     }
-                }
-            }`
+                }`
             ),
+            variables: {
+                projectId: projectId,
+                limit: limit,
+                offset: offset,
+                order: sortBy,
+                search: searchQuery
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -111,16 +126,6 @@ export async function fetchProjectMembersRequest(projectID: string, limit: strin
     }
 
     return result;
-}
-
-function prepareEmailList(emails: string[]): string {
-    let emailString: string = '';
-
-    emails.forEach(email => {
-        emailString += `"${email}", `;
-    });
-
-    return emailString;
 }
 
 function getProjectMembersList(projectMembers: any[]): TeamMember[] {

@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/vivint/infectious"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
@@ -33,7 +34,7 @@ type StripeReader struct {
 
 // NewStripeReader creates a new StripeReader from the given readers, erasure
 // scheme and max buffer memory.
-func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int, forceErrorDetection bool) *StripeReader {
+func NewStripeReader(log *zap.Logger, rs map[int]io.ReadCloser, es ErasureScheme, mbm int, forceErrorDetection bool) *StripeReader {
 	readerCount := len(rs)
 
 	r := &StripeReader{
@@ -55,7 +56,7 @@ func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int, forceE
 
 	for i := range rs {
 		r.inbufs[i] = make([]byte, es.ErasureShareSize())
-		r.bufs[i] = NewPieceBuffer(make([]byte, bufSize), es.ErasureShareSize(), r.cond)
+		r.bufs[i] = NewPieceBuffer(log, make([]byte, bufSize), es.ErasureShareSize(), r.cond)
 		// Kick off a goroutine each reader to be copied into a PieceBuffer.
 		go func(r io.Reader, buf *PieceBuffer) {
 			_, err := io.Copy(buf, r)

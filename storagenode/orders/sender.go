@@ -52,6 +52,13 @@ const (
 	StatusRejected
 )
 
+// ArchiveRequest defines arguments for archiving a single order.
+type ArchiveRequest struct {
+	Satellite storj.NodeID
+	Serial    storj.SerialNumber
+	Status    Status
+}
+
 // DB implements storing orders for sending to the satellite.
 type DB interface {
 	// Enqueue inserts order to the list of orders needing to be sent to the satellite.
@@ -62,8 +69,7 @@ type DB interface {
 	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*Info, error)
 
 	// Archive marks order as being handled.
-	Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status Status) error
-
+	Archive(ctx context.Context, requests ...ArchiveRequest) error
 	// ListArchived returns orders that have been sent.
 	ListArchived(ctx context.Context, limit int) ([]*ArchivedInfo, error)
 }
@@ -109,11 +115,17 @@ func (sender *Sender) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	sender.log.Debug("sending")
 
+	const batchSize = 1000
+
 	ordersBySatellite, err := sender.orders.ListUnsentBySatellite(ctx)
 	if err != nil {
 		sender.log.Error("listing orders", zap.Error(err))
 		return nil
 	}
+
+	requests := make(chan ArchiveRequest, batchSize)
+	var batchGroup errgroup.Group
+	batchGroup.Go(func() error { return sender.handleBatches(ctx, requests) })
 
 	if len(ordersBySatellite) > 0 {
 		var group errgroup.Group
@@ -123,29 +135,59 @@ func (sender *Sender) runOnce(ctx context.Context) (err error) {
 		for satelliteID, orders := range ordersBySatellite {
 			satelliteID, orders := satelliteID, orders
 			group.Go(func() error {
-
-				sender.Settle(ctx, satelliteID, orders)
+				sender.Settle(ctx, satelliteID, orders, requests)
 				return nil
 			})
 		}
+
 		_ = group.Wait() // doesn't return errors
 	} else {
 		sender.log.Debug("no orders to send")
 	}
 
-	return nil
+	close(requests)
+	return batchGroup.Wait()
 }
 
 // Settle uploads orders to the satellite.
-func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info) {
+func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) {
 	log := sender.log.Named(satelliteID.String())
-	err := sender.settle(ctx, log, satelliteID, orders)
+	err := sender.settle(ctx, log, satelliteID, orders, requests)
 	if err != nil {
 		log.Error("failed to settle orders", zap.Error(err))
 	}
 }
 
-func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info) (err error) {
+func (sender *Sender) handleBatches(ctx context.Context, requests chan ArchiveRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// In case anything goes wrong, discard everything from the channel.
+	defer func() {
+		for range requests {
+		}
+	}()
+
+	buffer := make([]ArchiveRequest, 0, cap(requests))
+
+	for request := range requests {
+		buffer = append(buffer, request)
+		if len(buffer) < cap(buffer) {
+			continue
+		}
+
+		if err := sender.orders.Archive(ctx, buffer...); err != nil {
+			return err
+		}
+		buffer = buffer[:0]
+	}
+
+	if len(buffer) > 0 {
+		return sender.orders.Archive(ctx, buffer...)
+	}
+	return nil
+}
+
+func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	log.Info("sending", zap.Int("count", len(orders)))
@@ -208,19 +250,21 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 			break
 		}
 
+		var status Status
 		switch response.Status {
 		case pb.SettlementResponse_ACCEPTED:
-			err = sender.orders.Archive(ctx, satelliteID, response.SerialNumber, StatusAccepted)
-			if err != nil {
-				errHandle(OrderError, "failed to archive order as accepted: serial: %v, %v", response.SerialNumber, err)
-			}
+			status = StatusAccepted
 		case pb.SettlementResponse_REJECTED:
-			err = sender.orders.Archive(ctx, satelliteID, response.SerialNumber, StatusRejected)
-			if err != nil {
-				errHandle(OrderError, "failed to archive order as rejected: serial: %v, %v", response.SerialNumber, err)
-			}
+			status = StatusRejected
 		default:
 			errHandle(OrderError, "unexpected response: %v", response.Status)
+			continue
+		}
+
+		requests <- ArchiveRequest{
+			Satellite: satelliteID,
+			Serial:    response.SerialNumber,
+			Status:    status,
 		}
 	}
 

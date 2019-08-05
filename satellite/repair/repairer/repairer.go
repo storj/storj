@@ -9,13 +9,11 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -23,7 +21,6 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/ecclient"
-	"storj.io/storj/uplink/storage/segments"
 )
 
 // Error is a standard error class for this package.
@@ -41,48 +38,28 @@ type Config struct {
 	MaxExcessRateOptimalThreshold float64       `help:"ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload" default:"0.05"`
 }
 
-// GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	ec := ecclient.NewClient(log.Named("ecclient"), tc, c.MaxBufferMem.Int())
-
-	return segments.NewSegmentRepairer(
-		log.Named("repairer"), metainfo, orders, cache, ec, identity, c.Timeout, c.MaxExcessRateOptimalThreshold,
-	), nil
-}
-
-// SegmentRepairer is a repairer for segments
-type SegmentRepairer interface {
-	Repair(ctx context.Context, path storj.Path) (err error)
-}
-
 // Service contains the information needed to run the repair service
 type Service struct {
-	log       *zap.Logger
-	queue     queue.RepairQueue
-	config    *Config
-	Limiter   *sync2.Limiter
-	Loop      sync2.Cycle
-	transport transport.Client
-	metainfo  *metainfo.Service
-	orders    *orders.Service
-	cache     *overlay.Cache
-	repairer  SegmentRepairer
+	log      *zap.Logger
+	queue    queue.RepairQueue
+	config   *Config
+	Limiter  *sync2.Limiter
+	Loop     sync2.Cycle
+	repairer *SegmentRepairer
 }
 
 // NewService creates repairing service
 func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
+	client := ecclient.NewClient(log.Named("ecclient"), transport, config.MaxBufferMem.Int())
+	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, client, config.Timeout, config.MaxExcessRateOptimalThreshold)
+
 	return &Service{
-		log:       log,
-		queue:     queue,
-		config:    config,
-		Limiter:   sync2.NewLimiter(concurrency),
-		Loop:      *sync2.NewCycle(interval),
-		transport: transport,
-		metainfo:  metainfo,
-		orders:    orders,
-		cache:     cache,
+		log:      log,
+		queue:    queue,
+		config:   config,
+		Limiter:  sync2.NewLimiter(concurrency),
+		Loop:     *sync2.NewCycle(interval),
+		repairer: repairer,
 	}
 }
 
@@ -93,27 +70,13 @@ func (service *Service) Close() error { return nil }
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: close segment repairer, currently this leaks connections
-	service.repairer, err = service.config.GetSegmentRepairer(
-		ctx,
-		service.log,
-		service.transport,
-		service.metainfo,
-		service.orders,
-		service.cache,
-		service.transport.Identity(),
-	)
-	if err != nil {
-		return err
-	}
-
 	// wait for all repairs to complete
 	defer service.Limiter.Wait()
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.process(ctx)
 		if err != nil {
-			zap.L().Error("process", zap.Error(Error.Wrap(err)))
+			service.log.Error("process", zap.Error(Error.Wrap(err)))
 		}
 		return nil
 	})
@@ -124,7 +87,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
 		seg, err := service.queue.Select(ctx)
-		zap.L().Info("Dequeued segment from repair queue", zap.Binary("segment", seg.GetPath()))
+		service.log.Info("Retrieved segment from repair queue", zap.Binary("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
@@ -135,7 +98,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 		service.Limiter.Go(ctx, func() {
 			err := service.worker(ctx, seg)
 			if err != nil {
-				zap.L().Error("repair worker failed:", zap.Error(err))
+				service.log.Error("repair worker failed:", zap.Error(err))
 			}
 		})
 	}
@@ -146,16 +109,25 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 
 	workerStartTime := time.Now().UTC()
 
-	zap.L().Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
-	err = service.repairer.Repair(ctx, string(seg.GetPath()))
+	service.log.Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
+	// note that shouldDelete is used even in the case where err is not null
+	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
+	if shouldDelete {
+		if IrreparableError.Has(err) {
+			service.log.Error("deleting irreparable segment from the queue:",
+				zap.Error(service.queue.Delete(ctx, seg)),
+				zap.Binary("segment", seg.GetPath()),
+			)
+		} else {
+			service.log.Info("deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
+		}
+		delErr := service.queue.Delete(ctx, seg)
+		if delErr != nil {
+			err = errs.Combine(err, Error.New("deleting repaired segment from the queue: %v", delErr))
+		}
+	}
 	if err != nil {
 		return Error.New("repairing injured segment: %v", err)
-	}
-
-	zap.L().Info("Deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
-	err = service.queue.Delete(ctx, seg)
-	if err != nil {
-		return Error.New("deleting repaired segment from the queue: %v", err)
 	}
 
 	repairedTime := time.Now().UTC()

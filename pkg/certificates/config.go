@@ -111,7 +111,7 @@ func (c CertServerConfig) Run(ctx context.Context, srv *server.Server) (err erro
 	}
 
 	certSrv := NewServer(
-		zap.L(),
+		zap.L(), // TODO: pass this in from somewhere
 		signer,
 		authDB,
 		uint16(c.MinDifficulty),
