@@ -475,11 +475,15 @@ type lazyPieceReader struct {
 	length int64
 
 	dialed bool
+	closed bool
 	piecestore.Downloader
 	client *piecestore.Client
 }
 
 func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
+	if lr.closed {
+		return 0, io.EOF
+	}
 	if !lr.dialed {
 		mon.Task()(&lr.ctx)(&err)
 		lr.dialed = true
@@ -506,6 +510,8 @@ func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
 	return lr.Downloader.Read(data)
 }
 func (lr *lazyPieceReader) Close() error {
+	lr.closed = true
+
 	if lr.Downloader == nil {
 		return nil
 	}
