@@ -99,7 +99,7 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, pieceP
 // Read downloads data from the storage node allocating as necessary.
 func (client *Download) Read(data []byte) (read int, err error) {
 	ctx := client.ctx
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: "+client.peer.ID.String()[0:8])(&err)
 	for client.read < client.downloadSize {
 		// read from buffer
 		n, err := client.unread.Read(data)
