@@ -522,18 +522,6 @@ func (lr *lazyPieceReader) Close() error {
 	)
 }
 
-type clientCloser struct {
-	piecestore.Downloader
-	client *piecestore.Client
-}
-
-func (client *clientCloser) Close() error {
-	return errs.Combine(
-		client.Downloader.Close(),
-		client.client.Close(),
-	)
-}
-
 func nonNilCount(limits []*pb.AddressedOrderLimit) int {
 	total := 0
 	for _, limit := range limits {
