@@ -38,8 +38,8 @@ https://www.figma.com/file/IlY5UNF94rEpCLGR6BeaOhXX/Local-Storage-Node-Dashboard
 - When I need to know how much of the allocated bandwidth my SN has used I want a simple graphic on the SNOBoard so that I can consume this information quickly
 - When I am looking at the bandwidth graphic I want to be able to distinguish how much bandwidth has been egress vs ingress so that I can determine if my internet plan is suitable for the type of traffic my node is getting. 
 - When a SNO is running an outdated version of SN software I want that information to be displayed on the SNOBoard so that they SNO can determine if they need to upgrade their software
-- When I need to know what wallet address my SN is configured with I want that information to be on the SNOBoard so that I can figure out what wallet I should be expecting my payout on. 
-- When a SNO starts the SNOBoard I want a set of links on the interface they can reference to get connected to the community or get more information about running their SN.
+- When I need to know what wallet address my SN is configured with I want that information to be on the SNOBoard so that I can figure out what wallet I should be expecting my payout on
+- When a SNO starts the SNOBoard I want a set of links on the interface they can reference to get connected to the community or get more information about running their SN
 	- Include a link to the community 
 	- Include a link to the support portal
 	- Include a link to the SNO documentation
