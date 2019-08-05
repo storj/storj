@@ -518,19 +518,20 @@ message BatchRequestItem {
 
         ObjectBeginRequest          object_begin = 6;
         ObjectCommitRequest         object_commit = 7;
-        ObjectListRequest           object_list = 8;
-        ObjectBeginDeleteRequest    object_begin_delete = 9;
-        ObjectFinishDeleteRequest   object_finish_delete = 10;
+        ObjectGetRequest            object_get = 8;
+        ObjectListRequest           object_list = 9;
+        ObjectBeginDeleteRequest    object_begin_delete = 10;
+        ObjectFinishDeleteRequest   object_finish_delete = 11;
 
-        SegmentBeginRequest      segment_begin = 11;
-        SegmentCommitRequest     segment_commit = 12;
-        SegmentMakeInlineRequest segment_make_inline = 13;
+        SegmentBeginRequest      segment_begin = 12;
+        SegmentCommitRequest     segment_commit = 13;
+        SegmentMakeInlineRequest segment_make_inline = 14;
 
-        SegmentBeginDeleteRequest  segment_begin_delete = 14;
-        SegmentFinishDeleteRequest segment_finish_delete = 15;
+        SegmentBeginDeleteRequest  segment_begin_delete = 15;
+        SegmentFinishDeleteRequest segment_finish_delete = 16;
 
-        SegmentListRequest     segment_list = 16;
-        SegmentDownloadRequest segment_download = 17;
+        SegmentListRequest     segment_list = 17;
+        SegmentDownloadRequest segment_download = 18;
     }
 }
 
@@ -548,18 +549,19 @@ message BatchResponseItem {
 
         ObjectBeginResponse          object_begin = 6;
         ObjectCommitResponse         object_commit = 7;
-        ObjectListResponse           object_list = 8;
-        ObjectBeginDeleteResponse    object_begin_delete = 9;
-        ObjectFinishDeleteResponse   object_finish_delete = 10;
+        ObjectGetResponse            object_get = 8;
+        ObjectListResponse           object_list = 9;
+        ObjectBeginDeleteResponse    object_begin_delete = 10;
+        ObjectFinishDeleteResponse   object_finish_delete = 11;
 
-        SegmentBeginResponse      segment_begin = 11;
-        SegmentCommitResponse     segment_commit = 12;
-        SegmentMakeInlineResponse segment_make_inline = 13;
+        SegmentBeginResponse      segment_begin = 12;
+        SegmentCommitResponse     segment_commit = 13;
+        SegmentMakeInlineResponse segment_make_inline = 14;
 
-        SegmentBeginDeleteResponse  segment_begin_delete = 14;
-        SegmentFinishDeleteResponse segment_finish_delete = 15;
+        SegmentBeginDeleteResponse  segment_begin_delete = 15;
+        SegmentFinishDeleteResponse segment_finish_delete = 16;
 
-        SegmentListResponse     segment_list = 16;
-        SegmentDownloadResponse segment_download = 17;
+        SegmentListResponse     segment_list = 17;
+        SegmentDownloadResponse segment_download = 18;
     }
 }
