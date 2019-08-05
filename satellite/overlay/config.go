@@ -20,8 +20,7 @@ var (
 // Overlay cache responsibility.
 type Config struct {
 	Node                 NodeSelectionConfig
-	UpdateStatsBatchSize int           `help:"number of update requests to process per transaction" default:"100"`
-	UptimeFlushInterval  time.Duration `help:"the length of time we will cache uptime status before updating the overlay cache again" releaseDefault:"1m" devDefault:"1s"`
+	UpdateStatsBatchSize int `help:"number of update requests to process per transaction" default:"100"`
 }
 
 // NodeSelectionConfig is a configuration struct to determine the minimum

@@ -6,7 +6,6 @@ package overlay
 import (
 	"context"
 	"sync"
-	"time"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
@@ -19,12 +18,6 @@ type addressInfo struct {
 	transport pb.NodeTransport
 }
 
-type uptimeInfo struct {
-	isUp       bool
-	lastUptime time.Time
-	stats      *NodeStats
-}
-
 // CombinedCache is a simple caching mechanism for overlaycache updates. It
 // provdes methods to help reduce calls to UpdateAddress and UpdateTime, but can
 // be extended for other calls in the future.
@@ -33,21 +26,15 @@ type CombinedCache struct {
 	addressLock  sync.RWMutex
 	addressCache map[storj.NodeID]*addressInfo
 
-	uptimeLock          sync.RWMutex
-	uptimeCache         map[storj.NodeID]*uptimeInfo
-	uptimeFlushInterval time.Duration
-
 	keyLock *sync2.KeyLock
 }
 
 // NewCombinedCache instantiates a new CombinedCache
-func NewCombinedCache(db DB, uptimeFlushInterval time.Duration) *CombinedCache {
+func NewCombinedCache(db DB) *CombinedCache {
 	return &CombinedCache{
-		DB:                  db,
-		addressCache:        make(map[storj.NodeID]*addressInfo),
-		uptimeCache:         make(map[storj.NodeID]*uptimeInfo),
-		uptimeFlushInterval: uptimeFlushInterval,
-		keyLock:             sync2.NewKeyLock(),
+		DB:           db,
+		addressCache: make(map[storj.NodeID]*addressInfo),
+		keyLock:      sync2.NewKeyLock(),
 	}
 }
 
@@ -79,8 +66,8 @@ func (c *CombinedCache) UpdateAddress(ctx context.Context, info *pb.Node, defaul
 
 	// Acquire lock for this node ID. This prevents a concurrent db update to
 	// this same node ID and guarantees the cache and database stay in sync
-	c.keyLock.Lock(info.Id)
-	defer c.keyLock.Unlock(info.Id)
+	unlockFunc := c.keyLock.Lock(info.Id)
+	defer unlockFunc()
 
 	err = c.DB.UpdateAddress(ctx, info, defaults)
 	if err != nil {

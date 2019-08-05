@@ -30,7 +30,7 @@ func TestStatDB(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		testDatabase(ctx, t, overlay.NewCombinedCache(db.OverlayCache(), 0))
+		testDatabase(ctx, t, overlay.NewCombinedCache(db.OverlayCache()))
 	})
 }
 

@@ -20,46 +20,31 @@ type KeyLock struct {
 	locks sync.Map
 }
 
+type UnlockFunc func()
+
 // NewKeyLock create a new KeyLock
 func NewKeyLock() *KeyLock {
 	return &KeyLock{}
 }
 
 // Lock the provided key
-func (l *KeyLock) Lock(key interface{}) {
-	lock := l.getNewLock(key)
+func (l *KeyLock) Lock(key interface{}) UnlockFunc {
+	lock := l.getLock(key)
 	lock.Lock()
-}
-
-// Unlock the provided key
-func (l *KeyLock) Unlock(key interface{}) {
-	lock := l.getExistingLock(key)
-	lock.Unlock()
+	return lock.Unlock
 }
 
 // RLock the provided key
-func (l *KeyLock) RLock(key interface{}) {
-	lock := l.getNewLock(key)
+func (l *KeyLock) RLock(key interface{}) UnlockFunc {
+	lock := l.getLock(key)
 	lock.RLock()
+	return lock.RUnlock
 }
 
-// RUnlock the provided key
-func (l *KeyLock) RUnlock(key interface{}) {
-	lock := l.getExistingLock(key)
-	lock.RUnlock()
-}
-
-// getNewLock will atomically load the RWMutex for this key. If one does not yet
+// getLock will atomically load the RWMutex for this key. If one does not yet
 // exist, it will be lazily, atomically created. The resulting RWMutex is
 // returned.
-func (l *KeyLock) getNewLock(key interface{}) *sync.RWMutex {
+func (l *KeyLock) getLock(key interface{}) *sync.RWMutex {
 	res, _ := l.locks.LoadOrStore(key, &sync.RWMutex{})
-	return res.(*sync.RWMutex)
-}
-
-// getExistingLock is a more efficient way to load a RWMutex for a key which you
-// know already exists (such as when calling unlock).
-func (l *KeyLock) getExistingLock(key interface{}) *sync.RWMutex {
-	res, _ := l.locks.Load(key)
 	return res.(*sync.RWMutex)
 }

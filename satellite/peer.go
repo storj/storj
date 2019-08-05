@@ -272,7 +272,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	{ // setup overlay
 		log.Debug("Starting overlay")
 
-		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache(), config.Overlay.UptimeFlushInterval)
+		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
 		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
