@@ -17,6 +17,7 @@ import (
 	"github.com/minio/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -648,7 +649,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 	planet.Start(ctx)
 
-	layer, m, strms, err := initEnv(ctx, planet)
+	layer, m, strms, err := initEnv(ctx, t, planet)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -656,7 +657,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 	test(ctx, layer, m, strms)
 }
 
-func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
+func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
@@ -721,12 +722,8 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	kvm := kvmetainfo.New(p, m, strms, segments, encStore)
 
 	cfg := libuplink.Config{}
-	cfg.Volatile.TLS = struct {
-		SkipPeerCAWhitelist bool
-		PeerCAWhitelistPath string
-	}{
-		SkipPeerCAWhitelist: true,
-	}
+	cfg.Volatile.Log = zaptest.NewLogger(t)
+	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 	uplink, err := libuplink.NewUplink(ctx, &cfg)
 	if err != nil {

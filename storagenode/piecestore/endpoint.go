@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
@@ -42,6 +42,7 @@ var (
 	// ErrInternal is the default error class for internal piecestore errors.
 	ErrInternal = errs.Class("piecestore internal")
 )
+
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
 // OldConfig contains everything necessary for a server
@@ -147,8 +148,11 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 	}, nil
 }
 
+var monLiveRequests = mon.TaskNamed("live-request")
+
 // Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -183,6 +187,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -273,7 +278,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 
 	largestOrder := pb.Order{}
-	defer endpoint.SaveOrder(ctx, limit, &largestOrder)
+	defer endpoint.saveOrder(ctx, limit, &largestOrder)
 
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
@@ -378,6 +383,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 // Download implements downloading a piece from piece store.
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -519,7 +525,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	recvErr := func() (err error) {
 		largestOrder := pb.Order{}
-		defer endpoint.SaveOrder(ctx, limit, &largestOrder)
+		defer endpoint.saveOrder(ctx, limit, &largestOrder)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -560,8 +566,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	return Error.Wrap(errs.Combine(sendErr, recvErr))
 }
 
-// SaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
+// saveOrder saves the order with all necessary information. It assumes it has been already verified.
+func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
