@@ -63,7 +63,6 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-
 	confDirParam := cfgstruct.FindConfigDirParam()
 	if confDirParam != "" {
 		defaultConfDir = confDirParam
@@ -92,13 +91,13 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 }
 
 // GetProject returns a *libuplink.Project for interacting with a specific project
-func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
-	err := version.CheckProcessVersion(ctx, zap.L(), cliCfg.Version, version.Build, "Uplink")
+func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (_ *libuplink.Project, err error) {
+	err = version.CheckProcessVersion(ctx, zap.L(), cliCfg.Version, version.Build, "Uplink")
 	if err != nil {
 		return nil, err
 	}
 
-	apiKey, err := libuplink.ParseAPIKey(cliCfg.Client.APIKey)
+	scope, err := cliCfg.GetScope()
 	if err != nil {
 		return nil, err
 	}
@@ -107,24 +106,40 @@ func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, 
 	if err != nil {
 		return nil, err
 	}
-
-	project, err := uplk.OpenProject(ctx, cliCfg.Client.SatelliteAddr, apiKey)
-	if err != nil {
-		if err := uplk.Close(); err != nil {
-			fmt.Printf("error closing uplink: %+v\n", err)
+	defer func() {
+		if err != nil {
+			if err := uplk.Close(); err != nil {
+				fmt.Printf("error closing uplink: %+v\n", err)
+			}
 		}
-	}
+	}()
 
-	return project, err
+	return uplk.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
 }
 
 // GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
-func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access *libuplink.EncryptionAccess) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
-	project, err = cliCfg.GetProject(ctx)
+func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
+	scope, err := cliCfg.GetScope()
 	if err != nil {
-		return project, bucket, err
+		return nil, nil, err
 	}
 
+	uplk, err := cliCfg.NewUplink(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		if err != nil {
+			if err := uplk.Close(); err != nil {
+				fmt.Printf("error closing uplink: %+v\n", err)
+			}
+		}
+	}()
+
+	project, err = uplk.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+	if err != nil {
+		return nil, nil, err
+	}
 	defer func() {
 		if err != nil {
 			if err := project.Close(); err != nil {
@@ -133,11 +148,7 @@ func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName s
 		}
 	}()
 
-	bucket, err = project.OpenBucket(ctx, bucketName, access)
-	if err != nil {
-		return project, bucket, err
-	}
-
+	bucket, err = project.OpenBucket(ctx, bucketName, scope.EncryptionAccess)
 	return project, bucket, err
 }
 

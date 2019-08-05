@@ -5,20 +5,25 @@ import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { RequestResponse } from '@/types/response';
 
-export async function addProjectPaymentMethodRequest(projectID: string, cardToken: string, makeDefault: boolean): Promise<RequestResponse<null>> {
+export async function addProjectPaymentMethodRequest(projectId: string, cardToken: string, isDefault: boolean): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-                mutation {
+                mutation($projectId: String!, cardToken: String!, isDefault: Boolean!) {
                         addPaymentMethod(
-                            projectID: "${projectID}",
-                            cardToken: "${cardToken}",
-                            isDefault: ${makeDefault}
+                            projectID: $projectId,
+                            cardToken: $cardToken,
+                            isDefault: $isDefault
                         ) 
                 }
             `),
+            variables: {
+                projectId: projectId,
+                cardToken: cardToken,
+                isDefault: isDefault
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all'
         }
@@ -33,19 +38,23 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
     return result;
 }
 
-export async function setDefaultPaymentMethodRequest(projectID: string, paymentID: string): Promise<RequestResponse<null>> {
+export async function setDefaultPaymentMethodRequest(projectId: string, paymentId: string): Promise<RequestResponse<null>> {
    let result: RequestResponse<null> = new RequestResponse<null>();
 
    let response: any = await apollo.mutate(
        {
            mutation: gql(`
-                mutation {
+                mutation($projectId: String!, paymentId: String!) {
                     setDefaultPaymentMethod(
-                        projectID: "${projectID}",
-                        id: "${paymentID}"
+                        projectID: $projectId,
+                        id: $paymentId
                     )
                 }
            `),
+           variables: {
+               projectId: projectId,
+               id: paymentId
+           },
            fetchPolicy: 'no-cache',
            errorPolicy: 'all'
        }
@@ -60,18 +69,21 @@ export async function setDefaultPaymentMethodRequest(projectID: string, paymentI
    return result;
 }
 
-export async function deletePaymentMethodRequest(paymentID: string):Promise<RequestResponse<null>> {
+export async function deletePaymentMethodRequest(paymentId: string):Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-                mutation {
+                mutation($id: String!) {
                     deletePaymentMethod(
-                        id: "${paymentID}"
+                        id: $paymentId
                     )
                 }
            `),
+            variables: {
+                id: paymentId
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all'
         }
@@ -87,14 +99,14 @@ export async function deletePaymentMethodRequest(paymentID: string):Promise<Requ
 }
 
 // fetchProjectInvoices retrieves project invoices
-export async function fetchProjectPaymentMethods(projectID: string): Promise<RequestResponse<PaymentMethod[]>> {
+export async function fetchProjectPaymentMethods(projectId: string): Promise<RequestResponse<PaymentMethod[]>> {
     let result: RequestResponse<PaymentMethod[]> = new RequestResponse<PaymentMethod[]>();
 
     let response: any = await apollo.query(
         {
             query: gql(`
-                query {
-                    project(id: "${projectID}") {
+                query($projectId: String!) {
+                    project(id: $projectId) {
                         paymentMethods {
                             id,
                             expYear,
@@ -108,6 +120,9 @@ export async function fetchProjectPaymentMethods(projectID: string): Promise<Req
                     }
                 }`
             ),
+            variables: {
+                projectId: projectId,
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all'
         }
