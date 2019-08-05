@@ -76,4 +76,4 @@ From Moby: "The main issue with integrating it into the gc observer is it means 
     - We'll create a new audit observer.
 
 2. Should we run both audit selection processes within the same loop or in separate loops? (resolved)
-- We'll use one audit observer that joins with the metainfo loop. This observer will be in charge of both methods of selection. It will create reservoir samples for segments following the current selection method (randomly across bytes), and also create a small reservoir for each unvetted node.
+- We'll create one audit observer that will be in charge of both methods of selection. It will create reservoir samples for segments following the current selection method (randomly across bytes), and also create a small reservoir for each unvetted node.
