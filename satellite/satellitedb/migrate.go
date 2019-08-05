@@ -1088,22 +1088,26 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Creating owner_id column for projects table",
 				Version:     51,
 				Action: migrate.SQL{
-                    `ALTER TABLE projects
-                        ADD COLUMN owner_id BYTEA;`,
-                    `UPDATE projects as proj
-                        SET owner_id =
-                            (SELECT member_id
-                                FROM project_members
-                                    WHERE project_id = proj.id
-                                        ORDER BY created_at ASC
-                                            LIMIT 1);`,
-                    `DELETE FROM bucket_metainfos 
-                        WHERE project_id in (
-                            SELECT id FROM projects WHERE owner_id is null);`,
-                    `DELETE FROM projects 
-                        WHERE owner_id is null;`,
-                    `ALTER TABLE projects
-                        ALTER COLUMN owner_id SET NOT NULL;`,
+					`ALTER TABLE projects
+					    ADD COLUMN owner_id BYTEA;`,
+
+					`UPDATE projects as proj
+					    SET owner_id =
+					    (SELECT member_id
+					        FROM project_members
+					            WHERE project_id = proj.id
+					                ORDER BY created_at ASC
+					                    LIMIT 1);`,
+
+					`DELETE FROM bucket_metainfos 
+					    WHERE project_id in (
+					        SELECT id FROM projects WHERE owner_id is null);`,
+
+					`DELETE FROM projects 
+					    WHERE owner_id is null;`,
+
+					`ALTER TABLE projects
+					    ALTER COLUMN owner_id SET NOT NULL;`,
 				},
 			},
 		},
