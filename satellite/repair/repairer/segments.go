@@ -65,6 +65,7 @@ func NewSegmentRepairer(
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
+// note that shouldDelete is used even in the case where err is not null
 func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
@@ -102,7 +103,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// irreparable piece, we need k+1 to detect corrupted pieces
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq+1 {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
-		return false, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
+		return true, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
 	}
 
 	// repair not needed
@@ -171,6 +172,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// Download the segment using just the healthy pieces
 	rr, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
 	if err != nil {
+		// .Get() seems to only fail from input validation, so it would keep failing
 		return true, Error.Wrap(err)
 	}
 
