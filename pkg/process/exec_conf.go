@@ -7,12 +7,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -38,19 +36,18 @@ const DefaultCfgFilename = "config.yaml"
 var (
 	mon = monkit.Package()
 
-	contextMtx sync.Mutex
+	commandMtx sync.Mutex
 	contexts   = map[*cobra.Command]context.Context{}
-
-	configMtx sync.Mutex
-	configs   = map[*cobra.Command][]interface{}{}
+	configs    = map[*cobra.Command][]interface{}{}
+	vipers     = map[*cobra.Command]*viper.Viper{}
 )
 
 // Bind sets flags on a command that match the configuration struct
 // 'config'. It ensures that the config has all of the values loaded into it
 // when the command runs.
 func Bind(cmd *cobra.Command, config interface{}, opts ...cfgstruct.BindOpt) {
-	configMtx.Lock()
-	defer configMtx.Unlock()
+	commandMtx.Lock()
+	defer commandMtx.Unlock()
 
 	cfgstruct.Bind(cmd.Flags(), config, opts...)
 	configs[cmd] = append(configs[cmd], config)
@@ -75,91 +72,11 @@ func Exec(cmd *cobra.Command) {
 	_ = cmd.Execute()
 }
 
-// SaveConfig will save only the user-specific flags with default values to
-// outfile with specific values specified in 'overrides' overridden.
-func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
-	return saveConfig(flagset, outfile, overrides, false)
-}
-
-// SaveConfigWithAllDefaults will save all flags with default values to outfile
-// with specific values specified in 'overrides' overridden.
-func SaveConfigWithAllDefaults(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
-	return saveConfig(flagset, outfile, overrides, true)
-}
-
-func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}, saveAllDefaults bool) error {
-	// we previously used Viper here, but switched to a custom serializer to allow comments
-	//todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
-	flagset.AddFlagSet(pflag.CommandLine)
-	//sort keys
-	var keys []string
-	flagset.VisitAll(func(f *pflag.Flag) { keys = append(keys, f.Name) })
-	sort.Strings(keys)
-	//serialize
-	var sb strings.Builder
-	w := &sb
-	for _, k := range keys {
-		f := flagset.Lookup(k)
-		if readBoolAnnotation(f, "setup") {
-			continue
-		}
-
-		if f.Hidden == true {
-			continue
-		}
-
-		var overriddenValue interface{}
-		var overrideExist bool
-		if overrides != nil {
-			overriddenValue, overrideExist = overrides[k]
-		}
-
-		if !saveAllDefaults && !readBoolAnnotation(f, "user") && !f.Changed && !overrideExist {
-			continue
-		}
-
-		value := f.Value.String()
-		if overriddenValue != nil {
-			value = fmt.Sprintf("%v", overriddenValue)
-		}
-		//print usage info
-		if f.Usage != "" {
-			fmt.Fprintf(w, "# %s\n", f.Usage)
-		}
-		//print commented key (beginning of value assignement line)
-		if readBoolAnnotation(f, "user") || f.Changed || overrideExist {
-			fmt.Fprintf(w, "%s: ", k)
-		} else {
-			fmt.Fprintf(w, "# %s: ", k)
-		}
-		//print value (remainder of value assignement line)
-		switch f.Value.Type() {
-		case "string":
-			// save ourselves 250+ lines of code and just double quote strings
-			fmt.Fprintf(w, "%q\n\n", value)
-		default:
-			//assume that everything else doesn't have fancy control characters
-			fmt.Fprintf(w, "%s\n\n", value)
-		}
-	}
-
-	err := ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
-	if err != nil {
-		return err
-	}
-	fmt.Println("Your configuration is saved to:", outfile)
-	return nil
-}
-
-func readBoolAnnotation(flag *pflag.Flag, key string) bool {
-	annotation := flag.Annotations[key]
-	return len(annotation) > 0 && annotation[0] == "true"
-}
-
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
 func Ctx(cmd *cobra.Command) context.Context {
-	contextMtx.Lock()
-	defer contextMtx.Unlock()
+	commandMtx.Lock()
+	defer commandMtx.Unlock()
+
 	ctx := contexts[cmd]
 	if ctx == nil {
 		ctx = context.Background()
@@ -174,6 +91,38 @@ func Ctx(cmd *cobra.Command) context.Context {
 		cancel()
 	}()
 	return ctx
+}
+
+// Viper returns the appropriate *viper.Viper for the command, creating if necessary.
+func Viper(cmd *cobra.Command) (*viper.Viper, error) {
+	commandMtx.Lock()
+	defer commandMtx.Unlock()
+
+	if vip := vipers[cmd]; vip != nil {
+		return vip, nil
+	}
+
+	vip := viper.New()
+	if err := vip.BindPFlags(cmd.Flags()); err != nil {
+		return nil, err
+	}
+	vip.SetEnvPrefix("storj")
+	vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	vip.AutomaticEnv()
+
+	cfgFlag := cmd.Flags().Lookup("config-dir")
+	if cfgFlag != nil && cfgFlag.Value.String() != "" {
+		path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
+		if cmd.Annotations["type"] != "setup" || fileExists(path) {
+			vip.SetConfigFile(path)
+			if err := vip.ReadInConfig(); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	vipers[cmd] = vip
+	return vip, nil
 }
 
 var traceOut = flag.String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
@@ -194,45 +143,30 @@ func cleanup(cmd *cobra.Command) {
 		ctx := context.Background()
 		defer mon.TaskNamed("root")(&ctx)(&err)
 
-		vip := viper.New()
-		err = vip.BindPFlags(cmd.Flags())
+		vip, err := Viper(cmd)
 		if err != nil {
 			return err
 		}
-		vip.SetEnvPrefix("storj")
-		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
-		vip.AutomaticEnv()
 
-		cfgFlag := cmd.Flags().Lookup("config-dir")
-		if cfgFlag != nil && cfgFlag.Value.String() != "" {
-			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
-			if cmd.Annotations["type"] != "setup" || fileExists(path) {
-				vip.SetConfigFile(path)
-				err = vip.ReadInConfig()
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		configMtx.Lock()
+		commandMtx.Lock()
 		configValues := configs[cmd]
-		configMtx.Unlock()
+		commandMtx.Unlock()
 
 		var (
 			brokenKeys  = map[string]struct{}{}
 			missingKeys = map[string]struct{}{}
 			usedKeys    = map[string]struct{}{}
+			allKeys     = map[string]struct{}{}
 			allSettings = vip.AllSettings()
 		)
 
 		// Hacky hack: these two keys are noprefix which breaks all scoping
 		if val, ok := allSettings["api-key"]; ok {
-			allSettings["client.api-key"] = val
+			allSettings["legacy.client.api-key"] = val
 			delete(allSettings, "api-key")
 		}
 		if val, ok := allSettings["satellite-addr"]; ok {
-			allSettings["client.satellite-addr"] = val
+			allSettings["legacy.client.satellite-addr"] = val
 			delete(allSettings, "satellite-addr")
 		}
 
@@ -241,36 +175,44 @@ func cleanup(cmd *cobra.Command) {
 			res := structs.Decode(allSettings, config)
 			for key := range res.Used {
 				usedKeys[key] = struct{}{}
+				allKeys[key] = struct{}{}
 			}
 			for key := range res.Missing {
 				missingKeys[key] = struct{}{}
+				allKeys[key] = struct{}{}
 			}
 			for key := range res.Broken {
 				brokenKeys[key] = struct{}{}
+				allKeys[key] = struct{}{}
 			}
 		}
 
-		for key := range missingKeys {
+		for key := range allKeys {
+			// Check if the key is a flag, and if so, propagate it.
+			if f := cmd.Flags().Lookup(key); f != nil {
+				val := vip.GetString(key)
+				err := f.Value.Set(val)
+				f.Changed = val != f.DefValue
+				if err != nil {
+					brokenKeys[key] = struct{}{}
+				} else {
+					usedKeys[key] = struct{}{}
+				}
+			} else if f := flag.Lookup(key); f != nil {
+				err := f.Value.Set(vip.GetString(key))
+				if err != nil {
+					brokenKeys[key] = struct{}{}
+				} else {
+					usedKeys[key] = struct{}{}
+				}
+			}
+
 			// A key is only missing if it was missing from every single config struct, so
 			// remove all of the used keys from it.
 			if _, ok := usedKeys[key]; ok {
 				delete(missingKeys, key)
 				continue
 			}
-
-			// Attempt to set through the flags any keys that were missing from all of the
-			// config structs.
-			flag := cmd.Flags().Lookup(key)
-			if flag == nil {
-				continue
-			}
-
-			changed := flag.Changed
-			if err := flag.Value.Set(vip.GetString(key)); err != nil {
-				brokenKeys[key] = struct{}{}
-			}
-			flag.Changed = changed
-			delete(missingKeys, key)
 		}
 
 		logger, err := newLogger()
@@ -309,13 +251,13 @@ func cleanup(cmd *cobra.Command) {
 
 		var workErr error
 		work := func(ctx context.Context) {
-			contextMtx.Lock()
+			commandMtx.Lock()
 			contexts[cmd] = ctx
-			contextMtx.Unlock()
+			commandMtx.Unlock()
 			defer func() {
-				contextMtx.Lock()
+				commandMtx.Lock()
 				delete(contexts, cmd)
-				contextMtx.Unlock()
+				commandMtx.Unlock()
 			}()
 
 			workErr = internalRun(cmd, args)
