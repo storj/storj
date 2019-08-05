@@ -1206,7 +1206,9 @@ func TestInlineSegment(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, items)
 
-			err = metainfoClient.FinishDeleteObject(ctx, streamID)
+			err = metainfoClient.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{
+				StreamID: streamID,
+			})
 			require.NoError(t, err)
 		}
 	})
@@ -1293,7 +1295,9 @@ func TestRemoteSegment(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err = metainfoClient.FinishDeleteObject(ctx, streamID)
+			err = metainfoClient.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{
+				StreamID: streamID,
+			})
 			require.NoError(t, err)
 
 			items, _, err = metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
@@ -1379,38 +1383,104 @@ func TestBatch(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		// create few buckets and list them in one batch
-
-		batch := metainfoClient.NewBatch()
-		numOfBuckets := 5
-		for i := 0; i < numOfBuckets; i++ {
-			batch.AddCreateBucket(metainfo.CreateBucketParams{
-				Name:                []byte("test-bucket-" + strconv.Itoa(i)),
-				PathCipher:          storj.EncAESGCM,
-				DefaultSegmentsSize: memory.MiB.Int64(),
+		{ // create few buckets and list them in one batch
+			batch := metainfoClient.NewBatch()
+			numOfBuckets := 5
+			for i := 0; i < numOfBuckets; i++ {
+				batch.AddCreateBucket(metainfo.CreateBucketParams{
+					Name:                []byte("test-bucket-" + strconv.Itoa(i)),
+					PathCipher:          storj.EncAESGCM,
+					DefaultSegmentsSize: memory.MiB.Int64(),
+				})
+			}
+			batch.AddListBuckets(metainfo.ListBucketsParams{
+				ListOpts: storj.BucketListOptions{
+					Cursor:    "",
+					Direction: storj.After,
+				},
 			})
-		}
-		batch.AddListBuckets(metainfo.ListBucketsParams{
-			ListOpts: storj.BucketListOptions{
-				Cursor:    "",
-				Direction: storj.After,
-			},
-		})
-		responses, err := batch.Send(ctx)
-		require.NoError(t, err)
-		require.Equal(t, numOfBuckets+1, len(responses))
-
-		for i := 0; i < numOfBuckets; i++ {
-			response, err := responses[i].CreateBucket()
+			responses, err := batch.Send(ctx)
 			require.NoError(t, err)
-			require.Equal(t, "test-bucket-"+strconv.Itoa(i), response.Bucket.Name)
+			require.Equal(t, numOfBuckets+1, len(responses))
 
-			_, err = responses[i].GetBucket()
-			require.Error(t, err)
+			for i := 0; i < numOfBuckets; i++ {
+				response, err := responses[i].CreateBucket()
+				require.NoError(t, err)
+				require.Equal(t, "test-bucket-"+strconv.Itoa(i), response.Bucket.Name)
+
+				_, err = responses[i].GetBucket()
+				require.Error(t, err)
+			}
+
+			bucketsListResp, err := responses[numOfBuckets].ListBuckets()
+			require.NoError(t, err)
+			require.Equal(t, numOfBuckets, len(bucketsListResp.BucketList.Items))
 		}
 
-		bucketsListResp, err := responses[numOfBuckets].ListBuckets()
-		require.NoError(t, err)
-		require.Equal(t, numOfBuckets, len(bucketsListResp.BucketList.Items))
+		{ // create bucket, object, upload inline segments in batch, download inline segments in batch
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "second-test-bucket")
+			require.NoError(t, err)
+
+			streamID, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+				Bucket:        []byte("second-test-bucket"),
+				EncryptedPath: []byte("encrypted-path"),
+			})
+
+			batch := metainfoClient.NewBatch()
+			numOfSegments := 10
+			expectedData := make([][]byte, numOfSegments)
+			for i := 0; i < numOfSegments; i++ {
+				expectedData[i] = testrand.Bytes(memory.KiB)
+				batch.AddMakeInlineSegment(metainfo.MakeInlineSegmentParams{
+					StreamID: streamID,
+					Position: storj.SegmentPosition{
+						Index: int32(i),
+					},
+					EncryptedInlineData: expectedData[i],
+				})
+			}
+
+			batch.AddCommitObject(metainfo.CommitObjectParams{
+				StreamID: streamID,
+			})
+
+			batch.AddListSegments(metainfo.ListSegmentsParams{
+				StreamID: streamID,
+			})
+
+			batch.AddGetObject(metainfo.GetObjectParams{
+				Bucket:        []byte("second-test-bucket"),
+				EncryptedPath: []byte("encrypted-path"),
+			})
+
+			responses, err := batch.Send(ctx)
+			require.NoError(t, err)
+			require.Equal(t, numOfSegments+3, len(responses))
+
+			listResponse, err := responses[numOfSegments+1].ListSegment()
+			require.NoError(t, err)
+			require.Equal(t, numOfSegments, len(listResponse.Items))
+
+			getResponse, err := responses[numOfSegments+2].GetObject()
+			require.NoError(t, err)
+
+			batch = metainfoClient.NewBatch()
+			for _, segment := range listResponse.Items {
+				batch.AddDownloadSegment(metainfo.DownloadSegmentParams{
+					StreamID: getResponse.Info.StreamID,
+					Position: segment.Position,
+				})
+			}
+			responses, err = batch.Send(ctx)
+			require.NoError(t, err)
+			require.Equal(t, len(listResponse.Items), len(responses))
+
+			for i, response := range responses {
+				downloadResponse, err := response.DownloadSegment()
+				require.NoError(t, err)
+
+				require.Equal(t, expectedData[i], downloadResponse.Info.EncryptedInlineData)
+			}
+		}
 	})
 }

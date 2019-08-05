@@ -468,6 +468,28 @@ func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket) {
 	}
 }
 
+// SetBucketAttributionParams parameters for SetBucketAttribution method
+type SetBucketAttributionParams struct {
+	Bucket    string
+	PartnerID uuid.UUID
+}
+
+func (params *SetBucketAttributionParams) toRequest() *pb.BucketSetAttributionRequest {
+	return &pb.BucketSetAttributionRequest{
+		Name:      []byte(params.Bucket),
+		PartnerId: params.PartnerID[:],
+	}
+}
+
+// SetBucketAttribution tries to set the attribution information on the bucket.
+func (client *Client) SetBucketAttribution(ctx context.Context, params SetBucketAttributionParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.SetBucketAttribution(ctx, params.toRequest())
+
+	return Error.Wrap(err)
+}
+
 // BeginObjectParams parmaters for BeginObject method
 type BeginObjectParams struct {
 	Bucket               []byte
@@ -478,11 +500,8 @@ type BeginObjectParams struct {
 	ExpiresAt            time.Time
 }
 
-// BeginObject begins object creation
-func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams) (_ storj.StreamID, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.BeginObject(ctx, &pb.ObjectBeginRequest{
+func (params *BeginObjectParams) toRequest() *pb.ObjectBeginRequest {
+	return &pb.ObjectBeginRequest{
 		Bucket:        params.Bucket,
 		EncryptedPath: params.EncryptedPath,
 		Version:       params.Version,
@@ -499,7 +518,25 @@ func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams)
 			CipherSuite: pb.CipherSuite(params.EncryptionParameters.CipherSuite),
 			BlockSize:   int64(params.EncryptionParameters.BlockSize),
 		},
-	})
+	}
+}
+
+// BeginObjectResponse TODO
+type BeginObjectResponse struct {
+	StreamID storj.StreamID
+}
+
+func newBeginObjectResponse(response *pb.ObjectBeginResponse) BeginObjectResponse {
+	return BeginObjectResponse{
+		StreamID: response.StreamId,
+	}
+}
+
+// BeginObject begins object creation
+func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams) (_ storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginObject(ctx, params.toRequest())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -515,15 +552,20 @@ type CommitObjectParams struct {
 	EncryptedMetadata      []byte
 }
 
+func (params *CommitObjectParams) toRequest() *pb.ObjectCommitRequest {
+	return &pb.ObjectCommitRequest{
+		StreamId:               params.StreamID,
+		EncryptedMetadataNonce: params.EncryptedMetadataNonce,
+		EncryptedMetadata:      params.EncryptedMetadata,
+	}
+}
+
 // CommitObject commits created object
 func (client *Client) CommitObject(ctx context.Context, params CommitObjectParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.CommitObject(ctx, &pb.ObjectCommitRequest{
-		StreamId:               params.StreamID,
-		EncryptedMetadataNonce: params.EncryptedMetadataNonce,
-		EncryptedMetadata:      params.EncryptedMetadata,
-	})
+	_, err = client.client.CommitObject(ctx, params.toRequest())
+
 	return Error.Wrap(err)
 }
 
@@ -534,23 +576,19 @@ type GetObjectParams struct {
 	Version       int32
 }
 
-// GetObject gets single object
-func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.ObjectInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.GetObject(ctx, &pb.ObjectGetRequest{
+func (params *GetObjectParams) toRequest() *pb.ObjectGetRequest {
+	return &pb.ObjectGetRequest{
 		Bucket:        params.Bucket,
 		EncryptedPath: params.EncryptedPath,
 		Version:       params.Version,
-	})
-
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return storj.ObjectInfo{}, storj.ErrObjectNotFound.Wrap(err)
-		}
-		return storj.ObjectInfo{}, Error.Wrap(err)
 	}
+}
 
+type GetObjectResponse struct {
+	Info storj.ObjectInfo
+}
+
+func newGetObjectResponse(response *pb.ObjectGetResponse) GetObjectResponse {
 	object := storj.ObjectInfo{
 		Bucket: string(response.Object.Bucket),
 		Path:   storj.Path(response.Object.EncryptedPath),
@@ -581,8 +619,26 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 			TotalShares:    int16(pbRS.Total),
 		}
 	}
+	return GetObjectResponse{
+		Info: object,
+	}
+}
 
-	return object, nil
+// GetObject gets single object
+func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.ObjectInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.GetObject(ctx, params.toRequest())
+
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.ObjectInfo{}, storj.ErrObjectNotFound.Wrap(err)
+		}
+		return storj.ObjectInfo{}, Error.Wrap(err)
+	}
+
+	getResponse := newGetObjectResponse(response)
+	return getResponse.Info, nil
 }
 
 // BeginDeleteObjectParams parameters for BeginDeleteObject method
@@ -592,15 +648,19 @@ type BeginDeleteObjectParams struct {
 	Version       int32
 }
 
+func (params *BeginDeleteObjectParams) toRequest() *pb.ObjectBeginDeleteRequest {
+	return &pb.ObjectBeginDeleteRequest{
+		Bucket:        params.Bucket,
+		EncryptedPath: params.EncryptedPath,
+		Version:       params.Version,
+	}
+}
+
 // BeginDeleteObject begins object deletion process
 func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteObjectParams) (_ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.BeginDeleteObject(ctx, &pb.ObjectBeginDeleteRequest{
-		Bucket:        params.Bucket,
-		EncryptedPath: params.EncryptedPath,
-		Version:       params.Version,
-	})
+	response, err := client.client.BeginDeleteObject(ctx, params.toRequest())
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return storj.StreamID{}, storj.ErrObjectNotFound.Wrap(err)
@@ -611,13 +671,23 @@ func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteO
 	return response.StreamId, nil
 }
 
+// FinishDeleteObjectParams parameters for FinishDeleteObject method
+type FinishDeleteObjectParams struct {
+	StreamID storj.StreamID
+}
+
+func (params *FinishDeleteObjectParams) toRequest() *pb.ObjectFinishDeleteRequest {
+	return &pb.ObjectFinishDeleteRequest{
+		StreamId: params.StreamID,
+	}
+}
+
 // FinishDeleteObject finishes object deletion process
-func (client *Client) FinishDeleteObject(ctx context.Context, streamID storj.StreamID) (err error) {
+func (client *Client) FinishDeleteObject(ctx context.Context, params FinishDeleteObjectParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.FinishDeleteObject(ctx, &pb.ObjectFinishDeleteRequest{
-		StreamId: streamID,
-	})
+	_, err = client.client.FinishDeleteObject(ctx, params.toRequest())
+
 	return Error.Wrap(err)
 }
 
@@ -631,11 +701,8 @@ type ListObjectsParams struct {
 	Recursive       bool
 }
 
-// ListObjects lists objects according to specific parameters
-func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams) (_ []storj.ObjectListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.ListObjects(ctx, &pb.ObjectListRequest{
+func (params *ListObjectsParams) toRequest() *pb.ObjectListRequest {
+	return &pb.ObjectListRequest{
 		Bucket:          params.Bucket,
 		EncryptedPrefix: params.EncryptedPrefix,
 		EncryptedCursor: params.EncryptedCursor,
@@ -644,7 +711,14 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 			Metadata: params.IncludeMetadata,
 		},
 		Recursive: params.Recursive,
-	})
+	}
+}
+
+// ListObjects lists objects according to specific parameters
+func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams) (_ []storj.ObjectListItem, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.ListObjects(ctx, params.toRequest())
 	if err != nil {
 		return []storj.ObjectListItem{}, false, Error.Wrap(err)
 	}
@@ -681,18 +755,22 @@ type BeginSegmentParams struct {
 	MaxOderLimit int64
 }
 
-// BeginSegment begins segment upload
-func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.BeginSegment(ctx, &pb.SegmentBeginRequest{
+func (params *BeginSegmentParams) toRequest() *pb.SegmentBeginRequest {
+	return &pb.SegmentBeginRequest{
 		StreamId: params.StreamID,
 		Position: &pb.SegmentPosition{
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
 		MaxOrderLimit: params.MaxOderLimit,
-	})
+	}
+}
+
+// BeginSegment begins segment upload
+func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginSegment(ctx, params.toRequest())
 	if err != nil {
 		return storj.SegmentID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -709,23 +787,24 @@ type CommitSegmentParams struct {
 	UploadResult []*pb.SegmentPieceUploadResult
 }
 
-// CommitSegmentNew commits segment after upload
-func (client *Client) CommitSegmentNew(ctx context.Context, params CommitSegmentParams) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
+func (params *CommitSegmentParams) toRequest() *pb.SegmentCommitRequest {
+	return &pb.SegmentCommitRequest{
 		SegmentId: params.SegmentID,
 
 		EncryptedKeyNonce: params.Encryption.EncryptedKeyNonce,
 		EncryptedKey:      params.Encryption.EncryptedKey,
 		SizeEncryptedData: params.SizeEncryptedData,
 		UploadResult:      params.UploadResult,
-	})
-	if err != nil {
-		return Error.Wrap(err)
 	}
+}
 
-	return nil
+// CommitSegmentNew commits segment after upload
+func (client *Client) CommitSegmentNew(ctx context.Context, params CommitSegmentParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.CommitSegment(ctx, params.toRequest())
+
+	return Error.Wrap(err)
 }
 
 // MakeInlineSegmentParams parameters for MakeInlineSegment method
@@ -736,11 +815,8 @@ type MakeInlineSegmentParams struct {
 	EncryptedInlineData []byte
 }
 
-// MakeInlineSegment commits segment after upload
-func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSegmentParams) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = client.client.MakeInlineSegment(ctx, &pb.SegmentMakeInlineRequest{
+func (params *MakeInlineSegmentParams) toRequest() *pb.SegmentMakeInlineRequest {
+	return &pb.SegmentMakeInlineRequest{
 		StreamId: params.StreamID,
 		Position: &pb.SegmentPosition{
 			PartNumber: params.Position.PartNumber,
@@ -749,12 +825,16 @@ func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSe
 		EncryptedKeyNonce:   params.Encryption.EncryptedKeyNonce,
 		EncryptedKey:        params.Encryption.EncryptedKey,
 		EncryptedInlineData: params.EncryptedInlineData,
-	})
-	if err != nil {
-		return Error.Wrap(err)
 	}
+}
 
-	return nil
+// MakeInlineSegment commits segment after upload
+func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSegmentParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.MakeInlineSegment(ctx, params.toRequest())
+
+	return Error.Wrap(err)
 }
 
 // BeginDeleteSegmentParams parameters for BeginDeleteSegment method
@@ -763,17 +843,21 @@ type BeginDeleteSegmentParams struct {
 	Position storj.SegmentPosition
 }
 
-// BeginDeleteSegment begins segment upload process
-func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.BeginDeleteSegment(ctx, &pb.SegmentBeginDeleteRequest{
+func (params *BeginDeleteSegmentParams) toRequest() *pb.SegmentBeginDeleteRequest {
+	return &pb.SegmentBeginDeleteRequest{
 		StreamId: params.StreamID,
 		Position: &pb.SegmentPosition{
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
-	})
+	}
+}
+
+// BeginDeleteSegment begins segment upload process
+func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginDeleteSegment(ctx, params.toRequest())
 	if err != nil {
 		return storj.SegmentID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -788,14 +872,19 @@ type FinishDeleteSegmentParams struct {
 	DeleteResults []*pb.SegmentPieceDeleteResult
 }
 
+func (params *FinishDeleteSegmentParams) toRequest() *pb.SegmentFinishDeleteRequest {
+	return &pb.SegmentFinishDeleteRequest{
+		SegmentId: params.SegmentID,
+		Results:   params.DeleteResults,
+	}
+}
+
 // FinishDeleteSegment finishes segment upload process
 func (client *Client) FinishDeleteSegment(ctx context.Context, params FinishDeleteSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.FinishDeleteSegment(ctx, &pb.SegmentFinishDeleteRequest{
-		SegmentId: params.SegmentID,
-		Results:   params.DeleteResults,
-	})
+	_, err = client.client.FinishDeleteSegment(ctx, params.toRequest())
+
 	return Error.Wrap(err)
 }
 
@@ -805,21 +894,24 @@ type DownloadSegmentParams struct {
 	Position storj.SegmentPosition
 }
 
-// DownloadSegment gets info for downloading remote segment or data from inline segment
-func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmentParams) (_ storj.SegmentDownloadInfo, _ []*pb.AddressedOrderLimit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+func (params *DownloadSegmentParams) toRequest() *pb.SegmentDownloadRequest {
+	return &pb.SegmentDownloadRequest{
 		StreamId: params.StreamID,
 		CursorPosition: &pb.SegmentPosition{
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
-	})
-	if err != nil {
-		return storj.SegmentDownloadInfo{}, nil, Error.Wrap(err)
 	}
+}
 
+// DownloadSegmentResponse TODO
+type DownloadSegmentResponse struct {
+	Info storj.SegmentDownloadInfo
+
+	Limits []*pb.AddressedOrderLimit
+}
+
+func newDownloadSegmentResponse(response *pb.SegmentDownloadResponse) DownloadSegmentResponse {
 	info := storj.SegmentDownloadInfo{
 		SegmentID:           response.SegmentId,
 		Size:                response.SegmentSize,
@@ -842,8 +934,23 @@ func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmen
 			response.AddressedLimits[i] = nil
 		}
 	}
+	return DownloadSegmentResponse{
+		Info:   info,
+		Limits: response.AddressedLimits,
+	}
+}
 
-	return info, response.AddressedLimits, nil
+// DownloadSegment gets info for downloading remote segment or data from inline segment
+func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmentParams) (_ storj.SegmentDownloadInfo, _ []*pb.AddressedOrderLimit, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.DownloadSegment(ctx, params.toRequest())
+	if err != nil {
+		return storj.SegmentDownloadInfo{}, nil, Error.Wrap(err)
+	}
+
+	downloadResponse := newDownloadSegmentResponse(response)
+	return downloadResponse.Info, downloadResponse.Limits, nil
 }
 
 // ListSegmentsParams parameters for ListSegment method
@@ -853,22 +960,13 @@ type ListSegmentsParams struct {
 	Limit          int32
 }
 
-// ListSegmentsNew lists object segments
-func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
+// ListSegmentsResponse TODO
+type ListSegmentsResponse struct {
+	Items []storj.SegmentListItem
+	More  bool
+}
 
-	response, err := client.client.ListSegments(ctx, &pb.SegmentListRequest{
-		StreamId: params.StreamID,
-		CursorPosition: &pb.SegmentPosition{
-			PartNumber: params.CursorPosition.PartNumber,
-			Index:      params.CursorPosition.Index,
-		},
-		Limit: params.Limit,
-	})
-	if err != nil {
-		return []storj.SegmentListItem{}, false, Error.Wrap(err)
-	}
-
+func newListSegmentsResponse(response *pb.SegmentListResponse) ListSegmentsResponse {
 	items := make([]storj.SegmentListItem, len(response.Items))
 	for i, responseItem := range response.Items {
 		items[i] = storj.SegmentListItem{
@@ -878,25 +976,34 @@ func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsPa
 			},
 		}
 	}
-	return items, response.More, Error.Wrap(err)
+	return ListSegmentsResponse{
+		Items: items,
+		More:  response.More,
+	}
 }
 
-// SetBucketAttributionParams parameters for SetBucketAttribution method
-type SetBucketAttributionParams struct {
-	Bucket    string
-	PartnerID uuid.UUID
+func (params *ListSegmentsParams) toRequest() *pb.SegmentListRequest {
+	return &pb.SegmentListRequest{
+		StreamId: params.StreamID,
+		CursorPosition: &pb.SegmentPosition{
+			PartNumber: params.CursorPosition.PartNumber,
+			Index:      params.CursorPosition.Index,
+		},
+		Limit: params.Limit,
+	}
 }
 
-// SetBucketAttribution tries to set the attribution information on the bucket.
-func (client *Client) SetBucketAttribution(ctx context.Context, params SetBucketAttributionParams) (err error) {
+// ListSegmentsNew lists object segments
+func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.SetBucketAttribution(ctx, &pb.BucketSetAttributionRequest{
-		PartnerId: params.PartnerID[:], // TODO: implement storj.UUID that can be sent using pb
-		Name:      []byte(params.Bucket),
-	})
+	response, err := client.client.ListSegments(ctx, params.toRequest())
+	if err != nil {
+		return []storj.SegmentListItem{}, false, Error.Wrap(err)
+	}
 
-	return Error.Wrap(err)
+	listResponse := newListSegmentsResponse(response)
+	return listResponse.Items, listResponse.More, Error.Wrap(err)
 }
 
 // NewBatch TODO
