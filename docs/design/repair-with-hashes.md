@@ -14,11 +14,19 @@ To solve this problem, hashes of every piece will be stored alongside each piece
 
 ## Design
 
-[A precise statement of the design and its constituent subparts.]
+Each piece is currently uploaded to a storage node and validated according to its SHA256 hash.  The uplink-signed `uplink_piece_hash` is stored in the `pieceinfo_` table as a serialized protocol buffer and includes the `PieceID`, `Hash`, and `Signature`.  This uplink-signed hash will be provided to the satellite along with each piece during repair.
+
+The satellite should check the hash and signature of each piece it downloads. If a piece fails the hash check, a different piece should be downloaded. Only them minimum number of pieces should be used for Reed-Solomon decoding.
+
+he uplink-signed hash should determine if anyone has attempted to cheat the system in any way.  Reporting and handling cheaters is outside the scope of this document.
+
+
+
+
 
 ## Rationale
 
-[A discussion of alternate approaches and the trade offs, advantages, and disadvantages of the specified approach.]
+Both download and Reed Solomon decoding create more load for a satellite than hashing, so hashing should be preferred to each.  
 
 ## Implementation
 
