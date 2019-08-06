@@ -617,7 +617,12 @@ read all (
 //--- certRecord ---//
 
 model certRecord (
-	key id
+	key publickey
+
+	index (
+		name certrecord_id_update_at
+		fields id update_at 
+	)
 
 	field publickey  blob		//--uplink public key--//
 	field id         blob		//--uplink node id  --//
@@ -626,11 +631,21 @@ model certRecord (
 
 create certRecord ( )
 delete certRecord ( where certRecord.id = ? )
-update certRecord ( where certRecord.id = ? )
 
 read one (
 	select certRecord
 	where  certRecord.id = ?
+)
+
+read one (
+	select certRecord
+	where  certRecord.publickey = ?
+)
+
+read all (
+	select certRecord
+	where  certRecord.id = ?
+	orderby desc certRecord.update_at
 )
 
 //--- satellite registration token for Vanguard release (temporary table) ---//

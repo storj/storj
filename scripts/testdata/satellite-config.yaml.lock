@@ -23,7 +23,7 @@
 # checker.reliability-cache-staleness: 5m0s
 
 # server address of the graphql api gateway and frontend app
-# console.address: ":10100"
+# console.address: :10100
 
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
@@ -41,7 +41,7 @@
 # console.stripe-key: ""
 
 # satellite database connection string
-# database: "postgres://"
+# database: postgres://
 
 # Maximum Database Connection Lifetime, -1ns means the stdlib default
 # db.conn_max_lifetime: -1ns
@@ -53,13 +53,10 @@
 # db.max_open_conns: 25
 
 # address to listen on for debug endpoints
-# debug.addr: "127.0.0.1:0"
+# debug.addr: 127.0.0.1:0
 
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
-
-# determines which set of configuration defaults to use. can either be 'dev' or 'release'
-defaults: "release"
 
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 # discovery.discovery-interval: 1s
@@ -92,16 +89,16 @@ defaults: "release"
 # help: false
 
 # path to the certificate chain for this identity
-identity.cert-path: "/root/.local/share/storj/identity/satellite/identity.cert"
+identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
 # path to the private key for this identity
-identity.key-path: "/root/.local/share/storj/identity/satellite/identity.key"
+identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # alpha is a system wide concurrency parameter
 # kademlia.alpha: 5
 
 # the Kademlia node to bootstrap against
-# kademlia.bootstrap-addr: "bootstrap.storj.io:8888"
+# kademlia.bootstrap-addr: bootstrap.storj.io:8888
 
 # the base interval to wait when retrying bootstrap
 # kademlia.bootstrap-backoff-base: 1s
@@ -113,7 +110,7 @@ identity.key-path: "/root/.local/share/storj/identity/satellite/identity.key"
 # kademlia.bucket-size: 20
 
 # the path for storage node db services to be created on
-# kademlia.db-path: "testdata/kademlia"
+# kademlia.db-path: testdata/kademlia
 
 # the public address of the Kademlia node, useful for nodes behind NAT
 kademlia.external-address: ""
@@ -128,7 +125,7 @@ kademlia.operator.wallet: ""
 # kademlia.replacement-cache-size: 5
 
 # what to use for storing real-time accounting data
-# live-accounting.storage-backend: "plainmemory"
+# live-accounting.storage-backend: plainmemory
 
 # if true, log function filename and line number
 # log.caller: false
@@ -137,19 +134,19 @@ kademlia.operator.wallet: ""
 # log.development: false
 
 # configures log encoding. can either be 'console' or 'json'
-# log.encoding: "console"
+# log.encoding: console
 
 # the minimum log level to log
 # log.level: info
 
 # can be stdout, stderr, or a filename
-# log.output: "stderr"
+# log.output: stderr
 
 # if true, log stack traces
 # log.stack: false
 
 # smtp authentication type
-# mail.auth-type: "login"
+# mail.auth-type: login
 
 # oauth2 app's client id
 # mail.client-id: ""
@@ -179,13 +176,13 @@ kademlia.operator.wallet: ""
 # mail.token-uri: ""
 
 # server address of the marketing Admin GUI
-# marketing.address: "127.0.0.1:8090"
+# marketing.address: 127.0.0.1:8090
 
 # path to static resources
 # marketing.static-dir: ""
 
 # the database connection string to use
-# metainfo.database-url: "postgres://"
+# metainfo.database-url: postgres://
 
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
@@ -224,13 +221,13 @@ kademlia.operator.wallet: ""
 # metainfo.rs.validate: true
 
 # address to send telemetry to
-# metrics.addr: "collectora.storj.io:9000"
+# metrics.addr: collectora.storj.io:9000
 
 # application name for telemetry identification
-# metrics.app: "satellite"
+# metrics.app: satellite
 
 # application suffix
-# metrics.app-suffix: "-release"
+# metrics.app-suffix: -release
 
 # instance id prefix
 # metrics.instance-prefix: ""
@@ -239,7 +236,7 @@ kademlia.operator.wallet: ""
 # metrics.interval: 1m0s
 
 # path to log for oom notices
-# monkit.hw.oomlog: "/var/log/kern.log"
+# monkit.hw.oomlog: /var/log/kern.log
 
 # how long until an order expires
 # orders.expiration: 168h0m0s
@@ -332,7 +329,7 @@ kademlia.operator.wallet: ""
 # rollup.max-alpha-usage: 25.0 GB
 
 # public address to listen on
-server.address: ":7777"
+server.address: :7777
 
 # log all GRPC traffic to zap logger
 server.debug-log-traffic: false
@@ -347,13 +344,13 @@ server.debug-log-traffic: false
 # server.peer-ca-whitelist-path: ""
 
 # identity version(s) the server will be allowed to talk to
-# server.peer-id-versions: "latest"
+# server.peer-id-versions: latest
 
 # private address to listen on
-server.private-address: "127.0.0.1:7778"
+server.private-address: 127.0.0.1:7778
 
 # url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
-# server.revocation-dburl: "bolt://testdata/revocations.db"
+# server.revocation-dburl: bolt://testdata/revocations.db
 
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
@@ -368,8 +365,7 @@ server.private-address: "127.0.0.1:7778"
 # version.request-timeout: 1m0s
 
 # server address to check its version against
-# version.server-address: "https://version.alpha.storj.io"
+# version.server-address: https://version.alpha.storj.io
 
 # length of time before a voucher expires
 # vouchers.expiration: 720h0m0s
-
