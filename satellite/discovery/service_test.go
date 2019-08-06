@@ -42,7 +42,7 @@ func TestCache_Discovery(t *testing.T) {
 
 		overlay := satellite.Overlay.Service
 
-		// mark node as offline in overlay cache
+		// mark node as offline in overlay
 		_, err := overlay.UpdateUptime(ctx, offlineID, false)
 		require.NoError(t, err)
 

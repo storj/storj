@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -166,6 +167,7 @@ func runTest(ctx context.Context, t *testing.T, apiKey, satelliteAddr string,
 	errCatch := func(fn func() error) { require.NoError(t, fn()) }
 
 	cfg := &uplink.Config{}
+	cfg.Volatile.Log = zaptest.NewLogger(t)
 	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 	ul, err := uplink.NewUplink(ctx, cfg)

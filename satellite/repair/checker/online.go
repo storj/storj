@@ -17,7 +17,7 @@ import (
 // ReliabilityCache caches the reliable nodes for the specified staleness duration
 // and updates automatically from overlay.
 type ReliabilityCache struct {
-	overlay   *overlay.Cache
+	overlay   *overlay.Service
 	staleness time.Duration
 	mu        sync.Mutex
 	state     atomic.Value // contains immutable *reliabilityState
@@ -30,7 +30,7 @@ type reliabilityState struct {
 }
 
 // NewReliabilityCache creates a new reliability checking cache.
-func NewReliabilityCache(overlay *overlay.Cache, staleness time.Duration) *ReliabilityCache {
+func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration) *ReliabilityCache {
 	return &ReliabilityCache{
 		overlay:   overlay,
 		staleness: staleness,

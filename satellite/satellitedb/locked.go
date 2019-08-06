@@ -137,11 +137,18 @@ type lockedCertDB struct {
 	db certdb.DB
 }
 
-// GetPublicKey gets the public key of uplink corresponding to uplink id
+// GetPublicKey gets one latest public key of a node
 func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (crypto.PublicKey, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetPublicKey(ctx, a1)
+}
+
+// GetPublicKey gets all the public keys of a node
+func (m *lockedCertDB) GetPublicKeys(ctx context.Context, a1 storj.NodeID) ([]crypto.PublicKey, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetPublicKeys(ctx, a1)
 }
 
 // SavePublicKey adds a new bandwidth agreement.
@@ -596,6 +603,12 @@ func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsT
 	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
 }
 
+func (m *lockedUserCredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateEarnedCredits(ctx, userID)
+}
+
 // UserPayments is a getter for UserPayments repository
 func (m *lockedConsole) UserPayments() console.UserPayments {
 	m.Lock()
@@ -858,6 +871,13 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
+// BatchUpdateStats updates multiple storagenode's stats in one transaction
+func (m *lockedOverlayCache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.BatchUpdateStats(ctx, updateRequests, batchSize)
+}
+
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
@@ -1010,6 +1030,13 @@ type lockedRepairQueue struct {
 	db queue.RepairQueue
 }
 
+// Count counts the number of segments in the repair queue.
+func (m *lockedRepairQueue) Count(ctx context.Context) (count int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Count(ctx)
+}
+
 // Delete removes an injured segment.
 func (m *lockedRepairQueue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
@@ -1063,10 +1090,10 @@ func (m *lockedRewards) Finish(ctx context.Context, offerID int) error {
 	return m.db.Finish(ctx, offerID)
 }
 
-func (m *lockedRewards) GetCurrentByType(ctx context.Context, offerType rewards.OfferType) (*rewards.Offer, error) {
+func (m *lockedRewards) GetActiveOffersByType(ctx context.Context, offerType rewards.OfferType) (rewards.Offers, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetCurrentByType(ctx, offerType)
+	return m.db.GetActiveOffersByType(ctx, offerType)
 }
 
 func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {

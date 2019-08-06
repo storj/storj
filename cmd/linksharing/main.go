@@ -76,8 +76,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	handler, err := linksharing.NewHandler(linksharing.HandlerConfig{
-		Log:     log,
+	handler, err := linksharing.NewHandler(log, linksharing.HandlerConfig{
 		Uplink:  uplink,
 		URLBase: runCfg.PublicURL,
 	})
@@ -115,7 +114,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"))
 }
 
 func configureTLS(certFile, keyFile string) (*tls.Config, error) {

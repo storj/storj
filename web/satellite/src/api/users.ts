@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import apolloManager from '../utils/apolloManager';
+import apolloManager from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { UpdatedUser, User } from '@/types/users';
 import { RequestResponse } from '@/types/response';
@@ -17,16 +17,20 @@ export async function updateAccountRequest(user: UpdatedUser): Promise<RequestRe
                 mutation {
                     updateAccount (
                         input: {
-                            fullName: "${user.fullName}",
-                            shortName: "${user.shortName}"
+                            fullName: $fullName,
+                            shortName: $shortName
                         }
                     ) {
                         email,
                         fullName,
                         shortName
                     }
-                }`
+                }`,
             ),
+            variables: {
+                fullName: user.fullName,
+                shortName: user.fullName,
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -50,15 +54,19 @@ export async function changePasswordRequest(password: string, newPassword: strin
     let response: any = await apolloManager.mutate(
         {
             mutation: gql(`
-                mutation {
+                mutation($password: String!, $newPassword: String!) {
                     changePassword (
-                        password: "${password}",
-                        newPassword: "${newPassword}"
+                        password: $password,
+                        newPassword: $newPassword
                     ) {
                        email
                     }
                 }`
             ),
+            variables: {
+                password: password,
+                newPassword: newPassword
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -79,9 +87,12 @@ export async function forgotPasswordRequest(email: string): Promise<RequestRespo
     let response: any = await apolloManager.query(
         {
             query: gql(`
-                    query {
-                        forgotPassword(email: "${email}")
-                    }`),
+                query($email: String!) {
+                    forgotPassword(email: $email)
+                }`),
+            variables: {
+                email: email
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         },
@@ -103,20 +114,29 @@ export async function createUserRequest(user: User, password: string, secret: st
     let response = await apolloManager.mutate(
         {
             mutation: gql(`
-            mutation {
-                createUser(
-                    input:{
-                        email: "${user.email}",
-                        password: "${password}",
-                        fullName: "${user.fullName}",
-                        shortName: "${user.shortName}",
-                        partnerId: "${user.partnerId}",
-                    },
-                    referrerUserId: "${refUserId || ''}",
-                    secret: "${secret}",
-                ){email, id}
-            }`
+                mutation($email: String!, $password: String!, $fullName: String!, $shortName: String!, $partnerID: String!, $referrerUserID: String!, $secret: String!) {
+                    createUser(
+                        input:{
+                            email: $email,
+                            password: $password,
+                            fullName: $fullName,
+                            shortName: $shortName,
+                            partnerId: $partnerID
+                        },
+                        referrerUserId: $referrerUserID,
+                        secret: $secret,
+                    ){email, id}
+                }`
             ),
+            variables: {
+                email: user.email,
+                password: password,
+                fullName: user.fullName,
+                shortName: user.shortName,
+                partnerID: user.partnerId ? user.partnerId : '',
+                referrerUserID: refUserId ? refUserId : '',
+                secret: secret
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -142,13 +162,16 @@ export async function getTokenRequest(email: string, password: string): Promise<
     let response: any = await apolloManager.query(
         {
             query: gql(`
-            query {
-                token(email: "${email}",
-                      password: "${password}") {
-                          token
-                }
-            }`
+                query ($email: String!, $password: String!) { 
+                    token(email: $email, password: $password) {
+                        token
+                    }
+                }`
             ),
+            variables: {
+                email: email,
+                password: password
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -172,13 +195,13 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
     let response: any = await apolloManager.query(
         {
             query: gql(`
-            query {
-                user {
-                    fullName,
-                    shortName,
-                    email,
-                }
-            }`
+                query {
+                    user {
+                        fullName,
+                        shortName,
+                        email,
+                    }
+                }`
             ),
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
@@ -202,12 +225,15 @@ export async function deleteAccountRequest(password: string): Promise<RequestRes
     let response = await apolloManager.mutate(
         {
             mutation: gql(`
-                mutation {
-                    deleteAccount(password: "${password}") {
+                mutation ($password: String!){
+                    deleteAccount(password: $password) {
                         email
                     }
                 }`
             ),
+            variables: {
+                password: password
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -228,10 +254,13 @@ export async function resendEmailRequest(userID: string): Promise<RequestRespons
     let response = await apolloManager.query(
         {
             query: gql(`
-                query {
-                    resendAccountActivationEmail(id: "${userID}")
+                query ($userID: String!){
+                    resendAccountActivationEmail(id: $userID)
                 }`
             ),
+            variables: {
+                userID: userID
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }

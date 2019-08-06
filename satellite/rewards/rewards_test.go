@@ -36,9 +36,9 @@ func TestOffer_Database(t *testing.T) {
 			{
 				Name:                      "test",
 				Description:               "test offer 2",
-				AwardCredit:               currency.Cents(100),
+				AwardCredit:               currency.Cents(0),
 				InviteeCredit:             currency.Cents(50),
-				AwardCreditDurationDays:   60,
+				AwardCreditDurationDays:   0,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
@@ -46,8 +46,8 @@ func TestOffer_Database(t *testing.T) {
 				Type:                      rewards.FreeCredit,
 			},
 			{
-				Name:                      "partner",
-				Description:               "test offer 2",
+				Name:                      "Zenko",
+				Description:               "partner offer",
 				AwardCredit:               currency.Cents(0),
 				InviteeCredit:             currency.Cents(50),
 				AwardCreditDurationDays:   0,
@@ -67,7 +67,14 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, all, *new)
 
-			c, err := planet.Satellites[0].DB.Rewards().GetCurrentByType(ctx, new.Type)
+			offers, err := planet.Satellites[0].DB.Rewards().GetActiveOffersByType(ctx, new.Type)
+			require.NoError(t, err)
+			var pID string
+			if new.Type == rewards.Partner {
+				pID, err = rewards.GetPartnerID(new.Name)
+				require.NoError(t, err)
+			}
+			c, err := offers.GetActiveOffer(new.Type, pID)
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 
@@ -84,9 +91,9 @@ func TestOffer_Database(t *testing.T) {
 			{
 				Name:                      "test",
 				Description:               "test offer",
-				AwardCredit:               currency.Cents(100),
+				AwardCredit:               currency.Cents(0),
 				InviteeCredit:             currency.Cents(50),
-				AwardCreditDurationDays:   60,
+				AwardCreditDurationDays:   0,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
