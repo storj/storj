@@ -147,7 +147,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := service.overlay.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Debug("error getting node from overlay overlay", zap.Error(err))
+			service.log.Debug("error getting node from overlay", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -291,7 +291,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := service.overlay.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Error("error getting node from overlay overlay", zap.Error(err))
+			service.log.Error("error getting node from overlay", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -375,7 +375,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 
 		node, err := service.overlay.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Error("error getting node from the overlay overlay", zap.Error(err))
+			service.log.Error("error getting node from overlay", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -540,7 +540,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 	for _, piece := range healthy {
 		node, err := service.overlay.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Error("error getting node from the overlay overlay", zap.Error(err))
+			service.log.Error("error getting node from the overlay", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
