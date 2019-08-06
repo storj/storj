@@ -540,11 +540,11 @@ func (lr *lazyPieceReader) dial() (err error) {
 func (lr *lazyPieceReader) Close() error {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
-	lr.closed = true
 
-	if lr.Downloader == nil {
+	if lr.closed {
 		return nil
 	}
+	lr.closed = true
 
 	return errs.Combine(
 		lr.Downloader.Close(),
