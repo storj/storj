@@ -505,30 +505,38 @@ func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
 		return 0, io.EOF
 	}
 	if !lr.dialed {
-		mon.Task()(&lr.ctx)(&err)
-		lr.dialed = true
-		ps, err := lr.dialPiecestore(lr.ctx, &pb.Node{
-			Id:      lr.limit.GetLimit().StorageNodeId,
-			Address: lr.limit.GetStorageNodeAddress(),
-		})
+		err = lr.dial()
 		if err != nil {
 			return 0, err
 		}
-		lr.client = ps
-
-		download, err := ps.Download(lr.ctx, lr.limit.GetLimit(), lr.privateKey, lr.offset, lr.length)
-		if err != nil {
-			return 0, errs.Combine(err, ps.Close())
-		}
-		lr.Downloader = download
 	}
-
 	if lr.dialed && lr.Downloader == nil {
 		return 0, io.EOF
 	}
 
 	return lr.Downloader.Read(data)
 }
+
+func (lr *lazyPieceReader) dial() (err error) {
+	defer mon.Task()(&lr.ctx)(&err)
+	lr.dialed = true
+	ps, err := lr.dialPiecestore(lr.ctx, &pb.Node{
+		Id:      lr.limit.GetLimit().StorageNodeId,
+		Address: lr.limit.GetStorageNodeAddress(),
+	})
+	if err != nil {
+		return err
+	}
+	lr.client = ps
+
+	download, err := ps.Download(lr.ctx, lr.limit.GetLimit(), lr.privateKey, lr.offset, lr.length)
+	if err != nil {
+		return errs.Combine(err, ps.Close())
+	}
+	lr.Downloader = download
+	return nil
+}
+
 func (lr *lazyPieceReader) Close() error {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
