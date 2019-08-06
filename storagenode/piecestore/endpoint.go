@@ -614,7 +614,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	}
 
 	const limit = 1000
-	lastSeen := storj.PieceID{}
+	cursor := storj.PieceID{}
 	numDeleted := 0
 	hasMorePieces := true
 
@@ -622,12 +622,12 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		// subtract some time to leave room for clock difference between the satellite and storage node
 		createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
-		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, lastSeen)
+		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, cursor)
 		if err != nil {
 			return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 		}
 		for _, pieceID := range pieceIDs {
-			lastSeen = pieceID
+			cursor = pieceID
 
 			if !filter.Contains(pieceID) {
 				endpoint.log.Sugar().Debugf("About to delete piece id (%s) from satellite (%s). RetainStatus: %s", pieceID.String(), peer.ID.String(), endpoint.config.RetainStatus.String())
