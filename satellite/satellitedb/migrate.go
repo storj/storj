@@ -1090,6 +1090,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE projects
 					    ADD COLUMN owner_id BYTEA;`,
+
+					`UPDATE projects as proj
+						SET owner_id =
+							(SELECT member_id
+								FROM project_members
+									WHERE project_id = proj.id
+										ORDER BY created_at ASC
+											LIMIT 1);`,
 				},
 			},
 		},
