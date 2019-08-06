@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/piecestore"
-	"storj.io/storj/uplink/setup"
 )
 
 // Uplink is a general purpose
@@ -295,8 +294,30 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *satellite.Pee
 // GetConfig returns a default config for a given satellite.
 func (client *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
-	config.Client.SatelliteAddr = satellite.Addr()
-	config.Client.APIKey = client.APIKey[satellite.ID()]
+
+	apiKey, err := libuplink.ParseAPIKey(client.APIKey[satellite.ID()])
+	if err != nil {
+		panic(err)
+	}
+
+	encAccess := libuplink.NewEncryptionAccess()
+	encAccess.SetDefaultKey(storj.Key{})
+
+	scopeData, err := (&libuplink.Scope{
+		SatelliteAddr:    satellite.Addr(),
+		APIKey:           apiKey,
+		EncryptionAccess: encAccess,
+	}).Serialize()
+	if err != nil {
+		panic(err)
+	}
+
+	config.Scope = scopeData
+
+	// Support some legacy stuff
+	config.Legacy.Client.APIKey = apiKey.Serialize()
+	config.Legacy.Client.SatelliteAddr = satellite.Addr()
+
 	config.Client.RequestTimeout = 10 * time.Second
 	config.Client.DialTimeout = 10 * time.Second
 
@@ -350,13 +371,12 @@ func (client *Uplink) GetProject(ctx context.Context, satellite *satellite.Peer)
 	}
 	defer func() { err = errs.Combine(err, testLibuplink.Close()) }()
 
-	clientAPIKey := client.APIKey[satellite.ID()]
-	key, err := libuplink.ParseAPIKey(clientAPIKey)
+	scope, err := client.GetConfig(satellite).GetScope()
 	if err != nil {
 		return nil, err
 	}
 
-	project, err := testLibuplink.OpenProject(ctx, satellite.Addr(), key)
+	project, err := testLibuplink.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -369,14 +389,13 @@ func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *satell
 	if err != nil {
 		return nil, nil, err
 	}
-
 	defer func() {
 		if err != nil {
 			err = errs.Combine(err, project.Close())
 		}
 	}()
 
-	access, err := setup.LoadEncryptionAccess(ctx, clientCfg.Enc)
+	scope, err := client.GetConfig(satellite).GetScope()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -394,11 +413,10 @@ func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *satell
 		}
 	}
 
-	bucket, err := project.OpenBucket(ctx, bucketName, access)
+	bucket, err := project.OpenBucket(ctx, bucketName, scope.EncryptionAccess)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return project, bucket, nil
 }
 
