@@ -4,6 +4,11 @@ set +x
 
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 export STORJ_NETWORK_DIR=$TMP
+cleanup(){
+    rm -rf "$STORJ_NETWORK_DIR"
+    echo "cleaned up test successfully"
+}
+trap cleanup EXIT
 
 BRANCH_DIR="$STORJ_NETWORK_DIR/branch"
 RELEASE_DIR="$STORJ_NETWORK_DIR/release"

@@ -311,7 +311,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Extra:      []string{},
 		})
 
-		fmt.Println("************ gateway dir:", filepath.Join(processes.Directory, "gateway", fmt.Sprint(0)))
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
 		process.Arguments = withCommon(process.Directory, Arguments{
@@ -358,9 +357,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// create example project with key and add it to the config
 			// so that gateway can have access to the satellite
 			apiKey := vip.GetString("api-key")
-			fmt.Println("************ gateway apikey:", apiKey)
 			if !flags.OnlyEnv && apiKey == "" {
-				fmt.Println("************ gateway creating new key")
 				var consoleAddress string
 				satelliteConfigErr := readConfigString(&consoleAddress, satellite.Directory, "console.address")
 				if satelliteConfigErr != nil {
@@ -381,15 +378,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				vip.Set("api-key", apiKey)
 
-				fmt.Println("************ gateway new key", apiKey)
-
 				if err := vip.WriteConfig(); err != nil {
 					return err
 				}
 			}
 
 			if apiKey != "" {
-				fmt.Println("************ gateway is not nil", apiKey)
 				process.Extra = append(process.Extra, "API_KEY="+apiKey)
 			}
 
