@@ -80,28 +80,6 @@ func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ *
 	return peer, Error.Wrap(err)
 }
 
-// // GetPublicKeys gets the public keys of a storagenode corresponding to storagenode id
-// func (certs *certDB) GetPublicKeys(ctx context.Context, nodeID storj.NodeID) (pubkeys []crypto.PublicKey, err error) {
-// 	defer mon.Task()(&ctx)(&err)
-// 	dbxInfo, err := certs.db.All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_NodeId(nodeID.Bytes()))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	if len(dbxInfo) == 0 {
-// 		return nil, Error.New("Invalid nodeID : %+v: %+v ", nodeID.String(), err)
-// 	}
-
-// 	for _, v := range dbxInfo {
-// 		pubkey, err := pkcrypto.PublicKeyFromPKIX(v.PeerIdentity)
-// 		if err != nil {
-// 			return nil, Error.New("Failed to extract Public Key from Order: %+v", err)
-// 		}
-// 		pubkeys = append(pubkeys, pubkey)
-// 	}
-// 	return pubkeys, nil
-// }
-
 func encodePeerIdentity(pi *identity.PeerIdentity) []byte {
 	var chain []byte
 	chain = append(chain, pi.Leaf.Raw...)
