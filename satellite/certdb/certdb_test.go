@@ -5,14 +5,15 @@ package certdb_test
 
 import (
 	"context"
-	"crypto/x509"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -31,75 +32,63 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 	{ //uplink testing variables
 		upID, err := testidentity.NewTestIdentity(ctx)
 		require.NoError(t, err)
-		upIDpubbytes, err := x509.MarshalPKIXPublicKey(upID.Leaf.PublicKey)
+		pi := upID.PeerIdentity()
+		upIDpubbytes, err := pkcrypto.PublicKeyToPEM(pi.CA.PublicKey)
 		require.NoError(t, err)
 
 		{ // New entry
-			err := upldb.SavePublicKey(ctx, upID.ID, upID.Leaf.PublicKey)
+			err := upldb.SavePublicKey(ctx, upID.ID, pi)
 			assert.NoError(t, err)
 		}
 
 		{ // Get the corresponding Public key for the serialnum
-			pubkey, err := upldb.GetPublicKey(ctx, upID.ID)
+			uplpi, err := upldb.GetPublicKey(ctx, upID.ID)
 			assert.NoError(t, err)
-			pubbytes, err := x509.MarshalPKIXPublicKey(pubkey)
-			assert.NoError(t, err)
-			assert.EqualValues(t, upIDpubbytes, pubbytes)
-		}
-
-		{ // Get the corresponding Public key for the serialnum
-			pubkey, err := upldb.GetPublicKeys(ctx, upID.ID)
-			assert.NoError(t, err)
-			pubbytes, err := x509.MarshalPKIXPublicKey(pubkey[0])
+			pubbytes, err := pkcrypto.PublicKeyToPEM(uplpi.CA.PublicKey)
 			assert.NoError(t, err)
 			assert.EqualValues(t, upIDpubbytes, pubbytes)
 		}
 	}
 
 	{ //storagenode testing variables
-		sn1ID, err := testidentity.NewTestIdentity(ctx)
+		sn1FI, err := testidentity.NewTestIdentity(ctx)
 		require.NoError(t, err)
-		sn1IDpubbytes, err := x509.MarshalPKIXPublicKey(sn1ID.Leaf.PublicKey)
-		require.NoError(t, err)
+		sn1PI := sn1FI.PeerIdentity()
 
 		{ // New entry
-			err := upldb.SavePublicKey(ctx, sn1ID.ID, sn1ID.Leaf.PublicKey)
+			err := upldb.SavePublicKey(ctx, sn1PI.ID, sn1PI)
 			assert.NoError(t, err)
 		}
-
-		sn2ID, err := testidentity.NewTestIdentity(ctx)
+		sn2FI, err := testidentity.NewTestIdentity(ctx)
 		require.NoError(t, err)
-		sn2IDpubbytes, err := x509.MarshalPKIXPublicKey(sn2ID.Leaf.PublicKey)
+		sn2PI := sn2FI.PeerIdentity()
+		sn2PIpubbytes, err := pkcrypto.PublicKeyToPEM(sn2PI.CA.PublicKey)
 		require.NoError(t, err)
 
-		{ // add another key for the same storagenode ID
-			err := upldb.SavePublicKey(ctx, sn1ID.ID, sn2ID.Leaf.PublicKey)
-			assert.NoError(t, err)
+		{ // adding two different pubkeys for same storagnode
+			{ // add a key for to storagenode ID
+				err := upldb.SavePublicKey(ctx, sn2PI.ID, sn1PI)
+				assert.NoError(t, err)
+			}
+			time.Sleep(5)
+			{ // add another key for the same storagenode ID, this the latest key
+				// as this is written later than the pervious one by few seconds
+				err := upldb.SavePublicKey(ctx, sn2PI.ID, sn2PI)
+				assert.NoError(t, err)
+			}
+			{ // already existing public key, just return nil
+				err := upldb.SavePublicKey(ctx, sn1PI.ID, sn1PI)
+				assert.NoError(t, err)
+			}
 		}
 
-		{ // add another key for the same storagenode ID, this the latest key
-			err := upldb.SavePublicKey(ctx, sn1ID.ID, sn2ID.Leaf.PublicKey)
-			assert.NoError(t, err)
-		}
-
-		{ // Get the corresponding Public key for the serialnum
+		{ // Get the corresponding Public key for the ID
 			// test to return one key but the latest of the keys
-			pkey, err := upldb.GetPublicKey(ctx, sn1ID.ID)
+			pkey, err := upldb.GetPublicKey(ctx, sn2PI.ID)
 			assert.NoError(t, err)
-			pbytes, err := x509.MarshalPKIXPublicKey(pkey)
-			assert.NoError(t, err)
-			assert.EqualValues(t, sn2IDpubbytes, pbytes)
-
-			// test all the keys for a given ID
-			pubkey, err := upldb.GetPublicKeys(ctx, sn1ID.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 2, len(pubkey))
-			pubbytes, err := x509.MarshalPKIXPublicKey(pubkey[0])
-			assert.NoError(t, err)
-			assert.EqualValues(t, sn2IDpubbytes, pubbytes)
-			pubbytes, err = x509.MarshalPKIXPublicKey(pubkey[1])
-			assert.NoError(t, err)
-			assert.EqualValues(t, sn1IDpubbytes, pubbytes)
+			pbytes, err := pkcrypto.PublicKeyToPEM(pkey.CA.PublicKey)
+			require.NoError(t, err)
+			assert.EqualValues(t, sn2PIpubbytes, pbytes)
 		}
 	}
 }

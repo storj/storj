@@ -5,11 +5,13 @@ package satellitedb
 
 import (
 	"context"
-	"crypto"
+	"crypto/x509"
 	"database/sql"
+	"encoding/asn1"
 	"time"
 
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -19,7 +21,7 @@ type certDB struct {
 	db *dbx.DB
 }
 
-func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, publicKey crypto.PublicKey) (err error) {
+func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pi *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := certs.db.Begin()
@@ -35,18 +37,18 @@ func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pub
 		}
 	}()
 
-	pubbytes, err := pkcrypto.PublicKeyToPKIX(publicKey)
-	if err != nil {
-		return Error.Wrap(err)
+	if pi == nil {
+		return Error.New("Peer Identity cannot be nil")
 	}
+	chain := encodePeerIdentity(pi)
 
-	var node []byte
-	query := `SELECT node_id FROM certRecords WHERE peer_identity = ?;`
-	err = tx.QueryRow(certs.db.Rebind(query), pubbytes).Scan(&node)
+	var id int64
+	query := `SELECT id FROM certRecords WHERE peer_identity = ?;`
+	err = tx.QueryRow(certs.db.Rebind(query), chain).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// create a new entry
-			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO certRecords ( peer_identity, node_id, update_at ) VALUES ( ?, ?, ? );`), pubbytes, nodeID.Bytes(), time.Now())
+			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO certRecords ( peer_identity, node_id, update_at ) VALUES ( ?, ?, ? );`), chain, nodeID.Bytes(), time.Now())
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -55,11 +57,12 @@ func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pub
 		return Error.Wrap(err)
 	}
 
+	// already public key exists, just return
 	return nil
 }
 
 // GetPublicKey gets the public key of uplink corresponding to uplink id
-func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ crypto.PublicKey, err error) {
+func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxInfo, err := certs.db.All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_NodeId(nodeID.Bytes()))
 	if err != nil {
@@ -71,31 +74,65 @@ func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ c
 	}
 
 	// the first indext always holds the lastest of the keys
-	pubkey, err := pkcrypto.PublicKeyFromPKIX(dbxInfo[0].PeerIdentity)
-	if err != nil {
-		return nil, Error.New("Failed to extract Public Key from Order: %+v", err)
-	}
-	return pubkey, nil
+
+	peer, err := decodePeerIdentity(ctx, dbxInfo[0].PeerIdentity)
+	return peer, Error.Wrap(err)
 }
 
-// GetPublicKeys gets the public keys of a storagenode corresponding to storagenode id
-func (certs *certDB) GetPublicKeys(ctx context.Context, nodeID storj.NodeID) (pubkeys []crypto.PublicKey, err error) {
+// // GetPublicKeys gets the public keys of a storagenode corresponding to storagenode id
+// func (certs *certDB) GetPublicKeys(ctx context.Context, nodeID storj.NodeID) (pubkeys []crypto.PublicKey, err error) {
+// 	defer mon.Task()(&ctx)(&err)
+// 	dbxInfo, err := certs.db.All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_NodeId(nodeID.Bytes()))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	if len(dbxInfo) == 0 {
+// 		return nil, Error.New("Invalid nodeID : %+v: %+v ", nodeID.String(), err)
+// 	}
+
+// 	for _, v := range dbxInfo {
+// 		pubkey, err := pkcrypto.PublicKeyFromPKIX(v.PeerIdentity)
+// 		if err != nil {
+// 			return nil, Error.New("Failed to extract Public Key from Order: %+v", err)
+// 		}
+// 		pubkeys = append(pubkeys, pubkey)
+// 	}
+// 	return pubkeys, nil
+// }
+
+func encodePeerIdentity(pi *identity.PeerIdentity) []byte {
+	var chain []byte
+	chain = append(chain, pi.Leaf.Raw...)
+	chain = append(chain, pi.CA.Raw...)
+	for _, cert := range pi.RestChain {
+		chain = append(chain, cert.Raw...)
+	}
+	return chain
+}
+
+func decodePeerIdentity(ctx context.Context, chain []byte) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxInfo, err := certs.db.All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_NodeId(nodeID.Bytes()))
-	if err != nil {
-		return nil, err
-	}
 
-	if len(dbxInfo) == 0 {
-		return nil, Error.New("Invalid nodeID : %+v: %+v ", nodeID.String(), err)
-	}
+	var certs []*x509.Certificate
+	for len(chain) > 0 {
+		var raw asn1.RawValue
+		var err error
 
-	for _, v := range dbxInfo {
-		pubkey, err := pkcrypto.PublicKeyFromPKIX(v.PeerIdentity)
+		chain, err = asn1.Unmarshal(chain, &raw)
 		if err != nil {
-			return nil, Error.New("Failed to extract Public Key from Order: %+v", err)
+			return nil, Error.Wrap(err)
 		}
-		pubkeys = append(pubkeys, pubkey)
+
+		cert, err := pkcrypto.CertFromDER(raw.FullBytes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		certs = append(certs, cert)
 	}
-	return pubkeys, nil
+	if len(certs) < 2 {
+		return nil, Error.New("not enough certificates")
+	}
+	return identity.PeerIdentityFromChain(certs)
 }

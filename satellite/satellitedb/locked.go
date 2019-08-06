@@ -7,13 +7,13 @@ package satellitedb
 
 import (
 	"context"
-	"crypto"
 	"sync"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -138,21 +138,14 @@ type lockedCertDB struct {
 }
 
 // GetPublicKey gets one latest public key of a node
-func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (crypto.PublicKey, error) {
+func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetPublicKey(ctx, a1)
 }
 
-// GetPublicKey gets all the public keys of a node
-func (m *lockedCertDB) GetPublicKeys(ctx context.Context, a1 storj.NodeID) ([]crypto.PublicKey, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetPublicKeys(ctx, a1)
-}
-
 // SavePublicKey adds a new bandwidth agreement.
-func (m *lockedCertDB) SavePublicKey(ctx context.Context, a1 storj.NodeID, a2 crypto.PublicKey) error {
+func (m *lockedCertDB) SavePublicKey(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SavePublicKey(ctx, a1, a2)

@@ -5,17 +5,15 @@ package certdb
 
 import (
 	"context"
-	"crypto"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
 )
 
 // DB stores uplink public keys.
 type DB interface {
 	// SavePublicKey adds a new bandwidth agreement.
-	SavePublicKey(context.Context, storj.NodeID, crypto.PublicKey) error
+	SavePublicKey(context.Context, storj.NodeID, *identity.PeerIdentity) error
 	// GetPublicKey gets one latest public key of a node
-	GetPublicKey(context.Context, storj.NodeID) (crypto.PublicKey, error)
-	// GetPublicKey gets all the public keys of a node
-	GetPublicKeys(context.Context, storj.NodeID) ([]crypto.PublicKey, error)
+	GetPublicKey(context.Context, storj.NodeID) (*identity.PeerIdentity, error)
 }
