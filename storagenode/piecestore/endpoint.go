@@ -649,7 +649,9 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 
 		hasMorePieces = (len(pieceIDs) == limit)
 		offset += len(pieceIDs)
-		offset -= numDeleted
+		if endpoint.config.RetainStatus == RetainEnabled {
+			offset -= numDeleted
+		}
 		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()
