@@ -98,6 +98,7 @@ This process including the Storage nodes transferring their pieces to other node
 - Update DBX - Add updateable `exit_initiated` and `exit_completed` timestamps to nodes table with indexes
   - Add GetExitingNodeIds method to overlaycache. Returns nodes IDs where `exit_initiated` is not null and `exit_completed` is null.
 - Create GracefulExit endpoint
+  - Endpoints should be secured using the peer Identity provided in context
   - Initiates the exit by setting `nodes.exit_initiated` to current time
   - ``` 
 	service GracefulExit {
@@ -120,15 +121,15 @@ This process including the Storage nodes transferring their pieces to other node
 		field node_id           blob
 		field path              blob
 		field peice_info        blob
-		field durability_ratio  float64 // TODO: what is this?
+		field durability_ratio  float64
 		field queued            timestamp ( autoinsert )
 		field completed	        timestamp ( updateable )
 	)
    ```
-- Update node selection logic to ignore exiting nodes for uploads and repairs.
+- Add `PieceAction` field to, `cache.FindStorageNodesRequest`. Update `cache.FindStorageNodesWithPreferences` to ignore exiting nodes for uploads and repairs.
 - Update Repairer service
   - Modify `checker` to check segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
-- Add `PieceAction_PUT_EXIT` to orders protobuf
+- Add `PieceAction_PUT_EXIT` to orders protobuf. This is used to differentiate exiting bandwidth from other bandwidth usage.
 - Create GracefulExit service
   - Iterates over `exit_pieceinfo`, creates signed orders with action type `PieceAction_PUT_EXIT`
   - Batches orders and sends them to the exiting storagenode `GracefulExit.ProcessOrders` endpoint
