@@ -29,12 +29,12 @@ const lastSegmentIndex = int64(-1)
 // Endpoint for checking object and segment health
 type Endpoint struct {
 	log      *zap.Logger
-	cache    *overlay.Cache
+	cache    *overlay.Service
 	metainfo *metainfo.Service
 }
 
 // NewEndpoint will initialize an Endpoint struct
-func NewEndpoint(log *zap.Logger, cache *overlay.Cache, metainfo *metainfo.Service) *Endpoint {
+func NewEndpoint(log *zap.Logger, cache *overlay.Service, metainfo *metainfo.Service) *Endpoint {
 	return &Endpoint{
 		log:      log,
 		cache:    cache,

@@ -13,11 +13,11 @@ import (
 
 // Inspector is a gRPC service for inspecting overlay cache internals
 type Inspector struct {
-	cache *Cache
+	cache *Service
 }
 
 // NewInspector creates an Inspector
-func NewInspector(cache *Cache) *Inspector {
+func NewInspector(cache *Service) *Inspector {
 	return &Inspector{cache: cache}
 }
 

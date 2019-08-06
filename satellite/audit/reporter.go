@@ -20,7 +20,7 @@ type reporter interface {
 // Reporter records audit reports in overlay and implements the reporter interface
 type Reporter struct {
 	log              *zap.Logger
-	overlay          *overlay.Cache
+	overlay          *overlay.Service
 	containment      Containment
 	maxRetries       int
 	maxReverifyCount int32
@@ -35,7 +35,7 @@ type Report struct {
 }
 
 // NewReporter instantiates a reporter
-func NewReporter(log *zap.Logger, overlay *overlay.Cache, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
+func NewReporter(log *zap.Logger, overlay *overlay.Service, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
 	return &Reporter{
 		log:              log,
 		overlay:          overlay,

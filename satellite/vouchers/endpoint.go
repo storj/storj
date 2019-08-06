@@ -26,7 +26,7 @@ type Config struct {
 type Endpoint struct {
 	log        *zap.Logger
 	satellite  signing.Signer
-	cache      *overlay.Cache
+	cache      *overlay.Service
 	expiration time.Duration
 }
 
@@ -38,7 +38,7 @@ var (
 )
 
 // NewEndpoint creates a new endpoint for issuing signed vouchers
-func NewEndpoint(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, expiration time.Duration) *Endpoint {
+func NewEndpoint(log *zap.Logger, satellite signing.Signer, cache *overlay.Service, expiration time.Duration) *Endpoint {
 	return &Endpoint{
 		log:        log,
 		satellite:  satellite,

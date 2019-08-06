@@ -29,7 +29,7 @@ type Config struct {
 type Service struct {
 	log                                 *zap.Logger
 	satellite                           signing.Signer
-	cache                               *overlay.Cache
+	cache                               *overlay.Service
 	orders                              DB
 	satelliteAddress                    *pb.NodeAddress
 	orderExpiration                     time.Duration
@@ -38,7 +38,7 @@ type Service struct {
 
 // NewService creates new service for creating order limits.
 func NewService(
-	log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
+	log *zap.Logger, satellite signing.Signer, cache *overlay.Service,
 	orders DB, orderExpiration time.Duration, satelliteAddress *pb.NodeAddress,
 	repairMaxExcessRateOptimalThreshold float64,
 ) *Service {

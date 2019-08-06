@@ -66,7 +66,7 @@ type Endpoint struct {
 	log              *zap.Logger
 	metainfo         *Service
 	orders           *orders.Service
-	cache            *overlay.Cache
+	cache            *overlay.Service
 	partnerinfo      attribution.DB
 	projectUsage     *accounting.ProjectUsage
 	containment      Containment
@@ -77,7 +77,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo attribution.DB,
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB,
 	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{

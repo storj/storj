@@ -28,7 +28,7 @@ type SegmentRepairer struct {
 	log      *zap.Logger
 	metainfo *metainfo.Service
 	orders   *orders.Service
-	cache    *overlay.Cache
+	cache    *overlay.Service
 	ec       ecclient.Client
 	timeout  time.Duration
 
@@ -45,7 +45,7 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
-	cache *overlay.Cache, ec ecclient.Client, timeout time.Duration,
+	cache *overlay.Service, ec ecclient.Client, timeout time.Duration,
 	excessOptimalThreshold float64,
 ) *SegmentRepairer {
 
