@@ -144,7 +144,6 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		}
 	}
 
-
 	return &console.Project{
 		ID:          id,
 		Name:        project.Name,
