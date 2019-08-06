@@ -36,31 +36,32 @@ This process including the Storage nodes transferring their pieces to other node
 
 
 ### On Trigger
-- When a Storage node no longer wants to store data for a satellite I want them to have the ability to run graceful exit for a specific satellite so that they do not lose their escrow on that satellite. 
-- When a Storage Node runs the graceful exit command I want them to be prompted with a confirmation message so that we can avoid storage nodes running the command accidentally.
-- When a storage node triggers the graceful exits, the process cannot be canceled. The storage node must lead it to successful completion.
-- When a Storage node triggers graceful exit I want them to be omitted from the node selection process for uploads so they are no longer selected to store new pieces.
-- When a Storage node triggers graceful exit I want their allocated bandwidth on the network to be ignored so that they can complete their graceful exit as quickly as possible.
+- When a Storage node no longer wants to store data for a satellite, it shall have the ability to run graceful exit for a specific satellite so that they do not lose their escrow on that satellite. 
+- When a Storage Node runs the graceful exit command, it shall be prompted with a confirmation message so that it can avoid running the command accidentally.
+- When a storage node triggers the graceful exits, the process cannot be canceled. The storage node shall lead it to successful completion. Should the storagenode application, ungracefully terminated, upon restarting the storagnenode application, it shall resume the graceful exit process.
+- When a Storage node triggers graceful exit, the satellite shall omit it from selecting the node for any future uploads and shall be eliminated from storing new pieces.
+- When a Storage node triggers graceful exit, it shall ignore the allocated network bandwidth, so that it shall complete their graceful exit as quickly as possible.
 
 ### During exit
-- When a Storage Node is in the process of gracefully exiting the network I want them to continue to be audited and their uptime checked so we can ensure they are still "good" nodes.
-- When A Storage Node is in the process of gracefully exiting the network I want them to be selected for download requests so that they can continue to contribute to the overall network.
-	- we need to be able to distinguish the bandwidth used for serving up data to clients vs bandwidth used for graceful exit. the node will NOT get paid for bandwidth used for graceful exit but will get paid for the bandwidth used to serve data to clients.
-- When a Storage Node is gracefully exiting the network I want all of the pieces they are storing to be deleted from their hard drive as they exit so that their computers hard drive space is no longer used.
-- When a Storage Node is exiting the network gracefully I want the satellite to have the ability to track how much egress they used for exiting so that we do not pay them for that bandwidth.
+- When a Storage Node is in the process of gracefully exiting the network, it shall continue to participate in the requested audits and uptimes checks.
+- When a Storage Node is in the process of gracefully exiting the network, it shall continue to honor to download requests.
+	- The Storage Node keep a separate and detailed metric of network bandwidth used to serve the data to clients vs bandwidth used for graceful exit. The Storage Node shall NOT get paid for bandwidth used for graceful exit but shall get paid for the bandwidth used to serve data to clients(downloads, audits, uptime checks etc...)
+- When a Storage Node is gracefully exiting the network, it shall delete the piece from its storage after it is successfully transferred to other peer Storage Nodes as directed by the Satellite. The Satellite shall support the mechanism to verify that the transferred piece is correct and complete.
+- When a Storage Node is exiting the network gracefully, it shall keep a detailed record of the network bandwidth used for the purpose of Graceful Exit and shall provide the metrics information to satellite upon request. 
+- The Satellite shall have a mechanism in place to make sure that the Storage Node reporting is correct. This shall eliminate Storage Node from reporting incorrect metrics interms of bandwidth usage. (TBD, is this needed on the satellite side??)
 
 ### When Exited 
-- When a Storage Node leaves the network I want the ability to run a report on the satellite to get information about what Storage Nodes exited so that I can pay them their escrow amounts. 
-	- Create a report on the satellite to display which nodes have exited gracefully during a specified time frame. The report must include:
+- When a Storage Node left the network, the satellite shall have the capabilty to run a report to get information exited and/or exiting Storage Nodes, so that it shall pay them their escrow amounts accordingly. The report shall support the number of Storage Nodes left in a configurable specified time frame and shall include other information as shown below (TBD):
 		- NodeID
 		- Wallet address
 		- The date the node joined the network
 		- The date the node exited
 		- GB Transferred (amount of data the node transferred during exiting)	
-- When a node does not complete the graceful exit entirely I want the satellite to keep track of this so that they are subject to be DQed and their escrow kept
-	- this includes the node sending bad data to other nodes
-	- the node not transferring some pieces it holds
-- When the satellite determines the exiting node has completed the process I want the node to be informed so that it can delete the garbage data it is holding. 
+- When a Storage Node exits ungracefully, the satellite shall keep track of this and shall subject the Storage Node to be DQed and their escrow payment shall be denied. The factors that shall affect the escrow payments are 
+	- the Storage Node tranferring incorrect data to other nodes
+	- the Storage Node not transferring complete pieces it holds
+- The Satellite shall keep track of the graceful exit status of the Storage Node and shall inform upon its completion. 
+- The Storage Node upon receving the successful completion of graceful exit status from Satellite, it shall then delete any data it is holding. 
 
 
 ## Business Requirements/ Job Stories (Non MVP)
@@ -97,7 +98,6 @@ This process including the Storage nodes transferring their pieces to other node
 - Update DBX - Add updateable `exit_initiated` and `exit_completed` timestamps to nodes table with indexes
   - Add GetExitingNodeIds method to overlaycache. Returns nodes IDs where `exit_initiated` is not null and `exit_completed` is null.
 - Create GracefulExit endpoint
-  - Endpoints should be secured using the peer Identity provided in context
   - Initiates the exit by setting `nodes.exit_initiated` to current time
   - ``` 
 	service GracefulExit {
@@ -120,15 +120,15 @@ This process including the Storage nodes transferring their pieces to other node
 		field node_id           blob
 		field path              blob
 		field peice_info        blob
-		field durability_ratio  float64
+		field durability_ratio  float64 // TODO: what is this?
 		field queued            timestamp ( autoinsert )
 		field completed	        timestamp ( updateable )
 	)
    ```
-- Add `PieceAction` field to, `cache.FindStorageNodesRequest`. Update `cache.FindStorageNodesWithPreferences` to ignore exiting nodes for uploads and repairs.
+- Update node selection logic to ignore exiting nodes for uploads and repairs.
 - Update Repairer service
   - Modify `checker` to check segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
-- Add `PieceAction_PUT_EXIT` to orders protobuf. This is used to differentiate exiting bandwidth from other bandwidth.
+- Add `PieceAction_PUT_EXIT` to orders protobuf
 - Create GracefulExit service
   - Iterates over `exit_pieceinfo`, creates signed orders with action type `PieceAction_PUT_EXIT`
   - Batches orders and sends them to the exiting storagenode `GracefulExit.ProcessOrders` endpoint
