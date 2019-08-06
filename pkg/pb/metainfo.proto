@@ -37,6 +37,8 @@ service Metainfo {
     rpc ListSegments(SegmentListRequest) returns (SegmentListResponse);
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
 
+    rpc Batch(BatchRequest) returns (BatchResponse);
+
     rpc CreateSegmentOld(SegmentWriteRequestOld) returns (SegmentWriteResponseOld);
     rpc CommitSegmentOld(SegmentCommitRequestOld) returns (SegmentCommitResponseOld);
     rpc SegmentInfoOld(SegmentInfoRequestOld) returns (SegmentInfoResponseOld);
@@ -500,4 +502,66 @@ message SegmentDownloadResponse {
     bytes encrypted_key = 7;
 
     SegmentPosition next = 8; // can be nil
+}
+
+message BatchRequest {
+    repeated BatchRequestItem requests = 1;
+}
+
+message BatchRequestItem {
+    oneof Request {
+        BucketCreateRequest         bucket_create = 1;
+        BucketGetRequest            bucket_get = 2;
+        BucketDeleteRequest         bucket_delete = 3;
+        BucketListRequest           bucket_list = 4;
+        BucketSetAttributionRequest bucket_set_attribution = 5;
+
+        ObjectBeginRequest          object_begin = 6;
+        ObjectCommitRequest         object_commit = 7;
+        ObjectGetRequest            object_get = 8;
+        ObjectListRequest           object_list = 9;
+        ObjectBeginDeleteRequest    object_begin_delete = 10;
+        ObjectFinishDeleteRequest   object_finish_delete = 11;
+
+        SegmentBeginRequest      segment_begin = 12;
+        SegmentCommitRequest     segment_commit = 13;
+        SegmentMakeInlineRequest segment_make_inline = 14;
+
+        SegmentBeginDeleteRequest  segment_begin_delete = 15;
+        SegmentFinishDeleteRequest segment_finish_delete = 16;
+
+        SegmentListRequest     segment_list = 17;
+        SegmentDownloadRequest segment_download = 18;
+    }
+}
+
+message BatchResponse {
+    repeated BatchResponseItem responses = 1;
+}
+
+message BatchResponseItem {
+    oneof Response {
+        BucketCreateResponse         bucket_create = 1;
+        BucketGetResponse            bucket_get = 2;
+        BucketDeleteResponse         bucket_delete = 3;
+        BucketListResponse           bucket_list = 4;
+        BucketSetAttributionResponse bucket_set_attribution = 5;
+
+        ObjectBeginResponse          object_begin = 6;
+        ObjectCommitResponse         object_commit = 7;
+        ObjectGetResponse            object_get = 8;
+        ObjectListResponse           object_list = 9;
+        ObjectBeginDeleteResponse    object_begin_delete = 10;
+        ObjectFinishDeleteResponse   object_finish_delete = 11;
+
+        SegmentBeginResponse      segment_begin = 12;
+        SegmentCommitResponse     segment_commit = 13;
+        SegmentMakeInlineResponse segment_make_inline = 14;
+
+        SegmentBeginDeleteResponse  segment_begin_delete = 15;
+        SegmentFinishDeleteResponse segment_finish_delete = 16;
+
+        SegmentListResponse     segment_list = 17;
+        SegmentDownloadResponse segment_download = 18;
+    }
 }
