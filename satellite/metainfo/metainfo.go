@@ -66,7 +66,7 @@ type Endpoint struct {
 	log              *zap.Logger
 	metainfo         *Service
 	orders           *orders.Service
-	cache            *overlay.Cache
+	overlay          *overlay.Service
 	partnerinfo      attribution.DB
 	projectUsage     *accounting.ProjectUsage
 	containment      Containment
@@ -77,14 +77,14 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo attribution.DB,
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB,
 	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:              log,
 		metainfo:         metainfo,
 		orders:           orders,
-		cache:            cache,
+		overlay:          cache,
 		partnerinfo:      partnerinfo,
 		containment:      containment,
 		apiKeys:          apiKeys,
@@ -176,7 +176,7 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 		FreeBandwidth:  maxPieceSize,
 		FreeDisk:       maxPieceSize,
 	}
-	nodes, err := endpoint.cache.FindStorageNodes(ctx, request)
+	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -1307,7 +1307,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		FreeBandwidth:  maxPieceSize,
 		FreeDisk:       maxPieceSize,
 	}
-	nodes, err := endpoint.cache.FindStorageNodes(ctx, request)
+	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}

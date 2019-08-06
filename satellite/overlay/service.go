@@ -35,10 +35,7 @@ var ErrBucketNotFound = errs.New("bucket not found")
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
-// OverlayError creates class of errors for stack traces
-var OverlayError = errs.Class("overlay error")
-
-// DB implements the database for overlay.Cache
+// DB implements the database for overlay.Service
 type DB interface {
 	// SelectStorageNodes looks up nodes based on criteria
 	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
@@ -138,16 +135,16 @@ type NodeStats struct {
 	Disqualified          *time.Time
 }
 
-// Cache is used to store and handle node information
-type Cache struct {
+// Service is used to store and handle node information
+type Service struct {
 	log    *zap.Logger
 	db     DB
 	config Config
 }
 
-// NewCache returns a new Cache
-func NewCache(log *zap.Logger, db DB, config Config) *Cache {
-	return &Cache{
+// NewService returns a new Service
+func NewService(log *zap.Logger, db DB, config Config) *Service {
+	return &Service{
 		log:    log,
 		db:     db,
 		config: config,
@@ -155,50 +152,50 @@ func NewCache(log *zap.Logger, db DB, config Config) *Cache {
 }
 
 // Close closes resources
-func (cache *Cache) Close() error { return nil }
+func (service *Service) Close() error { return nil }
 
 // Inspect lists limited number of items in the cache
-func (cache *Cache) Inspect(ctx context.Context) (_ storage.Keys, err error) {
+func (service *Service) Inspect(ctx context.Context) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: implement inspection tools
 	return nil, errors.New("not implemented")
 }
 
 // Paginate returns a list of `limit` nodes starting from `start` offset.
-func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []*NodeDossier, _ bool, err error) {
+func (service *Service) Paginate(ctx context.Context, offset int64, limit int) (_ []*NodeDossier, _ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return cache.db.Paginate(ctx, offset, limit)
+	return service.db.Paginate(ctx, offset, limit)
 }
 
 // PaginateQualified returns a list of `limit` qualified nodes starting from `start` offset.
-func (cache *Cache) PaginateQualified(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
+func (service *Service) PaginateQualified(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return cache.db.PaginateQualified(ctx, offset, limit)
+	return service.db.PaginateQualified(ctx, offset, limit)
 }
 
-// Get looks up the provided nodeID from the overlay cache
-func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossier, err error) {
+// Get looks up the provided nodeID from the overlay.
+func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if nodeID.IsZero() {
 		return nil, ErrEmptyNode
 	}
-	return cache.db.Get(ctx, nodeID)
+	return service.db.Get(ctx, nodeID)
 }
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
-func (cache *Cache) IsOnline(node *NodeDossier) bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.config.Node.OnlineWindow ||
+func (service *Service) IsOnline(node *NodeDossier) bool {
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow ||
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*pb.Node, err error) {
+func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return cache.FindStorageNodesWithPreferences(ctx, req, &cache.config.Node)
+	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 }
 
 // FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
-func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*pb.Node, err error) {
+func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: add sanity limits to requested node count
@@ -217,7 +214,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 
 	var newNodes []*pb.Node
 	if newNodeCount > 0 {
-		newNodes, err = cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
+		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
 			FreeBandwidth:  req.FreeBandwidth,
 			FreeDisk:       req.FreeDisk,
 			AuditCount:     preferences.AuditCount,
@@ -227,7 +224,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			DistinctIP:     preferences.DistinctIP,
 		})
 		if err != nil {
-			return nil, OverlayError.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
@@ -251,9 +248,9 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		OnlineWindow:   preferences.OnlineWindow,
 		DistinctIP:     preferences.DistinctIP,
 	}
-	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
+	reputableNodes, err := service.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
-		return nil, OverlayError.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	nodes = append(nodes, newNodes...)
@@ -267,34 +264,34 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 }
 
 // KnownOffline filters a set of nodes to offline nodes
-func (cache *Cache) KnownOffline(ctx context.Context, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
+func (service *Service) KnownOffline(ctx context.Context, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		OnlineWindow: cache.config.Node.OnlineWindow,
+		OnlineWindow: service.config.Node.OnlineWindow,
 	}
-	return cache.db.KnownOffline(ctx, criteria, nodeIds)
+	return service.db.KnownOffline(ctx, criteria, nodeIds)
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new.
-func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
+func (service *Service) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		OnlineWindow: cache.config.Node.OnlineWindow,
+		OnlineWindow: service.config.Node.OnlineWindow,
 	}
-	return cache.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
+	return service.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
 // Reliable filters a set of nodes that are reliable, independent of new.
-func (cache *Cache) Reliable(ctx context.Context) (nodes storj.NodeIDList, err error) {
+func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		OnlineWindow: cache.config.Node.OnlineWindow,
+		OnlineWindow: service.config.Node.OnlineWindow,
 	}
-	return cache.db.Reliable(ctx, criteria)
+	return service.db.Reliable(ctx, criteria)
 }
 
-// Put adds a node id and proto definition into the overlay cache
-func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
+// Put adds a node id and proto definition into the overlay.
+func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// If we get a Node without an ID (i.e. bootstrap node)
@@ -311,19 +308,19 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	// Resolve IP Address Network to ensure it is set
 	value.LastIp, err = GetNetwork(ctx, value.Address.Address)
 	if err != nil {
-		return OverlayError.Wrap(err)
+		return Error.Wrap(err)
 	}
-	return cache.db.UpdateAddress(ctx, &value, cache.config.Node)
+	return service.db.UpdateAddress(ctx, &value, service.config.Node)
 }
 
 // IsVetted returns whether or not the node reaches reputable thresholds
-func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
+func (service *Service) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		AuditCount:  cache.config.Node.AuditCount,
-		UptimeCount: cache.config.Node.UptimeCount,
+		AuditCount:  service.config.Node.AuditCount,
+		UptimeCount: service.config.Node.UptimeCount,
 	}
-	reputable, err = cache.db.IsVetted(ctx, nodeID, criteria)
+	reputable, err = service.db.IsVetted(ctx, nodeID, criteria)
 	if err != nil {
 		return false, err
 	}
@@ -331,96 +328,96 @@ func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputabl
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
-func (cache *Cache) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
+func (service *Service) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for _, request := range requests {
-		request.AuditLambda = cache.config.Node.AuditReputationLambda
-		request.AuditWeight = cache.config.Node.AuditReputationWeight
-		request.AuditDQ = cache.config.Node.AuditReputationDQ
-		request.UptimeLambda = cache.config.Node.UptimeReputationLambda
-		request.UptimeWeight = cache.config.Node.UptimeReputationWeight
-		request.UptimeDQ = cache.config.Node.UptimeReputationDQ
+		request.AuditLambda = service.config.Node.AuditReputationLambda
+		request.AuditWeight = service.config.Node.AuditReputationWeight
+		request.AuditDQ = service.config.Node.AuditReputationDQ
+		request.UptimeLambda = service.config.Node.UptimeReputationLambda
+		request.UptimeWeight = service.config.Node.UptimeReputationWeight
+		request.UptimeDQ = service.config.Node.UptimeReputationDQ
 	}
-	return cache.db.BatchUpdateStats(ctx, requests, cache.config.UpdateStatsBatchSize)
+	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
 }
 
 // UpdateStats all parts of single storagenode's stats.
-func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
+func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	request.AuditLambda = cache.config.Node.AuditReputationLambda
-	request.AuditWeight = cache.config.Node.AuditReputationWeight
-	request.AuditDQ = cache.config.Node.AuditReputationDQ
-	request.UptimeLambda = cache.config.Node.UptimeReputationLambda
-	request.UptimeWeight = cache.config.Node.UptimeReputationWeight
-	request.UptimeDQ = cache.config.Node.UptimeReputationDQ
+	request.AuditLambda = service.config.Node.AuditReputationLambda
+	request.AuditWeight = service.config.Node.AuditReputationWeight
+	request.AuditDQ = service.config.Node.AuditReputationDQ
+	request.UptimeLambda = service.config.Node.UptimeReputationLambda
+	request.UptimeWeight = service.config.Node.UptimeReputationWeight
+	request.UptimeDQ = service.config.Node.UptimeReputationDQ
 
-	return cache.db.UpdateStats(ctx, request)
+	return service.db.UpdateStats(ctx, request)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
-func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error) {
+func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return cache.db.UpdateNodeInfo(ctx, node, nodeInfo)
+	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
-func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
+func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-	lambda := cache.config.Node.UptimeReputationLambda
-	weight := cache.config.Node.UptimeReputationWeight
-	uptimeDQ := cache.config.Node.UptimeReputationDQ
+	lambda := service.config.Node.UptimeReputationLambda
+	weight := service.config.Node.UptimeReputationWeight
+	uptimeDQ := service.config.Node.UptimeReputationDQ
 
-	return cache.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
+	return service.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function
-func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
+func (service *Service) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	lambda := cache.config.Node.UptimeReputationLambda
-	weight := cache.config.Node.UptimeReputationWeight
-	uptimeDQ := cache.config.Node.UptimeReputationDQ
+	lambda := service.config.Node.UptimeReputationLambda
+	weight := service.config.Node.UptimeReputationWeight
+	uptimeDQ := service.config.Node.UptimeReputationDQ
 
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
-	// from our routing table, but this is the cache so maybe we want to treat
+	// from our routing table, but this is the service so maybe we want to treat
 	// it differently.
-	_, err = cache.db.UpdateUptime(ctx, node.Id, false, lambda, weight, uptimeDQ)
+	_, err = service.db.UpdateUptime(ctx, node.Id, false, lambda, weight, uptimeDQ)
 	if err != nil {
-		cache.log.Debug("error updating uptime for node", zap.Error(err))
+		service.log.Debug("error updating uptime for node", zap.Error(err))
 	}
 }
 
 // ConnSuccess implements the Transport Observer `ConnSuccess` function
-func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
+func (service *Service) ConnSuccess(ctx context.Context, node *pb.Node) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	err = cache.Put(ctx, node.Id, *node)
+	err = service.Put(ctx, node.Id, *node)
 	if err != nil {
-		cache.log.Debug("error updating uptime for node", zap.Error(err))
+		service.log.Debug("error updating uptime for node", zap.Error(err))
 	}
 
-	lambda := cache.config.Node.UptimeReputationLambda
-	weight := cache.config.Node.UptimeReputationWeight
-	uptimeDQ := cache.config.Node.UptimeReputationDQ
+	lambda := service.config.Node.UptimeReputationLambda
+	weight := service.config.Node.UptimeReputationWeight
+	uptimeDQ := service.config.Node.UptimeReputationDQ
 
-	_, err = cache.db.UpdateUptime(ctx, node.Id, true, lambda, weight, uptimeDQ)
+	_, err = service.db.UpdateUptime(ctx, node.Id, true, lambda, weight, uptimeDQ)
 	if err != nil {
-		cache.log.Debug("error updating node connection info", zap.Error(err))
+		service.log.Debug("error updating node connection info", zap.Error(err))
 	}
 }
 
 // GetMissingPieces returns the list of offline nodes
-func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIDs storj.NodeIDList
 	for _, p := range pieces {
 		nodeIDs = append(nodeIDs, p.NodeId)
 	}
-	badNodeIDs, err := cache.KnownUnreliableOrOffline(ctx, nodeIDs)
+	badNodeIDs, err := service.KnownUnreliableOrOffline(ctx, nodeIDs)
 	if err != nil {
 		return nil, Error.New("error getting nodes %s", err)
 	}
