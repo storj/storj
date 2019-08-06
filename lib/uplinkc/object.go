@@ -227,7 +227,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 	objListLen := len(objectList.Items)
 
 	objectSize := int(C.sizeof_ObjectInfo)
-	ptr := C.malloc(C.size_t(objListLen * objectSize))
+	ptr := C.malloc(C.size_t(objectSize * objListLen))
 	cObjectsPtr := (*[1 << 30]C.ObjectInfo)(ptr)
 
 	for i, object := range objectList.Items {
