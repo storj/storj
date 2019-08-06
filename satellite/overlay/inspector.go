@@ -34,7 +34,7 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 	}, nil
 }
 
-// DumpNodes returns all of the nodes in the overlay cachea
+// DumpNodes returns all of the nodes in the overlay service
 func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (_ *pb.DumpNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return &pb.DumpNodesResponse{}, errs.New("Not Implemented")

@@ -59,7 +59,7 @@ var (
 	}
 	kadCmd = &cobra.Command{
 		Use:   "kad",
-		Short: "commands for kademlia/overlay cache",
+		Short: "commands for kademlia/overlay service",
 	}
 	statsCmd = &cobra.Command{
 		Use:   "statdb",
@@ -121,7 +121,7 @@ var (
 	}
 )
 
-// Inspector gives access to kademlia, overlay cache
+// Inspector gives access to kademlia, overlay service
 type Inspector struct {
 	identity      *identity.FullIdentity
 	kadclient     pb.KadInspectorClient
@@ -131,7 +131,7 @@ type Inspector struct {
 }
 
 // NewInspector creates a new gRPC inspector client for access to kad,
-// overlay cache
+// overlay service
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
 
