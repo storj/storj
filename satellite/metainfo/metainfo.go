@@ -66,7 +66,7 @@ type Endpoint struct {
 	log              *zap.Logger
 	metainfo         *Service
 	orders           *orders.Service
-	cache            *overlay.Service
+	overlay          *overlay.Service
 	partnerinfo      attribution.DB
 	projectUsage     *accounting.ProjectUsage
 	containment      Containment
@@ -84,7 +84,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		log:              log,
 		metainfo:         metainfo,
 		orders:           orders,
-		cache:            cache,
+		overlay:          cache,
 		partnerinfo:      partnerinfo,
 		containment:      containment,
 		apiKeys:          apiKeys,
@@ -176,7 +176,7 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 		FreeBandwidth:  maxPieceSize,
 		FreeDisk:       maxPieceSize,
 	}
-	nodes, err := endpoint.cache.FindStorageNodes(ctx, request)
+	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -1307,7 +1307,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		FreeBandwidth:  maxPieceSize,
 		FreeDisk:       maxPieceSize,
 	}
-	nodes, err := endpoint.cache.FindStorageNodes(ctx, request)
+	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
