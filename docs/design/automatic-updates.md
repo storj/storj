@@ -30,7 +30,7 @@ What if:
 Download a new binary.
 What if:
 * anti-virus / firewall blocks it,
-* update fails,
+* download fails,
 * out-of-space for downloading,
 * filesystem read-only,
 * MITM attacks.
@@ -44,6 +44,7 @@ What if:
 
 Starting a new binary.
 What if:
+* anti-virus blocks it,
 * out-of-space during migrations,
 * failure to start.
 
@@ -51,17 +52,18 @@ Gradual Rollouts.
 What if:
 * bad gradual rollout.
 
-Rollbacks for local update failures.
+Local update failures. Rollback?
 
 Stampeding herd for updates and crashes.
 
-Notifying the user about an update.
+Notifying the user about an update or failure to update.
 
 Turning off automatic-updates.
 
 ### Starting Storage Node binary on OS Start-Up
 
-We need to ensure that storage node binary starts on computer start-up, without logging into the system.
+We need to ensure that storage node binary starts on computer start-up,
+without logging into the system.
 
 ### Restarting Storage Node binary on Crash / Problems
 
