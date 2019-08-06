@@ -59,24 +59,26 @@ func TestGetPieceIDs(t *testing.T) {
 		seen := make(map[storj.PieceID]bool)
 
 		requestSize := 50
-		pieceIDs, err := pieceInfos.GetPieceIDs(ctx, satellite.ID, time.Now(), requestSize, storj.PieceID{})
+		cursor := storj.PieceID{}
+
+		pieceIDs, err := pieceInfos.GetPieceIDs(ctx, satellite.ID, time.Now(), requestSize, cursor)
 		require.NoError(t, err)
 		require.Len(t, pieceIDs, 50)
 		for _, id := range pieceIDs {
 			require.False(t, seen[id])
 			seen[id] = true
+			cursor = id
 		}
 
-		cursor := pieceIDs[49]
 		pieceIDs, err = pieceInfos.GetPieceIDs(ctx, satellite.ID, time.Now(), requestSize, cursor)
 		require.NoError(t, err)
 		require.Len(t, pieceIDs, 40)
 		for _, id := range pieceIDs {
 			require.False(t, seen[id])
 			seen[id] = true
+			cursor = id
 		}
 
-		cursor = pieceIDs[39]
 		pieceIDs, err = pieceInfos.GetPieceIDs(ctx, satellite.ID, time.Now(), requestSize, cursor)
 		require.NoError(t, err)
 		require.Len(t, pieceIDs, 0)
