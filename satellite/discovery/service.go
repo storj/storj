@@ -38,7 +38,7 @@ type Config struct {
 // Discovery struct loads on cache, kad
 type Discovery struct {
 	log    *zap.Logger
-	cache  *overlay.Cache
+	cache  *overlay.Service
 	certdb certdb.DB
 	kad    *kademlia.Kademlia
 
@@ -50,7 +50,7 @@ type Discovery struct {
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Cache, cert certdb.DB, kad *kademlia.Kademlia, config Config) *Discovery {
+func New(logger *zap.Logger, ol *overlay.Service, cert certdb.DB, kad *kademlia.Kademlia, config Config) *Discovery {
 	discovery := &Discovery{
 		log:    logger,
 		cache:  ol,

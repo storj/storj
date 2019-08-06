@@ -72,7 +72,7 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 			}
 			time.Sleep(5)
 			{ // add another key for the same storagenode ID, this the latest key
-				// as this is written later than the pervious one by few seconds
+				// as this is written later than the previous one by few seconds
 				err := upldb.SavePublicKey(ctx, sn2PI.ID, sn2PI)
 				assert.NoError(t, err)
 			}
