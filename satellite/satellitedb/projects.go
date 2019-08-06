@@ -136,10 +136,14 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, err
 	}
 
-	ownerID, err := bytesToUUID(project.OwnerId)
-	if err != nil {
-		return nil, err
+	var ownerID uuid.UUID
+	if project.OwnerId != nil {
+		ownerID, err = bytesToUUID(project.OwnerId)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 
 	return &console.Project{
 		ID:          id,
