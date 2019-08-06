@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
