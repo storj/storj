@@ -99,7 +99,7 @@ void handle_project(ProjectRef project) {
             require((time(NULL) - object_meta.modified) <= 2);
             require(object_meta.checksum_bytes != NULL);
             // TODO: checksum is an empty slice in go; is that expected?
-//            require(object_meta.checksum_length != 0);
+            // require(object_meta.checksum_length != 0);
 
             free_object_meta(&object_meta);
             close_object(object_ref, err);
@@ -152,7 +152,13 @@ void handle_project(ProjectRef project) {
         ObjectInfo *object;
         for (int i=0; i < objects_list.length; i++) {
             object = &objects_list.items[i];
-            require(true == array_contains(object->path, object_paths, num_of_objects));
+            const char *objNumStr = strtok(object->path, "test-object");
+            int objNum = atoi(objNumStr);
+            // NB: 5KB, 50KB, 500KB, 5000KB
+            size_t expected_size = pow(10, (double)objNum-1) * 1024 * 5;
+            require(expected_size == object->size);
+
+            require(array_contains(object->path, object_paths, num_of_objects));
         }
 
         free_list_objects(&objects_list);
