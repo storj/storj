@@ -1098,6 +1098,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 									WHERE project_id = proj.id
 										ORDER BY created_at ASC
 											LIMIT 1);`,
+
+					`DELETE FROM bucket_metainfos
+						WHERE project_id in (
+							SELECT id FROM projects WHERE owner_id is null);`,
+
+					`DELETE FROM projects
+						WHERE owner_id is null;`,
 				},
 			},
 		},
