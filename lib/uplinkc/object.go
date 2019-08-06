@@ -351,10 +351,13 @@ func delete_object(bucketRef C.BucketRef, path *C.char, cerr **C.char) {
 		return
 	}
 
-	if err := bucket.DeleteObject(bucket.ctx, C.GoString(path)); err != nil {
+	scope := bucket.scope.child()
+
+	if err := bucket.DeleteObject(scope.ctx, C.GoString(path)); err != nil {
 		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
+	
 }
 
 //export free_uploader
