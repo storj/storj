@@ -146,20 +146,23 @@ This process including the Storage nodes transferring their pieces to other node
 - Add `gexit` DB implementation with `exit_order`  and `exit_order` tables
   - ```
 	model exit_order (
-		key satellite_id xxxx
+		key satellite_id serial_number
 
-		field satellite_id           blob
-		field completed	             timestamp ( updateable )
-		// TODO
+		field satellite_id            blob not null
+		field serial_number           blob not null
+		field order_limit_serialized  blob not null
+		field order_serialized        blob not null
+		order_limit_expiration        timestamp not null
+		field completed	              timestamp ( updateable )
 	)
 
 	model exit_status (
-		key satellite_id xxxx
+		key satellite_id
 
-		field satellite_id           blob
-		field initiated              timestamp ( autoinsert )
+		field satellite_id           blob not null
+		field initiated              timestamp ( autoinsert ) not null
 		field completed	             timestamp ( updateable )
-		field starting_disk_usage    int64
+		field starting_disk_usage    int64 not null
 		field bytes_deleted          int64
 	)	
 	```
@@ -183,7 +186,7 @@ This process including the Storage nodes transferring their pieces to other node
 - Add GracefulExit service
   - Iterates over `exit_order` where `completed` is null
     - Pushes the pieces to the storage node identified in the order using `ecclient`
-    - Sends the signed new node response to the satellite via a new `Commit` method (uses `metainfo.UpdatePieces`).  TODO: new commit service
+    - Sends the signed new node response to the satellite via a new `Commit` method (uses `metainfo.UpdatePieces`).
     - Updates `bytes_deleted` with the number of bytes deleted and sets `completed` to current time
   - Execution intervals and batch sizes should be configurable
 
@@ -193,4 +196,3 @@ This process including the Storage nodes transferring their pieces to other node
 	- Option 1. Leave the transferred piece as garbage on the new node. The GC process will take care of it.
 	- Option 2. Once the exiting node sends the proof of transfer to the satellite, the satellite can check if the segment of this piece is still in the pointer db. If it was deleted, the satellite can send a delete request to the new node.
 - What happens if a piece is deleted when the piece is in the process of being transferred from the exiting node to other node in the network?
-  - ???? The exiting node should be read only.  Should the satellite remove deleted segments from the `exit_pieceinfo` table?
