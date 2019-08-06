@@ -35,9 +35,6 @@ var ErrBucketNotFound = errs.New("bucket not found")
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
-// OverlayError creates class of errors for stack traces
-var OverlayError = errs.Class("overlay error")
-
 // DB implements the database for overlay.Cache
 type DB interface {
 	// SelectStorageNodes looks up nodes based on criteria
@@ -227,7 +224,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			DistinctIP:     preferences.DistinctIP,
 		})
 		if err != nil {
-			return nil, OverlayError.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
@@ -253,7 +250,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
-		return nil, OverlayError.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	nodes = append(nodes, newNodes...)
@@ -311,7 +308,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	// Resolve IP Address Network to ensure it is set
 	value.LastIp, err = GetNetwork(ctx, value.Address.Address)
 	if err != nil {
-		return OverlayError.Wrap(err)
+		return Error.Wrap(err)
 	}
 	return cache.db.UpdateAddress(ctx, &value, cache.config.Node)
 }
