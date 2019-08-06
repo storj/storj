@@ -108,6 +108,30 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 	return errs.Combine(err, upload.Close())
 }
 
+/*  TODO:
+
+
+// delete_object_custom removes a object(s) from a given Storj (V3) bucket path
+//export delete_object_custom
+func delete_object_custom(bucketRef C.BucketRef, path *C.char, cerr **C.char) {
+	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
+	if !ok {
+		*cerr = C.CString("invalid bucket")
+		return
+	}
+
+	scope := bucket.scope.child()
+
+	if err := bucket.DeleteObject(scope.ctx, C.GoString(path)); err != nil {
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
+		return
+	}
+}
+
+
+*/
+
+
 // DeleteObject removes an object, if authorized.
 func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
