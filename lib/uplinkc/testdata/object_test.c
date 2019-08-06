@@ -30,6 +30,7 @@ void handle_project(ProjectRef project) {
     char *enc_ctx = serialize_encryption_access(encryption_access, err);
     require_noerror(*err);
 
+    char *canceled_object_path = "test-object-canceled";
     char *object_paths[] = {"test-object1","test-object2","test-object3","test-object4"};
     int num_of_objects = 4;
 
@@ -47,6 +48,65 @@ void handle_project(ProjectRef project) {
     BucketRef bucket = open_bucket(project, bucket_name, enc_ctx, err);
     require_noerror(*err);
 
+    UploadOptions opts = {
+        "text/plain",
+        future_expiration_timestamp,
+    };
+
+    { // upload cancel
+        // NB: 5KB
+        size_t data_len = 1024 * 5;
+        uint8_t *data = malloc(data_len);
+        fill_random_data(data, data_len);
+        UploaderRef uploader = upload(bucket, canceled_object_path, &opts, err);
+        require_noerror(*err);
+
+        size_t uploaded_total = 0;
+        for (int i = 0; i < 3; i++) {
+            size_t size_to_write = (data_len - uploaded_total > 256) ? 256 : data_len - uploaded_total;
+
+            if (size_to_write == 0) {
+                break;
+            }
+
+            size_t write_size = upload_write(uploader, (uint8_t *)data+uploaded_total, size_to_write, err);
+            require_noerror(*err);
+
+            if (write_size == 0) {
+                break;
+            }
+
+            uploaded_total += write_size;
+        }
+        require(uploaded_total > 0);
+
+        upload_cancel(uploader, err);
+        require_noerror(*err);
+
+        {
+            // canceled upload shouldn't be listed
+            ObjectList object_list = list_objects(bucket, NULL, err);
+            require(object_list.length == 0);
+
+            // canceling canceled upload isn't an error
+            upload_cancel(uploader, err);
+            require_noerror(*err);
+
+            // committing canceled upload isn't an error
+            upload_commit(uploader, err);
+            require_noerror(*err);
+
+            // writing canceled upload isn't an error
+            int write_size = upload_write(uploader, (uint8_t *)data, data_len, err);
+            require_noerror(*err);
+            require(write_size == 0);
+
+            // TODO: test with combined/nested context cancellation error
+        }
+
+        free_uploader(uploader);
+    }
+
     for(int i = 0; i < num_of_objects; i++) {
         // NB: 5KB, 50KB, 500KB, 5000KB
         size_t data_len = pow(10, (double)i) * 1024 * 5;
@@ -54,10 +114,6 @@ void handle_project(ProjectRef project) {
         fill_random_data(data, data_len);
 
         { // upload
-            UploadOptions opts = {
-                "text/plain",
-                future_expiration_timestamp,
-            };
 
             UploaderRef uploader = upload(bucket, object_paths[i], &opts, err);
             require_noerror(*err);
