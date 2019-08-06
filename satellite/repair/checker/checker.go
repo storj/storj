@@ -101,7 +101,7 @@ func (checker *Checker) Close() error {
 	return nil
 }
 
-// IdentifyInjuredSegments checks for missing pieces off of the metainfo and overlay service
+// IdentifyInjuredSegments checks for missing pieces off of the metainfo and overlay.
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

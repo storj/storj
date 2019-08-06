@@ -173,7 +173,7 @@ func (service *Service) PaginateQualified(ctx context.Context, offset int64, lim
 	return service.db.PaginateQualified(ctx, offset, limit)
 }
 
-// Get looks up the provided nodeID from the overlay service
+// Get looks up the provided nodeID from the overlay.
 func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if nodeID.IsZero() {
@@ -290,7 +290,7 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 	return service.db.Reliable(ctx, criteria)
 }
 
-// Put adds a node id and proto definition into the overlay service
+// Put adds a node id and proto definition into the overlay.
 func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

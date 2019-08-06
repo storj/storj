@@ -29,7 +29,7 @@ Further, the node will be demonetized.
 
 > Provided the storage node hasn't been disqualified, the storage node will be paid by the Satellite for the data it has stored over the course of the month, per the Satellite’s records.
 
-A disqualified SNO should quickly stop participating with a satellite it is disqualified and demonetized on.  However, it may remain in Kademlia as the kademlia network supports multiple satellites.  It will also be found in Node DB / overlay service, as nodes are not currently ever removed from that database.  Filtering of Node DB records will be required for most operations.
+A disqualified SNO should quickly stop participating with a satellite it is disqualified and demonetized on.  However, it may remain in Kademlia as the kademlia network supports multiple satellites.  It will also be found in Node DB / overlay, as nodes are not currently ever removed from that database.  Filtering of Node DB records will be required for most operations.
 
 One option that currently will NOT be allowed for disqualified storage nodes is a Graceful Exit.  "Storage Node Payment and Incentives for V3" describes this feature:
 
@@ -39,7 +39,7 @@ One option that currently will NOT be allowed for disqualified storage nodes is 
 
 ### Use of Disqualified Nodes
 
-Disqualified nodes may be used during download of typical downloads from uplinks or via repair.  Therefore, their IP must be tracked in the overlay service.
+Disqualified nodes may be used during download of typical downloads from uplinks or via repair.  Therefore, their IP must be tracked in the overlay.
 
 Disqualified nodes may not be used for upload, therefore they should not be returned from node selection processes of any sort.  There is no reason to update the statistics of disqualified nodes.
 
@@ -70,7 +70,7 @@ A node is disqualified when its reputation falls below a fixed value.  We are cu
 
 ## Rationale
 
-Although disqualification is largely an atomic operation that would be handled well by an external hash, the inherent tie-ins with node selection make the above solution the most straightforward.  If we were to refactor node selection in the future, we would likely leave disqualified nodes out of the stats database, leaving them only in the overlay service.
+Although disqualification is largely an atomic operation that would be handled well by an external hash, the inherent tie-ins with node selection make the above solution the most straightforward.  If we were to refactor node selection in the future, we would likely leave disqualified nodes out of the stats database, leaving them only in the overlay.
 
 ## Implementation (Stories)
 
