@@ -110,23 +110,24 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 	workerStartTime := time.Now().UTC()
 
 	service.log.Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
-	err = service.repairer.Repair(ctx, string(seg.GetPath()))
-	if err != nil {
+	// note that shouldDelete is used even in the case where err is not null
+	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
+	if shouldDelete {
 		if IrreparableError.Has(err) {
-			service.log.Error(
-				"deleting irreparable segment from the queue:",
+			service.log.Error("deleting irreparable segment from the queue:",
 				zap.Error(service.queue.Delete(ctx, seg)),
 				zap.Binary("segment", seg.GetPath()),
 			)
+		} else {
+			service.log.Info("deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
 		}
-
-		return Error.New("repairing injured segment: %v", err)
+		delErr := service.queue.Delete(ctx, seg)
+		if delErr != nil {
+			err = errs.Combine(err, Error.New("deleting repaired segment from the queue: %v", delErr))
+		}
 	}
-
-	service.log.Info("Deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
-	err = service.queue.Delete(ctx, seg)
 	if err != nil {
-		return Error.New("deleting repaired segment from the queue: %v", err)
+		return Error.New("repairing injured segment: %v", err)
 	}
 
 	repairedTime := time.Now().UTC()
