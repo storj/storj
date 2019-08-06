@@ -154,6 +154,7 @@ void handle_project(ProjectRef project) {
             object = &objects_list.items[i];
             const char *objNumStr = strtok(object->path, "test-object");
             int objNum = atoi(objNumStr);
+            // NB: 5KB, 50KB, 500KB, 5000KB
             size_t expected_size = pow(10, (double)objNum-1) * 1024 * 5;
             require(expected_size == object->size);
 
