@@ -11,20 +11,20 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-// Inspector is a gRPC service for inspecting overlay cache internals
+// Inspector is a gRPC service for inspecting overlay service internals
 type Inspector struct {
-	cache *Service
+	service *Service
 }
 
 // NewInspector creates an Inspector
-func NewInspector(cache *Service) *Inspector {
-	return &Inspector{cache: cache}
+func NewInspector(service *Service) *Inspector {
+	return &Inspector{service: service}
 }
 
-// CountNodes returns the number of nodes in the cache
+// CountNodes returns the number of nodes in the service
 func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (_ *pb.CountNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	overlayKeys, err := srv.cache.Inspect(ctx)
+	overlayKeys, err := srv.service.Inspect(ctx)
 	if err != nil {
 		return nil, err
 	}
