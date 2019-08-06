@@ -1384,22 +1384,22 @@ func TestBatch(t *testing.T) {
 		defer ctx.Check(metainfoClient.Close)
 
 		{ // create few buckets and list them in one batch
-			batch := metainfoClient.NewBatch()
+			requests := make([]metainfo.BatchItem, 0)
 			numOfBuckets := 5
 			for i := 0; i < numOfBuckets; i++ {
-				batch.AddCreateBucket(metainfo.CreateBucketParams{
+				requests = append(requests, &metainfo.CreateBucketParams{
 					Name:                []byte("test-bucket-" + strconv.Itoa(i)),
 					PathCipher:          storj.EncAESGCM,
 					DefaultSegmentsSize: memory.MiB.Int64(),
 				})
 			}
-			batch.AddListBuckets(metainfo.ListBucketsParams{
+			requests = append(requests, &metainfo.ListBucketsParams{
 				ListOpts: storj.BucketListOptions{
 					Cursor:    "",
 					Direction: storj.After,
 				},
 			})
-			responses, err := batch.Send(ctx)
+			responses, err := metainfoClient.Batch(ctx, requests...)
 			require.NoError(t, err)
 			require.Equal(t, numOfBuckets+1, len(responses))
 
@@ -1427,12 +1427,13 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			batch := metainfoClient.NewBatch()
+			requests := make([]metainfo.BatchItem, 0)
 			numOfSegments := 10
 			expectedData := make([][]byte, numOfSegments)
 			for i := 0; i < numOfSegments; i++ {
 				expectedData[i] = testrand.Bytes(memory.KiB)
-				batch.AddMakeInlineSegment(metainfo.MakeInlineSegmentParams{
+
+				requests = append(requests, &metainfo.MakeInlineSegmentParams{
 					StreamID: streamID,
 					Position: storj.SegmentPosition{
 						Index: int32(i),
@@ -1441,20 +1442,20 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			batch.AddCommitObject(metainfo.CommitObjectParams{
+			requests = append(requests, &metainfo.CommitObjectParams{
 				StreamID: streamID,
 			})
 
-			batch.AddListSegments(metainfo.ListSegmentsParams{
+			requests = append(requests, &metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 
-			batch.AddGetObject(metainfo.GetObjectParams{
+			requests = append(requests, &metainfo.GetObjectParams{
 				Bucket:        []byte("second-test-bucket"),
 				EncryptedPath: []byte("encrypted-path"),
 			})
 
-			responses, err := batch.Send(ctx)
+			responses, err := metainfoClient.Batch(ctx, requests...)
 			require.NoError(t, err)
 			require.Equal(t, numOfSegments+3, len(responses))
 
@@ -1465,14 +1466,14 @@ func TestBatch(t *testing.T) {
 			getResponse, err := responses[numOfSegments+2].GetObject()
 			require.NoError(t, err)
 
-			batch = metainfoClient.NewBatch()
+			requests = make([]metainfo.BatchItem, 0)
 			for _, segment := range listResponse.Items {
-				batch.AddDownloadSegment(metainfo.DownloadSegmentParams{
+				requests = append(requests, &metainfo.DownloadSegmentParams{
 					StreamID: getResponse.Info.StreamID,
 					Position: segment.Position,
 				})
 			}
-			responses, err = batch.Send(ctx)
+			responses, err = metainfoClient.Batch(ctx, requests...)
 			require.NoError(t, err)
 			require.Equal(t, len(listResponse.Items), len(responses))
 

@@ -4,8 +4,6 @@
 package metainfo
 
 import (
-	"context"
-
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
@@ -16,202 +14,19 @@ var (
 	ErrInvalidType = errs.New("invalid response type")
 )
 
-// Batch represents sending requests in batch
-type Batch struct {
-	client   pb.MetainfoClient
-	requests []*pb.BatchRequestItem
+// BatchItem represents single request in batch
+type BatchItem interface {
+	BatchItem() *pb.BatchRequestItem
 }
 
-// AddCreateBucket adds request to batch
-func (batch *Batch) AddCreateBucket(params CreateBucketParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_BucketCreate{
-			BucketCreate: params.toRequest(),
-		},
-	})
-}
-
-// AddGetBucket adds request to batch
-func (batch *Batch) AddGetBucket(params GetBucketParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_BucketGet{
-			BucketGet: params.toRequest(),
-		},
-	})
-}
-
-// AddDeleteBucket adds request to batch
-func (batch *Batch) AddDeleteBucket(params DeleteBucketParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_BucketDelete{
-			BucketDelete: params.toRequest(),
-		},
-	})
-}
-
-// AddListBuckets adds request to batch
-func (batch *Batch) AddListBuckets(params ListBucketsParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_BucketList{
-			BucketList: params.toRequest(),
-		},
-	})
-}
-
-// AddSetBucketAttribution adds request to batch
-func (batch *Batch) AddSetBucketAttribution(params SetBucketAttributionParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_BucketSetAttribution{
-			BucketSetAttribution: params.toRequest(),
-		},
-	})
-}
-
-// AddBeginObject adds request to batch
-func (batch *Batch) AddBeginObject(params BeginObjectParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_ObjectBegin{
-			ObjectBegin: params.toRequest(),
-		},
-	})
-}
-
-// AddCommitObject adds request to batch
-func (batch *Batch) AddCommitObject(params CommitObjectParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_ObjectCommit{
-			ObjectCommit: params.toRequest(),
-		},
-	})
-}
-
-// AddGetObject adds request to batch
-func (batch *Batch) AddGetObject(params GetObjectParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_ObjectGet{
-			ObjectGet: params.toRequest(),
-		},
-	})
-}
-
-// AddListObjects adds request to batch
-func (batch *Batch) AddListObjects(params ListObjectsParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_ObjectList{
-			ObjectList: params.toRequest(),
-		},
-	})
-}
-
-// AddBeginDeleteObject adds request to batch
-func (batch *Batch) AddBeginDeleteObject(params BeginDeleteObjectParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_ObjectBeginDelete{
-			ObjectBeginDelete: params.toRequest(),
-		},
-	})
-}
-
-// AddFinishDeleteObject adds request to batch
-func (batch *Batch) AddFinishDeleteObject(params FinishDeleteObjectParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_ObjectFinishDelete{
-			ObjectFinishDelete: params.toRequest(),
-		},
-	})
-}
-
-// AddBeginSegment adds request to batch
-func (batch *Batch) AddBeginSegment(params BeginSegmentParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_SegmentBegin{
-			SegmentBegin: params.toRequest(),
-		},
-	})
-}
-
-// AddCommitSegment adds request to batch
-func (batch *Batch) AddCommitSegment(params CommitSegmentParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_SegmentCommit{
-			SegmentCommit: params.toRequest(),
-		},
-	})
-}
-
-// AddListSegments adds request to batch
-func (batch *Batch) AddListSegments(params ListSegmentsParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_SegmentList{
-			SegmentList: params.toRequest(),
-		},
-	})
-}
-
-// AddMakeInlineSegment adds request to batch
-func (batch *Batch) AddMakeInlineSegment(params MakeInlineSegmentParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_SegmentMakeInline{
-			SegmentMakeInline: params.toRequest(),
-		},
-	})
-}
-
-// AddDownloadSegment adds request to batch
-func (batch *Batch) AddDownloadSegment(params DownloadSegmentParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_SegmentDownload{
-			SegmentDownload: params.toRequest(),
-		},
-	})
-}
-
-// AddBeginDeleteSegment adds request to batch
-func (batch *Batch) AddBeginDeleteSegment(params BeginDeleteSegmentParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_SegmentBeginDelete{
-			SegmentBeginDelete: params.toRequest(),
-		},
-	})
-}
-
-// AddFinishDeleteSegment adds request to batch
-func (batch *Batch) AddFinishDeleteSegment(params FinishDeleteSegmentParams) {
-	batch.requests = append(batch.requests, &pb.BatchRequestItem{
-		Request: &pb.BatchRequestItem_SegmentFinishDelete{
-			SegmentFinishDelete: params.toRequest(),
-		},
-	})
-}
-
-// Send sends batch request
-func (batch *Batch) Send(ctx context.Context) (responses []Response, err error) {
-	response, err := batch.client.Batch(ctx, &pb.BatchRequest{
-		Requests: batch.requests,
-	})
-	if err != nil {
-		return []Response{}, err
-	}
-
-	responses = make([]Response, len(response.Responses))
-	for i, response := range response.Responses {
-		responses[i] = Response{
-			pbRequest:  batch.requests[i].Request,
-			pbResponse: response.Response,
-		}
-	}
-
-	return responses, nil
-}
-
-// Response single response from batch call
-type Response struct {
+// BatchResponse single response from batch call
+type BatchResponse struct {
 	pbRequest  interface{}
 	pbResponse interface{}
 }
 
-// CreateBucket returns response for CreateBucket request
-func (resp *Response) CreateBucket() (CreateBucketResponse, error) {
+// CreateBucket returns BatchResponse for CreateBucket request
+func (resp *BatchResponse) CreateBucket() (CreateBucketResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_BucketCreate)
 	if !ok {
 		return CreateBucketResponse{}, ErrInvalidType
@@ -225,7 +40,7 @@ func (resp *Response) CreateBucket() (CreateBucketResponse, error) {
 }
 
 // GetBucket returns response for GetBucket request
-func (resp *Response) GetBucket() (GetBucketResponse, error) {
+func (resp *BatchResponse) GetBucket() (GetBucketResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_BucketGet)
 	if !ok {
 		return GetBucketResponse{}, ErrInvalidType
@@ -238,7 +53,7 @@ func (resp *Response) GetBucket() (GetBucketResponse, error) {
 }
 
 // ListBuckets returns response for ListBuckets request
-func (resp *Response) ListBuckets() (ListBucketsResponse, error) {
+func (resp *BatchResponse) ListBuckets() (ListBucketsResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_BucketList)
 	if !ok {
 		return ListBucketsResponse{}, ErrInvalidType
@@ -247,7 +62,7 @@ func (resp *Response) ListBuckets() (ListBucketsResponse, error) {
 }
 
 // BeginObject returns response for BeginObject request
-func (resp *Response) BeginObject() (BeginObjectResponse, error) {
+func (resp *BatchResponse) BeginObject() (BeginObjectResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_ObjectBegin)
 	if !ok {
 		return BeginObjectResponse{}, ErrInvalidType
@@ -256,7 +71,7 @@ func (resp *Response) BeginObject() (BeginObjectResponse, error) {
 }
 
 // BeginDeleteObject returns response for BeginDeleteObject request
-func (resp *Response) BeginDeleteObject() (BeginDeleteObjectResponse, error) {
+func (resp *BatchResponse) BeginDeleteObject() (BeginDeleteObjectResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_ObjectBeginDelete)
 	if !ok {
 		return BeginDeleteObjectResponse{}, ErrInvalidType
@@ -265,7 +80,7 @@ func (resp *Response) BeginDeleteObject() (BeginDeleteObjectResponse, error) {
 }
 
 // GetObject returns response for GetObject request
-func (resp *Response) GetObject() (GetObjectResponse, error) {
+func (resp *BatchResponse) GetObject() (GetObjectResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_ObjectGet)
 	if !ok {
 		return GetObjectResponse{}, ErrInvalidType
@@ -274,7 +89,7 @@ func (resp *Response) GetObject() (GetObjectResponse, error) {
 }
 
 // ListObjects returns response for ListObjects request
-func (resp *Response) ListObjects() (ListObjectsResponse, error) {
+func (resp *BatchResponse) ListObjects() (ListObjectsResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_ObjectList)
 	if !ok {
 		return ListObjectsResponse{}, ErrInvalidType
@@ -289,7 +104,7 @@ func (resp *Response) ListObjects() (ListObjectsResponse, error) {
 }
 
 // BeginSegment returns response for BeginSegment request
-func (resp *Response) BeginSegment() (BeginSegmentResponse, error) {
+func (resp *BatchResponse) BeginSegment() (BeginSegmentResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_SegmentBegin)
 	if !ok {
 		return BeginSegmentResponse{}, ErrInvalidType
@@ -299,7 +114,7 @@ func (resp *Response) BeginSegment() (BeginSegmentResponse, error) {
 }
 
 // BeginDeleteSegment returns response for BeginDeleteSegment request
-func (resp *Response) BeginDeleteSegment() (BeginDeleteSegmentResponse, error) {
+func (resp *BatchResponse) BeginDeleteSegment() (BeginDeleteSegmentResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_SegmentBeginDelete)
 	if !ok {
 		return BeginDeleteSegmentResponse{}, ErrInvalidType
@@ -309,7 +124,7 @@ func (resp *Response) BeginDeleteSegment() (BeginDeleteSegmentResponse, error) {
 }
 
 // ListSegment returns response for ListSegment request
-func (resp *Response) ListSegment() (ListSegmentsResponse, error) {
+func (resp *BatchResponse) ListSegment() (ListSegmentsResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_SegmentList)
 	if !ok {
 		return ListSegmentsResponse{}, ErrInvalidType
@@ -318,7 +133,7 @@ func (resp *Response) ListSegment() (ListSegmentsResponse, error) {
 }
 
 // DownloadSegment returns response for DownloadSegment request
-func (resp *Response) DownloadSegment() (DownloadSegmentResponse, error) {
+func (resp *BatchResponse) DownloadSegment() (DownloadSegmentResponse, error) {
 	item, ok := resp.pbResponse.(*pb.BatchResponseItem_SegmentDownload)
 	if !ok {
 		return DownloadSegmentResponse{}, ErrInvalidType

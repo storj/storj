@@ -269,6 +269,15 @@ func (params *CreateBucketParams) toRequest() *pb.BucketCreateRequest {
 	}
 }
 
+// BatchItem returns single item for batch request
+func (params *CreateBucketParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketCreate{
+			BucketCreate: params.toRequest(),
+		},
+	}
+}
+
 // TODO potential names *Response/*Out/*Result
 
 // CreateBucketResponse response for CreateBucket request
@@ -309,6 +318,15 @@ type GetBucketParams struct {
 
 func (params *GetBucketParams) toRequest() *pb.BucketGetRequest {
 	return &pb.BucketGetRequest{Name: params.Name}
+}
+
+// BatchItem returns single item for batch request
+func (params *GetBucketParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketGet{
+			BucketGet: params.toRequest(),
+		},
+	}
 }
 
 // GetBucketResponse response for GetBucket request
@@ -354,6 +372,15 @@ func (params *DeleteBucketParams) toRequest() *pb.BucketDeleteRequest {
 	return &pb.BucketDeleteRequest{Name: params.Name}
 }
 
+// BatchItem returns single item for batch request
+func (params *DeleteBucketParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketDelete{
+			BucketDelete: params.toRequest(),
+		},
+	}
+}
+
 // DeleteBucket deletes a bucket
 func (client *Client) DeleteBucket(ctx context.Context, params DeleteBucketParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -377,6 +404,15 @@ func (params *ListBucketsParams) toRequest() *pb.BucketListRequest {
 		Cursor:    []byte(params.ListOpts.Cursor),
 		Limit:     int32(params.ListOpts.Limit),
 		Direction: int32(params.ListOpts.Direction),
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *ListBucketsParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketList{
+			BucketList: params.toRequest(),
+		},
 	}
 }
 
@@ -464,6 +500,15 @@ func (params *SetBucketAttributionParams) toRequest() *pb.BucketSetAttributionRe
 	}
 }
 
+// BatchItem returns single item for batch request
+func (params *SetBucketAttributionParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketSetAttribution{
+			BucketSetAttribution: params.toRequest(),
+		},
+	}
+}
+
 // SetBucketAttribution tries to set the attribution information on the bucket.
 func (client *Client) SetBucketAttribution(ctx context.Context, params SetBucketAttributionParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -500,6 +545,15 @@ func (params *BeginObjectParams) toRequest() *pb.ObjectBeginRequest {
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(params.EncryptionParameters.CipherSuite),
 			BlockSize:   int64(params.EncryptionParameters.BlockSize),
+		},
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *BeginObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectBegin{
+			ObjectBegin: params.toRequest(),
 		},
 	}
 }
@@ -543,6 +597,15 @@ func (params *CommitObjectParams) toRequest() *pb.ObjectCommitRequest {
 	}
 }
 
+// BatchItem returns single item for batch request
+func (params *CommitObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectCommit{
+			ObjectCommit: params.toRequest(),
+		},
+	}
+}
+
 // CommitObject commits created object
 func (client *Client) CommitObject(ctx context.Context, params CommitObjectParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -564,6 +627,15 @@ func (params *GetObjectParams) toRequest() *pb.ObjectGetRequest {
 		Bucket:        params.Bucket,
 		EncryptedPath: params.EncryptedPath,
 		Version:       params.Version,
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *GetObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectGet{
+			ObjectGet: params.toRequest(),
+		},
 	}
 }
 
@@ -640,6 +712,15 @@ func (params *BeginDeleteObjectParams) toRequest() *pb.ObjectBeginDeleteRequest 
 	}
 }
 
+// BatchItem returns single item for batch request
+func (params *BeginDeleteObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectBeginDelete{
+			ObjectBeginDelete: params.toRequest(),
+		},
+	}
+}
+
 // BeginDeleteObjectResponse response for BeginDeleteObject request
 type BeginDeleteObjectResponse struct {
 	StreamID storj.StreamID
@@ -677,6 +758,15 @@ func (params *FinishDeleteObjectParams) toRequest() *pb.ObjectFinishDeleteReques
 	}
 }
 
+// BatchItem returns single item for batch request
+func (params *FinishDeleteObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectFinishDelete{
+			ObjectFinishDelete: params.toRequest(),
+		},
+	}
+}
+
 // FinishDeleteObject finishes object deletion process
 func (client *Client) FinishDeleteObject(ctx context.Context, params FinishDeleteObjectParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -706,6 +796,15 @@ func (params *ListObjectsParams) toRequest() *pb.ObjectListRequest {
 			Metadata: params.IncludeMetadata,
 		},
 		Recursive: params.Recursive,
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *ListObjectsParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectList{
+			ObjectList: params.toRequest(),
+		},
 	}
 }
 
@@ -775,6 +874,15 @@ func (params *BeginSegmentParams) toRequest() *pb.SegmentBeginRequest {
 	}
 }
 
+// BatchItem returns single item for batch request
+func (params *BeginSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentBegin{
+			SegmentBegin: params.toRequest(),
+		},
+	}
+}
+
 // BeginSegmentResponse response for BeginSegment request
 type BeginSegmentResponse struct {
 	SegmentID       storj.SegmentID
@@ -822,6 +930,15 @@ func (params *CommitSegmentParams) toRequest() *pb.SegmentCommitRequest {
 	}
 }
 
+// BatchItem returns single item for batch request
+func (params *CommitSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentCommit{
+			SegmentCommit: params.toRequest(),
+		},
+	}
+}
+
 // CommitSegmentNew commits segment after upload
 func (client *Client) CommitSegmentNew(ctx context.Context, params CommitSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -852,6 +969,15 @@ func (params *MakeInlineSegmentParams) toRequest() *pb.SegmentMakeInlineRequest 
 	}
 }
 
+// BatchItem returns single item for batch request
+func (params *MakeInlineSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentMakeInline{
+			SegmentMakeInline: params.toRequest(),
+		},
+	}
+}
+
 // MakeInlineSegment commits segment after upload
 func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -873,6 +999,15 @@ func (params *BeginDeleteSegmentParams) toRequest() *pb.SegmentBeginDeleteReques
 		Position: &pb.SegmentPosition{
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
+		},
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *BeginDeleteSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentBeginDelete{
+			SegmentBeginDelete: params.toRequest(),
 		},
 	}
 }
@@ -918,6 +1053,15 @@ func (params *FinishDeleteSegmentParams) toRequest() *pb.SegmentFinishDeleteRequ
 	}
 }
 
+// BatchItem returns single item for batch request
+func (params *FinishDeleteSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentFinishDelete{
+			SegmentFinishDelete: params.toRequest(),
+		},
+	}
+}
+
 // FinishDeleteSegment finishes segment upload process
 func (client *Client) FinishDeleteSegment(ctx context.Context, params FinishDeleteSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -939,6 +1083,15 @@ func (params *DownloadSegmentParams) toRequest() *pb.SegmentDownloadRequest {
 		CursorPosition: &pb.SegmentPosition{
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
+		},
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *DownloadSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentDownload{
+			SegmentDownload: params.toRequest(),
 		},
 	}
 }
@@ -1005,6 +1158,26 @@ type ListSegmentsResponse struct {
 	More  bool
 }
 
+func (params *ListSegmentsParams) toRequest() *pb.SegmentListRequest {
+	return &pb.SegmentListRequest{
+		StreamId: params.StreamID,
+		CursorPosition: &pb.SegmentPosition{
+			PartNumber: params.CursorPosition.PartNumber,
+			Index:      params.CursorPosition.Index,
+		},
+		Limit: params.Limit,
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *ListSegmentsParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentList{
+			SegmentList: params.toRequest(),
+		},
+	}
+}
+
 func newListSegmentsResponse(response *pb.SegmentListResponse) ListSegmentsResponse {
 	items := make([]storj.SegmentListItem, len(response.Items))
 	for i, responseItem := range response.Items {
@@ -1021,17 +1194,6 @@ func newListSegmentsResponse(response *pb.SegmentListResponse) ListSegmentsRespo
 	}
 }
 
-func (params *ListSegmentsParams) toRequest() *pb.SegmentListRequest {
-	return &pb.SegmentListRequest{
-		StreamId: params.StreamID,
-		CursorPosition: &pb.SegmentPosition{
-			PartNumber: params.CursorPosition.PartNumber,
-			Index:      params.CursorPosition.Index,
-		},
-		Limit: params.Limit,
-	}
-}
-
 // ListSegmentsNew lists object segments
 func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1045,10 +1207,28 @@ func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsPa
 	return listResponse.Items, listResponse.More, Error.Wrap(err)
 }
 
-// NewBatch creates new batch
-func (client *Client) NewBatch() *Batch {
-	return &Batch{
-		client:   client.client,
-		requests: make([]*pb.BatchRequestItem, 0),
+// Batch sends multiple requests in one batch
+func (client *Client) Batch(ctx context.Context, requests ...BatchItem) (resp []BatchResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	batchItems := make([]*pb.BatchRequestItem, len(requests))
+	for i, request := range requests {
+		batchItems[i] = request.BatchItem()
 	}
+	response, err := client.client.Batch(ctx, &pb.BatchRequest{
+		Requests: batchItems,
+	})
+	if err != nil {
+		return []BatchResponse{}, err
+	}
+
+	resp = make([]BatchResponse, len(response.Responses))
+	for i, response := range response.Responses {
+		resp[i] = BatchResponse{
+			pbRequest:  batchItems[i].Request,
+			pbResponse: response.Response,
+		}
+	}
+
+	return resp, nil
 }
