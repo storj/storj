@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -ueo pipefail
 
+: "${STORJ_NETWORK_DIR?Environment variable STORJ_NETWORK_DIR needs to be set}"
+
 BUCKET=bucket-123
-TEST_FILES_DIR=testfiles
-BRANCH_DST_DIR=branch
-RELEASE_DST_DIR=release
-# BRANCH_DST_DIR=${BRANCH_DIR:-$TMPDIR/branch}
-# RELEASE_DST_DIR=${RELEASE_DIR:-$TMPDIR/release}
+TEST_FILES_DIR="$STORJ_NETWORK_DIR/testfiles"
+BRANCH_DST_DIR=${BRANCH_DIR:-$STORJ_NETWORK_DIR/branch}
+RELEASE_DST_DIR=${RELEASE_DIR:-$STORJ_NETWORK_DIR/release}
 
 setup(){
     mkdir -p "$TEST_FILES_DIR" "$BRANCH_DST_DIR" "$RELEASE_DST_DIR"
@@ -21,9 +21,7 @@ setup(){
 }
 
 cleanup(){
-    rm -rf "$BRANCH_DST_DIR"
-    rm -rf "$RELEASE_DST_DIR"
-    rm -rf "$TEST_FILES_DIR"
+    rm -rf "$STORJ_NETWORK_DIR"
     echo "cleaned up test successfully"
 }
 

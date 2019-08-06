@@ -124,16 +124,10 @@ test-all-in-one: ## Test docker images locally
 	&& $(MAKE) satellite-image storagenode-image gateway-image \
 	&& ./scripts/test-aio.sh
 
-.PHONY: setup-backwards
-setup-backwards: ## Setup the backwards compatibility tests
-	@echo "Running ${@}"
-	@cd scripts; ./setup-release.sh
-
 .PHONY: test-sim-backwards-compatible
-test-sim-backwards-compatible: ## Test uploading a file with last release (jenkins)
+test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim-backwards.sh
-
 
 ##@ Build
 
