@@ -186,7 +186,6 @@ void handle_project(ProjectRef project) {
             require(memcmp(data, downloaded_data, data_len) == 0);
 
             free(downloaded_data);
-
             free_downloader(downloader);
         }
 
@@ -195,6 +194,53 @@ void handle_project(ProjectRef project) {
         }
 
         require_noerror(*err);
+    }
+
+    { // download cancellation
+        // NB: 5KB
+        size_t data_len = 1024 * 5;
+        DownloaderRef downloader = download(bucket, object_paths[0], err);
+        require_noerror(*err);
+
+        uint8_t *downloaded_data = malloc(data_len);
+        memset(downloaded_data, '\0', data_len);
+        size_t downloaded_total = 0;
+
+        size_t size_to_read = 256;
+        for (int i = 0; i < 3; i++) {
+            size_t read_size = download_read(downloader, &downloaded_data[downloaded_total], size_to_read, err);
+            require_noerror(*err);
+
+            if (read_size == 0) {
+                break;
+            }
+
+            downloaded_total += read_size;
+        }
+        require(downloaded_total > 0);
+
+        download_cancel(downloader, err);
+        require_noerror(*err);
+
+        {
+            // canceling canceled download isn't an error
+            download_cancel(downloader, err);
+            require_noerror(*err);
+
+            // closing canceled download isn't an error
+            download_close(downloader, err);
+            require_noerror(*err);
+
+            // writing canceled download isn't an error
+            int read_size = download_read(downloader, (uint8_t *)downloaded_data, data_len, err);
+            require_noerror(*err);
+            require(read_size == 0);
+
+            // TODO: test with combined/nested context cancellation error
+        }
+
+        free(downloaded_data);
+        free_downloader(downloader);
     }
 
     { // List objects
