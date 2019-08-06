@@ -37,7 +37,7 @@ type Config struct {
 type Service struct {
 	log                *zap.Logger
 	routingTable       *kademlia.RoutingTable
-	store              *pieces.Store
+	store              *pieces.StoreWithCache
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
@@ -48,7 +48,7 @@ type Service struct {
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.StoreWithCache, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
 	return &Service{
 		log:                log,
 		routingTable:       routingTable,
@@ -190,5 +190,5 @@ func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err er
 // live used space totals
 func (service *Service) RecalculateSpaceUsedLive(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.store.RecalculateSpaceUsedLive(ctx)
+	return service.store.RecalculateSpaceUsedCache(ctx)
 }

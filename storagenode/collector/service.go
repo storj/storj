@@ -26,14 +26,14 @@ type Config struct {
 // Service implements collecting expired pieces on the storage node.
 type Service struct {
 	log         *zap.Logger
-	pieces      *pieces.Store
+	pieces      *pieces.StoreWithCache
 	usedSerials piecestore.UsedSerials
 
 	Loop sync2.Cycle
 }
 
 // NewService creates a new collector service.
-func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials piecestore.UsedSerials, config Config) *Service {
+func NewService(log *zap.Logger, pieces *pieces.StoreWithCache, usedSerials piecestore.UsedSerials, config Config) *Service {
 	return &Service{
 		log:         log,
 		pieces:      pieces,

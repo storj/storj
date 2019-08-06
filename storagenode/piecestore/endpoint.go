@@ -118,7 +118,7 @@ type Endpoint struct {
 	trust   *trust.Pool
 	monitor *monitor.Service
 
-	store       *pieces.Store
+	store       *pieces.StoreWithCache
 	orders      orders.DB
 	usage       bandwidth.DB
 	usedSerials UsedSerials
@@ -127,7 +127,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.StoreWithCache, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -230,7 +230,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		}
 		uploadDuration := dt.Nanoseconds()
 
-		endpoint.store.UpdateSpaceUsedLiveTotals(ctx, limit.SatelliteId, uploadSize)
+		endpoint.store.UpdateCache(ctx, limit.SatelliteId, uploadSize)
 
 		if err != nil {
 			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)

@@ -161,6 +161,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
+	err = peer.Storage2.Store.InitCache()
+	if err != nil {
+		return errs.New("Error getting initial values for space used on storagenode: %+v", err)
+	}
+
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 
