@@ -100,8 +100,6 @@ void handle_project(ProjectRef project) {
             int write_size = upload_write(uploader, (uint8_t *)data, data_len, err);
             require_noerror(*err);
             require(write_size == 0);
-
-            // TODO: test with combined/nested context cancellation error
         }
 
         free_uploader(uploader);
@@ -235,8 +233,6 @@ void handle_project(ProjectRef project) {
             int read_size = download_read(downloader, (uint8_t *)downloaded_data, data_len, err);
             require_noerror(*err);
             require(read_size == 0);
-
-            // TODO: test with combined/nested context cancellation error
         }
 
         free(downloaded_data);
