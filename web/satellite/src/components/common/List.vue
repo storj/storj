@@ -19,7 +19,7 @@
     @Component({
         components: {},
     })
-    export default class ListComponent<T> extends Vue {
+    export default class List<T> extends Vue {
         @Prop({default: ''})
         private readonly itemComponent: string;
         @Prop({
@@ -28,7 +28,7 @@
             }
         })
         private readonly onItemClick: ListItemClickCallback<T>;
-        @Prop({default: []})
+        @Prop({default: Array<T>()})
         private readonly dataSet: T[];
 
     }
