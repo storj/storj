@@ -30,15 +30,16 @@ const (
 )
 
 const (
-	// MaxFormatVersionSupported is the highest supported storage format version. If stored blobs
-	// claim a higher storage format version than this, or a caller requests _writing_ a storage
-	// format version which is not this, this software will not know how to perform the read or
-	// write and an error will be returned.
+	// MaxFormatVersionSupported is the highest supported storage format version for reading, and
+	// the only supported storage format version for writing. If stored blobs claim a higher
+	// storage format version than this, or a caller requests _writing_ a storage format version
+	// which is not this, this software will not know how to perform the read or write and an error
+	// will be returned.
 	MaxFormatVersionSupported = FormatV1
 
-	// MinFormatVersionSupported is the lowest supported storage format version. If stored blobs
-	// claim a lower storage format version than this, this software will not know how to perform
-	// the read and an error will be returned.
+	// MinFormatVersionSupported is the lowest supported storage format version for reading. If
+	// stored blobs claim a lower storage format version than this, this software will not know how
+	// to perform the read and an error will be returned.
 	MinFormatVersionSupported = FormatV0
 )
 
