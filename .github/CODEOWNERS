@@ -1,5 +1,5 @@
 # In general, PRs will be assigned random reviewers from the core team
-* @storj/core-pullassigner
+* @storj/reviewers-pullassigner
 
 # Design docs will get a random architecture owner
 /docs/design/ @storj/arch-pullassigner
