@@ -347,7 +347,7 @@ func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
 }
 
 func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID, error) {
-	namespaces, err := store.blobs.GetAllNamespaces(ctx)
+	namespaces, err := store.blobs.ListNamespaces(ctx)
 	if err != nil {
 		return nil, err
 	}

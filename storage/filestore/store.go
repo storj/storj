@@ -117,7 +117,7 @@ func (store *Store) SpaceUsed(ctx context.Context) (space int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var totalSpaceUsed int64
-	namespaces, err := store.GetAllNamespaces(ctx)
+	namespaces, err := store.ListNamespaces(ctx)
 	if err != nil {
 		return 0, Error.New("failed to enumerate namespaces: %v", err)
 	}
@@ -159,10 +159,10 @@ func (store *Store) FreeSpace() (int64, error) {
 	return info.AvailableSpace, nil
 }
 
-// GetAllNamespaces finds all known namespace IDs in use in local storage. They are not
+// ListNamespaces finds all known namespace IDs in use in local storage. They are not
 // guaranteed to contain any blobs.
-func (store *Store) GetAllNamespaces(ctx context.Context) (ids [][]byte, err error) {
-	return store.dir.GetAllNamespaces(ctx)
+func (store *Store) ListNamespaces(ctx context.Context) (ids [][]byte, err error) {
+	return store.dir.ListNamespaces(ctx)
 }
 
 // ForAllKeysInNamespace executes doForEach for each locally stored blob in the given

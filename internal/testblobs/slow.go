@@ -106,9 +106,9 @@ func (slow *SlowBlobs) ForAllKeysInNamespace(ctx context.Context, namespace []by
 	return slow.blobs.ForAllKeysInNamespace(ctx, namespace, doForEach)
 }
 
-// GetAllNamespaces returns all namespaces that might be storing data.
-func (slow *SlowBlobs) GetAllNamespaces(ctx context.Context) ([][]byte, error) {
-	return slow.blobs.GetAllNamespaces(ctx)
+// ListNamespaces returns all namespaces that might be storing data.
+func (slow *SlowBlobs) ListNamespaces(ctx context.Context) ([][]byte, error) {
+	return slow.blobs.ListNamespaces(ctx)
 }
 
 // FreeSpace return how much free space left for writing.

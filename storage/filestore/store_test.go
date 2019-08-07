@@ -401,7 +401,7 @@ func TestStoreSpaceUsed(t *testing.T) {
 	}
 }
 
-// Check that GetAllNamespaces and ForAllKeysInNamespace work as expected.
+// Check that ListNamespaces and ForAllKeysInNamespace work as expected.
 func TestStoreTraversals(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -442,8 +442,8 @@ func TestStoreTraversals(t *testing.T) {
 		}
 	}
 
-	// test GetAllNamespaces
-	gotNamespaces, err := store.GetAllNamespaces(ctx)
+	// test ListNamespaces
+	gotNamespaces, err := store.ListNamespaces(ctx)
 	require.NoError(t, err)
 	sort.Slice(gotNamespaces, func(i, j int) bool {
 		return bytes.Compare(gotNamespaces[i], gotNamespaces[j]) < 0

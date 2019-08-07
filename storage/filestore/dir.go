@@ -350,9 +350,9 @@ func (dir *Dir) GarbageCollect(ctx context.Context) (err error) {
 
 const nameBatchSize = 1024
 
-// GetAllNamespaces finds all known namespace IDs in use in local storage. They are not
+// ListNamespaces finds all known namespace IDs in use in local storage. They are not
 // guaranteed to contain any blobs.
-func (dir *Dir) GetAllNamespaces(ctx context.Context) (ids [][]byte, err error) {
+func (dir *Dir) ListNamespaces(ctx context.Context) (ids [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	topBlobDir := dir.blobsdir()
 	openDir, err := os.Open(topBlobDir)

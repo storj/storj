@@ -86,8 +86,8 @@ type Blobs interface {
 	SpaceUsed(ctx context.Context) (int64, error)
 	// SpaceUsedInNamespace adds up how much is used in the given namespace
 	SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error)
-	// GetAllNamespaces finds all namespaces in which keys might currently be stored.
-	GetAllNamespaces(ctx context.Context) ([][]byte, error)
+	// ListNamespaces finds all namespaces in which keys might currently be stored.
+	ListNamespaces(ctx context.Context) ([][]byte, error)
 	// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with
 	// storage format V1 or greater, in the given namespace. If doForEach returns a non-nil
 	// error, ForAllKeysInNamespace will stop iterating and return the error immediately.
