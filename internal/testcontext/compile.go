@@ -54,7 +54,7 @@ func (ctx *Context) CompileShared(t *testing.T, name string, pkg string) Include
 	base := ctx.File("build", name)
 
 	// not using race detector for c-shared
-	cmd := exec.Command("go", "build", "-buildmode", "c-shared", "-o", base+".so", pkg)
+	cmd := exec.Command("go", "build", "-ldflags=\"-s -w\"", "-buildmode", "c-shared", "-o", base+".so", pkg)
 	t.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()
