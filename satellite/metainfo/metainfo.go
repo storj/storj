@@ -645,15 +645,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	// checks if bucket exists before updates it or makes a new entry
+	// checks if bucket exists before updates it with partner id if it exits or makes a new entry
+	partnerID := keyInfo.PartnerID
 	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err == nil {
-		var partnerID uuid.UUID
-		err = partnerID.UnmarshalJSON(req.GetPartnerId())
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, err.Error())
-		}
-
 		// partnerID not set
 		if partnerID.IsZero() {
 			return resp, status.Errorf(codes.AlreadyExists, "Bucket already exists")
@@ -678,6 +673,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
+
+		if !partnerID.IsZero() {
+			bucket.PartnerID = partnerID
 		}
 
 		bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
