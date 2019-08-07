@@ -231,7 +231,7 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	// reserved header area is supposed to make up the serialized header protobuf.
 	var headerBytes [V1PieceHeaderReservedArea]byte
 	framingBytes := headerBytes[:v1PieceHeaderFramingSize]
-	n, err := r.blob.Read(framingBytes)
+	n, err := io.ReadFull(r.blob, framingBytes)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -246,7 +246,7 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 
 	// Now we can read the actual serialized header.
 	pieceHeaderBytes := headerBytes[v1PieceHeaderFramingSize : v1PieceHeaderFramingSize+headerSize]
-	n, err = r.blob.Read(pieceHeaderBytes)
+	n, err = io.ReadFull(r.blob, pieceHeaderBytes)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
