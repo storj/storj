@@ -5,12 +5,8 @@ import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { RequestResponse } from '@/types/response';
 
-export async function fetchReferralInfo(): Promise<RequestResponse<any>> {
-    let result: RequestResponse<any> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+export async function fetchReferralInfo(): Promise<RequestResponse<ReferralInfo>> {
+    let result: RequestResponse<ReferralInfo> = new RequestResponse<ReferralInfo>();
 
     let response: any = await apollo.query(
         {
@@ -23,7 +19,9 @@ export async function fetchReferralInfo(): Promise<RequestResponse<any>> {
                         redeemableCap,
                         awardCreditDurationDays,
                         inviteeCreditDurationDays,
-                        expiresAt
+                        redeemableCap,
+                        expiresAt,
+                        status,
                     }
                 }`
             ),
@@ -36,7 +34,7 @@ export async function fetchReferralInfo(): Promise<RequestResponse<any>> {
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = response.data.reward;
+        result.data = response.data.activeReward;
     }
 
     return result;

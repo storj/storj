@@ -4,6 +4,7 @@
 import { BUCKET_USAGE_MUTATIONS, PROJECT_USAGE_MUTATIONS, CREDIT_USAGE_MUTATIONS } from '@/store/mutationConstants';
 import { BUCKET_USAGE_ACTIONS, PROJECT_USAGE_ACTIONS, CREDIT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 import { fetchBucketUsages, fetchProjectUsage, fetchCreditUsage } from '@/api/usage';
+import { fetchReferralInfo } from '@/api/referral';
 import { RequestResponse } from '@/types/response';
 
 export const usageModule = {
@@ -132,19 +133,42 @@ export const bucketUsageModule = {
 
 export const creditUsageModule = {
     state: {
-        creditUsage: { referred: 0, usedCredits: 0, availableCredits: 0 } as CreditUsage
+        creditUsage: { referred: 0, usedCredit: 0, availableCredit: 0 } as CreditUsage,
+        referralInfo: {
+            awardCreditDurationDays: 0,
+            awardCreditInCent: 0,
+            expiresAt: '',
+            inviteeCreditDurationDays: 0,
+            redeemableCap: 0,
+            status: null
+        } as ReferralInfo,
     },
     mutations: {
         [CREDIT_USAGE_MUTATIONS.FETCH](state: any, creditUsage: CreditUsage) {
-            state.creditUsage = creditUsage;
+            state.creditUsage.referred = creditUsage.referred ? creditUsage.referred : 0;
+            state.creditUsage.usedCredit = creditUsage.usedCredit ? creditUsage.usedCredit : 0;
+            state.creditUsage.availableCredit = creditUsage.availableCredit ? creditUsage.availableCredit : 0;
+        },
+        [CREDIT_USAGE_MUTATIONS.FETCH_REFERRAL_INFO](state: any, referralInfo: ReferralInfo) {
+            state.referralInfo = referralInfo;
+            state.referralInfo.awardCreditInCent = referralInfo.awardCreditInCent ? referralInfo.awardCreditInCent : 0;
         }
     },
     actions: {
-        [CREDIT_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters}: any): Promise<RequestResponse<CreditUsage>> {
+        [CREDIT_USAGE_ACTIONS.FETCH]: async function({commit}: any): Promise<RequestResponse<CreditUsage>> {
             let result = await fetchCreditUsage();
 
             if (result.isSuccess) {
                 commit(CREDIT_USAGE_MUTATIONS.FETCH, result.data);
+            }
+
+            return result;
+        },
+        [CREDIT_USAGE_ACTIONS.FETCH_REFERRAL_INFO]: async function({commit}: any): Promise<RequestResponse<ReferralInfo>> {
+            let result = await fetchReferralInfo();
+
+            if (result.isSuccess) {
+                commit(CREDIT_USAGE_MUTATIONS.FETCH_REFERRAL_INFO, result.data);
             }
 
             return result;

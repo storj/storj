@@ -36,7 +36,7 @@
                             backgroundColor: '#FFFFFF',
                         }
                     },
-                    availableCredits: {
+                    availableCredit: {
                         title: 'earned credits',
                         description: 'Free credits that will apply to your upcoming bill',
                         symbol: '$',
@@ -44,7 +44,7 @@
                             backgroundColor: 'rgba(217, 225, 236, 0.5)',
                         }
                     },
-                    usedCredits: {
+                    usedCredit: {
                         title: 'applied credits',
                         description: 'Free credits that have already been applied to your bill',
                         symbol: '$',

@@ -2,11 +2,10 @@
 // See LICENSE for copying information.
 
 declare type ReferralInfo = {
-    awardCreditInCent: string,
-    referred: string,
-    redeemableCap: string,
-    awardCreditDurationDays: string,
-    inviteeCreditDurationDays: string,
-    expiresAt: string,
-    type: string,
+    awardCreditDurationDays: number;
+    awardCreditInCent: number | null;
+    expiresAt: string;
+    inviteeCreditDurationDays: number;
+    redeemableCap: number;
+    status: any;
 };
