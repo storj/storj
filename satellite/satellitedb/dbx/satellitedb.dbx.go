@@ -411,7 +411,7 @@ CREATE TABLE projects (
 	description text NOT NULL,
 	usage_limit bigint NOT NULL,
 	partner_id bytea,
-	owner_id bytea,
+	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -760,7 +760,7 @@ CREATE TABLE projects (
 	description TEXT NOT NULL,
 	usage_limit INTEGER NOT NULL,
 	partner_id BLOB,
-	owner_id BLOB,
+	owner_id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -3204,7 +3204,6 @@ func (Project) _Table() string { return "projects" }
 
 type Project_Create_Fields struct {
 	PartnerId Project_PartnerId_Field
-	OwnerId   Project_OwnerId_Field
 }
 
 type Project_Update_Fields struct {
@@ -3329,19 +3328,6 @@ type Project_OwnerId_Field struct {
 func Project_OwnerId(v []byte) Project_OwnerId_Field {
 	return Project_OwnerId_Field{_set: true, _value: v}
 }
-
-func Project_OwnerId_Raw(v []byte) Project_OwnerId_Field {
-	if v == nil {
-		return Project_OwnerId_Null()
-	}
-	return Project_OwnerId(v)
-}
-
-func Project_OwnerId_Null() Project_OwnerId_Field {
-	return Project_OwnerId_Field{_set: true, _null: true}
-}
-
-func (f Project_OwnerId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Project_OwnerId_Field) value() interface{} {
 	if !f._set || f._null {
@@ -5797,6 +5783,7 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
 	project_usage_limit Project_UsageLimit_Field,
+	project_owner_id Project_OwnerId_Field,
 	optional Project_Create_Fields) (
 	project *Project, err error) {
 
@@ -5806,7 +5793,7 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	__description_val := project_description.value()
 	__usage_limit_val := project_usage_limit.value()
 	__partner_id_val := optional.PartnerId.value()
-	__owner_id_val := optional.OwnerId.value()
+	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.partner_id, projects.owner_id, projects.created_at")
@@ -9621,6 +9608,7 @@ func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
 	project_usage_limit Project_UsageLimit_Field,
+	project_owner_id Project_OwnerId_Field,
 	optional Project_Create_Fields) (
 	project *Project, err error) {
 
@@ -9630,7 +9618,7 @@ func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 	__description_val := project_description.value()
 	__usage_limit_val := project_usage_limit.value()
 	__partner_id_val := optional.PartnerId.value()
-	__owner_id_val := optional.OwnerId.value()
+	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
@@ -14178,13 +14166,14 @@ func (rx *Rx) Create_Project(ctx context.Context,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
 	project_usage_limit Project_UsageLimit_Field,
+	project_owner_id Project_OwnerId_Field,
 	optional Project_Create_Fields) (
 	project *Project, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Project(ctx, project_id, project_name, project_description, project_usage_limit, optional)
+	return tx.Create_Project(ctx, project_id, project_name, project_description, project_usage_limit, project_owner_id, optional)
 
 }
 
@@ -15240,6 +15229,7 @@ type Methods interface {
 		project_name Project_Name_Field,
 		project_description Project_Description_Field,
 		project_usage_limit Project_UsageLimit_Field,
+		project_owner_id Project_OwnerId_Field,
 		optional Project_Create_Fields) (
 		project *Project, err error)
 

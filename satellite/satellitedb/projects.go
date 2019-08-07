@@ -79,15 +79,13 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	if !project.PartnerID.IsZero() {
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
 	}
-	if !project.OwnerID.IsZero() {
-		createFields.OwnerId = dbx.Project_OwnerId(project.OwnerID[:])
-	}
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
 		dbx.Project_Description(project.Description),
 		dbx.Project_UsageLimit(0),
+		dbx.Project_OwnerId(project.OwnerID[:]),
 		createFields,
 	)
 
@@ -136,12 +134,9 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, err
 	}
 
-	var ownerID uuid.UUID
-	if project.OwnerId != nil {
-		ownerID, err = bytesToUUID(project.OwnerId)
-		if err != nil {
-			return nil, err
-		}
+	ownerID, err := bytesToUUID(project.OwnerId)
+	if err != nil {
+		return nil, err
 	}
 
 	return &console.Project{

@@ -1105,6 +1105,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 
 					`DELETE FROM projects
 						WHERE owner_id is null;`,
+
+					`ALTER TABLE projects
+						ALTER COLUMN owner_id SET NOT NULL;`,
 				},
 			},
 		},
