@@ -14,34 +14,15 @@ import (
 // ErrInvalidBlobRef is returned when an blob reference is invalid
 var ErrInvalidBlobRef = errs.Class("invalid blob ref")
 
-// FormatVersion represents differing storage format version values. Changes in FormatVersion
-// might affect how a Blobs or BlobReader or BlobWriter instance works, or they might only be
-// relevant to some higher layer. A FormatVersion must be specified when writing a new blob,
-// and the blob storage interface must store that value with the blob somehow, so that the same
-// FormatVersion is returned later when reading that stored blob.
+// FormatVersion represents differing storage format version values. Different Blobs implementors
+// might interpret different FormatVersion values differently, but they share a type so that there
+// can be a common StorageFormatVersion() call on the interface.
+//
+// Changes in FormatVersion might affect how a Blobs or BlobReader or BlobWriter instance works, or
+// they might only be relevant to some higher layer. A FormatVersion must be specified when writing
+// a new blob, and the blob storage interface must store that value with the blob somehow, so that
+// the same FormatVersion is returned later when reading that stored blob.
 type FormatVersion int
-
-const (
-	// FormatV0 is the identifier for storage format v0, which also corresponds to an absence of
-	// format version information.
-	FormatV0 FormatVersion = 0
-	// FormatV1 is the identifier for storage format v1
-	FormatV1 FormatVersion = 1
-)
-
-const (
-	// MaxFormatVersionSupported is the highest supported storage format version for reading, and
-	// the only supported storage format version for writing. If stored blobs claim a higher
-	// storage format version than this, or a caller requests _writing_ a storage format version
-	// which is not this, this software will not know how to perform the read or write and an error
-	// will be returned.
-	MaxFormatVersionSupported = FormatV1
-
-	// MinFormatVersionSupported is the lowest supported storage format version for reading. If
-	// stored blobs claim a lower storage format version than this, this software will not know how
-	// to perform the read and an error will be returned.
-	MinFormatVersionSupported = FormatV0
-)
 
 // BlobRef is a reference to a blob
 type BlobRef struct {

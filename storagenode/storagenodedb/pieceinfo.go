@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -271,7 +272,7 @@ func (v0Access v0StoredPieceAccess) FullPath(ctx context.Context) (string, error
 
 // StorageFormatVersion indicates the storage format version used to store the piece
 func (v0Access v0StoredPieceAccess) StorageFormatVersion() storage.FormatVersion {
-	return storage.FormatV0
+	return filestore.FormatV0
 }
 
 // Stat does a stat on the on-disk blob file

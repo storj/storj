@@ -239,10 +239,10 @@ func writeABlob(ctx context.Context, t testing.TB, store *filestore.Store, blobR
 		err        error
 	)
 	switch formatVersion {
-	case storage.FormatV0:
+	case filestore.FormatV0:
 		tStore := &filestore.StoreForTest{store}
 		blobWriter, err = tStore.CreateV0(ctx, blobRef)
-	case storage.FormatV1:
+	case filestore.FormatV1:
 		blobWriter, err = store.Create(ctx, blobRef, int64(len(data)))
 	default:
 		t.Fatalf("please teach me how to make a V%d blob", formatVersion)
@@ -313,32 +313,32 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	)
 
 	// write a V0 blob
-	writeABlob(ctx, t, store, v0Ref, data, storage.FormatV0)
+	writeABlob(ctx, t, store, v0Ref, data, filestore.FormatV0)
 
 	// write a V1 blob
-	writeABlob(ctx, t, store, v1Ref, data, storage.FormatV1)
+	writeABlob(ctx, t, store, v1Ref, data, filestore.FormatV1)
 
 	// look up the different blobs with Open and Stat and OpenSpecific
-	tryOpeningABlob(ctx, t, store, v0Ref, len(data), storage.FormatV0)
-	tryOpeningABlob(ctx, t, store, v1Ref, len(data), storage.FormatV1)
+	tryOpeningABlob(ctx, t, store, v0Ref, len(data), filestore.FormatV0)
+	tryOpeningABlob(ctx, t, store, v1Ref, len(data), filestore.FormatV1)
 
 	// write a V1 blob with the same ID as the V0 blob (to simulate it being rewritten as
 	// V1 during a migration), with different data so we can distinguish them
 	differentData := make([]byte, len(data)+2)
 	copy(differentData, data)
 	copy(differentData[len(data):], "\xff\x00")
-	writeABlob(ctx, t, store, v0Ref, differentData, storage.FormatV1)
+	writeABlob(ctx, t, store, v0Ref, differentData, filestore.FormatV1)
 
 	// if we try to access the blob at that key, we should see only the V1 blob
-	tryOpeningABlob(ctx, t, store, v0Ref, len(differentData), storage.FormatV1)
+	tryOpeningABlob(ctx, t, store, v0Ref, len(differentData), filestore.FormatV1)
 
 	// unless we ask specifically for a V0 blob
-	blobInfo, err := store.StatSpecific(ctx, v0Ref, storage.FormatV0)
+	blobInfo, err := store.StatSpecific(ctx, v0Ref, filestore.FormatV0)
 	require.NoError(t, err)
-	verifyBlobInfo(ctx, t, blobInfo, len(data), storage.FormatV0)
+	verifyBlobInfo(ctx, t, blobInfo, len(data), filestore.FormatV0)
 	reader, err := store.OpenSpecific(ctx, blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
 	require.NoError(t, err)
-	verifyBlobHandle(t, reader, len(data), storage.FormatV0)
+	verifyBlobHandle(t, reader, len(data), filestore.FormatV0)
 	require.NoError(t, reader.Close())
 
 	// delete the v0BlobKey; both the V0 and the V1 blobs should go away

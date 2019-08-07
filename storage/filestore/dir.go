@@ -108,9 +108,9 @@ func (dir *Dir) blobToBasePath(ref storage.BlobRef) (string, error) {
 // blobToBasePath()) to what it should be for the given storage format version.
 func blobPathForFormatVersion(path string, formatVersion storage.FormatVersion) string {
 	switch formatVersion {
-	case storage.FormatV0:
+	case FormatV0:
 		return path + v0PieceFileSuffix
-	case storage.FormatV1:
+	case FormatV1:
 		return path + v1PieceFileSuffix
 	}
 	return path + unknownPieceFileSuffix
@@ -174,19 +174,19 @@ func (dir *Dir) Open(ctx context.Context, ref storage.BlobRef) (_ *os.File, _ st
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
-		return nil, storage.FormatV0, err
+		return nil, FormatV0, err
 	}
-	for formatVer := storage.MaxFormatVersionSupported; formatVer >= storage.MinFormatVersionSupported; formatVer-- {
+	for formatVer := MaxFormatVersionSupported; formatVer >= MinFormatVersionSupported; formatVer-- {
 		vPath := blobPathForFormatVersion(path, formatVer)
 		file, err := openFileReadOnly(vPath, blobPermission)
 		if err == nil {
 			return file, formatVer, nil
 		}
 		if !os.IsNotExist(err) {
-			return nil, storage.FormatV0, Error.New("unable to open %q: %v", vPath, err)
+			return nil, FormatV0, Error.New("unable to open %q: %v", vPath, err)
 		}
 	}
-	return nil, storage.FormatV0, os.ErrNotExist
+	return nil, FormatV0, os.ErrNotExist
 }
 
 // OpenSpecific opens an already-located blob file with a known storage format version, which
@@ -218,7 +218,7 @@ func (dir *Dir) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.BlobIn
 	if err != nil {
 		return nil, err
 	}
-	for formatVer := storage.MaxFormatVersionSupported; formatVer >= storage.MinFormatVersionSupported; formatVer-- {
+	for formatVer := MaxFormatVersionSupported; formatVer >= MinFormatVersionSupported; formatVer-- {
 		vPath := blobPathForFormatVersion(path, formatVer)
 		stat, err := os.Stat(vPath)
 		if err == nil {
@@ -271,7 +271,7 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	// been updated atomically with _MaxVer concurrently while we were iterating. If we iterate
 	// _forwards_, this race should not occur because it is assumed that pieces are never
 	// rewritten with an _older_ storage format version.
-	for i := storage.MinFormatVersionSupported; i <= storage.MaxFormatVersionSupported; i++ {
+	for i := MinFormatVersionSupported; i <= MaxFormatVersionSupported; i++ {
 		verPath := blobPathForFormatVersion(pathBase, i)
 
 		// move to trash folder, this is allowed for some OS-es
@@ -452,9 +452,9 @@ func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace [
 			}
 			blobFileName := keyInfo.Name()
 			encodedKey := keyPrefix + blobFileName
-			formatVer := storage.FormatV0
+			formatVer := FormatV0
 			if strings.HasSuffix(blobFileName, v1PieceFileSuffix) {
-				formatVer = storage.FormatV1
+				formatVer = FormatV1
 				encodedKey = encodedKey[0 : len(encodedKey)-len(v1PieceFileSuffix)]
 			}
 			key, err := pathEncoding.DecodeString(encodedKey)

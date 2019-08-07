@@ -178,14 +178,14 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	}
 	var blob storage.BlobWriter
 	switch formatVersion {
-	case storage.FormatV0:
+	case filestore.FormatV0:
 		fStore, ok := store.blobs.(*filestore.Store)
 		if !ok {
 			return nil, Error.New("can't make a WriterForFormatVersion with this blob store (%T)", store.blobs)
 		}
 		tStore := filestore.StoreForTest{Store: fStore}
 		blob, err = tStore.CreateV0(ctx, blobRef)
-	case storage.FormatV1:
+	case filestore.FormatV1:
 		blob, err = store.blobs.Create(ctx, blobRef, preallocSize.Int64())
 	default:
 		return nil, Error.New("please teach me how to make V%d pieces", formatVersion)
@@ -269,7 +269,7 @@ func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellit
 	defer mon.Task()(&ctx)(&err)
 	// first iterate over all in V1 storage, then all in V0
 	err = store.blobs.ForAllKeysInNamespace(ctx, satellite.Bytes(), func(blobInfo storage.BlobInfo) error {
-		if blobInfo.StorageFormatVersion() < storage.FormatV1 {
+		if blobInfo.StorageFormatVersion() < filestore.FormatV1 {
 			// we'll address this piece while iterating over the V0 pieces below.
 			return nil
 		}
@@ -450,7 +450,7 @@ func (access storedPieceAccess) ContentSize(ctx context.Context) (size int64, er
 		return 0, err
 	}
 	size = stat.Size()
-	if access.StorageFormatVersion() >= storage.FormatV1 {
+	if access.StorageFormatVersion() >= filestore.FormatV1 {
 		size -= V1PieceHeaderReservedArea
 	}
 	return size, nil

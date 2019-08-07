@@ -109,7 +109,7 @@ func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, store, storage.MaxFormatVersionSupported, file), nil
+	return newBlobWriter(ref, store, MaxFormatVersionSupported, file), nil
 }
 
 // SpaceUsed adds up the space used in all namespaces for blob storage
@@ -186,5 +186,5 @@ func (testStore *StoreForTest) CreateV0(ctx context.Context, ref storage.BlobRef
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, testStore.Store, storage.FormatV0, file), nil
+	return newBlobWriter(ref, testStore.Store, FormatV0, file), nil
 }

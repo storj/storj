@@ -15,11 +15,12 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/filestore"
 )
 
 const (
 	// V1PieceHeaderReservedArea is the amount of space to be reserved at the beginning of
-	// pieces stored with storage.FormatV1 or greater. Serialized piece headers should be
+	// pieces stored with filestore.FormatV1 or greater. Serialized piece headers should be
 	// written into that space, and the remaining space afterward should be zeroes.
 	// V1PieceHeaderReservedArea includes the size of the framing field
 	// (v1PieceHeaderFrameSize). It has a constant size because:
@@ -66,7 +67,7 @@ type Writer struct {
 // NewWriter creates a new writer for storage.BlobWriter.
 func NewWriter(blob storage.BlobWriter) (*Writer, error) {
 	w := &Writer{}
-	if blob.StorageFormatVersion() >= storage.FormatV1 {
+	if blob.StorageFormatVersion() >= filestore.FormatV1 {
 		// We skip past the reserved header area for now- we want the header to be at the
 		// beginning of the file, to make it quick to seek there and also to make it easier
 		// to identify situations where a blob file has been truncated incorrectly. And we
@@ -121,7 +122,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	}()
 
 	formatVer := w.blob.StorageFormatVersion()
-	if formatVer == storage.FormatV0 {
+	if formatVer == filestore.FormatV0 {
 		return nil
 	}
 	pieceHeader.FormatVersion = pb.PieceHeader_FormatVersion(formatVer)
@@ -194,7 +195,7 @@ func NewReader(blob storage.BlobReader) (*Reader, error) {
 		return nil, Error.Wrap(err)
 	}
 	formatVersion := blob.StorageFormatVersion()
-	if formatVersion >= storage.FormatV1 {
+	if formatVersion >= filestore.FormatV1 {
 		if size < V1PieceHeaderReservedArea {
 			return nil, Error.New("invalid piece file for storage format version %d: too small for header (%d < %d)", formatVersion, size, V1PieceHeaderReservedArea)
 		}
@@ -218,7 +219,7 @@ func (r *Reader) StorageFormatVersion() storage.FormatVersion {
 // before any Read() calls. (Retrieving the header at any time could be supported, but for
 // the sake of performance we need to understand why and how often that would happen.)
 func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
-	if r.formatVersion < storage.FormatV1 {
+	if r.formatVersion < filestore.FormatV1 {
 		return nil, Error.New("Can't get piece header from storage format V0 reader")
 	}
 	if r.pos != 0 {
@@ -261,7 +262,7 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 
 // Read reads data from the underlying blob, buffering as necessary.
 func (r *Reader) Read(data []byte) (int, error) {
-	if r.formatVersion >= storage.FormatV1 && r.pos < V1PieceHeaderReservedArea {
+	if r.formatVersion >= filestore.FormatV1 && r.pos < V1PieceHeaderReservedArea {
 		// should only be necessary once per reader. or zero times, if GetPieceHeader is used
 		if _, err := r.Seek(0, io.SeekStart); err != nil {
 			return 0, Error.Wrap(err)
@@ -277,7 +278,7 @@ func (r *Reader) Read(data []byte) (int, error) {
 
 // Seek seeks to the specified location within the piece content (ignoring the header).
 func (r *Reader) Seek(offset int64, whence int) (int64, error) {
-	if whence == io.SeekStart && r.formatVersion >= storage.FormatV1 {
+	if whence == io.SeekStart && r.formatVersion >= filestore.FormatV1 {
 		offset += V1PieceHeaderReservedArea
 	}
 	if whence == io.SeekStart && r.pos == offset {
@@ -286,7 +287,7 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 
 	pos, err := r.blob.Seek(offset, whence)
 	r.pos = pos
-	if r.formatVersion >= storage.FormatV1 {
+	if r.formatVersion >= filestore.FormatV1 {
 		if pos < V1PieceHeaderReservedArea {
 			// any position within the file header should show as 0 here
 			pos = 0
@@ -302,7 +303,7 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 
 // ReadAt reads data at the specified offset
 func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
-	if r.formatVersion >= storage.FormatV1 {
+	if r.formatVersion >= filestore.FormatV1 {
 		offset += V1PieceHeaderReservedArea
 	}
 	n, err := r.blob.ReadAt(data, offset)

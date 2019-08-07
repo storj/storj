@@ -161,7 +161,7 @@ func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelli
 func verifyPieceHandle(t testing.TB, reader *pieces.Reader, expectDataLen int, expectCreateTime time.Time, expectFormat storage.FormatVersion) {
 	assert.Equal(t, expectFormat, reader.StorageFormatVersion())
 	assert.Equal(t, int64(expectDataLen), reader.Size())
-	if expectFormat != storage.FormatV0 {
+	if expectFormat != filestore.FormatV0 {
 		pieceHeader, err := reader.GetPieceHeader()
 		require.NoError(t, err)
 		assert.Equal(t, expectFormat, storage.FormatVersion(pieceHeader.FormatVersion))
@@ -204,27 +204,27 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	)
 
 	// write a V0 piece
-	writeAPiece(ctx, t, store, satellite, v0PieceID, data, now, nil, storage.FormatV0)
+	writeAPiece(ctx, t, store, satellite, v0PieceID, data, now, nil, filestore.FormatV0)
 
 	// write a V1 piece
-	writeAPiece(ctx, t, store, satellite, v1PieceID, data, now, nil, storage.FormatV1)
+	writeAPiece(ctx, t, store, satellite, v1PieceID, data, now, nil, filestore.FormatV1)
 
 	// look up the different pieces with Reader and ReaderSpecific
-	tryOpeningAPiece(ctx, t, store, satellite, v0PieceID, len(data), now, storage.FormatV0)
-	tryOpeningAPiece(ctx, t, store, satellite, v1PieceID, len(data), now, storage.FormatV1)
+	tryOpeningAPiece(ctx, t, store, satellite, v0PieceID, len(data), now, filestore.FormatV0)
+	tryOpeningAPiece(ctx, t, store, satellite, v1PieceID, len(data), now, filestore.FormatV1)
 
 	// write a V1 piece with the same ID as the V0 piece (to simulate it being rewritten as
 	// V1 during a migration)
 	differentData := append(data, 111, 104, 97, 105)
-	writeAPiece(ctx, t, store, satellite, v0PieceID, differentData, now, nil, storage.FormatV1)
+	writeAPiece(ctx, t, store, satellite, v0PieceID, differentData, now, nil, filestore.FormatV1)
 
 	// if we try to access the piece at that key, we should see only the V1 piece
-	tryOpeningAPiece(ctx, t, store, satellite, v0PieceID, len(differentData), now, storage.FormatV1)
+	tryOpeningAPiece(ctx, t, store, satellite, v0PieceID, len(differentData), now, filestore.FormatV1)
 
 	// unless we ask specifically for a V0 piece
-	reader, err := store.ReaderSpecific(ctx, satellite, v0PieceID, storage.FormatV0)
+	reader, err := store.ReaderSpecific(ctx, satellite, v0PieceID, filestore.FormatV0)
 	require.NoError(t, err)
-	verifyPieceHandle(t, reader, len(data), now, storage.FormatV0)
+	verifyPieceHandle(t, reader, len(data), now, filestore.FormatV0)
 	require.NoError(t, reader.Close())
 
 	// delete the v0PieceID; both the V0 and the V1 pieces should go away
@@ -327,7 +327,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		// BlobWriter.Commit only knows how to store expiration times in piece_expirations.
 		v0CreateTime := time.Now().UTC()
 		v0ExpireTime := v0CreateTime.AddDate(5, 0, 0)
-		writeAPiece(ctx, t, store, satelliteID, pieceID, v0Data, v0CreateTime, nil, storage.FormatV0)
+		writeAPiece(ctx, t, store, satelliteID, pieceID, v0Data, v0CreateTime, nil, filestore.FormatV0)
 		// now put the piece in the pieceinfo db directly, because store won't do that for us.
 		// this is where the expireTime takes effect.
 		err := v0PieceInfo.Add(ctx, &pieces.Info{
@@ -346,7 +346,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			reader, err := store.Reader(ctx, satelliteID, pieceID)
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v0Data)), reader.Size())
-			assert.Equal(t, storage.FormatV0, reader.StorageFormatVersion())
+			assert.Equal(t, filestore.FormatV0, reader.StorageFormatVersion())
 			gotData, err := ioutil.ReadAll(reader)
 			require.NoError(t, err)
 			assert.Equal(t, v0Data, gotData)
@@ -371,14 +371,14 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		// now "overwrite" the piece (write a new blob with the same id, but with V1 storage)
 		v1CreateTime := time.Now().UTC()
 		v1ExpireTime := v1CreateTime.AddDate(5, 0, 0)
-		writeAPiece(ctx, t, store, satelliteID, pieceID, v1Data, v1CreateTime, &v1ExpireTime, storage.FormatV1)
+		writeAPiece(ctx, t, store, satelliteID, pieceID, v1Data, v1CreateTime, &v1ExpireTime, filestore.FormatV1)
 
 		// ensure we can see it (the new piece) via store.Reader
 		{
 			reader, err := store.Reader(ctx, satelliteID, pieceID)
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v1Data)), reader.Size())
-			assert.Equal(t, storage.FormatV1, reader.StorageFormatVersion())
+			assert.Equal(t, filestore.FormatV1, reader.StorageFormatVersion())
 			gotData, err := ioutil.ReadAll(reader)
 			require.NoError(t, err)
 			assert.Equal(t, v1Data, gotData)
@@ -400,7 +400,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			case 1:
 				// expect the V1 piece
 				assert.Equal(t, pieceID, access.PieceID())
-				assert.Equal(t, storage.FormatV1, access.StorageFormatVersion())
+				assert.Equal(t, filestore.FormatV1, access.StorageFormatVersion())
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, v1CreateTime, gotCreateTime)
@@ -410,7 +410,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			case 2:
 				// expect the V0 piece
 				assert.Equal(t, pieceID, access.PieceID())
-				assert.Equal(t, storage.FormatV0, access.StorageFormatVersion())
+				assert.Equal(t, filestore.FormatV0, access.StorageFormatVersion())
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, v0CreateTime, gotCreateTime)

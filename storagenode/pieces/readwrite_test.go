@@ -134,7 +134,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	r, err := store.Reader(ctx, satelliteID, pieceID)
 	require.NoError(t, err)
 	defer ctx.Check(r.Close)
-	assert.Equal(t, storage.MaxFormatVersionSupported, r.StorageFormatVersion())
+	assert.Equal(t, filestore.MaxFormatVersionSupported, r.StorageFormatVersion())
 
 	// make sure r.Size() works
 	assert.Equal(t, int64(len(content)), r.Size())
@@ -155,7 +155,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	assert.Truef(t, header.OrderLimit.PieceExpiration.Equal(expirationTime),
 		"*header.ExpirationTime = %s, but expected expirationTime = %s", header.OrderLimit.PieceExpiration, expirationTime)
 	assert.Equal(t, pb.OrderLimit{PieceExpiration: expirationTime.UTC()}, header.OrderLimit)
-	assert.Equal(t, storage.FormatV1, storage.FormatVersion(header.FormatVersion))
+	assert.Equal(t, filestore.FormatV1, storage.FormatVersion(header.FormatVersion))
 
 	// make sure seek-nowhere works as expected after piece header is read too
 	// (from the point of view of the piece store, the file position has not moved)
