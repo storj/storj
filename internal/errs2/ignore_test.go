@@ -20,7 +20,7 @@ func TestIsCanceled(t *testing.T) {
 	nestedErr := errs.Class("nested error")
 	combinedErr := errs.New("combined error")
 	parentCtx, cancel := context.WithCancel(context.Background())
-	childCtx, childCancel := context.WithTimeout(parentCtx, 30 * time.Second)
+	childCtx, childCancel := context.WithTimeout(parentCtx, 30*time.Second)
 	defer childCancel()
 
 	cancel()
