@@ -56,7 +56,7 @@ type ExpiredInfo struct {
 // PieceExpirationDB stores information about pieces with expiration dates.
 type PieceExpirationDB interface {
 	// GetExpired gets piece IDs that expire or have expired before the given time
-	GetExpired(ctx context.Context, expiredAt time.Time, limit int64) ([]ExpiredInfo, error)
+	GetExpired(ctx context.Context, expiresBefore time.Time, limit int64) ([]ExpiredInfo, error)
 	// SetExpiration sets an expiration time for the given piece ID on the given satellite
 	SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) error
 	// DeleteExpiration removes an expiration record for the given piece ID on the given satellite

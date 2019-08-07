@@ -24,7 +24,7 @@ func (db *DB) PieceExpirationDB() pieces.PieceExpirationDB { return db.info.Piec
 func (db *InfoDB) PieceExpirationDB() pieces.PieceExpirationDB { return &db.pieceExpirationDB }
 
 // GetExpired gets piece IDs that expire or have expired before the given time
-func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (expiredPieceIDs []pieces.ExpiredInfo, err error) {
+func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiresBefore time.Time, limit int64) (expiredPieceIDs []pieces.ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.db.QueryContext(ctx, `
@@ -33,7 +33,7 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiredAt time.Time
 			WHERE piece_expiration < ?
 				AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
 			LIMIT ?
-	`, expiredAt.UTC(), expiredAt.UTC(), limit)
+	`, expiresBefore.UTC(), expiresBefore.UTC(), limit)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
