@@ -183,9 +183,9 @@ func (w *Writer) Cancel(ctx context.Context) (err error) {
 type Reader struct {
 	formatVersion storage.FormatVersion
 
-	blob storage.BlobReader
-	pos  int64 // relative to file start; i.e., it includes piece header
-	size int64 // piece size only; i.e., not including piece header
+	blob      storage.BlobReader
+	pos       int64 // relative to file start; i.e., it includes piece header
+	pieceSize int64 // piece size only; i.e., not including piece header
 }
 
 // NewReader creates a new reader for storage.BlobReader.
@@ -205,7 +205,7 @@ func NewReader(blob storage.BlobReader) (*Reader, error) {
 	reader := &Reader{
 		formatVersion: formatVersion,
 		blob:          blob,
-		size:          size,
+		pieceSize:     size,
 	}
 	return reader, nil
 }
@@ -315,7 +315,7 @@ func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
 }
 
 // Size returns the amount of data in the piece.
-func (r *Reader) Size() int64 { return r.size }
+func (r *Reader) Size() int64 { return r.pieceSize }
 
 // Close closes the reader.
 func (r *Reader) Close() error {
