@@ -90,7 +90,8 @@ type Blobs interface {
 	ListNamespaces(ctx context.Context) ([][]byte, error)
 	// WalkNamespace executes walkFunc for each locally stored blob, stored with
 	// storage format V1 or greater, in the given namespace. If walkFunc returns a non-nil
-	// error, WalkNamespace will stop iterating and return the error immediately.
+	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
+	// parameter is intended to allow canceling iteration early.
 	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
 }
 

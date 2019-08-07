@@ -380,9 +380,10 @@ func (dir *Dir) ListNamespaces(ctx context.Context) (ids [][]byte, err error) {
 	}
 }
 
-// WalkNamespace executes walkFunc for each locally stored blob, stored with storage
-// format V1 or greater, in the given namespace. If walkFunc returns a non-nil error,
-// WalkNamespace will stop iterating and return the error immediately.
+// WalkNamespace executes walkFunc for each locally stored blob, stored with storage format V1 or
+// greater, in the given namespace. If walkFunc returns a non-nil error, WalkNamespace will stop
+// iterating and return the error immediately. The ctx parameter is intended specifically to allow
+// canceling iteration early.
 func (dir *Dir) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(storage.BlobInfo) error) (err error) {
 	namespaceDir := pathEncoding.EncodeToString(namespace)
 	nsDir := filepath.Join(dir.blobsdir(), namespaceDir)

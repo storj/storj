@@ -82,7 +82,8 @@ type V0PieceInfoDB interface {
 	// WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored
 	// with storage format V0 in the namespace of the given satellite. If walkFunc returns a
 	// non-nil error, WalkSatelliteV0Pieces will stop iterating and return the error
-	// immediately.
+	// immediately. The ctx parameter is intended specifically to allow canceling iteration
+	// early.
 	WalkSatelliteV0Pieces(ctx context.Context, blobStore storage.Blobs, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) error
 }
 
@@ -260,9 +261,10 @@ func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
 	return store.v0PieceInfo
 }
 
-// WalkSatellitePieces executes walkFunc for each locally stored piece in the namespace
-// of the given satellite. If walkFunc returns a non-nil error, WalkSatellitePieces will
-// stop iterating and return the error immediately.
+// WalkSatellitePieces executes walkFunc for each locally stored piece in the namespace of the
+// given satellite. If walkFunc returns a non-nil error, WalkSatellitePieces will stop iterating
+// and return the error immediately. The ctx parameter is intended specifically to allow canceling
+// iteration early.
 //
 // Note that this method includes all locally stored pieces, both V0 and higher.
 func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {

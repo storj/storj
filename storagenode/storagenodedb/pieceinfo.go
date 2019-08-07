@@ -84,9 +84,10 @@ func (db *v0PieceInfo) getAllPiecesOwnedBy(ctx context.Context, blobStore storag
 	return pieceInfos, nil
 }
 
-// WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored with
-// storage format V0 in the namespace of the given satellite. If walkFunc returns a non-nil error,
-// WalkSatelliteV0Pieces will stop iterating and return the error immediately.
+// WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored with storage
+// format V0 in the namespace of the given satellite. If walkFunc returns a non-nil error,
+// WalkSatelliteV0Pieces will stop iterating and return the error immediately. The ctx parameter
+// parameter is intended specifically to allow canceling iteration early.
 //
 // If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
 // instances will not work, but otherwise everything should be ok.
@@ -101,6 +102,9 @@ func (db *v0PieceInfo) WalkSatelliteV0Pieces(ctx context.Context, blobStore stor
 	// note we must not keep a transaction open with the db when calling walkFunc; the callback
 	// might need to make db calls as well
 	for i := range pieceInfos {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := walkFunc(&pieceInfos[i]); err != nil {
 			return err
 		}
