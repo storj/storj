@@ -125,7 +125,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 		CreationTime: creationTime,
 		Signature:    fakeSig,
 		OrderLimit: pb.OrderLimit{
-			PieceExpiration: expirationTime,
+			PieceExpiration: expirationTime.UTC(),
 		},
 	})
 	require.NoError(t, err)
@@ -154,7 +154,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	require.NotZero(t, header.OrderLimit.PieceExpiration)
 	assert.Truef(t, header.OrderLimit.PieceExpiration.Equal(expirationTime),
 		"*header.ExpirationTime = %s, but expected expirationTime = %s", header.OrderLimit.PieceExpiration, expirationTime)
-	assert.Equal(t, pb.OrderLimit{PieceExpiration: expirationTime}, header.OrderLimit)
+	assert.Equal(t, pb.OrderLimit{PieceExpiration: expirationTime.UTC()}, header.OrderLimit)
 	assert.Equal(t, storage.FormatV1, storage.FormatVersion(header.FormatVersion))
 
 	// make sure seek-nowhere works as expected after piece header is read too
