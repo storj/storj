@@ -112,12 +112,13 @@ type Blobs interface {
 	// storage format V1 or greater, in the given namespace. If doForEach returns a non-nil
 	// error, ForAllKeysInNamespace will stop iterating and return the error immediately.
 	ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(StoredBlobAccess) error) error
+	// Cache returns the storage cache
+	Cache(ctx context.Context) BlobsUsageCache
 }
 
-// BlobUsageCache is a blob storage interface with a cache for storing
+// BlobsUsageCache is a blob storage cache interface for storing
 // live values for current space used
-type BlobUsageCache interface {
-	Blobs
+type BlobsUsageCache interface {
 	// InitCache initializes the cache with total values of space usage
 	InitCache(ctx context.Context) error
 	// SpaceUsedForPiecesLive returns the current total used space for
@@ -130,9 +131,9 @@ type BlobUsageCache interface {
 	// with a pieceSize that was either created or deleted where the pieceSize is
 	// only the content size and does not include header bytes
 	UpdateCache(ctx context.Context, namespace string, pieceSize int64)
-	// RecalculateCache iterates over all blobs on disk and recalculates
+	// Recalculate iterates over all blobs on disk and recalculates
 	// the totals store in the cache
-	RecalculateCache(ctx context.Context) error
+	Recalculate(ctx context.Context, newtotalSpaceUsed int64, newtotalSpaceUsedByNamespace map[string]int64) error
 }
 
 // StoredBlobAccess allows inspection of a blob and its underlying file during iteration with

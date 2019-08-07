@@ -120,7 +120,7 @@ type StoredPieceAccess interface {
 // Store implements storing pieces onto a blob storage implementation.
 type Store struct {
 	log            *zap.Logger
-	blobs          storage.BlobUsageCache
+	blobs          storage.Blobs
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
 
@@ -139,7 +139,7 @@ type StoreForTest struct {
 }
 
 // NewStore creates a new piece store
-func NewStore(log *zap.Logger, blobs storage.BlobUsageCache, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB) *Store {
+func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB) *Store {
 	return &Store{
 		log:            log,
 		blobs:          blobs,
@@ -176,7 +176,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	var blob storage.BlobWriter
 	switch formatVersion {
 	case storage.FormatV0:
-		fStore, ok := store.blobs.(*filestore.StoreUsageCache)
+		fStore, ok := store.blobs.(*filestore.Store)
 		if !ok {
 			return nil, Error.New("can't make a WriterForFormatVersion with this blob store (%T)", store.blobs)
 		}
@@ -241,7 +241,8 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 		return Error.Wrap(err)
 	}
 	size, err := store.getPieceSize(ctx, blobRef)
-	store.blobs.UpdateCache(ctx, satellite.String(), size)
+	cache := store.blobs.Cache(ctx)
+	cache.UpdateCache(ctx, satellite.String(), size)
 	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
 	// both of these calls should return no error if the requested record is not found.
 	if store.expirationInfo != nil {
@@ -379,11 +380,23 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	return totalUsed, nil
 }
 
-// UpdateCache updates the live used space totals
-// with a pieceSize that was either created or deleted where the pieceSize is
-// only the content size and does not include header bytes
-func (store *Store) UpdateCache(ctx context.Context, satelliteID storj.NodeID, pieceSize int64) {
-	store.blobs.UpdateCache(ctx, satelliteID.String(), pieceSize)
+// SpaceUsedForPiecesLive is x
+func (store *Store) SpaceUsedForPiecesLive(ctx context.Context) int64 {
+	cache := store.blobs.Cache(ctx)
+	return cache.SpaceUsedForPiecesLive(ctx)
+}
+
+// SpaceUsedBySatelliteLive returns the current total space used for a specific
+// satellite for all pieces (not including header bytes)
+func (store *Store) SpaceUsedBySatelliteLive(ctx context.Context, satellite storj.NodeID) int64 {
+	cache := store.blobs.Cache(ctx)
+	return cache.SpaceUsedByNamespaceLive(ctx, satellite.String())
+}
+
+// UpdateCache does x
+func (store *Store) UpdateCache(ctx context.Context, satellite storj.NodeID, size int64) {
+	cache := store.blobs.Cache(ctx)
+	cache.UpdateCache(ctx, satellite.String(), size)
 }
 
 // ReserveSpace marks some amount of free space as used, even if it's not, so that future calls

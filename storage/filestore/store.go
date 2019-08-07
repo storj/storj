@@ -27,6 +27,8 @@ var (
 type Store struct {
 	dir *Dir
 	log *zap.Logger
+
+	cache storage.BlobsUsageCache
 }
 
 // New creates a new disk blob store in the specified directory
@@ -45,6 +47,11 @@ func NewAt(path string, log *zap.Logger) (*Store, error) {
 
 // Close closes the store.
 func (store *Store) Close() error { return nil }
+
+// Cache returns the storage cache
+func (store *Store) Cache(ctx context.Context) storage.BlobsUsageCache {
+	return store.cache
+}
 
 // Open loads blob with the specified hash
 func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (_ storage.BlobReader, err error) {
@@ -196,7 +203,7 @@ func (store *Store) ForAllKeysInNamespace(ctx context.Context, namespace []byte,
 // StoreForTest is a wrapper for Store that also allows writing new V0 blobs (in order to test
 // situations involving those)
 type StoreForTest struct {
-	*StoreUsageCache
+	*Store
 }
 
 // CreateV0 creates a new V0 blob that can be written. This is only appropriate in test situations.
