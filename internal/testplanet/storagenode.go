@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"storj.io/storj/storagenode/nodestats"
-
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -23,6 +21,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
