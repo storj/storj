@@ -168,8 +168,8 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef, 
 
 // Open opens the file with the specified ref. It may need to check in more than one location in
 // order to find the blob, if it was stored with an older version of the storage node software.
-// In cases where the storage format version of a blob is already known, OpenSpecific() might be
-// a better choice.
+// In cases where the storage format version of a blob is already known, OpenSpecific() will
+// generally be a better choice.
 func (dir *Dir) Open(ctx context.Context, ref storage.BlobRef) (_ *os.File, _ storage.FormatVersion, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
@@ -210,8 +210,8 @@ func (dir *Dir) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, forma
 
 // Lookup looks up disk metadata on the blob file. It may need to check in more than one location
 // in order to find the blob, if it was stored with an older version of the storage node software.
-// In cases where the storage format version of a blob is already known, LookupSpecific() might be
-// a better choice.
+// In cases where the storage format version of a blob is already known, LookupSpecific() will
+// generally be a better choice.
 func (dir *Dir) Lookup(ctx context.Context, ref storage.BlobRef) (_ storage.StoredBlobAccess, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
