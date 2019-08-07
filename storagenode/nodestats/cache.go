@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/date"
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
@@ -97,21 +98,18 @@ func (cache *Cache) Run(ctx context.Context) error {
 func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var cacheStatsErr errs.Group
-	for _, satellite := range cache.trust.GetSatellites(ctx) {
+	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
 		stats, err := cache.service.GetReputationStats(ctx, satellite)
 		if err != nil {
-			cacheStatsErr.Add(NodeStatsCacheErr.Wrap(err))
-			continue
+			return err
 		}
 
 		if err = cache.db.Reputation.Store(ctx, *stats); err != nil {
-			cacheStatsErr.Add(NodeStatsCacheErr.Wrap(err))
-			continue
+			return err
 		}
-	}
 
-	return cacheStatsErr.Err()
+		return nil
+	})
 }
 
 // CacheSpaceUsage queries disk space usage from all the satellites
@@ -122,22 +120,36 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 	// get current month edges
 	startDate, endDate := date.MonthBoundary(time.Now().UTC())
 
-	var cacheSpaceErr errs.Group
-	for _, satellite := range cache.trust.GetSatellites(ctx) {
+	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
 		spaceUsages, err := cache.service.GetDailyStorageUsage(ctx, satellite, startDate, endDate)
 		if err != nil {
-			cacheSpaceErr.Add(NodeStatsCacheErr.Wrap(err))
-			continue
+			return err
 		}
 
 		err = cache.db.StorageUsage.Store(ctx, spaceUsages)
 		if err != nil {
-			cacheSpaceErr.Add(NodeStatsCacheErr.Wrap(err))
-			continue
+			return err
 		}
+
+		return nil
+	})
+}
+
+// satelliteLoop loops over all satellites from trust pool executing provided fn, caching errors if occurred,
+// on each step checks if context has been cancelled
+func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) error) error {
+	var groupErr errs.Group
+	for _, satellite := range cache.trust.GetSatellites(ctx) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		groupErr.Add(fn(satellite))
 	}
 
-	return cacheSpaceErr.Err()
+	return groupErr.Err()
 }
 
 // Close closes underlying cycles
