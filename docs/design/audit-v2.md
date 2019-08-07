@@ -24,8 +24,6 @@ We will create an audit observer that uses the metainfo loop, and this observer 
 
 If each segment generates 80 pieces on average, every time we pick a segment, we're not only auditing one specific node, we're also auditing 79 other nodes. The chance of a node appearing in a segment's pointer is proportional to the amount of data that the node actually stores. The more data that the node stores, the more chance it will be audited. We will set a minimum number of audits for unvetted nodes, and expect more audits for nodes that store more data.
 
-In addition to auditing, we should also make sure the repair job is appropriately triggered based on the results of the audit. If we focused exclusively on unvetted nodes, we would have a problem with the repair job's inability to repair.
-
 After selection, the rest of the auditing process will occur the same way as it does currently: picking a random segment, picking a random stripe, downloading all erasure shares associated with that stripe and using Berlekamp-Welch algorithm (via the Infectious library) to verify that they haven't been altered.
 The chances of selecting the same stripe are rare, but it's normal/expected behavior if occasionally a stripe is audited more than once.
 
