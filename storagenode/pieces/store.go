@@ -320,12 +320,16 @@ func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when 
 	return store.expirationInfo.DeleteFailed(ctx, expired.SatelliteID, expired.PieceID, when)
 }
 
-// SpaceUsedForPieces returns the disk space used by all local pieces (both V0 and later).
-// Important note: this metric does not include space used by piece headers, whereas
-// storj/filestore/store.(*Store).SpaceUsed() includes all space used by the blobs.
+// SpaceUsedForPieces returns *an approximation of* the disk space used by all local pieces (both
+// V0 and later). This is an approximation because changes may be being applied to the filestore as
+// this information is collected, and because it is possible that various errors in directory
+// traversal could cause this count to be undersized.
 //
-// The value of reservedSpace for this Store is added to the result, but this should only
-// affect tests (reservedSpace should always be 0 in real usage).
+// Important note: this metric does not include space used by piece headers, whereas
+// storj/filestore/store.(*Store).SpaceUsed() *does* include all space used by the blobs.
+//
+// The value of reservedSpace for this Store is added to the result, but this should only affect
+// tests (reservedSpace should always be 0 in real usage).
 func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
 	satellites, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
@@ -357,10 +361,14 @@ func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID
 	return satellites, nil
 }
 
-// SpaceUsedBySatellite calculates disk space used for local piece storage in the given
-// satellite's namespace. Important note: this metric does not include space used by
-// piece headers, whereas storj/filestore/store.(*Store).SpaceUsedInNamespace() does
-// include all space used by the blobs.
+// SpaceUsedBySatellite calculates *an approximation of* how much disk space is used for local
+// piece storage in the given satellite's namespace. This is an approximation because changes may
+// be being applied to the filestore as this information is collected, and because it is possible
+// that various errors in directory traversal could cause this count to be undersized.
+//
+// Important note: this metric does not include space used by piece headers, whereas
+// storj/filestore/store.(*Store).SpaceUsedInNamespace() *does* include all space used by the
+// blobs.
 func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error) {
 	var totalUsed int64
 	err := store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access StoredPieceAccess) error {
