@@ -72,12 +72,12 @@ We decided that this would increase database size too significantly to be viable
 
 ## Implementation
 
-1. Create a simulation for random audit selection with reservoirs to figure out how many audits for vetted and unvetted nodes would be issued per day, configurations for reservoir sizes for vetted and unvetted nodes, and other insights (probably work with Jens and/or DS team for this).
-2. Add reservoir sampling struct for node auditing.
-3. Create an audit observer that connects to metainfo loop.
-4. Have the audit observer update the reservoir sampling structs.
-5. Implement random selection of a node's reservoir, then of a random segment to audit.
-6. Audit the segment selected from part 5 in the same way as verification happens in the existing system.
+1. [Create a simulation](https://storjlabs.atlassian.net/browse/V3-2359) for random audit selection with reservoirs to figure out how many audits for vetted and unvetted nodes would be issued per day, configurations for reservoir sizes for vetted and unvetted nodes, and other insights (probably work with Jens and/or DS team for this).
+2. [Add reservoir sampling struct for node auditing.](https://storjlabs.atlassian.net/browse/V3-2360)
+3. [Create an audit observer that connects to metainfo loop.](https://storjlabs.atlassian.net/browse/V3-2361)
+4. [Have the audit observer update the reservoir sampling structs.](https://storjlabs.atlassian.net/browse/V3-2362)
+5. [Implement random selection of a node's reservoir, then of a random segment to audit.](https://storjlabs.atlassian.net/browse/V3-2363)
+6. [Audit the segment selected from part 5 in the same way as verification happens in the existing system.](https://storjlabs.atlassian.net/browse/V3-2364)
 
 ## Open issues
 
