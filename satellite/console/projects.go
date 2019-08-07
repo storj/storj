@@ -36,6 +36,7 @@ type Project struct {
 	Description string    `json:"description"`
 	UsageLimit  int64     `json:"usageLimit"`
 	PartnerID   uuid.UUID `json:"partnerId"`
+	OwnerID     uuid.UUID `json:"ownerId"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

@@ -32,7 +32,7 @@ func stopStorageNode(ctx context.Context, planet *testplanet.Planet, nodeID stor
 		return err
 	}
 
-	// mark stopped node as offline in overlay cache
+	// mark stopped node as offline in overlay
 	_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, nodeID, false)
 	return err
 }

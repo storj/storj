@@ -139,6 +139,7 @@ CREATE TABLE projects (
 	description TEXT NOT NULL,
 	usage_limit INTEGER NOT NULL,
 	partner_id BLOB,
+	owner_id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
