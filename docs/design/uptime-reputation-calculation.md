@@ -112,7 +112,7 @@ The algorithm for each time interval iteration is the following:
         1. Update the `back_online` column of the row with the current timestamp.
 
 
-## Open issues (if applicable)
+## Open issues
 
 Currently we have the following issues and concerns which can affects somehow the implementation of this system:
 
