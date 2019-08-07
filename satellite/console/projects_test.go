@@ -55,6 +55,7 @@ func TestProjectsRepository(t *testing.T) {
 			project = &console.Project{
 				Name:        name,
 				Description: description,
+				OwnerID:     owner.ID,
 			}
 
 			project, err = projects.Insert(ctx, project)
@@ -67,6 +68,7 @@ func TestProjectsRepository(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, projectByID.ID, project.ID)
 			assert.Equal(t, projectByID.Name, name)
+			assert.Equal(t, projectByID.OwnerID, owner.ID)
 			assert.Equal(t, projectByID.Description, description)
 		})
 
@@ -75,6 +77,7 @@ func TestProjectsRepository(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, projectByID.ID, project.ID)
 			assert.Equal(t, projectByID.Name, name)
+			assert.Equal(t, projectByID.OwnerID, owner.ID)
 			assert.Equal(t, projectByID.Description, description)
 		})
 
