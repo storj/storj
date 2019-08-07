@@ -5,6 +5,7 @@ package nodestats
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -23,30 +24,43 @@ var (
 	NodeStatsCacheErr = errs.Class("node stats cache error")
 )
 
+// Config defines nodestats cache configuration
+type Config struct {
+	MaxSleepDuration int           `help:"max number of seconds cache waits before performing each sync" releaseDefault:"300" devDefault:"1"`
+	ReputationSync   time.Duration `help:"how often to sync reputation" releaseDefault:"4h" devDefault:"1m"`
+	StorageSync      time.Duration `help:"how often to sync storage" releaseDefault:"12h" devDefault:"2m"`
+}
+
+// CacheStorage encapsulates cache DBs
+type CacheStorage struct {
+	Reputation   reputation.DB
+	StorageUsage storageusage.DB
+}
+
 // Cache runs cache loop and stores reputation stats
 // and storage usage into db
 type Cache struct {
 	log *zap.Logger
 
-	service        *Service
-	trust          *trust.Pool
-	reputationDB   reputation.DB
-	storageusageDB storageusage.DB
+	db      CacheStorage
+	service *Service
+	trust   *trust.Pool
 
-	reputationCycle *sync2.Cycle
-	storageCycle    *sync2.Cycle
+	maxSleepDuration int
+	reputationCycle  *sync2.Cycle
+	storageCycle     *sync2.Cycle
 }
 
 // NewCache creates new caching service instance
-func NewCache(log *zap.Logger, service *Service, trust *trust.Pool, reputationDB reputation.DB, storageusageDB storageusage.DB) *Cache {
+func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, trust *trust.Pool) *Cache {
 	return &Cache{
-		log:             log,
-		service:         service,
-		trust:           trust,
-		reputationDB:    reputationDB,
-		storageusageDB:  storageusageDB,
-		reputationCycle: sync2.NewCycle(time.Hour * 4),
-		storageCycle:    sync2.NewCycle(time.Hour * 12),
+		log:              log,
+		db:               db,
+		service:          service,
+		trust:            trust,
+		maxSleepDuration: config.MaxSleepDuration,
+		reputationCycle:  sync2.NewCycle(config.ReputationSync),
+		storageCycle:     sync2.NewCycle(config.StorageSync),
 	}
 }
 
@@ -55,6 +69,8 @@ func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
 	cache.reputationCycle.Start(ctx, &group, func(ctx context.Context) error {
+		sync2.Sleep(ctx, time.Duration(rand.Intn(cache.maxSleepDuration))*time.Second)
+
 		err := cache.CacheReputationStats(ctx)
 		if err != nil {
 			cache.log.Error("Get stats query failed", zap.Error(err))
@@ -63,6 +79,8 @@ func (cache *Cache) Run(ctx context.Context) error {
 		return nil
 	})
 	cache.storageCycle.Start(ctx, &group, func(ctx context.Context) error {
+		sync2.Sleep(ctx, time.Duration(rand.Intn(cache.maxSleepDuration))*time.Second)
+
 		err := cache.CacheSpaceUsage(ctx)
 		if err != nil {
 			cache.log.Error("Get disk space usage query failed", zap.Error(err))
@@ -87,7 +105,7 @@ func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 			continue
 		}
 
-		if err = cache.reputationDB.Store(ctx, *stats); err != nil {
+		if err = cache.db.Reputation.Store(ctx, *stats); err != nil {
 			cacheStatsErr.Add(NodeStatsCacheErr.Wrap(err))
 			continue
 		}
@@ -112,7 +130,7 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 			continue
 		}
 
-		err = cache.storageusageDB.Store(ctx, spaceUsages)
+		err = cache.db.StorageUsage.Store(ctx, spaceUsages)
 		if err != nil {
 			cacheSpaceErr.Add(NodeStatsCacheErr.Wrap(err))
 			continue

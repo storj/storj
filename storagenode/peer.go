@@ -81,6 +81,8 @@ type Config struct {
 
 	Vouchers vouchers.Config
 
+	Nodestats nodestats.Config
+
 	Console consoleserver.Config
 
 	Version version.Config
@@ -129,7 +131,7 @@ type Peer struct {
 
 	NodeStats struct {
 		Service *nodestats.Service
-		Loop    *nodestats.Cache
+		Cache   *nodestats.Cache
 	}
 
 	// Web server with web UI
@@ -275,12 +277,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Transport,
 			peer.Storage2.Trust)
 
-		peer.NodeStats.Loop = nodestats.NewCache(
+		peer.NodeStats.Cache = nodestats.NewCache(
 			peer.Log.Named("nodestats:loop"),
+			config.Nodestats,
+			nodestats.CacheStorage{
+				Reputation:   peer.DB.Reputation(),
+				StorageUsage: peer.DB.StorageUsage(),
+			},
 			peer.NodeStats.Service,
-			peer.Storage2.Trust,
-			db.Reputation(),
-			db.StorageUsage())
+			peer.Storage2.Trust)
 	}
 
 	{ // setup vouchers
@@ -381,7 +386,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.NodeStats.Loop.Run(ctx))
+		return errs2.IgnoreCanceled(peer.NodeStats.Cache.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
@@ -431,8 +436,8 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Console.Listener.Close())
 	}
 
-	if peer.NodeStats.Loop != nil {
-		errlist.Add(peer.NodeStats.Loop.Close())
+	if peer.NodeStats.Cache != nil {
+		errlist.Add(peer.NodeStats.Cache.Close())
 	}
 
 	return errlist.Err()
