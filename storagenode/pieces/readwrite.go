@@ -130,10 +130,12 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	if err != nil {
 		return err
 	}
+	mon.IntVal("storagenode_pieces_pieceheader_size").Observe(int64(len(headerBytes)))
 	if len(headerBytes) > (V1PieceHeaderReservedArea - v1PieceHeaderFramingSize) {
 		// This should never happen under normal circumstances, and it might deserve a panic(),
 		// but I'm not *entirely* sure this case can't be triggered by a malicious uplink. Are
 		// google.protobuf.Timestamp fields variable-width?
+		mon.Meter("storagenode_pieces_pieceheader_overflow").Mark(len(headerBytes))
 		return Error.New("marshaled piece header too big!")
 	}
 	size, err := w.blob.Size()
