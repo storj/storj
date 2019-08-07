@@ -338,7 +338,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				if !limit.PieceExpiration.IsZero() {
 					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
 					if err != nil {
-						return ErrInternal.Wrap(err)
+						return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 					}
 				}
 			}
