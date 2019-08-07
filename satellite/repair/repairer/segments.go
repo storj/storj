@@ -28,7 +28,7 @@ type SegmentRepairer struct {
 	log      *zap.Logger
 	metainfo *metainfo.Service
 	orders   *orders.Service
-	cache    *overlay.Cache
+	overlay  *overlay.Service
 	ec       ecclient.Client
 	timeout  time.Duration
 
@@ -45,7 +45,7 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
-	cache *overlay.Cache, ec ecclient.Client, timeout time.Duration,
+	overlay *overlay.Service, ec ecclient.Client, timeout time.Duration,
 	excessOptimalThreshold float64,
 ) *SegmentRepairer {
 
@@ -57,7 +57,7 @@ func NewSegmentRepairer(
 		log:                        log,
 		metainfo:                   metainfo,
 		orders:                     orders,
-		cache:                      cache,
+		overlay:                    overlay,
 		ec:                         ec.WithForceErrorDetection(true),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
@@ -94,7 +94,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	var healthyPieces, unhealthyPieces []*pb.RemotePiece
 	healthyMap := make(map[int32]bool)
 	pieces := pointer.GetRemote().GetRemotePieces()
-	missingPieces, err := repairer.cache.GetMissingPieces(ctx, pieces)
+	missingPieces, err := repairer.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
 		return false, Error.New("error getting missing pieces %s", err)
 	}
@@ -158,7 +158,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		FreeDisk:       pieceSize,
 		ExcludedNodes:  excludeNodeIDs,
 	}
-	newNodes, err := repairer.cache.FindStorageNodes(ctx, request)
+	newNodes, err := repairer.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}

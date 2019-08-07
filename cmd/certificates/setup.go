@@ -63,11 +63,11 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		return errors.New("identity is missing")
 	}
 
-	overrides := map[string]interface{}{
-		"ca.cert-path":       config.CA.CertPath,
-		"ca.key-path":        config.CA.KeyPath,
-		"identity.cert-path": config.Identity.CertPath,
-		"identity.key-path":  config.Identity.KeyPath,
-	}
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
+		process.SaveConfigWithOverrides(map[string]interface{}{
+			"ca.cert-path":       config.CA.CertPath,
+			"ca.key-path":        config.CA.KeyPath,
+			"identity.cert-path": config.Identity.CertPath,
+			"identity.key-path":  config.Identity.KeyPath,
+		}))
 }

@@ -14,9 +14,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/lib/uplink"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/uplink/setup"
 )
 
 func TestProjectListBuckets(t *testing.T) {
@@ -29,17 +27,14 @@ func TestProjectListBuckets(t *testing.T) {
 			cfg.Volatile.Log = zaptest.NewLogger(t)
 			cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
-			satelliteAddr := planet.Satellites[0].Local().Address.Address
-			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+			scope, err := planet.Uplinks[0].GetConfig(planet.Satellites[0]).GetScope()
+			require.NoError(t, err)
 
 			ul, err := uplink.NewUplink(ctx, &cfg)
 			require.NoError(t, err)
 			defer ctx.Check(ul.Close)
 
-			key, err := uplink.ParseAPIKey(apiKey)
-			require.NoError(t, err)
-
-			p, err := ul.OpenProject(ctx, satelliteAddr, key)
+			p, err := ul.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
 			require.NoError(t, err)
 
 			// create 6 test buckets
@@ -73,28 +68,13 @@ func TestProjectListBuckets(t *testing.T) {
 			require.False(t, result.More)
 
 			// List with restrictions
-			restriction := libuplink.EncryptionRestriction{
-				Bucket: "test0",
-			}
-			access, err := setup.LoadEncryptionAccess(ctx,
-				planet.Uplinks[0].GetConfig(planet.Satellites[0]).Enc,
-			)
-			require.NoError(t, err)
-			key, access, err = access.Restrict(key, restriction)
+			scope.APIKey, scope.EncryptionAccess, err =
+				scope.EncryptionAccess.Restrict(scope.APIKey,
+					libuplink.EncryptionRestriction{Bucket: "test0"},
+					libuplink.EncryptionRestriction{Bucket: "test1"})
 			require.NoError(t, err)
 
-			caveat := macaroon.Caveat{}
-			caveat.DisallowReads = true
-			caveat.AllowedPaths = append(caveat.AllowedPaths,
-				&macaroon.Caveat_Path{
-					Bucket: []byte("test1"),
-				},
-			)
-
-			key, err = key.Restrict(caveat)
-			require.NoError(t, err)
-
-			p, err = ul.OpenProject(ctx, satelliteAddr, key)
+			p, err = ul.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
 			require.NoError(t, err)
 			defer ctx.Check(p.Close)
 

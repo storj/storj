@@ -88,6 +88,7 @@ typedef struct ObjectInfo {
     char       *path;
     bool       is_prefix;
     char       *content_type;
+    int64_t    size;
     int64_t    created;
     int64_t    modified;
     int64_t    expires;

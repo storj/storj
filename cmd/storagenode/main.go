@@ -27,8 +27,7 @@ import (
 
 // StorageNodeFlags defines storage node configuration
 type StorageNodeFlags struct {
-	EditConf        bool `default:"false" help:"open config in default editor"`
-	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
+	EditConf bool `default:"false" help:"open config in default editor"`
 
 	storagenode.Config
 }
@@ -197,11 +196,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")
-	if setupCfg.SaveAllDefaults {
-		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
-	} else {
-		err = process.SaveConfig(cmd.Flags(), configFile, overrides)
-	}
+	err = process.SaveConfig(cmd, configFile, process.SaveConfigWithOverrides(overrides))
 	if err != nil {
 		return err
 	}

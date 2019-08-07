@@ -614,7 +614,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	}
 
 	const limit = 1000
-	offset := 0
+	cursor := storj.PieceID{}
 	numDeleted := 0
 	hasMorePieces := true
 
@@ -622,11 +622,13 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		// subtract some time to leave room for clock difference between the satellite and storage node
 		createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
-		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
+		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, cursor)
 		if err != nil {
 			return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 		}
 		for _, pieceID := range pieceIDs {
+			cursor = pieceID
+
 			if !filter.Contains(pieceID) {
 				endpoint.log.Sugar().Debugf("About to delete piece id (%s) from satellite (%s). RetainStatus: %s", pieceID.String(), peer.ID.String(), endpoint.config.RetainStatus.String())
 
@@ -648,8 +650,6 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		}
 
 		hasMorePieces = (len(pieceIDs) == limit)
-		offset += len(pieceIDs)
-		offset -= numDeleted
 		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()
