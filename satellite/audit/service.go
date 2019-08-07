@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
@@ -36,9 +37,10 @@ type Config struct {
 type Service struct {
 	log *zap.Logger
 
-	Cursor   *Cursor
-	Verifier *Verifier
-	Reporter reporter
+	Reservoirs map[storj.NodeID]*Reservoir
+	Cursor     *Cursor
+	Verifier   *Verifier
+	Reporter   reporter
 
 	Loop sync2.Cycle
 }
@@ -70,6 +72,28 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		}
 		return nil
 	})
+}
+
+// RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already
+func (service *Service) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx, path)(&err)
+
+	remote := pointer.GetRemote()
+
+	pieces := remote.GetRemotePieces()
+
+	var reservoir *Reservoir
+
+	for _, piece := range pieces {
+		if _, ok := service.Reservoirs[piece.NodeId]; !ok {
+			reservoir.Segments[0] = remote
+			service.Reservoirs[piece.NodeId] = reservoir
+		} else {
+			service.Reservoirs[piece.NodeId].add(remote)
+		}
+	}
+
+	return nil
 }
 
 // Close halts the audit loop
