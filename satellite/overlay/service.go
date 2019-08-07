@@ -305,6 +305,7 @@ func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.N
 	if value.Address == nil {
 		return errors.New("node has no address")
 	}
+
 	// Resolve IP Address Network to ensure it is set
 	value.LastIp, err = GetNetwork(ctx, value.Address.Address)
 	if err != nil {

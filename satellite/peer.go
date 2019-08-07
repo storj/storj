@@ -158,6 +158,7 @@ type Peer struct {
 	}
 
 	Overlay struct {
+		DB        overlay.DB
 		Service   *overlay.Service
 		Inspector *overlay.Inspector
 	}
@@ -271,7 +272,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	{ // setup overlay
 		log.Debug("Starting overlay")
 
-		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Overlay)
+		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
+		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
@@ -485,7 +487,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("garbage collection"),
 			config.GarbageCollection,
 			peer.Transport,
-			peer.DB.OverlayCache(),
+			peer.Overlay.DB,
 			peer.Metainfo.Loop,
 		)
 	}
@@ -643,7 +645,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
-			peer.DB.OverlayCache(),
+			peer.Overlay.DB,
 			peer.DB.StoragenodeAccounting())
 
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
