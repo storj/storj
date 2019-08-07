@@ -36,7 +36,7 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, timestamp) 
 			VALUES(?,?,?)`
 
-	cb := func(tx *sql.Tx) error {
+	return db.withTx(ctx, func(tx *sql.Tx) error {
 		for _, stamp := range stamps {
 			_, err = db.db.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
 
@@ -46,9 +46,7 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 		}
 
 		return nil
-	}
-
-	return db.withTx(ctx, cb)
+	})
 }
 
 // GetDaily returns daily storage usage stamps for particular satellite
