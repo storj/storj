@@ -15,6 +15,6 @@ func MonthBoundary(t time.Time) (time.Time, time.Time) {
 
 // DayBoundary returns start and end of the provided day
 func DayBoundary(t time.Time) (time.Time, time.Time) {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC),
-		time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, -1, time.UTC)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()),
+		time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, -1, t.Location())
 }
