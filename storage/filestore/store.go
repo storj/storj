@@ -109,7 +109,7 @@ func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, store, storage.MaxStorageFormatVersionSupported, file), nil
+	return newBlobWriter(ref, store, storage.MaxFormatVersionSupported, file), nil
 }
 
 // SpaceUsed adds up the space used in all namespaces for blob storage

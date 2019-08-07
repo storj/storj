@@ -176,7 +176,7 @@ func (dir *Dir) Open(ctx context.Context, ref storage.BlobRef) (_ *os.File, _ st
 	if err != nil {
 		return nil, storage.FormatV0, err
 	}
-	for formatVer := storage.MaxStorageFormatVersionSupported; formatVer >= storage.MinStorageFormatVersionSupported; formatVer-- {
+	for formatVer := storage.MaxFormatVersionSupported; formatVer >= storage.MinFormatVersionSupported; formatVer-- {
 		vPath := blobPathForFormatVersion(path, formatVer)
 		file, err := openFileReadOnly(vPath, blobPermission)
 		if err == nil {
@@ -218,7 +218,7 @@ func (dir *Dir) Lookup(ctx context.Context, ref storage.BlobRef) (_ storage.Stor
 	if err != nil {
 		return nil, err
 	}
-	for formatVer := storage.MaxStorageFormatVersionSupported; formatVer >= storage.MinStorageFormatVersionSupported; formatVer-- {
+	for formatVer := storage.MaxFormatVersionSupported; formatVer >= storage.MinFormatVersionSupported; formatVer-- {
 		vPath := blobPathForFormatVersion(path, formatVer)
 		stat, err := os.Stat(vPath)
 		if err == nil {
@@ -271,7 +271,7 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 	// been updated atomically with _MaxVer concurrently while we were iterating. If we iterate
 	// _forwards_, this race should not occur because it is assumed that pieces are never
 	// rewritten with an _older_ storage format version.
-	for i := storage.MinStorageFormatVersionSupported; i <= storage.MaxStorageFormatVersionSupported; i++ {
+	for i := storage.MinFormatVersionSupported; i <= storage.MaxFormatVersionSupported; i++ {
 		verPath := blobPathForFormatVersion(pathBase, i)
 
 		// move to trash folder, this is allowed for some OS-es
