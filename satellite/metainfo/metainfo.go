@@ -645,11 +645,21 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	// checks if bucket exists before updates it with partner id if it exits or makes a new entry
-	partnerID := keyInfo.PartnerID
+	var partnerID uuid.UUID
+	if !keyInfo.PartnerID.IsZero() {
+		partnerID = keyInfo.PartnerID
+	} else if len(req.GetPartnerId()) > 0 { // check if partner id set in Open source connector
+		var oscPartnerID uuid.UUID
+		err = oscPartnerID.UnmarshalJSON(req.GetPartnerId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
+		partnerID = oscPartnerID
+	}
+
+	// checks if partner id exists in the API keyinfo (referral link)
 	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err == nil {
-		// partnerID not set
 		if partnerID.IsZero() {
 			return resp, status.Errorf(codes.AlreadyExists, "Bucket already exists")
 		}
@@ -678,7 +688,6 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		if !partnerID.IsZero() {
 			bucket.PartnerID = partnerID
 		}
-
 		bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
 		if err != nil {
 			return nil, Error.Wrap(err)
