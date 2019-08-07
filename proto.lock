@@ -4724,6 +4724,20 @@
     {
       "protopath": "pkg:/:pb:/:piecestore2.proto",
       "def": {
+        "enums": [
+          {
+            "name": "PieceHeader.FormatVersion",
+            "enum_fields": [
+              {
+                "name": "FORMAT_V0"
+              },
+              {
+                "name": "FORMAT_V1",
+                "integer": 1
+              }
+            ]
+          }
+        ],
         "messages": [
           {
             "name": "PieceUploadRequest",
@@ -4888,7 +4902,7 @@
               {
                 "id": 1,
                 "name": "format_version",
-                "type": "int32"
+                "type": "FormatVersion"
               },
               {
                 "id": 2,
@@ -4917,17 +4931,6 @@
               },
               {
                 "id": 5,
-                "name": "expiration_time",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  }
-                ]
-              },
-              {
-                "id": 6,
                 "name": "order_limit",
                 "type": "orders.OrderLimit",
                 "options": [

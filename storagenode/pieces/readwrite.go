@@ -121,10 +121,10 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	}()
 
 	formatVer := w.blob.GetStorageFormatVersion()
-	pieceHeader.FormatVersion = int32(formatVer)
 	if formatVer == storage.FormatV0 {
 		return nil
 	}
+	pieceHeader.FormatVersion = pb.PieceHeader_FormatVersion(formatVer)
 	headerBytes, err := proto.Marshal(pieceHeader)
 	if err != nil {
 		return err

@@ -326,22 +326,17 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			}
 
 			{
-				var expTime *time.Time
-				if !limit.PieceExpiration.IsZero() {
-					expTime = &limit.PieceExpiration
-				}
 				info := &pb.PieceHeader{
-					Hash:           calculatedHash,
-					CreationTime:   message.Done.Timestamp,
-					ExpirationTime: expTime,
-					Signature:      message.Done.GetSignature(),
-					OrderLimit:     *limit,
+					Hash:         calculatedHash,
+					CreationTime: message.Done.Timestamp,
+					Signature:    message.Done.GetSignature(),
+					OrderLimit:   *limit,
 				}
 				if err := pieceWriter.Commit(ctx, info); err != nil {
 					return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 				}
-				if expTime != nil {
-					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, *expTime)
+				if !limit.PieceExpiration.IsZero() {
+					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
 					if err != nil {
 						return ErrInternal.Wrap(err)
 					}

@@ -121,11 +121,12 @@ func readAndWritePiece(t *testing.T, content []byte) {
 
 	// commit the writer with the piece header, and close it
 	err = w.Commit(ctx, &pb.PieceHeader{
-		Hash:           fakeHash,
-		CreationTime:   creationTime,
-		Signature:      fakeSig,
-		ExpirationTime: &expirationTime,
-		OrderLimit:     pb.OrderLimit{},
+		Hash:         fakeHash,
+		CreationTime: creationTime,
+		Signature:    fakeSig,
+		OrderLimit: pb.OrderLimit{
+			PieceExpiration: expirationTime,
+		},
 	})
 	require.NoError(t, err)
 
@@ -150,10 +151,10 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	assert.Truef(t, header.CreationTime.Equal(creationTime),
 		"header.CreationTime = %s, but expected creationTime = %s", header.CreationTime, creationTime)
 	assert.Equal(t, fakeSig, header.Signature)
-	require.NotNil(t, header.ExpirationTime)
-	assert.Truef(t, header.ExpirationTime.Equal(expirationTime),
-		"*header.ExpirationTime = %s, but expected expirationTime = %s", *header.ExpirationTime, expirationTime)
-	assert.Equal(t, pb.OrderLimit{}, header.OrderLimit)
+	require.NotZero(t, header.OrderLimit.PieceExpiration)
+	assert.Truef(t, header.OrderLimit.PieceExpiration.Equal(expirationTime),
+		"*header.ExpirationTime = %s, but expected expirationTime = %s", header.OrderLimit.PieceExpiration, expirationTime)
+	assert.Equal(t, pb.OrderLimit{PieceExpiration: expirationTime}, header.OrderLimit)
 	assert.Equal(t, storage.FormatV1, storage.FormatVersion(header.FormatVersion))
 
 	// make sure seek-nowhere works as expected after piece header is read too

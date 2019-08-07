@@ -146,10 +146,14 @@ func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelli
 	require.NoError(t, err)
 	size := writer.Size()
 	assert.Equal(t, int64(len(data)), size)
+	limit := pb.OrderLimit{}
+	if expireTime != nil {
+		limit.PieceExpiration = *expireTime
+	}
 	err = writer.Commit(ctx, &pb.PieceHeader{
-		Hash:           writer.Hash(),
-		CreationTime:   atTime,
-		ExpirationTime: expireTime,
+		Hash:         writer.Hash(),
+		CreationTime: atTime,
+		OrderLimit:   limit,
 	})
 	require.NoError(t, err)
 }
