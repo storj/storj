@@ -301,7 +301,8 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 	return pos, Error.Wrap(err)
 }
 
-// ReadAt reads data at the specified offset
+// ReadAt reads data at the specified offset, which is relative to the piece content,
+// not the underlying blob. The piece header is not reachable by this method.
 func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
 	if r.formatVersion >= filestore.FormatV1 {
 		offset += V1PieceHeaderReservedArea
