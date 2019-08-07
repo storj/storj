@@ -188,15 +188,15 @@ This process including the Storage nodes transferring their pieces to other node
 	message OrderResponse {
 	}
 
-	message OrderRequest {
+	message StatusRequest {
 	}
 
-	message OrderResponse {
+	message StatusResponse {
         byte satellite_id
-		google.protobuf.Timestamp initiated_dt
-		google.protobuf.Timestamp completed_dt
-		int64 starting_disk_usage
-		int64 bytes_deleted		
+        google.protobuf.Timestamp initiated_dt
+        google.protobuf.Timestamp completed_dt
+        int64 starting_disk_usage
+        int64 bytes_deleted		
 	}
 	```
 - Update bandwidth usage monitors to ignore `PieceAction_PUT_EXIT` bandwidth actions
