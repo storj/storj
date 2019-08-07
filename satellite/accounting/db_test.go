@@ -5,7 +5,6 @@ package accounting_test
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -131,12 +130,12 @@ func createRollups(nodes storj.NodeIDList) (accounting.RollupStats, []time.Time)
 				ID:             rollupCounter,
 				NodeID:         nodeID,
 				StartTime:      startDate,
-				PutTotal:       rand.Int63(),
-				GetTotal:       rand.Int63(),
-				GetAuditTotal:  rand.Int63(),
-				GetRepairTotal: rand.Int63(),
-				PutRepairTotal: rand.Int63(),
-				AtRestTotal:    rand.Float64() * 10000,
+				PutTotal:       testrand.Int63n(10000),
+				GetTotal:       testrand.Int63n(10000),
+				GetAuditTotal:  testrand.Int63n(10000),
+				GetRepairTotal: testrand.Int63n(10000),
+				PutRepairTotal: testrand.Int63n(10000),
+				AtRestTotal:    testrand.Float64n(10000),
 			}
 
 			rollupCounter++
