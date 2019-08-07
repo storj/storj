@@ -100,12 +100,12 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 
 	return &pb.DailyStorageUsageResponse{
 		NodeId:            node.Id,
-		DailyStorageUsage: toPBDailyStorageUsage(nodeSpaceUsages),
+		DailyStorageUsage: toProtoDailyStorageUsage(nodeSpaceUsages),
 	}, nil
 }
 
-// toPBDailyStorageUsage converts StorageNodeUsage to PB DailyStorageUsageResponse_StorageUsage
-func toPBDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyStorageUsageResponse_StorageUsage {
+// toProtoDailyStorageUsage converts StorageNodeUsage to PB DailyStorageUsageResponse_StorageUsage
+func toProtoDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyStorageUsageResponse_StorageUsage {
 	var pbUsages []*pb.DailyStorageUsageResponse_StorageUsage
 
 	for _, usage := range usages {
