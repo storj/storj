@@ -84,13 +84,13 @@ func (db *v0PieceInfo) getAllPiecesOwnedBy(ctx context.Context, blobStore storag
 	return pieceInfos, nil
 }
 
-// ForAllV0PieceIDsOwnedBySatellite executes doForEach for each locally stored piece, stored with
-// storage format V0 in the namespace of the given satellite. If doForEach returns a non-nil error,
-// ForAllV0PieceIDsOwnedBySatellite will stop iterating and return the error immediately.
+// WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored with
+// storage format V0 in the namespace of the given satellite. If walkFunc returns a non-nil error,
+// WalkSatelliteV0Pieces will stop iterating and return the error immediately.
 //
 // If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
 // instances will not work, but otherwise everything should be ok.
-func (db *v0PieceInfo) ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID, doForEach func(pieces.StoredPieceAccess) error) (err error) {
+func (db *v0PieceInfo) WalkSatelliteV0Pieces(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: is it worth paging this query? we hope that SNs will not yet have too many V0 pieces.
@@ -98,10 +98,10 @@ func (db *v0PieceInfo) ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, blo
 	if err != nil {
 		return err
 	}
-	// note we must not keep a transaction open with the db when calling doForEach; the callback
+	// note we must not keep a transaction open with the db when calling walkFunc; the callback
 	// might need to make db calls as well
 	for i := range pieceInfos {
-		if err := doForEach(&pieceInfos[i]); err != nil {
+		if err := walkFunc(&pieceInfos[i]); err != nil {
 			return err
 		}
 	}

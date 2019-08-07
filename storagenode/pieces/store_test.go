@@ -353,9 +353,9 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			require.NoError(t, reader.Close())
 		}
 
-		// ensure we can see it via ForAllPieceIDsOwnedBySatellite
+		// ensure we can see it via WalkSatellitePieces
 		calledTimes := 0
-		err = store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
+		err = store.WalkSatellitePieces(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
 			calledTimes++
 			require.Equal(t, 1, calledTimes)
 			gotCreateTime, err := access.CreationTime(ctx)
@@ -385,7 +385,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			require.NoError(t, reader.Close())
 		}
 
-		// now _both_ pieces should show up under ForAllPieceIDsOwnedBySatellite. this may
+		// now _both_ pieces should show up under WalkSatellitePieces. this may
 		// be counter-intuitive, but the V0 piece still exists for now (so we can avoid
 		// hitting the pieceinfo db with every new piece write). I believe this is OK, because
 		// (a) I don't think that writing different pieces with the same piece ID is a normal
@@ -394,7 +394,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		// should not be possible under normal conditions to delete one without deleting the
 		// other.
 		calledTimes = 0
-		err = store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
+		err = store.WalkSatellitePieces(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
 			calledTimes++
 			switch calledTimes {
 			case 1:
@@ -428,7 +428,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		err = store.Delete(ctx, satelliteID, pieceID)
 		require.NoError(t, err)
 
-		err = store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
+		err = store.WalkSatellitePieces(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
 			t.Fatalf("this should not have been called. pieceID=%x, format=%d", access.PieceID(), access.StorageFormatVersion())
 			return nil
 		})

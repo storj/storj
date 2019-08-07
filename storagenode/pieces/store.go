@@ -79,11 +79,11 @@ type V0PieceInfoDB interface {
 	// GetExpired gets piece IDs stored with storage format V0 that expire or have expired
 	// before the given time
 	GetExpired(ctx context.Context, expiredAt time.Time, limit int64) ([]ExpiredInfo, error)
-	// ForAllV0PieceIDsOwnedBySatellite executes doForEach for each locally stored piece, stored
-	// with storage format V0 in the namespace of the given satellite. If doForEach returns a
-	// non-nil error, ForAllV0PieceIDsOwnedBySatellite will stop iterating and return the error
+	// WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored
+	// with storage format V0 in the namespace of the given satellite. If walkFunc returns a
+	// non-nil error, WalkSatelliteV0Pieces will stop iterating and return the error
 	// immediately.
-	ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, blobStore storage.Blobs, satellite storj.NodeID, doForEach func(StoredPieceAccess) error) error
+	WalkSatelliteV0Pieces(ctx context.Context, blobStore storage.Blobs, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) error
 }
 
 // V0PieceInfoDBForTest is like V0PieceInfoDB, but adds on the Add() method so
@@ -98,7 +98,7 @@ type V0PieceInfoDBForTest interface {
 }
 
 // StoredPieceAccess allows inspection and manipulation of a piece during iteration with
-// ForAllPieceIDsOwnedBySatellite-type methods
+// WalkSatellitePieces-type methods.
 type StoredPieceAccess interface {
 	storage.BlobInfo
 
@@ -260,12 +260,12 @@ func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
 	return store.v0PieceInfo
 }
 
-// ForAllPieceIDsOwnedBySatellite executes doForEach for each locally stored piece in the namespace
-// of the given satellite. If doForEach returns a non-nil error, ForAllPieceIDsInNamespace will stop
-// iterating and return the error immediately.
+// WalkSatellitePieces executes walkFunc for each locally stored piece in the namespace
+// of the given satellite. If walkFunc returns a non-nil error, WalkSatellitePieces will
+// stop iterating and return the error immediately.
 //
 // Note that this method includes all locally stored pieces, both V0 and higher.
-func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, doForEach func(StoredPieceAccess) error) (err error) {
+func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// first iterate over all in V1 storage, then all in V0
 	err = store.blobs.WalkNamespace(ctx, satellite.Bytes(), func(blobInfo storage.BlobInfo) error {
@@ -279,10 +279,10 @@ func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellit
 			// it is not a valid PieceID.
 			return err
 		}
-		return doForEach(pieceAccess)
+		return walkFunc(pieceAccess)
 	})
 	if err == nil && store.v0PieceInfo != nil {
-		err = store.v0PieceInfo.ForAllV0PieceIDsOwnedBySatellite(ctx, store.blobs, satellite, doForEach)
+		err = store.v0PieceInfo.WalkSatelliteV0Pieces(ctx, store.blobs, satellite, walkFunc)
 	}
 	return err
 }
@@ -371,7 +371,7 @@ func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID
 // blobs.
 func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error) {
 	var totalUsed int64
-	err := store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access StoredPieceAccess) error {
+	err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
 		contentSize, statErr := access.ContentSize(ctx)
 		if statErr != nil {
 			store.log.Error("failed to stat", zap.Error(statErr), zap.String("pieceID", access.PieceID().String()), zap.String("satellite", satelliteID.String()))

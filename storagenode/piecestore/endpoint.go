@@ -656,7 +656,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		zap.Int64("filterSize", filter.Size()),
 		zap.String("satellite", peer.ID.String()))
 
-	err = endpoint.store.ForAllPieceIDsOwnedBySatellite(ctx, peer.ID, func(access pieces.StoredPieceAccess) error {
+	err = endpoint.store.WalkSatellitePieces(ctx, peer.ID, func(access pieces.StoredPieceAccess) error {
 		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		defer runtime.Gosched()
