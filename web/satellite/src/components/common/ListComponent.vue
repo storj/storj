@@ -27,7 +27,7 @@
                 console.error('onItemClick is not reinitialized');
             }
         })
-        private readonly onItemClick: Function;
+        private readonly onItemClick: ListItemClickCallback<T>;
         @Prop({default: []})
         private readonly dataSet: T[];
 
