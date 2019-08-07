@@ -124,7 +124,7 @@ func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (
 // NodeInfo sends a PING RPC to a node and returns its local info.
 func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (_ *pb.NodeInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	info, _, err := srv.kademlia.FetchInfo(ctx, pb.Node{
+	info, err := srv.kademlia.FetchInfo(ctx, pb.Node{
 		Id:      req.Id,
 		Address: req.Address,
 	})

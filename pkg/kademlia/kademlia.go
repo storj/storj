@@ -263,18 +263,18 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (_ pb.Node, err error
 }
 
 // FetchInfo connects to a node address and returns the node info
-func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoResponse, _ *identity.PeerIdentity, err error) {
+func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
-		return nil, nil, context.Canceled
+		return nil, context.Canceled
 	}
 	defer k.lookups.Done()
 
-	info, ident, err := k.dialer.FetchInfo(ctx, node)
+	info, err := k.dialer.FetchInfo(ctx, node)
 	if err != nil {
-		return nil, nil, NodeErr.Wrap(NodeErr.New("%s : %s failed to fetch info from node ID %s: %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), node.Id.String(), err))
+		return nil, NodeErr.Wrap(NodeErr.New("%s : %s failed to fetch info from node ID %s: %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), node.Id.String(), err))
 	}
-	return info, ident, nil
+	return info, nil
 }
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found

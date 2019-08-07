@@ -121,7 +121,7 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 
 			limiter.Go(ctx, func() {
 				// NB: FetchInfo updates node uptime already
-				info, ident, err := discovery.kad.FetchInfo(ctx, *node)
+				info, err := discovery.kad.FetchInfo(ctx, *node)
 				if ctx.Err() != nil {
 					return
 				}
@@ -135,7 +135,12 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 					discovery.log.Warn("could not update node info", zap.Stringer("ID", node.GetAddress()))
 				}
 
-				// update/add the certdb with nodeID's public key
+				// update/add the certdb with nodeID's peer identity
+				ident, err := discovery.kad.FetchPeerIdentity(ctx, node.Id)
+				if ctx.Err() != nil {
+					return
+				}
+
 				if err = discovery.certdb.SavePublicKey(ctx, node.Id, ident); err != nil {
 					discovery.log.Warn("unable to save publickey info", zap.Stringer("ID", node.GetAddress()))
 				}
