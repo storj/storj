@@ -212,7 +212,7 @@ func (dir *Dir) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, forma
 // in order to find the blob, if it was stored with an older version of the storage node software.
 // In cases where the storage format version of a blob is already known, StatSpecific() will
 // generally be a better choice.
-func (dir *Dir) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.StoredBlobAccess, err error) {
+func (dir *Dir) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.BlobInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
