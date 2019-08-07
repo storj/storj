@@ -475,23 +475,22 @@ func (lr *lazyPieceRanger) Size() int64 {
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	reader := &lazyPieceReader{}
-	reader.lazyPieceRanger = lr
-	reader.ctx = ctx
-	reader.offset = offset
-	reader.length = length
-	return reader, nil
+	return &lazyPieceReader{
+		ranger: lr,
+		ctx:    ctx,
+		offset: offset,
+		length: length,
+	}, nil
 }
 
 type lazyPieceReader struct {
-	*lazyPieceRanger
+	ranger *lazyPieceRanger
 	ctx    context.Context
 	offset int64
 	length int64
 
 	mu sync.RWMutex
 
-	dialed bool
 	closed bool
 	piecestore.Downloader
 	client *piecestore.Client
@@ -504,37 +503,33 @@ func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
 	if lr.closed {
 		return 0, io.EOF
 	}
-	if !lr.dialed {
-		err = lr.dial()
+	if lr.Downloader == nil {
+		client, downloader, err := lr.ranger.dial(lr.ctx, lr.offset, lr.length)
 		if err != nil {
 			return 0, err
 		}
-	}
-	if lr.dialed && lr.Downloader == nil {
-		return 0, io.EOF
+		lr.client = client
+		lr.Downloader = downloader
 	}
 
 	return lr.Downloader.Read(data)
 }
 
-func (lr *lazyPieceReader) dial() (err error) {
-	defer mon.Task()(&lr.ctx)(&err)
-	lr.dialed = true
-	ps, err := lr.dialPiecestore(lr.ctx, &pb.Node{
+func (lr *lazyPieceRanger) dial(ctx context.Context, offset, length int64) (_ *piecestore.Client, _ piecestore.Downloader, err error) {
+	defer mon.Task()(&ctx)(&err)
+	ps, err := lr.dialPiecestore(ctx, &pb.Node{
 		Id:      lr.limit.GetLimit().StorageNodeId,
 		Address: lr.limit.GetStorageNodeAddress(),
 	})
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	lr.client = ps
 
-	download, err := ps.Download(lr.ctx, lr.limit.GetLimit(), lr.privateKey, lr.offset, lr.length)
+	download, err := ps.Download(ctx, lr.limit.GetLimit(), lr.privateKey, offset, length)
 	if err != nil {
-		return errs.Combine(err, ps.Close())
+		return nil, nil, errs.Combine(err, ps.Close())
 	}
-	lr.Downloader = download
-	return nil
+	return ps, download, nil
 }
 
 func (lr *lazyPieceReader) Close() error {
