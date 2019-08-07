@@ -25,7 +25,7 @@ var (
 	mon = monkit.Package()
 )
 
-// TODO(coyle): this should be set to 61 * time.Minute after we implement Ping and Refresh on Overlay Cache
+// TODO(coyle): this should be set to 61 * time.Minute after we implement Ping and Refresh on Overlay.
 // This disables the TTL since the Set command only includes a TTL if it is greater than 0
 const defaultNodeExpiration = 0 * time.Minute
 

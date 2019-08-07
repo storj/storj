@@ -132,7 +132,7 @@ func (s *Server) parseTemplates() (err error) {
 	)
 
 	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
-		"isEmpty": rewards.Offer.IsEmpty,
+		"referralLink": rewards.GeneratePartnerLink,
 	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
@@ -175,7 +175,6 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		offer.Type = rewards.FreeCredit
 	case "partner-offer":
 		offer.Type = rewards.Partner
-		offer.Name = offer.FormatPartnerName()
 	default:
 		err := errs.New("response status %d : invalid offer type", http.StatusBadRequest)
 		s.serveBadRequest(w, req, err)

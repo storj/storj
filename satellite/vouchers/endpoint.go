@@ -26,7 +26,7 @@ type Config struct {
 type Endpoint struct {
 	log        *zap.Logger
 	satellite  signing.Signer
-	cache      *overlay.Cache
+	overlay    *overlay.Service
 	expiration time.Duration
 }
 
@@ -38,11 +38,11 @@ var (
 )
 
 // NewEndpoint creates a new endpoint for issuing signed vouchers
-func NewEndpoint(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, expiration time.Duration) *Endpoint {
+func NewEndpoint(log *zap.Logger, satellite signing.Signer, overlay *overlay.Service, expiration time.Duration) *Endpoint {
 	return &Endpoint{
 		log:        log,
 		satellite:  satellite,
-		cache:      cache,
+		overlay:    overlay,
 		expiration: expiration,
 	}
 }
@@ -56,7 +56,7 @@ func (endpoint *Endpoint) Request(ctx context.Context, req *pb.VoucherRequest) (
 		return nil, Error.Wrap(err)
 	}
 
-	reputable, err := endpoint.cache.IsVetted(ctx, peer.ID)
+	reputable, err := endpoint.overlay.IsVetted(ctx, peer.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

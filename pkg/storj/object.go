@@ -34,6 +34,25 @@ type Object struct {
 	Stream
 }
 
+// ObjectInfo contains information about a specific object
+type ObjectInfo struct {
+	Version  uint32
+	Bucket   string
+	Path     Path
+	IsPrefix bool
+
+	StreamID StreamID
+
+	Metadata []byte
+
+	ContentType string
+	Created     time.Time
+	Modified    time.Time
+	Expires     time.Time
+
+	Stream
+}
+
 // Stream is information about an object stream
 type Stream struct {
 	// Size is the total size of the stream in bytes

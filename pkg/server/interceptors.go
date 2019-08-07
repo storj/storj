@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-func logOnErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+func (server *Server) logOnErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	err = handler(srv, ss)
 	if err != nil {
 		// no zap errors for canceled or wrong file downloads
@@ -29,20 +29,19 @@ func logOnErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *gr
 			err == io.EOF {
 			return err
 		}
-		zap.S().Errorf("%+v", err)
+		server.log.Sugar().Errorf("%+v", err)
 	}
 	return err
 }
 
-func logOnErrorUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
-	err error) {
+func (server *Server) logOnErrorUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	resp, err = handler(ctx, req)
 	if err != nil {
 		// no zap errors for wrong file downloads
 		if status.Code(err) == codes.NotFound {
 			return resp, err
 		}
-		zap.S().Errorf("%+v", err)
+		server.log.Sugar().Errorf("%+v", err)
 	}
 	return resp, err
 }
