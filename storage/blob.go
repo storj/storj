@@ -88,14 +88,14 @@ type Blobs interface {
 	SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error)
 	// ListNamespaces finds all namespaces in which keys might currently be stored.
 	ListNamespaces(ctx context.Context) ([][]byte, error)
-	// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with
-	// storage format V1 or greater, in the given namespace. If doForEach returns a non-nil
-	// error, ForAllKeysInNamespace will stop iterating and return the error immediately.
-	ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(BlobInfo) error) error
+	// WalkNamespace executes walkFunc for each locally stored blob, stored with
+	// storage format V1 or greater, in the given namespace. If walkFunc returns a non-nil
+	// error, WalkNamespace will stop iterating and return the error immediately.
+	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
 }
 
 // BlobInfo allows lazy inspection of a blob and its underlying file during iteration with
-// ForAllKeysInNamespace-type methods
+// WalkNamespace-type methods
 type BlobInfo interface {
 	// BlobRef returns the relevant BlobRef for the blob
 	BlobRef() BlobRef

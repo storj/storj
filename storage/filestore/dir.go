@@ -380,10 +380,10 @@ func (dir *Dir) ListNamespaces(ctx context.Context) (ids [][]byte, err error) {
 	}
 }
 
-// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with storage
-// format V1 or greater, in the given namespace. If doForEach returns a non-nil error,
-// ForAllKeysInNamespace will stop iterating and return the error immediately.
-func (dir *Dir) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.BlobInfo) error) (err error) {
+// WalkNamespace executes walkFunc for each locally stored blob, stored with storage
+// format V1 or greater, in the given namespace. If walkFunc returns a non-nil error,
+// WalkNamespace will stop iterating and return the error immediately.
+func (dir *Dir) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(storage.BlobInfo) error) (err error) {
 	namespaceDir := pathEncoding.EncodeToString(namespace)
 	nsDir := filepath.Join(dir.blobsdir(), namespaceDir)
 	openDir, err := os.Open(nsDir)
@@ -416,7 +416,7 @@ func (dir *Dir) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doF
 				// don't need to pass on this error
 				continue
 			}
-			err := dir.forAllKeysInNamespaceWithPrefix(ctx, namespace, nsDir, keyPrefix, doForEach)
+			err := dir.walkNamespaceWithPrefix(ctx, namespace, nsDir, keyPrefix, walkFunc)
 			if err != nil {
 				return err
 			}
@@ -424,7 +424,7 @@ func (dir *Dir) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doF
 	}
 }
 
-func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace []byte, nsDir, keyPrefix string, doForEach func(storage.BlobInfo) error) (err error) {
+func (dir *Dir) walkNamespaceWithPrefix(ctx context.Context, namespace []byte, nsDir, keyPrefix string, walkFunc func(storage.BlobInfo) error) (err error) {
 	keyDir := filepath.Join(nsDir, keyPrefix)
 	openDir, err := os.Open(keyDir)
 	if err != nil {
@@ -466,11 +466,11 @@ func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace [
 				Key:       key,
 			}
 			fullPath := filepath.Join(keyDir, blobFileName)
-			err = doForEach(newBlobInfo(ref, fullPath, keyInfo, formatVer))
+			err = walkFunc(newBlobInfo(ref, fullPath, keyInfo, formatVer))
 			if err != nil {
 				return err
 			}
-			// also check for context done between every doForEach callback.
+			// also check for context done between every walkFunc callback.
 			if err := ctx.Err(); err != nil {
 				return err
 			}

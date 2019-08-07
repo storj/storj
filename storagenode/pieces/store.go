@@ -268,7 +268,7 @@ func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
 func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, doForEach func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// first iterate over all in V1 storage, then all in V0
-	err = store.blobs.ForAllKeysInNamespace(ctx, satellite.Bytes(), func(blobInfo storage.BlobInfo) error {
+	err = store.blobs.WalkNamespace(ctx, satellite.Bytes(), func(blobInfo storage.BlobInfo) error {
 		if blobInfo.StorageFormatVersion() < filestore.FormatV1 {
 			// we'll address this piece while iterating over the V0 pieces below.
 			return nil

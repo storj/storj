@@ -134,7 +134,7 @@ func (store *Store) SpaceUsed(ctx context.Context) (space int64, err error) {
 // SpaceUsedInNamespace adds up how much is used in the given namespace for blob storage
 func (store *Store) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
-	err := store.ForAllKeysInNamespace(ctx, namespace, func(info storage.BlobInfo) error {
+	err := store.WalkNamespace(ctx, namespace, func(info storage.BlobInfo) error {
 		statInfo, statErr := info.Stat(ctx)
 		if statErr != nil {
 			store.log.Error("failed to stat blob", zap.Binary("namespace", namespace), zap.Binary("key", info.BlobRef().Key), zap.Error(statErr))
@@ -165,11 +165,11 @@ func (store *Store) ListNamespaces(ctx context.Context) (ids [][]byte, err error
 	return store.dir.ListNamespaces(ctx)
 }
 
-// ForAllKeysInNamespace executes doForEach for each locally stored blob in the given
-// namespace. If doForEach returns a non-nil error, ForAllKeysInNamespace will stop
+// WalkNamespace executes walkFunc for each locally stored blob in the given
+// namespace. If walkFunc returns a non-nil error, WalkNamespace will stop
 // iterating and return the error immediately.
-func (store *Store) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.BlobInfo) error) (err error) {
-	return store.dir.ForAllKeysInNamespace(ctx, namespace, doForEach)
+func (store *Store) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(storage.BlobInfo) error) (err error) {
+	return store.dir.WalkNamespace(ctx, namespace, walkFunc)
 }
 
 // StoreForTest is a wrapper for Store that also allows writing new V0 blobs (in order to test

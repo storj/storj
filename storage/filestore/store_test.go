@@ -401,7 +401,7 @@ func TestStoreSpaceUsed(t *testing.T) {
 	}
 }
 
-// Check that ListNamespaces and ForAllKeysInNamespace work as expected.
+// Check that ListNamespaces and WalkNamespace work as expected.
 func TestStoreTraversals(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -455,16 +455,16 @@ func TestStoreTraversals(t *testing.T) {
 		require.Equalf(t, expected.namespace, gotNamespaces[i], "mismatch at index %d: recordsToInsert is %+v and gotNamespaces is %v", i, recordsToInsert, gotNamespaces)
 	}
 
-	// test ForAllKeysInNamespace
+	// test WalkNamespace
 	for _, expected := range recordsToInsert {
 		// this isn't strictly necessary, since the function closure below is not persisted
 		// past the end of a loop iteration, but this keeps the linter from complaining.
 		expected := expected
 
-		// keep track of which blobs we visit with ForAllKeysInNamespace
+		// keep track of which blobs we visit with WalkNamespace
 		found := make([]bool, len(expected.blobs))
 
-		err = store.ForAllKeysInNamespace(ctx, expected.namespace, func(info storage.BlobInfo) error {
+		err = store.WalkNamespace(ctx, expected.namespace, func(info storage.BlobInfo) error {
 			gotBlobRef := info.BlobRef()
 			assert.Equal(t, expected.namespace, gotBlobRef.Namespace)
 			// find which blob this is in expected.blobs
@@ -477,7 +477,7 @@ func TestStoreTraversals(t *testing.T) {
 			}
 			// make sure this is a blob we actually put in
 			require.NotEqualf(t, -1, blobIdentified,
-				"ForAllKeysInNamespace gave BlobRef %v, but I don't remember storing that",
+				"WalkNamespace gave BlobRef %v, but I don't remember storing that",
 				gotBlobRef)
 
 			// check BlobInfo sanity
@@ -497,23 +497,23 @@ func TestStoreTraversals(t *testing.T) {
 		// make sure all blobs were visited
 		for i := range found {
 			assert.True(t, found[i],
-				"ForAllKeysInNamespace never yielded blob at index %d: %v",
+				"WalkNamespace never yielded blob at index %d: %v",
 				i, expected.blobs[i])
 		}
 	}
 
-	// test ForAllKeysInNamespace on a nonexistent namespace also
+	// test WalkNamespace on a nonexistent namespace also
 	namespaceBase[len(namespaceBase)-1] = byte(numNamespaces)
-	err = store.ForAllKeysInNamespace(ctx, namespaceBase, func(info storage.BlobInfo) error {
+	err = store.WalkNamespace(ctx, namespaceBase, func(info storage.BlobInfo) error {
 		t.Fatal("this should not have been called")
 		return nil
 	})
 	require.NoError(t, err)
 
-	// check that ForAllKeysInNamespace stops iterating after an error return
+	// check that WalkNamespace stops iterating after an error return
 	iterations := 0
 	expectedErr := errs.New("an expected error")
-	err = store.ForAllKeysInNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, func(info storage.BlobInfo) error {
+	err = store.WalkNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, func(info storage.BlobInfo) error {
 		iterations++
 		if iterations == 2 {
 			return expectedErr

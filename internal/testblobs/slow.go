@@ -98,12 +98,12 @@ func (slow *SlowBlobs) StatSpecific(ctx context.Context, ref storage.BlobRef, fo
 	return slow.blobs.StatSpecific(ctx, ref, formatVer)
 }
 
-// ForAllKeysInNamespace executes doForEach for each locally stored blob in the given namespace.
-// If doForEach returns a non-nil error, ForAllKeysInNamespace will stop iterating and return the
+// WalkNamespace executes walkFunc for each locally stored blob in the given namespace.
+// If walkFunc returns a non-nil error, WalkNamespace will stop iterating and return the
 // error immediately.
-func (slow *SlowBlobs) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.BlobInfo) error) error {
+func (slow *SlowBlobs) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(storage.BlobInfo) error) error {
 	slow.sleep()
-	return slow.blobs.ForAllKeysInNamespace(ctx, namespace, doForEach)
+	return slow.blobs.WalkNamespace(ctx, namespace, walkFunc)
 }
 
 // ListNamespaces returns all namespaces that might be storing data.
