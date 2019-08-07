@@ -25,8 +25,11 @@
             return this.$store.state.creditUsageModule.referralInfo.awardCreditDurationDays;
         }
 
-        public get creditsRemaining(): number {
-            return this.$store.state.creditUsageModule.referralInfo.awardCreditInCent;
+        public get creditsRemaining(): string {
+            const cents = this.$store.state.creditUsageModule.referralInfo.awardCreditInCent;
+            let resultString = cents < 100 ? `0.${cents}` : `${cents / 100}`;
+
+            return resultString;
         }
 
         public get isNotificationShown(): boolean {
