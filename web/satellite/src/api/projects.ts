@@ -12,15 +12,19 @@ export async function createProjectRequest(createProjectModel: CreateProjectMode
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                createProject(
-                    input: {
-                        name: "${createProjectModel.name}",
-                        description: "${createProjectModel.description}",
-                    }
-                ) {id}
-            }`
+                mutation($name: String!, $description: String!) {
+                    createProject(
+                        input: {
+                            name: $name,
+                            description: $description,
+                        }
+                    ) {id}
+                }`
             ),
+            variables: {
+                name: createProjectModel.name,
+                description: createProjectModel.description
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -45,14 +49,14 @@ export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>
     let response: any = await apollo.query(
         {
             query: gql(`
-            query {
-                myProjects{
-                    name
-                    id
-                    description
-                    createdAt
-                }
-            }`
+                query {
+                    myProjects{
+                        name
+                        id
+                        description
+                        createdAt
+                    }
+                }`
             ),
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
@@ -70,19 +74,23 @@ export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>
 }
 
 // Performs graqhQL request for updating selected project description
-export async function updateProjectRequest(projectID: string, description: string): Promise<RequestResponse<null>> {
+export async function updateProjectRequest(projectId: string, description: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null>  = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                updateProjectDescription(
-                    id: "${projectID}",
-                    description: "${description}"
-                ) {name}
-            }`
+                mutation($projectId: String!, $description: String!) {
+                    updateProjectDescription(
+                        id: $projectId,
+                        description: $description
+                    ) {name}
+                }`
             ),
+            variables: {
+                projectId: projectId,
+                description: description
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -98,18 +106,21 @@ export async function updateProjectRequest(projectID: string, description: strin
 }
 
 // Performs graqhQL request for deleting selected project
-export async function deleteProjectRequest(projectID: string): Promise<RequestResponse<null>> {
+export async function deleteProjectRequest(projectId: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null>  = new RequestResponse<null>();
 
     let response = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                deleteProject(
-                    id: "${projectID}"
-                ) {name}
-            }`
+                mutation($projectId: String!) {
+                    deleteProject(
+                        id: $projectId
+                    ) {name}
+                }`
             ),
+            variables: {
+                projectId: projectId
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }

@@ -103,7 +103,7 @@ func TestNodeSelectionWithBatch(t *testing.T) {
 
 func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 	satellite := planet.Satellites[0]
-	// ensure all storagenodes are in overlay service
+	// ensure all storagenodes are in overlay
 	for _, storageNode := range planet.StorageNodes {
 		err := satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local().Node)
 		assert.NoError(t, err)
