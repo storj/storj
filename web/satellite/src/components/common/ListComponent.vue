@@ -2,9 +2,13 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
+    <div class="item-component">
         <div v-for="item in dataSet">
-            <component :is="itemComponent" :data="item" v-on:click.native="onItemClick(item)"></component>
+            <component class="item-component__item"
+                :is="itemComponent"
+                :itemData="item"
+                v-on:click.native="onItemClick(item)"
+                v-bind:class="[item.isSelected ? 'selected' : '']"/>
         </div>
     </div>
 </template>
@@ -15,7 +19,6 @@
     @Component({
         components: {},
     })
-
     export default class ListComponent<T> extends Vue {
         @Prop({default: ''})
         private readonly itemComponent: string;
@@ -32,4 +35,11 @@
 </script>
 
 <style scoped lang="scss">
+    .item-component {
+        width: 100%;
+
+        &__item {
+             width: 100%;
+        }
+    }
 </style>
