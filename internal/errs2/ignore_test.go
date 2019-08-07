@@ -48,4 +48,6 @@ func TestIsCanceled(t *testing.T) {
 
 	require.True(t, errs2.IsCanceled(combinedParentErr))
 	require.True(t, errs2.IsCanceled(combinedChildErr))
+
+	// TODO: additional error cases?
 }
