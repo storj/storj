@@ -37,7 +37,7 @@ func TestStoreLoad(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -167,7 +167,7 @@ func TestDeleteWhileReading(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -296,7 +296,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -356,7 +356,7 @@ func TestStoreSpaceUsed(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -406,7 +406,7 @@ func TestStoreTraversals(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 

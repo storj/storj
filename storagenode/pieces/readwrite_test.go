@@ -29,7 +29,7 @@ func BenchmarkReadWrite(b *testing.B) {
 
 	dir, err := filestore.NewDir(ctx.Dir("pieces"))
 	require.NoError(b, err)
-	blobs := filestore.New(dir, zap.NewNop())
+	blobs := filestore.New(zap.NewNop(), dir)
 	defer ctx.Check(blobs.Close)
 
 	store := pieces.NewStore(zap.NewNop(), blobs, nil, nil)
@@ -95,7 +95,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 
 	dir, err := filestore.NewDir(ctx.Dir("pieces"))
 	require.NoError(t, err)
-	blobs := filestore.New(dir, zaptest.NewLogger(t))
+	blobs := filestore.New(zaptest.NewLogger(t), dir)
 	defer ctx.Check(blobs.Close)
 
 	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)

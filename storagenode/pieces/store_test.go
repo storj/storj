@@ -37,7 +37,7 @@ func TestPieces(t *testing.T) {
 	dir, err := filestore.NewDir(ctx.Dir("pieces"))
 	require.NoError(t, err)
 
-	blobs := filestore.New(dir, zaptest.NewLogger(t))
+	blobs := filestore.New(zaptest.NewLogger(t), dir)
 	defer ctx.Check(blobs.Close)
 
 	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
@@ -187,7 +187,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	blobs, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
+	blobs, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
 	require.NoError(t, err)
 	defer ctx.Check(blobs.Close)
 

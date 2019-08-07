@@ -30,12 +30,12 @@ type Store struct {
 }
 
 // New creates a new disk blob store in the specified directory
-func New(dir *Dir, log *zap.Logger) *Store {
+func New(log *zap.Logger, dir *Dir) *Store {
 	return &Store{dir: dir, log: log}
 }
 
 // NewAt creates a new disk blob store in the specified directory
-func NewAt(path string, log *zap.Logger) (*Store, error) {
+func NewAt(log *zap.Logger, path string) (*Store, error) {
 	dir, err := NewDir(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
