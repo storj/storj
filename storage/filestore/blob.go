@@ -19,6 +19,9 @@ const (
 	FormatV0 storage.FormatVersion = 0
 	// FormatV1 is the identifier for storage format v1
 	FormatV1 storage.FormatVersion = 1
+
+	// Note: New FormatVersion values should be consecutive, as certain parts of this blob store
+	// iterate over them numerically and check for blobs stored with each version.
 )
 
 const (
