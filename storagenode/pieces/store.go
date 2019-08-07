@@ -100,7 +100,7 @@ type V0PieceInfoDBForTest interface {
 // StoredPieceAccess allows inspection and manipulation of a piece during iteration with
 // ForAllPieceIDsOwnedBySatellite-type methods
 type StoredPieceAccess interface {
-	storage.StoredBlobAccess
+	storage.BlobInfo
 
 	// PieceID gives the pieceID of the piece
 	PieceID() storj.PieceID
@@ -268,12 +268,12 @@ func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
 func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, doForEach func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// first iterate over all in V1 storage, then all in V0
-	err = store.blobs.ForAllKeysInNamespace(ctx, satellite.Bytes(), func(blobAccess storage.StoredBlobAccess) error {
-		if blobAccess.StorageFormatVersion() < storage.FormatV1 {
+	err = store.blobs.ForAllKeysInNamespace(ctx, satellite.Bytes(), func(blobInfo storage.BlobInfo) error {
+		if blobInfo.StorageFormatVersion() < storage.FormatV1 {
 			// we'll address this piece while iterating over the V0 pieces below.
 			return nil
 		}
-		pieceAccess, err := newStoredPieceAccess(store, blobAccess)
+		pieceAccess, err := newStoredPieceAccess(store, blobInfo)
 		if err != nil {
 			// something is wrong with internals; blob storage thinks this key was stored, but
 			// it is not a valid PieceID.
@@ -415,20 +415,20 @@ func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err err
 }
 
 type storedPieceAccess struct {
-	storage.StoredBlobAccess
+	storage.BlobInfo
 	store   *Store
 	pieceID storj.PieceID
 }
 
-func newStoredPieceAccess(store *Store, blobAccess storage.StoredBlobAccess) (storedPieceAccess, error) {
-	pieceID, err := storj.PieceIDFromBytes(blobAccess.BlobRef().Key)
+func newStoredPieceAccess(store *Store, blobInfo storage.BlobInfo) (storedPieceAccess, error) {
+	pieceID, err := storj.PieceIDFromBytes(blobInfo.BlobRef().Key)
 	if err != nil {
 		return storedPieceAccess{}, err
 	}
 	return storedPieceAccess{
-		StoredBlobAccess: blobAccess,
-		store:            store,
-		pieceID:          pieceID,
+		BlobInfo: blobInfo,
+		store:    store,
+		pieceID:  pieceID,
 	}, nil
 }
 

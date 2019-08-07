@@ -73,18 +73,18 @@ func (store *Store) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, f
 	return newBlobReader(file, formatVer), nil
 }
 
-// Lookup looks up disk metadata on the blob file
-func (store *Store) Lookup(ctx context.Context, ref storage.BlobRef) (_ storage.StoredBlobAccess, err error) {
+// Stat looks up disk metadata on the blob file
+func (store *Store) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.BlobInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	access, err := store.dir.Lookup(ctx, ref)
-	return access, Error.Wrap(err)
+	info, err := store.dir.Stat(ctx, ref)
+	return info, Error.Wrap(err)
 }
 
-// LookupSpecific looks up disk metadata on the blob file with the given storage format version
-func (store *Store) LookupSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.StoredBlobAccess, err error) {
+// StatSpecific looks up disk metadata on the blob file with the given storage format version
+func (store *Store) StatSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	access, err := store.dir.LookupSpecific(ctx, ref, formatVer)
-	return access, Error.Wrap(err)
+	info, err := store.dir.StatSpecific(ctx, ref, formatVer)
+	return info, Error.Wrap(err)
 }
 
 // Delete deletes blobs with the specified ref
@@ -134,10 +134,10 @@ func (store *Store) SpaceUsed(ctx context.Context) (space int64, err error) {
 // SpaceUsedInNamespace adds up how much is used in the given namespace for blob storage
 func (store *Store) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
-	err := store.ForAllKeysInNamespace(ctx, namespace, func(access storage.StoredBlobAccess) error {
-		statInfo, statErr := access.Stat(ctx)
+	err := store.ForAllKeysInNamespace(ctx, namespace, func(info storage.BlobInfo) error {
+		statInfo, statErr := info.Stat(ctx)
 		if statErr != nil {
-			store.log.Error("failed to stat blob", zap.Binary("namespace", namespace), zap.Binary("key", access.BlobRef().Key), zap.Error(statErr))
+			store.log.Error("failed to stat blob", zap.Binary("namespace", namespace), zap.Binary("key", info.BlobRef().Key), zap.Error(statErr))
 			// keep iterating; we want a best effort total here.
 			return nil
 		}
@@ -168,7 +168,7 @@ func (store *Store) GetAllNamespaces(ctx context.Context) (ids [][]byte, err err
 // ForAllKeysInNamespace executes doForEach for each locally stored blob in the given
 // namespace. If doForEach returns a non-nil error, ForAllKeysInNamespace will stop
 // iterating and return the error immediately.
-func (store *Store) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) (err error) {
+func (store *Store) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.BlobInfo) error) (err error) {
 	return store.dir.ForAllKeysInNamespace(ctx, namespace, doForEach)
 }
 

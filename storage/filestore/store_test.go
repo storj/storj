@@ -265,9 +265,9 @@ func verifyBlobHandle(t testing.TB, reader storage.BlobReader, expectDataLen int
 	assert.Equal(t, int64(expectDataLen), size)
 }
 
-func verifyBlobAccess(ctx context.Context, t testing.TB, blobAccess storage.StoredBlobAccess, expectDataLen int, expectFormat storage.FormatVersion) {
-	assert.Equal(t, expectFormat, blobAccess.StorageFormatVersion())
-	stat, err := blobAccess.Stat(ctx)
+func verifyBlobInfo(ctx context.Context, t testing.TB, blobInfo storage.BlobInfo, expectDataLen int, expectFormat storage.FormatVersion) {
+	assert.Equal(t, expectFormat, blobInfo.StorageFormatVersion())
+	stat, err := blobInfo.Stat(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, int64(expectDataLen), stat.Size())
 }
@@ -278,15 +278,15 @@ func tryOpeningABlob(ctx context.Context, t testing.TB, store *filestore.Store, 
 	verifyBlobHandle(t, reader, expectDataLen, expectFormat)
 	require.NoError(t, reader.Close())
 
-	blobAccess, err := store.Lookup(ctx, blobRef)
+	blobInfo, err := store.Stat(ctx, blobRef)
 	require.NoError(t, err)
-	verifyBlobAccess(ctx, t, blobAccess, expectDataLen, expectFormat)
+	verifyBlobInfo(ctx, t, blobInfo, expectDataLen, expectFormat)
 
-	blobAccess, err = store.LookupSpecific(ctx, blobRef, expectFormat)
+	blobInfo, err = store.StatSpecific(ctx, blobRef, expectFormat)
 	require.NoError(t, err)
-	verifyBlobAccess(ctx, t, blobAccess, expectDataLen, expectFormat)
+	verifyBlobInfo(ctx, t, blobInfo, expectDataLen, expectFormat)
 
-	reader, err = store.OpenSpecific(ctx, blobAccess.BlobRef(), blobAccess.StorageFormatVersion())
+	reader, err = store.OpenSpecific(ctx, blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
 	require.NoError(t, err)
 	verifyBlobHandle(t, reader, expectDataLen, expectFormat)
 	require.NoError(t, reader.Close())
@@ -318,7 +318,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	// write a V1 blob
 	writeABlob(ctx, t, store, v1Ref, data, storage.FormatV1)
 
-	// look up the different blobs with Open and Lookup and OpenSpecific
+	// look up the different blobs with Open and Stat and OpenSpecific
 	tryOpeningABlob(ctx, t, store, v0Ref, len(data), storage.FormatV0)
 	tryOpeningABlob(ctx, t, store, v1Ref, len(data), storage.FormatV1)
 
@@ -333,10 +333,10 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	tryOpeningABlob(ctx, t, store, v0Ref, len(differentData), storage.FormatV1)
 
 	// unless we ask specifically for a V0 blob
-	blobAccess, err := store.LookupSpecific(ctx, v0Ref, storage.FormatV0)
+	blobInfo, err := store.StatSpecific(ctx, v0Ref, storage.FormatV0)
 	require.NoError(t, err)
-	verifyBlobAccess(ctx, t, blobAccess, len(data), storage.FormatV0)
-	reader, err := store.OpenSpecific(ctx, blobAccess.BlobRef(), blobAccess.StorageFormatVersion())
+	verifyBlobInfo(ctx, t, blobInfo, len(data), storage.FormatV0)
+	reader, err := store.OpenSpecific(ctx, blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
 	require.NoError(t, err)
 	verifyBlobHandle(t, reader, len(data), storage.FormatV0)
 	require.NoError(t, reader.Close())
@@ -464,8 +464,8 @@ func TestStoreTraversals(t *testing.T) {
 		// keep track of which blobs we visit with ForAllKeysInNamespace
 		found := make([]bool, len(expected.blobs))
 
-		err = store.ForAllKeysInNamespace(ctx, expected.namespace, func(access storage.StoredBlobAccess) error {
-			gotBlobRef := access.BlobRef()
+		err = store.ForAllKeysInNamespace(ctx, expected.namespace, func(info storage.BlobInfo) error {
+			gotBlobRef := info.BlobRef()
 			assert.Equal(t, expected.namespace, gotBlobRef.Namespace)
 			// find which blob this is in expected.blobs
 			blobIdentified := -1
@@ -480,11 +480,11 @@ func TestStoreTraversals(t *testing.T) {
 				"ForAllKeysInNamespace gave BlobRef %v, but I don't remember storing that",
 				gotBlobRef)
 
-			// check StoredBlobAccess sanity
-			stat, err := access.Stat(ctx)
+			// check BlobInfo sanity
+			stat, err := info.Stat(ctx)
 			require.NoError(t, err)
 			nameFromStat := stat.Name()
-			fullPath, err := access.FullPath(ctx)
+			fullPath, err := info.FullPath(ctx)
 			require.NoError(t, err)
 			basePath := filepath.Base(fullPath)
 			assert.Equal(t, nameFromStat, basePath)
@@ -504,7 +504,7 @@ func TestStoreTraversals(t *testing.T) {
 
 	// test ForAllKeysInNamespace on a nonexistent namespace also
 	namespaceBase[len(namespaceBase)-1] = byte(numNamespaces)
-	err = store.ForAllKeysInNamespace(ctx, namespaceBase, func(access storage.StoredBlobAccess) error {
+	err = store.ForAllKeysInNamespace(ctx, namespaceBase, func(info storage.BlobInfo) error {
 		t.Fatal("this should not have been called")
 		return nil
 	})
@@ -513,7 +513,7 @@ func TestStoreTraversals(t *testing.T) {
 	// check that ForAllKeysInNamespace stops iterating after an error return
 	iterations := 0
 	expectedErr := errs.New("an expected error")
-	err = store.ForAllKeysInNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, func(access storage.StoredBlobAccess) error {
+	err = store.ForAllKeysInNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, func(info storage.BlobInfo) error {
 		iterations++
 		if iterations == 2 {
 			return expectedErr

@@ -208,7 +208,7 @@ type v0StoredPieceAccess struct {
 	pieceSize      int64
 	creationTime   time.Time
 	expirationTime *time.Time
-	blobAccess     storage.StoredBlobAccess
+	blobInfo       storage.BlobInfo
 }
 
 // PieceID returns the piece ID for the piece
@@ -230,15 +230,15 @@ func (v0Access v0StoredPieceAccess) BlobRef() storage.BlobRef {
 }
 
 func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error {
-	if v0Access.blobAccess == nil {
+	if v0Access.blobInfo == nil {
 		if v0Access.blobStore == nil {
 			return errs.New("this v0StoredPieceAccess instance has no blobStore reference, and cannot look up the relevant blob")
 		}
-		blobAccess, err := v0Access.blobStore.LookupSpecific(ctx, v0Access.BlobRef(), v0Access.StorageFormatVersion())
+		blobInfo, err := v0Access.blobStore.StatSpecific(ctx, v0Access.BlobRef(), v0Access.StorageFormatVersion())
 		if err != nil {
 			return err
 		}
-		v0Access.blobAccess = blobAccess
+		v0Access.blobInfo = blobInfo
 	}
 	return nil
 }
@@ -266,7 +266,7 @@ func (v0Access v0StoredPieceAccess) FullPath(ctx context.Context) (string, error
 	if err := v0Access.fillInBlobAccess(ctx); err != nil {
 		return "", err
 	}
-	return v0Access.blobAccess.FullPath(ctx)
+	return v0Access.blobInfo.FullPath(ctx)
 }
 
 // StorageFormatVersion indicates the storage format version used to store the piece
@@ -279,5 +279,5 @@ func (v0Access v0StoredPieceAccess) Stat(ctx context.Context) (os.FileInfo, erro
 	if err := v0Access.fillInBlobAccess(ctx); err != nil {
 		return nil, err
 	}
-	return v0Access.blobAccess.Stat(ctx)
+	return v0Access.blobInfo.Stat(ctx)
 }

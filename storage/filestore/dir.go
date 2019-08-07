@@ -208,11 +208,11 @@ func (dir *Dir) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, forma
 	return nil, Error.New("unable to open %q: %v", vPath, err)
 }
 
-// Lookup looks up disk metadata on the blob file. It may need to check in more than one location
+// Stat looks up disk metadata on the blob file. It may need to check in more than one location
 // in order to find the blob, if it was stored with an older version of the storage node software.
-// In cases where the storage format version of a blob is already known, LookupSpecific() will
+// In cases where the storage format version of a blob is already known, StatSpecific() will
 // generally be a better choice.
-func (dir *Dir) Lookup(ctx context.Context, ref storage.BlobRef) (_ storage.StoredBlobAccess, err error) {
+func (dir *Dir) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.StoredBlobAccess, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
@@ -222,7 +222,7 @@ func (dir *Dir) Lookup(ctx context.Context, ref storage.BlobRef) (_ storage.Stor
 		vPath := blobPathForFormatVersion(path, formatVer)
 		stat, err := os.Stat(vPath)
 		if err == nil {
-			return newStoredBlobAccess(ref, vPath, stat, formatVer), nil
+			return newBlobInfo(ref, vPath, stat, formatVer), nil
 		}
 		if !os.IsNotExist(err) {
 			return nil, Error.New("unable to stat %q: %v", vPath, err)
@@ -231,9 +231,9 @@ func (dir *Dir) Lookup(ctx context.Context, ref storage.BlobRef) (_ storage.Stor
 	return nil, os.ErrNotExist
 }
 
-// LookupSpecific looks up disk metadata on the blob file with the given storage format version.
+// StatSpecific looks up disk metadata on the blob file with the given storage format version.
 // This avoids the need for checking for the file in multiple different storage format types.
-func (dir *Dir) LookupSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.StoredBlobAccess, err error) {
+func (dir *Dir) StatSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
@@ -242,7 +242,7 @@ func (dir *Dir) LookupSpecific(ctx context.Context, ref storage.BlobRef, formatV
 	vPath := blobPathForFormatVersion(path, formatVer)
 	stat, err := os.Stat(vPath)
 	if err == nil {
-		return newStoredBlobAccess(ref, vPath, stat, formatVer), nil
+		return newBlobInfo(ref, vPath, stat, formatVer), nil
 	}
 	if os.IsNotExist(err) {
 		return nil, err
@@ -383,7 +383,7 @@ func (dir *Dir) GetAllNamespaces(ctx context.Context) (ids [][]byte, err error) 
 // ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with storage
 // format V1 or greater, in the given namespace. If doForEach returns a non-nil error,
 // ForAllKeysInNamespace will stop iterating and return the error immediately.
-func (dir *Dir) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) (err error) {
+func (dir *Dir) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.BlobInfo) error) (err error) {
 	namespaceDir := pathEncoding.EncodeToString(namespace)
 	nsDir := filepath.Join(dir.blobsdir(), namespaceDir)
 	openDir, err := os.Open(nsDir)
@@ -424,7 +424,7 @@ func (dir *Dir) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doF
 	}
 }
 
-func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace []byte, nsDir, keyPrefix string, doForEach func(storage.StoredBlobAccess) error) (err error) {
+func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace []byte, nsDir, keyPrefix string, doForEach func(storage.BlobInfo) error) (err error) {
 	keyDir := filepath.Join(nsDir, keyPrefix)
 	openDir, err := os.Open(keyDir)
 	if err != nil {
@@ -466,7 +466,7 @@ func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace [
 				Key:       key,
 			}
 			fullPath := filepath.Join(keyDir, blobFileName)
-			err = doForEach(newStoredBlobAccess(ref, fullPath, keyInfo, formatVer))
+			err = doForEach(newBlobInfo(ref, fullPath, keyInfo, formatVer))
 			if err != nil {
 				return err
 			}
@@ -516,15 +516,15 @@ func (dir *Dir) Info() (DiskInfo, error) {
 	return diskInfoFromPath(path)
 }
 
-type storedBlobAccess struct {
+type blobInfo struct {
 	ref           storage.BlobRef
 	path          string
 	fileInfo      os.FileInfo
 	formatVersion storage.FormatVersion
 }
 
-func newStoredBlobAccess(ref storage.BlobRef, path string, fileInfo os.FileInfo, formatVer storage.FormatVersion) storage.StoredBlobAccess {
-	return &storedBlobAccess{
+func newBlobInfo(ref storage.BlobRef, path string, fileInfo os.FileInfo, formatVer storage.FormatVersion) storage.BlobInfo {
+	return &blobInfo{
 		ref:           ref,
 		path:          path,
 		fileInfo:      fileInfo,
@@ -532,18 +532,18 @@ func newStoredBlobAccess(ref storage.BlobRef, path string, fileInfo os.FileInfo,
 	}
 }
 
-func (access *storedBlobAccess) BlobRef() storage.BlobRef {
-	return access.ref
+func (info *blobInfo) BlobRef() storage.BlobRef {
+	return info.ref
 }
 
-func (access *storedBlobAccess) StorageFormatVersion() storage.FormatVersion {
-	return access.formatVersion
+func (info *blobInfo) StorageFormatVersion() storage.FormatVersion {
+	return info.formatVersion
 }
 
-func (access *storedBlobAccess) Stat(ctx context.Context) (os.FileInfo, error) {
-	return access.fileInfo, nil
+func (info *blobInfo) Stat(ctx context.Context) (os.FileInfo, error) {
+	return info.fileInfo, nil
 }
 
-func (access *storedBlobAccess) FullPath(ctx context.Context) (string, error) {
-	return access.path, nil
+func (info *blobInfo) FullPath(ctx context.Context) (string, error) {
+	return info.path, nil
 }

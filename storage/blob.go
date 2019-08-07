@@ -92,12 +92,12 @@ type Blobs interface {
 	OpenSpecific(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobReader, error)
 	// Delete deletes the blob with the namespace and key
 	Delete(ctx context.Context, ref BlobRef) error
-	// Lookup looks up disk metadata on the blob file
-	Lookup(ctx context.Context, ref BlobRef) (StoredBlobAccess, error)
-	// LookupSpecific looks up disk metadata for the blob file with the given storage format
+	// Stat looks up disk metadata on the blob file
+	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
+	// StatSpecific looks up disk metadata for the blob file with the given storage format
 	// version. This avoids the potential need to check multiple storage formats for the blob
 	// when the format is already known.
-	LookupSpecific(ctx context.Context, ref BlobRef, formatVer FormatVersion) (StoredBlobAccess, error)
+	StatSpecific(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
 	// FreeSpace return how much free space left for writing
 	FreeSpace() (int64, error)
 	// SpaceUsed adds up how much is used in all namespaces
@@ -109,12 +109,12 @@ type Blobs interface {
 	// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with
 	// storage format V1 or greater, in the given namespace. If doForEach returns a non-nil
 	// error, ForAllKeysInNamespace will stop iterating and return the error immediately.
-	ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(StoredBlobAccess) error) error
+	ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(BlobInfo) error) error
 }
 
-// StoredBlobAccess allows inspection of a blob and its underlying file during iteration with
+// BlobInfo allows lazy inspection of a blob and its underlying file during iteration with
 // ForAllKeysInNamespace-type methods
-type StoredBlobAccess interface {
+type BlobInfo interface {
 	// BlobRef returns the relevant BlobRef for the blob
 	BlobRef() BlobRef
 	// StorageFormatVersion indicates the storage format version used to store the piece

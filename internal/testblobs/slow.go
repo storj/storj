@@ -84,24 +84,24 @@ func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 	return slow.blobs.Delete(ctx, ref)
 }
 
-// Lookup looks up disk metadata on the blob file
-func (slow *SlowBlobs) Lookup(ctx context.Context, ref storage.BlobRef) (storage.StoredBlobAccess, error) {
+// Stat looks up disk metadata on the blob file
+func (slow *SlowBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.BlobInfo, error) {
 	slow.sleep()
-	return slow.blobs.Lookup(ctx, ref)
+	return slow.blobs.Stat(ctx, ref)
 }
 
-// LookupSpecific looks up disk metadata for the blob file with the given storage format
+// StatSpecific looks up disk metadata for the blob file with the given storage format
 // version. This avoids the potential need to check multiple storage formats for the blob
 // when the format is already known.
-func (slow *SlowBlobs) LookupSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.StoredBlobAccess, error) {
+func (slow *SlowBlobs) StatSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobInfo, error) {
 	slow.sleep()
-	return slow.blobs.LookupSpecific(ctx, ref, formatVer)
+	return slow.blobs.StatSpecific(ctx, ref, formatVer)
 }
 
 // ForAllKeysInNamespace executes doForEach for each locally stored blob in the given namespace.
 // If doForEach returns a non-nil error, ForAllKeysInNamespace will stop iterating and return the
 // error immediately.
-func (slow *SlowBlobs) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) error {
+func (slow *SlowBlobs) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.BlobInfo) error) error {
 	slow.sleep()
 	return slow.blobs.ForAllKeysInNamespace(ctx, namespace, doForEach)
 }
