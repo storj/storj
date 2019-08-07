@@ -102,12 +102,15 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	// TODO: remove after vanguard release
-	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
-	if err != nil {
-		return nil, errs.New(vanguardRegTokenErrMsg)
-	}
-	if registrationToken.OwnerID != nil {
-		return nil, errs.New(usedRegTokenVanguardErrMsg)
+	var registrationToken *RegistrationToken
+	if user.PartnerID == "" {
+		registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
+		if err != nil {
+			return nil, errs.New(vanguardRegTokenErrMsg)
+		}
+		if registrationToken.OwnerID != nil {
+			return nil, errs.New(usedRegTokenVanguardErrMsg)
+		}
 	}
 
 	// TODO: store original email input in the db,
@@ -169,9 +172,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return errs.New(internalErrMsg)
 		}
 
-		err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
-		if err != nil {
-			return errs.New(internalErrMsg)
+		if registrationToken != nil {
+			err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+			if err != nil {
+				return errs.New(internalErrMsg)
+			}
 		}
 
 		if currentReward != nil {
