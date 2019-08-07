@@ -20,7 +20,7 @@ type reporter interface {
 // Reporter records audit reports in overlay and implements the reporter interface
 type Reporter struct {
 	log              *zap.Logger
-	overlay          *overlay.Cache
+	overlay          *overlay.Service
 	containment      Containment
 	maxRetries       int
 	maxReverifyCount int32
@@ -35,7 +35,7 @@ type Report struct {
 }
 
 // NewReporter instantiates a reporter
-func NewReporter(log *zap.Logger, overlay *overlay.Cache, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
+func NewReporter(log *zap.Logger, overlay *overlay.Service, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
 	return &Reporter{
 		log:              log,
 		overlay:          overlay,
@@ -44,7 +44,7 @@ func NewReporter(log *zap.Logger, overlay *overlay.Cache, containment Containmen
 		maxReverifyCount: maxReverifyCount}
 }
 
-// RecordAudits saves audit results to overlay cache. When no error, it returns
+// RecordAudits saves audit results to overlay. When no error, it returns
 // nil for both return values, otherwise it returns the report with the fields
 // set to the values which have been saved and the error.
 func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Report, err error) {
