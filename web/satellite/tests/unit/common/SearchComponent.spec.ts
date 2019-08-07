@@ -24,12 +24,12 @@ describe('SearchComponent.vue', () => {
 
         wrapper.vm.onMouseEnter();
 
-        expect(wrapper.vm.inputWidth).toMatch('602px');
+        expect(wrapper.vm.style.width).toMatch('602px');
 
         wrapper.vm.onMouseLeave();
 
         expect(wrapper.vm.searchQuery).toMatch('');
-        expect(wrapper.vm.inputWidth).toMatch('56px');
+        expect(wrapper.vm.style.width).toMatch('56px');
     });
 
     it('function onInput works correctly', () => {
@@ -47,13 +47,5 @@ describe('SearchComponent.vue', () => {
 
         expect(onMouseLeaveSpy.callCount).toBe(1);
         expect(processSearchQuerySpy.callCount).toBe(1);
-    });
-
-    it('function processSearchQuery works correctly', async () => {
-        const wrapper = mount(SearchComponent);
-
-        wrapper.vm.processSearchQuery();
-
-        expect(wrapper.vm.search).resolves;
     });
 });

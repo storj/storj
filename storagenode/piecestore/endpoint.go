@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
@@ -42,6 +42,7 @@ var (
 	// ErrInternal is the default error class for internal piecestore errors.
 	ErrInternal = errs.Class("piecestore internal")
 )
+
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
 // OldConfig contains everything necessary for a server
@@ -147,8 +148,11 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 	}, nil
 }
 
+var monLiveRequests = mon.TaskNamed("live-request")
+
 // Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -183,6 +187,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -378,6 +383,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 // Download implements downloading a piece from piece store.
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -608,7 +614,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	}
 
 	const limit = 1000
-	offset := 0
+	cursor := storj.PieceID{}
 	numDeleted := 0
 	hasMorePieces := true
 
@@ -616,11 +622,13 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		// subtract some time to leave room for clock difference between the satellite and storage node
 		createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
-		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
+		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, cursor)
 		if err != nil {
 			return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 		}
 		for _, pieceID := range pieceIDs {
+			cursor = pieceID
+
 			if !filter.Contains(pieceID) {
 				endpoint.log.Sugar().Debugf("About to delete piece id (%s) from satellite (%s). RetainStatus: %s", pieceID.String(), peer.ID.String(), endpoint.config.RetainStatus.String())
 
@@ -642,8 +650,6 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		}
 
 		hasMorePieces = (len(pieceIDs) == limit)
-		offset += len(pieceIDs)
-		offset -= numDeleted
 		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()
