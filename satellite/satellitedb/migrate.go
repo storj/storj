@@ -1102,9 +1102,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 
 					`DELETE FROM bucket_metainfos
 					WHERE project_id in (
-							SELECT id 
-							FROM projects 
-							WHERE owner_id is null
+						SELECT id 
+						FROM projects 
+						WHERE owner_id is null
 					);`,
 
 					`DELETE FROM projects
