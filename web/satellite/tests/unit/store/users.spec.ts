@@ -51,7 +51,7 @@ describe('mutations', () => {
 
         const store = new Vuex.Store({state, mutations});
 
-        store.commit(USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO);
+        store.commit(USER_MUTATIONS.CLEAR);
 
         expect(state.user.email).toBe('');
         expect(state.user.fullName).toBe('');

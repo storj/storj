@@ -28,8 +28,8 @@
 			<div class="referral-container__copy-and-share-container">
 				<p class="referral-container__copy-and-share-container__title">Copy And Share Your Invitation Link</p>
 				<div class="referral-container__copy-and-share-container__link-holder">
-					<p class="referral-container__copy-and-share-container__link-holder__link">test://test/test/test/test</p>
-					<div class="copy-button">Copy</div>
+					<p class="referral-container__copy-and-share-container__link-holder__link">{{referralLink.slice(0, 55)}}...</p>
+					<div class="copy-button" v-clipboard="referralLink" @click="copyLink">Copy</div>
 				</div>
 			</div>
             <div class="underline"></div>
@@ -43,22 +43,36 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
+	import VueClipboards from 'vue-clipboards';
     import ReferralStats from './ReferralStats.vue';
     import NoProjectState from './NoProjectStateArea.vue';
+	import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+
+	Vue.use(VueClipboards);
 
     @Component({
-        computed: {
-            isNoProjects: function (): boolean {
-                return !this.$store.state.projectsModule.projects.length;
-            }
-        },
         components: {
             ReferralStats,
             NoProjectState,
         }
     })
 
-    export default class ReferralArea extends Vue {}
+    export default class ReferralArea extends Vue {
+
+		public get isNoProjects(): boolean {
+			return !this.$store.state.projectsModule.projects.length;
+		}
+
+		public get referralLink(): string {
+			let refInfo = { userId: this.$store.state.usersModule.user.id, partnerId: this.$store.state.usersModule.user.partnerId };
+
+			return `${window.location.host}/ref/${btoa(JSON.stringify(refInfo))}`;
+		}
+
+		public copyLink(): void {
+			this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Link saved to clipboard');
+		}
+	}
 </script>
 
 <style scoped lang="scss">
@@ -149,6 +163,7 @@
 					font-size: 16px;
 					line-height: 134%;
 					color: #494949;
+					margin-right: 10px;
 				}
 
 				.copy-button{

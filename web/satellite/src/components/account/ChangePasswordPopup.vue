@@ -66,6 +66,7 @@
     import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import { validatePassword } from '@/utils/validation';
     import { RequestResponse } from '@/types/response';
+    import { UpdatePasswordModel } from '@/types/users';
 
     @Component({
         components: {
@@ -122,11 +123,9 @@
                 return;
             }
 
-            let response: RequestResponse<object> = await this.$store.dispatch(USER_ACTIONS.CHANGE_PASSWORD,
-                {
-                    oldPassword: this.oldPassword,
-                    newPassword: this.newPassword
-                }
+            let response: RequestResponse<object> = await this.$store.dispatch(
+                USER_ACTIONS.CHANGE_PASSWORD,
+                new UpdatePasswordModel(this.oldPassword, this.newPassword)
             );
 
             if (!response.isSuccess) {

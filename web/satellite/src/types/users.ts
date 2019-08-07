@@ -8,12 +8,12 @@ export class User {
     public email: string;
     public partnerId?: string;
 
-    public constructor(fullName: string, shortName: string, email: string, partnerId?: string) {
-        this.id = '';
+    public constructor(id: string = '', fullName: string = '', shortName: string = '', email: string = '', partnerId: string = '') {
+        this.id = id;
         this.fullName = fullName;
         this.shortName = shortName;
         this.email = email;
-        this.partnerId = partnerId || '';
+        this.partnerId = partnerId;
     }
 
     public getFullName(): string {
@@ -24,10 +24,20 @@ export class User {
 export class UpdatedUser {
     public fullName: string;
     public shortName: string;
+
+    public constructor(fullName: string = '', shortName: string = '') {
+        this.fullName = fullName;
+        this.shortName = shortName;
+    }
 }
 
 // Used in users module to pass parameters to action
 export class UpdatePasswordModel {
     public oldPassword: string;
     public newPassword: string;
+
+    public constructor(oldPassword: string = '', newPassword: string = '') {
+        this.oldPassword = oldPassword;
+        this.newPassword = newPassword;
+    }
 }

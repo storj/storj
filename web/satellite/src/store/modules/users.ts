@@ -11,45 +11,35 @@ import {
 import { UpdatedUser, UpdatePasswordModel, User } from '@/types/users';
 import { RequestResponse } from '@/types/response';
 
-export const usersModule = {
-    state: {
-        user: {
-            fullName: '',
-            shortName: '',
-            email: ''
-        }
-    },
+class UserModuleState {
+    public user: User;
 
+    constructor() {
+        this.user = new User();
+    }
+}
+
+export const usersModule = {
+    state: new UserModuleState(),
     mutations: {
         [USER_MUTATIONS.SET_USER_INFO](state: any, user: User): void {
             state.user = user;
         },
-
-        [USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO](state: any): void {
-            state.user.fullName = '';
-            state.user.shortName = '';
-            state.user.email = '';
+        [USER_MUTATIONS.UPDATE_USER_INFO](state: any, user: UpdatedUser): void {
+            state.user.shortName = user.shortName;
+            state.user.fullName = user.fullName;
         },
-
-        [USER_MUTATIONS.UPDATE_USER_INFO](state: any, user: User): void {
-            state.user = user;
-        },
-
         [USER_MUTATIONS.CLEAR](state: any): void {
-            state.user = {
-                fullName: '',
-                shortName: '',
-                email: ''
-            };
+            state.user = new User();
         },
     },
 
     actions: {
-        updateAccount: async function ({commit}: any, userInfo: UpdatedUser): Promise<RequestResponse<User>> {
+        updateAccount: async function ({commit}: any, userInfo: UpdatedUser): Promise<RequestResponse<UpdatedUser>> {
             let response = await updateAccountRequest(userInfo);
             
             if (response.isSuccess) {
-                commit(USER_MUTATIONS.UPDATE_USER_INFO, response.data);
+                commit(USER_MUTATIONS.SET_USER_INFO, response.data);
             }
 
             return response;

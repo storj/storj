@@ -8,8 +8,8 @@ import { RequestResponse } from '@/types/response';
 
 // Performs update user info graphQL mutation request.
 // Returns User object if succeed, null otherwise
-export async function updateAccountRequest(user: UpdatedUser): Promise<RequestResponse<User>> {
-    let result: RequestResponse<User> = new RequestResponse<User>();
+export async function updateAccountRequest(user: UpdatedUser): Promise<RequestResponse<UpdatedUser>> {
+    let result: RequestResponse<UpdatedUser> = new RequestResponse<UpdatedUser>();
 
     let response: any = await apolloManager.mutate(
         {
@@ -21,7 +21,6 @@ export async function updateAccountRequest(user: UpdatedUser): Promise<RequestRe
                             shortName: $shortName
                         }
                     ) {
-                        email,
                         fullName,
                         shortName
                     }
@@ -29,7 +28,7 @@ export async function updateAccountRequest(user: UpdatedUser): Promise<RequestRe
             ),
             variables: {
                 fullName: user.fullName,
-                shortName: user.fullName,
+                shortName: user.shortName,
             },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
@@ -40,7 +39,10 @@ export async function updateAccountRequest(user: UpdatedUser): Promise<RequestRe
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = response.data.updateAccount;
+        result.data = new UpdatedUser(
+            response.data.updateAccount.fullName,
+            response.data.updateAccount.shortName
+        );
     }
 
     return result;
@@ -197,9 +199,11 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
             query: gql(`
                 query {
                     user {
+                        id,
                         fullName,
                         shortName,
                         email,
+                        partnerId,
                     }
                 }`
             ),
@@ -212,7 +216,13 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = response.data.user;
+        result.data = new User(
+            response.data.user.id,
+            response.data.user.fullName,
+            response.data.user.shortName,
+            response.data.user.email,
+            response.data.user.partnerId
+        );
     }
 
     return result;

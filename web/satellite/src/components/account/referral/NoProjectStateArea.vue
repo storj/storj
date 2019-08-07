@@ -25,17 +25,17 @@
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-        methods: {
-            onCreateProjectClick: function () {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-            }
-        },
         components: {
             Button,
         }
     })
 
-    export default class NoProjectStateArea extends Vue {}
+    export default class NoProjectStateArea extends Vue {
+
+        public onCreateProjectClick() {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+        }
+    }
 </script>
 
 <style scoped lang="scss">
