@@ -159,7 +159,7 @@ func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelli
 }
 
 func verifyPieceHandle(t testing.TB, reader *pieces.Reader, expectDataLen int, expectCreateTime time.Time, expectFormat storage.FormatVersion) {
-	assert.Equal(t, expectFormat, reader.GetStorageFormatVersion())
+	assert.Equal(t, expectFormat, reader.StorageFormatVersion())
 	assert.Equal(t, int64(expectDataLen), reader.Size())
 	if expectFormat != storage.FormatV0 {
 		pieceHeader, err := reader.GetPieceHeader()
@@ -346,7 +346,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			reader, err := store.Reader(ctx, satelliteID, pieceID)
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v0Data)), reader.Size())
-			assert.Equal(t, storage.FormatV0, reader.GetStorageFormatVersion())
+			assert.Equal(t, storage.FormatV0, reader.StorageFormatVersion())
 			gotData, err := ioutil.ReadAll(reader)
 			require.NoError(t, err)
 			assert.Equal(t, v0Data, gotData)
@@ -378,7 +378,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			reader, err := store.Reader(ctx, satelliteID, pieceID)
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v1Data)), reader.Size())
-			assert.Equal(t, storage.FormatV1, reader.GetStorageFormatVersion())
+			assert.Equal(t, storage.FormatV1, reader.StorageFormatVersion())
 			gotData, err := ioutil.ReadAll(reader)
 			require.NoError(t, err)
 			assert.Equal(t, v1Data, gotData)

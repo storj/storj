@@ -62,8 +62,8 @@ type BlobReader interface {
 	io.Closer
 	// Size returns the size of the blob
 	Size() (int64, error)
-	// GetStorageFormatVersion returns the storage format version associated with the blob.
-	GetStorageFormatVersion() FormatVersion
+	// StorageFormatVersion returns the storage format version associated with the blob.
+	StorageFormatVersion() FormatVersion
 }
 
 // BlobWriter defines the interface that must be satisfied for a general blob storage provider.
@@ -77,8 +77,8 @@ type BlobWriter interface {
 	Commit(context.Context) error
 	// Size returns the size of the blob
 	Size() (int64, error)
-	// GetStorageFormatVersion returns the storage format version associated with the blob.
-	GetStorageFormatVersion() FormatVersion
+	// StorageFormatVersion returns the storage format version associated with the blob.
+	StorageFormatVersion() FormatVersion
 }
 
 // Blobs is a blob storage interface

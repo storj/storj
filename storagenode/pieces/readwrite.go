@@ -66,7 +66,7 @@ type Writer struct {
 // NewWriter creates a new writer for storage.BlobWriter.
 func NewWriter(blob storage.BlobWriter) (*Writer, error) {
 	w := &Writer{}
-	if blob.GetStorageFormatVersion() >= storage.FormatV1 {
+	if blob.StorageFormatVersion() >= storage.FormatV1 {
 		// We skip past the reserved header area for now- we want the header to be at the
 		// beginning of the file, to make it quick to seek there and also to make it easier
 		// to identify situations where a blob file has been truncated incorrectly. And we
@@ -120,7 +120,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 		}
 	}()
 
-	formatVer := w.blob.GetStorageFormatVersion()
+	formatVer := w.blob.StorageFormatVersion()
 	if formatVer == storage.FormatV0 {
 		return nil
 	}
@@ -193,7 +193,7 @@ func NewReader(blob storage.BlobReader) (*Reader, error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	formatVersion := blob.GetStorageFormatVersion()
+	formatVersion := blob.StorageFormatVersion()
 	if formatVersion >= storage.FormatV1 {
 		if size < V1PieceHeaderReservedArea {
 			return nil, Error.New("invalid piece file for storage format version %d: too small for header (%d < %d)", formatVersion, size, V1PieceHeaderReservedArea)
@@ -209,8 +209,8 @@ func NewReader(blob storage.BlobReader) (*Reader, error) {
 	return reader, nil
 }
 
-// GetStorageFormatVersion returns the storage format version of the piece being read.
-func (r *Reader) GetStorageFormatVersion() storage.FormatVersion {
+// StorageFormatVersion returns the storage format version of the piece being read.
+func (r *Reader) StorageFormatVersion() storage.FormatVersion {
 	return r.formatVersion
 }
 

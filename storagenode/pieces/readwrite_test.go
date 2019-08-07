@@ -134,7 +134,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	r, err := store.Reader(ctx, satelliteID, pieceID)
 	require.NoError(t, err)
 	defer ctx.Check(r.Close)
-	assert.Equal(t, storage.MaxFormatVersionSupported, r.GetStorageFormatVersion())
+	assert.Equal(t, storage.MaxFormatVersionSupported, r.StorageFormatVersion())
 
 	// make sure r.Size() works
 	assert.Equal(t, int64(len(content)), r.Size())

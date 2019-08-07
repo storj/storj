@@ -32,8 +32,8 @@ func (blob *blobReader) Size() (int64, error) {
 	return stat.Size(), err
 }
 
-// GetStorageFormatVersion gets the storage format version being used by the blob.
-func (blob *blobReader) GetStorageFormatVersion() storage.FormatVersion {
+// StorageFormatVersion gets the storage format version being used by the blob.
+func (blob *blobReader) StorageFormatVersion() storage.FormatVersion {
 	return blob.formatVersion
 }
 
@@ -89,7 +89,7 @@ func (blob *blobWriter) Size() (int64, error) {
 	return pos, err
 }
 
-// GetStorageFormatVersion indicates what storage format version the blob is using.
-func (blob *blobWriter) GetStorageFormatVersion() storage.FormatVersion {
+// StorageFormatVersion indicates what storage format version the blob is using.
+func (blob *blobWriter) StorageFormatVersion() storage.FormatVersion {
 	return blob.formatVersion
 }

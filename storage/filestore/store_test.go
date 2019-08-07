@@ -248,7 +248,7 @@ func writeABlob(ctx context.Context, t testing.TB, store *filestore.Store, blobR
 		t.Fatalf("please teach me how to make a V%d blob", formatVersion)
 	}
 	require.NoError(t, err)
-	require.Equal(t, formatVersion, blobWriter.GetStorageFormatVersion())
+	require.Equal(t, formatVersion, blobWriter.StorageFormatVersion())
 	_, err = blobWriter.Write(data)
 	require.NoError(t, err)
 	size, err := blobWriter.Size()
@@ -259,7 +259,7 @@ func writeABlob(ctx context.Context, t testing.TB, store *filestore.Store, blobR
 }
 
 func verifyBlobHandle(t testing.TB, reader storage.BlobReader, expectDataLen int, expectFormat storage.FormatVersion) {
-	assert.Equal(t, expectFormat, reader.GetStorageFormatVersion())
+	assert.Equal(t, expectFormat, reader.StorageFormatVersion())
 	size, err := reader.Size()
 	require.NoError(t, err)
 	assert.Equal(t, int64(expectDataLen), size)
