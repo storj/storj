@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"storj.io/storj/storagenode/nodestats"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -105,6 +107,11 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			},
 			Collector: collector.Config{
 				Interval: time.Minute,
+			},
+			Nodestats: nodestats.Config{
+				MaxSleepDuration: 1,
+				ReputationSync:   time.Second * 1,
+				StorageSync:      time.Second * 1,
 			},
 			Console: consoleserver.Config{
 				Address:   "127.0.0.1:0",
