@@ -106,7 +106,6 @@ This process including the Storage nodes transferring their pieces to other node
 	}
 
 	message InitiateRequest {
-		// TODO
 	}
 
 	message InitiateResponse {
@@ -131,10 +130,13 @@ This process including the Storage nodes transferring their pieces to other node
   - Modify `checker` to check segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
 - Add `PieceAction_PUT_EXIT` to orders protobuf. This is used to differentiate exiting bandwidth from other bandwidth usage.
 - Create GracefulExit service
-  - Iterates over `exit_pieceinfo`, creates signed order limits with action type `PieceAction_PUT_EXIT`
-  - Batches orders and sends them to the exiting storagenode `GracefulExit.ProcessOrders` endpoint
-  - // TODO: how will we know when there are no more pieces so we can mark the exit "completed"
-  - Execution intervals and batch sizes should be configurable
+  - SendOrders loop
+    - Iterates over `exit_pieceinfo`, creates signed order limits with action type `PieceAction_PUT_EXIT`
+    - Batches orders and sends them to the exiting storagenode `GracefulExit.ProcessOrders` endpoint
+    - Execution intervals and batch sizes should be configurable
+  - CheckStatus loop
+    - Queries `exit_order` grouping by node ID where all records are marked completed.  The MAX(completed_dt) should be used to determine if the last order was completed within a reasonable (???) threshold to ensure the repairer/checker was able to make enough passes to capture all pieces for the exiting node.
+    - Execution intervals should be configurable
 - Create gracefulexitreport command in satellite cli
   - Accepts 2 parameter: start date and end date
   - Generates a list of all completed exits with NodeID, Wallet address, Date joined, Date exited, GB Transferred (calculated using `PieceAction_PUT_EXIT` bandwidth actions), ordered by date exited descending.
@@ -172,7 +174,11 @@ This process including the Storage nodes transferring their pieces to other node
 
   - ``` 
 	service GracefulExit {
+		// Called by the satellite to batch piece orders to be moved to new nodes
 		rpc ProcessOrders(stream OrderRequest) returns (stream OrderResponse) {}
+		// Called by the satellite to notify the storagenode that the exit is complete for this satellite
+		rpc Completed(stream CompletedRequest) returns (stream CompletedResponse)
+		// Called by the satellite to get exit status information
 		rpc Status(stream StatusRequest) returns (stream StatusResponse) {}
 	}
 
@@ -186,6 +192,13 @@ This process including the Storage nodes transferring their pieces to other node
 	}
 
 	message OrderResponse {
+	}
+
+    message CompletedRequest {
+		google.protobuf.Timestamp completed_dt
+	}
+
+    message CompletedResponse {
 	}
 
 	message StatusRequest {
