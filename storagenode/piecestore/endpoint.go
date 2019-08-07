@@ -118,7 +118,7 @@ type Endpoint struct {
 	trust   *trust.Pool
 	monitor *monitor.Service
 
-	store       *pieces.StoreWithCache
+	store       *pieces.Store
 	orders      orders.DB
 	usage       bandwidth.DB
 	usedSerials UsedSerials
@@ -127,7 +127,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.StoreWithCache, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,

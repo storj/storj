@@ -131,6 +131,27 @@ func (store *Store) SpaceUsed(ctx context.Context) (space int64, err error) {
 	return totalSpaceUsed, nil
 }
 
+// SpaceUsedTotalAndByNamespace adds up the space used by and for all namespaces for blob storage
+func (store *Store) SpaceUsedTotalAndByNamespace(ctx context.Context) (_ int64, _ map[string]int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var totalSpaceUsed int64
+	var totalSpaceUsedByNamespace = map[string]int64{}
+	namespaces, err := store.GetAllNamespaces(ctx)
+	if err != nil {
+		return totalSpaceUsed, totalSpaceUsedByNamespace, Error.New("failed to enumerate namespaces: %v", err)
+	}
+	for _, namespace := range namespaces {
+		used, err := store.SpaceUsedInNamespace(ctx, namespace)
+		if err != nil {
+			return totalSpaceUsed, totalSpaceUsedByNamespace, Error.New("failed to sum space used: %v", err)
+		}
+		totalSpaceUsed += used
+		totalSpaceUsedByNamespace[string(namespace)] = used
+	}
+	return totalSpaceUsed, totalSpaceUsedByNamespace, nil
+}
+
 // SpaceUsedInNamespace adds up how much is used in the given namespace for blob storage
 func (store *Store) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
@@ -175,7 +196,7 @@ func (store *Store) ForAllKeysInNamespace(ctx context.Context, namespace []byte,
 // StoreForTest is a wrapper for Store that also allows writing new V0 blobs (in order to test
 // situations involving those)
 type StoreForTest struct {
-	*Store
+	*StoreUsageCache
 }
 
 // CreateV0 creates a new V0 blob that can be written. This is only appropriate in test situations.

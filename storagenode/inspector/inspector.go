@@ -32,7 +32,7 @@ var (
 // Endpoint does inspectory things
 type Endpoint struct {
 	log        *zap.Logger
-	pieceStore *pieces.StoreWithCache
+	pieceStore *pieces.Store
 	kademlia   *kademlia.Kademlia
 	usageDB    bandwidth.DB
 
@@ -44,7 +44,7 @@ type Endpoint struct {
 // NewEndpoint creates piecestore inspector instance
 func NewEndpoint(
 	log *zap.Logger,
-	pieceStore *pieces.StoreWithCache,
+	pieceStore *pieces.Store,
 	kademlia *kademlia.Kademlia,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,

@@ -46,7 +46,7 @@ type Service struct {
 
 	consoleDB   DB
 	bandwidthDB bandwidth.DB
-	pieceStore  *pieces.StoreWithCache
+	pieceStore  *pieces.Store
 	kademlia    *kademlia.Kademlia
 	version     *version.Service
 	nodestats   *nodestats.Service
@@ -59,7 +59,7 @@ type Service struct {
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStore *pieces.StoreWithCache, kademlia *kademlia.Kademlia, version *version.Service,
+func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStore *pieces.Store, kademlia *kademlia.Kademlia, version *version.Service,
 	nodestats *nodestats.Service, allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")

@@ -115,7 +115,7 @@ type Peer struct {
 	Storage2 struct {
 		// TODO: lift things outside of it to organize better
 		Trust     *trust.Pool
-		Store     *pieces.StoreWithCache
+		Store     *pieces.Store
 		Endpoint  *piecestore.Endpoint
 		Inspector *inspector.Endpoint
 		Monitor   *monitor.Service
@@ -226,7 +226,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Storage2.Store = pieces.NewStoreWithCache(peer.Log.Named("pieces"), peer.DB.Pieces(), peer.DB.V0PieceInfo(), peer.DB.PieceExpirationDB())
+		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces(), peer.DB.V0PieceInfo(), peer.DB.PieceExpirationDB())
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),

@@ -120,7 +120,7 @@ type StoredPieceAccess interface {
 // Store implements storing pieces onto a blob storage implementation.
 type Store struct {
 	log            *zap.Logger
-	blobs          storage.Blobs
+	blobs          storage.BlobUsageCache
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
 
@@ -135,11 +135,11 @@ type Store struct {
 // StoreForTest is a wrapper around Store to be used only in test scenarios. It enables writing
 // pieces with older storage formats and allows use of the ReserveSpace() method.
 type StoreForTest struct {
-	*StoreWithCache
+	*Store
 }
 
 // NewStore creates a new piece store
-func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB) *Store {
+func NewStore(log *zap.Logger, blobs storage.BlobUsageCache, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB) *Store {
 	return &Store{
 		log:            log,
 		blobs:          blobs,
@@ -176,7 +176,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	var blob storage.BlobWriter
 	switch formatVersion {
 	case storage.FormatV0:
-		fStore, ok := store.blobs.(*filestore.Store)
+		fStore, ok := store.blobs.(*filestore.StoreUsageCache)
 		if !ok {
 			return nil, Error.New("can't make a WriterForFormatVersion with this blob store (%T)", store.blobs)
 		}
@@ -232,13 +232,16 @@ func (store *Store) ReaderSpecific(ctx context.Context, satellite storj.NodeID, 
 // Delete deletes the specified piece.
 func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = store.blobs.Delete(ctx, storage.BlobRef{
+	blobRef := storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
-	})
+	}
+	err = store.blobs.Delete(ctx, blobRef)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	size, err := store.getPieceSize(ctx, blobRef)
+	store.blobs.UpdateCache(ctx, satellite.String(), size)
 	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
 	// both of these calls should return no error if the requested record is not found.
 	if store.expirationInfo != nil {
@@ -374,6 +377,13 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 		return 0, err
 	}
 	return totalUsed, nil
+}
+
+// UpdateCache updates the live used space totals
+// with a pieceSize that was either created or deleted where the pieceSize is
+// only the content size and does not include header bytes
+func (store *Store) UpdateCache(ctx context.Context, satelliteID storj.NodeID, pieceSize int64) {
+	store.blobs.UpdateCache(ctx, satelliteID.String(), pieceSize)
 }
 
 // ReserveSpace marks some amount of free space as used, even if it's not, so that future calls

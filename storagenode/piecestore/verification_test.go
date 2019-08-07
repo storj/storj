@@ -328,6 +328,6 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 	for _, storageNode := range planet.StorageNodes {
 		availableSpace, err := storageNode.Storage2.Monitor.AvailableSpace(ctx)
 		require.NoError(t, err)
-		pieces.StoreForTest{StoreWithCache: storageNode.Storage2.Store}.ReserveSpace(availableSpace - space)
+		pieces.StoreForTest{Store: storageNode.Storage2.Store}.ReserveSpace(availableSpace - space)
 	}
 }

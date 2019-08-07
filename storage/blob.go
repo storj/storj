@@ -104,12 +104,35 @@ type Blobs interface {
 	SpaceUsed(ctx context.Context) (int64, error)
 	// SpaceUsedInNamespace adds up how much is used in the given namespace
 	SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error)
+	// SpaceUsedTotalAndByNamespace adds up how much is used in all namespaces
+	SpaceUsedTotalAndByNamespace(ctx context.Context) (int64, map[string]int64, error)
 	// GetAllNamespaces finds all namespaces in which keys might currently be stored.
 	GetAllNamespaces(ctx context.Context) ([][]byte, error)
 	// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with
 	// storage format V1 or greater, in the given namespace. If doForEach returns a non-nil
 	// error, ForAllKeysInNamespace will stop iterating and return the error immediately.
 	ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(StoredBlobAccess) error) error
+}
+
+// BlobUsageCache is a blob storage interface with a cache for storing
+// live values for current space used
+type BlobUsageCache interface {
+	Blobs
+	// InitCache initializes the cache with total values of space usage
+	InitCache(ctx context.Context) error
+	// SpaceUsedForPiecesLive returns the current total used space for
+	// all pieces content (not including header bytes)
+	SpaceUsedForPiecesLive(ctx context.Context) int64
+	// SpaceUsedByNamespaceLive returns the current total space used for a specific
+	// satellite for all pieces (not including header bytes)
+	SpaceUsedByNamespaceLive(ctx context.Context, namespace string) int64
+	// UpdateCache updates the live used space totals
+	// with a pieceSize that was either created or deleted where the pieceSize is
+	// only the content size and does not include header bytes
+	UpdateCache(ctx context.Context, namespace string, pieceSize int64)
+	// RecalculateCache iterates over all blobs on disk and recalculates
+	// the totals store in the cache
+	RecalculateCache(ctx context.Context) error
 }
 
 // StoredBlobAccess allows inspection of a blob and its underlying file during iteration with

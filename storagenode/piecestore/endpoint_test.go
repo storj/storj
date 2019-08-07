@@ -507,7 +507,7 @@ func TestRetain(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
-		store := pieces.NewStoreWithCache(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB())
+		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB())
 		const numPieces = 1000
 		const numPiecesToKeep = 990
 		// pieces from numPiecesToKeep + numOldPieces to numPieces will
@@ -661,7 +661,7 @@ func TestRetain(t *testing.T) {
 	})
 }
 
-func getAllPieceIDs(ctx context.Context, store *pieces.StoreWithCache, satellite storj.NodeID, createdBefore time.Time) (pieceIDs []storj.PieceID, err error) {
+func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID, createdBefore time.Time) (pieceIDs []storj.PieceID, err error) {
 	err = store.ForAllPieceIDsOwnedBySatellite(ctx, satellite, func(pieceAccess pieces.StoredPieceAccess) error {
 		mTime, err := pieceAccess.CreationTime(ctx)
 		if err != nil {
