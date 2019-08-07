@@ -95,8 +95,8 @@ This process including the Storage nodes transferring their pieces to other node
 ## Implementation (MVP)
 
 #### Satellite
-- Update DBX - Add updateable `exit_initiated` and `exit_completed` timestamps to nodes table with indexes
-  - Add GetExitingNodeIds method to overlaycache. Returns nodes IDs where `exit_initiated` is not null and `exit_completed` is null.
+- Update DBX - Add updateable `exit_initiated_dt` and `exit_completed_dt` timestamps to nodes table with indexes
+  - Add GetExitingNodeIds method to overlaycache. Returns nodes IDs where `exit_initiated_dt` is not null and `exit_completed_dt` is null.
 - Create GracefulExit endpoint
   - Endpoints should be secured using the peer Identity provided in context
   - Initiates the exit by setting `nodes.exit_initiated` to current time
@@ -110,7 +110,6 @@ This process including the Storage nodes transferring their pieces to other node
 	}
 
 	message InitiateResponse {
-		// TODO
 	}
 	```
 - Update DBX - Add table exit_pieceinfos
@@ -122,8 +121,9 @@ This process including the Storage nodes transferring their pieces to other node
 		field path              blob
 		field peice_info        blob
 		field durability_ratio  float64
-		field queued            timestamp ( autoinsert )
-		field completed	        timestamp ( updateable )
+		field queued_dt         timestamp ( autoinsert )
+		field sent_dt           timestamp ( updateable )
+		field completed_dt      timestamp ( updateable )
 	)
    ```
 - Add `PieceAction` field to, `cache.FindStorageNodesRequest`. Update `cache.FindStorageNodesWithPreferences` to ignore exiting nodes for uploads and repairs.
@@ -131,7 +131,7 @@ This process including the Storage nodes transferring their pieces to other node
   - Modify `checker` to check segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
 - Add `PieceAction_PUT_EXIT` to orders protobuf. This is used to differentiate exiting bandwidth from other bandwidth usage.
 - Create GracefulExit service
-  - Iterates over `exit_pieceinfo`, creates signed orders with action type `PieceAction_PUT_EXIT`
+  - Iterates over `exit_pieceinfo`, creates signed order limits with action type `PieceAction_PUT_EXIT`
   - Batches orders and sends them to the exiting storagenode `GracefulExit.ProcessOrders` endpoint
   - // TODO: how will we know when there are no more pieces so we can mark the exit "completed"
   - Execution intervals and batch sizes should be configurable
@@ -153,17 +153,16 @@ This process including the Storage nodes transferring their pieces to other node
 		field satellite_id            blob not null
 		field serial_number           blob not null
 		field order_limit_serialized  blob not null
-		field order_serialized        blob not null
-		order_limit_expiration        timestamp not null
-		field completed	              timestamp ( updateable )
+		filed order_limit_expiration  timestamp not null
+		field completed_dt            timestamp ( updateable )
 	)
 
 	model exit_status (
 		key satellite_id
 
 		field satellite_id           blob not null
-		field initiated              timestamp ( autoinsert ) not null
-		field completed	             timestamp ( updateable )
+		field initiated_dt           timestamp ( autoinsert ) not null
+		field completed_dt           timestamp ( updateable )
 		field starting_disk_usage    int64 not null
 		field bytes_deleted          int64
 	)	
@@ -174,22 +173,38 @@ This process including the Storage nodes transferring their pieces to other node
   - ``` 
 	service GracefulExit {
 		rpc ProcessOrders(stream OrderRequest) returns (stream OrderResponse) {}
+		rpc Status(stream StatusRequest) returns (stream StatusResponse) {}
+	}
+
+	message Order {
+		bytes hashing_key
+		AddressedOrderLimit addressed_order_limit 
 	}
 
 	message OrderRequest {
-		// TODO
+		Order orders repeatable
 	}
 
 	message OrderResponse {
-		// TODO
+	}
+
+	message OrderRequest {
+	}
+
+	message OrderResponse {
+        byte satellite_id
+		google.protobuf.Timestamp initiated_dt
+		google.protobuf.Timestamp completed_dt
+		int64 starting_disk_usage
+		int64 bytes_deleted		
 	}
 	```
 - Update bandwidth usage monitors to ignore `PieceAction_PUT_EXIT` bandwidth actions
 - Add GracefulExit service
-  - Iterates over `exit_order` where `completed` is null
+  - Iterates over `exit_order` where `completed_dt` is null
     - Pushes the pieces to the storage node identified in the order using `ecclient`
-    - Sends the signed new node response to the satellite via a new `Commit` method (uses `metainfo.UpdatePieces`).
-    - Updates `bytes_deleted` with the number of bytes deleted and sets `completed` to current time
+    - Sends the signed new node response to the satellite via a new `CommitPiece` method (uses `metainfo.UpdatePieces`).
+    - Updates `bytes_deleted` with the number of bytes deleted and sets `completed_dt` to current time
   - Execution intervals and batch sizes should be configurable
 
 ## Open Questions
