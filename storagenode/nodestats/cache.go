@@ -48,8 +48,8 @@ type Cache struct {
 	trust   *trust.Pool
 
 	maxSleepDuration int
-	reputationCycle  *sync2.Cycle
-	storageCycle     *sync2.Cycle
+	reputationCycle  sync2.Cycle
+	storageCycle     sync2.Cycle
 }
 
 // NewCache creates new caching service instance
@@ -60,8 +60,8 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 		service:          service,
 		trust:            trust,
 		maxSleepDuration: config.MaxSleepDuration,
-		reputationCycle:  sync2.NewCycle(config.ReputationSync),
-		storageCycle:     sync2.NewCycle(config.StorageSync),
+		reputationCycle:  *sync2.NewCycle(config.ReputationSync),
+		storageCycle:     *sync2.NewCycle(config.StorageSync),
 	}
 }
 
