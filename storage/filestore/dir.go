@@ -261,7 +261,7 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 
 	var (
 		moveErr        error
-		combinedErrors error
+		combinedErrors errs.Group
 	)
 
 	// Try deleting all possible paths, starting with the oldest format version. It is more
@@ -310,10 +310,10 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 		if isBusy(err) {
 			err = nil
 		}
-		combinedErrors = errs.Combine(combinedErrors, err)
+		combinedErrors.Add(err)
 	}
 
-	return combinedErrors
+	return combinedErrors.Err()
 }
 
 // GarbageCollect collects files that are pending deletion.
