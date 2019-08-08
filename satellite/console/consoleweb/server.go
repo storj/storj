@@ -7,8 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"mime"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -104,7 +106,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		mux.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
@@ -116,7 +118,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 }
 
 // appHandler is web app http handler function
-func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
+func (server *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	header := w.Header()
 
 	cspValues := []string{
@@ -129,55 +131,55 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	header.Set("Content-Type", "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "index.html"))
+	http.ServeFile(w, req, filepath.Join(server.config.StaticDir, "dist", "index.html"))
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
-func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	var projectID *uuid.UUID
 	var since, before time.Time
 
-	tokenCookie, err := req.Cookie("tokenKey")
+	tokenCookie, err := r.Cookie("tokenKey")
 	if err != nil {
-		s.log.Error("bucket usage report error", zap.Error(err))
+		server.log.Error("bucket usage report error", zap.Error(err))
 
 		w.WriteHeader(http.StatusUnauthorized)
-		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
 		return
 	}
 
-	auth, err := s.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
+	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
 	if err != nil {
-		s.log.Error("bucket usage report error", zap.Error(err))
+		server.log.Error("bucket usage report error", zap.Error(err))
 
 		w.WriteHeader(http.StatusUnauthorized)
-		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+		http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
 		return
 	}
 
 	defer func() {
 		if err != nil {
-			s.log.Error("bucket usage report error", zap.Error(err))
+			server.log.Error("bucket usage report error", zap.Error(err))
 
 			w.WriteHeader(http.StatusNotFound)
-			http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+			http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
 		}
 	}()
 
 	// parse query params
-	projectID, err = uuid.Parse(req.URL.Query().Get("projectID"))
+	projectID, err = uuid.Parse(r.URL.Query().Get("projectID"))
 	if err != nil {
 		return
 	}
-	sinceStamp, err := strconv.ParseInt(req.URL.Query().Get("since"), 10, 64)
+	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
 	if err != nil {
 		return
 	}
-	beforeStamp, err := strconv.ParseInt(req.URL.Query().Get("before"), 10, 64)
+	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
 	if err != nil {
 		return
 	}
@@ -185,18 +187,18 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 	since = time.Unix(sinceStamp, 0)
 	before = time.Unix(beforeStamp, 0)
 
-	s.log.Debug("querying bucket usage report",
+	server.log.Debug("querying bucket usage report",
 		zap.Stringer("projectID", projectID),
 		zap.Stringer("since", since),
 		zap.Stringer("before", before))
 
 	ctx = console.WithAuth(ctx, auth)
-	bucketRollups, err := s.service.GetBucketUsageRollups(ctx, *projectID, since, before)
+	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
 		return
 	}
 
-	report, err := template.ParseFiles(path.Join(s.config.StaticDir, "static", "reports", "UsageReport.html"))
+	report, err := template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "UsageReport.html"))
 	if err != nil {
 		return
 	}
@@ -205,8 +207,8 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 }
 
 // accountActivationHandler is web app http handler function
-func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 	w.Header().Set(contentType, applicationJSON)
 
@@ -218,18 +220,18 @@ func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http
 	defer func() {
 		err := json.NewEncoder(w).Encode(&response)
 		if err != nil {
-			s.log.Error(err.Error())
+			server.log.Error(err.Error())
 		}
 	}()
 
-	authToken := req.Header.Get("Authorization")
-	if authToken != s.config.AuthToken {
+	authToken := r.Header.Get("Authorization")
+	if authToken != server.config.AuthToken {
 		w.WriteHeader(401)
 		response.Error = "unauthorized"
 		return
 	}
 
-	projectsLimitInput := req.URL.Query().Get("projectsLimit")
+	projectsLimitInput := r.URL.Query().Get("projectsLimit")
 
 	projectsLimit, err := strconv.Atoi(projectsLimitInput)
 	if err != nil {
@@ -237,7 +239,7 @@ func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http
 		return
 	}
 
-	token, err := s.service.CreateRegToken(ctx, projectsLimit)
+	token, err := server.service.CreateRegToken(ctx, projectsLimit)
 	if err != nil {
 		response.Error = err.Error()
 		return
@@ -247,107 +249,107 @@ func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http
 }
 
 // accountActivationHandler is web app http handler function
-func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	activationToken := req.URL.Query().Get("token")
+	activationToken := r.URL.Query().Get("token")
 
-	err := s.service.ActivateAccount(ctx, activationToken)
+	err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
-		s.log.Error("activation: failed to activate account",
+		server.log.Error("activation: failed to activate account",
 			zap.String("token", activationToken),
 			zap.Error(err))
 
-		s.serveError(w, req)
+		server.serveError(w, r)
 		return
 	}
 
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "activation", "success.html"))
+	http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "activation", "success.html"))
 }
 
-func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	recoveryToken := req.URL.Query().Get("token")
+	recoveryToken := r.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
-		s.serveError(w, req)
+		server.serveError(w, r)
 		return
 	}
 
-	switch req.Method {
+	switch r.Method {
 	case http.MethodPost:
-		err := req.ParseForm()
+		err := r.ParseForm()
 		if err != nil {
-			s.serveError(w, req)
+			server.serveError(w, r)
 			return
 		}
 
-		password := req.FormValue("password")
-		passwordRepeat := req.FormValue("passwordRepeat")
+		password := r.FormValue("password")
+		passwordRepeat := r.FormValue("passwordRepeat")
 		if strings.Compare(password, passwordRepeat) != 0 {
-			s.serveError(w, req)
+			server.serveError(w, r)
 			return
 		}
 
-		err = s.service.ResetPassword(ctx, recoveryToken, password)
+		err = server.service.ResetPassword(ctx, recoveryToken, password)
 		if err != nil {
-			s.serveError(w, req)
+			server.serveError(w, r)
 			return
 		}
 
-		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "resetPassword", "success.html"))
+		http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "resetPassword", "success.html"))
 	case http.MethodGet:
-		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
+		t, err := template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
 		if err != nil {
-			s.serveError(w, req)
+			server.serveError(w, r)
 			return
 		}
 
 		err = t.Execute(w, nil)
 		if err != nil {
-			s.serveError(w, req)
+			server.serveError(w, r)
 			return
 		}
 	default:
-		s.serveError(w, req)
+		server.serveError(w, r)
 		return
 	}
 }
 
-func (s *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	recoveryToken := req.URL.Query().Get("token")
+	recoveryToken := r.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
-		http.Redirect(w, req, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
+		http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 	}
 
 	// No need to check error as we anyway redirect user to support page
-	_ = s.service.RevokeResetPasswordToken(ctx, recoveryToken)
+	_ = server.service.RevokeResetPasswordToken(ctx, recoveryToken)
 
-	http.Redirect(w, req, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
+	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
-func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
+func (server *Server) serveError(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
+	http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
 }
 
 // grapqlHandler is graphql endpoint http handler function
-func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 	w.Header().Set(contentType, applicationJSON)
 
-	token := getToken(req)
-	query, err := getQuery(req)
+	token := getToken(r)
+	query, err := getQuery(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	ctx = auth.WithAPIKey(ctx, []byte(token))
-	auth, err := s.service.Authorize(ctx)
+	auth, err := server.service.Authorize(ctx)
 	if err != nil {
 		ctx = console.WithAuthFailure(ctx, err)
 	} else {
@@ -356,14 +358,14 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 
 	rootObject := make(map[string]interface{})
 
-	rootObject["origin"] = s.config.ExternalAddress
+	rootObject["origin"] = server.config.ExternalAddress
 	rootObject[consoleql.ActivationPath] = "activation/?token="
 	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
 	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery/?token="
 	rootObject[consoleql.SignInPath] = "login"
 
 	result := graphql.Do(graphql.Params{
-		Schema:         s.schema,
+		Schema:         server.schema,
 		Context:        ctx,
 		RequestString:  query.Query,
 		VariableValues: query.Variables,
@@ -373,19 +375,19 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 
 	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
-		s.log.Error(err.Error())
+		server.log.Error(err.Error())
 		return
 	}
 
-	sugar := s.log.Sugar()
+	sugar := server.log.Sugar()
 	sugar.Debug(result)
 }
 
 // Run starts the server that host webapp and api endpoint
-func (s *Server) Run(ctx context.Context) (err error) {
+func (server *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	s.schema, err = consoleql.CreateSchema(s.log, s.service, s.mailService)
+	server.schema, err = consoleql.CreateSchema(server.log, server.service, server.mailService)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -394,17 +396,51 @@ func (s *Server) Run(ctx context.Context) (err error) {
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
-		return s.server.Shutdown(nil)
+		return server.server.Shutdown(nil)
 	})
 	group.Go(func() error {
 		defer cancel()
-		return s.server.Serve(s.listener)
+		return server.server.Serve(server.listener)
 	})
 
 	return group.Wait()
 }
 
 // Close closes server and underlying listener
-func (s *Server) Close() error {
-	return s.server.Close()
+func (server *Server) Close() error {
+	return server.server.Close()
+}
+
+// gzipHandler is used to gzip static content to minify resources if browser support such decoding
+func (server *Server) gzipHandler(fn http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+		extension := filepath.Ext(r.RequestURI)
+		// we have gzipped only fonts, js and css bundles
+		formats := map[string]bool{
+			".js":  true,
+			".ttf": true,
+			".css": true,
+		}
+		isNeededFormatToGzip := formats[extension]
+
+		// in case if old browser doesn't support gzip decoding or if file extension is not recommended to gzip
+		// just return original file
+		if !isGzipSupported || !isNeededFormatToGzip {
+			fn.ServeHTTP(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", mime.TypeByExtension(extension))
+		w.Header().Set("Content-Encoding", "gzip")
+
+		// updating request URL
+		newRequest := new(http.Request)
+		*newRequest = *r
+		newRequest.URL = new(url.URL)
+		*newRequest.URL = *r.URL
+		newRequest.URL.Path += ".gz"
+
+		fn.ServeHTTP(w, newRequest)
+	})
 }

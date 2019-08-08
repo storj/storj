@@ -16,6 +16,8 @@ require (
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
 
+replace google.golang.org/grpc => github.com/storj/grpc-go v1.22.1-notrace
+
 require (
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
 	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
