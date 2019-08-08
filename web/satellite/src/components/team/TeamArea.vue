@@ -4,7 +4,7 @@
 <template>
     <div class="team-area">
         <div class="team-header">
-            <HeaderArea/>
+            <HeaderArea :headerState="headerState" :selectedProjectMembers="selectedProjectMembers.length"/>
         </div>
         <div id="scrollable_team_container" v-if="projectMembers.length > 0 || projectMembersCount > 0" v-on:scroll="onScroll" class="team-container">
             <div class="team-container__content">
@@ -61,8 +61,13 @@
     import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
     import Footer from '@/components/team/footerArea/Footer.vue';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { TeamMember } from '../../types/teamMembers';
+    import { TeamMember } from '@/types/teamMembers';
     import { RequestResponse } from '@/types/response';
+
+    enum HeaderState {
+        DEFAULT = 0,
+        ON_SELECT,
+    }
 
     @Component({
         components: {
@@ -114,6 +119,18 @@
 
         public get selectedProjectMembers(): TeamMember[] {
             return this.$store.getters.selectedProjectMembers;
+        }
+
+        public get headerState(): number {
+            if (this.selectedProjectMembers.length === 0) {
+                return HeaderState.DEFAULT;
+            }
+
+            if (this.selectedProjectMembers.length > 0) {
+                return HeaderState.ON_SELECT;
+            }
+
+            return HeaderState.DEFAULT;
         }
     }
 </script>

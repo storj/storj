@@ -13,10 +13,10 @@ describe('SearchComponent.vue', () => {
     });
 
     it('renders correctly with default props', () => {
-        const wrapper = shallowMount(SearchComponent);
+        const wrapper = mount(SearchComponent);
 
-        expect(wrapper.find('input').props('placeHolder')).toMatch('');
-        expect(wrapper.find('input').props('search')).toMatch('');
+        expect(wrapper.vm.$props.placeHolder).toMatch('');
+        expect(wrapper.vm.$props.search).toMatch('');
     });
 
     it('functions onMouseEnter/onMouseLeave work correctly', () => {
@@ -47,5 +47,21 @@ describe('SearchComponent.vue', () => {
 
         expect(onMouseLeaveSpy.callCount).toBe(1);
         expect(processSearchQuerySpy.callCount).toBe(1);
+    });
+
+    it('function clearSearch works correctly', () => {
+        let processSearchQuerySpy = sinon.spy();
+
+        const wrapper = mount(SearchComponent, {
+            methods: {
+                processSearchQuery: processSearchQuerySpy,
+            }
+        });
+
+        wrapper.vm.clearSearch();
+
+        expect(wrapper.vm.$data.mSearchQuery).toMatch('');
+        expect(processSearchQuerySpy.callCount).toBe(1);
+        expect(wrapper.vm.$data.inputWidth).toMatch('56px');
     });
 });

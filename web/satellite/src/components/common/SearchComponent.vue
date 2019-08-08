@@ -9,7 +9,8 @@
         v-model="mSearchQuery"
         :placeholder="`Search ${placeHolder}`"
         :style="style"
-        type="text">
+        type="text"
+        autocomplete="off">
 </template>
 
 <script lang="ts">
@@ -48,7 +49,13 @@
             }
         }
 
-        public onInput(): any {
+        public clearSearch() {
+            this.mSearchQuery = '';
+            this.processSearchQuery();
+            this.inputWidth = '56px';
+        }
+
+        public onInput(): void {
             this.onMouseLeave();
             this.processSearchQuery();
         }
