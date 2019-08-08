@@ -4941,6 +4941,20 @@
     {
       "protopath": "pkg:/:pb:/:piecestore2.proto",
       "def": {
+        "enums": [
+          {
+            "name": "PieceHeader.FormatVersion",
+            "enum_fields": [
+              {
+                "name": "FORMAT_V0"
+              },
+              {
+                "name": "FORMAT_V1",
+                "integer": 1
+              }
+            ]
+          }
+        ],
         "messages": [
           {
             "name": "PieceUploadRequest",
@@ -5098,6 +5112,52 @@
           },
           {
             "name": "RetainResponse"
+          },
+          {
+            "name": "PieceHeader",
+            "fields": [
+              {
+                "id": 1,
+                "name": "format_version",
+                "type": "FormatVersion"
+              },
+              {
+                "id": 2,
+                "name": "hash",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "creation_time",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "signature",
+                "type": "bytes"
+              },
+              {
+                "id": 5,
+                "name": "order_limit",
+                "type": "orders.OrderLimit",
+                "options": [
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
           }
         ],
         "services": [

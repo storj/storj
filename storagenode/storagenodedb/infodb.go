@@ -15,7 +15,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/utccheck"
@@ -52,10 +52,11 @@ type SQLDB interface {
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	db          SQLDB
-	bandwidthdb bandwidthdb
-	pieceinfo   pieceinfo
-	location    string
+	db                SQLDB
+	bandwidthdb       bandwidthdb
+	v0PieceInfo       v0PieceInfo
+	pieceExpirationDB pieceExpirationDB
+	location          string
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -72,8 +73,9 @@ func newInfo(path string) (*InfoDB, error) {
 	dbutil.Configure(db, mon)
 
 	infoDb := &InfoDB{db: db}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
+	infoDb.v0PieceInfo = v0PieceInfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
+	infoDb.pieceExpirationDB = pieceExpirationDB{InfoDB: infoDb}
 	infoDb.location = path
 
 	return infoDb, nil
@@ -99,8 +101,9 @@ func NewInfoTest() (*InfoDB, error) {
 		}))
 
 	infoDb := &InfoDB{db: utccheck.New(db)}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
+	infoDb.v0PieceInfo = v0PieceInfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
+	infoDb.pieceExpirationDB = pieceExpirationDB{InfoDB: infoDb}
 
 	return infoDb, nil
 }
@@ -403,6 +406,22 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					// To prevent the node from starting up, we just log errors and return nil
 					return nil
 				}),
+			},
+			{
+				Description: "Start piece_expirations table, deprecate pieceinfo table",
+				Version:     15,
+				Action: migrate.SQL{
+					// new table to hold expiration data (and only expirations. no other pieceinfo)
+					`CREATE TABLE piece_expirations (
+						satellite_id       BLOB      NOT NULL,
+						piece_id           BLOB      NOT NULL,
+						piece_expiration   TIMESTAMP NOT NULL, -- date when it can be deleted
+						deletion_failed_at TIMESTAMP,
+						PRIMARY KEY (satellite_id, piece_id)
+					)`,
+					`CREATE INDEX idx_piece_expirations_piece_expiration ON piece_expirations(piece_expiration)`,
+					`CREATE INDEX idx_piece_expirations_deletion_failed_at ON piece_expirations(deletion_failed_at)`,
+				},
 			},
 		},
 	}
