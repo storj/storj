@@ -86,7 +86,7 @@ func (blobs *BlobsUsageCache) SpaceUsedBySatelliteLive(ctx context.Context, sate
 
 // SpaceUsedForPiecesLive returns the current total used space for
 //// all pieces content (not including header bytes)
-func (blobs *BlobsUsageCache) SpaceUsedForPiecesLive(ctx context.Context, satelliteID string) int64 {
+func (blobs *BlobsUsageCache) SpaceUsedForPiecesLive(ctx context.Context) int64 {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
 	return blobs.cache.total

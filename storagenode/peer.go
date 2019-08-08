@@ -253,6 +253,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			log.Named("piecestore:monitor"),
 			peer.Kademlia.RoutingTable,
 			peer.Storage2.Store,
+			peer.Storage2.BlobsCache,
 			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
 			config.Storage.AllocatedBandwidth.Int64(),
@@ -316,6 +317,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.DB.Console(),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
+			peer.Storage2.BlobsCache,
 			peer.Kademlia.Service,
 			peer.Version,
 			config.Storage.AllocatedBandwidth,
@@ -344,6 +346,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		peer.Storage2.Inspector = inspector.NewEndpoint(
 			peer.Log.Named("pieces:inspector"),
 			peer.Storage2.Store,
+			peer.Storage2.BlobsCache,
 			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
 			config.Storage,
