@@ -5,6 +5,7 @@ package storagenode
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
@@ -120,13 +121,14 @@ type Peer struct {
 
 	Storage2 struct {
 		// TODO: lift things outside of it to organize better
-		Trust      *trust.Pool
-		Store      *pieces.Store
-		BlobsCache *pieces.BlobsUsageCache
-		Endpoint   *piecestore.Endpoint
-		Inspector  *inspector.Endpoint
-		Monitor    *monitor.Service
-		Sender     *orders.Sender
+		Trust        *trust.Pool
+		Store        *pieces.Store
+		BlobsCache   *pieces.BlobsUsageCache
+		CacheService *pieces.CacheService
+		Endpoint     *piecestore.Endpoint
+		Inspector    *inspector.Endpoint
+		Monitor      *monitor.Service
+		Sender       *orders.Sender
 	}
 
 	Vouchers *vouchers.Service
@@ -237,7 +239,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		}
 
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.DB.Pieces())
+		fmt.Println("*** starting: ", peer.Storage2.BlobsCache.Total())
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.Storage2.BlobsCache, peer.DB.V0PieceInfo(), peer.DB.PieceExpirationDB())
+
+		peer.Storage2.CacheService = pieces.NewService(
+			log.Named("piecestore:cacheUpdate"),
+			peer.Storage2.BlobsCache,
+			peer.Storage2.Store,
+			config.Storage2.CacheUpdateInterval,
+		)
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
@@ -374,6 +384,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))

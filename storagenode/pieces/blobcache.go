@@ -6,7 +6,11 @@ package pieces
 import (
 	"context"
 	"sync"
+	"time"
 
+	"go.uber.org/zap"
+
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/storage"
 )
 
@@ -28,12 +32,108 @@ type spaceUsed struct {
 func NewBlobsUsageCache(blob storage.Blobs) *BlobsUsageCache {
 	return &BlobsUsageCache{
 		Blobs: blob,
+		cache: spaceUsed{
+			totalBySatellite: map[string]int64{},
+		},
 	}
+}
+
+type CacheService struct {
+	log             *zap.Logger
+	blobsUsageCache *BlobsUsageCache
+	store           *Store
+	loop            sync2.Cycle
+}
+
+// NewService creates a new cache service that updates the space usage cache on an interval
+func NewService(log *zap.Logger, blobsUsageCache *BlobsUsageCache, pieces *Store, interval time.Duration) *CacheService {
+	return &CacheService{
+		log:             log,
+		blobsUsageCache: blobsUsageCache,
+		store:           pieces,
+		loop:            *sync2.NewCycle(interval),
+	}
+}
+
+func (service *CacheService) Run(ctx context.Context) (err error) {
+	return service.loop.Run(ctx, func(ctx context.Context) error {
+
+		totalSpaceUsed, totalSpaceUsedBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
+		if err != nil {
+			service.log.Error("error getting current space used calculation: ", zap.Error(err))
+		}
+		service.blobsUsageCache.recalculate(ctx, totalSpaceUsed, totalSpaceUsedBySatellite)
+		if err != nil {
+			service.log.Error("error during recalculating space usage cache: ", zap.Error(err))
+		}
+		service.log.Debug("recalculating...", zap.Int64("new total:", service.blobsUsageCache.cache.total))
+		return err
+	})
+}
+
+// Total satisfies the pieces interface
+func (blobs *BlobsUsageCache) Total() int64 {
+	return blobs.cache.total
+}
+
+// SpaceUsedBySatelliteLive returns the current total space used for a specific
+// satellite for all pieces (not including header bytes)
+func (blobs *BlobsUsageCache) SpaceUsedBySatelliteLive(ctx context.Context, satelliteID string) int64 {
+	blobs.mu.Lock()
+	defer blobs.mu.Unlock()
+	return blobs.cache.totalBySatellite[satelliteID]
+}
+
+// SpaceUsedForPiecesLive returns the current total used space for
+//// all pieces content (not including header bytes)
+func (blobs *BlobsUsageCache) SpaceUsedForPiecesLive(ctx context.Context, satelliteID string) int64 {
+	blobs.mu.Lock()
+	defer blobs.mu.Unlock()
+	return blobs.cache.total
+}
+
+func (blobs *BlobsUsageCache) update(ctx context.Context, satelliteID string, pieceContentSize int64) {
+	blobs.mu.Lock()
+	defer blobs.mu.Unlock()
+	blobs.cache.total += pieceContentSize
+	blobs.cache.totalBySatellite[satelliteID] += pieceContentSize
 }
 
 // Close satisfies the pieces interface
 func (blobs *BlobsUsageCache) Close() error {
 	return nil
+}
+
+func (blobs *BlobsUsageCache) recalculate(ctx context.Context, newTotalSpaceUsed int64, newTotalSpaceUsedByNamespace map[string]int64) error {
+	spaceUsedWhenIterationStarted := blobs.cache
+
+	var estimatedTotals int64
+	estimatedTotals = estimate(newTotalSpaceUsed,
+		spaceUsedWhenIterationStarted.total,
+		blobs.cache.total,
+	)
+
+	var estimatedTotalsBySatellite = map[string]int64{}
+	for sa, newTotal := range newTotalSpaceUsedByNamespace {
+		estimatedTotalsBySatellite[sa] = estimate(newTotal,
+			spaceUsedWhenIterationStarted.total,
+			blobs.cache.total,
+		)
+	}
+
+	blobs.mu.Lock()
+	blobs.cache.total = estimatedTotals
+	blobs.cache.totalBySatellite = estimatedTotalsBySatellite
+	blobs.mu.Unlock()
+	return nil
+}
+
+func estimate(newSpaceUsedTotal, spaceUsedWhenIterationStarted, spaceUsedWhenIterationEnded int64) int64 {
+	if newSpaceUsedTotal == spaceUsedWhenIterationEnded {
+		return newSpaceUsedTotal
+	}
+	spaceUsedDeltaDuringIteration := spaceUsedWhenIterationEnded - spaceUsedWhenIterationStarted
+	return newSpaceUsedTotal + (spaceUsedDeltaDuringIteration / 2)
 }
 
 // Delete gets the size of the piece that is going to be deleted then deletes it and
@@ -61,13 +161,6 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef storage.BlobRe
 
 	blobs.update(ctx, string(blobRef.Namespace), pieceContentSize)
 	return nil
-}
-
-func (blobs *BlobsUsageCache) update(ctx context.Context, satelliteID string, size int64) {
-	blobs.mu.Lock()
-	defer blobs.mu.Unlock()
-	blobs.cache.total += size
-	blobs.cache.totalBySatellite[satelliteID] += size
 }
 
 // Create returns a blobWriter that knows which namespace/satellite its writing the piece to

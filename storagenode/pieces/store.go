@@ -392,6 +392,27 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	return totalUsed, nil
 }
 
+// SpaceUsedTotalAndBySatellite adds up the space used by and for all namespaces for blob storage
+func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (_ int64, _ map[string]int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var totalSpaceUsed int64
+	var totalSpaceUsedBySatellite = map[string]int64{}
+	satelliteIDs, err := store.getAllStoringSatellites(ctx)
+	if err != nil {
+		return totalSpaceUsed, totalSpaceUsedBySatellite, Error.New("failed to enumerate satellites: %v", err)
+	}
+	for _, satelliteID := range satelliteIDs {
+		used, err := store.SpaceUsedBySatellite(ctx, satelliteID)
+		if err != nil {
+			return totalSpaceUsed, totalSpaceUsedBySatellite, Error.New("failed to sum space used: %v", err)
+		}
+		totalSpaceUsed += used
+		totalSpaceUsedBySatellite[satelliteID.String()] = used
+	}
+	return totalSpaceUsed, totalSpaceUsedBySatellite, nil
+}
+
 // ReserveSpace marks some amount of free space as used, even if it's not, so that future calls
 // to SpaceUsedForPieces() are raised by this amount. Calls to ReserveSpace invalidate earlier
 // calls, so ReserveSpace(0) undoes all prior space reservation. This should only be used in
