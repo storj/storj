@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="header-container">
-		<div class="header-container__buttons-area">
-		    <slot></slot>
-		</div>
-	    <SearchComponent ref="search" :placeHolder="placeHolder" :search="search"/>
-	</div>
+    <div class="header-container">
+        <div class="header-container__buttons-area">
+            <slot></slot>
+        </div>
+        <SearchComponent ref="search" :placeHolder="placeHolder" :search="search"/>
+    </div>
 </template>
 
 <script lang="ts">
@@ -41,18 +41,18 @@
 </script>
 
 <style scoped lang="scss">
-	.header-container {
+    .header-container {
         width: 100%;
-		position: relative;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
 
-		&__buttons-area {
-			width: auto;
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-		}
-	}
+        &__buttons-area {
+            width: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+    }
 </style>
