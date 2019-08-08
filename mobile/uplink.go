@@ -46,6 +46,7 @@ func NewUplink(config *Config, tempDir string) (*Uplink, error) {
 
 	cfg := &libuplink.Config{}
 	if config != nil {
+		// TODO: V3-2303, support logging somehow
 		cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 		cfg.Volatile.MaxInlineSize = memory.Size(config.MaxInlineSize)
 		cfg.Volatile.MaxMemory = memory.Size(config.MaxMemory)

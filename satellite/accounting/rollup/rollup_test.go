@@ -205,19 +205,24 @@ func createData(planet *testplanet.Planet, days int) []testData {
 func dqNodes(ctx *testcontext.Context, planet *testplanet.Planet) (map[storj.NodeID]bool, error) {
 	dqed := make(map[storj.NodeID]bool)
 
+	var updateRequests []*overlay.UpdateRequest
 	for i, n := range planet.StorageNodes {
 		if i%2 == 0 {
 			continue
 		}
-		_, err := planet.Satellites[0].Overlay.Service.UpdateStats(ctx, &overlay.UpdateRequest{
+		updateRequests = append(updateRequests, &overlay.UpdateRequest{
 			NodeID:       n.ID(),
 			IsUp:         true,
 			AuditSuccess: false,
 		})
-		if err != nil {
-			return nil, err
-		}
-		dqed[n.ID()] = true
+	}
+
+	_, err := planet.Satellites[0].Overlay.Service.BatchUpdateStats(ctx, updateRequests)
+	if err != nil {
+		return nil, err
+	}
+	for _, request := range updateRequests {
+		dqed[request.NodeID] = true
 	}
 	return dqed, nil
 }

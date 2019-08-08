@@ -55,7 +55,8 @@ type DB interface {
 	Pieces() storage.Blobs
 
 	Orders() orders.DB
-	PieceInfo() pieces.DB
+	V0PieceInfo() pieces.V0PieceInfoDB
+	PieceExpirationDB() pieces.PieceExpirationDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
@@ -86,6 +87,8 @@ type Config struct {
 	Console consoleserver.Config
 
 	Version version.Config
+
+	Bandwidth bandwidth.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -140,6 +143,8 @@ type Peer struct {
 		Service  *console.Service
 		Endpoint *consoleserver.Server
 	}
+
+	Bandwidth *bandwidth.Service
 }
 
 // New creates a new Storage Node.
@@ -158,7 +163,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(config.Version, versionInfo, "Storagenode")
+		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 	}
 
 	{ // setup listener and server
@@ -170,7 +175,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil)
+		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -230,13 +235,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
+		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces(), peer.DB.V0PieceInfo(), peer.DB.PieceExpirationDB())
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
 			peer.Kademlia.RoutingTable,
 			peer.Storage2.Store,
-			peer.DB.PieceInfo(),
 			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
 			config.Storage.AllocatedBandwidth.Int64(),
@@ -251,7 +255,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.Store,
-			peer.DB.PieceInfo(),
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),
@@ -300,7 +303,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
 			peer.DB.Bandwidth(),
-			peer.DB.PieceInfo(),
+			peer.Storage2.Store,
 			peer.Kademlia.Service,
 			peer.Version,
 			config.Storage.AllocatedBandwidth,
@@ -328,7 +331,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{ // setup storage inspector
 		peer.Storage2.Inspector = inspector.NewEndpoint(
 			peer.Log.Named("pieces:inspector"),
-			peer.DB.PieceInfo(),
+			peer.Storage2.Store,
 			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
 			config.Storage,
@@ -337,7 +340,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}
 
-	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
+	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
+
+	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
 
 	return peer, nil
 }
@@ -372,9 +377,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
 	})
 
-	//group.Go(func() error {
-	//	return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
-	//})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
+	})
 
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -408,9 +413,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
-	//if peer.DB.Bandwidth() != nil {
-	//	errlist.Add(peer.DB.Bandwidth().Close())
-	//}
+	if peer.Bandwidth != nil {
+		errlist.Add(peer.Bandwidth.Close())
+	}
 	if peer.Vouchers != nil {
 		errlist.Add(peer.Vouchers.Close())
 	}
