@@ -27,9 +27,9 @@ var (
 
 // Config defines nodestats cache configuration
 type Config struct {
-	MaxSleepDuration int           `help:"max number of seconds cache waits before performing each sync" releaseDefault:"300" devDefault:"1"`
-	ReputationSync   time.Duration `help:"how often to sync reputation" releaseDefault:"4h" devDefault:"1m"`
-	StorageSync      time.Duration `help:"how often to sync storage" releaseDefault:"12h" devDefault:"2m"`
+	MaxSleep       time.Duration `help:"maximum duration to wait before requesting data" releaseDefault:"300s" devDefault:"1s"`
+	ReputationSync time.Duration `help:"how often to sync reputation" releaseDefault:"4h" devDefault:"1m"`
+	StorageSync    time.Duration `help:"how often to sync storage" releaseDefault:"12h" devDefault:"2m"`
 }
 
 // CacheStorage encapsulates cache DBs
@@ -47,21 +47,21 @@ type Cache struct {
 	service *Service
 	trust   *trust.Pool
 
-	maxSleepDuration int
-	reputationCycle  sync2.Cycle
-	storageCycle     sync2.Cycle
+	maxSleep        time.Duration
+	reputationCycle sync2.Cycle
+	storageCycle    sync2.Cycle
 }
 
 // NewCache creates new caching service instance
 func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, trust *trust.Pool) *Cache {
 	return &Cache{
-		log:              log,
-		db:               db,
-		service:          service,
-		trust:            trust,
-		maxSleepDuration: config.MaxSleepDuration,
-		reputationCycle:  *sync2.NewCycle(config.ReputationSync),
-		storageCycle:     *sync2.NewCycle(config.StorageSync),
+		log:             log,
+		db:              db,
+		service:         service,
+		trust:           trust,
+		maxSleep:        config.MaxSleep,
+		reputationCycle: *sync2.NewCycle(config.ReputationSync),
+		storageCycle:    *sync2.NewCycle(config.StorageSync),
 	}
 }
 
@@ -70,7 +70,10 @@ func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
 	cache.reputationCycle.Start(ctx, &group, func(ctx context.Context) error {
-		sync2.Sleep(ctx, time.Duration(rand.Intn(cache.maxSleepDuration))*time.Second)
+		jitter := time.Duration(rand.Intn(int(cache.maxSleep)))
+		if !sync2.Sleep(ctx, jitter) {
+			return ctx.Err()
+		}
 
 		err := cache.CacheReputationStats(ctx)
 		if err != nil {
@@ -80,7 +83,10 @@ func (cache *Cache) Run(ctx context.Context) error {
 		return nil
 	})
 	cache.storageCycle.Start(ctx, &group, func(ctx context.Context) error {
-		sync2.Sleep(ctx, time.Duration(rand.Intn(cache.maxSleepDuration))*time.Second)
+		jitter := time.Duration(rand.Intn(int(cache.maxSleep)))
+		if !sync2.Sleep(ctx, jitter) {
+			return ctx.Err()
+		}
 
 		err := cache.CacheSpaceUsage(ctx)
 		if err != nil {
