@@ -35,6 +35,8 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 	"storj.io/storj/storagenode/vouchers"
 )
@@ -59,6 +61,8 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
 	Console() console.DB
+	Reputation() reputation.DB
+	StorageUsage() storageusage.DB
 
 	// TODO: use better interfaces
 	RoutingTable() (kdb, ndb, adb storage.KeyValueStore)
@@ -77,6 +81,8 @@ type Config struct {
 	Collector collector.Config
 
 	Vouchers vouchers.Config
+
+	Nodestats nodestats.Config
 
 	Console consoleserver.Config
 
@@ -126,7 +132,10 @@ type Peer struct {
 
 	Collector *collector.Service
 
-	NodeStats *nodestats.Service
+	NodeStats struct {
+		Service *nodestats.Service
+		Cache   *nodestats.Cache
+	}
 
 	// Web server with web UI
 	Console struct {
@@ -266,10 +275,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup node stats service
-		peer.NodeStats = nodestats.NewService(
-			peer.Log.Named("nodestats"),
+		peer.NodeStats.Service = nodestats.NewService(
+			peer.Log.Named("nodestats:service"),
 			peer.Transport,
-			peer.Kademlia.Service)
+			peer.Storage2.Trust)
+
+		peer.NodeStats.Cache = nodestats.NewCache(
+			peer.Log.Named("nodestats:cache"),
+			config.Nodestats,
+			nodestats.CacheStorage{
+				Reputation:   peer.DB.Reputation(),
+				StorageUsage: peer.DB.StorageUsage(),
+			},
+			peer.NodeStats.Service,
+			peer.Storage2.Trust)
 	}
 
 	{ // setup vouchers
@@ -287,7 +306,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Storage2.Store,
 			peer.Kademlia.Service,
 			peer.Version,
-			peer.NodeStats,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
 			config.Kademlia.Operator.Wallet,
@@ -373,6 +391,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.NodeStats.Cache.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
@@ -418,6 +439,10 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Console.Endpoint.Close())
 	} else if peer.Console.Listener != nil {
 		errlist.Add(peer.Console.Listener.Close())
+	}
+
+	if peer.NodeStats.Cache != nil {
+		errlist.Add(peer.NodeStats.Cache.Close())
 	}
 
 	return errlist.Err()
