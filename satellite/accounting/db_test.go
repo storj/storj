@@ -83,7 +83,7 @@ func TestStorageNodeUsage(t *testing.T) {
 		testValue /= lastRollup.StartTime.Sub(prevRollup.StartTime).Hours()
 
 		assert.Equal(t, testValue, nodeStorageUsages[len(nodeStorageUsages)-1].StorageUsed)
-		assert.Equal(t, lastDate, nodeStorageUsages[len(nodeStorageUsages)-1].Timestamp)
+		assert.Equal(t, lastDate, nodeStorageUsages[len(nodeStorageUsages)-1].Timestamp.UTC())
 	})
 }
 
