@@ -491,16 +491,16 @@ type lazyPieceReader struct {
 
 	mu sync.RWMutex
 
-	closed bool
+	isClosed bool
+	closers  []io.Closer
 	piecestore.Downloader
-	client *piecestore.Client
 }
 
 func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 
-	if lr.closed {
+	if lr.isClosed {
 		return 0, io.EOF
 	}
 	if lr.Downloader == nil {
@@ -508,8 +508,8 @@ func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
 		if err != nil {
 			return 0, err
 		}
-		lr.client = client
 		lr.Downloader = downloader
+		lr.closers = []io.Closer{downloader, client}
 	}
 
 	return lr.Downloader.Read(data)
@@ -532,19 +532,19 @@ func (lr *lazyPieceRanger) dial(ctx context.Context, offset, length int64) (_ *p
 	return ps, download, nil
 }
 
-func (lr *lazyPieceReader) Close() error {
+func (lr *lazyPieceReader) Close() (err error) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 
-	if lr.closed {
+	if lr.isClosed {
 		return nil
 	}
-	lr.closed = true
+	lr.isClosed = true
 
-	return errs.Combine(
-		lr.Downloader.Close(),
-		lr.client.Close(),
-	)
+	for _, c := range lr.closers {
+		err = errs.Combine(err, c.Close())
+	}
+	return err
 }
 
 func nonNilCount(limits []*pb.AddressedOrderLimit) int {
