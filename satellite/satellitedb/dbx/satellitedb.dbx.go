@@ -328,12 +328,11 @@ CREATE TABLE bucket_usages (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE certRecords (
-	id bigserial NOT NULL,
+	serial_number bytea NOT NULL,
 	peer_identity bytea NOT NULL,
 	node_id bytea NOT NULL,
 	update_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( peer_identity )
+	PRIMARY KEY ( peer_identity )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
@@ -679,12 +678,11 @@ CREATE TABLE bucket_usages (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE certRecords (
-	id INTEGER NOT NULL,
+	serial_number BLOB NOT NULL,
 	peer_identity BLOB NOT NULL,
 	node_id BLOB NOT NULL,
 	update_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( peer_identity )
+	PRIMARY KEY ( peer_identity )
 );
 CREATE TABLE injuredsegments (
 	path BLOB NOT NULL,
@@ -1820,7 +1818,7 @@ func (f BucketUsage_AuditEgress_Field) value() interface{} {
 func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
 
 type CertRecord struct {
-	Id           int64
+	SerialNumber []byte
 	PeerIdentity []byte
 	NodeId       []byte
 	UpdateAt     time.Time
@@ -1831,24 +1829,24 @@ func (CertRecord) _Table() string { return "certRecords" }
 type CertRecord_Update_Fields struct {
 }
 
-type CertRecord_Id_Field struct {
+type CertRecord_SerialNumber_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value []byte
 }
 
-func CertRecord_Id(v int64) CertRecord_Id_Field {
-	return CertRecord_Id_Field{_set: true, _value: v}
+func CertRecord_SerialNumber(v []byte) CertRecord_SerialNumber_Field {
+	return CertRecord_SerialNumber_Field{_set: true, _value: v}
 }
 
-func (f CertRecord_Id_Field) value() interface{} {
+func (f CertRecord_SerialNumber_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (CertRecord_Id_Field) _Column() string { return "id" }
+func (CertRecord_SerialNumber_Field) _Column() string { return "serial_number" }
 
 type CertRecord_PeerIdentity_Field struct {
 	_set   bool
@@ -6091,22 +6089,24 @@ func (obj *postgresImpl) Create_StoragenodeStorageTally(ctx context.Context,
 }
 
 func (obj *postgresImpl) Create_CertRecord(ctx context.Context,
+	certRecord_serial_number CertRecord_SerialNumber_Field,
 	certRecord_peer_identity CertRecord_PeerIdentity_Field,
 	certRecord_node_id CertRecord_NodeId_Field) (
 	certRecord *CertRecord, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
+	__serial_number_val := certRecord_serial_number.value()
 	__peer_identity_val := certRecord_peer_identity.value()
 	__node_id_val := certRecord_node_id.value()
 	__update_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( peer_identity, node_id, update_at ) VALUES ( ?, ?, ? ) RETURNING certRecords.id, certRecords.peer_identity, certRecords.node_id, certRecords.update_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( serial_number, peer_identity, node_id, update_at ) VALUES ( ?, ?, ?, ? ) RETURNING certRecords.serial_number, certRecords.peer_identity, certRecords.node_id, certRecords.update_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __peer_identity_val, __node_id_val, __update_at_val)
+	obj.logStmt(__stmt, __serial_number_val, __peer_identity_val, __node_id_val, __update_at_val)
 
 	certRecord = &CertRecord{}
-	err = obj.driver.QueryRow(__stmt, __peer_identity_val, __node_id_val, __update_at_val).Scan(&certRecord.Id, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, __serial_number_val, __peer_identity_val, __node_id_val, __update_at_val).Scan(&certRecord.SerialNumber, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7524,14 +7524,14 @@ func (obj *postgresImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterO
 
 }
 
-func (obj *postgresImpl) Get_CertRecord_By_NodeId(ctx context.Context,
-	certRecord_node_id CertRecord_NodeId_Field) (
+func (obj *postgresImpl) Get_CertRecord_By_SerialNumber_OrderBy_Desc_UpdateAt(ctx context.Context,
+	certRecord_serial_number CertRecord_SerialNumber_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.serial_number, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.serial_number = ? ORDER BY certRecords.update_at DESC LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, certRecord_node_id.value())
+	__values = append(__values, certRecord_serial_number.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -7550,13 +7550,13 @@ func (obj *postgresImpl) Get_CertRecord_By_NodeId(ctx context.Context,
 	}
 
 	certRecord = &CertRecord{}
-	err = __rows.Scan(&certRecord.Id, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
+	err = __rows.Scan(&certRecord.SerialNumber, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("CertRecord_By_NodeId")
+		return nil, tooManyRows("CertRecord_By_SerialNumber_OrderBy_Desc_UpdateAt")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -7571,7 +7571,7 @@ func (obj *postgresImpl) Get_CertRecord_By_PeerIdentity(ctx context.Context,
 	certRecord_peer_identity CertRecord_PeerIdentity_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.peer_identity = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.serial_number, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.peer_identity = ?")
 
 	var __values []interface{}
 	__values = append(__values, certRecord_peer_identity.value())
@@ -7580,7 +7580,7 @@ func (obj *postgresImpl) Get_CertRecord_By_PeerIdentity(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	certRecord = &CertRecord{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Id, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.SerialNumber, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7592,7 +7592,7 @@ func (obj *postgresImpl) All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx cont
 	certRecord_node_id CertRecord_NodeId_Field) (
 	rows []*CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? ORDER BY certRecords.update_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.serial_number, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? ORDER BY certRecords.update_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, certRecord_node_id.value())
@@ -7608,7 +7608,7 @@ func (obj *postgresImpl) All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx cont
 
 	for __rows.Next() {
 		certRecord := &CertRecord{}
-		err = __rows.Scan(&certRecord.Id, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
+		err = __rows.Scan(&certRecord.SerialNumber, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -9946,21 +9946,23 @@ func (obj *sqlite3Impl) Create_StoragenodeStorageTally(ctx context.Context,
 }
 
 func (obj *sqlite3Impl) Create_CertRecord(ctx context.Context,
+	certRecord_serial_number CertRecord_SerialNumber_Field,
 	certRecord_peer_identity CertRecord_PeerIdentity_Field,
 	certRecord_node_id CertRecord_NodeId_Field) (
 	certRecord *CertRecord, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
+	__serial_number_val := certRecord_serial_number.value()
 	__peer_identity_val := certRecord_peer_identity.value()
 	__node_id_val := certRecord_node_id.value()
 	__update_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( peer_identity, node_id, update_at ) VALUES ( ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO certRecords ( serial_number, peer_identity, node_id, update_at ) VALUES ( ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __peer_identity_val, __node_id_val, __update_at_val)
+	obj.logStmt(__stmt, __serial_number_val, __peer_identity_val, __node_id_val, __update_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __peer_identity_val, __node_id_val, __update_at_val)
+	__res, err := obj.driver.Exec(__stmt, __serial_number_val, __peer_identity_val, __node_id_val, __update_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11397,14 +11399,14 @@ func (obj *sqlite3Impl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOr
 
 }
 
-func (obj *sqlite3Impl) Get_CertRecord_By_NodeId(ctx context.Context,
-	certRecord_node_id CertRecord_NodeId_Field) (
+func (obj *sqlite3Impl) Get_CertRecord_By_SerialNumber_OrderBy_Desc_UpdateAt(ctx context.Context,
+	certRecord_serial_number CertRecord_SerialNumber_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.serial_number, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.serial_number = ? ORDER BY certRecords.update_at DESC LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, certRecord_node_id.value())
+	__values = append(__values, certRecord_serial_number.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -11423,13 +11425,13 @@ func (obj *sqlite3Impl) Get_CertRecord_By_NodeId(ctx context.Context,
 	}
 
 	certRecord = &CertRecord{}
-	err = __rows.Scan(&certRecord.Id, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
+	err = __rows.Scan(&certRecord.SerialNumber, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("CertRecord_By_NodeId")
+		return nil, tooManyRows("CertRecord_By_SerialNumber_OrderBy_Desc_UpdateAt")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -11444,7 +11446,7 @@ func (obj *sqlite3Impl) Get_CertRecord_By_PeerIdentity(ctx context.Context,
 	certRecord_peer_identity CertRecord_PeerIdentity_Field) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.peer_identity = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.serial_number, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.peer_identity = ?")
 
 	var __values []interface{}
 	__values = append(__values, certRecord_peer_identity.value())
@@ -11453,7 +11455,7 @@ func (obj *sqlite3Impl) Get_CertRecord_By_PeerIdentity(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	certRecord = &CertRecord{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.Id, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&certRecord.SerialNumber, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11465,7 +11467,7 @@ func (obj *sqlite3Impl) All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx conte
 	certRecord_node_id CertRecord_NodeId_Field) (
 	rows []*CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? ORDER BY certRecords.update_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.serial_number, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE certRecords.node_id = ? ORDER BY certRecords.update_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, certRecord_node_id.value())
@@ -11481,7 +11483,7 @@ func (obj *sqlite3Impl) All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx conte
 
 	for __rows.Next() {
 		certRecord := &CertRecord{}
-		err = __rows.Scan(&certRecord.Id, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
+		err = __rows.Scan(&certRecord.SerialNumber, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -13355,13 +13357,13 @@ func (obj *sqlite3Impl) getLastCertRecord(ctx context.Context,
 	pk int64) (
 	certRecord *CertRecord, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.id, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT certRecords.serial_number, certRecords.peer_identity, certRecords.node_id, certRecords.update_at FROM certRecords WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	certRecord = &CertRecord{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&certRecord.Id, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&certRecord.SerialNumber, &certRecord.PeerIdentity, &certRecord.NodeId, &certRecord.UpdateAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14086,6 +14088,7 @@ func (rx *Rx) Create_BucketUsage(ctx context.Context,
 }
 
 func (rx *Rx) Create_CertRecord(ctx context.Context,
+	certRecord_serial_number CertRecord_SerialNumber_Field,
 	certRecord_peer_identity CertRecord_PeerIdentity_Field,
 	certRecord_node_id CertRecord_NodeId_Field) (
 	certRecord *CertRecord, err error) {
@@ -14093,7 +14096,7 @@ func (rx *Rx) Create_CertRecord(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_CertRecord(ctx, certRecord_peer_identity, certRecord_node_id)
+	return tx.Create_CertRecord(ctx, certRecord_serial_number, certRecord_peer_identity, certRecord_node_id)
 
 }
 
@@ -14633,16 +14636,6 @@ func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
 	return tx.Get_BucketUsage_By_Id(ctx, bucket_usage_id)
 }
 
-func (rx *Rx) Get_CertRecord_By_NodeId(ctx context.Context,
-	certRecord_node_id CertRecord_NodeId_Field) (
-	certRecord *CertRecord, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_CertRecord_By_NodeId(ctx, certRecord_node_id)
-}
-
 func (rx *Rx) Get_CertRecord_By_PeerIdentity(ctx context.Context,
 	certRecord_peer_identity CertRecord_PeerIdentity_Field) (
 	certRecord *CertRecord, err error) {
@@ -14651,6 +14644,16 @@ func (rx *Rx) Get_CertRecord_By_PeerIdentity(ctx context.Context,
 		return
 	}
 	return tx.Get_CertRecord_By_PeerIdentity(ctx, certRecord_peer_identity)
+}
+
+func (rx *Rx) Get_CertRecord_By_SerialNumber_OrderBy_Desc_UpdateAt(ctx context.Context,
+	certRecord_serial_number CertRecord_SerialNumber_Field) (
+	certRecord *CertRecord, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_CertRecord_By_SerialNumber_OrderBy_Desc_UpdateAt(ctx, certRecord_serial_number)
 }
 
 func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -15184,6 +15187,7 @@ type Methods interface {
 		bucket_usage *BucketUsage, err error)
 
 	Create_CertRecord(ctx context.Context,
+		certRecord_serial_number CertRecord_SerialNumber_Field,
 		certRecord_peer_identity CertRecord_PeerIdentity_Field,
 		certRecord_node_id CertRecord_NodeId_Field) (
 		certRecord *CertRecord, err error)
@@ -15447,12 +15451,12 @@ type Methods interface {
 		bucket_usage_id BucketUsage_Id_Field) (
 		bucket_usage *BucketUsage, err error)
 
-	Get_CertRecord_By_NodeId(ctx context.Context,
-		certRecord_node_id CertRecord_NodeId_Field) (
-		certRecord *CertRecord, err error)
-
 	Get_CertRecord_By_PeerIdentity(ctx context.Context,
 		certRecord_peer_identity CertRecord_PeerIdentity_Field) (
+		certRecord *CertRecord, err error)
+
+	Get_CertRecord_By_SerialNumber_OrderBy_Desc_UpdateAt(ctx context.Context,
+		certRecord_serial_number CertRecord_SerialNumber_Field) (
 		certRecord *CertRecord, err error)
 
 	Get_Irreparabledb_By_Segmentpath(ctx context.Context,

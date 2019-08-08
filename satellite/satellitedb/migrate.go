@@ -1076,13 +1076,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Changing the primary key constraint",
 				Version:     50,
 				Action: migrate.SQL{
-					`ALTER TABLE certRecords RENAME COLUMN id TO node_id;
-					ALTER TABLE certRecords RENAME COLUMN publickey TO peer_identity;
-					ALTER TABLE certRecords ADD COLUMN id bigserial;
-					ALTER TABLE certRecords ADD UNIQUE (peer_identity);
-					ALTER TABLE certRecords DROP CONSTRAINT certrecords_pkey;
-					ALTER TABLE certRecords ADD CONSTRAINT certrecords_pkey PRIMARY KEY (id);
-					CREATE INDEX certrecord_node_id_update_at ON certRecords ( node_id, update_at );`,
+					`ALTER TABLE certRecords DROP CONSTRAINT certrecords_pkey;
+					ALTER TABLE certRecords ADD CONSTRAINT certrecords_pkey PRIMARY KEY (publickey);
+					CREATE INDEX certrecord_id_update_at ON certRecords ( id, update_at );`,
 				},
 			},
 			{

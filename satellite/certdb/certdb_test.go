@@ -37,12 +37,12 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 		require.NoError(t, err)
 
 		{ // New entry
-			err := upldb.SavePublicKey(ctx, upID.ID, pi)
+			err := upldb.Set(ctx, upID.ID, pi)
 			assert.NoError(t, err)
 		}
 
 		{ // Get the corresponding Public key for the serialnum
-			uplpi, err := upldb.GetPublicKey(ctx, upID.ID)
+			uplpi, err := upldb.Get(ctx, upID.ID)
 			assert.NoError(t, err)
 			pubbytes, err := pkcrypto.PublicKeyToPEM(uplpi.CA.PublicKey)
 			assert.NoError(t, err)
@@ -56,7 +56,7 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 		sn1PI := sn1FI.PeerIdentity()
 
 		{ // New entry
-			err := upldb.SavePublicKey(ctx, sn1PI.ID, sn1PI)
+			err := upldb.Set(ctx, sn1PI.ID, sn1PI)
 			assert.NoError(t, err)
 		}
 		sn2FI, err := testidentity.NewTestIdentity(ctx)
@@ -67,24 +67,24 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 
 		{ // adding two different pubkeys for same storagnode
 			{ // add a key for to storagenode ID
-				err := upldb.SavePublicKey(ctx, sn2PI.ID, sn1PI)
+				err := upldb.Set(ctx, sn2PI.ID, sn1PI)
 				assert.NoError(t, err)
 			}
 			time.Sleep(5)
 			{ // add another key for the same storagenode ID, this the latest key
 				// as this is written later than the previous one by few seconds
-				err := upldb.SavePublicKey(ctx, sn2PI.ID, sn2PI)
+				err := upldb.Set(ctx, sn2PI.ID, sn2PI)
 				assert.NoError(t, err)
 			}
 			{ // already existing public key, just return nil
-				err := upldb.SavePublicKey(ctx, sn1PI.ID, sn1PI)
+				err := upldb.Set(ctx, sn1PI.ID, sn1PI)
 				assert.NoError(t, err)
 			}
 		}
 
 		{ // Get the corresponding Public key for the ID
 			// test to return one key but the latest of the keys
-			pkey, err := upldb.GetPublicKey(ctx, sn2PI.ID)
+			pkey, err := upldb.Get(ctx, sn2PI.ID)
 			assert.NoError(t, err)
 			pbytes, err := pkcrypto.PublicKeyToPEM(pkey.CA.PublicKey)
 			require.NoError(t, err)

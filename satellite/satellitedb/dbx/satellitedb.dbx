@@ -618,15 +618,14 @@ read all (
 //--- certRecord ---//
 
 model certRecord (
-	key id 
-    unique peer_identity
+    key peer_identity
 
 	index (
 		name certrecord_node_id_update_at
 		fields node_id update_at 
 	)
     
-    field id             serial64
+    field serial_number  blob
 	field peer_identity  blob
 	field node_id        blob
 	field update_at timestamp ( autoinsert, autoupdate )
@@ -637,7 +636,8 @@ delete certRecord ( where certRecord.node_id = ? )
 
 read one (
 	select certRecord
-	where  certRecord.node_id = ?
+	where  certRecord.serial_number = ?
+	orderby desc certRecord.update_at
 )
 
 read one (

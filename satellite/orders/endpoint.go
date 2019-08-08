@@ -153,7 +153,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				if endpoint.satelliteSignee.ID() == *orderLimit.DeprecatedUplinkId {
 					uplinkSignee = endpoint.satelliteSignee
 				} else {
-					uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, *orderLimit.DeprecatedUplinkId)
+					uplinkPubKey, err := endpoint.certdb.Get(ctx, *orderLimit.DeprecatedUplinkId)
 					if err != nil {
 						log.Warn("unable to find uplink public key", zap.Error(err))
 						return status.Errorf(codes.Internal, "unable to find uplink public key")

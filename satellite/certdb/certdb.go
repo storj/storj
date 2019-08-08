@@ -12,8 +12,8 @@ import (
 
 // DB stores uplink public keys.
 type DB interface {
-	// SavePublicKey adds a new bandwidth agreement.
-	SavePublicKey(context.Context, storj.NodeID, *identity.PeerIdentity) error
-	// GetPublicKey gets one latest public key of a node
-	GetPublicKey(context.Context, storj.NodeID) (*identity.PeerIdentity, error)
+	// Set adds a new bandwidth agreement.
+	Set(context.Context, storj.NodeID, *identity.PeerIdentity) error
+	// Get gets one latest public key of a node
+	Get(context.Context, storj.NodeID) (*identity.PeerIdentity, error)
 }

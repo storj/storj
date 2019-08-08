@@ -22,7 +22,7 @@ type certDB struct {
 	db *dbx.DB
 }
 
-func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pi *identity.PeerIdentity) (err error) {
+func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, pi *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := certs.db.Begin()
@@ -44,8 +44,8 @@ func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pi 
 	chain := encodePeerIdentity(pi)
 
 	var id int64
-	query := `SELECT id FROM certRecords WHERE peer_identity = ?;`
-	err = tx.QueryRow(certs.db.Rebind(query), chain).Scan(&id)
+	query := `SELECT peer_identity FROM certRecords WHERE serial_num = ?;`
+	err = tx.QueryRow(certs.db.Rebind(query), pi.Leaf.SerialNumber.Bytes()).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// create a new entry
@@ -62,8 +62,8 @@ func (certs *certDB) SavePublicKey(ctx context.Context, nodeID storj.NodeID, pi 
 	return nil
 }
 
-// GetPublicKey gets the public key of uplink corresponding to uplink id
-func (certs *certDB) GetPublicKey(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
+// Get gets the public key of uplink corresponding to uplink id
+func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxInfo, err := certs.db.All_CertRecord_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.CertRecord_NodeId(nodeID.Bytes()))
 	if err != nil {

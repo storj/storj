@@ -137,18 +137,18 @@ type lockedCertDB struct {
 	db certdb.DB
 }
 
-// GetPublicKey gets one latest public key of a node
-func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
+// Get gets one latest public key of a node
+func (m *lockedCertDB) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetPublicKey(ctx, a1)
+	return m.db.Get(ctx, a1)
 }
 
-// SavePublicKey adds a new bandwidth agreement.
-func (m *lockedCertDB) SavePublicKey(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
+// Set adds a new bandwidth agreement.
+func (m *lockedCertDB) Set(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.SavePublicKey(ctx, a1, a2)
+	return m.db.Set(ctx, a1, a2)
 }
 
 // Close closes the database
