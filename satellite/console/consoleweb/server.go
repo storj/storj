@@ -10,6 +10,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -433,9 +434,13 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		w.Header().Set("Content-Type", mime.TypeByExtension(extension))
 		w.Header().Set("Content-Encoding", "gzip")
 
-		r.RequestURI += ".gz"
-		r.URL.Path += ".gz"
+		// updating request URL
+		newRequest := new(http.Request)
+		*newRequest = *r
+		newRequest.URL = new(url.URL)
+		*newRequest.URL = *r.URL
+		newRequest.URL.Path += ".gz"
 
-		fn.ServeHTTP(w, r)
+		fn.ServeHTTP(w, newRequest)
 	})
 }
