@@ -28,7 +28,7 @@ describe('SearchComponent.vue', () => {
 
         wrapper.vm.onMouseLeave();
 
-        expect(wrapper.vm.searchQuery).toMatch('');
+        expect(wrapper.vm.searchString).toMatch('');
         expect(wrapper.vm.style.width).toMatch('56px');
     });
 
@@ -60,7 +60,7 @@ describe('SearchComponent.vue', () => {
 
         wrapper.vm.clearSearch();
 
-        expect(wrapper.vm.$data.mSearchQuery).toMatch('');
+        expect(wrapper.vm.$data.searchQuery).toMatch('');
         expect(processSearchQuerySpy.callCount).toBe(1);
         expect(wrapper.vm.$data.inputWidth).toMatch('56px');
     });

@@ -6,7 +6,7 @@
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
         @input="onInput"
-        v-model="mSearchQuery"
+        v-model="searchQuery"
         :placeholder="`Search ${placeHolder}`"
         :style="style"
         type="text"
@@ -29,14 +29,14 @@
         private readonly search: searchCallback;
 
         private inputWidth: string = '56px';
-        private mSearchQuery: string = '';
+        private searchQuery: string = '';
 
         public get style(): SearchStyle {
             return { width: this.inputWidth };
         }
 
-        public get searchQuery(): string {
-            return this.mSearchQuery;
+        public get searchString(): string {
+            return this.searchQuery;
         }
 
         public onMouseEnter(): void {
@@ -44,13 +44,13 @@
         }
 
         public onMouseLeave(): void {
-            if (!this.searchQuery) {
+            if (!this.searchString) {
                 this.inputWidth = '56px';
             }
         }
 
         public clearSearch() {
-            this.mSearchQuery = '';
+            this.searchQuery = '';
             this.processSearchQuery();
             this.inputWidth = '56px';
         }
@@ -61,7 +61,7 @@
         }
 
         private async processSearchQuery() {
-            await this.search(this.searchQuery);
+            await this.search(this.searchString);
         }
     }
 </script>
