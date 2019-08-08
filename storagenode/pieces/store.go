@@ -277,9 +277,10 @@ func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.Nod
 		}
 		pieceAccess, err := newStoredPieceAccess(store, blobInfo)
 		if err != nil {
-			// something is wrong with internals; blob storage thinks this key was stored, but
-			// it is not a valid PieceID.
-			return err
+			// this is not a real piece blob. the blob store can't distinguish between actual piece
+			// blobs and stray files whose names happen to decode as valid base32. skip this
+			// "blob".
+			return nil
 		}
 		return walkFunc(pieceAccess)
 	})
