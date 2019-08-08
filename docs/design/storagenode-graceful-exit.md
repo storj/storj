@@ -175,11 +175,11 @@ This process including the Storage nodes transferring their pieces to other node
   - ``` 
 	service GracefulExit {
 		// Called by the satellite to batch piece orders to be moved to new nodes
-		rpc ProcessOrders(stream OrderRequest) returns (stream OrderResponse) {}
+		rpc ProcessOrders(OrderRequest) returns (OrderResponse) {}
 		// Called by the satellite to notify the storagenode that the exit is complete for this satellite
-		rpc Completed(stream CompletedRequest) returns (stream CompletedResponse)
+		rpc Completed(CompletedRequest) returns (CompletedResponse)
 		// Called by the satellite to get exit status information
-		rpc Status(stream StatusRequest) returns (stream StatusResponse) {}
+		rpc Status(StatusRequest) returns (StatusResponse) {}
 	}
 
 	message Order {
