@@ -19,11 +19,7 @@
         }
     })
     export default class TestList extends Vue {
-        @Prop({
-            default: () => {
-                console.error('onItemClick is not reinitialized');
-            }
-        })
+        @Prop({default: () => {}})
         private readonly onItemClick: ListItemClickCallback;
 
         private items: string[] = ['1','2','3'];
