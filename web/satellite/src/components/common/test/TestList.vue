@@ -9,7 +9,7 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from "vue-property-decorator";
+    import { Component, Prop, Vue } from 'vue-property-decorator';
     import TestListItem from '@/components/common/test/TestListItem.vue';
     import List from '@/components/common/List.vue';
 
@@ -19,10 +19,14 @@
         }
     })
     export default class TestList extends Vue {
-        @Prop({default: () => {}})
-        private readonly onItemClick: ListItemClickCallback;
+        @Prop({
+            default: () => {
+                console.error('onItemClick is not initialized');
+            }
+        })
+        private readonly onItemClick: ListItemClickCallback<string>;
 
-        private items: string[] = ['1','2','3'];
+        private items: string[] = ['1', '2', '3'];
 
         public get getItemComponent() {
             return TestListItem;

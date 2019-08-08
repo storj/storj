@@ -7,7 +7,11 @@ import * as sinon from 'sinon';
 
 describe('TestList.vue', () => {
     it('should render list of primitive types', function () {
-        const wrapper = mount(TestList);
+        const wrapper = mount(TestList, {
+            propsData: {
+                onItemClick: sinon.stub()
+            }
+        });
         expect(wrapper.html()).toBe('<div class="item-component"><h1 class="item-component__item">1</h1><h1 class="item-component__item">2</h1><h1 class="item-component__item">3</h1></div>');
     });
 

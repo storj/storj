@@ -3,7 +3,9 @@
 
 <template>
     <div class="item-component">
-        <component v-for="item in dataSet" class="item-component__item"
+        <component
+            v-for="item in dataSet"
+            class="item-component__item"
             :is="itemComponent"
             :itemData="item"
             @click.native="onItemClick(item)"
