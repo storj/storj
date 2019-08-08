@@ -22,7 +22,7 @@ Hash verification on the satellite requires understanding the current piece sign
 6. Storage node sends both the order limit and order to the satellite during settlement.
 7. Storage node sends data, order limit and piece hash to the satellite, if it needs to prove data-consistency to the satellite.
 
-The uplink-signed `uplink_piece_hash` is already stored in the `pieceinfo_` table as a serialized protocol buffer and includes the `PieceID`, `Hash`, and uplink `Signature`. The `pieceinfo_` table also includes the `order_limit` which contains the `PiecePublicKey` necessary for validating the `PieceHash`, as well as the `SatelliteSignature` to validate the `OrderLimit` iteself.
+Thus the uplink-signed `uplink_piece_hash` is already stored in the storage node's `pieceinfo_` table as a serialized protocol buffer and includes the `PieceID`, `Hash`, and uplink `Signature`. The `pieceinfo_` table also includes the `order_limit` which contains the `PiecePublicKey` necessary for validating the `PieceHash`, as well as the `SatelliteSignature` to validate the `OrderLimit` itself.
 
 ## Design
 
