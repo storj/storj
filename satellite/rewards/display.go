@@ -3,6 +3,8 @@
 
 package rewards
 
+import "sort"
+
 // OrganizedOffers contains a list of offers organized by status.
 type OrganizedOffers struct {
 	Active  Offer
@@ -78,9 +80,18 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 func createPartnerSet() PartnerSet {
 	partners := LoadPartnerInfos()
 	var ps PartnerSet
-	for _, partner := range partners {
+	keys := make([]string, len(partners))
+	i := 0
+	for k := range partners {
+		keys[i] = k
+		i++
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
 		ps = append(ps, OpenSourcePartner{
-			PartnerInfo: partner,
+			PartnerInfo: partners[key],
 		})
 	}
 	return ps

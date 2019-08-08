@@ -6,9 +6,9 @@
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
         @input="onInput"
-        v-model="searchQuery"
+        v-model="mSearchQuery"
         :placeholder="`Search ${placeHolder}`"
-        :style="customWidth"
+        :style="style"
         type="text">
 </template>
 
@@ -16,6 +16,9 @@
     import { Component, Prop, Vue } from 'vue-property-decorator';
 
     declare type searchCallback = (search: string) => Promise<void>;
+    declare interface SearchStyle {
+        width: string;
+    }
 
     @Component
     export default class SearchComponent extends Vue {
@@ -25,7 +28,15 @@
         private readonly search: searchCallback;
 
         private inputWidth: string = '56px';
-        private searchQuery: string = '';
+        private mSearchQuery: string = '';
+
+        public get style(): SearchStyle {
+            return { width: this.inputWidth };
+        }
+
+        public get searchQuery(): string {
+            return this.mSearchQuery;
+        }
 
         public onMouseEnter(): void {
             this.inputWidth = '602px';
@@ -42,11 +53,7 @@
             this.processSearchQuery();
         }
 
-        public get customWidth(): object {
-            return { width: this.inputWidth };
-        }
-
-        public async processSearchQuery() {
+        private async processSearchQuery() {
             await this.search(this.searchQuery);
         }
     }
