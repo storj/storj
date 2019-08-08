@@ -141,6 +141,11 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 					return
 				}
 
+				if err != nil {
+					discovery.log.Info("could not Fetch peer identity info", zap.Stringer("ID", node.Id), zap.Error(err))
+					return
+				}
+
 				if err = discovery.certdb.Set(ctx, node.Id, ident); err != nil {
 					discovery.log.Warn("unable to save publickey info", zap.Stringer("ID", node.GetAddress()))
 				}
