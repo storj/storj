@@ -426,6 +426,25 @@ func (dir *Dir) WalkNamespace(ctx context.Context, namespace []byte, walkFunc fu
 	}
 }
 
+func decodeBlobInfo(namespace []byte, keyPrefix, keyDir string, keyInfo os.FileInfo) (info storage.BlobInfo, ok bool) {
+	blobFileName := keyInfo.Name()
+	encodedKey := keyPrefix + blobFileName
+	formatVer := FormatV0
+	if strings.HasSuffix(blobFileName, v1PieceFileSuffix) {
+		formatVer = FormatV1
+		encodedKey = encodedKey[0 : len(encodedKey)-len(v1PieceFileSuffix)]
+	}
+	key, err := pathEncoding.DecodeString(encodedKey)
+	if err != nil {
+		return nil, false
+	}
+	ref := storage.BlobRef{
+		Namespace: namespace,
+		Key:       key,
+	}
+	return newBlobInfo(ref, filepath.Join(keyDir, blobFileName), keyInfo, formatVer), true
+}
+
 func (dir *Dir) walkNamespaceWithPrefix(ctx context.Context, namespace []byte, nsDir, keyPrefix string, walkFunc func(storage.BlobInfo) error) (err error) {
 	keyDir := filepath.Join(nsDir, keyPrefix)
 	openDir, err := os.Open(keyDir)
@@ -452,23 +471,11 @@ func (dir *Dir) walkNamespaceWithPrefix(ctx context.Context, namespace []byte, n
 			if keyInfo.Mode().IsDir() {
 				continue
 			}
-			blobFileName := keyInfo.Name()
-			encodedKey := keyPrefix + blobFileName
-			formatVer := FormatV0
-			if strings.HasSuffix(blobFileName, v1PieceFileSuffix) {
-				formatVer = FormatV1
-				encodedKey = encodedKey[0 : len(encodedKey)-len(v1PieceFileSuffix)]
-			}
-			key, err := pathEncoding.DecodeString(encodedKey)
-			if err != nil {
+			info, ok := decodeBlobInfo(namespace, keyPrefix, keyDir, keyInfo)
+			if !ok {
 				continue
 			}
-			ref := storage.BlobRef{
-				Namespace: namespace,
-				Key:       key,
-			}
-			fullPath := filepath.Join(keyDir, blobFileName)
-			err = walkFunc(newBlobInfo(ref, fullPath, keyInfo, formatVer))
+			err = walkFunc(info)
 			if err != nil {
 				return err
 			}
