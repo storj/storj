@@ -180,12 +180,13 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	var blob storage.BlobWriter
 	switch formatVersion {
 	case filestore.FormatV0:
-		fStore, ok := store.blobs.(*filestore.Store)
+		fStore, ok := store.blobs.(interface {
+			TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error)
+		})
 		if !ok {
 			return nil, Error.New("can't make a WriterForFormatVersion with this blob store (%T)", store.blobs)
 		}
-		tStore := filestore.StoreForTest{Store: fStore}
-		blob, err = tStore.CreateV0(ctx, blobRef)
+		blob, err = fStore.TestCreateV0(ctx, blobRef)
 	case filestore.FormatV1:
 		blob, err = store.blobs.Create(ctx, blobRef, preallocSize.Int64())
 	default:
@@ -243,6 +244,7 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
 	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
 	// both of these calls should return no error if the requested record is not found.
 	if store.expirationInfo != nil {
