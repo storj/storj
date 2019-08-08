@@ -1,4 +1,4 @@
-# Storage Node Automatic Updates and Installation for Windows Home
+# Storage Node Automatic Updates and Installation for Windows
 
 ## Overview
 
@@ -23,14 +23,18 @@ Docker is not supported on windows home so we will ensure an automatic update sy
 ## Services
 * Installer (msi)
     * Installs automatic updater binary and error gui application
-    * Sets up automatic updater Service with sufficient privileges.
+    * Sets up automatic updater as a windows Service with sufficient privileges.
 * Automatic Updater (binary)
-    * Downloads, Sets up, and runs the storage node.
+    * Downloads storage node binary, Sets up storage node, and runs the watchdog process
     * If storage node has not been setup we don't want to try to run the storage node.
     * Send error reports to satellite.
-    * Writes errors to log file
+    * Writes update related errors to log file
+* Watchdog process
+    * monitors storage node
+    * restarts the storage node if a crash is detected
 * Storage Node (binary)
     * shares drive with satellite network.
+    * Writes storage node operation related errors to log file
 * Error gui application
     * shows errors from log file
     * notifies user of service errors.
@@ -41,7 +45,7 @@ Docker is not supported on windows home so we will ensure an automatic update sy
 Finding out the minimum version and latest stable.
 
 General
-* Windows firewall can block storage node operations.
+* Windows firewall and other 3rd party firewalls can block storage node operations.
     * [isportallowed](https://docs.microsoft.com/en-us/windows/win32/api/netfw/nf-netfw-inetfwmgr-isportallowed) windows api function can be used to make sure we are allowed through firewall
     * Can we add code to detect if firewall is blocking storage node operations?
     * Unblock storage node operator in firewall settings.
@@ -92,6 +96,7 @@ Gradual Rollouts.
 
 We need to ensure that updater binary starts on computer start-up,
 without logging into the system, and this updater binary launches the storage node This is achieved when installing via the msi.
+Avoid triggering UAC.
 
 ### Restarting Storage Node binary on Crash / Problems
 
@@ -99,6 +104,7 @@ We need to ensure that storage node binary restarts after a crash.
 
 * detect crashes and detect unresponsiveness
     * updater binary checks pulse of storage node binary with ipc messages. storage node will have a pulse endpoint and the updater hits that endpoint with timeouts.
+    * A windows service can be configured to restart the service on fail/crash.
    
 ### Logging
 
@@ -115,6 +121,7 @@ Ensure we:
 * can set limits to CPU usage.
 * send graceful shutdown message and restart storage node if memory usage is too high.
 * Windows specific apis also exist for limiting process memory and cpu usage.
+* limit CPU might be to limit number of cores it runs on in go.
 
 ## Testing
 
@@ -134,6 +141,31 @@ When starting a Storage Node:
 * Updater service Downloads the Binary for the minimum version returned from the version server
 * Updater service sends a message through a channel to Storage Node process to kill it
 * Updater service spawns a new Storage Node process
+
+### Rollout message structure
+
+* each automatic updater process will poll our version server from time to time
+* our version server will return some data of the following form:
+```go
+{
+  "processes": {
+    "storagenode": {
+      "allowed_version_minimum": "0.3.4",
+      "suggested_version": "0.5.1",
+      "rollout": {
+        "active": true,
+        "target_version": "0.5.2",
+        "rollout_seed": "04123bacde",
+        "rollout_cursor": "40",
+      }
+    }
+  }
+}
+```
+
+* independent of an active rollout, a process will confirm that it at least meets the allowed version minimum. if it does not, it will proceed to upgrade to at least the suggested_version if it is not part of a rollout.
+* if a rollout is active, it will hash its own node id with the rollout seed and compare that hash to the rollout cursor. if it sorts less then the rollout cursor it should upgrade to the rollout target version
+* also, we need to make sure to add jitter. see http://highscalability.com/blog/2012/4/17/youtube-strategy-adding-jitter-isnt-a-bug.html. having every process restart and sleep 12 hours is a definite way to kill ourselves without adding some randomness back in.
 
 ## Implementation Milestones
 
