@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -23,7 +22,11 @@ var ignoreProto = map[string]bool{
 	"gogo.proto": true,
 }
 
-var protoc = flag.String("protoc", "protoc", "protoc location")
+var (
+	protoc = flag.String("protoc", "protoc", "protoc location")
+	grpc   = flag.Bool("grpc", true, "generate with grpc support")
+	drpc   = flag.Bool("drpc", false, "generate with drpc support")
+)
 
 func main() {
 	flag.Parse()
@@ -43,22 +46,7 @@ func main() {
 func run(command, root string) error {
 	switch command {
 	case "install":
-		err := installGoBin()
-		if err != nil {
-			return err
-		}
-
-		gogoVersion, err := versionOf("github.com/gogo/protobuf")
-		if err != nil {
-			return err
-		}
-
-		return install(
-			"github.com/ckaznocha/protoc-gen-lint@68a05858965b31eb872cbeb8d027507a94011acc",
-			// See https://github.com/gogo/protobuf#most-speed-and-most-customization
-			"github.com/gogo/protobuf/protoc-gen-gogo@"+gogoVersion,
-			"github.com/nilslice/protolock/cmd/protolock@v0.12.0",
-		)
+		return install()
 	case "generate":
 		return walkdirs(root, generate)
 	case "lint":
@@ -68,45 +56,13 @@ func run(command, root string) error {
 	default:
 		return errors.New("unknown command " + command)
 	}
-
-	return nil
 }
 
-func installGoBin() error {
-	// already installed?
-	path, err := exec.LookPath("gobin")
-	if path != "" && err == nil {
-		return nil
-	}
-
-	cmd := exec.Command("go", "get", "-u", "github.com/myitcv/gobin")
-	fmt.Println(strings.Join(cmd.Args, " "))
-	cmd.Env = append(os.Environ(), "GO111MODULE=off")
-
-	out, err := cmd.CombinedOutput()
-	if len(out) > 0 {
-		fmt.Println(string(out))
-	}
-	return err
-}
-
-func versionOf(dep string) (string, error) {
-	moddata, err := ioutil.ReadFile("go.mod")
-	if err != nil {
-		return "", err
-	}
-
-	rxMatch := regexp.MustCompile(regexp.QuoteMeta(dep) + `\s+(.*)\n`)
-	matches := rxMatch.FindAllStringSubmatch(string(moddata), 1)
-	if len(matches) == 0 {
-		return "", errors.New("go.mod missing github.com/gogo/protobuf entry")
-	}
-
-	return matches[0][1], nil
-}
-
-func install(deps ...string) error {
-	cmd := exec.Command("gobin", deps...)
+func install() error {
+	cmd := exec.Command("go", "install",
+		"storj.io/storj/cmd/protoc-gen-storj",
+		"github.com/ckaznocha/protoc-gen-lint",
+		"github.com/nilslice/protolock/cmd/protolock")
 	fmt.Println(strings.Join(cmd.Args, " "))
 
 	out, err := cmd.CombinedOutput()
@@ -133,7 +89,25 @@ func generate(dir string, dirs []string, files []string) error {
 		return err
 	}
 
-	args := []string{"--gogo_out=plugins=grpc:.", "--lint_out=."}
+	var genArgs []string
+	{
+		var plugins []string
+		if *drpc {
+			plugins = append(plugins, "drpc")
+		}
+		if *grpc {
+			plugins = append(plugins, "grpc")
+		}
+		if len(plugins) > 0 {
+			genArgs = append(genArgs, "plugins="+strings.Join(plugins, "+"))
+		}
+	}
+	genArgsString := "."
+	if len(genArgs) > 0 {
+		genArgsString = strings.Join(genArgs, ",") + ":."
+	}
+
+	args := []string{"--storj_out=" + genArgsString, "--lint_out=."}
 	args = appendCommonArguments(args, dir, dirs, files)
 
 	cmd = exec.Command(*protoc, args...)

@@ -26,6 +26,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
 	github.com/boltdb/bolt v1.3.1
 	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b
+	github.com/ckaznocha/protoc-gen-lint v0.2.1
 	github.com/djherbis/atime v1.0.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eapache/go-resiliency v1.1.0 // indirect
@@ -79,6 +80,7 @@ require (
 	github.com/nats-io/nats v1.6.0 // indirect
 	github.com/nats-io/nats-streaming-server v0.12.2 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
+	github.com/nilslice/protolock v0.14.0
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/onsi/ginkgo v1.7.0 // indirect
