@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -86,6 +87,11 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			},
 			Collector: collector.Config{
 				Interval: time.Minute,
+			},
+			Nodestats: nodestats.Config{
+				MaxSleep:       time.Second,
+				ReputationSync: time.Second,
+				StorageSync:    time.Second,
 			},
 			Console: consoleserver.Config{
 				Address:   "127.0.0.1:0",
