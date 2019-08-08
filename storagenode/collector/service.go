@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -28,18 +27,16 @@ type Config struct {
 type Service struct {
 	log         *zap.Logger
 	pieces      *pieces.Store
-	pieceinfos  pieces.DB
 	usedSerials piecestore.UsedSerials
 
 	Loop sync2.Cycle
 }
 
 // NewService creates a new collector service.
-func NewService(log *zap.Logger, pieces *pieces.Store, pieceinfos pieces.DB, usedSerials piecestore.UsedSerials, config Config) *Service {
+func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials piecestore.UsedSerials, config Config) *Service {
 	return &Service{
 		log:         log,
 		pieces:      pieces,
-		pieceinfos:  pieceinfos,
 		usedSerials: usedSerials,
 		Loop:        *sync2.NewCycle(config.Interval),
 	}
@@ -76,15 +73,14 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 	const batchSize = 1000
 
 	var count int64
-	var bytes int64
 	defer func() {
 		if count > 0 {
-			service.log.Info("collect", zap.Int64("count", count), zap.Stringer("size", memory.Size(bytes)))
+			service.log.Info("collect", zap.Int64("count", count))
 		}
 	}()
 
 	for k := 0; k < maxBatches; k++ {
-		infos, err := service.pieceinfos.GetExpired(ctx, now, batchSize)
+		infos, err := service.pieces.GetExpired(ctx, now, batchSize)
 		if err != nil {
 			return err
 		}
@@ -95,7 +91,7 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 		for _, expired := range infos {
 			err := service.pieces.Delete(ctx, expired.SatelliteID, expired.PieceID)
 			if err != nil {
-				errfailed := service.pieceinfos.DeleteFailed(ctx, expired.SatelliteID, expired.PieceID, now)
+				errfailed := service.pieces.DeleteFailed(ctx, expired, now)
 				if errfailed != nil {
 					service.log.Error("unable to update piece info", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID), zap.Error(errfailed))
 				}
@@ -103,14 +99,7 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 				continue
 			}
 
-			err = service.pieceinfos.Delete(ctx, expired.SatelliteID, expired.PieceID)
-			if err != nil {
-				service.log.Error("unable to delete piece info", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID), zap.Error(err))
-				continue
-			}
-
 			count++
-			bytes += expired.PieceSize
 		}
 	}
 
