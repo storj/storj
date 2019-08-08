@@ -54,7 +54,8 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	pieces := filestore.New(piecesDir, log)
+	// pieces := filestore.New(piecesDir, log)
+	pieces := pieces.New(piecesDir, log)
 
 	infodb, err := newInfo(config.Info2)
 	if err != nil {

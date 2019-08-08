@@ -28,7 +28,7 @@ type Store struct {
 	dir *Dir
 	log *zap.Logger
 
-	cache storage.BlobsUsageCache
+	cache storage.Blobs
 }
 
 // New creates a new disk blob store in the specified directory

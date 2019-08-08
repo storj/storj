@@ -6,12 +6,33 @@ package filestore
 import (
 	"context"
 	"sync"
+
+	"storj.io/storj/storage"
 )
 
+// BlobsUsageCache is a blob storage with a cache for storing
+// live values for current space used
+type BlobsUsageCache struct {
+	storage.Blobs
+
+	mu    sync.Mutex
+	cache spaceUsed
+}
+
 type spaceUsed struct {
-	mu               sync.Mutex
+	// mu               sync.Mutex
 	total            int64
 	totalByNamespace map[string]int64
+}
+
+// New creates a new disk blob store with a cache in the specified directory
+func New(blob storage.Blobs) *BlobsUsageCache {
+	return &BlobsUsageCache{
+		Blobs: blob,
+		cache: spaceUsed{
+			totalByNamespace: map[string]int64{},
+		},
+	}
 }
 
 // InitCache initializes the cache with total values of current space usage
