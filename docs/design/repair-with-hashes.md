@@ -12,30 +12,50 @@ The white-paper states:
 > For repairing a segment to be effective at minimizing bandwidth usage, only as few pieces as needed for reconstruction should be downloaded. Unfortunately, Reed-Solomon is insufficient on its own for correcting errors when only a few redundant pieces are provided. Instead, piece hashes provide a better way to be confident that we’re repairing the data correctly.
 > To solve this problem, hashes of every piece will be stored alongside each piece on each storage node. A validation hash that the set of hashes is correct will be stored in the pointer. During repair, the hashes of every piece can be retrieved and validated for correctness against the pointer, thus allowing each piece to be validated in its entirety. This allows the repair system to correctly assess whether or not repair has been completed successfully without using extra redundancy for the same task.
 
+Hash verification on the satellite requires understanding the current piece signing and verification workflow:
+
+1. Satellite generates a new key-pair for each piece.
+2. The piece public key is included in the order limit and signed by the satellite
+3. The piece private key is included in the create segment, download segment or delete a segment.
+4. The uplink uses piece private key to sign the orders.
+5. The storage node verifies order limit signature as usual and then uses the piece public key to verify the order and piece hash.
+6. Storage node sends both the order limit and order to the satellite during settlement.
+7. Storage node sends data, order limit and piece hash to the satellite, if it needs to prove data-consistency to the satellite.
+
+The uplink-signed `uplink_piece_hash` is already stored in the `pieceinfo_` table as a serialized protocol buffer and includes the `PieceID`, `Hash`, and uplink `Signature`. The `pieceinfo_` table also includes the `order_limit` which contains the `PiecePublicKey` necessary for validating the `PieceHash`, as well as the `SatelliteSignature` to validate the `OrderLimit` iteself.
+
 ## Design
 
-Currently, each piece is uploaded to a storage node and validated according to its SHA256 hash. The uplink-signed `uplink_piece_hash` is already stored in the `pieceinfo_` table as a serialized protocol buffer and includes the `PieceID`, `Hash`, and `Signature`. Future work includes sending this uplink-signed hash to the satellite along with each piece during repair.
+When a satellite is download pieces for repair, the storage node should also include the `PieceHash` and `OrderLimit` to the satellite along with each piece.
 
-Only them minimum number of pieces should be used for Reed-Solomon decoding. The satellite should check the hash and signature of each piece it downloads. `CertDB` is already be available on the Satellite for obtaining uplink public keys to validate signatures. If a piece fails the hash check, a different piece should be downloaded. Hash check failures may indicate cheating. Reporting and handling cheaters is outside the scope of this document.
+The satellite should attempt to download exactly the Reed-Solomon minimum number of pieces during a repair, storing them in memory. It should validate the `OrderLimit` using its own private key.  It should validate that the `PieceHash` `Signature` corresponds to the `PublicKey` contained in the `OrderLimit`.  The satellite should calculate the size and hash of the piece as it downloads them, and it should be equal to the `PieceHash` `Hash` and `PieceSize`. If a piece fails any of these checks, an error should be logged and a different piece should be downloaded.  Once all pieces are downloaded, the `PiecePublicKey` of all pieces should be compared and equal.  If they are not equal, an error should be logged and more pieces should be downloaded until a minimum number of pieces share the same `PiecePublicKey`.  When enough pieces have been downloaded and validated, Reed-Solomon decoding should be used to reassemble the segment, and repair should continue as previously designed.
+
+Failed hash, signature, or public keys checks may indicate cheating. Therefore audit must implement this same piece hash check logic. Changes to audit and the reporting of cheaters are otherwise outside the scope of this document.  
 
 ## Rationale
 
-Both download and Reed Solomon decoding create more load for a satellite than hashing, so hashing should be preferred to each.  
+Both download and Reed Solomon decoding create more load for a satellite than hashing, so hashing should be preferred over download even a single more piece.
+
+Downloading for repair is significantly different enough from streaming as to warrant a new, custom implementation.
+
+Using only the minimum number of pieces means that Reed-Solomon does not act as a check during repair. Hence hashing is used instead. While and uplink could potentially send signed bogus data to a storage node, the storage node would not be penalized by these actions. This requires that Audit implements a similar piece hash check instead of relying solely on Reed-Solomon encoding.
 
 ## Implementation
 
-1. Add an optional `PieceHash` field to the `PieceDownloadResponse` protocol buffer for returning hashes.
+1. Add an optional `PieceHash` and `OrderLimit` fields to the `PieceDownloadResponse` protocol buffer for returning hashes.
 
-2. Alter the storage node code to populate `PieceHash` when responding to the owning satellite downloads.
+2. Alter the storage node code to populate `PieceHash` and `OrderLimit` when the `OrderLimit` `Action` is `GET_REPAIR`.
 
-3. Implement changes to `SegmentRepairer.Repair()`, `ecClient.Repair()`, `decodedRanger.Range()` and any other methods to allow hash checking.
+3. Write code which can validate a piece using a `PieceHash` and `OrderLimit` as described in design.
 
-4. Implement changes to `ecClient.Get()` and any other methods to allow a minimum number of nodes to optionally be used, rather than the complete set of nodes in an OrderLimit.
+4. Write code which ensures that enough pieces share the same `PiecePublicKey` as described in design.
 
-5. Implement changes to `SegmentRepairer.Repair()` and any other methods to retry with another node when a single download fails, ensuring that previously downloaded pieces can be reused without downloading again.
+5. Impelement custom repair download code which uses a Reed-Solomon minimum number of pieces, persisting the downloaded pieces only in memory. If statistics are available, prefer to download from faster storage nodes using the power of two choices.
+
+6. Wire in validation logic to repair loop.  If a piece fails these checks, download another.
+
+7. Reassemble the segment using Reed-Solomon decoding and continue with repair as previously implemented.
 
 ## Open issues
 
-Instead of implementation #3, can we somehow build a SHARanger type instead, which somehow aligns to Pieces?
-
-Are extending the existing methods ala `decodedRanger` the best option for repair?
+With all this hashing and checking of signatures, are we still sure this method is preferred?
