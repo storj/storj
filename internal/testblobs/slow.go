@@ -71,11 +71,11 @@ func (slow *SlowBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.B
 	return slow.blobs.Open(ctx, ref)
 }
 
-// OpenSpecific opens a reader for the already-located blob, avoiding the potential need
+// OpenWithStorageFormat opens a reader for the already-located blob, avoiding the potential need
 // to check multiple storage formats to find the blob.
-func (slow *SlowBlobs) OpenSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobReader, error) {
+func (slow *SlowBlobs) OpenWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobReader, error) {
 	slow.sleep()
-	return slow.blobs.OpenSpecific(ctx, ref, formatVer)
+	return slow.blobs.OpenWithStorageFormat(ctx, ref, formatVer)
 }
 
 // Delete deletes the blob with the namespace and key.
@@ -90,12 +90,12 @@ func (slow *SlowBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.B
 	return slow.blobs.Stat(ctx, ref)
 }
 
-// StatSpecific looks up disk metadata for the blob file with the given storage format
+// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
 // version. This avoids the potential need to check multiple storage formats for the blob
 // when the format is already known.
-func (slow *SlowBlobs) StatSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobInfo, error) {
+func (slow *SlowBlobs) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobInfo, error) {
 	slow.sleep()
-	return slow.blobs.StatSpecific(ctx, ref, formatVer)
+	return slow.blobs.StatWithStorageFormat(ctx, ref, formatVer)
 }
 
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace.

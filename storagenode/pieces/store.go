@@ -216,12 +216,12 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 	return reader, Error.Wrap(err)
 }
 
-// ReaderSpecific returns a new piece reader for a located piece, which avoids the potential
-// need to check multiple storage formats to find the right blob.
-func (store *Store) ReaderSpecific(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Reader, err error) {
+// ReaderWithStorageFormat returns a new piece reader for a located piece, which avoids the
+// potential need to check multiple storage formats to find the right blob.
+func (store *Store) ReaderWithStorageFormat(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
 	ref := storage.BlobRef{Namespace: satellite.Bytes(), Key: pieceID.Bytes()}
-	blob, err := store.blobs.OpenSpecific(ctx, ref, formatVersion)
+	blob, err := store.blobs.OpenWithStorageFormat(ctx, ref, formatVersion)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, err
@@ -467,7 +467,7 @@ func (access storedPieceAccess) CreationTime(ctx context.Context) (cTime time.Ti
 	if err != nil {
 		return time.Time{}, err
 	}
-	reader, err := access.store.ReaderSpecific(ctx, satellite, access.PieceID(), access.StorageFormatVersion())
+	reader, err := access.store.ReaderWithStorageFormat(ctx, satellite, access.PieceID(), access.StorageFormatVersion())
 	if err != nil {
 		return time.Time{}, err
 	}

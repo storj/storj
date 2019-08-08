@@ -69,17 +69,17 @@ type Blobs interface {
 	Create(ctx context.Context, ref BlobRef, size int64) (BlobWriter, error)
 	// Open opens a reader with the specified namespace and key
 	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
-	// OpenSpecific opens a reader for the already-located blob, avoiding the potential need
-	// to check multiple storage formats to find the blob.
-	OpenSpecific(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobReader, error)
+	// OpenWithStorageFormat opens a reader for the already-located blob, avoiding the potential
+	// need to check multiple storage formats to find the blob.
+	OpenWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobReader, error)
 	// Delete deletes the blob with the namespace and key
 	Delete(ctx context.Context, ref BlobRef) error
 	// Stat looks up disk metadata on the blob file
 	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
-	// StatSpecific looks up disk metadata for the blob file with the given storage format
+	// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
 	// version. This avoids the potential need to check multiple storage formats for the blob
 	// when the format is already known.
-	StatSpecific(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
+	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
 	// FreeSpace return how much free space left for writing
 	FreeSpace() (int64, error)
 	// SpaceUsed adds up how much is used in all namespaces

@@ -59,11 +59,11 @@ func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (_ storage.Bl
 	return newBlobReader(file, formatVer), nil
 }
 
-// OpenSpecific loads the already-located blob, avoiding the potential need to check multiple
+// OpenWithStorageFormat loads the already-located blob, avoiding the potential need to check multiple
 // storage formats to find the blob.
-func (store *Store) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobReader, err error) {
+func (store *Store) OpenWithStorageFormat(ctx context.Context, blobRef storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobReader, err error) {
 	defer mon.Task()(&ctx)(&err)
-	file, err := store.dir.OpenSpecific(ctx, blobRef, formatVer)
+	file, err := store.dir.OpenWithStorageFormat(ctx, blobRef, formatVer)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, err
@@ -80,10 +80,10 @@ func (store *Store) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.Bl
 	return info, Error.Wrap(err)
 }
 
-// StatSpecific looks up disk metadata on the blob file with the given storage format version
-func (store *Store) StatSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobInfo, err error) {
+// StatWithStorageFormat looks up disk metadata on the blob file with the given storage format version
+func (store *Store) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	info, err := store.dir.StatSpecific(ctx, ref, formatVer)
+	info, err := store.dir.StatWithStorageFormat(ctx, ref, formatVer)
 	return info, Error.Wrap(err)
 }
 

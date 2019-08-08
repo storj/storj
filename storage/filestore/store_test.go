@@ -282,11 +282,11 @@ func tryOpeningABlob(ctx context.Context, t testing.TB, store *filestore.Store, 
 	require.NoError(t, err)
 	verifyBlobInfo(ctx, t, blobInfo, expectDataLen, expectFormat)
 
-	blobInfo, err = store.StatSpecific(ctx, blobRef, expectFormat)
+	blobInfo, err = store.StatWithStorageFormat(ctx, blobRef, expectFormat)
 	require.NoError(t, err)
 	verifyBlobInfo(ctx, t, blobInfo, expectDataLen, expectFormat)
 
-	reader, err = store.OpenSpecific(ctx, blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
+	reader, err = store.OpenWithStorageFormat(ctx, blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
 	require.NoError(t, err)
 	verifyBlobHandle(t, reader, expectDataLen, expectFormat)
 	require.NoError(t, reader.Close())
@@ -318,7 +318,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	// write a V1 blob
 	writeABlob(ctx, t, store, v1Ref, data, filestore.FormatV1)
 
-	// look up the different blobs with Open and Stat and OpenSpecific
+	// look up the different blobs with Open and Stat and OpenWithStorageFormat
 	tryOpeningABlob(ctx, t, store, v0Ref, len(data), filestore.FormatV0)
 	tryOpeningABlob(ctx, t, store, v1Ref, len(data), filestore.FormatV1)
 
@@ -333,10 +333,10 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	tryOpeningABlob(ctx, t, store, v0Ref, len(differentData), filestore.FormatV1)
 
 	// unless we ask specifically for a V0 blob
-	blobInfo, err := store.StatSpecific(ctx, v0Ref, filestore.FormatV0)
+	blobInfo, err := store.StatWithStorageFormat(ctx, v0Ref, filestore.FormatV0)
 	require.NoError(t, err)
 	verifyBlobInfo(ctx, t, blobInfo, len(data), filestore.FormatV0)
-	reader, err := store.OpenSpecific(ctx, blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
+	reader, err := store.OpenWithStorageFormat(ctx, blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
 	require.NoError(t, err)
 	verifyBlobHandle(t, reader, len(data), filestore.FormatV0)
 	require.NoError(t, reader.Close())

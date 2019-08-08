@@ -239,7 +239,7 @@ func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error 
 		if v0Access.blobStore == nil {
 			return errs.New("this v0StoredPieceAccess instance has no blobStore reference, and cannot look up the relevant blob")
 		}
-		blobInfo, err := v0Access.blobStore.StatSpecific(ctx, v0Access.BlobRef(), v0Access.StorageFormatVersion())
+		blobInfo, err := v0Access.blobStore.StatWithStorageFormat(ctx, v0Access.BlobRef(), v0Access.StorageFormatVersion())
 		if err != nil {
 			return err
 		}

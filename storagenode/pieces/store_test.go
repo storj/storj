@@ -175,7 +175,7 @@ func tryOpeningAPiece(ctx context.Context, t testing.TB, store *pieces.Store, sa
 	verifyPieceHandle(t, reader, expectDataLen, expectTime, expectFormat)
 	require.NoError(t, reader.Close())
 
-	reader, err = store.ReaderSpecific(ctx, satelliteID, pieceID, expectFormat)
+	reader, err = store.ReaderWithStorageFormat(ctx, satelliteID, pieceID, expectFormat)
 	require.NoError(t, err)
 	verifyPieceHandle(t, reader, expectDataLen, expectTime, expectFormat)
 	require.NoError(t, reader.Close())
@@ -209,7 +209,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	// write a V1 piece
 	writeAPiece(ctx, t, store, satellite, v1PieceID, data, now, nil, filestore.FormatV1)
 
-	// look up the different pieces with Reader and ReaderSpecific
+	// look up the different pieces with Reader and ReaderWithStorageFormat
 	tryOpeningAPiece(ctx, t, store, satellite, v0PieceID, len(data), now, filestore.FormatV0)
 	tryOpeningAPiece(ctx, t, store, satellite, v1PieceID, len(data), now, filestore.FormatV1)
 
@@ -222,7 +222,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	tryOpeningAPiece(ctx, t, store, satellite, v0PieceID, len(differentData), now, filestore.FormatV1)
 
 	// unless we ask specifically for a V0 piece
-	reader, err := store.ReaderSpecific(ctx, satellite, v0PieceID, filestore.FormatV0)
+	reader, err := store.ReaderWithStorageFormat(ctx, satellite, v0PieceID, filestore.FormatV0)
 	require.NoError(t, err)
 	verifyPieceHandle(t, reader, len(data), now, filestore.FormatV0)
 	require.NoError(t, reader.Close())

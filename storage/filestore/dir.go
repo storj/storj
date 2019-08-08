@@ -168,8 +168,8 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef, 
 
 // Open opens the file with the specified ref. It may need to check in more than one location in
 // order to find the blob, if it was stored with an older version of the storage node software.
-// In cases where the storage format version of a blob is already known, OpenSpecific() will
-// generally be a better choice.
+// In cases where the storage format version of a blob is already known, OpenWithStorageFormat()
+// will generally be a better choice.
 func (dir *Dir) Open(ctx context.Context, ref storage.BlobRef) (_ *os.File, _ storage.FormatVersion, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
@@ -189,9 +189,9 @@ func (dir *Dir) Open(ctx context.Context, ref storage.BlobRef) (_ *os.File, _ st
 	return nil, FormatV0, os.ErrNotExist
 }
 
-// OpenSpecific opens an already-located blob file with a known storage format version, which
-// avoids the potential need to search through multiple storage formats to find the blob.
-func (dir *Dir) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, formatVer storage.FormatVersion) (_ *os.File, err error) {
+// OpenWithStorageFormat opens an already-located blob file with a known storage format version,
+// which avoids the potential need to search through multiple storage formats to find the blob.
+func (dir *Dir) OpenWithStorageFormat(ctx context.Context, blobRef storage.BlobRef, formatVer storage.FormatVersion) (_ *os.File, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(blobRef)
 	if err != nil {
@@ -210,8 +210,8 @@ func (dir *Dir) OpenSpecific(ctx context.Context, blobRef storage.BlobRef, forma
 
 // Stat looks up disk metadata on the blob file. It may need to check in more than one location
 // in order to find the blob, if it was stored with an older version of the storage node software.
-// In cases where the storage format version of a blob is already known, StatSpecific() will
-// generally be a better choice.
+// In cases where the storage format version of a blob is already known, StatWithStorageFormat()
+// will generally be a better choice.
 func (dir *Dir) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.BlobInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
@@ -231,9 +231,10 @@ func (dir *Dir) Stat(ctx context.Context, ref storage.BlobRef) (_ storage.BlobIn
 	return nil, os.ErrNotExist
 }
 
-// StatSpecific looks up disk metadata on the blob file with the given storage format version.
-// This avoids the need for checking for the file in multiple different storage format types.
-func (dir *Dir) StatSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobInfo, err error) {
+// StatWithStorageFormat looks up disk metadata on the blob file with the given storage format
+// version. This avoids the need for checking for the file in multiple different storage format
+// types.
+func (dir *Dir) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (_ storage.BlobInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
