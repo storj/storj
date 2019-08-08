@@ -74,6 +74,6 @@ The size of all piece hashes downloaded should be roughly equal to a default max
 
 ## Open issues
 
-We may ant to get rid of distinguishing between repair_gets and gets... should we always return them on a full piece download?
+We may want to get rid of distinguishing between repair_gets and gets... should we always return them on a full piece download?
 
 64MiB is current default max segment size, it doesn't have to be equal or close to 64MiB.  Should we have an option to persist to disk?
