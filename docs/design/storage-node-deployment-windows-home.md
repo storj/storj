@@ -10,39 +10,38 @@ Docker is being used for many other things as well, so we need to cover these ca
 
 ## Goals
 
+To deploy the automatic updates we need to handle the following cases that docker handles. Docker is not supported on windows home so we will ensure an automatic update system is built into the Storage nodes. 
+We also need to ensure that it plays nicely with all the common anti-viruses and firewalls.
+
 Docker is being used for:
 
 * Automatic Updates (with watchtower)
 * Restarting on crash
 * Logging (kind of)
 
-To deploy the automatic updates we need to handle these cases.
-
-Docker is not supported on windows home so we will ensure an automatic update system is built into the Storage nodes. We also need to ensure that it plays nicely with all the common anti-viruses and firewalls.
-
 ## Services
-* Installer (msi)
-    * Installs automatic updater binary and error gui application
+
+* Installer
+    * Must be run with admin privileges.
+    * Installs the automatic updater binary and error gui application. (msi)
     * Sets up automatic updater as a windows Service with sufficient privileges.
 * Automatic Updater (binary)
-    * Downloads storage node binary, Sets up storage node, and runs the watchdog process
-    * If storage node has not been setup we don't want to try to run the storage node.
+    * Downloads storage node binary, Sets up storage node, and runs the watchdog process.
+    * Doesn't start the storage node if storage node has not created a valid config.
     * Send error reports to satellite.
-    * Writes update related errors to log file
-* Watchdog process
-    * monitors storage node
-    * restarts the storage node if a crash is detected
+    * Writes update related errors to log file.
+    * Watchdog process
+        * Monitors storage node by periodically sending messages to pulse endpoint on storage node and waiting for responses.
+        * Restarts the storage node if a crash/unresponsiveness is detected.
 * Storage Node (binary)
-    * shares drive with satellite network.
+    * Shares drive with satellite network.
     * Writes storage node operation related errors to log file
 * Error gui application
-    * shows errors from log file
-    * notifies user of service errors.
-    * saves last reported error timestamp to a file for knowing if there are unread errors.
+    * Shows errors from log file
+    * Notifies user of service errors.
+    * Saves last reported error timestamp to a file for knowing if there are unread errors.
 
-### Automatic Updates
-
-Finding out the minimum version and latest stable.
+## Handling failures in Automatic Updates
 
 General
 * Windows firewall and other 3rd party firewalls can block storage node operations.
@@ -51,7 +50,7 @@ General
     * Unblock storage node operator in firewall settings.
     * Can we detect if windows firewall is running?
 
-Download a new binary.
+When downloading a new binary:
 * download fails
     * Log error in log file if possible
     * Retry download on next cycle that checks if storage node is up to date.
@@ -61,31 +60,30 @@ Download a new binary.
 * filesystem read-only
     * Log error in log file if possible
     * Retry download on next cycle that checks if storage node is up to date.
-* MITM attacks/corrupted binary
+* Man in the Middle attacks/corrupted binary
     * Log error in log file if possible
     * Verify binary hashes with message from version server and with output of a hashing algorithm (shasum256)
     * Retry download on next cycle that checks if storage node is up to date.
 
-Swapping in a new binary. 
+When swapping in a new binary:
 * computer crashes during swapping
     * Log error in log file if possible
     * automatic updater checks binary version and reruns download/swap steps.
 * deletion/stopping of the old binary fails.
     * Log error in log file if possible
     
-Starting a new binary.
-What if:
-* out-of-space during migrations,
+When starting a new binary:
+* out-of-space during migrations
     * Log error in log file if possible
     * automatic updater will try to rerun the binary on next cycle
-* failure to start.
+* failure to start
     * Log error in log file if possible
     * automatic updater will try to rerun the binary on next cycle
-* not yet configured.
+* not yet configured
     * Log error in log file if possible
     * storage node will run a setup or describe out to fix the problem...?
 
-Gradual Rollouts.
+When performing a gradual rollouts.
 * bad gradual rollout. We know it's a bad rollout if our application stops working
     * Log error in log file if possible
     * if we did have a database migration, api/grpc change, or file system change in the latest update then wait for next update???
@@ -146,7 +144,7 @@ When starting a Storage Node:
 
 * each automatic updater process will poll our version server from time to time
 * our version server will return some data of the following form:
-```go
+```json
 {
   "processes": {
     "storagenode": {
