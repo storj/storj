@@ -42,7 +42,44 @@ Docker is being used for:
     * Notifies user of service errors.
     * Saves last reported error timestamp to a file for knowing if there are unread errors.
 
-## Handling failures in Automatic Updates
+### Starting Storage Node binary on OS Start-Up
+
+We need to ensure that updater binary starts on computer start-up,
+without logging into the system, and this updater binary launches the storage node This is achieved when installing via the msi.
+Avoid triggering UAC.
+
+### Restarting Storage Node binary on Crash / Problems
+
+We need to ensure that storage node binary restarts after a crash.
+
+* detect crashes and detect unresponsiveness
+    * updater binary checks pulse of storage node binary with ipc messages. storage node will have a pulse endpoint and the updater hits that endpoint with timeouts.
+    * A windows service can be configured to restart the service on fail/crash.
+   
+### Logging
+
+* Log to disk.
+* Rotate files.
+* Compress old stuff.
+* Delete really old stuff.
+* Ensure we limit the size of logs...
+
+### Resource Limits
+
+Ensure we:
+* can set limits to memory usage,
+* can set limits to CPU usage.
+* send graceful shutdown message and restart storage node if memory usage is too high.
+* Windows specific apis also exist for limiting process memory and cpu usage.
+* limit CPU might be to limit number of cores it runs on in go.
+
+## Testing
+
+Verify program can be run with windows defender firewall and at least one other 3rd party firewall.
+
+## Design Overview
+
+### Automatic Updates and Handling failures
 
 General
 * Windows firewall and other 3rd party firewalls can block storage node operations.
@@ -90,49 +127,6 @@ When performing a gradual rollouts.
     * if we did have a database migration, api/grpc change, or file system change in the latest update then wait for next update???
         * bad latest update might have had faulty database changes that will need to be migrated again.
     * otherwise rollback to previous version
-
-### Starting Storage Node binary on OS Start-Up
-
-We need to ensure that updater binary starts on computer start-up,
-without logging into the system, and this updater binary launches the storage node This is achieved when installing via the msi.
-Avoid triggering UAC.
-
-### Restarting Storage Node binary on Crash / Problems
-
-We need to ensure that storage node binary restarts after a crash.
-
-* detect crashes and detect unresponsiveness
-    * updater binary checks pulse of storage node binary with ipc messages. storage node will have a pulse endpoint and the updater hits that endpoint with timeouts.
-    * A windows service can be configured to restart the service on fail/crash.
-   
-### Logging
-
-* Log to disk.
-* Rotate files.
-* Compress old stuff.
-* Delete really old stuff.
-* Ensure we limit the size of logs...
-
-### Resource Limits
-
-Ensure we:
-* can set limits to memory usage,
-* can set limits to CPU usage.
-* send graceful shutdown message and restart storage node if memory usage is too high.
-* Windows specific apis also exist for limiting process memory and cpu usage.
-* limit CPU might be to limit number of cores it runs on in go.
-
-## Testing
-
-Verify program can be run with windows defender firewall.
-
-## Design Overview
-
-msi installer
-
-automatic updater
-
-storage node
 
 ### Rollout message structure
 
