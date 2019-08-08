@@ -20,7 +20,7 @@ Currently, there's not a way to select a random storage node and audit on that b
 
 ## Design
 
-We will create an audit observer that uses the metainfo loop, and this observer will create a reservoir sample of segments for every node. This audit observer will replace the existing method of auditing per byte. The audit will pick a random node, then a random segment from the node's reservoir.
+We will create an audit observer that uses the metainfo loop, and this observer will create a reservoir sample of segments for every node. This audit observer will replace the existing method of auditing per byte. The observer will loop through all of metainfo and build a reservoir cache for each node. The audit will then pick a configurable number of random nodes, then a random segment to audit from each of the nodes' reservoirs.
 
 If each segment generates 80 pieces on average, every time we pick a segment, we're not only auditing one specific node, we're also auditing 79 other nodes. The chance of a node appearing in a segment's pointer is proportional to the amount of data that the node actually stores. The more data that the node stores, the more chance it will be audited. We will set a minimum number of audits for unvetted nodes, and expect more audits for nodes that store more data.
 
