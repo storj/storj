@@ -6,7 +6,6 @@ package certdb_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,7 +69,6 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 				err := upldb.Set(ctx, sn2PI.ID, sn1PI)
 				assert.NoError(t, err)
 			}
-			time.Sleep(5)
 			{ // add another key for the same storagenode ID, this the latest key
 				// as this is written later than the previous one by few seconds
 				err := upldb.Set(ctx, sn2PI.ID, sn2PI)
