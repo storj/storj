@@ -158,7 +158,9 @@ func (dialer *Dialer) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.Info
 	if err != nil {
 		return nil, err
 	}
+
 	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{})
+
 	return resp, errs.Combine(err, conn.disconnect())
 }
 

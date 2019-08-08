@@ -137,14 +137,14 @@ type lockedCertDB struct {
 	db certdb.DB
 }
 
-// Get gets one latest public key of a node
+// Get gets peer identity
 func (m *lockedCertDB) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, a1)
 }
 
-// Set adds a new bandwidth agreement.
+// Set adds a peer identity entry for a node
 func (m *lockedCertDB) Set(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
 	m.Lock()
 	defer m.Unlock()

@@ -12,8 +12,8 @@ import (
 
 // DB stores uplink public keys.
 type DB interface {
-	// Set adds a new bandwidth agreement.
+	// Set adds a peer identity entry for a node
 	Set(context.Context, storj.NodeID, *identity.PeerIdentity) error
-	// Get gets one latest public key of a node
+	// Get gets peer identity
 	Get(context.Context, storj.NodeID) (*identity.PeerIdentity, error)
 }

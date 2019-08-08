@@ -1114,6 +1114,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER COLUMN owner_id SET NOT NULL;`,
 				},
 			},
+			{
+				Description: "Refactoring certRecordTable",
+				Version:     52,
+				Action: migrate.SQL{
+					`DROP TABLE certRecords CASCADE`,
+					`CREATE TABLE peerIdentities (
+						serial_number bytea NOT NULL,
+						peer_identity bytea NOT NULL,
+						node_id bytea NOT NULL,
+						update_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( serial_number )
+					);`,
+				},
+			},
 		},
 	}
 }
