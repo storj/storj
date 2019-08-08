@@ -299,21 +299,25 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup storage node operator dashboard
-		peer.Console.Service, err = console.NewService(
+		peer.Console.Service = console.NewService(
 			peer.Log.Named("console:service"),
-			peer.DB.Console(),
-			peer.DB.Bandwidth(),
-			peer.Storage2.Store,
-			peer.Kademlia.Service,
+			console.Storage{
+				Console:      peer.DB.Console(),
+				Bandwidth:    peer.DB.Bandwidth(),
+				Reputation:   peer.DB.Reputation(),
+				StorageUsage: peer.DB.StorageUsage(),
+				PieceStore:   peer.Storage2.Store,
+				Kademlia:     peer.Kademlia.Service,
+				Trust:        peer.Storage2.Trust,
+			},
 			peer.Version,
-			config.Storage.AllocatedBandwidth,
-			config.Storage.AllocatedDiskSpace,
-			config.Kademlia.Operator.Wallet,
-			versionInfo)
-
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
+			console.NodeInfo{
+				Wallet:             config.Kademlia.Operator.Wallet,
+				Version:            versionInfo,
+				AllocatedBandwidth: config.Storage.AllocatedBandwidth,
+				AllocatedDiskSpace: config.Storage.AllocatedDiskSpace,
+				StartedAt:          time.Now(),
+			})
 
 		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
 		if err != nil {
