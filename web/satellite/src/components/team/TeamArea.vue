@@ -142,7 +142,7 @@
     
     .team-header {
         position: fixed;
-        padding: 55px 30px 0px 64px;
+        padding: 40px 30px 0px 64px;
         max-width: 78.7%;
         width: 100%;
         background-color: #F5F6FA;
@@ -164,7 +164,7 @@
             grid-column-gap: 20px;
             grid-row-gap: 20px;
             justify-content: space-between;
-            margin-top: 150px;
+            margin-top: 178px;
             margin-bottom: 100px;
         }
     }

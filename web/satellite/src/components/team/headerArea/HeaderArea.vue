@@ -3,7 +3,7 @@
 
 <template>
     <div class="team-header-container">
-        <HeaderComponent ref="headerComponent" placeHolder="Team Members" :search="processSearchQuery">
+        <HeaderComponent ref="headerComponent" placeHolder="Team Members" :search="processSearchQuery" title="Project Members">
             <div class="header-default-state" v-if="headerState === 0">
                 <Button class="button" label="+Add" width="122px" height="48px" :onPress="onAddUsersClick"/>
                 <span>The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>

@@ -3,10 +3,13 @@
 
 <template>
     <div class="header-container">
-        <div class="header-container__buttons-area">
-            <slot></slot>
+        <h1>{{title}}</h1>
+        <div class="header-container__wrapper">
+            <div class="header-container__buttons-area">
+                <slot></slot>
+            </div>
+            <SearchComponent ref="search" :placeHolder="placeHolder" :search="search"/>
         </div>
-        <SearchComponent ref="search" :placeHolder="placeHolder" :search="search"/>
     </div>
 </template>
 
@@ -29,6 +32,8 @@
         private readonly placeHolder: string;
         @Prop({default: () => { return ''; }})
         private readonly search: searchCallback;
+        @Prop({default: ''})
+        private readonly title;
 
         public $refs!: {
             search: SearchComponent & ClearSearch;
@@ -43,16 +48,28 @@
 <style scoped lang="scss">
     .header-container {
         width: 100%;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
 
-        &__buttons-area {
-            width: auto;
+        h1 {
+            font-family: 'font_bold';
+            font-size: 32px;
+            line-height: 39px;
+            margin: 0;
+        }
+
+        &__wrapper {
+            width: 100%;
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            margin-top: 33px;
+
+            &__buttons-area {
+                width: auto;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
         }
     }
 </style>
