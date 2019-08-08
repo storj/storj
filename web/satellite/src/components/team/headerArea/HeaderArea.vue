@@ -74,7 +74,7 @@
             this.$refs.headerComponent.clearSearch();
         }
 
-        public async onDelete(): Promise<any> {
+        public async onDelete(): Promise<void> {
             const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMember) => {
                 return member.user.email;
             });
