@@ -120,11 +120,7 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 		return Error.Wrap(err)
 	}
 
-	uplinkCfg := libuplink.Config{}
-	uplinkCfg.Volatile.TLS.PeerCAWhitelistPath = vip.GetString("tls.peer-ca-whitelist-path")
-	uplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !vip.GetBool("tls.use-peer-ca-whitelist")
-
-	uplink, err := libuplink.NewUplink(ctx, &uplinkCfg)
+	uplink, err := setupCfg.NewUplink(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
