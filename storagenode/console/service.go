@@ -16,8 +16,10 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/storageusage"
+	"storj.io/storj/storagenode/trust"
 )
 
 var (
@@ -29,27 +31,22 @@ var (
 
 // DB exposes methods for managing SNO dashboard related data.
 type DB interface {
-	// GetSatelliteIDs returns list of satelliteIDs that storagenode has interacted with
-	// at least once
-	GetSatelliteIDs(ctx context.Context, from, to time.Time) (storj.NodeIDList, error)
-	// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
-	// sorted in ascending order
-	GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) ([]BandwidthUsed, error)
-	// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
-	// sorted in ascending order for particular satellite
-	GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]BandwidthUsed, error)
+	// Bandwidth is a getter for Bandwidth db
+	Bandwidth() Bandwidth
 }
 
 // Service is handling storage node operator related logic
 type Service struct {
 	log *zap.Logger
 
-	consoleDB   DB
-	bandwidthDB bandwidth.DB
-	pieceStore  *pieces.Store
-	kademlia    *kademlia.Kademlia
-	version     *version.Service
-	nodestats   *nodestats.Service
+	trust          *trust.Pool
+	consoleDB      DB
+	bandwidthDB    bandwidth.DB
+	reputationDB   reputation.DB
+	storageusageDB storageusage.DB
+	pieceStore     *pieces.Store
+	kademlia       *kademlia.Kademlia
+	version        *version.Service
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
@@ -60,7 +57,7 @@ type Service struct {
 
 // NewService returns new instance of Service
 func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStore *pieces.Store, kademlia *kademlia.Kademlia, version *version.Service,
-	nodestats *nodestats.Service, allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info) (*Service, error) {
+	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -92,7 +89,6 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStor
 		pieceStore:         pieceStore,
 		kademlia:           kademlia,
 		version:            version,
-		nodestats:          nodestats,
 		allocatedBandwidth: allocatedBandwidth,
 		allocatedDiskSpace: allocatedDiskSpace,
 		walletAddress:      walletAddress,
@@ -118,7 +114,7 @@ func (s *Service) GetUsedBandwidthTotal(ctx context.Context) (_ *BandwidthInfo, 
 func (s *Service) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return s.consoleDB.GetDailyTotalBandwidthUsed(ctx, from, to)
+	return s.consoleDB.Bandwidth().GetDailyTotal(ctx, from, to)
 }
 
 // GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
@@ -126,7 +122,7 @@ func (s *Service) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.
 func (s *Service) GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return s.consoleDB.GetDailyBandwidthUsed(ctx, satelliteID, from, to)
+	return s.consoleDB.Bandwidth().GetDaily(ctx, satelliteID, from, to)
 }
 
 // GetBandwidthBySatellite returns all info about storage node bandwidth usage by satellite
@@ -179,27 +175,17 @@ func (s *Service) GetUptime(ctx context.Context) time.Duration {
 }
 
 // GetStatsFromSatellite returns storagenode stats from the satellite
-func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *nodestats.Stats, err error) {
+func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stats, err := s.nodestats.GetStatsFromSatellite(ctx, satelliteID)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
-	return stats, nil
+	return s.reputationDB.Get(ctx, satelliteID)
 }
 
 // GetDailyStorageUsedForSatellite returns daily SpaceUsageStamps for a particular satellite
-func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []nodestats.SpaceUsageStamp, err error) {
+func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stamps, err := s.nodestats.GetDailyStorageUsedForSatellite(ctx, satelliteID, from, to)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
-	return stamps, nil
+	return s.storageusageDB.GetDaily(ctx, satelliteID, from, to)
 }
 
 // GetNodeID return current node id
@@ -221,7 +207,7 @@ func (s *Service) CheckVersion(ctx context.Context) (err error) {
 }
 
 // GetSatellites used to retrieve satellites list
-func (s *Service) GetSatellites(ctx context.Context) (_ storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return s.consoleDB.GetSatelliteIDs(ctx, time.Time{}, time.Now())
+func (s *Service) GetSatellites(ctx context.Context) (_ storj.NodeIDList) {
+	defer mon.Task()(&ctx)(nil)
+	return s.trust.GetSatellites(ctx)
 }

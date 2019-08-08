@@ -4107,13 +4107,13 @@
                 "name": "StorageUsage",
                 "fields": [
                   {
-                    "id": 2,
+                    "id": 1,
                     "name": "at_rest_total",
                     "type": "double"
                   },
                   {
-                    "id": 3,
-                    "name": "time_stamp",
+                    "id": 2,
+                    "name": "timestamp",
                     "type": "google.protobuf.Timestamp",
                     "options": [
                       {
