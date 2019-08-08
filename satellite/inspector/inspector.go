@@ -29,15 +29,15 @@ const lastSegmentIndex = int64(-1)
 // Endpoint for checking object and segment health
 type Endpoint struct {
 	log      *zap.Logger
-	cache    *overlay.Cache
+	overlay  *overlay.Service
 	metainfo *metainfo.Service
 }
 
 // NewEndpoint will initialize an Endpoint struct
-func NewEndpoint(log *zap.Logger, cache *overlay.Cache, metainfo *metainfo.Service) *Endpoint {
+func NewEndpoint(log *zap.Logger, cache *overlay.Service, metainfo *metainfo.Service) *Endpoint {
 	return &Endpoint{
 		log:      log,
-		cache:    cache,
+		overlay:  cache,
 		metainfo: metainfo,
 	}
 }
@@ -137,12 +137,12 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		nodeIDs = append(nodeIDs, piece.NodeId)
 	}
 
-	unreliableOrOfflineNodes, err := endpoint.cache.KnownUnreliableOrOffline(ctx, nodeIDs)
+	unreliableOrOfflineNodes, err := endpoint.overlay.KnownUnreliableOrOffline(ctx, nodeIDs)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	offlineNodes, err := endpoint.cache.KnownOffline(ctx, nodeIDs)
+	offlineNodes, err := endpoint.overlay.KnownOffline(ctx, nodeIDs)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

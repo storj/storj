@@ -260,6 +260,7 @@ model project (
     field description    text      ( updatable )
     field usage_limit    int64     ( updatable )
     field partner_id     blob      ( nullable  )
+    field owner_id       blob
 
     field created_at     timestamp ( autoinsert )
 )
@@ -617,7 +618,12 @@ read all (
 //--- certRecord ---//
 
 model certRecord (
-	key id
+	key publickey
+
+	index (
+		name certrecord_id_update_at
+		fields id update_at 
+	)
 
 	field publickey  blob		//--uplink public key--//
 	field id         blob		//--uplink node id  --//
@@ -626,11 +632,21 @@ model certRecord (
 
 create certRecord ( )
 delete certRecord ( where certRecord.id = ? )
-update certRecord ( where certRecord.id = ? )
 
 read one (
 	select certRecord
 	where  certRecord.id = ?
+)
+
+read one (
+	select certRecord
+	where  certRecord.publickey = ?
+)
+
+read all (
+	select certRecord
+	where  certRecord.id = ?
+	orderby desc certRecord.update_at
 )
 
 //--- satellite registration token for Vanguard release (temporary table) ---//
@@ -732,9 +748,10 @@ model user_credit (
 
 	field id				serial
 
-	field user_id user.id	restrict
+	field user_id user.id	cascade
 	field offer_id offer.id	restrict
-	field referred_by user.id	restrict ( nullable )
+	field referred_by user.id setnull ( nullable )
+	field type       text
 
 	field credits_earned_in_cents	int
 	field credits_used_in_cents	int ( updatable, autoinsert )

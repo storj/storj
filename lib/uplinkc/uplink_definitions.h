@@ -3,8 +3,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
 typedef enum CipherSuite {
     STORJ_ENC_UNSPECIFIED = 0,
@@ -90,6 +88,7 @@ typedef struct ObjectInfo {
     char       *path;
     bool       is_prefix;
     char       *content_type;
+    int64_t    size;
     int64_t    created;
     int64_t    modified;
     int64_t    expires;

@@ -53,14 +53,14 @@ type Verifier struct {
 	orders             *orders.Service
 	auditor            *identity.PeerIdentity
 	transport          transport.Client
-	overlay            *overlay.Cache
+	overlay            *overlay.Service
 	containment        Containment
 	minBytesPerSecond  memory.Size
 	minDownloadTimeout time.Duration
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
+func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, transport transport.Client, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
 		metainfo:           metainfo,

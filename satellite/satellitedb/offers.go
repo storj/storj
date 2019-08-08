@@ -34,8 +34,8 @@ func (db *offersDB) ListAll(ctx context.Context) (rewards.Offers, error) {
 	return offersFromDBX(offersDbx)
 }
 
-// GetCurrent returns an offer that has not expired based on offer type
-func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.OfferType) (*rewards.Offer, error) {
+// GetCurrent returns offers that has not expired based on offer type
+func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards.OfferType) (rewards.Offers, error) {
 	var statement string
 	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type"
 	statement = `
@@ -50,7 +50,10 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 			SELECT id FROM o
 		) order by created_at desc;`
 
-	rows := db.db.DB.QueryRowContext(ctx, db.db.Rebind(statement), rewards.Active, offerType, time.Now().UTC(), offerType, rewards.Default)
+	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(statement), rewards.Active, offerType, time.Now().UTC(), offerType, rewards.Default)
+	if err != nil {
+		return nil, rewards.NoCurrentOfferErr.Wrap(err)
+	}
 
 	var (
 		awardCreditInCents        int
@@ -60,27 +63,32 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 		redeemableCap             sql.NullInt64
 	)
 
-	o := rewards.Offer{}
-	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &awardCreditDurationDays, &inviteeCreditDurationDays, &redeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
-	if err == sql.ErrNoRows {
-		return nil, rewards.NoCurrentOfferErr.New("offerType=%d", offerType)
-	}
-	if err != nil {
-		return nil, offerErr.Wrap(err)
-	}
-	o.AwardCredit = currency.Cents(awardCreditInCents)
-	o.InviteeCredit = currency.Cents(inviteeCreditInCents)
-	if redeemableCap.Valid {
-		o.RedeemableCap = int(redeemableCap.Int64)
-	}
-	if awardCreditDurationDays.Valid {
-		o.AwardCreditDurationDays = int(awardCreditDurationDays.Int64)
-	}
-	if inviteeCreditDurationDays.Valid {
-		o.InviteeCreditDurationDays = int(inviteeCreditDurationDays.Int64)
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	results := make(rewards.Offers, 0, 0)
+	for rows.Next() {
+		o := rewards.Offer{}
+		err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &awardCreditDurationDays, &inviteeCreditDurationDays, &redeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
+		if err != nil {
+			return results, Error.Wrap(err)
+		}
+		o.AwardCredit = currency.Cents(awardCreditInCents)
+		o.InviteeCredit = currency.Cents(inviteeCreditInCents)
+		if redeemableCap.Valid {
+			o.RedeemableCap = int(redeemableCap.Int64)
+		}
+		if awardCreditDurationDays.Valid {
+			o.AwardCreditDurationDays = int(awardCreditDurationDays.Int64)
+		}
+		if inviteeCreditDurationDays.Valid {
+			o.InviteeCreditDurationDays = int(inviteeCreditDurationDays.Int64)
+		}
+		results = append(results, o)
 	}
 
-	return &o, nil
+	if len(results) < 1 {
+		return results, rewards.NoCurrentOfferErr.New("offerType: %d", offerType)
+	}
+	return results, nil
 }
 
 // Create inserts a new offer into the db
