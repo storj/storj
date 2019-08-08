@@ -40,6 +40,8 @@ Downloading for repair is significantly different enough from streaming as to wa
 
 Using only the minimum number of pieces means that Reed-Solomon does not act as a check during repair. Hence hashing is used instead. While and uplink could potentially send signed bogus data to a storage node, the storage node would not be penalized by these actions. This requires that Audit implements a similar piece hash check instead of relying solely on Reed-Solomon encoding.
 
+The size of all piece hashes downloaded should be roughly equal to a segment size : 64mB.  It seems preferable to keep this in memory over dealing with persistance to disk.
+
 ## Implementation
 
 1. Add an optional `PieceHash` and `OrderLimit` fields to the `PieceDownloadResponse` protocol buffer for returning hashes.
