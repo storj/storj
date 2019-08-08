@@ -36,6 +36,7 @@ Docker is being used for:
 * Storage Node (binary)
     * Shares drive with satellite network.
     * Writes storage node operation related errors to log file
+    * Has pulse endpoint that can be hit for knowing if the storage node is alive and healthy. 
 * Error gui application
     * Shows errors from log file
     * Notifies user of service errors.
@@ -132,13 +133,6 @@ msi installer
 automatic updater
 
 storage node
-When starting a Storage Node:
-* Main process starts an updater service which starts a (12 hour?) interval loop
-* Updater service spawns a Storage Node process 
-* Updater service Interval checks the current Storage Node version and compares with the version server ("https://version.alpha.storj.io/") 
-* Updater service Downloads the Binary for the minimum version returned from the version server
-* Updater service sends a message through a channel to Storage Node process to kill it
-* Updater service spawns a new Storage Node process
 
 ### Rollout message structure
 
@@ -167,6 +161,7 @@ When starting a Storage Node:
 
 ## Implementation Milestones
 
+* Add pulse endpoint to storage node
 * Design automatic updater service
     * Create and start an updater service that runs on an interval loop
     * Determine which libraries will be used for the binary downloading
