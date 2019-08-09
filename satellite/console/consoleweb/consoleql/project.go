@@ -81,6 +81,8 @@ const (
 	SearchArg = "search"
 	// OrderArg is argument name for order
 	OrderArg = "order"
+	// OrderDirectionArg is argument name for order direction
+	OrderDirectionArg = "orderDirection"
 	// SinceArg marks start of the period
 	SinceArg = "since"
 	// BeforeArg marks end of the period
@@ -124,7 +126,7 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					if err != nil {
 						return nil, err
 					}
-					
+
 					var users []projectMember
 					for _, member := range members.ProjectMembers {
 						user, err := service.GetUser(p.Context, member.MemberID)
@@ -133,8 +135,8 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 						}
 
 						users = append(users, projectMember{
-							User: user,
-							JoinedAt:member.CreatedAt,
+							User:     user,
+							JoinedAt: member.CreatedAt,
 						})
 					}
 
@@ -422,13 +424,15 @@ func fromMapProjectMembersCursor(args map[string]interface{}) console.ProjectMem
 	limit, _ := args[LimitArg].(int)
 	page, _ := args[PageArg].(int)
 	order, _ := args[OrderArg].(int)
+	orderDirection, _ := args[OrderDirectionArg].(int)
 
 	var cursor console.ProjectMembersCursor
-	
+
 	cursor.Limit = uint(limit)
 	cursor.Page = uint(page)
 	cursor.Order = console.ProjectMemberOrder(order)
+	cursor.OrderDirection = console.ProjectMemberOrderDirection(orderDirection)
 	cursor.Search, _ = args[SearchArg].(string)
-	
+
 	return cursor
 }

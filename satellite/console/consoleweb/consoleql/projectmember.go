@@ -54,6 +54,9 @@ func graphqlProjectMembersCursor() *graphql.InputObject {
 			OrderArg: &graphql.InputObjectFieldConfig{
 				Type: graphql.NewNonNull(graphql.Int),
 			},
+			OrderDirectionArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
 		},
 	})
 }
