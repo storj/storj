@@ -12,7 +12,9 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -87,6 +89,23 @@ func testDatabase(ctx context.Context, t *testing.T, upldb certdb.DB) {
 			pbytes, err := pkcrypto.PublicKeyToPEM(pkey.CA.PublicKey)
 			require.NoError(t, err)
 			assert.EqualValues(t, sn2PIpubbytes, pbytes)
+		}
+
+		{ // Get all the corresponding Public key for the IDs
+			var PIDs []*identity.PeerIdentity
+			var NIDs []storj.NodeID
+			for i := 0; i < 10; i++ {
+				fid, err := testidentity.NewTestIdentity(ctx)
+				require.NoError(t, err)
+				PIDs = append(PIDs, fid.PeerIdentity())
+				NIDs = append(NIDs, fid.PeerIdentity().ID)
+				err = upldb.Set(ctx, fid.PeerIdentity().ID, fid.PeerIdentity())
+				assert.NoError(t, err)
+			}
+			pkey, err := upldb.BatchGet(ctx, NIDs)
+			assert.NoError(t, err)
+			assert.NotNil(t, pkey)
+			assert.Equal(t, 10, len(pkey))
 		}
 	}
 }

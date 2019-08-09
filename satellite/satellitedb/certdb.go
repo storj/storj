@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -81,23 +82,28 @@ func (certs *certDB) BatchGet(ctx context.Context, nodeIDs []storj.NodeID) (peer
 	if len(nodeIDs) == 0 {
 		return nil, nil
 	}
-
-	tx, err := certs.db.Open(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	args := make([]interface{}, 0, len(nodeIDs))
+	for i := range nodeIDs {
+		args = append(args, nodeIDs[i].Bytes())
 	}
-	for _, nodeID := range nodeIDs {
-		dbxInfo, err := tx.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+
+	rows, err := certs.db.Query(certs.db.Rebind(`
+			SELECT * FROM peerIdentities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		r := &dbx.PeerIdentity{}
+		err := rows.Scan(&r.SerialNumber, &r.PeerIdentity, &r.NodeId, &r.UpdateAt)
 		if err != nil {
-			return nil, errs.Combine(err, tx.Rollback())
+			return peers, Error.Wrap(err)
 		}
-
-		if dbxInfo == nil {
-			return nil, errs.Combine(Error.New("unknown nodeID :%+v: %+v", nodeID.Bytes(), err), tx.Rollback())
-		}
-
-		peer, err := identity.DecodePeerIdentity(ctx, dbxInfo.PeerIdentity)
+		peer, err := identity.DecodePeerIdentity(ctx, r.PeerIdentity)
 		peers = append(peers, peer)
 	}
-	return peers, Error.Wrap(tx.Commit())
+	return peers, nil
 }
