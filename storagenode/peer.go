@@ -251,7 +251,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			log.Named("piecestore:cacheUpdate"),
 			peer.Storage2.BlobsCache,
 			peer.Storage2.Store,
-			config.Storage2.CacheUpdateInterval,
+			config.Storage2.CacheSyncInterval,
 		)
 
 		peer.Storage2.Monitor = monitor.NewService(

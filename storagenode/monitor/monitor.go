@@ -73,7 +73,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 	freeDiskSpace := storageStatus.DiskFree
 
-	totalUsed, err := service.store.SpaceUsedForPieces(ctx)
+	totalUsed, err := service.usedSpace(ctx)
 	if err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ func (service *Service) Close() (err error) {
 func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
+	usedSpace, err := service.usedSpace(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -156,6 +156,15 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	})
 
 	return nil
+}
+
+func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return usedSpace, nil
 }
 
 func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) {

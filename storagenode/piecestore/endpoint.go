@@ -61,7 +61,7 @@ type Config struct {
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
 	RetainStatus          RetainStatus  `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
-	CacheUpdateInterval   time.Duration `help:"how often the space used cache is recalculated" releaseDefault:"6h0m0s" devDefault:"1m0s"`
+	CacheSyncInterval     time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"1m0s"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
