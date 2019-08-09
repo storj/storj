@@ -102,13 +102,13 @@ This process including the Storage nodes transferring their pieces to other node
   - Initiates the exit by setting `nodes.exit_initiated` to current time
   - ``` 
 	service GracefulExit {
-		rpc Initiate(InitiateRequest) returns (InitiateResponse) {}
+		rpc InitiateExit(InitiateExitRequest) returns (InitiateExitResponse) {}
 	}
 
-	message InitiateRequest {
+	message InitiateExitRequest {
 	}
 
-	message InitiateResponse {
+	message InitiateExitResponse {
 	}
 	```
 - Update DBX - Add table exit_pieceinfos
