@@ -68,37 +68,37 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	address := &pb.NodeAddress{Address: "127.0.0.1:0"}
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, 0, false)
-	cacheConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100}
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, cacheConfig)
+	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100}
+	service := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
 
 	{ // Put
-		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
+		err := service.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
 		require.NoError(t, err)
 
-		err = cache.Put(ctx, valid2ID, pb.Node{Id: valid2ID, Address: address})
+		err = service.Put(ctx, valid2ID, pb.Node{Id: valid2ID, Address: address})
 		require.NoError(t, err)
 
-		err = cache.Put(ctx, valid3ID, pb.Node{Id: valid3ID, Address: address})
+		err = service.Put(ctx, valid3ID, pb.Node{Id: valid3ID, Address: address})
 		require.NoError(t, err)
 
-		_, err = cache.UpdateUptime(ctx, valid3ID, false)
+		_, err = service.UpdateUptime(ctx, valid3ID, false)
 		require.NoError(t, err)
 	}
 
 	{ // Get
-		_, err := cache.Get(ctx, storj.NodeID{})
+		_, err := service.Get(ctx, storj.NodeID{})
 		require.Error(t, err)
 		require.True(t, err == overlay.ErrEmptyNode)
 
-		valid1, err := cache.Get(ctx, valid1ID)
+		valid1, err := service.Get(ctx, valid1ID)
 		require.NoError(t, err)
 		require.Equal(t, valid1.Id, valid1ID)
 
-		valid2, err := cache.Get(ctx, valid2ID)
+		valid2, err := service.Get(ctx, valid2ID)
 		require.NoError(t, err)
 		require.Equal(t, valid2.Id, valid2ID)
 
-		invalid2, err := cache.Get(ctx, missingID)
+		invalid2, err := service.Get(ctx, missingID)
 		require.Error(t, err)
 		require.True(t, overlay.ErrNodeNotFound.Has(err))
 		require.Nil(t, invalid2)
@@ -109,13 +109,13 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	{ // Paginate
 
 		// should return two nodes
-		nodes, more, err := cache.Paginate(ctx, 0, 2)
+		nodes, more, err := service.Paginate(ctx, 0, 2)
 		assert.NotNil(t, more)
 		assert.NoError(t, err)
 		assert.Equal(t, len(nodes), 2)
 
 		// should return no nodes
-		zero, more, err := cache.Paginate(ctx, 0, 0)
+		zero, more, err := service.Paginate(ctx, 0, 0)
 		assert.NoError(t, err)
 		assert.NotNil(t, more)
 		assert.NotEqual(t, len(zero), 0)
@@ -124,14 +124,14 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	{ // PaginateQualified
 
 		// should return two nodes
-		nodes, more, err := cache.PaginateQualified(ctx, 0, 3)
+		nodes, more, err := service.PaginateQualified(ctx, 0, 3)
 		assert.NotNil(t, more)
 		assert.NoError(t, err)
 		assert.Equal(t, len(nodes), 2)
 	}
 
 	{ // Reputation
-		valid1, err := cache.Get(ctx, valid1ID)
+		valid1, err := service.Get(ctx, valid1ID)
 		require.NoError(t, err)
 		require.EqualValues(t, valid1.Id, valid1ID)
 		require.EqualValues(t, valid1.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
@@ -140,7 +140,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.EqualValues(t, valid1.Reputation.UptimeReputationBeta, nodeSelectionConfig.UptimeReputationBeta0)
 		require.Nil(t, valid1.Reputation.Disqualified)
 
-		stats, err := cache.UpdateStats(ctx, &overlay.UpdateRequest{
+		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       valid1ID,
 			IsUp:         true,
 			AuditSuccess: false,
@@ -157,7 +157,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.NotNil(t, stats.Disqualified)
 		require.True(t, time.Now().UTC().Sub(*stats.Disqualified) < time.Minute)
 
-		stats, err = cache.UpdateUptime(ctx, valid2ID, false)
+		stats, err = service.UpdateUptime(ctx, valid2ID, false)
 		require.NoError(t, err)
 		newUptimeAlpha = 1
 		newUptimeBeta = 1
@@ -170,13 +170,13 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		dqTime := *stats.Disqualified
 
 		// should not update once already disqualified
-		_, err = cache.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
+		_, err = service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:       valid2ID,
 			IsUp:         false,
 			AuditSuccess: true,
 		}})
 		require.NoError(t, err)
-		dossier, err := cache.Get(ctx, valid2ID)
+		dossier, err := service.Get(ctx, valid2ID)
 
 		require.NoError(t, err)
 		require.EqualValues(t, dossier.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)

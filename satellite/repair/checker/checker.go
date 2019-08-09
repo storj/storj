@@ -58,7 +58,7 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metainfo *metainfo.Service, metaLoop *metainfo.Loop, overlay *overlay.Cache, config Config) *Checker {
+func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metainfo *metainfo.Service, metaLoop *metainfo.Loop, overlay *overlay.Service, config Config) *Checker {
 	return &Checker{
 		logger: logger,
 
@@ -101,7 +101,7 @@ func (checker *Checker) Close() error {
 	return nil
 }
 
-// IdentifyInjuredSegments checks for missing pieces off of the metainfo and overlay cache
+// IdentifyInjuredSegments checks for missing pieces off of the metainfo and overlay.
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -83,16 +82,10 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket())
 	if err != nil {
 		return err
 	}
-
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
-	if err != nil {
-		return err
-	}
-
 	defer closeProjectAndBucket(project, bucket)
 
 	reader := io.Reader(file)
@@ -136,16 +129,10 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket())
 	if err != nil {
 		return err
 	}
-
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket(), access)
-	if err != nil {
-		return err
-	}
-
 	defer closeProjectAndBucket(project, bucket)
 
 	object, err := bucket.OpenObject(ctx, src.Path())
@@ -215,16 +202,10 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket())
 	if err != nil {
 		return err
 	}
-
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
-	if err != nil {
-		return err
-	}
-
 	defer closeProjectAndBucket(project, bucket)
 
 	object, err := bucket.OpenObject(ctx, src.Path())

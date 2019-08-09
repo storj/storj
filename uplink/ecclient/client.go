@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
@@ -66,8 +67,9 @@ func (ec *ecClient) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore
 func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(limits) != rs.TotalCount() {
-		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), rs.TotalCount())
+	pieceCount := len(limits)
+	if pieceCount != rs.TotalCount() {
+		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", pieceCount, rs.TotalCount())
 	}
 
 	nonNilLimits := nonNilCount(limits)
@@ -93,7 +95,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		err  error
 		hash *pb.PieceHash
 	}
-	infos := make(chan info, len(limits))
+	infos := make(chan info, pieceCount)
 
 	psCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -105,10 +107,11 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		}(i, addressedLimit)
 	}
 
-	successfulNodes = make([]*pb.Node, len(limits))
-	successfulHashes = make([]*pb.PieceHash, len(limits))
+	successfulNodes = make([]*pb.Node, pieceCount)
+	successfulHashes = make([]*pb.PieceHash, pieceCount)
 	var successfulCount int32
 
+	var failures, cancelations int
 	for range limits {
 		info := <-infos
 
@@ -117,6 +120,11 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		}
 
 		if info.err != nil {
+			if !errs2.IsCanceled(info.err) {
+				failures++
+			} else {
+				cancelations++
+			}
 			ec.log.Sugar().Debugf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
@@ -148,6 +156,12 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	}()
 
 	successes := int(atomic.LoadInt32(&successfulCount))
+	mon.IntVal("segment_pieces_total").Observe(int64(pieceCount))
+	mon.IntVal("segment_pieces_optimal").Observe(int64(rs.OptimalThreshold()))
+	mon.IntVal("segment_pieces_successful").Observe(int64(successes))
+	mon.IntVal("segment_pieces_failed").Observe(int64(failures))
+	mon.IntVal("segment_pieces_canceled").Observe(int64(cancelations))
+
 	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
 		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
 	}

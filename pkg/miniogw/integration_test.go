@@ -7,16 +7,13 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
-	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
@@ -24,11 +21,8 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
@@ -46,62 +40,22 @@ func TestUploadDownload(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 30, 0)
+	planet, err := testplanet.New(t, 1, 30, 1)
 	assert.NoError(t, err)
 
 	defer ctx.Check(planet.Shutdown)
 
 	// add project to satisfy constraint
-	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
+	_, err = planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
 		Name: "testProject",
 	})
 	assert.NoError(t, err)
 
-	apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
-	assert.NoError(t, err)
-
-	apiKeyInfo := console.APIKeyInfo{
-		ProjectID: project.ID,
-		Name:      "testKey",
-		Secret:    []byte("testSecret"),
-	}
-
-	// add api key to db
-	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
-	assert.NoError(t, err)
-
-	// bind default values to config
 	var gwCfg config
-	cfgstruct.Bind(&pflag.FlagSet{}, &gwCfg, cfgstruct.UseDevDefaults())
-
-	var uplinkCfg uplink.Config
-	cfgstruct.Bind(&pflag.FlagSet{}, &uplinkCfg, cfgstruct.UseDevDefaults())
-
-	// minio config directory
 	gwCfg.Minio.Dir = ctx.Dir("minio")
-
-	// addresses
 	gwCfg.Server.Address = "127.0.0.1:7777"
-	uplinkCfg.Client.SatelliteAddr = planet.Satellites[0].Addr()
 
-	// keys
-	uplinkCfg.Client.APIKey = "apiKey"
-
-	// Encryption key
-	passphrase := testrand.BytesInt(testrand.Intn(100) + 1)
-
-	encryptionKey, err := storj.NewKey(passphrase)
-	require.NoError(t, err)
-	filename := ctx.File("encryption.key")
-	err = ioutil.WriteFile(filename, encryptionKey[:], os.FileMode(0400))
-	require.NoError(t, err)
-	uplinkCfg.Enc.KeyFilepath = filename
-
-	// redundancy
-	uplinkCfg.RS.MinThreshold = 7
-	uplinkCfg.RS.RepairThreshold = 8
-	uplinkCfg.RS.SuccessThreshold = 9
-	uplinkCfg.RS.MaxThreshold = 10
+	uplinkCfg := planet.Uplinks[0].GetConfig(planet.Satellites[0])
 
 	planet.Start(ctx)
 
@@ -127,8 +81,8 @@ func TestUploadDownload(t *testing.T) {
 		Satellite:     planet.Satellites[0].Addr(),
 		AccessKey:     gwCfg.Minio.AccessKey,
 		SecretKey:     gwCfg.Minio.SecretKey,
-		APIKey:        uplinkCfg.Client.APIKey,
-		EncryptionKey: string(encryptionKey[:]),
+		APIKey:        uplinkCfg.Legacy.Client.APIKey,
+		EncryptionKey: "fake-encryption-key",
 		NoSSL:         true,
 	})
 	assert.NoError(t, err)
@@ -197,12 +151,12 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	apiKey, err := libuplink.ParseAPIKey(uplinkCfg.Client.APIKey)
+	apiKey, err := libuplink.ParseAPIKey(uplinkCfg.Legacy.Client.APIKey)
 	if err != nil {
 		return err
 	}
 
-	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey)
+	project, err := uplink.OpenProject(ctx, uplinkCfg.Legacy.Client.SatelliteAddr, apiKey)
 	if err != nil {
 		return err
 	}

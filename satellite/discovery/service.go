@@ -30,14 +30,14 @@ var (
 type Config struct {
 	RefreshInterval    time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
 	DiscoveryInterval  time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
-	RefreshLimit       int           `help:"the amount of nodes read from the overlay cache in a single pagination call" default:"100"`
+	RefreshLimit       int           `help:"the amount of nodes read from the overlay in a single pagination call" default:"100"`
 	RefreshConcurrency int           `help:"the amount of nodes refreshed in parallel" default:"8"`
 }
 
 // Discovery struct loads on cache, kad
 type Discovery struct {
 	log   *zap.Logger
-	cache *overlay.Cache
+	cache *overlay.Service
 	kad   *kademlia.Kademlia
 
 	refreshLimit       int
@@ -48,7 +48,7 @@ type Discovery struct {
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config Config) *Discovery {
+func New(logger *zap.Logger, ol *overlay.Service, kad *kademlia.Kademlia, config Config) *Discovery {
 	discovery := &Discovery{
 		log:   logger,
 		cache: ol,
