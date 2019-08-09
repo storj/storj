@@ -13,21 +13,16 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-type reservoirConfig struct {
-	slotsForVetted   int
-	slotsForUnvetted int
-}
-
 // observer observes on the metainfo loop and adds segments to node reservoirs
 type observer struct {
 	log *zap.Logger
 
 	overlay         *overlay.Service
 	reservoirs      map[storj.NodeID]*Reservoir
-	reservoirConfig reservoirConfig
+	reservoirConfig ReservoirConfig
 }
 
-func newObserver(log *zap.Logger, overlay *overlay.Service, config reservoirConfig) *observer {
+func newObserver(log *zap.Logger, overlay *overlay.Service, config ReservoirConfig) *observer {
 	return &observer{
 		log:             log,
 		overlay:         overlay,
@@ -49,9 +44,9 @@ func (observer *observer) RemoteSegment(ctx context.Context, path storj.Path, po
 			}
 			var slots int
 			if reputable {
-				slots = observer.reservoirConfig.slotsForVetted
+				slots = observer.reservoirConfig.SlotsForVetted
 			} else {
-				slots = observer.reservoirConfig.slotsForUnvetted
+				slots = observer.reservoirConfig.SlotsForUnvetted
 			}
 			observer.reservoirs[piece.NodeId] = NewReservoir(slots)
 		}

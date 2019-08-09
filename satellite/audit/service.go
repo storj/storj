@@ -31,6 +31,14 @@ type Config struct {
 	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"25s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
+
+	ReservoirConfig
+}
+
+// ReservoirConfig contains configurable values for audit reservoirs
+type ReservoirConfig struct {
+	SlotsForVetted   int `help:"number of reservoir slots allotted for vetted nodes" default:"1"`
+	SlotsForUnvetted int `help:"number of reservoir slots allotted for unvetted nodes" default:"1"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -44,16 +52,16 @@ type Service struct {
 	Loop sync2.Cycle
 
 	// for audit 2.0 using metainfoloop
-	Loop2           sync2.Cycle
+	ReservoirLoop   sync2.Cycle
 	overlay         *overlay.Service
 	metainfoLoop    *metainfo.Loop
-	reservoirConfig reservoirConfig
+	reservoirConfig ReservoirConfig
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Service,
-	containment Containment, identity *identity.FullIdentity, loop *metainfo.Loop, reservoirConfig reservoirConfig) (*Service, error) {
+	containment Containment, identity *identity.FullIdentity, loop *metainfo.Loop) (*Service, error) {
 	return &Service{
 		log: log,
 
@@ -63,11 +71,11 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 
 		// for audit 2.0
 		overlay:         overlay,
-		reservoirConfig: reservoirConfig,
+		reservoirConfig: config.ReservoirConfig,
 		metainfoLoop:    loop,
 
-		Loop:  *sync2.NewCycle(config.Interval),
-		Loop2: *sync2.NewCycle(config.Interval),
+		Loop:          *sync2.NewCycle(config.Interval),
+		ReservoirLoop: *sync2.NewCycle(config.Interval),
 	}, nil
 }
 
@@ -90,7 +98,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
-		return service.Loop2.Run(ctx, func(ctx context.Context) error {
+		return service.ReservoirLoop.Run(ctx, func(ctx context.Context) error {
 			defer mon.Task()(&ctx)(&err)
 			observer := newObserver(service.log.Named("audit observer"), service.overlay, service.reservoirConfig)
 			err = service.metainfoLoop.Join(ctx, observer)
