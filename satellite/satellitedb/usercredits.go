@@ -58,72 +58,80 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 }
 
 // Create insert a new record of user credit
-func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) error {
-	var statement string
-
+func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) (err error) {
 	if userCredit.ExpiresAt.Before(time.Now().UTC()) {
 		return errs.New("user credit is already expired")
 	}
 
-	var (
-		referrerID []byte
-	)
+	var referrerID []byte
 	if userCredit.ReferredBy != nil {
 		referrerID = userCredit.ReferredBy[:]
 	}
 
-	var dbExec interface {
-		ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	}
+	var dbTx *dbx.Tx
 	if c.tx != nil {
-		dbExec = c.tx.Tx
+		dbTx = c.tx
 	} else {
-		dbExec = c.db.DB
+		dbTx, err = c.db.Open(ctx)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	var offerInfo rewards.Offer
+	row := dbTx.Tx.QueryRowContext(ctx, c.db.Rebind(`
+		SELECT redeemable_cap, status FROM offers WHERE id = ?
+	`), userCredit.OfferID)
+	if err != nil {
+		return errs.Wrap(errs.Combine(err, dbTx.Rollback()))
+	}
+	err = row.Scan(&offerInfo.RedeemableCap, &offerInfo.Status)
+	if err != nil {
+		return errs.Wrap(errs.Combine(err, dbTx.Rollback()))
 	}
 
 	var (
-		result sql.Result
-		err    error
+		result    sql.Result
+		statement string
 	)
-
 	switch t := c.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
 				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, ?, time('now'))) AS v
-					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), EXISTS (SELECT type FROM offers WHERE id = ? AND status=?));
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < NULLIF(?, 0) , ?);
 		`
-		result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferID, userCredit.OfferID, rewards.Default)
+		result, err = dbTx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, offerInfo.RedeemableCap, offerInfo.Status.IsDefault())
 	case *pq.Driver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
 				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), ?::text, now())) AS v
-					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), EXISTS (SELECT type FROM offers WHERE id = ? AND status=?));
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < NULLIF(?, 0), ?);
 		`
-		result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferID, userCredit.OfferID, rewards.Default)
+		result, err = dbTx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, offerInfo.RedeemableCap, offerInfo.Status.IsDefault())
 	default:
-		return errs.New("Unsupported database %t", t)
+		return errs.Wrap(errs.Combine(errs.New("unsupported database: %s", t), dbTx.Rollback()))
 	}
 
 	if err != nil {
 		// check to see if there's a constraint error
 		if driverErr, ok := err.(*pq.Error); (ok && driverErr.Code.Class() == "23") || err == sqlite3.ErrConstraint {
-			return rewards.MaxRedemptionErr.New("create: constraint error")
+			return rewards.MaxRedemptionErr.Wrap(errs.Combine(err, dbTx.Rollback()))
 		}
 
-		return errs.Wrap(err)
+		return errs.Wrap(errs.Combine(err, dbTx.Rollback()))
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return errs.Wrap(err)
+		return errs.Wrap(errs.Combine(err, dbTx.Rollback()))
 	}
 
 	if rows != 1 {
-		return rewards.MaxRedemptionErr.New("rows not equal to 1")
+		return errs.Combine(rewards.MaxRedemptionErr.New("rows not equal to 1"), dbTx.Rollback())
 	}
 
-	return nil
+	return errs.Wrap(dbTx.Commit())
 }
 
 // UpdateEarnedCredits updates user credits after user activated their account

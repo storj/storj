@@ -53,6 +53,9 @@ type UpdateOffer struct {
 	ExpiresAt time.Time
 }
 
+// Offers contains a slice of offers.
+type Offers []Offer
+
 // OfferType indicates the type of an offer
 type OfferType int
 
@@ -137,5 +140,7 @@ func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offe
 	return offer, nil
 }
 
-// Offers contains a slice of offers.
-type Offers []Offer
+// IsDefault checks if a offer's status is default
+func (status OfferStatus) IsDefault() bool {
+	return status == Default
+}
