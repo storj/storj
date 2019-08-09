@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -526,4 +527,42 @@ func backupPath(path string) string {
 		strconv.Itoa(int(time.Now().Unix())),
 		pathExt,
 	)
+}
+
+// EncodePeerIdentity encodes the complete idenitity chain to bytes
+func EncodePeerIdentity(pi *PeerIdentity) []byte {
+	var chain []byte
+	chain = append(chain, pi.Leaf.Raw...)
+	chain = append(chain, pi.CA.Raw...)
+	for _, cert := range pi.RestChain {
+		chain = append(chain, cert.Raw...)
+	}
+	return chain
+}
+
+// DecodePeerIdentity Decodes the bytes into complete idenitity chain
+func DecodePeerIdentity(ctx context.Context, chain []byte) (_ *PeerIdentity, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var certs []*x509.Certificate
+	for len(chain) > 0 {
+		var raw asn1.RawValue
+		var err error
+
+		chain, err = asn1.Unmarshal(chain, &raw)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		cert, err := pkcrypto.CertFromDER(raw.FullBytes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		certs = append(certs, cert)
+	}
+	if len(certs) < 2 {
+		return nil, Error.New("not enough certificates")
+	}
+	return PeerIdentityFromChain(certs)
 }
