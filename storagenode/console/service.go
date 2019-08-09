@@ -46,7 +46,7 @@ type Service struct {
 
 	consoleDB   DB
 	bandwidthDB bandwidth.DB
-	pieceInfoDB pieces.DB
+	pieceStore  *pieces.Store
 	kademlia    *kademlia.Kademlia
 	version     *version.Service
 	nodestats   *nodestats.Service
@@ -59,7 +59,7 @@ type Service struct {
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, version *version.Service,
+func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStore *pieces.Store, kademlia *kademlia.Kademlia, version *version.Service,
 	nodestats *nodestats.Service, allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
@@ -73,8 +73,8 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo
 		return nil, errs.New("bandwidth can't be nil")
 	}
 
-	if pieceInfo == nil {
-		return nil, errs.New("pieceInfo can't be nil")
+	if pieceStore == nil {
+		return nil, errs.New("pieceStore can't be nil")
 	}
 
 	if version == nil {
@@ -89,7 +89,7 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo
 		log:                log,
 		consoleDB:          consoleDB,
 		bandwidthDB:        bandwidth,
-		pieceInfoDB:        pieceInfo,
+		pieceStore:         pieceStore,
 		kademlia:           kademlia,
 		version:            version,
 		nodestats:          nodestats,
@@ -146,7 +146,7 @@ func (s *Service) GetBandwidthBySatellite(ctx context.Context, satelliteID storj
 func (s *Service) GetUsedStorageTotal(ctx context.Context) (_ *DiskSpaceInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	spaceUsed, err := s.pieceInfoDB.SpaceUsed(ctx)
+	spaceUsed, err := s.pieceStore.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (s *Service) GetUsedStorageTotal(ctx context.Context) (_ *DiskSpaceInfo, er
 func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ *DiskSpaceInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	spaceUsed, err := s.pieceInfoDB.SpaceUsedBySatellite(ctx, satelliteID)
+	spaceUsed, err := s.pieceStore.SpaceUsedBySatellite(ctx, satelliteID)
 	if err != nil {
 		return nil, err
 	}

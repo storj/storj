@@ -120,7 +120,7 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 		return Error.Wrap(err)
 	}
 
-	uplink, err := libuplink.NewUplink(ctx, nil)
+	uplink, err := setupCfg.NewUplink(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}

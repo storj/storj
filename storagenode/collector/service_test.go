@@ -51,11 +51,11 @@ func TestCollector(t *testing.T) {
 
 		// imagine we are 30 minutes in the future
 		for _, storageNode := range planet.StorageNodes {
-			pieceinfos := storageNode.DB.PieceInfo()
+			pieceStore := storageNode.DB.Pieces()
 			usedSerials := storageNode.DB.UsedSerials()
 
 			// verify that we actually have some data on storage nodes
-			used, err := pieceinfos.SpaceUsed(ctx)
+			used, err := pieceStore.SpaceUsed(ctx)
 			require.NoError(t, err)
 			if used == 0 {
 				// this storage node didn't get picked for storing data
@@ -101,7 +101,7 @@ func TestCollector(t *testing.T) {
 
 		// imagine we are 10 days in the future
 		for _, storageNode := range planet.StorageNodes {
-			pieceinfos := storageNode.DB.PieceInfo()
+			pieceStore := storageNode.DB.Pieces()
 			usedSerials := storageNode.DB.UsedSerials()
 
 			// collect all the data
@@ -109,7 +109,7 @@ func TestCollector(t *testing.T) {
 			require.NoError(t, err)
 
 			// verify that we deleted everything
-			used, err := pieceinfos.SpaceUsed(ctx)
+			used, err := pieceStore.SpaceUsed(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), used)
 

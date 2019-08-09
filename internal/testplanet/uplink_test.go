@@ -78,7 +78,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
+		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
 		satellite.Discovery.Service.Discovery.Stop()
 
 		testData := testrand.Bytes(memory.MiB)
@@ -127,7 +127,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
 
-				// mark node as offline in overlay cache
+				// mark node as offline in overlay
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				require.NoError(t, err)
 			}

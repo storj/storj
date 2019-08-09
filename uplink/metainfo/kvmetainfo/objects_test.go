@@ -141,7 +141,7 @@ func TestGetObjectStream(t *testing.T) {
 		assertStream(ctx, t, db, streams, bucket, "large-file", data)
 
 		/* TODO: Disable stopping due to flakiness.
-		// Stop randomly half of the storage nodes and remove them from satellite's overlay cache
+		// Stop randomly half of the storage nodes and remove them from satellite's overlay
 		perm := mathrand.Perm(len(planet.StorageNodes))
 		for _, i := range perm[:(len(perm) / 2)] {
 			assert.NoError(t, planet.StopPeer(planet.StorageNodes[i]))

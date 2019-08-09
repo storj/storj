@@ -90,3 +90,25 @@ message RetainRequest {
 
 message RetainResponse {
 }
+
+// PieceHeader is used in piece storage to keep track of piece attributes.
+message PieceHeader {
+    enum FormatVersion {
+        FORMAT_V0 = 0;
+        FORMAT_V1 = 1;
+    }
+    // the storage format version being used for this piece. The piece filename should agree with this.
+    // The inclusion of this field is intended to aid repairability when filenames are damaged.
+    FormatVersion format_version = 1;
+    // content hash of the piece
+    bytes hash = 2;
+    // timestamp when upload occurred, as given by the "timestamp" field in the original orders.PieceHash
+    google.protobuf.Timestamp creation_time = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    // signature from uplink over the original orders.PieceHash (the corresponding PieceHashSigning
+    // is reconstructable using the piece id from the piecestore, the piece size from the
+    // filesystem (minus the piece header size), and these (hash, upload_time, signature) fields).
+    bytes signature = 4;
+    // the OrderLimit authorizing storage of this piece, as signed by the satellite and sent by
+    // the uplink
+    orders.OrderLimit order_limit = 5 [(gogoproto.nullable) = false];
+}
