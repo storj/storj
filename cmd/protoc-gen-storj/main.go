@@ -14,18 +14,6 @@ import (
 )
 
 const (
-	invokerMethods = `
-		Invoke(ctx context.Context, rpc string, in, out interface{}) error
-		NewStream(ctx context.Context, rpc string) (` + streamer + `, error)
-		Close() error
-	`
-	streamerMethods = `
-		SendMsg(msg interface{}) error
-		RecvMsg(msg interface{}) error
-		CloseSend() error
-	`
-	invoker     = "interface { " + invokerMethods + " }"
-	streamer    = "interface { " + streamerMethods + " }"
 	handlerType = "func(interface{}, context.Context, interface{}, interface{}) (interface{}, error)"
 )
 
@@ -38,6 +26,9 @@ type drpc struct {
 	*generator.Generator
 
 	contextPkg string
+	drpcPkg    string
+	drpcClient string
+	drpcStream string
 }
 
 //
@@ -61,7 +52,11 @@ func (d *drpc) Generate(file *generator.FileDescriptor) {
 		return
 	}
 
+	d.drpcPkg = string(d.AddImport("storj.io/storj/drpc"))
+	d.drpcClient = d.drpcPkg + ".Client"
+	d.drpcStream = d.drpcPkg + ".Stream"
 	d.contextPkg = string(d.AddImport("context"))
+
 	for i, service := range file.FileDescriptorProto.Service {
 		d.generateService(file, service, i)
 	}
@@ -95,7 +90,8 @@ func (d *drpc) generateService(file *generator.FileDescriptor, service *pb.Servi
 
 	// Client interface
 	d.P("type ", servName, "Client interface {")
-	d.P("Transport() ", invoker)
+	d.P("DRPCClient() ", d.drpcClient)
+	d.P()
 	for i, method := range service.Method {
 		d.PrintComments(fmt.Sprintf("%s,2,%d", path, i))
 		d.P(d.generateClientSignature(servName, method))
@@ -105,18 +101,18 @@ func (d *drpc) generateService(file *generator.FileDescriptor, service *pb.Servi
 
 	// Client implementation
 	d.P("type ", unexport(servName), "Client struct {")
-	d.P("cc ", invoker)
+	d.P("cc ", d.drpcClient)
 	d.P("}")
 	d.P()
 
 	// Client constructor
-	d.P("func New", servName, "Client(cc ", invoker, ") ", servName, "Client {")
+	d.P("func New", servName, "Client(cc ", d.drpcClient, ") ", servName, "Client {")
 	d.P("return &", unexport(servName), "Client{cc}")
 	d.P("}")
 	d.P()
 
 	// Client method implementations
-	d.P("func (c *", unexport(servName), "Client) Transport() ", invoker, "{ return c.cc }")
+	d.P("func (c *", unexport(servName), "Client) DRPCClient() ", d.drpcClient, "{ return c.cc }")
 	d.P()
 	for _, method := range service.Method {
 		d.generateClientMethod(servName, fullServName, method)
@@ -222,20 +218,20 @@ func (d *drpc) generateClientMethod(servName, fullServName string, method *pb.Me
 	d.P()
 
 	d.P("type ", streamType, " struct {")
-	d.P("stream ", streamer)
+	d.P("stream ", d.drpcStream)
 	d.P("}")
 	d.P()
 
 	if genSend {
 		d.P("func (x *", streamType, ") Send(m *", inType, ") error {")
-		d.P("return x.stream.SendMsg(m)")
+		d.P("return x.stream.Send(m)")
 		d.P("}")
 		d.P()
 	}
 	if genRecv {
 		d.P("func (x *", streamType, ") Recv() (*", outType, ", error) {")
 		d.P("m := new(", outType, ")")
-		d.P("if err := x.stream.RecvMsg(m); err != nil { return nil, err }")
+		d.P("if err := x.stream.Recv(m); err != nil { return nil, err }")
 		d.P("return m, nil")
 		d.P("}")
 		d.P()
@@ -244,7 +240,7 @@ func (d *drpc) generateClientMethod(servName, fullServName string, method *pb.Me
 		d.P("func (x *", streamType, ") CloseAndRecv() (*", outType, ", error) {")
 		d.P("if err := x.stream.CloseSend(); err != nil { return nil, err }")
 		d.P("m := new(", outType, ")")
-		d.P("if err := x.stream.RecvMsg(m); err != nil { return nil, err }")
+		d.P("if err := x.stream.Recv(m); err != nil { return nil, err }")
 		d.P("return m, nil")
 		d.P("}")
 		d.P()
@@ -295,7 +291,7 @@ func (d *drpc) generateServerHandler(servName string, method *pb.MethodDescripto
 		n++
 	}
 	if method.GetServerStreaming() || method.GetClientStreaming() {
-		d.P("&", streamType, "{in", n, ".(", streamer, ")},")
+		d.P("&", streamType, "{in", n, ".(", d.drpcStream, ")},")
 	}
 	d.P(")")
 }
@@ -325,19 +321,19 @@ func (d *drpc) generateServerMethod(servName, fullServName string, method *pb.Me
 	d.P()
 
 	d.P("type ", streamType, " struct {")
-	d.P("streamer ", streamer)
+	d.P("streamer ", d.drpcStream)
 	d.P("}")
 	d.P()
 
 	if genSend {
 		d.P("func (x *", streamType, ") Send(m *", outType, ") error {")
-		d.P("return x.streamer.SendMsg(m)")
+		d.P("return x.streamer.Send(m)")
 		d.P("}")
 		d.P()
 	}
 	if genSendAndClose {
 		d.P("func (x *", streamType, ") SendAndClose(m *", outType, ") error {")
-		d.P("if err := x.streamer.SendMsg(m); err != nil { return err }")
+		d.P("if err := x.streamer.Send(m); err != nil { return err }")
 		d.P("return x.streamer.CloseSend()")
 		d.P("}")
 		d.P()
@@ -345,7 +341,7 @@ func (d *drpc) generateServerMethod(servName, fullServName string, method *pb.Me
 	if genRecv {
 		d.P("func (x *", streamType, ") Recv() (*", inType, ", error) {")
 		d.P("m := new(", inType, ")")
-		d.P("if err := x.streamer.RecvMsg(m); err != nil { return nil, err }")
+		d.P("if err := x.streamer.Recv(m); err != nil { return nil, err }")
 		d.P("return m, nil")
 		d.P("}")
 		d.P()
