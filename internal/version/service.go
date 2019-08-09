@@ -33,9 +33,10 @@ type Service struct {
 
 	Loop *sync2.Cycle
 
-	checked sync2.Fence
-	mu      sync.Mutex
-	allowed bool
+	checked         sync2.Fence
+	mu              sync.Mutex
+	allowed         bool
+	acceptedVersion SemVer
 }
 
 // NewService creates a Version Check Client with default configuration
@@ -82,25 +83,32 @@ func (srv *Service) Run(ctx context.Context) (err error) {
 }
 
 // IsAllowed returns whether if the Service is allowed to operate or not
-func (srv *Service) IsAllowed() bool {
+func (srv *Service) IsAllowed() (SemVer, bool) {
 	srv.checked.Wait()
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
-	return srv.allowed
+	return srv.acceptedVersion, srv.allowed
 }
 
 // CheckVersion checks if the client is running latest/allowed code
 func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 	defer mon.Task()(&ctx)(nil)
 
+	var err error
+	var minimum SemVer
+
 	defer func() {
 		srv.mu.Lock()
 		srv.allowed = allowed
+		if err == nil {
+			srv.acceptedVersion = minimum
+		}
 		srv.mu.Unlock()
 		srv.checked.Release()
 	}()
 
 	if !srv.info.Release {
+		minimum = srv.info.Version
 		return true
 	}
 
@@ -111,7 +119,7 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 		return true
 	}
 
-	minimum := getFieldString(&accepted, srv.service)
+	minimum = getFieldString(&accepted, srv.service)
 	srv.log.Sugar().Debugf("allowed minimum version from control server is: %s", minimum.String())
 
 	if minimum.String() == "" {
