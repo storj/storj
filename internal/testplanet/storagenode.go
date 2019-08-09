@@ -89,7 +89,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				Interval: time.Minute,
 			},
 			Nodestats: nodestats.Config{
-				MaxSleep:       time.Second,
+				MaxSleep:       0,
 				ReputationSync: time.Second,
 				StorageSync:    time.Second,
 			},
