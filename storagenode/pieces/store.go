@@ -350,6 +350,10 @@ func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when 
 // The value of reservedSpace for this Store is added to the result, but this should only affect
 // tests (reservedSpace should always be 0 in real usage).
 func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
+	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
+		return cache.SpaceUsedForPieces(ctx)
+	}
+
 	satellites, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
 		return 0, err
@@ -389,6 +393,10 @@ func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID
 // storj/filestore/store.(*Store).SpaceUsedInNamespace() *does* include all space used by the
 // blobs.
 func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error) {
+	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
+		return cache.SpaceUsedBySatellite(ctx, satelliteID)
+	}
+
 	var totalUsed int64
 	err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
 		contentSize, statErr := access.ContentSize(ctx)
@@ -407,24 +415,34 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 }
 
 // SpaceUsedTotalAndBySatellite adds up the space used by and for all namespaces for blob storage
-func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (_ int64, _ map[storj.NodeID]int64, err error) {
+func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (total int64, totalBySatellite map[storj.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var totalSpaceUsed int64
-	var totalSpaceUsedBySatellite = map[storj.NodeID]int64{}
 	satelliteIDs, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
-		return totalSpaceUsed, totalSpaceUsedBySatellite, Error.New("failed to enumerate satellites: %v", err)
+		return total, totalBySatellite, Error.New("failed to enumerate satellites: %v", err)
 	}
+
+	totalBySatellite = map[storj.NodeID]int64{}
 	for _, satelliteID := range satelliteIDs {
-		used, err := store.SpaceUsedBySatellite(ctx, satelliteID)
+		var totalUsed int64
+
+		err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
+			contentSize, err := access.ContentSize(ctx)
+			if err != nil {
+				return err
+			}
+			totalUsed += contentSize
+			return nil
+		})
 		if err != nil {
-			return totalSpaceUsed, totalSpaceUsedBySatellite, Error.New("failed to sum space used: %v", err)
+			return total, totalBySatellite, err
 		}
-		totalSpaceUsed += used
-		totalSpaceUsedBySatellite[satelliteID] = used
+
+		total += totalUsed
+		totalBySatellite[satelliteID] = totalUsed
 	}
-	return totalSpaceUsed, totalSpaceUsedBySatellite, nil
+	return total, totalBySatellite, nil
 }
 
 // ReserveSpace marks some amount of free space as used, even if it's not, so that future calls

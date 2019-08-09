@@ -31,11 +31,10 @@ var (
 
 // Endpoint does inspectory things
 type Endpoint struct {
-	log             *zap.Logger
-	pieceStore      *pieces.Store
-	pieceStoreCache *pieces.BlobsUsageCache
-	kademlia        *kademlia.Kademlia
-	usageDB         bandwidth.DB
+	log        *zap.Logger
+	pieceStore *pieces.Store
+	kademlia   *kademlia.Kademlia
+	usageDB    bandwidth.DB
 
 	startTime        time.Time
 	pieceStoreConfig piecestore.OldConfig
@@ -46,7 +45,6 @@ type Endpoint struct {
 func NewEndpoint(
 	log *zap.Logger,
 	pieceStore *pieces.Store,
-	pieceStoreCache *pieces.BlobsUsageCache,
 	kademlia *kademlia.Kademlia,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
@@ -55,7 +53,6 @@ func NewEndpoint(
 	return &Endpoint{
 		log:              log,
 		pieceStore:       pieceStore,
-		pieceStoreCache:  pieceStoreCache,
 		kademlia:         kademlia,
 		usageDB:          usageDB,
 		pieceStoreConfig: pieceStoreConfig,
@@ -67,7 +64,11 @@ func NewEndpoint(
 func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	totalUsedSpace := inspector.pieceStoreCache.SpaceUsedForPiecesLive(ctx)
+	// Space Usage
+	totalUsedSpace, err := inspector.pieceStore.SpaceUsedForPieces(ctx)
+	if err != nil {
+		return nil, err
+	}
 	usage, err := bandwidth.TotalMonthlySummary(ctx, inspector.usageDB)
 	if err != nil {
 		return nil, err

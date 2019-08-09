@@ -38,7 +38,6 @@ type Service struct {
 	log                *zap.Logger
 	routingTable       *kademlia.RoutingTable
 	store              *pieces.Store
-	cache              *pieces.BlobsUsageCache
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
@@ -49,12 +48,11 @@ type Service struct {
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, cache *pieces.BlobsUsageCache, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
 	return &Service{
 		log:                log,
 		routingTable:       routingTable,
 		store:              store,
-		cache:              cache,
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
 		allocatedBandwidth: allocatedBandwidth,
@@ -75,7 +73,10 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 	freeDiskSpace := storageStatus.DiskFree
 
-	usedSpace := service.cache.SpaceUsedForPiecesLive(ctx)
+	totalUsed, err := service.store.SpaceUsedForPieces(ctx)
+	if err != nil {
+		return err
+	}
 
 	usedBandwidth, err := service.usedBandwidth(ctx)
 	if err != nil {
@@ -90,7 +91,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	// check your hard drive is big enough
 	// first time setup as a piece node server
-	if usedSpace == 0 && freeDiskSpace < service.allocatedDiskSpace {
+	if totalUsed == 0 && freeDiskSpace < service.allocatedDiskSpace {
 		service.allocatedDiskSpace = freeDiskSpace
 		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
@@ -98,14 +99,14 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	// on restarting the Piece node server, assuming already been working as a node
 	// used above the alloacated space, user changed the allocation space setting
 	// before restarting
-	if usedSpace >= service.allocatedDiskSpace {
+	if totalUsed >= service.allocatedDiskSpace {
 		service.log.Warn("Used more space than allocated. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	// the available disk space is less than remaining allocated space,
 	// due to change of setting before restarting
-	if freeDiskSpace < service.allocatedDiskSpace-usedSpace {
-		service.allocatedDiskSpace = freeDiskSpace + usedSpace
+	if freeDiskSpace < service.allocatedDiskSpace-totalUsed {
+		service.allocatedDiskSpace = freeDiskSpace + totalUsed
 		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
@@ -139,7 +140,7 @@ func (service *Service) Close() (err error) {
 func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usedSpace := service.cache.SpaceUsedForPiecesLive(ctx)
+	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -169,7 +170,10 @@ func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) 
 // AvailableSpace returns available disk space for upload
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace := service.cache.SpaceUsedForPiecesLive(ctx)
+	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
 	allocatedSpace := service.allocatedDiskSpace
 	return allocatedSpace - usedSpace, nil
 }

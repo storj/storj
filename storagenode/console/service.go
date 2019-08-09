@@ -39,15 +39,14 @@ type DB interface {
 type Service struct {
 	log *zap.Logger
 
-	trust           *trust.Pool
-	consoleDB       DB
-	bandwidthDB     bandwidth.DB
-	reputationDB    reputation.DB
-	storageusageDB  storageusage.DB
-	pieceStore      *pieces.Store
-	pieceStoreCache *pieces.BlobsUsageCache
-	kademlia        *kademlia.Kademlia
-	version         *version.Service
+	trust          *trust.Pool
+	consoleDB      DB
+	bandwidthDB    bandwidth.DB
+	reputationDB   reputation.DB
+	storageusageDB storageusage.DB
+	pieceStore     *pieces.Store
+	kademlia       *kademlia.Kademlia
+	version        *version.Service
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
@@ -57,8 +56,8 @@ type Service struct {
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStore *pieces.Store, pieceStoreCache *pieces.BlobsUsageCache, kademlia *kademlia.Kademlia,
-	version *version.Service, allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info) (*Service, error) {
+func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStore *pieces.Store, kademlia *kademlia.Kademlia, version *version.Service,
+	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -88,7 +87,6 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStor
 		consoleDB:          consoleDB,
 		bandwidthDB:        bandwidth,
 		pieceStore:         pieceStore,
-		pieceStoreCache:    pieceStoreCache,
 		kademlia:           kademlia,
 		version:            version,
 		allocatedBandwidth: allocatedBandwidth,
@@ -144,7 +142,11 @@ func (s *Service) GetBandwidthBySatellite(ctx context.Context, satelliteID storj
 func (s *Service) GetUsedStorageTotal(ctx context.Context) (_ *DiskSpaceInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	spaceUsed := s.pieceStoreCache.SpaceUsedForPiecesLive(ctx)
+	spaceUsed, err := s.pieceStore.SpaceUsedForPieces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DiskSpaceInfo{Available: s.allocatedDiskSpace.Int64() - spaceUsed, Used: spaceUsed}, nil
 }
 
@@ -152,7 +154,11 @@ func (s *Service) GetUsedStorageTotal(ctx context.Context) (_ *DiskSpaceInfo, er
 func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ *DiskSpaceInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	spaceUsed := s.pieceStoreCache.SpaceUsedBySatelliteLive(ctx, satelliteID)
+	spaceUsed, err := s.pieceStore.SpaceUsedForPieces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DiskSpaceInfo{Available: s.allocatedDiskSpace.Int64() - spaceUsed, Used: spaceUsed}, nil
 }
 
