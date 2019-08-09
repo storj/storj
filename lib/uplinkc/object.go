@@ -227,7 +227,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 	objListLen := len(objectList.Items)
 
 	objectSize := int(C.sizeof_ObjectInfo)
-	ptr := C.malloc(C.size_t(objListLen * objectSize))
+	ptr := C.malloc(C.size_t(objectSize * objListLen))
 	cObjectsPtr := (*[1 << 30]C.ObjectInfo)(ptr)
 
 	for i, object := range objectList.Items {
@@ -357,15 +357,15 @@ func delete_object(bucketRef C.BucketRef, path *C.char, cerr **C.char) {
 	}
 }
 
-//export free_uploader_ref
-// free_uploader_ref deletes the uploader reference from the universe
-func free_uploader_ref(uploader C.UploaderRef) {
+//export free_uploader
+// free_uploader deletes the uploader reference from the universe
+func free_uploader(uploader C.UploaderRef) {
 	universe.Del(uploader._handle)
 }
 
-//export free_downloader_ref
-// free_downloader_ref deletes the downloader reference from the universe
-func free_downloader_ref(downloader C.DownloaderRef) {
+//export free_downloader
+// free_downloader deletes the downloader reference from the universe
+func free_downloader(downloader C.DownloaderRef) {
 	universe.Del(downloader._handle)
 }
 

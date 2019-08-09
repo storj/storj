@@ -26,6 +26,12 @@ func TestStatDB(t *testing.T) {
 
 		testDatabase(ctx, t, db.OverlayCache())
 	})
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		testDatabase(ctx, t, overlay.NewCombinedCache(db.OverlayCache()))
+	})
 }
 
 func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {

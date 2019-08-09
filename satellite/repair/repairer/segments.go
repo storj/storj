@@ -20,12 +20,15 @@ import (
 	"storj.io/storj/uplink/eestream"
 )
 
+// IrreparableError is the errs class of irreparable segment errors
+var IrreparableError = errs.Class("irreparable error")
+
 // SegmentRepairer for segments
 type SegmentRepairer struct {
 	log      *zap.Logger
 	metainfo *metainfo.Service
 	orders   *orders.Service
-	cache    *overlay.Cache
+	overlay  *overlay.Service
 	ec       ecclient.Client
 	timeout  time.Duration
 
@@ -42,7 +45,7 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
-	cache *overlay.Cache, ec ecclient.Client, timeout time.Duration,
+	overlay *overlay.Service, ec ecclient.Client, timeout time.Duration,
 	excessOptimalThreshold float64,
 ) *SegmentRepairer {
 
@@ -54,7 +57,7 @@ func NewSegmentRepairer(
 		log:                        log,
 		metainfo:                   metainfo,
 		orders:                     orders,
-		cache:                      cache,
+		overlay:                    overlay,
 		ec:                         ec.WithForceErrorDetection(true),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
@@ -62,17 +65,18 @@ func NewSegmentRepairer(
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (err error) {
+// note that shouldDelete is used even in the case where err is not null
+func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
 	// Read the segment pointer from the metainfo
 	pointer, err := repairer.metainfo.Get(ctx, path)
 	if err != nil {
-		return Error.Wrap(err)
+		return storj.ErrObjectNotFound.Has(err), Error.Wrap(err)
 	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
-		return Error.New("cannot repair inline segment %s", path)
+		return true, Error.New("cannot repair inline segment %s", path)
 	}
 
 	mon.Meter("repair_attempts").Mark(1)
@@ -80,7 +84,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (e
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
-		return Error.Wrap(err)
+		return true, Error.Wrap(err)
 	}
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
@@ -90,23 +94,23 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (e
 	var healthyPieces, unhealthyPieces []*pb.RemotePiece
 	healthyMap := make(map[int32]bool)
 	pieces := pointer.GetRemote().GetRemotePieces()
-	missingPieces, err := repairer.cache.GetMissingPieces(ctx, pieces)
+	missingPieces, err := repairer.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
-		return Error.New("error getting missing pieces %s", err)
+		return false, Error.New("error getting missing pieces %s", err)
 	}
 
 	numHealthy := len(pieces) - len(missingPieces)
 	// irreparable piece, we need k+1 to detect corrupted pieces
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq+1 {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
-		return Error.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1)
+		return true, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
 	}
 
 	// repair not needed
 	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
 		mon.Meter("repair_unnecessary").Mark(1)
 		repairer.log.Sugar().Debugf("segment %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
-		return nil
+		return true, nil
 	}
 
 	healthyRatioBeforeRepair := 0.0
@@ -130,13 +134,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (e
 
 	bucketID, err := createBucketID(path)
 	if err != nil {
-		return Error.Wrap(err)
+		return true, Error.Wrap(err)
 	}
 
 	// Create the order limits for the GET_REPAIR action
 	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucketID, pointer, healthyPieces)
 	if err != nil {
-		return Error.Wrap(err)
+		return false, Error.Wrap(err)
 	}
 
 	var requestCount int
@@ -154,33 +158,34 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (e
 		FreeDisk:       pieceSize,
 		ExcludedNodes:  excludeNodeIDs,
 	}
-	newNodes, err := repairer.cache.FindStorageNodes(ctx, request)
+	newNodes, err := repairer.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
-		return Error.Wrap(err)
+		return false, Error.Wrap(err)
 	}
 
 	// Create the order limits for the PUT_REPAIR action
 	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucketID, pointer, getOrderLimits, newNodes)
 	if err != nil {
-		return Error.Wrap(err)
+		return false, Error.Wrap(err)
 	}
 
 	// Download the segment using just the healthy pieces
 	rr, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
 	if err != nil {
-		return Error.Wrap(err)
+		// .Get() seems to only fail from input validation, so it would keep failing
+		return true, Error.Wrap(err)
 	}
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	if err != nil {
-		return Error.Wrap(err)
+		return false, Error.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
 	// Upload the repaired pieces
 	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, r, expiration, repairer.timeout, path)
 	if err != nil {
-		return Error.Wrap(err)
+		return false, Error.Wrap(err)
 	}
 
 	// Add the successfully uploaded pieces to repairedPieces
@@ -232,7 +237,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (e
 
 	// Update the segment pointer in the metainfo
 	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
-	return err
+	return err == nil, err
 }
 
 // sliceToSet converts the given slice to a set

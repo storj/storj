@@ -36,7 +36,7 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	mux.Handle("/version/", http.StripPrefix("/version", http.HandlerFunc(version.DebugHandler)))
+	mux.Handle("/version/", http.StripPrefix("/version", version.NewDebugHandler(logger.Named("version"))))
 	mux.Handle("/mon/", http.StripPrefix("/mon", present.HTTP(r)))
 	mux.HandleFunc("/metrics", prometheus)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

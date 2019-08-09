@@ -5,8 +5,7 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "lint": "vue-cli-service lint",
-    "test:unit": "vue-cli-service test:unit",
-    "test": "jest",
+    "test": "vue-cli-service test:unit",
     "build": "vue-cli-service build"
   },
   "dependencies": {
@@ -50,6 +49,7 @@
     "vue-segment-analytics": "^0.3.2",
     "vue-tslint": "^0.3.2",
     "vue-tslint-loader": "^3.5.6",
+    "vue-template-compiler": "^2.6.10",
     "webpack": "^4.38.0"
   },
   "postcss": {

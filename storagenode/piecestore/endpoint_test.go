@@ -624,11 +624,11 @@ func TestRetain(t *testing.T) {
 		_, err = endpointDebug.Retain(ctxSatellite0, &retainReq)
 		require.NoError(t, err)
 
-		satellite1Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		satellite1Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, storj.PieceID{})
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite1Pieces))
 
-		satellite0Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		satellite0Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, storj.PieceID{})
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite0Pieces))
 
@@ -637,13 +637,13 @@ func TestRetain(t *testing.T) {
 		require.NoError(t, err)
 
 		// check we have deleted nothing for satellite1
-		satellite1Pieces, err = pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		satellite1Pieces, err = pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, storj.PieceID{})
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite1Pieces))
 
 		// check we did not delete recent pieces or retained pieces for satellite0
 		// also check that we deleted the correct pieces for satellite0
-		satellite0Pieces, err = pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		satellite0Pieces, err = pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, storj.PieceID{})
 		require.NoError(t, err)
 		require.Equal(t, numPieces-numOldPieces, len(satellite0Pieces))
 
