@@ -6,7 +6,6 @@ package consoleweb
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"mime"
 	"net"
@@ -76,7 +75,14 @@ type Server struct {
 	server   http.Server
 
 	schema    graphql.Schema
-	templates map[string]*template.Template
+	templates struct {
+		index         *template.Template
+		pageNotFound  *template.Template
+		usageReport   *template.Template
+		resetPassword *template.Template
+		success       *template.Template
+		activated     *template.Template
+	}
 }
 
 // NewServer creates new instance of console server
@@ -169,7 +175,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Content-Type", "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 
-	if err := server.executeTemplate(w, r, "index.html", nil); err != nil {
+	if err := server.templates.index.Execute(w, nil); err != nil {
 		server.serveError(w, r, http.StatusNotFound)
 	}
 }
@@ -238,7 +244,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err = server.executeTemplate(w, r, "usageReport.html", bucketRollups); err != nil {
+	if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
 		server.serveError(w, r, http.StatusNotFound)
 	}
 }
@@ -302,7 +308,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err = server.executeTemplate(w, r, "activated.html", nil); err != nil {
+	if err = server.templates.activated.Execute(w, nil); err != nil {
 		server.serveError(w, r, http.StatusNotFound)
 	}
 }
@@ -338,11 +344,11 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		if err := server.executeTemplate(w, r, "success.html", nil); err != nil {
+		if err := server.templates.success.Execute(w, nil); err != nil {
 			server.serveError(w, r, http.StatusNotFound)
 		}
 	case http.MethodGet:
-		if err := server.executeTemplate(w, r, "resetPassword.html", nil); err != nil {
+		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
 			server.serveError(w, r, http.StatusNotFound)
 		}
 	default:
@@ -369,7 +375,7 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 	//      case http.StatusInternalServerError: server.executeTemplate(w, r, internalError, nil)
 	w.WriteHeader(status)
 
-	if err := server.executeTemplate(w, r, "404.html", nil); err != nil {
+	if err := server.templates.pageNotFound.Execute(w, nil); err != nil {
 		server.log.Error("error occurred in console/server", zap.Error(err))
 	}
 }
@@ -463,62 +469,34 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 
 // initializeTemplates is used to initialize all templates
 func (server *Server) initializeTemplates() (err error) {
-	server.templates = make(map[string]*template.Template)
-
-	notFoundErr := server.parseTemplate(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
-	if notFoundErr != nil {
-		err = errs.Combine(err, notFoundErr)
-	}
-
-	usageReportErr := server.parseTemplate(path.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
-	if usageReportErr != nil {
-		err = errs.Combine(err, usageReportErr)
-	}
-
-	resetPasswordErr := server.parseTemplate(filepath.Join(server.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
-	if resetPasswordErr != nil {
-		err = errs.Combine(err, resetPasswordErr)
-	}
-
-	resetPasswordSuccessErr := server.parseTemplate(filepath.Join(server.config.StaticDir, "static", "resetPassword", "success.html"))
-	if resetPasswordSuccessErr != nil {
-		err = errs.Combine(err, resetPasswordSuccessErr)
-	}
-
-	accountActivatedErr := server.parseTemplate(filepath.Join(server.config.StaticDir, "static", "activation", "activated.html"))
-	if accountActivatedErr != nil {
-		err = errs.Combine(err, accountActivatedErr)
-	}
-
-	indexErr := server.parseTemplate(filepath.Join(server.config.StaticDir, "dist", "index.html"))
-	if indexErr != nil {
-		err = errs.Combine(err, indexErr)
-	}
-
-	return err
-}
-
-// parseTemplate is used to parse template and combine errors while parsing multiple
-func (server *Server) parseTemplate(templatePath string) error {
-	template, err := template.ParseFiles(templatePath)
+	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	server.templates[template.Name()] = template
-
-	return nil
-}
-
-// executeTemplate is used to find and execute specified template
-func (server *Server) executeTemplate(w http.ResponseWriter, r *http.Request, templateName string, data interface{}) error {
-	t, ok := server.templates[templateName]
-	if !ok {
-		return errs.New(fmt.Sprintf("can not find specified error by URI: %s", r.URL.Path))
+	server.templates.activated, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "activation", "activated.html"))
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
-	if err := t.Execute(w, data); err != nil {
-		return err
+	server.templates.success, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "success.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.templates.resetPassword, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.templates.resetPassword, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.templates.resetPassword, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	return nil
