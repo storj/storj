@@ -161,6 +161,13 @@ The current _SN_ reputation score calculation will remain, hence the result of t
 
 When we have collected enough metrics of the [Uptime Recheck Loop](#uptime-recheck-loop) (algorithm part 2), we'll assess if the _SN_ reputation calculation should be changed using the results of the [Uptime Recheck Loop](#uptime-recheck-loop).
 
+### Uptime Recheck Historical Data Cleanup
+
+There is no need to keep the data of the `failed_uptime_checks` table longer than the ongoing uptime check period because some _SNs_ will be marked as disqualified and some others will be reset back to when the new uptime check period start due to the offline time is like a bucket which is reset once the period finishes.
+
+However, we think to keep some historical data of previous periods of times as a proof of uptime check failures that _SNs_ in case that any disqualified _SN_ due to uptime check failures open a dispute.
+
+The system will have a process which will run a the end of each uptime check period which will clean up the old historical data based on a configuration parameter which will specify how many periods should be kept.
 
 ## Open issues
 
