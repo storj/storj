@@ -125,11 +125,19 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 	if user.PartnerID != "" {
 		offerType = rewards.Partner
+	} else if refUserID != "" {
+		offerType = rewards.Referral
 	}
 
 	//TODO: Create a current offer cache to replace database call
-	currentReward, err := s.rewards.GetCurrentByType(ctx, offerType)
+	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+		s.log.Error("internal error", zap.Error(err))
+		return nil, errs.New(internalErrMsg)
+	}
+	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
+	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+		s.log.Error("internal error", zap.Error(err))
 		return nil, errs.New(internalErrMsg)
 	}
 
@@ -657,15 +665,15 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 }
 
 // GetCurrentRewardByType is a method for querying current active reward offer based on its type
-func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.OfferType) (reward *rewards.Offer, err error) {
+func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.OfferType) (offer *rewards.Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	reward, err = s.rewards.GetCurrentByType(ctx, offerType)
+	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil {
+		s.log.Error("internal error", zap.Error(err))
 		return nil, errs.New(internalErrMsg)
 	}
-
-	return reward, nil
+	return offers.GetActiveOffer(offerType, "")
 }
 
 // GetUserCreditUsage is a method for querying users' credit information up until now
@@ -708,6 +716,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 			&Project{
 				Description: projectInfo.Description,
 				Name:        projectInfo.Name,
+				OwnerID:     auth.User.ID,
 			},
 		)
 		if err != nil {
@@ -836,8 +845,8 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return err
 	}
 
-	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
-		return ErrUnauthorized.Wrap(err)
+	if err = s.isProjectOwner(ctx, auth.User.ID, projectID); err != nil {
+		return err
 	}
 
 	var userIDs []uuid.UUID
@@ -1307,6 +1316,22 @@ type isProjectMember struct {
 
 // ErrNoMembership is error type of not belonging to a specific project
 var ErrNoMembership = errs.Class("no membership error")
+
+// isProjectOwner checks if the user is an owner of a project
+func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	project, err := s.store.Projects().Get(ctx, projectID)
+	if err != nil {
+		s.log.Error("internal error", zap.Error(err))
+		return errs.New(internalErrMsg)
+	}
+
+	if project.OwnerID != userID {
+		return errs.New(unauthorizedErrMsg)
+	}
+
+	return nil
+}
 
 // isProjectMember checks if the user is a member of given project
 func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (result isProjectMember, err error) {

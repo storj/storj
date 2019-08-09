@@ -6,6 +6,8 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
@@ -664,10 +666,83 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 	return Error.Wrap(tx.Commit())
 }
 
+// BatchUpdateStats updates multiple storagenode's stats in one transaction
+func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if len(updateRequests) == 0 {
+		return failed, nil
+	}
+
+	doUpdate := func(updateSlice []*overlay.UpdateRequest) (duf storj.NodeIDList, err error) {
+		appendAll := func() {
+			for _, ur := range updateRequests {
+				duf = append(duf, ur.NodeID)
+			}
+		}
+
+		tx, err := cache.db.Open(ctx)
+		if err != nil {
+			appendAll()
+			return duf, Error.Wrap(err)
+		}
+
+		var allSQL string
+		for _, updateReq := range updateSlice {
+			dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(updateReq.NodeID.Bytes()))
+			if err != nil {
+
+				return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+			}
+
+			// do not update reputation if node is disqualified
+			if dbNode.Disqualified != nil {
+				continue
+			}
+
+			updateNodeStats := populateUpdateNodeStats(dbNode, updateReq)
+			sql := buildUpdateStatement(cache.db, updateNodeStats)
+
+			allSQL += sql
+		}
+
+		if allSQL != "" {
+			results, err := tx.Tx.Exec(allSQL)
+			if results == nil || err != nil {
+				appendAll()
+				return duf, errs.Combine(err, tx.Rollback())
+			}
+
+			_, err = results.RowsAffected()
+			if err != nil {
+				appendAll()
+				return duf, errs.Combine(err, tx.Rollback())
+			}
+		}
+		return duf, Error.Wrap(tx.Commit())
+	}
+
+	var errlist errs.Group
+	length := len(updateRequests)
+	for i := 0; i < length; i += batchSize {
+		end := i + batchSize
+		if end > length {
+			end = length
+		}
+
+		failedBatch, err := doUpdate(updateRequests[i:end])
+		if err != nil && len(failedBatch) > 0 {
+			for _, fb := range failedBatch {
+				errlist.Add(err)
+				failed = append(failed, fb)
+			}
+		}
+	}
+	return failed, errlist.Err()
+}
+
 // UpdateStats a single storagenode's stats in the db
 func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	nodeID := updateReq.NodeID
 
 	tx, err := cache.db.Open(ctx)
@@ -683,62 +758,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 	}
 
-	auditAlpha, auditBeta, totalAuditCount := updateReputation(
-		updateReq.AuditSuccess,
-		dbNode.AuditReputationAlpha,
-		dbNode.AuditReputationBeta,
-		updateReq.AuditLambda,
-		updateReq.AuditWeight,
-		dbNode.TotalAuditCount,
-	)
-	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)
-	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)
-
-	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
-		updateReq.IsUp,
-		dbNode.UptimeReputationAlpha,
-		dbNode.UptimeReputationBeta,
-		updateReq.UptimeLambda,
-		updateReq.UptimeWeight,
-		dbNode.TotalUptimeCount,
-	)
-	mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
-	mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
-
-	updateFields := dbx.Node_Update_Fields{
-		TotalAuditCount:       dbx.Node_TotalAuditCount(totalAuditCount),
-		TotalUptimeCount:      dbx.Node_TotalUptimeCount(totalUptimeCount),
-		AuditReputationAlpha:  dbx.Node_AuditReputationAlpha(auditAlpha),
-		AuditReputationBeta:   dbx.Node_AuditReputationBeta(auditBeta),
-		UptimeReputationAlpha: dbx.Node_UptimeReputationAlpha(uptimeAlpha),
-		UptimeReputationBeta:  dbx.Node_UptimeReputationBeta(uptimeBeta),
-	}
-
-	auditRep := auditAlpha / (auditAlpha + auditBeta)
-	if auditRep <= updateReq.AuditDQ {
-		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
-	}
-
-	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
-	if uptimeRep <= updateReq.UptimeDQ {
-		// n.b. that this will overwrite the audit DQ timestamp
-		// if it has already been set.
-		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
-	}
-
-	if updateReq.IsUp {
-		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
-		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
-	} else {
-		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
-	}
-
-	if updateReq.AuditSuccess {
-		updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
-	}
-
-	// Updating node stats always exits it from containment mode
-	updateFields.Contained = dbx.Node_Contained(false)
+	updateFields := populateUpdateFields(dbNode, updateReq)
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
@@ -978,4 +998,255 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	newAlpha = lambda*alpha + w*(1+v)/2
 	newBeta = lambda*beta + w*(1-v)/2
 	return newAlpha, newBeta, totalCount + 1
+}
+
+func buildUpdateStatement(db *dbx.DB, update updateNodeStats) string {
+	if update.NodeID.IsZero() {
+		return ""
+	}
+	atLeastOne := false
+	sql := "UPDATE nodes SET "
+	if update.TotalAuditCount.set {
+		atLeastOne = true
+		sql += fmt.Sprintf("total_audit_count = %v", update.TotalAuditCount.value)
+	}
+	if update.TotalUptimeCount.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("total_uptime_count = %v", update.TotalUptimeCount.value)
+	}
+	if update.AuditReputationAlpha.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("audit_reputation_alpha = %v", update.AuditReputationAlpha.value)
+	}
+	if update.AuditReputationBeta.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("audit_reputation_beta = %v", update.AuditReputationBeta.value)
+	}
+	if update.UptimeReputationAlpha.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("uptime_reputation_alpha = %v", update.UptimeReputationAlpha.value)
+	}
+	if update.UptimeReputationBeta.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("uptime_reputation_beta = %v", update.UptimeReputationBeta.value)
+	}
+	if update.Disqualified.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("disqualified = '%v'", update.Disqualified.value.Format(time.RFC3339Nano))
+	}
+	if update.UptimeSuccessCount.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("uptime_success_count = %v", update.UptimeSuccessCount.value)
+	}
+	if update.LastContactSuccess.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("last_contact_success = '%v'", update.LastContactSuccess.value.Format(time.RFC3339Nano))
+	}
+	if update.LastContactFailure.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("last_contact_failure = '%v'", update.LastContactFailure.value.Format(time.RFC3339Nano))
+	}
+	if update.AuditSuccessCount.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("audit_success_count = %v", update.AuditSuccessCount.value)
+	}
+	if update.Contained.set {
+		if atLeastOne {
+			sql += ","
+		}
+
+		atLeastOne = true
+		sql += fmt.Sprintf("contained = %v", update.Contained.value)
+	}
+	if !atLeastOne {
+		return ""
+	}
+	hexNodeID := hex.EncodeToString(update.NodeID.Bytes())
+	switch db.DB.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		sql += fmt.Sprintf(" WHERE nodes.id = X'%v';\n", hexNodeID)
+		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = X'%v';\n", hexNodeID)
+	case *pq.Driver:
+		sql += fmt.Sprintf(" WHERE nodes.id = decode('%v', 'hex');\n", hexNodeID)
+		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = decode('%v', 'hex');\n", hexNodeID)
+	default:
+		return ""
+	}
+
+	return sql
+}
+
+type int64Field struct {
+	set   bool
+	value int64
+}
+
+type float64Field struct {
+	set   bool
+	value float64
+}
+
+type boolField struct {
+	set   bool
+	value bool
+}
+
+type timeField struct {
+	set   bool
+	value time.Time
+}
+
+type updateNodeStats struct {
+	NodeID                storj.NodeID
+	TotalAuditCount       int64Field
+	TotalUptimeCount      int64Field
+	AuditReputationAlpha  float64Field
+	AuditReputationBeta   float64Field
+	UptimeReputationAlpha float64Field
+	UptimeReputationBeta  float64Field
+	Disqualified          timeField
+	UptimeSuccessCount    int64Field
+	LastContactSuccess    timeField
+	LastContactFailure    timeField
+	AuditSuccessCount     int64Field
+	Contained             boolField
+}
+
+func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) updateNodeStats {
+	auditAlpha, auditBeta, totalAuditCount := updateReputation(
+		updateReq.AuditSuccess,
+		dbNode.AuditReputationAlpha,
+		dbNode.AuditReputationBeta,
+		updateReq.AuditLambda,
+		updateReq.AuditWeight,
+		dbNode.TotalAuditCount,
+	)
+	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)
+	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)
+
+	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
+		updateReq.IsUp,
+		dbNode.UptimeReputationAlpha,
+		dbNode.UptimeReputationBeta,
+		updateReq.UptimeLambda,
+		updateReq.UptimeWeight,
+		dbNode.TotalUptimeCount,
+	)
+	mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
+	mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
+
+	updateFields := updateNodeStats{
+		NodeID:                updateReq.NodeID,
+		TotalAuditCount:       int64Field{set: true, value: totalAuditCount},
+		TotalUptimeCount:      int64Field{set: true, value: totalUptimeCount},
+		AuditReputationAlpha:  float64Field{set: true, value: auditAlpha},
+		AuditReputationBeta:   float64Field{set: true, value: auditBeta},
+		UptimeReputationAlpha: float64Field{set: true, value: uptimeAlpha},
+		UptimeReputationBeta:  float64Field{set: true, value: uptimeBeta},
+	}
+
+	auditRep := auditAlpha / (auditAlpha + auditBeta)
+	if auditRep <= updateReq.AuditDQ {
+		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
+	}
+
+	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
+	if uptimeRep <= updateReq.UptimeDQ {
+		// n.b. that this will overwrite the audit DQ timestamp
+		// if it has already been set.
+		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
+	}
+
+	if updateReq.IsUp {
+		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
+		updateFields.LastContactSuccess = timeField{set: true, value: time.Now()}
+	} else {
+		updateFields.LastContactFailure = timeField{set: true, value: time.Now()}
+	}
+
+	if updateReq.AuditSuccess {
+		updateFields.AuditSuccessCount = int64Field{set: true, value: dbNode.AuditSuccessCount + 1}
+	}
+
+	// Updating node stats always exits it from containment mode
+	updateFields.Contained = boolField{set: true, value: false}
+
+	return updateFields
+}
+
+func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) dbx.Node_Update_Fields {
+
+	update := populateUpdateNodeStats(dbNode, updateReq)
+	updateFields := dbx.Node_Update_Fields{}
+	if update.TotalAuditCount.set {
+		updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(update.TotalAuditCount.value)
+	}
+	if update.TotalUptimeCount.set {
+		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(update.TotalUptimeCount.value)
+	}
+	if update.AuditReputationAlpha.set {
+		updateFields.AuditReputationAlpha = dbx.Node_AuditReputationAlpha(update.AuditReputationAlpha.value)
+	}
+	if update.AuditReputationBeta.set {
+		updateFields.AuditReputationBeta = dbx.Node_AuditReputationBeta(update.AuditReputationBeta.value)
+	}
+	if update.UptimeReputationAlpha.set {
+		updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(update.UptimeReputationAlpha.value)
+	}
+	if update.UptimeReputationBeta.set {
+		updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(update.UptimeReputationBeta.value)
+	}
+	if update.Disqualified.set {
+		updateFields.Disqualified = dbx.Node_Disqualified(update.Disqualified.value)
+	}
+	if update.UptimeSuccessCount.set {
+		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(update.UptimeSuccessCount.value)
+	}
+	if update.LastContactSuccess.set {
+		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(update.LastContactSuccess.value)
+	}
+	if update.LastContactFailure.set {
+		updateFields.LastContactFailure = dbx.Node_LastContactFailure(update.LastContactFailure.value)
+	}
+	if update.AuditSuccessCount.set {
+		updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(update.AuditSuccessCount.value)
+	}
+	if update.Contained.set {
+		updateFields.Contained = dbx.Node_Contained(update.Contained.value)
+	}
+	if updateReq.AuditSuccess {
+		updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
+	}
+
+	return updateFields
 }

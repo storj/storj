@@ -1057,6 +1057,63 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						WHERE credits_earned_in_cents=0;`,
 				},
 			},
+			{
+				Description: "Add cascade to user_id for deleting an account",
+				Version:     49,
+				Action: migrate.SQL{
+					`ALTER TABLE user_credits DROP CONSTRAINT user_credits_referred_by_fkey;
+					ALTER TABLE user_credits ADD CONSTRAINT user_credits_referred_by_fkey
+						FOREIGN KEY (referred_by) REFERENCES users(id) ON DELETE SET NULL;
+					ALTER TABLE user_credits DROP CONSTRAINT user_credits_user_id_fkey;
+					ALTER TABLE user_credits ADD CONSTRAINT user_credits_user_id_fkey
+						FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+					ALTER TABLE user_credits ADD COLUMN type text;
+					UPDATE user_credits SET type='invalid';
+					ALTER TABLE user_credits ALTER COLUMN type SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Changing the primary key constraint",
+				Version:     50,
+				Action: migrate.SQL{
+					`ALTER TABLE certRecords DROP CONSTRAINT certrecords_pkey;
+					ALTER TABLE certRecords ADD CONSTRAINT certrecords_pkey PRIMARY KEY (publickey);
+					CREATE INDEX certrecord_id_update_at ON certRecords ( id, update_at );`,
+				},
+			},
+			{
+				// Creating owner_id column for project.
+				// Removing projects without project members
+				// And populating this column with first project member id
+				Description: "Creating owner_id column for projects table",
+				Version:     51,
+				Action: migrate.SQL{
+					`ALTER TABLE projects
+					ADD COLUMN owner_id BYTEA;`,
+
+					`UPDATE projects as proj
+					SET owner_id = (
+						SELECT member_id
+						FROM project_members
+						WHERE project_id = proj.id
+						ORDER BY created_at ASC
+						LIMIT 1
+					);`,
+
+					`DELETE FROM bucket_metainfos
+					WHERE project_id in (
+						SELECT id 
+						FROM projects 
+						WHERE owner_id is null
+					);`,
+
+					`DELETE FROM projects
+					WHERE owner_id is null;`,
+
+					`ALTER TABLE projects
+					ALTER COLUMN owner_id SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }

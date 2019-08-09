@@ -141,7 +141,7 @@ func TestContainUpdateStats(t *testing.T) {
 		require.NoError(t, err)
 
 		// update node stats
-		_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{NodeID: info1.NodeID})
+		_, err = cache.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{NodeID: info1.NodeID}}, 100)
 		require.NoError(t, err)
 
 		// check contained flag set to false

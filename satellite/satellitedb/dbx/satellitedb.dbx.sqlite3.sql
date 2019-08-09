@@ -59,7 +59,7 @@ CREATE TABLE certRecords (
 	publickey BLOB NOT NULL,
 	id BLOB NOT NULL,
 	update_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( publickey )
 );
 CREATE TABLE injuredsegments (
 	path BLOB NOT NULL,
@@ -139,6 +139,7 @@ CREATE TABLE projects (
 	description TEXT NOT NULL,
 	usage_limit INTEGER NOT NULL,
 	partner_id BLOB,
+	owner_id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -251,9 +252,10 @@ CREATE TABLE used_serials (
 );
 CREATE TABLE user_credits (
 	id INTEGER NOT NULL,
-	user_id BLOB NOT NULL REFERENCES users( id ),
+	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	offer_id INTEGER NOT NULL REFERENCES offers( id ),
-	referred_by BLOB REFERENCES users( id ),
+	referred_by BLOB REFERENCES users( id ) ON DELETE SET NULL,
+	type TEXT NOT NULL,
 	credits_earned_in_cents INTEGER NOT NULL,
 	credits_used_in_cents INTEGER NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
@@ -278,6 +280,7 @@ CREATE TABLE project_payments (
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE INDEX certrecord_id_update_at ON certRecords ( id, update_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );

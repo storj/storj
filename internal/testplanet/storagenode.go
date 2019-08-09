@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -51,26 +52,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			return nil, err
 		}
 
-		var db storagenode.DB
-		db, err = storagenodedb.NewTest(log.Named("db"), storageDir)
-		if err != nil {
-			return nil, err
-		}
-
-		if planet.config.Reconfigure.NewStorageNodeDB != nil {
-			db, err = planet.config.Reconfigure.NewStorageNodeDB(i, db, planet.log)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		err = db.CreateTables()
-		if err != nil {
-			return nil, err
-		}
-
-		planet.databases = append(planet.databases, db)
-
 		config := storagenode.Config{
 			Server: server.Config{
 				Address:        "127.0.0.1:0",
@@ -91,14 +72,14 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				BootstrapBackoffBase: 500 * time.Millisecond,
 				BootstrapBackoffMax:  2 * time.Second,
 				Alpha:                5,
-				DBPath:               storageDir, // TODO: replace with master db
+				DBPath:               filepath.Join(storageDir, "kademlia/"),
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@mail.test",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
 			Storage: piecestore.OldConfig{
-				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
+				Path:                   filepath.Join(storageDir, "pieces/"),
 				AllocatedDiskSpace:     1 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
@@ -106,6 +87,11 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			},
 			Collector: collector.Config{
 				Interval: time.Minute,
+			},
+			Nodestats: nodestats.Config{
+				MaxSleep:       0,
+				ReputationSync: 1 * time.Minute,
+				StorageSync:    1 * time.Minute,
 			},
 			Console: consoleserver.Config{
 				Address:   "127.0.0.1:0",
@@ -147,10 +133,38 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 
 		verInfo := planet.NewVersionInfo()
 
+		storageConfig := storagenodedb.Config{
+			Storage:  config.Storage.Path,
+			Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
+			Info2:    filepath.Join(config.Storage.Path, "info.db"),
+			Pieces:   config.Storage.Path,
+			Kademlia: config.Kademlia.DBPath,
+		}
+
+		var db storagenode.DB
+		db, err = storagenodedb.New(log.Named("db"), storageConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		if planet.config.Reconfigure.NewStorageNodeDB != nil {
+			db, err = planet.config.Reconfigure.NewStorageNodeDB(i, db, planet.log)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		peer, err := storagenode.New(log, identity, db, config, verInfo)
 		if err != nil {
 			return xs, err
 		}
+
+		err = db.CreateTables()
+		if err != nil {
+			return nil, err
+		}
+
+		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 		xs = append(xs, peer)

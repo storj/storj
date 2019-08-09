@@ -4,21 +4,18 @@
 package checker_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/storage"
 )
 
@@ -67,6 +64,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Loop.Stop()
+		checker.IrreparableLoop.Stop()
 
 		const numberOfNodes = 10
 		pieces := make([]*pb.RemotePiece, 0, numberOfNodes)
@@ -205,111 +203,4 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 	pointerdb := planet.Satellites[0].Metainfo.Service
 	err := pointerdb.Put(ctx, pieceID, pointer)
 	require.NoError(t, err)
-}
-
-func TestCheckerResume(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		repairQueue := &mockRepairQueue{}
-		irrepairQueue := planet.Satellites[0].DB.Irreparable()
-		config := checker.Config{
-			Interval:                  30 * time.Second,
-			IrreparableInterval:       15 * time.Second,
-			ReliabilityCacheStaleness: 5 * time.Minute,
-		}
-		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, repairQueue, planet.Satellites[0].Overlay.Service, irrepairQueue, 0, nil, config)
-
-		// create pointer that needs repair
-		makePointer(t, planet, "a", true)
-		// create pointer that will cause an error
-		makePointer(t, planet, "b", true)
-		// create pointer that needs repair
-		makePointer(t, planet, "c", true)
-		// create pointer that will cause an error
-		makePointer(t, planet, "d", true)
-
-		err := c.IdentifyInjuredSegments(ctx)
-		require.Error(t, err)
-
-		// "a" should be the only segment in the repair queue
-		injuredSegment, err := repairQueue.Select(ctx)
-		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, []byte("a"))
-		err = repairQueue.Delete(ctx, injuredSegment)
-		require.NoError(t, err)
-		injuredSegment, err = repairQueue.Select(ctx)
-		require.Error(t, err)
-
-		err = c.IdentifyInjuredSegments(ctx)
-		require.Error(t, err)
-
-		// "c" should be the only segment in the repair queue
-		injuredSegment, err = repairQueue.Select(ctx)
-		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, []byte("c"))
-		err = repairQueue.Delete(ctx, injuredSegment)
-		require.NoError(t, err)
-		injuredSegment, err = repairQueue.Select(ctx)
-		require.Error(t, err)
-
-		err = c.IdentifyInjuredSegments(ctx)
-		require.Error(t, err)
-
-		// "a" should be the only segment in the repair queue
-		injuredSegment, err = repairQueue.Select(ctx)
-		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, []byte("a"))
-		err = repairQueue.Delete(ctx, injuredSegment)
-		require.NoError(t, err)
-		injuredSegment, err = repairQueue.Select(ctx)
-		require.Error(t, err)
-	})
-}
-
-// mock repair queue used for TestCheckerResume
-type mockRepairQueue struct {
-	injuredSegments []pb.InjuredSegment
-}
-
-func (mockRepairQueue *mockRepairQueue) Insert(ctx context.Context, s *pb.InjuredSegment) error {
-	if bytes.Equal(s.Path, []byte("b")) || bytes.Equal(s.Path, []byte("d")) {
-		return errs.New("mock Insert error")
-	}
-	mockRepairQueue.injuredSegments = append(mockRepairQueue.injuredSegments, *s)
-	return nil
-}
-
-func (mockRepairQueue *mockRepairQueue) Select(ctx context.Context) (*pb.InjuredSegment, error) {
-	if len(mockRepairQueue.injuredSegments) == 0 {
-		return &pb.InjuredSegment{}, errs.New("mock Select error")
-	}
-	s := mockRepairQueue.injuredSegments[0]
-	return &s, nil
-}
-
-func (mockRepairQueue *mockRepairQueue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
-	var toDelete int
-	found := false
-	for i, seg := range mockRepairQueue.injuredSegments {
-		if bytes.Equal(seg.Path, s.Path) {
-			toDelete = i
-			found = true
-			break
-		}
-	}
-	if !found {
-		return errs.New("mock Delete error")
-	}
-
-	mockRepairQueue.injuredSegments = append(mockRepairQueue.injuredSegments[:toDelete], mockRepairQueue.injuredSegments[toDelete+1:]...)
-	return nil
-}
-
-func (mockRepairQueue *mockRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.InjuredSegment, error) {
-	return []pb.InjuredSegment{}, errs.New("mock SelectN error")
-}
-
-func (mockRepairQueue *mockRepairQueue) Count(ctx context.Context) (int, error) {
-	return len(mockRepairQueue.injuredSegments), nil
 }

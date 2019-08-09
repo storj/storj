@@ -93,25 +93,25 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
-	nodeSpaceUsages, err := e.accounting.QueryNodeDailySpaceUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
+	nodeSpaceUsages, err := e.accounting.QueryStorageNodeUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
 	if err != nil {
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
 	return &pb.DailyStorageUsageResponse{
 		NodeId:            node.Id,
-		DailyStorageUsage: toPBDailyStorageUsage(nodeSpaceUsages),
+		DailyStorageUsage: toProtoDailyStorageUsage(nodeSpaceUsages),
 	}, nil
 }
 
-// toPBDailyStorageUsage converts NodeSpaceUsage to PB DailyStorageUsageResponse_StorageUsage
-func toPBDailyStorageUsage(usages []accounting.NodeSpaceUsage) []*pb.DailyStorageUsageResponse_StorageUsage {
+// toProtoDailyStorageUsage converts StorageNodeUsage to PB DailyStorageUsageResponse_StorageUsage
+func toProtoDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyStorageUsageResponse_StorageUsage {
 	var pbUsages []*pb.DailyStorageUsageResponse_StorageUsage
 
 	for _, usage := range usages {
 		pbUsages = append(pbUsages, &pb.DailyStorageUsageResponse_StorageUsage{
-			AtRestTotal: usage.AtRestTotal,
-			TimeStamp:   usage.TimeStamp,
+			AtRestTotal: usage.StorageUsed,
+			Timestamp:   usage.Timestamp,
 		})
 	}
 

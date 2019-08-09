@@ -7,6 +7,7 @@ package main
 import "C"
 import (
 	"fmt"
+
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )

@@ -26,7 +26,7 @@ type SlowDB struct {
 func NewSlowDB(log *zap.Logger, db storagenode.DB) *SlowDB {
 	return &SlowDB{
 		DB:    db,
-		blobs: NewSlowBlobs(log, db.Pieces()),
+		blobs: newSlowBlobs(log, db.Pieces()),
 		log:   log,
 	}
 }
@@ -49,9 +49,9 @@ type SlowBlobs struct {
 	log   *zap.Logger
 }
 
-// NewSlowBlobs creates a new slow blob store wrapping the provided blobs.
+// newSlowBlobs creates a new slow blob store wrapping the provided blobs.
 // Use SetLatency to dynamically configure the latency of all operations.
-func NewSlowBlobs(log *zap.Logger, blobs storage.Blobs) *SlowBlobs {
+func newSlowBlobs(log *zap.Logger, blobs storage.Blobs) *SlowBlobs {
 	return &SlowBlobs{
 		log:   log,
 		blobs: blobs,
@@ -71,16 +71,62 @@ func (slow *SlowBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.B
 	return slow.blobs.Open(ctx, ref)
 }
 
+// OpenWithStorageFormat opens a reader for the already-located blob, avoiding the potential need
+// to check multiple storage formats to find the blob.
+func (slow *SlowBlobs) OpenWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobReader, error) {
+	slow.sleep()
+	return slow.blobs.OpenWithStorageFormat(ctx, ref, formatVer)
+}
+
 // Delete deletes the blob with the namespace and key.
 func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 	slow.sleep()
 	return slow.blobs.Delete(ctx, ref)
 }
 
+// Stat looks up disk metadata on the blob file
+func (slow *SlowBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.BlobInfo, error) {
+	slow.sleep()
+	return slow.blobs.Stat(ctx, ref)
+}
+
+// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
+// version. This avoids the potential need to check multiple storage formats for the blob
+// when the format is already known.
+func (slow *SlowBlobs) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobInfo, error) {
+	slow.sleep()
+	return slow.blobs.StatWithStorageFormat(ctx, ref, formatVer)
+}
+
+// WalkNamespace executes walkFunc for each locally stored blob in the given namespace.
+// If walkFunc returns a non-nil error, WalkNamespace will stop iterating and return the
+// error immediately.
+func (slow *SlowBlobs) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(storage.BlobInfo) error) error {
+	slow.sleep()
+	return slow.blobs.WalkNamespace(ctx, namespace, walkFunc)
+}
+
+// ListNamespaces returns all namespaces that might be storing data.
+func (slow *SlowBlobs) ListNamespaces(ctx context.Context) ([][]byte, error) {
+	return slow.blobs.ListNamespaces(ctx)
+}
+
 // FreeSpace return how much free space left for writing.
 func (slow *SlowBlobs) FreeSpace() (int64, error) {
 	slow.sleep()
 	return slow.blobs.FreeSpace()
+}
+
+// SpaceUsed adds up how much is used in all namespaces
+func (slow *SlowBlobs) SpaceUsed(ctx context.Context) (int64, error) {
+	slow.sleep()
+	return slow.blobs.SpaceUsed(ctx)
+}
+
+// SpaceUsedInNamespace adds up how much is used in the given namespace
+func (slow *SlowBlobs) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
+	slow.sleep()
+	return slow.blobs.SpaceUsedInNamespace(ctx, namespace)
 }
 
 // SetLatency configures the blob store to sleep for delay duration for all
