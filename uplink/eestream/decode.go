@@ -195,32 +195,18 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (_ io.
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
 	firstBlock, blockCount := encryption.CalcEncompassingBlocks(offset, length, dr.es.StripeSize())
+
 	// go ask for ranges for all those block boundaries
-	// do it parallel to save from network latency
 	readers := make(map[int]io.ReadCloser, len(dr.rrs))
-	type indexReadCloser struct {
-		i   int
-		r   io.ReadCloser
-		err error
-	}
-	result := make(chan indexReadCloser, len(dr.rrs))
 	for i, rr := range dr.rrs {
-		go func(i int, rr ranger.Ranger) {
-			r, err := rr.Range(ctx,
-				firstBlock*int64(dr.es.ErasureShareSize()),
-				blockCount*int64(dr.es.ErasureShareSize()))
-			result <- indexReadCloser{i: i, r: r, err: err}
-		}(i, rr)
-	}
-	// wait for all goroutines to finish and save result in readers map
-	for range dr.rrs {
-		res := <-result
-		if res.err != nil {
-			readers[res.i] = readcloser.FatalReadCloser(res.err)
+		r, err := rr.Range(ctx, firstBlock*int64(dr.es.ErasureShareSize()), blockCount*int64(dr.es.ErasureShareSize()))
+		if err != nil {
+			readers[i] = readcloser.FatalReadCloser(err)
 		} else {
-			readers[res.i] = res.r
+			readers[i] = r
 		}
 	}
+
 	// decode from all those ranges
 	r := DecodeReaders(ctx, dr.log, readers, dr.es, blockCount*int64(dr.es.StripeSize()), dr.mbm, dr.forceErrorDetection)
 	// offset might start a few bytes in, potentially discard the initial bytes
