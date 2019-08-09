@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"golang.org/x/sync/errgroup"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -41,12 +42,18 @@ type Service struct {
 	Reporter reporter
 
 	Loop sync2.Cycle
+
+	// for audit 2.0 using metainfoloop
+	Loop2           sync2.Cycle
+	overlay         *overlay.Service
+	metainfoLoop    *metainfo.Loop
+	reservoirConfig reservoirConfig
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Service,
-	containment Containment, identity *identity.FullIdentity) (*Service, error) {
+	containment Containment, identity *identity.FullIdentity, loop *metainfo.Loop, reservoirConfig reservoirConfig) (*Service, error) {
 	return &Service{
 		log: log,
 
@@ -54,7 +61,13 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 		Verifier: NewVerifier(log.Named("audit:verifier"), metainfo, transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
 		Reporter: NewReporter(log.Named("audit:reporter"), overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
 
-		Loop: *sync2.NewCycle(config.Interval),
+		// for audit 2.0
+		overlay:         overlay,
+		reservoirConfig: reservoirConfig,
+		metainfoLoop:    loop,
+
+		Loop:  *sync2.NewCycle(config.Interval),
+		Loop2: *sync2.NewCycle(config.Interval),
 	}, nil
 }
 
@@ -63,13 +76,33 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("Audit cron is starting up")
 
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		err := service.process(ctx)
-		if err != nil {
-			service.log.Error("process", zap.Error(err))
-		}
-		return nil
+	group, ctx := errgroup.WithContext(ctx)
+
+	group.Go(func() error {
+		return service.Loop.Run(ctx, func(ctx context.Context) error {
+			defer mon.Task()(&ctx)(&err)
+			err := service.process(ctx)
+			if err != nil {
+				service.log.Error("process", zap.Error(err))
+			}
+			return nil
+		})
 	})
+
+	group.Go(func() error {
+		return service.Loop2.Run(ctx, func(ctx context.Context) error {
+			defer mon.Task()(&ctx)(&err)
+			observer := newObserver(service.log.Named("audit observer"), service.overlay, service.reservoirConfig)
+			err = service.metainfoLoop.Join(ctx, observer)
+			if err != nil {
+				service.log.Error("error joining metainfoloop", zap.Error(err))
+				return nil
+			}
+			return nil
+		})
+	})
+
+	return group.Wait()
 }
 
 // Close halts the audit loop
