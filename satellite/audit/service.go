@@ -5,11 +5,11 @@ package audit
 
 import (
 	"context"
-	"golang.org/x/sync/errgroup"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
