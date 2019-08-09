@@ -260,6 +260,7 @@ model project (
     field description    text      ( updatable )
     field usage_limit    int64     ( updatable )
     field partner_id     blob      ( nullable  )
+    field owner_id       blob
 
     field created_at     timestamp ( autoinsert )
 )
