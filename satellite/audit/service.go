@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
@@ -41,10 +40,6 @@ type Service struct {
 	Verifier *Verifier
 	Reporter reporter
 
-	overlay         *overlay.Service
-	Reservoirs      map[storj.NodeID]*Reservoir
-	reservoirConfig reservoirConfig
-
 	Loop sync2.Cycle
 }
 
@@ -58,7 +53,6 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 		Cursor:   NewCursor(metainfo),
 		Verifier: NewVerifier(log.Named("audit:verifier"), metainfo, transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
 		Reporter: NewReporter(log.Named("audit:reporter"), overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
-		overlay:  overlay,
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
@@ -76,31 +70,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		}
 		return nil
 	})
-}
-
-// RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already
-func (service *Service) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx, path)(&err)
-
-	remote := pointer.GetRemote()
-	pieces := remote.GetRemotePieces()
-
-	for i, piece := range pieces {
-		if _, ok := service.Reservoirs[piece.NodeId]; !ok {
-			reputable, err := service.overlay.IsVetted(ctx, piece.NodeId)
-			if err != nil {
-				service.log.Error("error finding if node is vetted", zap.Error(err))
-				return nil
-			}
-			reservoir := NewReservoir(reputable, service.reservoirConfig)
-			reservoir.Segments[0] = remote
-			service.Reservoirs[piece.NodeId] = reservoir
-		} else {
-			service.Reservoirs[piece.NodeId].sample(remote, i)
-		}
-	}
-
-	return nil
 }
 
 // Close halts the audit loop
