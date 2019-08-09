@@ -1,0 +1,13 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`HeaderArea.vue renders correctly 1`] = `
+<div class="team-header-container">
+  <headercomponent-stub placeholder="Team Members" search="function () { [native code] }" title="Project Members">
+    <div class="header-default-state"><span>The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
+      <button-stub label="+Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></button-stub>
+    </div>
+    <!---->
+    <!---->
+  </headercomponent-stub>
+</div>
+`;
