@@ -18,15 +18,15 @@ type observer struct {
 	log *zap.Logger
 
 	overlay         *overlay.Service
-	reservoirs      map[storj.NodeID]*Reservoir
+	Reservoirs      map[storj.NodeID]*Reservoir
 	reservoirConfig ReservoirConfig
 }
 
-func newObserver(log *zap.Logger, overlay *overlay.Service, config ReservoirConfig) *observer {
+func NewObserver(log *zap.Logger, overlay *overlay.Service, config ReservoirConfig) *observer {
 	return &observer{
 		log:             log,
 		overlay:         overlay,
-		reservoirs:      make(map[storj.NodeID]*Reservoir),
+		Reservoirs:      make(map[storj.NodeID]*Reservoir),
 		reservoirConfig: config,
 	}
 }
@@ -36,7 +36,7 @@ func (observer *observer) RemoteSegment(ctx context.Context, path storj.Path, po
 	defer mon.Task()(&ctx, path)(&err)
 
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		if _, ok := observer.reservoirs[piece.NodeId]; !ok {
+		if _, ok := observer.Reservoirs[piece.NodeId]; !ok {
 			reputable, err := observer.overlay.IsVetted(ctx, piece.NodeId)
 			if err != nil {
 				observer.log.Error("error finding if node is vetted", zap.Error(err))
@@ -48,9 +48,9 @@ func (observer *observer) RemoteSegment(ctx context.Context, path storj.Path, po
 			} else {
 				slots = observer.reservoirConfig.SlotsForUnvetted
 			}
-			observer.reservoirs[piece.NodeId] = NewReservoir(slots)
+			observer.Reservoirs[piece.NodeId] = NewReservoir(slots)
 		}
-		observer.reservoirs[piece.NodeId].sample(path)
+		observer.Reservoirs[piece.NodeId].sample(path)
 	}
 	return nil
 }
