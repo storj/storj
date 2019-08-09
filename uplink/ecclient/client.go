@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"sort"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -489,17 +488,12 @@ type lazyPieceReader struct {
 	offset int64
 	length int64
 
-	mu sync.RWMutex
-
 	isClosed bool
 	closers  []io.Closer
 	piecestore.Downloader
 }
 
 func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
-	lr.mu.RLock()
-	defer lr.mu.RUnlock()
-
 	if lr.isClosed {
 		return 0, io.EOF
 	}
@@ -509,7 +503,7 @@ func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
 			return 0, err
 		}
 		lr.Downloader = downloader
-		lr.closers = []io.Closer{downloader, client}
+		lr.closers = []io.Closer{client}
 	}
 
 	return lr.Downloader.Read(data)
@@ -533,9 +527,6 @@ func (lr *lazyPieceRanger) dial(ctx context.Context, offset, length int64) (_ *p
 }
 
 func (lr *lazyPieceReader) Close() (err error) {
-	lr.mu.Lock()
-	defer lr.mu.Unlock()
-
 	if lr.isClosed {
 		return nil
 	}
