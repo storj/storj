@@ -494,10 +494,7 @@ type clientCloser struct {
 }
 
 func (client *clientCloser) Close() error {
-	return errs.Combine(
-		client.Downloader.Close(),
-		client.client.Close(),
-	)
+	return client.client.Close()
 }
 
 func nonNilCount(limits []*pb.AddressedOrderLimit) int {
