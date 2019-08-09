@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"storj.io/storj/pkg/storj"
 	"sync"
 	"time"
 
@@ -25,7 +26,7 @@ type BlobsUsageCache struct {
 
 type spaceUsed struct {
 	total            int64
-	totalBySatellite map[string]int64
+	totalBySatellite map[storj.NodeID]int64
 }
 
 // NewBlobsUsageCache creates a new disk blob store with a space used cache
@@ -33,11 +34,12 @@ func NewBlobsUsageCache(blob storage.Blobs) *BlobsUsageCache {
 	return &BlobsUsageCache{
 		Blobs: blob,
 		cache: spaceUsed{
-			totalBySatellite: map[string]int64{},
+			totalBySatellite: map[storj.NodeID]int64{},
 		},
 	}
 }
 
+// CacheService updates the space used cache
 type CacheService struct {
 	log             *zap.Logger
 	blobsUsageCache *BlobsUsageCache
@@ -55,30 +57,80 @@ func NewService(log *zap.Logger, blobsUsageCache *BlobsUsageCache, pieces *Store
 	}
 }
 
+// Run runs the cache service loop which recalculates and updates the space used cache
 func (service *CacheService) Run(ctx context.Context) (err error) {
-	return service.loop.Run(ctx, func(ctx context.Context) error {
-
-		totalSpaceUsed, totalSpaceUsedBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
+	return service.loop.Run(ctx, func(ctx context.Context) (err error) {
+		defer mon.Task()(&ctx)(&err)
+		total, totalBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
 		if err != nil {
 			service.log.Error("error getting current space used calculation: ", zap.Error(err))
 		}
-		service.blobsUsageCache.recalculate(ctx, totalSpaceUsed, totalSpaceUsedBySatellite)
-		if err != nil {
+		if err = service.blobsUsageCache.recalculate(ctx, total, totalBySatellite); err != nil {
 			service.log.Error("error during recalculating space usage cache: ", zap.Error(err))
 		}
-		service.log.Debug("recalculating...", zap.Int64("new total:", service.blobsUsageCache.cache.total))
+		service.log.Debug("CacheService Run:", zap.Int64("new total:", service.blobsUsageCache.cache.total))
+
+		for saID, t := range totalBySatellite {
+			service.log.Debug("CacheService Run:", zap.String("saID", saID.String()), zap.Int64("new sa total:", t))
+		}
+
+		// TODO: do we want to update the spaceUsedDB table every time we recalculate or only when the storagenode closes down
+		if err := service.PersistCacheTotals(ctx); err != nil {
+			service.log.Error("error during initializing space usage cache, saveCache: ", zap.Error(err))
+		}
 		return err
 	})
 }
 
-// Total satisfies the pieces interface
-func (blobs *BlobsUsageCache) Total() int64 {
-	return blobs.cache.total
+func (service *CacheService) PersistCacheTotals(ctx context.Context) error {
+	cache := service.blobsUsageCache.cache
+	if err := service.store.spaceUsedDB.UpdateTotal(ctx, cache.total); err != nil {
+		return err
+	}
+	if err := service.store.spaceUsedDB.UpdateTotalsForAllSatellites(ctx, cache.totalBySatellite); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Init initializes the space used cache with the most recent values that were stored persistently
+func (service *CacheService) Init(ctx context.Context) (err error) {
+	total, err := service.store.spaceUsedDB.GetTotal(ctx)
+	if err != nil {
+		service.log.Error("CacheServiceInit error during initializing space usage cache GetTotal:", zap.Error(err))
+		return err
+	}
+	service.log.Debug("CacheServiceInit initializing cache GetTotal", zap.Int64("new total:", total))
+
+	totalBySatellites, err := service.store.spaceUsedDB.GetTotalsForAllSatellites(ctx)
+	if err != nil {
+		service.log.Error("CacheServiceInit error during initializing space usage cache GetTotalsForAllSatellites:", zap.Error(err))
+		return err
+	}
+	for _, saTotal := range totalBySatellites {
+		service.log.Debug("CacheServiceInit initializing cache SA total", zap.Int64("new totalBySA:", saTotal))
+	}
+
+	service.blobsUsageCache.init(total, totalBySatellites)
+	return nil
+}
+
+// Close closes the loop
+func (service *CacheService) Close() (err error) {
+	service.loop.Close()
+	return nil
+}
+
+func (blobs *BlobsUsageCache) init(total int64, totalBySatellite map[storj.NodeID]int64) {
+	blobs.mu.Lock()
+	defer blobs.mu.Unlock()
+	blobs.cache.total = total
+	blobs.cache.totalBySatellite = totalBySatellite
 }
 
 // SpaceUsedBySatelliteLive returns the current total space used for a specific
 // satellite for all pieces (not including header bytes)
-func (blobs *BlobsUsageCache) SpaceUsedBySatelliteLive(ctx context.Context, satelliteID string) int64 {
+func (blobs *BlobsUsageCache) SpaceUsedBySatelliteLive(ctx context.Context, satelliteID storj.NodeID) int64 {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
 	return blobs.cache.totalBySatellite[satelliteID]
@@ -92,7 +144,7 @@ func (blobs *BlobsUsageCache) SpaceUsedForPiecesLive(ctx context.Context) int64 
 	return blobs.cache.total
 }
 
-func (blobs *BlobsUsageCache) update(ctx context.Context, satelliteID string, pieceContentSize int64) {
+func (blobs *BlobsUsageCache) update(ctx context.Context, satelliteID storj.NodeID, pieceContentSize int64) {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
 	blobs.cache.total += pieceContentSize
@@ -104,7 +156,7 @@ func (blobs *BlobsUsageCache) Close() error {
 	return nil
 }
 
-func (blobs *BlobsUsageCache) recalculate(ctx context.Context, newTotalSpaceUsed int64, newTotalSpaceUsedByNamespace map[string]int64) error {
+func (blobs *BlobsUsageCache) recalculate(ctx context.Context, newTotalSpaceUsed int64, newTotalSpaceUsedByNamespace map[storj.NodeID]int64) error {
 	spaceUsedWhenIterationStarted := blobs.cache
 
 	var estimatedTotals int64
@@ -113,7 +165,7 @@ func (blobs *BlobsUsageCache) recalculate(ctx context.Context, newTotalSpaceUsed
 		blobs.cache.total,
 	)
 
-	var estimatedTotalsBySatellite = map[string]int64{}
+	var estimatedTotalsBySatellite = map[storj.NodeID]int64{}
 	for sa, newTotal := range newTotalSpaceUsedByNamespace {
 		estimatedTotalsBySatellite[sa] = estimate(newTotal,
 			spaceUsedWhenIterationStarted.total,
@@ -159,7 +211,9 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef storage.BlobRe
 		return Error.Wrap(err)
 	}
 
-	blobs.update(ctx, string(blobRef.Namespace), pieceContentSize)
+	satelliteID := storj.NodeID{}
+	satelliteID.Scan(blobRef.Namespace)
+	blobs.update(ctx, satelliteID, pieceContentSize)
 	return nil
 }
 
@@ -201,7 +255,9 @@ func (blob *blobCacheWriter) Commit(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	blob.usageCache.update(ctx, blob.namespace, size)
+	satelliteID := storj.NodeID{}
+	satelliteID.Scan(blob.namespace)
+	blob.usageCache.update(ctx, satelliteID, size)
 
 	err = blob.BlobWriter.Commit(ctx)
 	if err != nil {

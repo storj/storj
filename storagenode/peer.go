@@ -5,7 +5,6 @@ package storagenode
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"time"
 
@@ -58,6 +57,7 @@ type DB interface {
 	Orders() orders.DB
 	V0PieceInfo() pieces.V0PieceInfoDB
 	PieceExpirationDB() pieces.PieceExpirationDB
+	PieceSpaceUsedDB() pieces.PieceSpaceUsedDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
@@ -239,8 +239,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		}
 
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.DB.Pieces())
-		fmt.Println("*** starting: ", peer.Storage2.BlobsCache.Total())
-		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.Storage2.BlobsCache, peer.DB.V0PieceInfo(), peer.DB.PieceExpirationDB())
+
+		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"),
+			peer.Storage2.BlobsCache,
+			peer.DB.V0PieceInfo(),
+			peer.DB.PieceExpirationDB(),
+			peer.DB.PieceSpaceUsedDB(),
+		)
 
 		peer.Storage2.CacheService = pieces.NewService(
 			log.Named("piecestore:cacheUpdate"),
@@ -442,6 +447,9 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Storage2.Sender != nil {
 		errlist.Add(peer.Storage2.Sender.Close())
+	}
+	if peer.Storage2.CacheService != nil {
+		errlist.Add(peer.Storage2.CacheService.Close())
 	}
 	if peer.Collector != nil {
 		errlist.Add(peer.Collector.Close())

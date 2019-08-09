@@ -152,7 +152,7 @@ func (s *Service) GetUsedStorageTotal(ctx context.Context) (_ *DiskSpaceInfo, er
 func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ *DiskSpaceInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	spaceUsed := s.pieceStoreCache.SpaceUsedBySatelliteLive(ctx, satelliteID.String())
+	spaceUsed := s.pieceStoreCache.SpaceUsedBySatelliteLive(ctx, satelliteID)
 	return &DiskSpaceInfo{Available: s.allocatedDiskSpace.Int64() - spaceUsed, Used: spaceUsed}, nil
 }
 

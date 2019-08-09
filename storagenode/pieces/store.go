@@ -98,6 +98,18 @@ type V0PieceInfoDBForTest interface {
 	Add(context.Context, *Info) error
 }
 
+// PieceSpaceUsedDB stores the most recent totals from the space used cache
+type PieceSpaceUsedDB interface {
+	// GetTotal returns the total space used by all pieces stored on disk
+	GetTotal(ctx context.Context) (int64, error)
+	// GetTotalsForAllSatellites returns how much total space used by pieces stored on disk for each satelliteID
+	GetTotalsForAllSatellites(ctx context.Context) (map[storj.NodeID]int64, error)
+	// UpdateTotal updates the record for total spaced used with a new value
+	UpdateTotal(ctx context.Context, newTotal int64) error
+	// UpdateTotalsForAllSatellites updates each record for total spaced used with a new value for each satelliteID
+	UpdateTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]int64) error
+}
+
 // StoredPieceAccess allows inspection and manipulation of a piece during iteration with
 // WalkSatellitePieces-type methods.
 type StoredPieceAccess interface {
@@ -127,6 +139,7 @@ type Store struct {
 	blobs          storage.Blobs
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
+	spaceUsedDB    PieceSpaceUsedDB
 
 	// The value of reservedSpace is always added to the return value from the
 	// SpaceUsedForPieces() method.
@@ -143,12 +156,13 @@ type StoreForTest struct {
 }
 
 // NewStore creates a new piece store
-func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB) *Store {
+func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, pieceSpaceUsedDB PieceSpaceUsedDB) *Store {
 	return &Store{
 		log:            log,
 		blobs:          blobs,
 		v0PieceInfo:    v0PieceInfo,
 		expirationInfo: expirationInfo,
+		spaceUsedDB:    pieceSpaceUsedDB,
 	}
 }
 
@@ -393,11 +407,11 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 }
 
 // SpaceUsedTotalAndBySatellite adds up the space used by and for all namespaces for blob storage
-func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (_ int64, _ map[string]int64, err error) {
+func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (_ int64, _ map[storj.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var totalSpaceUsed int64
-	var totalSpaceUsedBySatellite = map[string]int64{}
+	var totalSpaceUsedBySatellite = map[storj.NodeID]int64{}
 	satelliteIDs, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
 		return totalSpaceUsed, totalSpaceUsedBySatellite, Error.New("failed to enumerate satellites: %v", err)
@@ -408,7 +422,7 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (_ int64, 
 			return totalSpaceUsed, totalSpaceUsedBySatellite, Error.New("failed to sum space used: %v", err)
 		}
 		totalSpaceUsed += used
-		totalSpaceUsedBySatellite[satelliteID.String()] = used
+		totalSpaceUsedBySatellite[satelliteID] = used
 	}
 	return totalSpaceUsed, totalSpaceUsedBySatellite, nil
 }
