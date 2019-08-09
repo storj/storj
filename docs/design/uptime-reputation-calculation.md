@@ -43,11 +43,11 @@ The approach described in this document present the following advantages:
 
 1. It's clear why an _SN_ get disqualified due to failed uptime checks.
 1. It has a clear proof for an _SNOs_ why their _SNs_ get disqualified due to failed uptime check in case that they request it before the designed time to clean up the historical failed uptime checks data.
-1. It allows to report to _SN_ at any how far is to be disqualified by failing uptime checks.
+1. It allows reporting to an _SN_, at any point, how far it's from disqualified by failing uptime checks.
 
 And the following disadvantages
 
-1. It requires to store, for some period of time, historical for nodes which have failed at least one uptime check.
+1. It requires the satellite to store, for some period of time, historical data for nodes which have failed at least one uptime check.
 1. It requires more resources than the current implemented approach.
 1. It doesn't calculate the exact time that an _SN_ is offline; once an _SN_ has a failed uptime check the time elapsed between the last failed uptime check and the next succeeded uptime check causes not to have the accurate offline time.
 1. The _"score"_ obtained from uptime check failures, without any further modification, doesn't integrate with the current _SN reputation system_.
