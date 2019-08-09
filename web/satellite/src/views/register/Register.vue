@@ -46,7 +46,7 @@
                 this.secret = this.$route.query.token.toString();
             }
 
-            let { ids= '' } = this.$route.params;
+            let { ids = '' } = this.$route.params;
             let decoded = '';
             try {
                 decoded = atob(ids);

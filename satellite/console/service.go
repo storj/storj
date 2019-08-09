@@ -178,11 +178,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return errs.New(internalErrMsg)
 		}
 
-		if registrationToken != nil {
-			err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
-			if err != nil {
-				return errs.New(internalErrMsg)
-			}
+		err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+		if err != nil {
+			return errs.New(internalErrMsg)
 		}
 
 		if currentReward != nil {
