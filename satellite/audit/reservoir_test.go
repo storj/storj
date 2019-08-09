@@ -4,9 +4,11 @@
 package audit
 
 import (
-	"github.com/stretchr/testify/require"
-	"storj.io/storj/pkg/storj"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/pkg/storj"
 )
 
 func TestReservoirSampling(t *testing.T) {
