@@ -118,7 +118,6 @@ Once an _SN_ is selected for an uptime check, the current implemented uptime che
 1. Check the _SN_ as it's currently done; if it succeeds, then end, otherwise follow with the next step.
 1. Insert a new row in the `failed_uptime_checks` using its node ID and setting the current timestamp to `when` and `last_check`.
 
-
 #### Uptime Recheck Loop
 
 This process should run independently from any current satellite process and it should run in a configurable time interval.
@@ -133,14 +132,26 @@ The algorithm for each time interval iteration is the following:
 1. Calculate its total offline time of the uptime check period, accumulating the offline time interval of each row corresponding to this _SN_ with `back_online` not being `NULL` and the current offline interval time calculated with the current timestamp and the `when` value of this row. If the total offline time doesn't exceed the established network limits go to 1, otherwise continue.
 1. Update the row setting `disqualified` and `last_check` to the current timestamp and increment `count`; then disqualifies the _SN_<sup>2</sup>.
 
-
-#### Configurable parameters
+### Configurable parameters
 
 The following parameters will be configurable:
 
 1. Uptime check period: It's the number of days where uptime check failures are accumulated for calculating the total offline time of _SNs_. Default 30 days.
 1. Maximum allowed offline time. It's the percentage of the uptime check period that _SNs_ can be offline for not being disqualified. Default 0.05%.
 1. Uptime recheck interval. It's the time interval that _SNs_ which failed the initial uptime check are rechecked until they are back online, disqualified or we stop to check them because they are not in the network anymore. Default 1 hour.
+
+### Metrics
+
+This section mentions the specific metrics that the [Uptime Recheck Loop](#uptime-recheck-loop) (algorithm part 2) must take; the section doesn't mention any metric regarding to [Uptime Check _SN_ selection](uptime-check-sn-selection) (algorithm part 1) because the current implementation is used so it already has metrics and it's out of the scope of this design document.
+
+The following metrics must be tracked:
+
+* Number of failed uptime checks per _SN_.
+* Number of succeeded uptime checks per _SN_.
+* Subtotals that each_SN_ has been offline per uptime check period.
+* The total number of _SNs_ are disqualified due to uptime check failures per uptime check period.
+
+This metrics will be tracked through [monkit](https://github.com/spacemonkeygo/monkit) which is the system currently used for such purpose.
 
 ## Open issues
 
