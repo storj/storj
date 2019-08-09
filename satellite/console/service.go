@@ -95,10 +95,28 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 
 // CreateUser gets password hash value and creates new inactive User
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
-	offerType := rewards.FreeCredit
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
+	}
+
+	offerType := rewards.FreeCredit
+	if user.PartnerID != "" {
+		offerType = rewards.Partner
+	} else if refUserID != "" {
+		offerType = rewards.Referral
+	}
+
+	//TODO: Create a current offer cache to replace database call
+	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
+	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+		s.log.Error("internal error", zap.Error(err))
+		return nil, errs.New(internalErrMsg)
+	}
+	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
+	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+		s.log.Error("internal error", zap.Error(err))
+		return nil, errs.New(internalErrMsg)
 	}
 
 	// TODO: remove after vanguard release
@@ -129,23 +147,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
-	}
-	if user.PartnerID != "" {
-		offerType = rewards.Partner
-	} else if refUserID != "" {
-		offerType = rewards.Referral
-	}
-
-	//TODO: Create a current offer cache to replace database call
-	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
-		s.log.Error("internal error", zap.Error(err))
-		return nil, errs.New(internalErrMsg)
-	}
-	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
-	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
-		s.log.Error("internal error", zap.Error(err))
 		return nil, errs.New(internalErrMsg)
 	}
 
