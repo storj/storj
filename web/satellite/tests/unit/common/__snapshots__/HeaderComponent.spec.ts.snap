@@ -2,7 +2,6 @@
 
 exports[`HeaderComponent.vue renders correctly 1`] = `
 <div class="header-container">
-  <h1></h1>
   <div class="header-container__wrapper">
     <div class="header-container__buttons-area"></div>
     <searchcomponent-stub placeholder="" search=""></searchcomponent-stub>
