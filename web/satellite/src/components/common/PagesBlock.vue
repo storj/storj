@@ -16,7 +16,7 @@
     import { Page } from '@/types/pagination';
 
     @Component
-    export default class PaginationArea extends Vue {
+    export default class PagesBlock extends Vue {
         @Prop({default: []})
         public readonly pages: Page[];
         @Prop({default: () => false})

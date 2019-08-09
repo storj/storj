@@ -28,7 +28,7 @@
             PagesBlock,
         }
     })
-    export default class PaginationArea extends Vue {
+    export default class Pagination extends Vue {
         // TODO: use svg loader
         public readonly arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
         public readonly arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
