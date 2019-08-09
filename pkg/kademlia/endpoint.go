@@ -14,23 +14,28 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/storagenode/trust"
+	"storj.io/storj/pkg/storj"
 )
 
 // EndpointError defines errors class for Endpoint
 var EndpointError = errs.Class("kademlia endpoint error")
+
+// SatelliteIDVerifier checks if the connection is from a trusted satellite
+type SatelliteIDVerifier interface {
+	VerifySatelliteID(ctx context.Context, id storj.NodeID) error
+}
 
 // Endpoint implements the kademlia Endpoints
 type Endpoint struct {
 	log          *zap.Logger
 	service      *Kademlia
 	routingTable *RoutingTable
-	trust        *trust.Pool
+	trust        SatelliteIDVerifier
 	connected    int32
 }
 
 // NewEndpoint returns a new kademlia endpoint
-func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable, trust *trust.Pool) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable, trust SatelliteIDVerifier) *Endpoint {
 	return &Endpoint{
 		log:          log,
 		service:      service,
@@ -100,6 +105,10 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 	self := endpoint.service.Local()
 
 	if self.Type == pb.NodeType_STORAGE {
+		if endpoint.trust == nil {
+			return nil, status.Error(codes.Internal, "missing trust verifier")
+		}
+
 		peer, err := identity.PeerIdentityFromContext(ctx)
 		if err != nil {
 			return nil, status.Error(codes.Unauthenticated, err.Error())
