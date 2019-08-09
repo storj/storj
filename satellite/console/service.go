@@ -103,7 +103,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	// TODO: remove after vanguard release
 	var registrationToken *RegistrationToken
-	if user.PartnerID == "" {
+	if user.PartnerID != "" {
+		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
+		if err != nil {
+			return nil, errs.New(internalErrMsg)
+		}
+	} else {
 		registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
 		if err != nil {
 			return nil, errs.New(vanguardRegTokenErrMsg)
