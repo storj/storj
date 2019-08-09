@@ -56,7 +56,8 @@ The size of all piece hashes downloaded should be roughly equal to a default max
     Chunk chunk = 1;
     optional PieceHash hash = 2;
     optional OrderLimit limit = 3;
-}```
+}
+```
 
 2. Alter the storage node code to populate `PieceHash` and `OrderLimit` when the `OrderLimit` `Action` is `GET_REPAIR`.
 
