@@ -9,17 +9,16 @@
             :is="itemComponent"
             :itemData="item"
             @click.native="onItemClick(item)"
-            v-bind:class="[item.isSelected ? 'selected' : '']"/>
+            v-bind:class="[item.isSelected ? 'selected' : '']"
+            v-bind:key="item.id"/>
     </div>
 </template>
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {},
-    })
-    export default class List<T> extends Vue {
+    @Component
+    export default class List extends Vue {
         @Prop({default: ''})
         private readonly itemComponent: string;
         @Prop({
@@ -27,9 +26,9 @@
                 console.error('onItemClick is not reinitialized');
             }
         })
-        private readonly onItemClick: ListItemClickCallback<T>;
-        @Prop({default: Array<T>()})
-        private readonly dataSet: T[];
+        private readonly onItemClick: ListItemClickCallback;
+        @Prop({default: Array()})
+        private readonly dataSet: any[];
 
     }
 </script>
