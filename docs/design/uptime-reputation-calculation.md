@@ -153,10 +153,18 @@ The following metrics must be tracked:
 
 This metrics will be tracked through [monkit](https://github.com/spacemonkeygo/monkit) which is the system currently used for such purpose.
 
+### _SN_ reputation score
+
+Currently, the system calculates _SNs_ reputation scores combining the result of audit checks and the first uptime check.
+
+The current _SN_ reputation score calculation will remain, hence the result of the first uptime check which is executed by the [Uptime Check _SN_ selection](uptime-check-sn-selection) (algorithm part 1) will be still used as now.
+
+When we have collected enough metrics of the [Uptime Recheck Loop](#uptime-recheck-loop) (algorithm part 2), we'll assess if the _SN_ reputation calculation should be changed using the results of the [Uptime Recheck Loop](#uptime-recheck-loop).
+
+
 ## Open issues
 
 Currently we have the following issues and concerns which can affects somehow the implementation of this system:
 
-1. Currently the uptime checks are combined with the audit check for calculating the total _SN_ reputation; after this implementation, the uptime check doesn't present a _"score"_ which can directly combined with.
 1. The implementation of this system requires to interact with other satellite processes, <sup>1</sup> getting the _SN_ address and <sup>2</sup> disqualify a _SN_; for keeping this system uncoupled of those processes and being able to scale up the satellite, it should be a way to perform those operations through an interface which will remain once the satellite will be broken into different distributed system.
 1. The implementation of _uptime recheck loop_ section should contain a protocol buffers definition in case the process run on a different machine; this part hasn't been elaborated because we may decide on not doing it for the first version but we should consider it during the implementation for being able to adapt it with the minimal modifications.
