@@ -366,6 +366,7 @@ github.com/spf13/pflag v1.0.3 h1:zPAT6CGy6wXeQ7NtTnaTerfKOsV6V6F8agHXFiazDkg=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/viper v1.4.0 h1:yXHLWeravcrgGyFSyCgdYpXQ9dR9c/WED3pg1RhxqEU=
 github.com/spf13/viper v1.4.0/go.mod h1:PTJ7Z/lr49W6bUbkmS1V3by4uWynFiR9p7+dSq/yZzE=
+github.com/storj/grpc-go v1.22.1-0.20190808142608-8c6988074762 h1:Icwzws9OpSjh1r2NipTa9PMVGUEO7Ab2i/a4HGn9WHA=
 github.com/storj/grpc-go v1.22.1-0.20190808142608-8c6988074762/go.mod h1:iGXtpppuCBUYpHRAS+WAD5sZH3LsRjHdqV0iDN+I0nY=
 github.com/storj/grpc-go v1.22.1-notrace h1:cLzaU3QNAHmweqqfXl0cew09ifL4CC2ewXjzmGm8xak=
 github.com/storj/grpc-go v1.22.1-notrace/go.mod h1:iGXtpppuCBUYpHRAS+WAD5sZH3LsRjHdqV0iDN+I0nY=
