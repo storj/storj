@@ -89,9 +89,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				Interval: time.Minute,
 			},
 			Nodestats: nodestats.Config{
-				MaxSleep:       time.Second,
-				ReputationSync: time.Second,
-				StorageSync:    time.Second,
+				MaxSleep:       0,
+				ReputationSync: 1 * time.Minute,
+				StorageSync:    1 * time.Minute,
 			},
 			Console: consoleserver.Config{
 				Address:   "127.0.0.1:0",
