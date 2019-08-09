@@ -5,17 +5,19 @@
     <div class="team-header-container">
         <HeaderComponent ref="headerComponent" placeHolder="Team Members" :search="processSearchQuery" title="Project Members">
             <div class="header-default-state" v-if="headerState === 0">
-                <Button class="button" label="+Add" width="122px" height="48px" :onPress="onAddUsersClick"/>
                 <span>The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
+                <Button class="button" label="+Add" width="122px" height="48px" :onPress="onAddUsersClick"/>
             </div>
             <div class="header-selected-members" v-if="headerState === 1 && !isDeleteClicked">
                 <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onFirstDeleteClick"/>
                 <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
             </div>
             <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
-                <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
-                <span>Are you sure you want to delete {{selectedProjectMembers}} {{customUserCount}}</span>
+                <span>Are you sure you want to delete {{selectedProjectMembers}} {{userCountTitle}}</span>
+                <div class="header-after-delete-click__button-area">
+                    <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
+                    <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
+                </div>
             </div>
         </HeaderComponent>
     </div>
@@ -51,7 +53,7 @@
             headerComponent: HeaderComponent & ClearSearch
         };
 
-        public get customUserCount(): string {
+        public get userCountTitle(): string {
             if (this.selectedProjectMembers === 1) {
                 return 'user';
             }
@@ -106,10 +108,26 @@
 
 <style scoped lang="scss">
     .header-default-state,
-    .header-selected-members,
     .header-after-delete-click {
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 85px;
+
+        &__button-area {
+            display: flex;
+
+            .deletion {
+                margin-top: 2px;
+            }
+        }
+    }
+
+    .header-selected-members {
+        display: flex;
+        align-items: flex-end;
+        height: 85px;
+        justify-content: center;
     }
 
     .button {

@@ -186,7 +186,7 @@ describe('error conditions', () => {
 
         wrapper.vm.$data.selectedProjectMembers = 1;
 
-        expect(wrapper.vm.customUserCount).toMatch('user');
+        expect(wrapper.vm.userCountTitle).toMatch('user');
     });
 
     it('function onDelete if delete is not successful', async () => {
@@ -236,7 +236,7 @@ describe('HeaderArea.vue', () => {
     it('function customUserCount work correctly', () => {
         const wrapper = mount(HeaderArea);
 
-        expect(wrapper.vm.customUserCount).toMatch('users');
+        expect(wrapper.vm.userCountTitle).toMatch('users');
     });
 
     it('function onFirstDeleteClick work correctly', () => {

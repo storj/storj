@@ -70,6 +70,7 @@
     input {
         position: absolute;
         right: 0;
+        bottom: 0;
         padding: 0 38px 0 18px;
         border: 1px solid #F2F2F2;
         box-sizing: border-box;

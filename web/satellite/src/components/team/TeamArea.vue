@@ -122,10 +122,6 @@
         }
 
         public get headerState(): number {
-            if (this.selectedProjectMembers.length === 0) {
-                return HeaderState.DEFAULT;
-            }
-
             if (this.selectedProjectMembers.length > 0) {
                 return HeaderState.ON_SELECT;
             }
@@ -164,7 +160,7 @@
             grid-column-gap: 20px;
             grid-row-gap: 20px;
             justify-content: space-between;
-            margin-top: 178px;
+            margin-top: 185px;
             margin-bottom: 100px;
         }
     }

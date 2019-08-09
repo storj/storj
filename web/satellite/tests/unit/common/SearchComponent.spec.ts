@@ -60,7 +60,6 @@ describe('SearchComponent.vue', () => {
 
         wrapper.vm.clearSearch();
 
-        expect(wrapper.vm.$data.searchQuery).toMatch('');
         expect(processSearchQuerySpy.callCount).toBe(1);
         expect(wrapper.vm.$data.inputWidth).toMatch('56px');
     });

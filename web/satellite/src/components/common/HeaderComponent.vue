@@ -58,11 +58,12 @@
 
         &__wrapper {
             width: 100%;
+            height: 85px;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-top: 33px;
+            margin-top: 10px;
 
             &__buttons-area {
                 width: auto;
