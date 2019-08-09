@@ -16,4 +16,6 @@ type DB interface {
 	Set(context.Context, storj.NodeID, *identity.PeerIdentity) error
 	// Get gets peer identity
 	Get(context.Context, storj.NodeID) (*identity.PeerIdentity, error)
+	// BatchGet gets all nodes peer identities in a transaction
+	BatchGet(context.Context, []storj.NodeID) (_ []*identity.PeerIdentity, err error)
 }

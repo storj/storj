@@ -369,6 +369,7 @@ github.com/storj/grpc-go v1.22.1-0.20190808142608-8c6988074762 h1:Icwzws9OpSjh1r
 github.com/storj/grpc-go v1.22.1-0.20190808142608-8c6988074762/go.mod h1:iGXtpppuCBUYpHRAS+WAD5sZH3LsRjHdqV0iDN+I0nY=
 github.com/storj/grpc-go v1.22.1-notrace h1:cLzaU3QNAHmweqqfXl0cew09ifL4CC2ewXjzmGm8xak=
 github.com/storj/grpc-go v1.22.1-notrace/go.mod h1:iGXtpppuCBUYpHRAS+WAD5sZH3LsRjHdqV0iDN+I0nY=
+github.com/storj/grpc-go v1.22.2-0.20190808142608-8c6988074762 h1:zwA+hIzyPvRd6GExwri4BM8aIGxu28TVFhwnmZrrK+4=
 github.com/storj/grpc-go v1.22.2-0.20190808142608-8c6988074762/go.mod h1:iGXtpppuCBUYpHRAS+WAD5sZH3LsRjHdqV0iDN+I0nY=
 github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 h1:Oj3PUEs+OUSYUpn35O+BE/ivHGirKixA3+vqA0Atu9A=
 github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864/go.mod h1:1WNBiOZtZQLpVAyu0iTduoJL9hEsMloAK5XWrtW0xdY=

@@ -74,3 +74,30 @@ func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.
 	peer, err := identity.DecodePeerIdentity(ctx, dbxInfo.PeerIdentity)
 	return peer, Error.Wrap(err)
 }
+
+// BatchGet gets the public key based on the certificate's serial number
+func (certs *certDB) BatchGet(ctx context.Context, nodeIDs []storj.NodeID) (peers []*identity.PeerIdentity, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if len(nodeIDs) == 0 {
+		return nil, nil
+	}
+
+	tx, err := certs.db.Open(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	for _, nodeID := range nodeIDs {
+		dbxInfo, err := tx.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+		if err != nil {
+			return nil, errs.Combine(err, tx.Rollback())
+		}
+
+		if dbxInfo == nil {
+			return nil, errs.Combine(Error.New("unknown nodeID :%+v: %+v", nodeID.Bytes(), err), tx.Rollback())
+		}
+
+		peer, err := identity.DecodePeerIdentity(ctx, dbxInfo.PeerIdentity)
+		peers = append(peers, peer)
+	}
+	return peers, Error.Wrap(tx.Commit())
+}

@@ -137,6 +137,13 @@ type lockedCertDB struct {
 	db certdb.DB
 }
 
+// BatchGet gets all nodes peer identities in a transaction
+func (m *lockedCertDB) BatchGet(ctx context.Context, a1 []storj.NodeID) (_ []*identity.PeerIdentity, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.BatchGet(ctx, a1)
+}
+
 // Get gets peer identity
 func (m *lockedCertDB) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
 	m.Lock()
