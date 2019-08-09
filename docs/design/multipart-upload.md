@@ -39,8 +39,10 @@ When we start an upload we will create an Object at the following path,
 where the Object contains a `stream-id`:
 
 ```
-<project-id>/<bucket-id>/objects/<path ...> => object information (partial)
+<project-id>/<bucket-id>/objects/<path ...>_0000 => object information (partial)
 ```
+
+Where `_0000` is the object version in hex.
 
 Since there is no specific size for multipart upload parts we still need to split them into segments.
 Hence, we need to split each multipart part into multiple segments.
