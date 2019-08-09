@@ -118,7 +118,7 @@ This process including the Storage nodes transferring their pieces to other node
 
 		field node_id           blob
 		field path              blob
-		field peice_info        blob
+		field piece_info        blob
 		field durability_ratio  float64
 		field queued_dt         timestamp ( autoinsert )
 		field sent_dt           timestamp ( updateable )
