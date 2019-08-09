@@ -102,7 +102,7 @@ This process including the Storage nodes transferring their pieces to other node
   - Initiates the exit by setting `nodes.exit_initiated` to current time
   - ``` 
 	service GracefulExit {
-		rpc Initiate(stream InitiateRequest) returns (stream InitiateResponse) {}
+		rpc Initiate(InitiateRequest) returns (InitiateResponse) {}
 	}
 
 	message InitiateRequest {
