@@ -20,7 +20,7 @@
         @Prop({default: []})
         public readonly pages: Page[];
         @Prop({default: () => false})
-        public readonly checkSelected: (pageIndex: number) => boolean;
+        public readonly checkSelected: CheckSelected;
     }
 </script>
 

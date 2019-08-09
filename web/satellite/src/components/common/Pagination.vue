@@ -44,7 +44,7 @@
         @Prop({default: 0})
         private readonly totalPageCount: number;
         @Prop({default: () => { return new Promise(() => false); }})
-        private readonly onPageClickCallback: (index: number) => Promise<any>;
+        private readonly onPageClickCallback: OnPageClickCallback;
 
         public mounted() {
             this.populatePagesArray();
@@ -145,7 +145,7 @@
                 return;
             }
 
-            if (!this.isCurrentInFirstBlock() &&  !this.isCurrentInLastBlock()) {
+            if (!this.isCurrentInFirstBlock() && !this.isCurrentInLastBlock()) {
                 this.setBlocksIfCurrentInMiddleBlock();
 
                 return;
