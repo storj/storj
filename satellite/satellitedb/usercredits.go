@@ -65,42 +65,52 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 		return errs.New("user credit is already expired")
 	}
 
-	var referrerID []byte
+	var (
+		referrerID []byte
+	)
 	if userCredit.ReferredBy != nil {
 		referrerID = userCredit.ReferredBy[:]
 	}
 
-	var result sql.Result
-	var err error
+	var dbExec interface {
+		ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	}
+	if c.tx != nil {
+		dbExec = c.tx.Tx
+	} else {
+		dbExec = c.db.DB
+	}
+
+	var (
+		result sql.Result
+		err    error
+	)
 
 	switch t := c.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
 				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, ?, time('now'))) AS v
-					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), EXISTS (SELECT type FROM offers WHERE id = ? AND status=?));
 		`
-		if c.tx != nil {
-			result, err = c.tx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferID)
-		} else {
-			result, err = c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferID)
-		}
+		result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferID, userCredit.OfferID, rewards.Default)
 	case *pq.Driver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
 				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), ?::text, now())) AS v
-					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), EXISTS (SELECT type FROM offers WHERE id = ? AND status=?));
 		`
-		if c.tx != nil {
-			result, err = c.tx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferID)
-		} else {
-			result, err = c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferID)
-		}
+		result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferID, userCredit.OfferID, rewards.Default)
 	default:
 		return errs.New("Unsupported database %t", t)
 	}
 
 	if err != nil {
+		// check to see if there's a constraint error
+		if driverErr, ok := err.(*pq.Error); (ok && driverErr.Code.Class() == "23") || err == sqlite3.ErrConstraint {
+			return rewards.MaxRedemptionErr.New("create: constraint error")
+		}
+
 		return errs.Wrap(err)
 	}
 
@@ -110,7 +120,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 	}
 
 	if rows != 1 {
-		return rewards.MaxRedemptionErr.New("create credit failed")
+		return rewards.MaxRedemptionErr.New("rows not equal to 1")
 	}
 
 	return nil

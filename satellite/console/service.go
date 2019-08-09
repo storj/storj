@@ -186,6 +186,14 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 			err = tx.UserCredits().Create(ctx, newCredit)
 			if err != nil {
+				// if it has reached the maximum, we should update the current reward to be done
+				// this should not happen often
+				if rewards.MaxRedemptionErr.Has(err) {
+					err = s.rewards.Finish(ctx, newCredit.OfferID)
+					if err != nil {
+						return err
+					}
+				}
 				return err
 			}
 		}
