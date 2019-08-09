@@ -3,23 +3,26 @@
 
 <template>
     <div class="team-header-container">
-        <HeaderComponent ref="headerComponent" placeHolder="Team Members" :search="processSearchQuery" title="Project Members">
-            <div class="header-default-state" v-if="headerState === 0">
-                <span>The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
-                <Button class="button" label="+Add" width="122px" height="48px" :onPress="onAddUsersClick"/>
-            </div>
-            <div class="header-selected-members" v-if="headerState === 1 && !isDeleteClicked">
-                <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onFirstDeleteClick"/>
-                <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
-            </div>
-            <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                <span>Are you sure you want to delete {{selectedProjectMembers}} {{userCountTitle}}</span>
-                <div class="header-after-delete-click__button-area">
-                    <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
+	    <h1>Project Members</h1>
+	    <div class="team-header-container__wrapper">
+            <HeaderComponent ref="headerComponent" placeHolder="Team Members" :search="processSearchQuery">
+                <div class="header-default-state" v-if="headerState === 0">
+                    <span>The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
+                    <Button class="button" label="+Add" width="122px" height="48px" :onPress="onAddUsersClick"/>
+                </div>
+                <div class="header-selected-members" v-if="headerState === 1 && !isDeleteClicked">
+                    <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onFirstDeleteClick"/>
                     <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                 </div>
-            </div>
-        </HeaderComponent>
+                <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
+                    <span>Are you sure you want to delete {{selectedProjectMembers}} {{userCountTitle}}</span>
+                    <div class="header-after-delete-click__button-area">
+                        <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
+                        <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
+                    </div>
+                </div>
+            </HeaderComponent>
+	    </div>
     </div>
 </template>
 
@@ -107,6 +110,13 @@
 </script>
 
 <style scoped lang="scss">
+	h1 {
+		font-family: 'font_bold';
+		font-size: 32px;
+		line-height: 39px;
+		margin: 0;
+	}
+
     .header-default-state,
     .header-after-delete-click {
         display: flex;
@@ -140,7 +150,7 @@
         line-height: 28px;
     }
 
-    .team-header-container {
+    .team-header-container__wrapper {
         margin-bottom: 4px;
         display: flex;
         align-items: center;

@@ -2,12 +2,15 @@
 
 exports[`HeaderArea.vue renders correctly 1`] = `
 <div class="team-header-container">
-  <headercomponent-stub placeholder="Team Members" search="function () { [native code] }" title="Project Members">
-    <div class="header-default-state"><span>The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
-      <button-stub label="+Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></button-stub>
-    </div>
-    <!---->
-    <!---->
-  </headercomponent-stub>
+  <h1>Project Members</h1>
+  <div class="team-header-container__wrapper">
+    <headercomponent-stub placeholder="Team Members" search="function () { [native code] }">
+      <div class="header-default-state"><span>The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
+        <button-stub label="+Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></button-stub>
+      </div>
+      <!---->
+      <!---->
+    </headercomponent-stub>
+  </div>
 </div>
 `;
