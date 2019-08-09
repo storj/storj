@@ -110,17 +110,17 @@ The algorithm is composed of 2 parts:
 
 #### Uptime Check _SN_ selection
 
-This design doc doesn't change the _SN_ selection process for uptime checks therefore the current implemented mechanism with some minor modifications to classify those nodes which fail the uptime check in order of being recheck by the second part of the algorithm.
+This design doc doesn't change the _SN_ selection process for uptime checks, therefore, the current implemented mechanism with some minor modifications to classify those nodes which fail the uptime check in order of being recheck by the second part of the algorithm.
 
-Once an _SN_ is selected for an uptime check, the current implemented uptime check mechanism must be modified to achieve the following algorithm:
+Once an _SN_ is selected for an uptime check, the currently implemented uptime check mechanism must be modified to achieve the following algorithm:
 
-1. If there is a row in the `failed_uptime_checks` table for the selected _SN_ with `back_online` set to `NULL` do nothing, otherwise follow with the next step.
-1. Check the _SN_ as it's currently done; if it succeeds, then end, otherwise follow with the next step.
-1. Insert a new row in the `failed_uptime_checks` using its node ID and setting the current timestamp to `when` and `last_check`.
+1. Request by to [Uptime Recheck Loop service](#uptime-recheck-loop) (algorithm part 2) if the _SN_ is being rechecked, if it's then do nothing, otherwise follow with the next step.
+1. Check the _SN_ uptime as it's currently done; if it succeeds, then end, otherwise follow with the next step.
+1. Request to [Uptime Recheck Loop](#uptime-recheck-loop) to register the _SN_ for being recheck.
 
 #### Uptime Recheck Loop
 
-This process should run independently from any current satellite process and it should run in a configurable time interval.
+This process should run independently from any current satellite process (i.e. being a service) and it should run in a configurable time interval.
 
 The algorithm for each time interval iteration is the following:
 
