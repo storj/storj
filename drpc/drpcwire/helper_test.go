@@ -5,6 +5,7 @@ package drpcwire
 
 import (
 	"math"
+	"math/rand"
 
 	"storj.io/storj/internal/testrand"
 )
@@ -42,9 +43,15 @@ func RandFrameInfo() FrameInfo {
 }
 
 func RandHeader() Header {
+	fi := RandFrameInfo()
+	pid := RandPacketID()
+	if fi.PayloadKind == PayloadKind_Cancel {
+		pid.MessageID = 0
+		fi.Length = 0
+	}
 	return Header{
-		FrameInfo: RandFrameInfo(),
-		PacketID:  RandPacketID(),
+		FrameInfo: fi,
+		PacketID:  pid,
 	}
 }
 
@@ -57,14 +64,14 @@ func RandIncompletePacket() Packet {
 }
 
 func RandCompletePacket() Packet {
-	pkt := Packet{
-		Header: Header{
-			FrameInfo: FrameInfo{PayloadKind: RandPayloadKind()},
-			PacketID:  RandPacketID(),
-		},
+	hdr := RandHeader()
+	hdr.FrameInfo = FrameInfo{PayloadKind: hdr.PayloadKind}
+	n := 0
+	if hdr.PayloadKind != PayloadKind_Cancel {
+		n = rand.Intn(100 * 1024)
 	}
-	if pkt.Header.PayloadKind != PayloadKind_Cancel {
-		pkt.Data = testrand.BytesInt(testrand.Intn(100 * 1024))
+	return Packet{
+		Header: hdr,
+		Data:   testrand.BytesInt(n),
 	}
-	return pkt
 }

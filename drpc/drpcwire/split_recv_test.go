@@ -4,6 +4,7 @@
 package drpcwire
 
 import (
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ func TestSplitRecv(t *testing.T) {
 	// set up shared state for the senders and receivers to communicate
 	pr, pw := io.Pipe()
 	chRecv := make(chan Packet, numPackets)
-	chSend := make(chan Packet, numPackets)
+	chSent := make(chan Packet, numPackets)
 
 	// launch a goroutine to receive packets and send them down a channel
 	ctx.Go(func() error {
@@ -35,6 +36,7 @@ func TestSplitRecv(t *testing.T) {
 		for {
 			pkt, err := recv.ReadPacket()
 			if err != nil {
+				fmt.Println(err)
 				return err
 			} else if pkt == nil {
 				return nil
@@ -49,21 +51,25 @@ func TestSplitRecv(t *testing.T) {
 		group.Go(func() error {
 			buf := NewBuffer(pw, 64*1024)
 			pkt := RandCompletePacket()
-			if pkt.Header.PayloadKind != PayloadKind_Cancel || pkt.Header.MessageID == 0 {
-				chSend <- pkt
-			}
+			chSent <- pkt
+
 			err := Split(pkt.Header.PayloadKind, pkt.Header.PacketID, pkt.Data, buf.Write)
 			if err != nil {
+				pw.CloseWithError(err)
 				return err
 			}
-			return buf.Flush()
+			if err := buf.Flush(); err != nil {
+				pw.CloseWithError(err)
+				return err
+			}
+			return nil
 		})
 	}
 
 	// launch a goroutine to wait on the senders to complete to signal that
 	// no more sends will happen to the reader.
 	ctx.Go(func() error {
-		defer close(chSend)
+		defer close(chSent)
 		defer pw.Close()
 		return group.Wait()
 	})
@@ -82,7 +88,7 @@ func TestSplitRecv(t *testing.T) {
 		size += int64(len(pkt.Data))
 	}
 	exp := make(map[Header][]byte)
-	for pkt := range chSend {
+	for pkt := range chSent {
 		recordPacket(exp, pkt)
 		size += int64(len(pkt.Data))
 	}

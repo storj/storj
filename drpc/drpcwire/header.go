@@ -155,8 +155,8 @@ func AppendHeader(buf []byte, hdr Header) []byte {
 // Packet represents a possibly incomplete packet. External consumers of this library
 // should only ever deal with complete packets.
 type Packet struct {
-	Header Header
-	Data   []byte
+	Header
+	Data []byte
 }
 
 // ParsePacket parses a packet out of buf. If there's not enough data for a full
@@ -172,7 +172,7 @@ func ParsePacket(buf []byte) (rem []byte, pkt Packet, ok bool, err error) {
 	if !ok || err != nil {
 		goto bad
 	}
-	dataLen = int(pkt.Header.Length)
+	dataLen = int(pkt.Length)
 	if dataLen < 0 || len(rem) < dataLen {
 		// dataLen < 0 is statically impossible, but the compiler needs
 		// it to elide the bounds checks on rem. additionally, this
