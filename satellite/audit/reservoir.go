@@ -4,6 +4,7 @@
 package audit
 
 import (
+	"math/rand"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -11,8 +12,7 @@ import (
 type Reservoir struct {
 	Segments []*pb.RemoteSegment
 	IsVetted bool
-
-	Config reservoirConfig
+	NumSlots int
 }
 
 type reservoirConfig struct {
@@ -22,29 +22,28 @@ type reservoirConfig struct {
 
 // NewReservoir instantiates a Reservoir
 func NewReservoir(isVetted bool, config reservoirConfig) *Reservoir {
-	var slots int
+	var numSlots int
 	if isVetted {
-		slots = config.numVettedSlots
+		numSlots = config.numVettedSlots
 	} else {
-		slots = config.numUnvettedSlots
+		numSlots = config.numUnvettedSlots
 	}
 	return &Reservoir{
-		Segments: make([]*pb.RemoteSegment, slots),
-		Config:   config,
+		Segments: make([]*pb.RemoteSegment, numSlots),
+		NumSlots: numSlots,
 	}
 }
 
-func (reservoir *Reservoir) add(segment *pb.RemoteSegment) {
-	if reservoir.IsVetted {
-		if len(reservoir.Segments) < reservoir.Config.numVettedSlots {
-			reservoir.Segments = append(reservoir.Segments, segment)
-		}
+// sample makes sure that for every segment in metainfo from index i=numSlots..n-1,
+// pick a random number r = rand(0..i), and if r < numSlots, replace reservoir.Segments[r] with segment
+func (reservoir *Reservoir) sample(segment *pb.RemoteSegment, i int) {
+	if len(reservoir.Segments) < reservoir.NumSlots {
+		reservoir.Segments = append(reservoir.Segments, segment)
 	} else {
-		if len(reservoir.Segments) < reservoir.Config.numUnvettedSlots {
-			reservoir.Segments = append(reservoir.Segments, segment)
+		random := rand.Intn(i)
+		if random < reservoir.NumSlots {
+			reservoir.Segments[random] = segment
 		}
 	}
-	// todo: do this step:
-	// • For every item in the stream from index i=k..n-1, pick a random number j=rand(0..i), and if j<k, replace reservoir[j] with stream[i]
 	return
 }
