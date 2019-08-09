@@ -97,18 +97,18 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		})
 	})
 
-	group.Go(func() error {
-		return service.ReservoirLoop.Run(ctx, func(ctx context.Context) error {
-			defer mon.Task()(&ctx)(&err)
-			observer := newObserver(service.log.Named("audit observer"), service.overlay, service.reservoirConfig)
-			err = service.metainfoLoop.Join(ctx, observer)
-			if err != nil {
-				service.log.Error("error joining metainfoloop", zap.Error(err))
-				return nil
-			}
-			return nil
-		})
-	})
+	//group.Go(func() error {
+	//	return service.ReservoirLoop.Run(ctx, func(ctx context.Context) error {
+	//		defer mon.Task()(&ctx)(&err)
+	//		observer := newObserver(service.log.Named("audit observer"), service.overlay, service.reservoirConfig)
+	//		err = service.metainfoLoop.Join(ctx, observer)
+	//		if err != nil {
+	//			service.log.Error("error joining metainfoloop", zap.Error(err))
+	//			return nil
+	//		}
+	//		return nil
+	//	})
+	//})
 
 	return group.Wait()
 }
