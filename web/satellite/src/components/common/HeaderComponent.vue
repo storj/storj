@@ -3,7 +3,6 @@
 
 <template>
     <div class="header-container">
-        <h1>{{title}}</h1>
         <div class="header-container__wrapper">
             <div class="header-container__buttons-area">
                 <slot></slot>
@@ -32,8 +31,6 @@
         private readonly placeHolder: string;
         @Prop({default: () => { return ''; }})
         private readonly search: searchCallback;
-        @Prop({default: ''})
-        private readonly title;
 
         public $refs!: {
             search: SearchComponent & ClearSearch;
@@ -48,13 +45,6 @@
 <style scoped lang="scss">
     .header-container {
         width: 100%;
-
-        h1 {
-            font-family: 'font_bold';
-            font-size: 32px;
-            line-height: 39px;
-            margin: 0;
-        }
 
         &__wrapper {
             width: 100%;

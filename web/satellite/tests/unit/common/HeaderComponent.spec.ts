@@ -17,7 +17,6 @@ describe('HeaderComponent.vue', () => {
 
         expect(wrapper.vm.$props.placeHolder).toMatch('');
         expect(wrapper.vm.$props.search).toMatch('');
-        expect(wrapper.vm.$props.title).toMatch('');
     });
 
     it('function clearSearch works correctly', () => {
