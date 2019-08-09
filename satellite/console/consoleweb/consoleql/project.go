@@ -27,6 +27,10 @@ const (
 	BucketUsagePageType = "bucketUsagePage"
 	// PaymentMethodType is a field name for payment method
 	PaymentMethodType = "paymentMethod"
+	// ProjectMembersPageType is a field name for project members page
+	ProjectMembersPageType = "projectMembersPage"
+	// ProjectMembersCursorInputType is a graphql type name for project members
+	ProjectMembersCursorInputType = "projectMembersCursor"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldBucketName is a field name for "bucket name"
@@ -55,6 +59,8 @@ const (
 	FieldCurrentPage = "currentPage"
 	// FieldTotalCount is a field name for bucket usage count total
 	FieldTotalCount = "totalCount"
+	// FieldProjectMembers is a field name for project members
+	FieldProjectMembers = "projectMembers"
 	// FieldCardBrand is a field name for credit card brand
 	FieldCardBrand = "brand"
 	// FieldCardLastFour is a field name for credit card last four digits
@@ -99,60 +105,50 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				Type: graphql.DateTime,
 			},
 			FieldMembers: &graphql.Field{
-				Type: graphql.NewList(types.projectMember),
+				Type: types.projectMemberPage,
 				Args: graphql.FieldConfigArgument{
-					OffsetArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-					LimitArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-					SearchArg: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					OrderArg: &graphql.ArgumentConfig{
-						Type: graphql.Int,
+					CursorArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.projectMembersCursor),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					offs, _ := p.Args[OffsetArg].(int)
-					lim, _ := p.Args[LimitArg].(int)
-					search, _ := p.Args[SearchArg].(string)
-					order, _ := p.Args[OrderArg].(int)
-
-					pagination := console.Pagination{
-						Limit:  lim,
-						Offset: int64(offs),
-						Search: search,
-						Order:  console.ProjectMemberOrder(order),
-					}
-
-					members, err := service.GetProjectMembers(p.Context, project.ID, pagination)
+					_, err := console.GetAuth(p.Context)
 					if err != nil {
 						return nil, err
 					}
 
-					_, err = console.GetAuth(p.Context)
+					inputPage := fromMapProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
+					members, err := service.GetProjectMembers(p.Context, project.ID, inputPage)
 					if err != nil {
 						return nil, err
 					}
-
+					
 					var users []projectMember
-					for _, member := range members {
+					for _, member := range members.ProjectMembers {
 						user, err := service.GetUser(p.Context, member.MemberID)
 						if err != nil {
 							return nil, err
 						}
 
 						users = append(users, projectMember{
-							User:     user,
-							JoinedAt: member.CreatedAt,
+							User: user,
+							JoinedAt:member.CreatedAt,
 						})
 					}
 
-					return users, nil
+					page := projectMembersPage{
+						ProjectMembers: users,
+						TotalCount:     members.TotalCount,
+						Offset:         members.Offset,
+						Limit:          members.Limit,
+						Order:          int(members.Order),
+						Search:         members.Search,
+						CurrentPage:    members.CurrentPage,
+						PageCount:      members.PageCount,
+					}
+					return page, nil
 				},
 			},
 			FieldAPIKeys: &graphql.Field{
@@ -420,4 +416,19 @@ func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.Bucke
 	cursor.Page = uint(page)
 	cursor.Search, _ = args[SearchArg].(string)
 	return
+}
+
+func fromMapProjectMembersCursor(args map[string]interface{}) console.ProjectMembersCursor {
+	limit, _ := args[LimitArg].(int)
+	page, _ := args[PageArg].(int)
+	order, _ := args[OrderArg].(int)
+
+	var cursor console.ProjectMembersCursor
+	
+	cursor.Limit = uint(limit)
+	cursor.Page = uint(page)
+	cursor.Order = console.ProjectMemberOrder(order)
+	cursor.Search, _ = args[SearchArg].(string)
+	
+	return cursor
 }
