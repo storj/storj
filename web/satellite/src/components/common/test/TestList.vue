@@ -24,7 +24,7 @@
                 console.error('onItemClick is not initialized');
             }
         })
-        private readonly onItemClick: ListItemClickCallback;
+        private readonly onItemClick: (item: any) => Promise<void>;
 
         private items: string[] = ['1', '2', '3'];
 

@@ -17,6 +17,8 @@
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
 
+    declare type listItemClickCallback = (item: any) => Promise<void>;
+
     @Component
     export default class List extends Vue {
         @Prop({default: ''})
@@ -26,10 +28,9 @@
                 console.error('onItemClick is not reinitialized');
             }
         })
-        private readonly onItemClick: ListItemClickCallback;
+        private readonly onItemClick: listItemClickCallback;
         @Prop({default: Array()})
         private readonly dataSet: any[];
-
     }
 </script>
 
