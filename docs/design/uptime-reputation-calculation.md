@@ -62,22 +62,44 @@ On the other hand, we think that the number of resources required by this new sy
 
 A database is required to store information about _SNs_ uptime check failures. This section presents the new required database schema and a brief explanation what it will store.
 
-Only one database table is required and its schema is the following (pseudo code):
+A database table is required for registering _SNs_ uptime check failures and its schema is the following (pseudo-code):
 
 ```sql
 CREATE TABLE failed_uptime_checks (
     node_id       BYTEA NOT NULL,
     when          TIMESTAMP WITH TIMEZONE NOT NULL, -- When the SN failed the an uptime check until it succeeds a future uptime check
-    back_online   TIMESTAMP WITH TIMEZONE, -- When SN has succeeded an uptime check after the last one failed
-    disqualified  TIMESTAMP WITH TIMEZONE  -- When the SN has been disqualified by any disqualification system (uptimes, audits, etc.)
+    back_online   TIMESTAMP WITH TIMEZONE,          -- When SN has succeeded an uptime check after the last one failed
+    last_check    TIMESTAMP WITH TIMEZONE,          -- When the last uptime check was done
+    count         NUMBER,                           -- Number of uptime rechecks
+    disqualified  TIMESTAMP WITH TIMEZONE           -- When the SN has been disqualified by any disqualification system (uptimes, audits, etc.)
 )
 ```
 
 The table will be filled with _SNs_ which have failed at least one uptime check during the ongoing uptime check period.
 
-Each row in the table indicates when an _SN_ failed the first uptime check (`when`), while the _SN_ not succeed any future uptime check (`back_online` is `NULL`); when the _SN_ is back online any future uptime check failure will insert a new row to mark a new period of time that the node is offline again.
+Each row in the table indicates when an _SN_ failed the first uptime check (`when`), while the _SN_ didn't succeed any future uptime check (`back_online` is `NULL`); when the _SN_ is back online any future uptime check failure will insert a new row to mark a new period of time that the node is offline again.
+
+The `last_check` column register when the last uptime check has been done; although we could roughly know how many checks an _SN_ has had using the `when` column and the interval recheck time, this value allows to (in importance order):
+
+1. When the satellite starts due to some failure, if there were any entry in this table in the ongoing uptime check period with `back_online` and `disqualified` set to `NULL`, the satellite should start the rechecks for those and if they don't have a last contact after `last_check` but they pass the uptime check, we can use `last_check` value for setting it to `back_online` and not unfairly mark those _SNs_ with more offline time that they could have, due to the fact that the satellite had a failure.
+1. It allows retrieving the next _SN_ to recheck without having to execute a query that returns multiple rows, hence have to maintain opened a result set during all the time that the checks can take.
+1. It allows to precisely know when the last check happened.
+ 
+The `count` column could be avoided and have a rough calculation of the number of checks that have been done until the _SN_ is back online or disqualified using the interval recheck time, however, this column precisely retains those and it's valuable for clarifying uptime failures disqualification to _SNs_ which require a proof. Furthermore, the interval recheck time can be altered during the same uptime check period and without tracking those alterations we won't have a good calculation of the number of checks.
 
 When the _SN_ is disqualified by any disqualification system and the _SN_ isn't back online, the `disqualified` column of the row will be updated for not receiving more uptime checks because we don't do business with disqualified _SNs_.
+
+Another database table is required to register when the uptime check periods have started, its schema is the following (pseudo-code):
+
+```sql
+CREATE TABLE uptime_check_periods (
+    start   TIMESTAMP WITH TIMEZONE NOT NULL,
+
+    PRIMARY KEY (start)
+)
+```
+
+This table allows the satellite to be restarted and carries on with the uptime rechecks of the current uptime check period.
 
 ### Algorithm
 
@@ -94,7 +116,7 @@ Once an _SN_ is selected for an uptime check, the current implemented uptime che
 
 1. If there is a row in the `failed_uptime_checks` table for the selected _SN_ with `back_online` set to `NULL` do nothing, otherwise follow with the next step.
 1. Check the _SN_ as it's currently done; if it succeeds, then end, otherwise follow with the next step.
-1. Insert a new row in the `failed_uptime_checks` using its node ID and setting the current timestamp to `when`.
+1. Insert a new row in the `failed_uptime_checks` using its node ID and setting the current timestamp to `when` and `last_check`.
 
 
 #### Uptime Recheck Loop
@@ -103,13 +125,13 @@ This process should run independently from any current satellite process and it 
 
 The algorithm for each time interval iteration is the following:
 
-1. Select all the rows from `failed_uptime_checks` table which has `back_online` and `disqualification` columns set to `NULL` sorted by `when` in ascending order.
-1. For each selected _SN_, retrieve the _SN_ address<sup>1</sup> and performs the uptime check.
-    * If it fails
-        1. Calculate its total offline time of the month, accumulating the offline time interval of each row corresponding to this _SN_ with `back_online` not being `NULL` and the current offline interval time calculated with the current timestamp and the `when` value of this row. If the total offline time doesn't exceed the established network limits end, otherwise follow with the next step.
-        2. Update the `disqualified` column of the row with the current timestamp and disqualifies the _SN_<sup>2</sup>
-    * If it succeeds
-        1. Update the `back_online` column of the row with the current timestamp.
+1. Select the first row from `failed_uptime_checks` table which has `back_online` and `disqualified` columns set to `NULL` sorted by `last_check` in ascending order. If there is no row, ends (the process will be executed in the next interval).
+1. For the selected _SN_, retrieve the last time that the _SN_ has contacted the satellite.
+   If last contacted time is greater than the `last_check`, update the row setting `back_online` to such value and `last_check` to the current timestamp and go to 1, otherwise, continue.
+1. Retrieves the _SN_ address<sup>1</sup> and performs the uptime check.
+   If it succeeds, update the row setting `back_online` and `last_check` to the current timestamp and increment `count` and go to 1, otherwise continue.
+1. Calculate its total offline time of the uptime check period, accumulating the offline time interval of each row corresponding to this _SN_ with `back_online` not being `NULL` and the current offline interval time calculated with the current timestamp and the `when` value of this row. If the total offline time doesn't exceed the established network limits go to 1, otherwise continue.
+1. Update the row setting `disqualified` and `last_check` to the current timestamp and increment `count`; then disqualifies the _SN_<sup>2</sup>.
 
 
 #### Configurable parameters
@@ -126,5 +148,4 @@ Currently we have the following issues and concerns which can affects somehow th
 
 1. Currently the uptime checks are combined with the audit check for calculating the total _SN_ reputation; after this implementation, the uptime check doesn't present a _"score"_ which can directly combined with.
 1. The implementation of this system requires to interact with other satellite processes, <sup>1</sup> getting the _SN_ address and <sup>2</sup> disqualify a _SN_; for keeping this system uncoupled of those processes and being able to scale up the satellite, it should be a way to perform those operations through an interface which will remain once the satellite will be broken into different distributed system.
-1. The implementation of the _uptime recheck loop_ mentions to retrieve a list of _SNs_ in order of being able to maintain the order, however, it may be a problem with it in order of holding the result set open too long, impacting the perfomance of database.
 1. The implementation of _uptime recheck loop_ section should contain a protocol buffers definition in case the process run on a different machine; this part hasn't been elaborated because we may decide on not doing it for the first version but we should consider it during the implementation for being able to adapt it with the minimal modifications.
