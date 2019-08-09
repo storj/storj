@@ -142,7 +142,7 @@ The following parameters will be configurable:
 
 ### Metrics
 
-This section mentions the specific metrics that the [Uptime Recheck Loop](#uptime-recheck-loop) (algorithm part 2) must take; the section doesn't mention any metric regarding to [Uptime Check _SN_ selection](uptime-check-sn-selection) (algorithm part 1) because the current implementation is used so it already has metrics and it's out of the scope of this design document.
+This section mentions the specific metrics that the [Uptime Recheck Loop](#uptime-recheck-loop) (algorithm part 2) must take; the section doesn't mention any metric regarding to [Uptime Check _SN_ selection](#uptime-check-sn-selection) (algorithm part 1) because the current implementation is used so it already has metrics and it's out of the scope of this design document.
 
 The following metrics must be tracked:
 
@@ -157,7 +157,7 @@ This metrics will be tracked through [monkit](https://github.com/spacemonkeygo/m
 
 Currently, the system calculates _SNs_ reputation scores combining the result of audit checks and the first uptime check.
 
-The current _SN_ reputation score calculation will remain, hence the result of the first uptime check which is executed by the [Uptime Check _SN_ selection](uptime-check-sn-selection) (algorithm part 1) will be still used as now.
+The current _SN_ reputation score calculation will remain, hence the result of the first uptime check which is executed by the [Uptime Check _SN_ selection](#uptime-check-sn-selection) (algorithm part 1) will be still used as now.
 
 When we have collected enough metrics of the [Uptime Recheck Loop](#uptime-recheck-loop) (algorithm part 2), we'll assess if the _SN_ reputation calculation should be changed using the results of the [Uptime Recheck Loop](#uptime-recheck-loop).
 
