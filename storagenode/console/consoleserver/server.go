@@ -127,8 +127,7 @@ func (server *Server) dashboardHandler(wr http.ResponseWriter, req *http.Request
 
 	data.Data, data.Error = server.service.GetDashboardData(ctx)
 
-	err := json.NewEncoder(wr).Encode(&data)
-	if err != nil {
+	if err := json.NewEncoder(wr).Encode(&data); err != nil {
 		server.log.Error(err.Error())
 	}
 }
