@@ -375,7 +375,7 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 }
 
 func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status int) {
-	// TODO: show different error pages depend in status
+	// TODO: show different error pages depend on status
 	// F.e. switch(status)
 	//      case http.StatusNotFound: server.executeTemplate(w, r, notFound, nil)
 	//      case http.StatusInternalServerError: server.executeTemplate(w, r, internalError, nil)
