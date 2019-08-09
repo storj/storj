@@ -45,8 +45,6 @@ The size of all piece hashes downloaded should be roughly equal to a default max
 
 ## Implementation
 
-1. Add an optional `PieceHash` and `OrderLimit` fields to the `PieceDownloadResponse` protocol buffer for returning hashes.
-
 ```message PieceDownloadResponse {
     // Chunk response for download request
     message Chunk {
@@ -57,6 +55,8 @@ The size of all piece hashes downloaded should be roughly equal to a default max
     optional PieceHash hash = 2;
     optional OrderLimit limit = 3;
 }```
+
+1. Add an optional `PieceHash` and `OrderLimit` fields to the `PieceDownloadResponse` protocol buffer for returning hashes.
 
 2. Alter the storage node code to populate `PieceHash` and `OrderLimit` when the `OrderLimit` `Action` is `GET_REPAIR`.
 
