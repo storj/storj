@@ -75,7 +75,7 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 	if page.TotalCount == 0 {
 		return page, nil
 	}
-	if page.Offset > page.TotalCount - 1 {
+	if page.Offset > page.TotalCount-1 {
 		return nil, errs.New("page is out of range")
 	}
 	// TODO: LIKE is case-sensitive postgres, however this should be case-insensitive and possibly allow typos
@@ -88,7 +88,7 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 						  u.full_name LIKE ? OR
 						  u.short_name LIKE ? )
 						ORDER BY ` + sanitizedOrderColumnName(cursor.Order) + ` 
-						` + sanitizeOrderDirectionName(page.OrderDirection)+ `	
+						` + sanitizeOrderDirectionName(page.OrderDirection) + `	
 						LIMIT ? OFFSET ?
 					`)
 
@@ -140,7 +140,7 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 	page.Order = cursor.Order
 
 	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
-	if page.TotalCount % uint64(cursor.Limit) != 0 {
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
 		page.PageCount++
 	}
 
