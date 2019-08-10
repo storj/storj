@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/certdb"
 )
 
 // DB implements saving order after receiving from storage node
@@ -63,16 +62,14 @@ type Endpoint struct {
 	log             *zap.Logger
 	satelliteSignee signing.Signee
 	DB              DB
-	certdb          certdb.DB
 }
 
 // NewEndpoint new orders receiving endpoint
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, certdb certdb.DB, db DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB) *Endpoint {
 	return &Endpoint{
 		log:             log,
 		satelliteSignee: satelliteSignee,
 		DB:              db,
-		certdb:          certdb,
 	}
 }
 
@@ -152,17 +149,21 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
 				if endpoint.satelliteSignee.ID() == *orderLimit.DeprecatedUplinkId {
 					uplinkSignee = endpoint.satelliteSignee
-				} else {
-					uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, *orderLimit.DeprecatedUplinkId)
-					if err != nil {
-						log.Warn("unable to find uplink public key", zap.Error(err))
-						return status.Errorf(codes.Internal, "unable to find uplink public key")
-					}
-					uplinkSignee = &signing.PublicKey{
-						Self: *orderLimit.DeprecatedUplinkId,
-						Key:  uplinkPubKey,
-					}
 				}
+				// @TODO: KISHORE this portion of verifying uplink's public key is disabled until certdb is refactored
+				// This particular PR removes certDB references and keep the skeleton framework in place. Next PR will
+				// implement/fix verification logic
+				// else {
+				// 	uplinkPubKey, err := endpoint.certdb.Get(ctx, *orderLimit.DeprecatedUplinkId)
+				// 	if err != nil {
+				// 		log.Warn("unable to find uplink public key", zap.Error(err))
+				// 		return status.Errorf(codes.Internal, "unable to find uplink public key")
+				// 	}
+				// 	uplinkSignee = &signing.PublicKey{
+				// 		Self: *orderLimit.DeprecatedUplinkId,
+				// 		Key:  uplinkPubKey,
+				// 	}
+				// }
 				if err := signing.VerifyOrderSignature(ctx, uplinkSignee, order); err != nil {
 					return Error.New("unable to verify order")
 				}
