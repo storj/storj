@@ -59,8 +59,6 @@ type Config struct {
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
-
-	CustomerSupportLink string `help:"link that leads to some resource for customer support" devDefault:"https://storjlabs.atlassian.net/servicedesk/customer/portals" releaseDefault:""`
 }
 
 // Server represents console web server
@@ -365,6 +363,7 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	// No need to check error as we anyway redirect user to support page
 	_ = server.service.RevokeResetPasswordToken(ctx, recoveryToken)
 
+	// TODO: Should place this link to config
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
