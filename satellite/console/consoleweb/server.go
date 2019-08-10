@@ -173,7 +173,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Content-Type", "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 
-	if err := server.templates.index.Execute(w, nil); err != nil {
+	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.serveError(w, r, http.StatusNotFound)
 	}
 }
@@ -488,12 +488,12 @@ func (server *Server) initializeTemplates() (err error) {
 		return Error.Wrap(err)
 	}
 
-	server.templates.resetPassword, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
+	server.templates.usageReport, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	server.templates.resetPassword, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
+	server.templates.pageNotFound, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
 	if err != nil {
 		return Error.Wrap(err)
 	}
