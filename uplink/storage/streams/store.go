@@ -117,7 +117,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 	var currentSegment int64
 	var streamSize int64
 	var putMeta segments.Meta
-	var lastSegmentMeta []byte
+	var objectMetadata []byte
 
 	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
@@ -208,8 +208,8 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		putMeta, err = s.segments.Put(ctx, streamID, transformedReader, expiration, func() (_ int64, segmentEncryption storj.SegmentEncryption, err error) {
 			if s.cipher != storj.EncNull {
 				segmentEncryption = storj.SegmentEncryption{
-					EncryptedKeyNonce: keyNonce,
 					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: keyNonce,
 				}
 			}
 			return currentSegment, segmentEncryption, nil
@@ -248,7 +248,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 		}
 
-		lastSegmentMeta, err = proto.Marshal(&streamMeta)
+		objectMetadata, err = proto.Marshal(&streamMeta)
 		if err != nil {
 			return Meta{}, currentSegment, streamID, err
 		}
@@ -263,7 +263,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 
 	err = s.metainfo.CommitObject(ctx, metainfo.CommitObjectParams{
 		StreamID:          streamID,
-		EncryptedMetadata: lastSegmentMeta,
+		EncryptedMetadata: objectMetadata,
 	})
 	if err != nil {
 		return Meta{}, currentSegment, streamID, err

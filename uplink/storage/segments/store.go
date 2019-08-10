@@ -158,7 +158,7 @@ func (s *segmentStore) Get(ctx context.Context, streamID storj.StreamID, segment
 
 	switch {
 	case len(info.EncryptedInlineData) != 0:
-		return ranger.ByteRanger(info.EncryptedInlineData), storj.SegmentEncryption{}, nil
+		return ranger.ByteRanger(info.EncryptedInlineData), info.SegmentEncryption, nil
 	default:
 		needed := CalcNeededNodes(objectRS)
 		selected := make([]*pb.AddressedOrderLimit, len(limits))

@@ -7,21 +7,23 @@ package kvmetainfo
 //   this is incorrect since there's no good way to get such a path
 //   since the exact previous key is
 //     append(previousPrefix(cursor), infinite(0xFF)...)
-func keyBefore(cursor string) string {
-	if cursor == "" {
-		return ""
-	}
 
-	before := []byte(cursor)
-	if before[len(before)-1] == 0 {
-		return string(before[:len(before)-1])
-	}
-	before[len(before)-1]--
+// TODO commented until we will decide if we will support direction for objects listing
+// func keyBefore(cursor string) string {
+// 	if cursor == "" {
+// 		return ""
+// 	}
 
-	before = append(before, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f)
-	return string(before)
-}
+// 	before := []byte(cursor)
+// 	if before[len(before)-1] == 0 {
+// 		return string(before[:len(before)-1])
+// 	}
+// 	before[len(before)-1]--
 
-func keyAfter(cursor string) string {
-	return cursor + "\x00"
-}
+// 	before = append(before, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f)
+// 	return string(before)
+// }
+
+// func keyAfter(cursor string) string {
+// 	return cursor + "\x00"
+// }
