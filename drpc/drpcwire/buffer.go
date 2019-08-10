@@ -29,13 +29,14 @@ func NewBuffer(w io.Writer, size int) *Buffer {
 func (b *Buffer) Write(pkt Packet) error {
 	b.tmp = AppendPacket(b.tmp[:0], pkt)
 
+	// n.b. we consider a full buffer as "not fitting" to decide when to flush.
 	// if it can't fit in the buffer without allocating, flush first.
-	if len(b.tmp)+len(b.buf) > cap(b.buf) {
+	if len(b.tmp)+len(b.buf) >= cap(b.buf) {
 		if err := b.Flush(); err != nil {
 			return err
 		}
 		// if it still can't fit in the buffer without allocating, write it.
-		if len(b.tmp) > cap(b.buf) {
+		if len(b.tmp) >= cap(b.buf) {
 			if _, err := b.w.Write(b.tmp); err != nil {
 				return err
 			}

@@ -21,21 +21,8 @@ type payloadState struct {
 }
 
 func NewReceiver(r io.Reader) *Receiver {
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 32*1024), MaxPacketSize)
-	scanner.Split(bufio.SplitFunc(func(data []byte, atEOF bool) (int, []byte, error) {
-		rem, _, ok, err := ParsePacket(data)
-		switch advance := len(data) - len(rem); {
-		case err != nil, !ok:
-			return 0, nil, err
-		case advance < 0, len(data) < advance:
-			return 0, nil, drpc.InternalError.New("bad parse")
-		default:
-			return advance, data[:advance], nil
-		}
-	}))
 	return &Receiver{
-		scanner: scanner,
+		scanner: NewScanner(r),
 		pending: make(map[PacketID]payloadState),
 	}
 }
