@@ -6,9 +6,10 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/storj"
 
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -92,6 +93,13 @@ func (db *pieceSpaceUsedDB) UpdateTotalsForAllSatellites(ctx context.Context, ne
 	defer mon.Task()(&ctx)(&err)
 
 	for satelliteID, newTotal := range newTotalsBySatellites {
+		if newTotal == 0 {
+			if err := db.deleteTotalBySatellite(ctx, satelliteID); err != nil {
+				return ErrInfo.Wrap(err)
+			}
+			continue
+		}
+
 		_, err = db.db.ExecContext(ctx, db.Rebind(`
 			INSERT INTO piece_space_used (total, satellite_id)
 			VALUES (?, ?)
@@ -107,5 +115,19 @@ func (db *pieceSpaceUsedDB) UpdateTotalsForAllSatellites(ctx context.Context, ne
 			return ErrInfo.Wrap(err)
 		}
 	}
+	return nil
+}
+
+func (db *pieceSpaceUsedDB) deleteTotalBySatellite(ctx context.Context, satelliteID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.ExecContext(ctx, `
+		DELETE FROM piece_space_used
+		WHERE satellite_id = ?
+	`, satelliteID)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

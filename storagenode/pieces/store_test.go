@@ -40,7 +40,7 @@ func TestPieces(t *testing.T) {
 	blobs := filestore.New(zaptest.NewLogger(t), dir)
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
+	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil, nil)
 
 	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 	pieceID := storj.NewPieceID()
@@ -191,7 +191,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
+	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil, nil)
 
 	const pieceSize = 1024
 
@@ -246,7 +246,7 @@ func TestGetExpired(t *testing.T) {
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 		expirationInfo := db.PieceExpirationDB()
 
-		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo)
+		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo, db.PieceSpaceUsedDB())
 
 		now := time.Now().UTC()
 		testDates := []struct {
@@ -316,7 +316,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 		expirationInfo := db.PieceExpirationDB()
 
-		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo)
+		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo, db.PieceSpaceUsedDB())
 
 		satelliteID := testrand.NodeID()
 		pieceID := testrand.PieceID()
