@@ -51,11 +51,12 @@
             try {
                 decoded = atob(ids);
             } catch {
-                this.$router.push(ROUTES.LOGIN);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, "Invalid Referral URL.");
+                this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
                 return;
             }
-            let referralIds = ids ? JSON.parse(atob(ids)) : undefined;
+            let referralIds = ids ? JSON.parse(decoded) : undefined;
             if (referralIds) {
                 this.$data.partnerId = referralIds.partnerId;
                 this.$data.refUserId = referralIds.userId;
