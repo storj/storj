@@ -4,12 +4,10 @@
 package satellitedb
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"sort"
 	"strings"
 	"time"
@@ -18,8 +16,6 @@ import (
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/dbutil/sqliteutil"
@@ -223,6 +219,7 @@ func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.Se
 	return err
 }
 
+// ProcessOrders take a list of order requests and "settles" them in one transaction
 func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*pb.SettlementResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -255,17 +252,20 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		responses = append(responses, r)
 	}
 
+	// processes the insert to used serials table individually so we can handle
+	// the case where the order has already been process.  Duplicates are rejected
 	for _, request := range requests {
 		_, err := tx.Exec(db.buildInsertUseSerialStatement(request.OrderLimit))
 		if err != nil {
 			if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
 				reject(request.OrderLimit.SerialNumber)
-			} else if err != nil {
+			} else {
 				return []*pb.SettlementResponse{}, Error.Wrap(err)
 			}
 		}
 	}
 
+	// call to get all the bucket IDs
 	query := db.buildGetBucketIdsQuery(len(requests))
 	statement := db.db.Rebind(query)
 
@@ -292,13 +292,14 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		bucketMap[sn] = bucketID
 	}
 
+	// build all the bandwidth updates into one sql statement
 	var updateRollupStatement string
 	for _, request := range requests {
 		_, rejected := rejectedRequests[request.OrderLimit.SerialNumber]
 		if !rejected {
 			bucketID, ok := bucketMap[request.OrderLimit.SerialNumber]
 			if ok {
-				projectID, bucketName, err := splitBucketID(bucketID)
+				projectID, bucketName, err := orders.SplitBucketID(bucketID)
 				if err != nil {
 					return []*pb.SettlementResponse{}, errs.Wrap(err)
 				}
@@ -328,10 +329,6 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	}
 	return responses, nil
 }
-
-var (
-	errUsingSerialNumber = errs.Class("serial number")
-)
 
 func (db *ordersDB) buildInsertUseSerialStatement(orderLimit *pb.OrderLimit) string {
 	return fmt.Sprintf("INSERT INTO  used_serials (serial_number_id, storage_node_id) SELECT id, %v FROM serial_numbers WHERE serial_number = %s;\n",
@@ -372,23 +369,4 @@ func (db *ordersDB) toHex(value []byte) string {
 	default:
 		return ""
 	}
-}
-
-func formatError(err error) error {
-	if err == io.EOF {
-		return nil
-	}
-	return status.Error(codes.Unknown, err.Error())
-}
-
-func splitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, err error) {
-	pathElements := bytes.Split(bucketID, []byte("/"))
-	if len(pathElements) > 1 {
-		bucketName = pathElements[1]
-	}
-	projectID, err = uuid.Parse(string(pathElements[0]))
-	if err != nil {
-		return nil, nil, err
-	}
-	return projectID, bucketName, nil
 }

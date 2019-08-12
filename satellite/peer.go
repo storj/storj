@@ -388,6 +388,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			satelliteSignee,
 			peer.DB.CertDB(),
 			peer.DB.Orders(),
+			config.Orders.SettlmentBatchSize,
 		)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),

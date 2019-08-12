@@ -69,19 +69,21 @@ type ProcessOrderRequest struct {
 
 // Endpoint for orders receiving
 type Endpoint struct {
-	log             *zap.Logger
-	satelliteSignee signing.Signee
-	DB              DB
-	certdb          certdb.DB
+	log                 *zap.Logger
+	satelliteSignee     signing.Signee
+	DB                  DB
+	certdb              certdb.DB
+	settlementBatchSize int
 }
 
 // NewEndpoint new orders receiving endpoint
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, certdb certdb.DB, db DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, certdb certdb.DB, db DB, settlementBatchSize int) *Endpoint {
 	return &Endpoint{
-		log:             log,
-		satelliteSignee: satelliteSignee,
-		DB:              db,
-		certdb:          certdb,
+		log:                 log,
+		satelliteSignee:     satelliteSignee,
+		DB:                  db,
+		certdb:              certdb,
+		settlementBatchSize: settlementBatchSize,
 	}
 }
 
@@ -123,21 +125,18 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 	log := endpoint.log.Named(peer.ID.String())
 	log.Debug("Settlement")
 
-	const batchSize = 100
-	requests := make([]*ProcessOrderRequest, 0, batchSize)
+	requests := make([]*ProcessOrderRequest, 0, endpoint.settlementBatchSize)
 
-	defer func() (err error) {
+	defer func() {
 		if len(requests) > 0 {
 			err = endpoint.processOrders(ctx, stream, requests)
 			if err != nil {
-				return formatError(err)
+				err = formatError(err)
 			}
 		}
-		return nil
 	}()
 
 	for {
-		// TODO: batch these requests so we hit the db in batches
 		request, err := monitoredSettlementStreamReceive(ctx, stream)
 		if err != nil {
 			return formatError(err)
@@ -215,7 +214,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 
 		requests = append(requests, &ProcessOrderRequest{Order: order, OrderLimit: orderLimit})
 
-		if len(requests) == batchSize {
+		if len(requests) == endpoint.settlementBatchSize {
 			err = endpoint.processOrders(ctx, stream, requests)
 			requests = requests[:0]
 			if err != nil {
