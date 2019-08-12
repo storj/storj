@@ -12,10 +12,9 @@ type PayloadKind uint8
 
 const (
 	PayloadKind_Reserved PayloadKind = iota
-	PayloadKind_Cancel
 	PayloadKind_Invoke
-	PayloadKind_MessageData
-	PayloadKind_ErrorData
+	PayloadKind_Message
+	PayloadKind_Error
 	payloadKind_largest
 )
 
@@ -51,6 +50,10 @@ func ParsePacketID(buf []byte) (rem []byte, pid PacketID, ok bool, err error) {
 	}
 	rem, pid.MessageID, ok, err = readVarint(rem)
 	if !ok || err != nil {
+		goto bad
+	}
+	if pid.MessageID == 0 {
+		err = drpc.ProtocolError.New("zero message id")
 		goto bad
 	}
 

@@ -4,40 +4,33 @@ header
     1  bit starting
     4  bits control
         0: reserved
-        1: cancel
-        2: invoke
-        3: message data
-        4: error data
-        5-15: unused
+        1: invoke
+        2: data
+        3: error
+        4-15: unused
 
     varint stream id
     varint message id
 
 payload
     0: n/a
-    1: none
-    2: name bytes
-    3: message bytes
-    4: error bytes
+    1: name
+    2: message
+    3: error
 
 - any protocol errors close the transport
 - it is a protocol error to use a stream/message id of 0
-- the message id for cancel is optional (encode as 0 for not present)
-- when cancel has no message id, it's interpreted as a close send
 - the first time a stream id/message id pair is used, the starting bit
   must be set. it is a protocol error if not
 - the first time a stream id/message id pair is used with the
   continuation bit unset, the message is no longer in use
 - messages are handled in the order they finish being sent which is
   when the continuation is unset
-- a message can be successful data, canceled, or error, and this is
-  determined by whichever is finished first
-- it is a protocol error to send multiple message ids over a stream
-  when it is a unitary rpc
+- it is a protocol error to send different control bits for the same
+  active  stream id/message id pair
 - it is a protocol error for a server to send invoke
-- invoke both allocate the stream id that messages will flow on and
+- invoke both allocates the stream id that messages will flow on and
   chooses the rpc
-- it is a protocol error to send anything for a stream after stream
-  close send has been sent
-- it is a protocol error to have more than N bytes in unfinished
-  messages on the client or the server
+- clients and servers may arbitarily close streams if too much
+  buffered data or messages are present
+- a successful close is marked by an error message with no bytes

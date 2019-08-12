@@ -20,15 +20,7 @@ func TestAppendParse(t *testing.T) {
 		}
 	}
 
-	t.Run("PacketID_RoundTrip_Fuzz_NoMessageID", func(t *testing.T) {
-		for i := 0; i < 10000; i++ {
-			exp := RandPacketID()
-			exp.MessageID = 0
-			requireGoodParse(t, exp)(ParsePacketID(AppendPacketID(nil, exp)))
-		}
-	})
-
-	t.Run("PacketID_RoundTrip_Fuzz_WithMessageID", func(t *testing.T) {
+	t.Run("PacketID_RoundTrip_Fuzz", func(t *testing.T) {
 		for i := 0; i < 10000; i++ {
 			exp := RandPacketID()
 			requireGoodParse(t, exp)(ParsePacketID(AppendPacketID(nil, exp)))

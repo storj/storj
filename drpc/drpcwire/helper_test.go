@@ -19,18 +19,14 @@ func RandBool() bool {
 }
 
 func RandPacketID() PacketID {
-	streamID := RandUint64()
-	if streamID == 0 {
-		streamID = 1
-	}
 	return PacketID{
-		StreamID:  streamID,
-		MessageID: RandUint64(),
+		StreamID:  RandUint64() | 1,
+		MessageID: RandUint64() | 1,
 	}
 }
 
 func RandPayloadKind() PayloadKind {
-	return PayloadKind(testrand.Intn(4) + 1)
+	return PayloadKind(testrand.Intn(int(payloadKind_largest)-1) + 1)
 }
 
 func RandFrameInfo() FrameInfo {
@@ -43,15 +39,9 @@ func RandFrameInfo() FrameInfo {
 }
 
 func RandHeader() Header {
-	fi := RandFrameInfo()
-	pid := RandPacketID()
-	if fi.PayloadKind == PayloadKind_Cancel {
-		pid.MessageID = 0
-		fi.Length = 0
-	}
 	return Header{
-		FrameInfo: fi,
-		PacketID:  pid,
+		FrameInfo: RandFrameInfo(),
+		PacketID:  RandPacketID(),
 	}
 }
 
@@ -66,12 +56,8 @@ func RandIncompletePacket() Packet {
 func RandCompletePacket() Packet {
 	hdr := RandHeader()
 	hdr.FrameInfo = FrameInfo{PayloadKind: hdr.PayloadKind}
-	n := 0
-	if hdr.PayloadKind != PayloadKind_Cancel {
-		n = rand.Intn(100 * 1024)
-	}
 	return Packet{
 		Header: hdr,
-		Data:   testrand.BytesInt(n),
+		Data:   testrand.BytesInt(rand.Intn(100 * 1024)),
 	}
 }

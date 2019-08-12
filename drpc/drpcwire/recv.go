@@ -16,9 +16,8 @@ type Receiver struct {
 }
 
 type payloadState struct {
-	invoke []byte
-	data   []byte
-	err    []byte
+	kind PayloadKind
+	data []byte
 }
 
 func NewReceiver(r io.Reader) *Receiver {
@@ -68,25 +67,6 @@ func (r *Receiver) ReadPacket() (p *Packet, err error) {
 			return nil, drpc.InternalError.New("invalid length of data and header length")
 		}
 
-		// handle stream closing/cancelation first. all we have to do is delete all the
-		// pending state for anything that matches the stream id after validating it.
-		if pkt.PayloadKind == PayloadKind_Cancel {
-			if pkt.MessageID != 0 {
-				return nil, drpc.ProtocolError.New("received cancel with non-zero message id")
-			} else if len(pkt.Data) > 0 {
-				return nil, drpc.ProtocolError.New("received cancel with data")
-			} else if pkt.Continuation {
-				return nil, drpc.ProtocolError.New("received cancel with continuation bit set")
-			}
-
-			for pid := range r.pending {
-				if pid.StreamID == pkt.StreamID {
-					delete(r.pending, pid)
-				}
-			}
-			break
-		}
-
 		// get the payload state for the packet and ensure that the starting bit on the
 		// frame is consistent with the payload state's existence.
 		state, packetExists := r.pending[pkt.PacketID]
@@ -94,33 +74,32 @@ func (r *Receiver) ReadPacket() (p *Packet, err error) {
 			return nil, drpc.ProtocolError.New("unknown packet id with no starting bit")
 		} else if packetExists && pkt.Starting {
 			return nil, drpc.ProtocolError.New("starting packet id that already exists")
+		} else if packetExists && state.kind != pkt.PayloadKind {
+			return nil, drpc.ProtocolError.New("changed payload kind for in flight message")
 		}
-
-		// append the packet's data into the appropriate buffer. it's important to do
-		// this even if the packet is complete because we don't want to pass memory to
-		// a caller that can be shared with some other caller.
-		var buffer *[]byte
-		switch pkt.PayloadKind {
-		case PayloadKind_Invoke:
-			buffer = &state.invoke
-		case PayloadKind_MessageData:
-			buffer = &state.data
-		case PayloadKind_ErrorData:
-			buffer = &state.err
-		default:
-			return nil, drpc.ProtocolError.New("unknown payload kind")
+		state = payloadState{
+			kind: pkt.PayloadKind,
+			data: append(state.data, pkt.Data...),
 		}
-		*buffer = append(*buffer, pkt.Data...)
 
 		// if we have a complete packet. we no longer need any state about it and the
 		// packet is now complete, so we set the data to the completed buffer.
 		if !pkt.Continuation {
 			delete(r.pending, pkt.PacketID)
-			pkt.Data = *buffer
+			pkt.Data = state.data
 			break
 		}
-
 		r.pending[pkt.PacketID] = state
+	}
+
+	// if we're returning an error packet, we can delete all the other pending messages
+	// for the stream.
+	if pkt.PayloadKind == PayloadKind_Error {
+		for pid := range r.pending {
+			if pid == pkt.PacketID {
+				delete(r.pending, pid)
+			}
+		}
 	}
 
 	// we clear out out the frame info to only have the payload kind as it's the only
