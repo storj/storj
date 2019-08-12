@@ -227,6 +227,7 @@ func BenchmarkOrders(b *testing.B) {
 
 	counts := []int{50, 100, 250, 500, 999} //sqlite limit of 999
 	for _, c := range counts {
+		c := c
 		satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
 			snID := testrand.NodeID()
 
@@ -247,19 +248,16 @@ func BenchmarkOrders(b *testing.B) {
 
 }
 
-func buildBenchmarkData(ctx context.Context, t *testing.B, db satellite.DB, storageNodeID storj.NodeID, bucketID []byte, orderCount int) (_ []*orders.ProcessOrderRequest) {
+func buildBenchmarkData(ctx context.Context, b *testing.B, db satellite.DB, storageNodeID storj.NodeID, bucketID []byte, orderCount int) (_ []*orders.ProcessOrderRequest) {
 	requests := make([]*orders.ProcessOrderRequest, 0, orderCount)
+
 	for i := 0; i < orderCount; i++ {
 		snUUID, _ := uuid.New()
 		sn, err := storj.SerialNumberFromBytes(snUUID[:])
-		require.NoError(t, err)
+		require.NoError(b, err)
 
-		db.Orders().CreateSerialInfo(ctx, sn, bucketID, time.Now().Add(time.Hour*24))
-		pieces := make([]*pb.RemotePiece, 0, 1)
-		pieces = append(pieces, &pb.RemotePiece{
-			PieceNum: int32(1),
-			NodeId:   storageNodeID,
-		})
+		err = db.Orders().CreateSerialInfo(ctx, sn, bucketID, time.Now().Add(time.Hour*24))
+		require.NoError(b, err)
 
 		order := &pb.Order{
 			SerialNumber: sn,
