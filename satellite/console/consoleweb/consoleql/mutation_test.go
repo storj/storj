@@ -331,6 +331,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			data := result.(map[string]interface{})
 			project := data[consoleql.CreateProjectMutation].(map[string]interface{})
+			fmt.Printf("%+v", project)
 
 			assert.Equal(t, projectInfo.Name, project[consoleql.FieldName])
 			assert.Equal(t, projectInfo.Description, project[consoleql.FieldDescription])
@@ -343,6 +344,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		project, err := service.GetProject(authCtx, *pID)
 		require.NoError(t, err)
+		require.Equal(t, rootUser.PartnerID, project.PartnerID)
 
 		t.Run("Update project description mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
