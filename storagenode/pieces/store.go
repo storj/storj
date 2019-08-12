@@ -142,17 +142,10 @@ type Store struct {
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
 	spaceUsedDB    PieceSpaceUsedDB
-
-	// The value of reservedSpace is always added to the return value from the
-	// SpaceUsedForPieces() method.
-	// The reservedSpace field is part of an unfortunate hack that enables testing of low-space
-	// or no-space conditions. It is not (or should not be) used under regular operating
-	// conditions.
-	reservedSpace int64
 }
 
 // StoreForTest is a wrapper around Store to be used only in test scenarios. It enables writing
-// pieces with older storage formats and allows use of the ReserveSpace() method.
+// pieces with older storage formats
 type StoreForTest struct {
 	*Store
 }
@@ -367,7 +360,7 @@ func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
 		}
 		total += spaceUsed
 	}
-	return total + store.reservedSpace, nil
+	return total, nil
 }
 
 func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID, error) {
@@ -444,14 +437,6 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (total int
 		totalBySatellite[satelliteID] = totalUsed
 	}
 	return total, totalBySatellite, nil
-}
-
-// ReserveSpace marks some amount of free space as used, even if it's not, so that future calls
-// to SpaceUsedForPieces() are raised by this amount. Calls to ReserveSpace invalidate earlier
-// calls, so ReserveSpace(0) undoes all prior space reservation. This should only be used in
-// test scenarios.
-func (store StoreForTest) ReserveSpace(amount int64) {
-	store.reservedSpace = amount
 }
 
 // StorageStatus contains information about the disk store is using.
