@@ -174,7 +174,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
+		server.log.Error("satellite/console/server: index template could not be executed")
 		server.serveError(w, r, http.StatusNotFound)
+		return
 	}
 }
 
@@ -191,8 +193,8 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
 
-		w.WriteHeader(http.StatusUnauthorized)
-		http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
+		// TODO: use http.StatusUnauthorized status when appropriate page will be created
+		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
 
@@ -209,8 +211,8 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		if err != nil {
 			server.log.Error("bucket usage report error", zap.Error(err))
 
-			w.WriteHeader(http.StatusNotFound)
-			http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
+			server.serveError(w, r, http.StatusNotFound)
+			return
 		}
 	}()
 
@@ -243,7 +245,9 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
+		server.log.Error("satellite/console/server: usage report template could not be executed", zap.Error(err))
 		server.serveError(w, r, http.StatusNotFound)
+		return
 	}
 }
 
@@ -307,7 +311,9 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	if err = server.templates.activated.Execute(w, nil); err != nil {
+		server.log.Error("satellite/console/server: account activated template could not be executed", zap.Error(err))
 		server.serveError(w, r, http.StatusNotFound)
+		return
 	}
 }
 
@@ -343,11 +349,15 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 		}
 
 		if err := server.templates.success.Execute(w, nil); err != nil {
+			server.log.Error("satellite/console/server: success reset password template could not be executed", zap.Error(err))
 			server.serveError(w, r, http.StatusNotFound)
+			return
 		}
 	case http.MethodGet:
 		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
+			server.log.Error("satellite/console/server: reset password template could not be executed", zap.Error(err))
 			server.serveError(w, r, http.StatusNotFound)
+			return
 		}
 	default:
 		server.serveError(w, r, http.StatusNotFound)
