@@ -4,12 +4,24 @@
 package console
 
 import (
+	"context"
 	"time"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 )
+
+// Bandwidth is interface for querying bandwidth from the db
+type Bandwidth interface {
+	// GetDaily returns slice of daily bandwidth usage for provided time range,
+	// sorted in ascending order for particular satellite
+	GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]BandwidthUsed, error)
+	// GetDailyTotal returns slice of daily bandwidth usage for provided time range,
+	// sorted in ascending order
+	GetDailyTotal(ctx context.Context, from, to time.Time) ([]BandwidthUsed, error)
+}
 
 // Egress stores info about storage node egress usage
 type Egress struct {

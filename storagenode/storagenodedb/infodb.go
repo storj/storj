@@ -423,6 +423,52 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`CREATE INDEX idx_piece_expirations_deletion_failed_at ON piece_expirations(deletion_failed_at)`,
 				},
 			},
+			{
+				Description: "Add reputation and storage usage cache tables",
+				Version:     16,
+				Action: migrate.SQL{
+					`CREATE TABLE reputation (
+						satellite_id BLOB NOT NULL,
+						uptime_success_count INTEGER NOT NULL,
+						uptime_total_count INTEGER NOT NULL,
+						uptime_reputation_alpha REAL NOT NULL,
+						uptime_reputation_beta REAL NOT NULL,
+						uptime_reputation_score REAL NOT NULL,
+						audit_success_count INTEGER NOT NULL,
+						audit_total_count INTEGER NOT NULL,
+						audit_reputation_alpha REAL NOT NULL,
+						audit_reputation_beta REAL NOT NULL,
+						audit_reputation_score REAL NOT NULL,
+						updated_at TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id)
+					)`,
+					`CREATE TABLE storage_usage (
+						satellite_id BLOB NOT NULL,
+						at_rest_total REAL NOT NUll,
+						timestamp TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id, timestamp)
+					)`,
+				},
+			},
 		},
 	}
+}
+
+// withTx is a helper method which executes callback in transaction scope
+func (db *InfoDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
 }
