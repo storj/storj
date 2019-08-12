@@ -129,6 +129,7 @@ func (server *Server) dashboardHandler(wr http.ResponseWriter, req *http.Request
 
 	if err := json.NewEncoder(wr).Encode(&data); err != nil {
 		server.log.Error(err.Error())
+		return
 	}
 }
 
@@ -155,6 +156,7 @@ func (server *Server) satelliteHandler(wr http.ResponseWriter, req *http.Request
 
 	if err := json.NewEncoder(wr).Encode(&data); err != nil {
 		server.log.Error(err.Error())
+		return
 	}
 }
 
