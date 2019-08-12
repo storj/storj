@@ -70,9 +70,8 @@ func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
 	cache.reputationCycle.Start(ctx, &group, func(ctx context.Context) error {
-		jitter := time.Duration(rand.Intn(int(cache.maxSleep)))
-		if !sync2.Sleep(ctx, jitter) {
-			return ctx.Err()
+		if err := cache.sleep(ctx); err != nil {
+			return err
 		}
 
 		err := cache.CacheReputationStats(ctx)
@@ -83,9 +82,8 @@ func (cache *Cache) Run(ctx context.Context) error {
 		return nil
 	})
 	cache.storageCycle.Start(ctx, &group, func(ctx context.Context) error {
-		jitter := time.Duration(rand.Intn(int(cache.maxSleep)))
-		if !sync2.Sleep(ctx, jitter) {
-			return ctx.Err()
+		if err := cache.sleep(ctx); err != nil {
+			return err
 		}
 
 		err := cache.CacheSpaceUsage(ctx)
@@ -139,6 +137,21 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 
 		return nil
 	})
+}
+
+// sleep for random interval in [0;maxSleep)
+// returns error if context was cancelled
+func (cache *Cache) sleep(ctx context.Context) error {
+	if cache.maxSleep <= 0 {
+		return nil
+	}
+
+	jitter := time.Duration(rand.Intn(int(cache.maxSleep)))
+	if !sync2.Sleep(ctx, jitter) {
+		return ctx.Err()
+	}
+
+	return nil
 }
 
 // satelliteLoop loops over all satellites from trust pool executing provided fn, caching errors if occurred,

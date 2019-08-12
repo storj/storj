@@ -9,27 +9,38 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 // EndpointError defines errors class for Endpoint
 var EndpointError = errs.Class("kademlia endpoint error")
+
+// SatelliteIDVerifier checks if the connection is from a trusted satellite
+type SatelliteIDVerifier interface {
+	VerifySatelliteID(ctx context.Context, id storj.NodeID) error
+}
 
 // Endpoint implements the kademlia Endpoints
 type Endpoint struct {
 	log          *zap.Logger
 	service      *Kademlia
 	routingTable *RoutingTable
+	trust        SatelliteIDVerifier
 	connected    int32
 }
 
 // NewEndpoint returns a new kademlia endpoint
-func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable, trust SatelliteIDVerifier) *Endpoint {
 	return &Endpoint{
+		log:          log,
 		service:      service,
 		routingTable: routingTable,
-		log:          log,
+		trust:        trust,
 	}
 }
 
@@ -92,6 +103,22 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.
 func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) (_ *pb.InfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	self := endpoint.service.Local()
+
+	if self.Type == pb.NodeType_STORAGE {
+		if endpoint.trust == nil {
+			return nil, status.Error(codes.Internal, "missing trust verifier")
+		}
+
+		peer, err := identity.PeerIdentityFromContext(ctx)
+		if err != nil {
+			return nil, status.Error(codes.Unauthenticated, err.Error())
+		}
+
+		err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+		if err != nil {
+			return nil, status.Error(codes.PermissionDenied, "info requested from untrusted peer")
+		}
+	}
 
 	return &pb.InfoResponse{
 		Type:     self.Type,
