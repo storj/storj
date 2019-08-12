@@ -304,3 +304,22 @@ func TestManageableFullIdentity_Revoke(t *testing.T) {
 	err = rev.Verify(manageableFullIdentity.CA.Cert)
 	require.NoError(t, err)
 }
+
+func TestEncodeDecodePeerIdentity(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	peerID, err := testidentity.NewTestIdentity(ctx)
+	require.NoError(t, err)
+	pi := peerID.PeerIdentity()
+
+	// encode the peer identity
+	encodedPiBytes := identity.EncodePeerIdentity(pi)
+	assert.NotNil(t, encodedPiBytes)
+	// decode the peer identity
+	decodedPi, err := identity.DecodePeerIdentity(ctx, encodedPiBytes)
+	assert.NoError(t, err)
+	// again encode the above decoded peer identity and compare
+	decodedPiBytes := identity.EncodePeerIdentity(decodedPi)
+	assert.Equal(t, encodedPiBytes, decodedPiBytes)
+}
