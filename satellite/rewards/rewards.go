@@ -53,6 +53,13 @@ type UpdateOffer struct {
 	ExpiresAt time.Time
 }
 
+// RedeemOffer holds field needed for redeem an offer
+type RedeemOffer struct {
+	RedeemableCap int
+	Status        OfferStatus
+	Type          OfferType
+}
+
 // Offers contains a slice of offers.
 type Offers []Offer
 
@@ -78,11 +85,11 @@ const (
 	// Done is the status of an offer that is no longer in use.
 	Done = OfferStatus(iota)
 
-	// Active is the status of an offer that is currently in use.
-	Active
-
 	// Default is the status of an offer when there is no active offer.
 	Default
+
+	// Active is the status of an offer that is currently in use.
+	Active
 )
 
 // Offer contains info needed for giving users free credits through different offer programs

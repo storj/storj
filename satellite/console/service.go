@@ -16,7 +16,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/currency"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -176,24 +175,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 		if currentReward != nil {
 			// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration
-			newCredit := UserCredit{
-				UserID:        u.ID,
-				OfferID:       currentReward.ID,
-				ReferredBy:    nil,
-				CreditsEarned: currency.Cents(0),
-				ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.InviteeCreditDurationDays),
-			}
-
-			err = tx.UserCredits().Create(ctx, newCredit)
+			newCredit, err := NewCredit(currentReward, Invitee, u.ID, nil)
 			if err != nil {
-				// if it has reached the maximum, we should update the current reward to be done
-				// this should not happen often
-				if rewards.MaxRedemptionErr.Has(err) {
-					err = s.rewards.Finish(ctx, newCredit.OfferID)
-					if err != nil {
-						return err
-					}
-				}
+				return err
+			}
+			err = tx.UserCredits().Create(ctx, *newCredit)
+			if err != nil {
 				return err
 			}
 		}

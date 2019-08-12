@@ -88,7 +88,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			Description:               "",
 			AwardCredit:               currency.Cents(0),
 			InviteeCredit:             currency.Cents(20),
-			RedeemableCap:             0,
+			RedeemableCap:             10,
 			AwardCreditDurationDays:   0,
 			InviteeCreditDurationDays: 14,
 			ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
