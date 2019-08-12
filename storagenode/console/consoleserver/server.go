@@ -70,7 +70,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 	}
 
 	// handle api endpoints
-	mux.Handle("/api/dashboard/", http.HandlerFunc(server.dashboardHandler))
+	mux.Handle("/api/dashboard", http.HandlerFunc(server.dashboardHandler))
+	mux.Handle("/api/satellites", http.HandlerFunc(server.satellitesHandler))
 	mux.Handle("/api/satellite/", http.HandlerFunc(server.satelliteHandler))
 
 	server.server = http.Server{
@@ -118,22 +119,35 @@ func (server *Server) dashboardHandler(wr http.ResponseWriter, req *http.Request
 		return
 	}
 
-	wr.Header().Set(contentType, applicationJSON)
-
-	var data struct {
-		Data  *console.Dashboard `json:"data"`
-		Error error              `json:"error"`
-	}
-
-	data.Data, data.Error = server.service.GetDashboardData(ctx)
-
-	if err := json.NewEncoder(wr).Encode(&data); err != nil {
-		server.log.Error(err.Error())
+	data, err := server.service.GetDashboardData(ctx)
+	if err != nil {
+		server.writeError(wr, http.StatusInternalServerError, err)
 		return
 	}
+
+	server.writeData(wr, data)
 }
 
 // satelliteHandler handles satellite api requets
+func (server *Server) satellitesHandler(wr http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	if req.Method != http.MethodGet {
+		http.Error(wr, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	data, err := server.service.GetAllSatellitesData(ctx)
+	if err != nil {
+		server.writeError(wr, http.StatusInternalServerError, err)
+		return
+	}
+
+	server.writeData(wr, data)
+}
+
+// satelliteHandler handles satellite api requests
 func (server *Server) satelliteHandler(wr http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -143,34 +157,52 @@ func (server *Server) satelliteHandler(wr http.ResponseWriter, req *http.Request
 		return
 	}
 
-	wr.Header().Set(contentType, applicationJSON)
-
-	var data struct {
-		Data  *console.Satellite `json:"data"`
-		Error error              `json:"error"`
+	satelliteID, err := storj.NodeIDFromString(strings.TrimLeft(req.URL.Path, "/api/satellite/"))
+	if err != nil {
+		server.writeError(wr, http.StatusBadRequest, err)
+		return
 	}
 
-	satelliteID := strings.TrimLeft(req.URL.Path, "/api/satellite/")
-
-	data.Data, data.Error = server.getSatelliteData(ctx, satelliteID)
-
-	if err := json.NewEncoder(wr).Encode(&data); err != nil {
-		server.log.Error(err.Error())
+	if err = server.service.VerifySatelliteID(ctx, satelliteID); err != nil {
+		server.writeError(wr, http.StatusBadRequest, err)
 		return
+	}
+
+	data, err := server.service.GetSatelliteData(ctx, satelliteID)
+	if err != nil {
+		server.writeError(wr, http.StatusInternalServerError, err)
+		return
+	}
+
+	server.writeData(wr, data)
+}
+
+// jsonOutput defines json structure of api response data
+type jsonOutput struct {
+	Data  interface{} `json:"data"`
+	Error string      `json:"err"`
+}
+
+// writeData is helper method to write JSON to http.ResponseWriter and log encoding error
+func (server Server) writeData(wr http.ResponseWriter, data interface{}) {
+	wr.Header().Set(contentType, applicationJSON)
+	wr.WriteHeader(http.StatusOK)
+
+	output := jsonOutput{Data: data}
+
+	if err := json.NewEncoder(wr).Encode(output); err != nil {
+		server.log.Error(err.Error())
 	}
 }
 
-// getSatelliteData returns Satellite data based on provided string representation
-// returns consolidated Satellite data if satelliteID is empty string
-func (server *Server) getSatelliteData(ctx context.Context, satelliteID string) (*console.Satellite, error) {
-	if satelliteID == "" {
-		return server.service.GetAllSatellitesData(ctx)
-	}
+// helper method to write JSON error to http.ResponseWriter and log encoding error
+func (server Server) writeError(wr http.ResponseWriter, status int, err error) {
+	wr.Header().Set(contentType, applicationJSON)
+	wr.WriteHeader(status)
 
-	id, err := storj.NodeIDFromString(satelliteID)
-	if err != nil {
-		return nil, err
-	}
+	output := jsonOutput{Error: err.Error()}
 
-	return server.service.GetSatelliteData(ctx, id)
+	if err := json.NewEncoder(wr).Encode(output); err != nil {
+		server.log.Error(err.Error())
+	}
 }

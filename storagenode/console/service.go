@@ -167,33 +167,28 @@ type Satellite struct {
 }
 
 // GetSatelliteData returns satellite related data
-func (s *Service) GetSatelliteData(ctx context.Context, satellite storj.NodeID) (_ *Satellite, err error) {
+func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// get current month edges
 	from, to := date.MonthBoundary(time.Now())
 
-	err = s.trust.VerifySatelliteID(ctx, satellite)
+	bandwidthDaily, err := s.consoleDB.Bandwidth().GetDaily(ctx, satelliteID, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	bandwidthDaily, err := s.consoleDB.Bandwidth().GetDaily(ctx, satellite, from, to)
+	storageDaily, err := s.storageUsageDB.GetDaily(ctx, satelliteID, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	storageDaily, err := s.storageUsageDB.GetDaily(ctx, satellite, from, to)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
-	rep, err := s.reputationDB.Get(ctx, satellite)
+	rep, err := s.reputationDB.Get(ctx, satelliteID)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
 	return &Satellite{
-		ID:             satellite,
+		ID:             satelliteID,
 		StorageDaily:   storageDaily,
 		BandwidthDaily: bandwidthDaily,
 		Audit:          rep.Audit,
@@ -222,6 +217,18 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellite, err e
 		StorageDaily:   storageDaily,
 		BandwidthDaily: bandwidthDaily,
 	}, nil
+}
+
+// VerifySatelliteID verifies if satellite belongs to the trust pool
+func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.trust.VerifySatelliteID(ctx, satelliteID)
+	if err != nil {
+		return SNOServiceErr.Wrap(err)
+	}
+
+	return nil
 }
 
 // CheckVersion checks if node version >= minAllowedVersion
