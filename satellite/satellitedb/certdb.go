@@ -63,16 +63,16 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, pi *identity.
 // Get gets the public key based on the certificate's serial number
 func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxInfo, err := certs.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+	dbxPeerID, err := certs.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	if dbxInfo == nil {
+	if dbxPeerID == nil {
 		return nil, Error.New("unknown nodeID :%+v: %+v", nodeID.Bytes(), err)
 	}
 
-	peer, err := identity.DecodePeerIdentity(ctx, dbxInfo.PeerIdentity)
+	peer, err := identity.DecodePeerIdentity(ctx, dbxPeerID.PeerIdentity)
 	return peer, Error.Wrap(err)
 }
 

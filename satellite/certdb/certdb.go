@@ -10,7 +10,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// DB stores uplink public keys.
+// DB stores storagenode public keys.
 type DB interface {
 	// Set adds a peer identity entry for a node
 	Set(context.Context, storj.NodeID, *identity.PeerIdentity) error
