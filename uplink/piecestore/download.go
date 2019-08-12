@@ -10,7 +10,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
@@ -190,24 +189,25 @@ func (client *Download) Close() (err error) {
 
 	// close our sending end
 	closeErr := client.stream.CloseSend()
-	// try to read any pending error message
-	_, recvErr := client.stream.Recv()
-	if errs2.IsCanceled(recvErr) {
-		recvErr = nil
-	}
 
 	if alldone {
 		// if we are all done, then we expecte io.EOF, but don't care about them
-		return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
+		return ignoreEOF(closeErr)
 	}
 
 	if client.unread.Errored() {
+		// try to read any pending error message
+		_, recvErr := client.stream.Recv()
+		recvErr = ignoreCanceled(recvErr)
+
+		unreadErr := ignoreCanceled(client.unread.Error())
+
 		// something went wrong and we didn't manage to download all the content
-		return errs.Combine(client.unread.Error(), closeErr, recvErr)
+		return errs.Combine(unreadErr, closeErr, recvErr)
 	}
 
 	// we probably closed download early, so we can ignore io.EOF-s
-	return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
+	return ignoreEOF(closeErr)
 }
 
 // ReadBuffer implements buffered reading with an error.
