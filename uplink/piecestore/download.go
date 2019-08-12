@@ -185,9 +185,17 @@ func (client *Download) Close() (err error) {
 		}
 	}()
 
+	alldone := client.read == client.downloadSize
+
+	// close our sending end
+	closeErr := client.stream.CloseSend()
+
+	if alldone {
+		// if we are all done, then we expecte io.EOF, but don't care about them
+		return ignoreEOF(closeErr)
+	}
+
 	if client.unread.Errored() {
-		// close our sending end
-		closeErr := client.stream.CloseSend()
 		// try to read any pending error message
 		_, recvErr := client.stream.Recv()
 
@@ -195,7 +203,8 @@ func (client *Download) Close() (err error) {
 		return errs.Combine(client.unread.Error(), closeErr, recvErr)
 	}
 
-	return nil
+	// we probably closed download early, so we can ignore io.EOF-s
+	return ignoreEOF(closeErr)
 }
 
 // ReadBuffer implements buffered reading with an error.
