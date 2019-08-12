@@ -182,13 +182,15 @@ func TestRecalculateCache(t *testing.T) {
 	}{
 		{"1", 0, 0, 0, 0},
 		{"2", 0, 100, 0, 50},
-		{"3", 0, 100, 90, 95},
-		{"4", 0, 100, 110, 105},
-		{"5", 0, 100, -10, 45},
-		{"6", 100, 0, 0, 0},
-		{"7", 100, 0, 90, 45},
-		{"8", 100, 0, 110, 55},
-		{"9", 100, 0, -10, -5},
+		{"3", 0, 100, 90, 140},
+		{"4", 0, 100, 110, 160},
+		{"5", 0, 100, -10, 40},
+		{"6", 0, 100, -200, 0},
+		{"7", 100, 0, 0, 0},
+		{"8", 100, 0, 90, 40},
+		{"9", 100, 0, 30, 0},
+		{"10", 100, 0, 110, 60},
+		{"11", 100, 0, -10, 0},
 	}
 
 	for _, tt := range testCases {
@@ -204,7 +206,9 @@ func TestRecalculateCache(t *testing.T) {
 
 			err := cache.Recalculate(ctx,
 				tt.new,
+				tt.start,
 				map[storj.NodeID]int64{ID1: tt.new},
+				map[storj.NodeID]int64{ID1: tt.start},
 			)
 			require.NoError(t, err)
 
@@ -236,14 +240,16 @@ func TestRecalculateCacheMissed(t *testing.T) {
 
 	err := cache.Recalculate(ctx,
 		int64(100),
+		int64(0),
 		map[storj.NodeID]int64{ID1: int64(100)},
+		map[storj.NodeID]int64{ID1: int64(0)},
 	)
 	require.NoError(t, err)
 
 	// Test: confirm correct cache values
 	actualTotalSpaceUsed, err := cache.SpaceUsedForPieces(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, int64(125), actualTotalSpaceUsed)
+	assert.Equal(t, int64(175), actualTotalSpaceUsed)
 
 	actualTotalSpaceUsedBySA, err := cache.SpaceUsedBySatellite(ctx, ID2)
 	require.NoError(t, err)

@@ -39,12 +39,18 @@ func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, int
 func (service *CacheService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	totalAtStart := service.usageCache.copyCacheTotals()
+
 	// recalculate the cache once
-	newTotalSpaceUsed, newTotalSpaceUsedBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
+	newTotal, newTotalBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
 	if err != nil {
 		service.log.Error("error getting current space used calculation: ", zap.Error(err))
 	}
-	if err = service.usageCache.Recalculate(ctx, newTotalSpaceUsed, newTotalSpaceUsedBySatellite); err != nil {
+	if err = service.usageCache.Recalculate(ctx, newTotal,
+		totalAtStart.totalSpaceUsed,
+		newTotalBySatellite,
+		totalAtStart.totalSpaceUsedBySatellite,
+	); err != nil {
 		service.log.Error("error during recalculating space usage cache: ", zap.Error(err))
 	}
 
@@ -186,23 +192,36 @@ func (blobs *BlobsUsageCache) Update(ctx context.Context, satelliteID storj.Node
 	blobs.totalSpaceUsedBySatellite[satelliteID] += pieceContentSize
 }
 
+func (blobs *BlobsUsageCache) copyCacheTotals() BlobsUsageCache {
+	var copyMap = map[storj.NodeID]int64{}
+	for k, v := range blobs.totalSpaceUsedBySatellite {
+		copyMap[k] = v
+	}
+	return BlobsUsageCache{
+		totalSpaceUsed:            blobs.totalSpaceUsed,
+		totalSpaceUsedBySatellite: copyMap,
+	}
+}
+
 // Recalculate estimates new totals for the space used cache. In order to get new totals for the
 // space used cache, we had to iterate over all the pieces on disk. Since that can potentially take
 // a long time, here we need to check if we missed any additions/deletions while we were iterating and
 // estimate how many bytes missed then add those to the space used result of iteration.
-func (blobs *BlobsUsageCache) Recalculate(ctx context.Context, newTotalSpaceUsed int64, newTotalSpaceUsedBySatellite map[storj.NodeID]int64) error {
+func (blobs *BlobsUsageCache) Recalculate(ctx context.Context, newTotal, totalAtIterationStart int64, newTotalBySatellite, totalBySatelliteAtIterationStart map[storj.NodeID]int64) error {
 	blobs.mu.Lock()
-	spaceUsedWhenIterationEnded := blobs
+	totalsAtIterationEnd := blobs.copyCacheTotals()
 	blobs.mu.Unlock()
 
-	estimatedTotals := estimate(newTotalSpaceUsed,
-		spaceUsedWhenIterationEnded.totalSpaceUsed,
+	estimatedTotals := estimate(newTotal,
+		totalAtIterationStart,
+		totalsAtIterationEnd.totalSpaceUsed,
 	)
 
 	var estimatedTotalsBySatellite = map[storj.NodeID]int64{}
-	for ID, newTotal := range newTotalSpaceUsedBySatellite {
+	for ID, newTotal := range newTotalBySatellite {
 		estimatedNewTotal := estimate(newTotal,
-			spaceUsedWhenIterationEnded.totalSpaceUsedBySatellite[ID],
+			totalBySatelliteAtIterationStart[ID],
+			totalsAtIterationEnd.totalSpaceUsedBySatellite[ID],
 		)
 		// if the estimatedNewTotal is zero then there is no data stored
 		// for this satelliteID so don't add it to the cache
@@ -212,14 +231,15 @@ func (blobs *BlobsUsageCache) Recalculate(ctx context.Context, newTotalSpaceUsed
 		estimatedTotalsBySatellite[ID] = estimatedNewTotal
 	}
 
-	// find any saIDs that are in spaceUsedWhenIterationEnded but not in newTotalSpaceUsedBySatellite
-	missedWhenIterationEnded := getMissed(spaceUsedWhenIterationEnded.totalSpaceUsedBySatellite,
-		newTotalSpaceUsedBySatellite,
+	// find any saIDs that are in totalsAtIterationEnd but not in newTotalSpaceUsedBySatellite
+	missedWhenIterationEnded := getMissed(totalsAtIterationEnd.totalSpaceUsedBySatellite,
+		newTotalBySatellite,
 	)
 	if len(missedWhenIterationEnded) > 0 {
 		for ID := range missedWhenIterationEnded {
 			estimatedNewTotal := estimate(0,
-				spaceUsedWhenIterationEnded.totalSpaceUsedBySatellite[ID],
+				totalBySatelliteAtIterationStart[ID],
+				totalsAtIterationEnd.totalSpaceUsedBySatellite[ID],
 			)
 			if estimatedNewTotal == 0 {
 				continue
@@ -235,17 +255,20 @@ func (blobs *BlobsUsageCache) Recalculate(ctx context.Context, newTotalSpaceUsed
 	return nil
 }
 
-func estimate(newSpaceUsedTotal, spaceUsedWhenIterationEnded int64) int64 {
-	if newSpaceUsedTotal == spaceUsedWhenIterationEnded {
+func estimate(newSpaceUsedTotal, totalAtIterationStart, totalAtIterationEnd int64) int64 {
+	if newSpaceUsedTotal == totalAtIterationEnd {
 		return newSpaceUsedTotal
 	}
 
 	// If we missed writes/deletes while iterating, we will assume that half of those missed occurred before
 	// the iteration and half occurred after. So here we add half of the delta to the result space used totals
 	// from the iteration to account for those missed.
-	//spaceUsedDeltaDuringIteration := spaceUsedWhenIterationEnded - spaceUsedWhenIterationStarted
-	spaceUsedDeltaDuringIteration := spaceUsedWhenIterationEnded - newSpaceUsedTotal
-	return newSpaceUsedTotal + (spaceUsedDeltaDuringIteration / 2)
+	spaceUsedDeltaDuringIteration := totalAtIterationEnd - totalAtIterationStart
+	estimatedTotal := newSpaceUsedTotal + (spaceUsedDeltaDuringIteration / 2)
+	if estimatedTotal < 0 {
+		return 0
+	}
+	return estimatedTotal
 }
 
 func getMissed(endTotals, newTotals map[storj.NodeID]int64) map[storj.NodeID]int64 {
