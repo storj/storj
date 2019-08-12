@@ -45,12 +45,12 @@ type Rollup struct {
 	AtRestTotal    float64
 }
 
-// StorageNodeUsage is node at rest space usage over a period of time
-type StorageNodeUsage struct {
+// NodeSpaceUsage is node at rest space usage over a period of time
+type NodeSpaceUsage struct {
 	NodeID      storj.NodeID
-	StorageUsed float64
+	AtRestTotal float64
 
-	Timestamp time.Time
+	TimeStamp time.Time
 }
 
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes
@@ -69,8 +69,8 @@ type StoragenodeAccounting interface {
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
 	// QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
-	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
-	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
+	// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
+	QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]NodeSpaceUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
 	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
 }

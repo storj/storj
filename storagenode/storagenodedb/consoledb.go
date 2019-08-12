@@ -5,6 +5,7 @@ package storagenodedb
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -25,27 +26,43 @@ func (db *InfoDB) Console() console.DB { return &consoledb{db} }
 // Console returns console.DB
 func (db *DB) Console() console.DB { return db.info.Console() }
 
-// Bandwidth returns consoledb as console.Bandwidth
-func (db *consoledb) Bandwidth() console.Bandwidth {
-	return db
-}
-
-// GetDaily returns slice of daily bandwidth usage for provided time range,
-// sorted in ascending order for particular satellite
-func (db *consoledb) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.BandwidthUsed, err error) {
+// GetSatelliteIDs returns list of satelliteIDs that storagenode has interacted with
+// at least once
+func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_ storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	since, _ := date.DayBoundary(from.UTC())
-	_, before := date.DayBoundary(to.UTC())
+	var satellites storj.NodeIDList
 
-	return db.getDailyBandwidthUsed(ctx,
-		"WHERE satellite_id = ? AND ? <= created_at AND created_at <= ?",
-		satelliteID, since, before)
+	rows, err := db.db.QueryContext(ctx, db.Rebind(`
+		SELECT DISTINCT satellite_id
+		FROM bandwidth_usage
+		WHERE ? <= created_at AND created_at <= ?`), from.UTC(), to.UTC())
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return satellites, nil
+		}
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var satelliteID storj.NodeID
+		if err = rows.Scan(&satelliteID); err != nil {
+			return nil, err
+		}
+
+		satellites = append(satellites, satelliteID)
+	}
+
+	return satellites, nil
 }
 
-// GetDaily returns slice of daily bandwidth usage for provided time range,
+// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order
-func (db *consoledb) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
+func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	since, _ := date.DayBoundary(from.UTC())
@@ -53,7 +70,20 @@ func (db *consoledb) GetDailyTotal(ctx context.Context, from, to time.Time) (_ [
 
 	return db.getDailyBandwidthUsed(ctx,
 		"WHERE ? <= created_at AND created_at <= ?",
-		since, before)
+		since.UTC(), before.UTC())
+}
+
+// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
+// sorted in ascending order for particular satellite
+func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.BandwidthUsed, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	since, _ := date.DayBoundary(from.UTC())
+	_, before := date.DayBoundary(to.UTC())
+
+	return db.getDailyBandwidthUsed(ctx,
+		"WHERE satellite_id = ? AND ? <= created_at AND created_at <= ?",
+		satelliteID, since.UTC(), before.UTC())
 }
 
 // getDailyBandwidthUsed returns slice of grouped by date bandwidth usage
@@ -61,11 +91,13 @@ func (db *consoledb) GetDailyTotal(ctx context.Context, from, to time.Time) (_ [
 func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, args ...interface{}) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT action, SUM(amount), created_at
-				FROM bandwidth_usage
-				` + cond + `
-				GROUP BY DATE(created_at), action
-				ORDER BY created_at ASC`
+	query := db.Rebind(`
+		SELECT action, SUM(amount), created_at
+		FROM bandwidth_usage
+		` + cond + `
+		GROUP BY DATE(created_at), action
+		ORDER BY created_at ASC
+	`)
 
 	rows, err := db.db.QueryContext(ctx, query, args...)
 	if err != nil {

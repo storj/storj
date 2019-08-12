@@ -35,8 +35,6 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 	"storj.io/storj/storagenode/vouchers"
 )
@@ -55,14 +53,11 @@ type DB interface {
 	Pieces() storage.Blobs
 
 	Orders() orders.DB
-	V0PieceInfo() pieces.V0PieceInfoDB
-	PieceExpirationDB() pieces.PieceExpirationDB
+	PieceInfo() pieces.DB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
 	Console() console.DB
-	Reputation() reputation.DB
-	StorageUsage() storageusage.DB
 
 	// TODO: use better interfaces
 	RoutingTable() (kdb, ndb, adb storage.KeyValueStore)
@@ -81,8 +76,6 @@ type Config struct {
 	Collector collector.Config
 
 	Vouchers vouchers.Config
-
-	Nodestats nodestats.Config
 
 	Console consoleserver.Config
 
@@ -132,10 +125,7 @@ type Peer struct {
 
 	Collector *collector.Service
 
-	NodeStats struct {
-		Service *nodestats.Service
-		Cache   *nodestats.Cache
-	}
+	NodeStats *nodestats.Service
 
 	// Web server with web UI
 	Console struct {
@@ -237,12 +227,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup storage
-		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces(), peer.DB.V0PieceInfo(), peer.DB.PieceExpirationDB())
+		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
 			peer.Kademlia.RoutingTable,
 			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
 			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
 			config.Storage.AllocatedBandwidth.Int64(),
@@ -257,6 +248,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),
@@ -277,20 +269,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup node stats service
-		peer.NodeStats.Service = nodestats.NewService(
-			peer.Log.Named("nodestats:service"),
+		peer.NodeStats = nodestats.NewService(
+			peer.Log.Named("nodestats"),
 			peer.Transport,
-			peer.Storage2.Trust)
-
-		peer.NodeStats.Cache = nodestats.NewCache(
-			peer.Log.Named("nodestats:cache"),
-			config.Nodestats,
-			nodestats.CacheStorage{
-				Reputation:   peer.DB.Reputation(),
-				StorageUsage: peer.DB.StorageUsage(),
-			},
-			peer.NodeStats.Service,
-			peer.Storage2.Trust)
+			peer.Kademlia.Service)
 	}
 
 	{ // setup vouchers
@@ -305,9 +287,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
 			peer.DB.Bandwidth(),
-			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.Version,
+			peer.NodeStats,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
 			config.Kademlia.Operator.Wallet,
@@ -333,7 +316,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{ // setup storage inspector
 		peer.Storage2.Inspector = inspector.NewEndpoint(
 			peer.Log.Named("pieces:inspector"),
-			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
 			config.Storage,
@@ -342,7 +325,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}
 
-	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
+	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
 
 	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
 
@@ -393,9 +376,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.NodeStats.Cache.Run(ctx))
-	})
-	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
@@ -441,10 +421,6 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Console.Endpoint.Close())
 	} else if peer.Console.Listener != nil {
 		errlist.Add(peer.Console.Listener.Close())
-	}
-
-	if peer.NodeStats.Cache != nil {
-		errlist.Add(peer.NodeStats.Cache.Close())
 	}
 
 	return errlist.Err()

@@ -23,12 +23,12 @@ import (
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-func TestV0PieceInfo(t *testing.T) {
+func TestPieceInfo(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		pieceinfos := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
+		pieceinfos := db.PieceInfo()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
