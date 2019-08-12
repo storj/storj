@@ -343,6 +343,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		project, err := service.GetProject(authCtx, *pID)
 		require.NoError(t, err)
+		require.Equal(t, rootUser.PartnerID, project.PartnerID)
 
 		t.Run("Update project description mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
@@ -415,7 +416,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		t.Run("Add project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(limit:50,offset:0){joinedAt}}}",
+				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
@@ -426,14 +427,17 @@ func TestGrapqhlMutation(t *testing.T) {
 			data := result.(map[string]interface{})
 			proj := data[consoleql.AddProjectMembersMutation].(map[string]interface{})
 
+			members := proj[consoleql.FieldMembers].(map[string]interface{})
+			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
+
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, 3, len(proj[consoleql.FieldMembers].([]interface{})))
+			assert.Equal(t, 3, len(projectMembers))
 		})
 
 		t.Run("Delete project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(limit:50,offset:0){user{id}}}}",
+				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{user{id}}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
@@ -444,8 +448,9 @@ func TestGrapqhlMutation(t *testing.T) {
 			data := result.(map[string]interface{})
 			proj := data[consoleql.DeleteProjectMembersMutation].(map[string]interface{})
 
-			members := proj[consoleql.FieldMembers].([]interface{})
-			rootMember := members[0].(map[string]interface{})[consoleql.UserType].(map[string]interface{})
+			members := proj[consoleql.FieldMembers].(map[string]interface{})
+			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
+			rootMember := projectMembers[0].(map[string]interface{})[consoleql.UserType].(map[string]interface{})
 
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])
