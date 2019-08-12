@@ -164,7 +164,7 @@ func (server *Server) satelliteHandler(wr http.ResponseWriter, req *http.Request
 	}
 
 	if err = server.service.VerifySatelliteID(ctx, satelliteID); err != nil {
-		server.writeError(wr, http.StatusBadRequest, err)
+		server.writeError(wr, http.StatusNotFound, err)
 		return
 	}
 
