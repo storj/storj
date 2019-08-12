@@ -45,18 +45,18 @@ This process including the Storage nodes transferring their pieces to other node
 ### During exit
 - When a Storage Node is in the process of gracefully exiting the network, it shall continue to participate in the requested audits and uptimes checks.
 - When a Storage Node is in the process of gracefully exiting the network, it shall continue to honor to download requests.
-	- The Storage Node keep a separate and detailed metric of network bandwidth used to serve the data to clients vs bandwidth used for graceful exit. The Storage Node shall NOT get paid for bandwidth used for graceful exit but shall get paid for the bandwidth used to serve data to clients(downloads, audits, uptime checks etc...)
+	- The Storage Node keep a separate and detailed metric of network bandwidth used to serve the data to clients vs bandwidth used for graceful exit. The Storage Node shall NOT get paid for bandwidth used for graceful exit but shall get paid for the bandwidth used to serve data to clients(downloads, audit egress)
 - When a Storage Node is gracefully exiting the network, it shall delete the piece from its storage after it is successfully transferred to other peer Storage Nodes as directed by the Satellite. The Satellite shall support the mechanism to verify that the transferred piece is correct and complete.
 - When a Storage Node is exiting the network gracefully, it shall keep a detailed record of the network bandwidth used for the purpose of Graceful Exit and shall provide the metrics information to satellite upon request. 
 - The Satellite shall have a mechanism in place to make sure that the Storage Node reporting is correct. This shall eliminate Storage Node from reporting incorrect metrics interms of bandwidth usage. (TBD, is this needed on the satellite side??)
 
 ### When Exited 
 - When a Storage Node left the network, the satellite shall have the capabilty to run a report to get information exited and/or exiting Storage Nodes, so that it shall pay them their escrow amounts accordingly. The report shall support the number of Storage Nodes left in a configurable specified time frame and shall include other information as shown below (TBD):
-		- NodeID
-		- Wallet address
-		- The date the node joined the network
-		- The date the node exited
-		- GB Transferred (amount of data the node transferred during exiting)	
+	- NodeID
+	- Wallet address
+	- The date the node joined the network
+	- The date the node exited
+	- GB Transferred (amount of data the node transferred during exiting)	
 - When a Storage Node exits ungracefully, the satellite shall keep track of this and shall subject the Storage Node to be DQed and their escrow payment shall be denied. The factors that shall affect the escrow payments are 
 	- the Storage Node tranferring incorrect data to other nodes
 	- the Storage Node not transferring complete pieces it holds
@@ -95,8 +95,9 @@ This process including the Storage nodes transferring their pieces to other node
 ## Implementation (MVP)
 
 #### Satellite
-- Update DBX - Add updateable `exit_initiated_dt` and `exit_completed_dt` timestamps to nodes table with indexes
-  - Add GetExitingNodeIds method to overlaycache. Returns nodes IDs where `exit_initiated_dt` is not null and `exit_completed_dt` is null.
+- Update DBX - Add updateable `exit_initiated_at` and `exit_completed_at` timestamps to nodes table with indexes
+  - Add GetExitingNodeIds method to overlaycache. Returns node IDs where `exit_initiated_at` is not null and `exit_completed_at` is null.
+  - Add GetExitedNodeIds method to overlaycache. Returns node IDs where `exit_initiated_at` is not null and `exit_completed_at` is not null. 
 - Create GracefulExit endpoint
   - Endpoints should be secured using the peer Identity provided in context
   - Initiates the exit by setting `nodes.exit_initiated` to current time
@@ -120,9 +121,9 @@ This process including the Storage nodes transferring their pieces to other node
 		field path              blob
 		field piece_info        blob
 		field durability_ratio  float64
-		field queued_dt         timestamp ( autoinsert )
-		field sent_dt           timestamp ( updateable )
-		field completed_dt      timestamp ( updateable )
+		field queued_at         timestamp ( autoinsert )
+		field sent_at           timestamp ( updateable )
+		field completed_at      timestamp ( updateable )
 	)
    ```
 - Add `PieceAction` field to, `cache.FindStorageNodesRequest`. Update `cache.FindStorageNodesWithPreferences` to ignore exiting nodes for uploads and repairs.
@@ -135,7 +136,7 @@ This process including the Storage nodes transferring their pieces to other node
     - Batches orders and sends them to the exiting storagenode `GracefulExit.ProcessOrders` endpoint
     - Execution intervals and batch sizes should be configurable
   - CheckStatus loop
-    - Queries `exit_order` grouping by node ID where all records are marked completed.  The MAX(completed_dt) should be used to determine if the last order was completed within a reasonable (???) threshold to ensure the repairer/checker was able to make enough passes to capture all pieces for the exiting node.
+    - Queries `exit_order` grouping by node ID where all records are marked completed.  The MAX(completed_at) should be used to determine if the last order was completed within a reasonable (???) threshold to ensure the repairer/checker was able to make enough passes to capture all pieces for the exiting node.
     - Execution intervals should be configurable
 - Create gracefulexitreport command in satellite cli
   - Accepts 2 parameter: start date and end date
@@ -156,15 +157,15 @@ This process including the Storage nodes transferring their pieces to other node
 		field serial_number           blob not null
 		field order_limit_serialized  blob not null
 		filed order_limit_expiration  timestamp not null
-		field completed_dt            timestamp ( updateable )
+		field completed_at            timestamp ( updateable )
 	)
 
 	model exit_status (
 		key satellite_id
 
 		field satellite_id           blob not null
-		field initiated_dt           timestamp ( autoinsert ) not null
-		field completed_dt           timestamp ( updateable )
+		field initiated_at           timestamp ( autoinsert ) not null
+		field completed_at           timestamp ( updateable )
 		field starting_disk_usage    int64 not null
 		field bytes_deleted          int64
 	)	
@@ -195,7 +196,7 @@ This process including the Storage nodes transferring their pieces to other node
 	}
 
     message CompletedRequest {
-		google.protobuf.Timestamp completed_dt
+		google.protobuf.Timestamp completed_at
 	}
 
     message CompletedResponse {
@@ -206,18 +207,18 @@ This process including the Storage nodes transferring their pieces to other node
 
 	message StatusResponse {
         byte satellite_id
-        google.protobuf.Timestamp initiated_dt
-        google.protobuf.Timestamp completed_dt
+        google.protobuf.Timestamp initiated_at
+        google.protobuf.Timestamp completed_at
         int64 starting_disk_usage
         int64 bytes_deleted		
 	}
 	```
 - Update bandwidth usage monitors to ignore `PieceAction_PUT_EXIT` bandwidth actions
 - Add GracefulExit service
-  - Iterates over `exit_order` where `completed_dt` is null
+  - Iterates over `exit_order` where `completed_at` is null
     - Pushes the pieces to the storage node identified in the order using `ecclient`
     - Sends the signed new node response to the satellite via a new `CommitPiece` method (uses `metainfo.UpdatePieces`).
-    - Updates `bytes_deleted` with the number of bytes deleted and sets `completed_dt` to current time
+    - Updates `bytes_deleted` with the number of bytes deleted and sets `completed_at` to current time
   - Execution intervals and batch sizes should be configurable
 
 ## Open Questions
