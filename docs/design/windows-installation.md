@@ -52,3 +52,9 @@ Registering the storage node process as a windows service enables the following:
 6) Install Storage Node using msi.
 7) Ensure binaries run on Windows startup, and it runs as a background process when not logged in.
 8) Ensure UAC is not triggered after installation.
+
+## Open issues (if applicable)
+
+* Consider writing an uninstaller.
+* Does `sc.exe` require human input?
+* How do we prevent UAC from triggering?
