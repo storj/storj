@@ -31,10 +31,10 @@ var (
 
 // Endpoint does inspectory things
 type Endpoint struct {
-	log        *zap.Logger
-	pieceStore *pieces.Store
-	kademlia   *kademlia.Kademlia
-	usageDB    bandwidth.DB
+	log       *zap.Logger
+	pieceInfo pieces.DB
+	kademlia  *kademlia.Kademlia
+	usageDB   bandwidth.DB
 
 	startTime        time.Time
 	pieceStoreConfig piecestore.OldConfig
@@ -44,7 +44,7 @@ type Endpoint struct {
 // NewEndpoint creates piecestore inspector instance
 func NewEndpoint(
 	log *zap.Logger,
-	pieceStore *pieces.Store,
+	pieceInfo pieces.DB,
 	kademlia *kademlia.Kademlia,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
@@ -52,7 +52,7 @@ func NewEndpoint(
 
 	return &Endpoint{
 		log:              log,
-		pieceStore:       pieceStore,
+		pieceInfo:        pieceInfo,
 		kademlia:         kademlia,
 		usageDB:          usageDB,
 		pieceStoreConfig: pieceStoreConfig,
@@ -65,7 +65,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
-	totalUsedSpace, err := inspector.pieceStore.SpaceUsedForPieces(ctx)
+	totalUsedSpace, err := inspector.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return nil, err
 	}

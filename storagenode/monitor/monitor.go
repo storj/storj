@@ -38,6 +38,7 @@ type Service struct {
 	log                *zap.Logger
 	routingTable       *kademlia.RoutingTable
 	store              *pieces.Store
+	pieceInfo          pieces.DB
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
@@ -48,11 +49,12 @@ type Service struct {
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, pieceInfo pieces.DB, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
 	return &Service{
 		log:                log,
 		routingTable:       routingTable,
 		store:              store,
+		pieceInfo:          pieceInfo,
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
 		allocatedBandwidth: allocatedBandwidth,
@@ -160,7 +162,7 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 
 func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
+	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -179,7 +181,7 @@ func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) 
 // AvailableSpace returns available disk space for upload
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
+	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}

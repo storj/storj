@@ -53,8 +53,7 @@ type DB interface {
 	Pieces() storage.Blobs
 
 	Orders() orders.DB
-	V0PieceInfo() pieces.V0PieceInfoDB
-	PieceExpirationDB() pieces.PieceExpirationDB
+	PieceInfo() pieces.DB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
@@ -228,12 +227,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup storage
-		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces(), peer.DB.V0PieceInfo(), peer.DB.PieceExpirationDB())
+		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces())
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
 			peer.Kademlia.RoutingTable,
 			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
 			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
 			config.Storage.AllocatedBandwidth.Int64(),
@@ -248,6 +248,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),
@@ -286,7 +287,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
 			peer.DB.Bandwidth(),
-			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.Version,
 			peer.NodeStats,
@@ -315,7 +316,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{ // setup storage inspector
 		peer.Storage2.Inspector = inspector.NewEndpoint(
 			peer.Log.Named("pieces:inspector"),
-			peer.Storage2.Store,
+			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
 			config.Storage,
@@ -324,7 +325,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}
 
-	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
+	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
 
 	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
 

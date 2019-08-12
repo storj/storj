@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/storage"
 )
 
 // TestGarbageCollection does the following:
@@ -77,12 +76,9 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
-		pieceAccess, err := targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
-			Namespace: satellite.ID().Bytes(),
-			Key:       deletedPieceID.Bytes(),
-		})
+		pieceInfo, err := targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
 		require.NoError(t, err)
-		require.NotNil(t, pieceAccess)
+		require.NotNil(t, pieceInfo)
 
 		// The pieceInfo.GetPieceIDs query converts piece creation and the filter creation timestamps
 		// to datetime in sql. This chops off all precision beyond seconds.
@@ -95,20 +91,14 @@ func TestGarbageCollection(t *testing.T) {
 		gcService.Loop.TriggerWait()
 
 		// Check that piece of the deleted object is not on the storagenode
-		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
-			Namespace: satellite.ID().Bytes(),
-			Key:       deletedPieceID.Bytes(),
-		})
+		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
 		require.Error(t, err)
-		require.Nil(t, pieceAccess)
+		require.Nil(t, pieceInfo)
 
 		// Check that piece of the kept object is on the storagenode
-		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
-			Namespace: satellite.ID().Bytes(),
-			Key:       keptPieceID.Bytes(),
-		})
+		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), keptPieceID)
 		require.NoError(t, err)
-		require.NotNil(t, pieceAccess)
+		require.NotNil(t, pieceInfo)
 	})
 }
 
