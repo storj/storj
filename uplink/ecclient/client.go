@@ -489,7 +489,7 @@ type lazyPieceReader struct {
 	offset int64
 	length int64
 
-	mu sync.RWMutex
+	mu sync.Mutex
 
 	isClosed bool
 	closers  []io.Closer
@@ -497,8 +497,8 @@ type lazyPieceReader struct {
 }
 
 func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
-	lr.mu.RLock()
-	defer lr.mu.RUnlock()
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
 
 	if lr.isClosed {
 		return 0, io.EOF
