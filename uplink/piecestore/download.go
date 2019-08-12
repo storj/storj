@@ -191,7 +191,7 @@ func (client *Download) Close() (err error) {
 	closeErr := client.stream.CloseSend()
 
 	if alldone {
-		// if we are all done, then we expecte io.EOF, but don't care about them
+		// if we are all done, then we expect io.EOF, but don't care about them
 		return ignoreEOF(closeErr)
 	}
 
