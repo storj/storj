@@ -4,6 +4,8 @@
 package orders_test
 
 import (
+	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -15,8 +17,11 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/uplink"
 )
 
@@ -214,4 +219,60 @@ func TestSplitBucketIDValid(t *testing.T) {
 			assert.Equal(t, actualBucketName, []byte(tt.expectedBucketName))
 		})
 	}
+}
+
+func BenchmarkOrders(b *testing.B) {
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+
+	counts := []int{50, 100, 250, 500, 999} //sqlite limit of 999
+	for _, c := range counts {
+		satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
+			snID := testrand.NodeID()
+
+			projectID, _ := uuid.New()
+			bucketID := []byte(projectID.String() + "/b")
+
+			b.Run("Benchmark Order Processing:"+strconv.Itoa(c), func(b *testing.B) {
+				ctx := context.Background()
+				for i := 0; i < b.N; i++ {
+					requests := buildBenchmarkData(ctx, b, db, snID, bucketID, c)
+
+					_, err := db.Orders().ProcessOrders(ctx, requests)
+					assert.NoError(b, err)
+				}
+			})
+		})
+	}
+
+}
+
+func buildBenchmarkData(ctx context.Context, t *testing.B, db satellite.DB, storageNodeID storj.NodeID, bucketID []byte, orderCount int) (_ []*orders.ProcessOrderRequest) {
+	requests := make([]*orders.ProcessOrderRequest, 0, orderCount)
+	for i := 0; i < orderCount; i++ {
+		snUUID, _ := uuid.New()
+		sn, err := storj.SerialNumberFromBytes(snUUID[:])
+		require.NoError(t, err)
+
+		db.Orders().CreateSerialInfo(ctx, sn, bucketID, time.Now().Add(time.Hour*24))
+		pieces := make([]*pb.RemotePiece, 0, 1)
+		pieces = append(pieces, &pb.RemotePiece{
+			PieceNum: int32(1),
+			NodeId:   storageNodeID,
+		})
+
+		order := &pb.Order{
+			SerialNumber: sn,
+			Amount:       1,
+		}
+
+		orderLimit := &pb.OrderLimit{
+			SerialNumber:  sn,
+			StorageNodeId: storageNodeID,
+			Action:        2,
+		}
+		requests = append(requests, &orders.ProcessOrderRequest{Order: order,
+			OrderLimit: orderLimit})
+	}
+	return requests
 }
