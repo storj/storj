@@ -47,5 +47,6 @@ type BandwidthUsed struct {
 	Egress  Egress  `json:"egress"`
 	Ingress Ingress `json:"ingress"`
 
-	From, To time.Time
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
 }
