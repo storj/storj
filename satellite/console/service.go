@@ -721,6 +721,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 			},
 		)
 		if err != nil {
+			s.log.Error("internal error", zap.Error(err))
 			return errs.New(internalErrMsg)
 		}
 
