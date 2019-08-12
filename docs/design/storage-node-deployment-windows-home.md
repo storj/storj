@@ -30,9 +30,9 @@ Docker is being used for:
     * Doesn't start the storage node if storage node has not created a valid config.
     * Send error reports to satellite.
     * Writes update related errors to log file.
-    * Watchdog process
-        * Monitors storage node by periodically sending messages to pulse endpoint on storage node and waiting for responses.
-        * Restarts the storage node if a crash/unresponsiveness is detected.
+* Watchdog process
+    * Monitors storage node by periodically sending messages to pulse endpoint on storage node and waiting for responses.
+    * Restarts the storage node if a crash/unresponsiveness is detected.
 * Storage Node (binary)
     * Shares drive with satellite network.
     * Writes storage node operation related errors to log file
