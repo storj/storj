@@ -159,11 +159,14 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef storage.BlobRe
 	if err != nil {
 		return err
 	}
-	info, err := blobInfo.Stat(ctx)
+	pieceAccess, err := newStoredPieceAccess(nil, blobInfo)
 	if err != nil {
 		return err
 	}
-	pieceContentSize := info.Size()
+	pieceContentSize, err := pieceAccess.ContentSize(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	if err := blobs.Blobs.Delete(ctx, blobRef); err != nil {
 		return Error.Wrap(err)

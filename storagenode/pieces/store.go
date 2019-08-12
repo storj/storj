@@ -171,7 +171,7 @@ func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, e
 // Writer returns a new piece writer.
 func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	blob, err := store.blobs.Create(ctx, storage.BlobRef{
+	blobWriter, err := store.blobs.Create(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}, preallocSize.Int64())
@@ -179,7 +179,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(blob, store.blobs, satellite)
+	writer, err := NewWriter(blobWriter, store.blobs, satellite)
 	return writer, Error.Wrap(err)
 }
 
@@ -193,7 +193,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}
-	var blob storage.BlobWriter
+	var blobWriter storage.BlobWriter
 	switch formatVersion {
 	case filestore.FormatV0:
 		fStore, ok := store.blobs.(interface {
@@ -202,16 +202,16 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 		if !ok {
 			return nil, Error.New("can't make a WriterForFormatVersion with this blob store (%T)", store.blobs)
 		}
-		blob, err = fStore.TestCreateV0(ctx, blobRef)
+		blobWriter, err = fStore.TestCreateV0(ctx, blobRef)
 	case filestore.FormatV1:
-		blob, err = store.blobs.Create(ctx, blobRef, preallocSize.Int64())
+		blobWriter, err = store.blobs.Create(ctx, blobRef, preallocSize.Int64())
 	default:
 		return nil, Error.New("please teach me how to make V%d pieces", formatVersion)
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	writer, err := NewWriter(blob, store.blobs, satellite)
+	writer, err := NewWriter(blobWriter, store.blobs, satellite)
 	return writer, Error.Wrap(err)
 }
 
