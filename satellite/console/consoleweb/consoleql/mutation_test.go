@@ -415,7 +415,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		t.Run("Add project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1 }){projectMembers{joinedAt}}}}",
+				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
@@ -427,16 +427,16 @@ func TestGrapqhlMutation(t *testing.T) {
 			proj := data[consoleql.AddProjectMembersMutation].(map[string]interface{})
 
 			members := proj[consoleql.FieldMembers].(map[string]interface{})
-			projectMembers := members[consoleql.FieldProjectMembers]
+			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
 
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, 3, projectMembers)
+			assert.Equal(t, 3, len(projectMembers))
 		})
 
 		t.Run("Delete project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1 }){projectMembers{user{id}}}}}",
+				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{user{id}}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
