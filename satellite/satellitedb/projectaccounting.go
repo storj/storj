@@ -44,7 +44,7 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			meta := dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize))
 			dbxTally, err := tx.Create_BucketStorageTally(ctx, bucketName, projectID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
 			if err != nil {
-				return nil, err
+				return Error.Wrap(err)
 			}
 			tally := accounting.BucketTally{
 				BucketName:     dbxTally.BucketName,
@@ -58,9 +58,10 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			}
 			result = append(result, tally)
 		}
+		return nil
 	})
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	return result, nil
 }
