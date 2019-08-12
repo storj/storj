@@ -198,12 +198,12 @@ func (client *Download) Close() (err error) {
 	if client.unread.Errored() {
 		// try to read any pending error message
 		_, recvErr := client.stream.Recv()
-		recvErr = ignoreCanceled(ignoreEOF(recvErr))
+		recvErr = ignoreCanceled(recvErr)
 
 		unreadErr := ignoreCanceled(client.unread.Error())
 
 		// something went wrong and we didn't manage to download all the content
-		return errs.Combine(unreadErr, closeErr, recvErr)
+		return errs.Combine(ignoreEOF(unreadErr), ignoreEOF(closeErr), ignoreEOF(recvErr))
 	}
 
 	// we probably closed download early, so we can ignore io.EOF-s
