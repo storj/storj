@@ -13,6 +13,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -20,6 +21,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -120,6 +122,40 @@ func (m *lockedBuckets) UpdateBucket(ctx context.Context, bucket storj.Bucket) (
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBucket(ctx, bucket)
+}
+
+// CertDB returns database for storing uplink's public key & ID
+func (m *locked) CertDB() certdb.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedCertDB{m.Locker, m.db.CertDB()}
+}
+
+// lockedCertDB implements locking wrapper for certdb.DB
+type lockedCertDB struct {
+	sync.Locker
+	db certdb.DB
+}
+
+// BatchGet gets all nodes peer identities in a transaction
+func (m *lockedCertDB) BatchGet(ctx context.Context, a1 []storj.NodeID) (_ []*identity.PeerIdentity, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.BatchGet(ctx, a1)
+}
+
+// Get gets peer identity
+func (m *lockedCertDB) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, a1)
+}
+
+// Set adds a peer identity entry for a node
+func (m *lockedCertDB) Set(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Set(ctx, a1, a2)
 }
 
 // Close closes the database

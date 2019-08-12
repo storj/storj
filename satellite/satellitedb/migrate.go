@@ -1119,6 +1119,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     52,
 				Action: migrate.SQL{
 					`DROP TABLE certRecords CASCADE`,
+					`CREATE TABLE peer_identities (
+						serial_number bytea NOT NULL,
+						peer_identity bytea NOT NULL,
+						node_id bytea NOT NULL,
+						update_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( serial_number )
+					);`,
 				},
 			},
 		},
