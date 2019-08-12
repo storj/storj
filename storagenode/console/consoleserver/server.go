@@ -184,7 +184,7 @@ type jsonOutput struct {
 }
 
 // writeData is helper method to write JSON to http.ResponseWriter and log encoding error
-func (server Server) writeData(wr http.ResponseWriter, data interface{}) {
+func (server *Server) writeData(wr http.ResponseWriter, data interface{}) {
 	wr.Header().Set(contentType, applicationJSON)
 	wr.WriteHeader(http.StatusOK)
 
@@ -196,7 +196,7 @@ func (server Server) writeData(wr http.ResponseWriter, data interface{}) {
 }
 
 // helper method to write JSON error to http.ResponseWriter and log encoding error
-func (server Server) writeError(wr http.ResponseWriter, status int, err error) {
+func (server *Server) writeError(wr http.ResponseWriter, status int, err error) {
 	wr.Header().Set(contentType, applicationJSON)
 	wr.WriteHeader(status)
 
