@@ -58,7 +58,8 @@ type Service struct {
 
 // NewService returns new instance of Service
 func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStore *pieces.Store, kademlia *kademlia.Kademlia, version *version.Service,
-	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool, storageUsageDB storageusage.DB) (*Service, error) {
+	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
+	reputationDB reputation.DB, storageUsageDB storageusage.DB) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -88,6 +89,7 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStor
 		trust:              trust,
 		consoleDB:          consoleDB,
 		bandwidthDB:        bandwidth,
+		reputationDB:       reputationDB,
 		storageUsageDB:     storageUsageDB,
 		pieceStore:         pieceStore,
 		kademlia:           kademlia,

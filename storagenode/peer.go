@@ -313,6 +313,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Kademlia.Operator.Wallet,
 			versionInfo,
 			peer.Storage2.Trust,
+			peer.DB.Reputation(),
 			peer.DB.StorageUsage())
 
 		if err != nil {
