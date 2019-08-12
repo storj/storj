@@ -541,10 +541,13 @@ func (lr *lazyPieceReader) Close() (err error) {
 	}
 	lr.isClosed = true
 
-	return errs.Combine(
-		lr.Downloader.Close(),
-		lr.client.Close(),
-	)
+	if lr.Downloader != nil {
+		err = errs.Combine(err, lr.Downloader.Close())
+	}
+	if lr.client != nil {
+		err = errs.Combine(err, lr.client.Close())
+	}
+	return err
 }
 
 func nonNilCount(limits []*pb.AddressedOrderLimit) int {
