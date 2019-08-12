@@ -90,7 +90,7 @@ func (certs *certDB) BatchGet(ctx context.Context, nodeIDs []storj.NodeID) (peer
 	rows, err := certs.db.Query(certs.db.Rebind(`
 			SELECT * FROM peer_identities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, rows.Close())
@@ -103,6 +103,9 @@ func (certs *certDB) BatchGet(ctx context.Context, nodeIDs []storj.NodeID) (peer
 			return peers, Error.Wrap(err)
 		}
 		peer, err := identity.DecodePeerIdentity(ctx, r.PeerIdentity)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 		peers = append(peers, peer)
 	}
 	return peers, nil
