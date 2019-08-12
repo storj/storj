@@ -64,7 +64,7 @@ type Config struct {
 	CacheSyncInterval     time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 
 	Monitor monitor.Config
-	Sender  orders.SenderConfig
+	Orders  orders.Config
 }
 
 // RetainStatus is a type defining the enabled/disabled status of retain requests
