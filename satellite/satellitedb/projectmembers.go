@@ -46,20 +46,22 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 	}
 
 	page := &console.ProjectMembersPage{
-		Search: cursor.Search,
-		Limit:  cursor.Limit,
-		Offset: uint64((cursor.Page - 1) * cursor.Limit),
+		Search:         cursor.Search,
+		Limit:          cursor.Limit,
+		Offset:         uint64((cursor.Page - 1) * cursor.Limit),
+		Order:          cursor.Order,
+		OrderDirection: cursor.OrderDirection,
 	}
 
 	countQuery := pm.db.Rebind(`
 		SELECT COUNT(*)
 		FROM project_members pm 
 		INNER JOIN users u ON pm.member_id = u.id
-			WHERE pm.project_id = ?
-			AND ( u.email LIKE ? OR 
-				  u.full_name LIKE ? OR
-				  u.short_name LIKE ? 
-			)`)
+		WHERE pm.project_id = ?
+		AND ( u.email LIKE ? OR 
+			  u.full_name LIKE ? OR
+			  u.short_name LIKE ? 
+		)`)
 
 	countRow := pm.db.QueryRowContext(ctx,
 		countQuery,
@@ -83,14 +85,13 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 		SELECT pm.*
 			FROM project_members pm
 				INNER JOIN users u ON pm.member_id = u.id
-					WHERE pm.project_id = ?
-					AND ( u.email LIKE ? OR
-						  u.full_name LIKE ? OR
-						  u.short_name LIKE ? )
-						ORDER BY ` + sanitizedOrderColumnName(cursor.Order) + ` 
-						` + sanitizeOrderDirectionName(page.OrderDirection) + `	
-						LIMIT ? OFFSET ?
-					`)
+				WHERE pm.project_id = ?
+				AND ( u.email LIKE ? OR
+					u.full_name LIKE ? OR
+					u.short_name LIKE ? )
+					ORDER BY ` + sanitizedOrderColumnName(cursor.Order) + `
+					` + sanitizeOrderDirectionName(page.OrderDirection) + `	
+					LIMIT ? OFFSET ?`)
 
 	rows, err := pm.db.QueryContext(ctx,
 		reboundQuery,

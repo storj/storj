@@ -121,14 +121,14 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 						return nil, err
 					}
 
-					inputPage := fromMapProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
-					members, err := service.GetProjectMembers(p.Context, project.ID, inputPage)
+					cursor := cursorArgsToProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
+					page, err := service.GetProjectMembers(p.Context, project.ID, cursor)
 					if err != nil {
 						return nil, err
 					}
 
 					var users []projectMember
-					for _, member := range members.ProjectMembers {
+					for _, member := range page.ProjectMembers {
 						user, err := service.GetUser(p.Context, member.MemberID)
 						if err != nil {
 							return nil, err
@@ -140,17 +140,18 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 						})
 					}
 
-					page := projectMembersPage{
+					projectMembersPage := projectMembersPage{
 						ProjectMembers: users,
-						TotalCount:     members.TotalCount,
-						Offset:         members.Offset,
-						Limit:          members.Limit,
-						Order:          int(members.Order),
-						Search:         members.Search,
-						CurrentPage:    members.CurrentPage,
-						PageCount:      members.PageCount,
+						TotalCount:     page.TotalCount,
+						Offset:         page.Offset,
+						Limit:          page.Limit,
+						Order:          int(page.Order),
+						OrderDirection: int(page.OrderDirection),
+						Search:         page.Search,
+						CurrentPage:    page.CurrentPage,
+						PageCount:      page.PageCount,
 					}
-					return page, nil
+					return projectMembersPage, nil
 				},
 			},
 			FieldAPIKeys: &graphql.Field{
@@ -420,7 +421,7 @@ func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.Bucke
 	return
 }
 
-func fromMapProjectMembersCursor(args map[string]interface{}) console.ProjectMembersCursor {
+func cursorArgsToProjectMembersCursor(args map[string]interface{}) console.ProjectMembersCursor {
 	limit, _ := args[LimitArg].(int)
 	page, _ := args[PageArg].(int)
 	order, _ := args[OrderArg].(int)

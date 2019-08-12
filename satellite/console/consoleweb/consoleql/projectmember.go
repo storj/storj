@@ -77,6 +77,9 @@ func graphqlProjectMembersPage(types *TypeCreator) *graphql.Object {
 			OrderArg: &graphql.Field{
 				Type: graphql.Int,
 			},
+			OrderDirectionArg: &graphql.Field{
+				Type: graphql.Int,
+			},
 			OffsetArg: &graphql.Field{
 				Type: graphql.Int,
 			},
@@ -102,10 +105,11 @@ type projectMember struct {
 type projectMembersPage struct {
 	ProjectMembers []projectMember
 
-	Search string
-	Limit  uint
-	Order  int
-	Offset uint64
+	Search         string
+	Limit          uint
+	Order          int
+	OrderDirection int
+	Offset         uint64
 
 	PageCount   uint
 	CurrentPage uint
