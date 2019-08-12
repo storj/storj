@@ -127,7 +127,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return nil, errs.New(internalErrMsg)
 		}
 	} else {
-		registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
+		registrationToken, err = s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
 		if err != nil {
 			return nil, errs.New(vanguardRegTokenErrMsg)
 		}

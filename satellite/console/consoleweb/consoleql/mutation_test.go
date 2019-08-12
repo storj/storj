@@ -118,7 +118,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		authCtx := console.WithAuth(ctx, sauth)
 
-		t.Run("Create user mutation", func(t *testing.T) {
+		t.Run("Create user mutation with partner id", func(t *testing.T) {
 			newUser := console.CreateUser{
 				UserInfo: console.UserInfo{
 					FullName:  "Green Mickey",
@@ -129,17 +129,15 @@ func TestGrapqhlMutation(t *testing.T) {
 				Password: "123a123",
 			}
 
-			regTokenTest, err := service.CreateRegToken(ctx, 1)
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\", referrerUserId: \"\"){id,shortName,fullName,email,partnerId,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"\", referrerUserId: \"\"){id,shortName,fullName,email,partnerId,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
 				newUser.ShortName,
 				newUser.PartnerID,
-				regTokenTest.Secret,
 			)
 
 			result := graphql.Do(graphql.Params{
@@ -170,6 +168,57 @@ func TestGrapqhlMutation(t *testing.T) {
 			assert.Equal(t, newUser.FullName, user.FullName)
 			assert.Equal(t, newUser.ShortName, user.ShortName)
 			assert.Equal(t, newUser.PartnerID, user.PartnerID.String())
+		})
+
+		t.Run("Create user mutation without partner id", func(t *testing.T) {
+			newUser := console.CreateUser{
+				UserInfo: console.UserInfo{
+					FullName:  "Red Mickey",
+					ShortName: "Red",
+					Email:     "u2@mail.test",
+					PartnerID: "",
+				},
+				Password: "123a123",
+			}
+
+			require.NoError(t, err)
+
+			query := fmt.Sprintf(
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"\"}, secret: \"%s\", referrerUserId: \"\"){id,shortName,fullName,email,partnerId,createdAt}}",
+				newUser.Email,
+				newUser.Password,
+				newUser.FullName,
+				newUser.ShortName,
+				regToken.Secret,
+			)
+
+			result := graphql.Do(graphql.Params{
+				Schema:        schema,
+				Context:       ctx,
+				RequestString: query,
+				RootObject:    rootObject,
+			})
+
+			for _, err := range result.Errors {
+				if rewards.NoMatchPartnerIDErr.Has(err) {
+					assert.Error(t, err)
+				}
+				assert.NoError(t, err)
+			}
+			require.False(t, result.HasErrors())
+
+			data := result.Data.(map[string]interface{})
+			usrData := data[consoleql.CreateUserMutation].(map[string]interface{})
+			idStr := usrData["id"].(string)
+
+			uID, err := uuid.Parse(idStr)
+			assert.NoError(t, err)
+
+			user, err := service.GetUser(authCtx, *uID)
+			assert.NoError(t, err)
+
+			assert.Equal(t, newUser.FullName, user.FullName)
+			assert.Equal(t, newUser.ShortName, user.ShortName)
 		})
 
 		testQuery := func(t *testing.T, query string) interface{} {
