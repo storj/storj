@@ -17,10 +17,10 @@ type pieceSpaceUsedDB struct {
 	*InfoDB
 }
 
-// PieceSpaceUsedDB returns database for storing piece expiration data
+// PieceSpaceUsedDB returns database for storing piece expiration data from storagenode master db
 func (db *DB) PieceSpaceUsedDB() pieces.PieceSpaceUsedDB { return db.info.PieceSpaceUsedDB() }
 
-// PieceSpaceUsedDB returns database for storing piece expiration data
+// PieceSpaceUsedDB returns database for storing piece expiration data from infoDB
 func (db *InfoDB) PieceSpaceUsedDB() pieces.PieceSpaceUsedDB { return &db.pieceSpaceUsedDB }
 
 // Init creates the one total record if it doesn't already exist

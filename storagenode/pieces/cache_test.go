@@ -11,7 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -291,6 +293,7 @@ func TestCacheCreateDelete(t *testing.T) {
 		// Delete that piece and confirm the cache is updated
 		err = cache.Delete(ctx, ref)
 		require.NoError(t, err)
+
 		actualTotal, err = cache.SpaceUsedForPieces(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, int(actualTotal))
@@ -298,4 +301,37 @@ func TestCacheCreateDelete(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, int(actualTotalBySA))
 	})
+}
+
+func TestCacheCreateMultipleSatellites(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 2, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite1 := planet.Satellites[0]
+		satellite2 := planet.Satellites[1]
+		uplink := planet.Uplinks[0]
+		// Setup: create data for the uplink to upload
+		expectedData := testrand.Bytes(5 * memory.KiB)
+		err := uplink.Upload(ctx, satellite1, "testbucket", "test/path", expectedData)
+		require.NoError(t, err)
+		err = uplink.Upload(ctx, satellite2, "testbucket", "test/path", expectedData)
+		require.NoError(t, err)
+
+		var total, total1, total2 int64
+		for _, sn := range planet.StorageNodes {
+			totalP, err := sn.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
+			require.NoError(t, err)
+			total += totalP
+			totalBySA1, err := sn.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite1.Identity.ID)
+			require.NoError(t, err)
+			total1 += totalBySA1
+			totalBySA2, err := sn.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite2.Identity.ID)
+			require.NoError(t, err)
+			total2 += totalBySA2
+		}
+		require.Equal(t, int64(47104), total)
+		require.Equal(t, int64(23552), total1)
+		require.Equal(t, int64(23552), total2)
+	})
+
 }
