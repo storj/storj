@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This design document describes what problems multipart upload solves and how it can be implemented.
+This design document describes multipart upload and how it can be implemented.
 Currently there is no direct support for multipart upload on the Satellite side.
 The feature is simulated completely on the gateway side, which requires keeping 
 a lot of data in memory and doesn't achieve the full usefulness of metainfo upload.
@@ -57,10 +57,10 @@ Part 2 and 2 segments = 0x00000002_00000000, 0x00000002_000000001
 Part 3 and 3 segments = 0x00000003_00000000, 0x00000003_000000001, 0x00000003_00000002, 0x00000003_00000003
 ```
 
-This segment position allows to create proper ordering even when we get parts uploaded in different order or from different computers.
+Segment position allows proper ordering, even when we get parts uploaded in different order or from different computers.
 Note: this also means that the "last segment uploaded" may not be the last segment of the object.
 
-This design means that there isn't a single continuos number sequence for the segemnts.
+This design means that there isn't a single continuos number sequence for the segements.
 This means we cannot store them as `<index>/<path>` (conceptually) anymore, because then it would be expensive to find or list all of them.
 
 This leads into another change, that we need to store them in a single "namespace" which we can list.
@@ -69,18 +69,15 @@ This leads into another change, that we need to store them in a single "namespac
 <project-id>/<bucket-id>/streams/<stream-id>/<segment position> => segment information
 ```
 
-This way we can list all the segments belonging to a single object.
-
-This single namespace for object segments adds other benefits, such as we can more easily detect things that still need to be deleted.
+This way we can list all the segments belonging to a single object. This single namespace for segments has benefits, such as easily listing undeleted segments.
 
 ## Rationale
 
-There is an alternate design for this, to keep the segments in a "temporary location" and then during object committing move them into the appropriate location.
-This design adds a lot of more work for the Satellite, however the data-layout could stay relatively the same.
+Multipart uploads can also be implemented with a "temporary location". First the segments are uploaded to a temporary location and then, during object commit, moved to the main database. The benefit is that the database layout doesn't have to change. However, this adds more work to the satellite and there are more failure cases that need to be handled.
 
 ## Implementation
 
-All of this require metainfo API changest to be completed.
+First we need to finish implementing metainfo RPC changes, which will greatly simplify the database changes.
 
 1. Decide how to handle the database, whether to design new database or implement new schema.
 2. Implement appropriate interface for the database. https://github.com/storj/storj/pull/1874/files
@@ -91,5 +88,4 @@ All of this require metainfo API changest to be completed.
 
 ## Open issues
 
-* Since we need to support better ways for the database, it might make sense to design the database for storing this information such that we do not have to handle multiple data migrations.
-* We also need to handle live-migration of the data.
+* Since we need to support other databases, it might make sense to design the database such that it can be handled by other backends from the start. Or migrate to a new database completely rather than postgres as a key value store.
