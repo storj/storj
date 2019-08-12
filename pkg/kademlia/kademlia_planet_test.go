@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
@@ -53,6 +55,21 @@ func TestRequestInfo(t *testing.T) {
 		require.Empty(t, cmp.Diff(node.Local().Operator, *info.GetOperator(), cmp.Comparer(pb.Equal)))
 		require.Empty(t, cmp.Diff(node.Local().Capacity, *info.GetCapacity(), cmp.Comparer(pb.Equal)))
 		require.Empty(t, cmp.Diff(node.Local().Version, *info.GetVersion(), cmp.Comparer(pb.Equal)))
+	})
+}
+
+func TestRequestInfoUntrusted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Storage.WhitelistedSatellites = nil
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		_, err := planet.Satellites[0].Kademlia.Service.FetchInfo(ctx, planet.StorageNodes[0].Local().Node)
+		require.Error(t, err)
+		assert.True(t, errs2.IsRPC(err, codes.PermissionDenied), "unexpected error: %+v", err)
 	})
 }
 
