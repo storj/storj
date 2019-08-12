@@ -99,7 +99,7 @@ func (db *DB) DropSchema(schema string) error {
 	return nil
 }
 
-// CertDB is a getter for uplink's specific info like public key, id, etc...
+// CertDB is a getter for storagenode's specific info like public key, id, etc...
 func (db *DB) CertDB() certdb.DB {
 	return &certDB{db: db.db}
 }
