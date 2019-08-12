@@ -3,7 +3,7 @@
 ## Abstract
 
 This design document describes multipart upload and how it can be implemented.
-Currently there is no direct support for multipart upload on the Satellite side.
+Currently, there is no direct support for multipart upload on the Satellite side.
 The feature is simulated on the gateway side, which requires keeping 
 a lot of data in memory and doesn't achieve the full usefulness of multipart upload.
 
@@ -20,8 +20,8 @@ The flow for a multipart upload, from a S3 perspective, is:
 1. starts a new multipart upload,
 2. the upload data is split into multiple parts,
 3. for each part: send the part,
-4. calls complete multipart upload, or
-5. alternatively, calls cancel multipart upload.
+4. calls "complete multipart upload," or
+5. alternatively, calls "cancel multipart upload."
 
 There are a few important things we must keep in mind:
 
@@ -33,13 +33,13 @@ There are a few important things we must keep in mind:
 
 ## Design
 
-We change the path handling to support listing parts uploaded in arbitrary order. When we start an upload we will create an Object at the following path:
+We change the path handling to support listing parts uploaded in arbitrary order. When we start an upload we will create an object at the following path:
 
 ```
 <project-id>/<bucket-id>/objects/<path ...>_<version> => object information (partial)
 ```
 
-The Object will contain a `<stream-id>` that defines the immutable content. We suffix the path with the version number to distinguish between different versions.
+The object will contain a `<stream-id>` that defines the immutable content. We suffix the path with the version number to distinguish between different versions.
 
 We don't know the part sizes, and segments cannot be arbitrarily large, which means we need to split each part into multiple segments. To uniquely find segments we'll assign them a unique number `<part-number>_<segment-number>`, which we call the _segment position_.
 
@@ -68,9 +68,9 @@ Multipart uploads can also be implemented with a "temporary location." First, th
 
 ## Implementation
 
-The following requires Metainfo RPC changes to be completed, since it will greatly simplify the integration.
+The following requires Metainfo RPC changes to be completed since it will greatly simplify the integration.
 
-1. Decide how to handle the database, whether to design a new database or implement new schema.
+1. Decide how to handle the database, whether to design a new database or implement a new schema.
 2. Implement an appropriate interface for the database. https://github.com/storj/storj/pull/1874/files
 3. Implement a backend corresponding to the interface.
 4. Implement a shim layer to decide whether to use old implementation or new implementation. Old buckets would use old implementation, and new buckets would use the new implementation.
@@ -79,4 +79,4 @@ The following requires Metainfo RPC changes to be completed, since it will great
 
 ## Open issues
 
-* Since we need to support other databases, it might make sense to design the database such that other backends can handle it from the start. Alternatively, migrate to a new database completely rather than using postgres as a key value store.
+* Since we need to support other databases, it might make sense to design the database such that other backends can handle it from the start. Alternatively, migrate to a new database completely rather than using postgres as a key-value store.
