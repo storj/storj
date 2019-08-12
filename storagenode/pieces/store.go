@@ -179,7 +179,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(blob)
+	writer, err := NewWriter(blob, store.blobs, satellite)
 	return writer, Error.Wrap(err)
 }
 
@@ -211,7 +211,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	writer, err := NewWriter(blob)
+	writer, err := NewWriter(blob, store.blobs, satellite)
 	return writer, Error.Wrap(err)
 }
 
@@ -355,7 +355,6 @@ func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
 	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
 		return cache.SpaceUsedForPieces(ctx)
 	}
-
 	satellites, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
 		return 0, err

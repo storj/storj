@@ -152,20 +152,6 @@ func (blobs *BlobsUsageCache) SpaceUsedForPieces(ctx context.Context) (int64, er
 	return blobs.totalSpaceUsed, nil
 }
 
-// Create returns a blobWriter that knows which namespace/satellite its writing the piece to
-// and also has access to the space used cache to update when finished writing the new piece
-func (blobs *BlobsUsageCache) Create(ctx context.Context, ref storage.BlobRef, size int64) (_ storage.BlobWriter, err error) {
-	blobWriter, err := blobs.Blobs.Create(ctx, ref, size)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return &blobCacheWriter{
-		BlobWriter: blobWriter,
-		usageCache: blobs,
-		namespace:  string(ref.Namespace),
-	}, nil
-}
-
 // Delete gets the size of the piece that is going to be deleted then deletes it and
 // updates the space used cache accordingly
 func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef storage.BlobRef) error {
@@ -280,28 +266,4 @@ func (blobs *BlobsUsageCache) TestCreateV0(ctx context.Context, ref storage.Blob
 		TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error)
 	})
 	return fStore.TestCreateV0(ctx, ref)
-}
-
-type blobCacheWriter struct {
-	storage.BlobWriter
-	usageCache *BlobsUsageCache
-	namespace  string
-}
-
-// Commit updates the cache with the size of the new piece that was just
-// created then it calls the blobWriter commit to complete the upload.
-func (blob *blobCacheWriter) Commit(ctx context.Context) error {
-	pieceContentSize, err := blob.BlobWriter.Size()
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if err := blob.BlobWriter.Commit(ctx); err != nil {
-		return Error.Wrap(err)
-	}
-
-	satelliteID := storj.NodeID{}
-	copy(satelliteID[:], blob.namespace)
-	blob.usageCache.Update(ctx, satelliteID, pieceContentSize)
-	return nil
 }

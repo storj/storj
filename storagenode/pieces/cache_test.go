@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
@@ -253,27 +254,30 @@ func TestCacheCreateDelete(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
-		cache := pieces.NewBlobsUsageCache(db.Pieces())
 
+		cache := pieces.NewBlobsUsageCache(db.Pieces())
 		satelliteID := testrand.Bytes(32)
 		ref := storage.BlobRef{
 			Namespace: satelliteID,
 			Key:       testrand.Bytes(32),
 		}
-		blobWriter, err := cache.Create(ctx, ref, -1)
+		blob, err := cache.Create(ctx, ref, int64(4096))
+		require.NoError(t, err)
+		saID := storj.NodeID{}
+		copy(saID[:], satelliteID)
+		blobWriter, err := pieces.NewWriter(blob, cache, saID)
 		require.NoError(t, err)
 		pieceContent := []byte("stuff")
 		_, err = blobWriter.Write(pieceContent)
 		require.NoError(t, err)
-		err = blobWriter.Commit(ctx)
+		header := pb.PieceHeader{}
+		err = blobWriter.Commit(ctx, &header)
 		require.NoError(t, err)
 
 		// Expect that the cache has those bytes written for the piece
 		actualTotal, err := cache.SpaceUsedForPieces(ctx)
 		require.NoError(t, err)
 		require.Equal(t, len(pieceContent), int(actualTotal))
-		saID := storj.NodeID{}
-		copy(saID[:], satelliteID)
 		actualTotalBySA, err := cache.SpaceUsedBySatellite(ctx, saID)
 		require.NoError(t, err)
 		require.Equal(t, len(pieceContent), int(actualTotalBySA))
