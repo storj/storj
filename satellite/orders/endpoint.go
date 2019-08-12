@@ -135,38 +135,14 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		}
 
 		rejectErr := func() error {
+			// satellite verifies that it signed the order limit
 			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
 				return Error.New("unable to verify order limit")
 			}
 
-			if orderLimit.DeprecatedUplinkId == nil { // new signature handling
-				if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
-					return Error.New("unable to verify order")
-				}
-			} else {
-				var uplinkSignee signing.Signee
-
-				// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
-				if endpoint.satelliteSignee.ID() == *orderLimit.DeprecatedUplinkId {
-					uplinkSignee = endpoint.satelliteSignee
-				}
-				// @TODO: KISHORE this portion of verifying uplink's public key is disabled until certdb is refactored
-				// This particular PR removes certDB references and keep the skeleton framework in place. Next PR will
-				// implement/fix verification logic
-				// else {
-				// 	uplinkPubKey, err := endpoint.certdb.Get(ctx, *orderLimit.DeprecatedUplinkId)
-				// 	if err != nil {
-				// 		log.Warn("unable to find uplink public key", zap.Error(err))
-				// 		return status.Errorf(codes.Internal, "unable to find uplink public key")
-				// 	}
-				// 	uplinkSignee = &signing.PublicKey{
-				// 		Self: *orderLimit.DeprecatedUplinkId,
-				// 		Key:  uplinkPubKey,
-				// 	}
-				// }
-				if err := signing.VerifyOrderSignature(ctx, uplinkSignee, order); err != nil {
-					return Error.New("unable to verify order")
-				}
+			// satellite verifies that the order signature matches pub key in order limit
+			if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+				return Error.New("unable to verify order")
 			}
 
 			// TODO should this reject or just error ??
