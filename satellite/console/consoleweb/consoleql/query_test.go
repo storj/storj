@@ -239,12 +239,13 @@ func TestGraphqlQuery(t *testing.T) {
 
 		t.Run("Project query team members", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {project(id: \"%s\") {members( cursor: { limit: %d, search: \"%s\", page: %d, order: %d } ) { projectMembers{ user { id, fullName, shortName, email, createdAt }, joinedAt }, search, limit, order, offset, pageCount, currentPage, totalCount } } }",
+				"query {project(id: \"%s\") {members( cursor: { limit: %d, search: \"%s\", page: %d, order: %d, orderDirection: %d } ) { projectMembers{ user { id, fullName, shortName, email, createdAt }, joinedAt }, search, limit, order, offset, pageCount, currentPage, totalCount } } }",
 				createdProject.ID.String(),
 				5,
 				"",
 				1,
-				1)
+				1,
+				2)
 
 			result := testQuery(t, query)
 
