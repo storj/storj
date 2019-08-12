@@ -503,7 +503,7 @@ func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
 			return 0, err
 		}
 		lr.Downloader = downloader
-		lr.closers = []io.Closer{client}
+		lr.closers = []io.Closer{downloader, client}
 	}
 
 	return lr.Downloader.Read(data)

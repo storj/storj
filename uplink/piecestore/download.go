@@ -189,21 +189,22 @@ func (client *Download) Close() (err error) {
 
 	// close our sending end
 	closeErr := client.stream.CloseSend()
-	// try to read any pending error message
-	_, recvErr := client.stream.Recv()
 
 	if alldone {
 		// if we are all done, then we expecte io.EOF, but don't care about them
-		return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
+		return ignoreEOF(closeErr)
 	}
 
 	if client.unread.Errored() {
+		// try to read any pending error message
+		_, recvErr := client.stream.Recv()
+
 		// something went wrong and we didn't manage to download all the content
 		return errs.Combine(client.unread.Error(), closeErr, recvErr)
 	}
 
 	// we probably closed download early, so we can ignore io.EOF-s
-	return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
+	return ignoreEOF(closeErr)
 }
 
 // ReadBuffer implements buffered reading with an error.
