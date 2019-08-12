@@ -185,4 +185,4 @@ INSERT INTO storage_usage VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433
 -- NEW DATA --
 
 INSERT INTO piece_space_used (total) VALUES (0);
-INSERT INTO piece_space_used (total, satellite_id) VALUES (0, X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000');
+INSERT INTO piece_space_used (total, satellite_id) VALUES (10, X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000');

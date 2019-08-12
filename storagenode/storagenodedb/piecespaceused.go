@@ -23,6 +23,34 @@ func (db *DB) PieceSpaceUsedDB() pieces.PieceSpaceUsedDB { return db.info.PieceS
 // PieceSpaceUsedDB returns database for storing piece expiration data
 func (db *InfoDB) PieceSpaceUsedDB() pieces.PieceSpaceUsedDB { return &db.pieceSpaceUsedDB }
 
+// Init creates the one total record if it doesn't already exist
+func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
+	row := db.db.QueryRow(`
+		SELECT total
+		FROM piece_space_used
+		WHERE satellite_id IS NULL;
+	`)
+
+	var total int64
+	err = row.Scan(&total)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			err = db.createInitTotal(ctx)
+			if err != nil {
+				return ErrInfo.Wrap(err)
+			}
+		}
+	}
+	return ErrInfo.Wrap(err)
+}
+
+func (db *pieceSpaceUsedDB) createInitTotal(ctx context.Context) (err error) {
+	_, err = db.db.Exec(`
+		INSERT INTO piece_space_used (total) VALUES (0)
+	`)
+	return ErrInfo.Wrap(err)
+}
+
 // GetTotal returns the total space used by all pieces stored on disk
 func (db *pieceSpaceUsedDB) GetTotal(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)

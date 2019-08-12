@@ -463,9 +463,6 @@ func (db *InfoDB) Migration() *migrate.Migration {
 						satellite_id BLOB
 					)`,
 					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
-					// add the one record to hold the total space used value for all pieces,
-					// there will only ever be one record for this
-					`INSERT INTO piece_space_used (total) VALUES (0)`,
 				},
 			},
 		},

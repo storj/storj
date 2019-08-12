@@ -100,6 +100,8 @@ type V0PieceInfoDBForTest interface {
 
 // PieceSpaceUsedDB stores the most recent totals from the space used cache
 type PieceSpaceUsedDB interface {
+	// Init creates the one total record if it doesn't already exist
+	Init(ctx context.Context) error
 	// GetTotal returns the total space used by all pieces stored on disk
 	GetTotal(ctx context.Context) (int64, error)
 	// GetTotalsForAllSatellites returns how much total space used by pieces stored on disk for each satelliteID
@@ -414,7 +416,7 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	return totalUsed, nil
 }
 
-// SpaceUsedTotalAndBySatellite adds up the space used by and for all namespaces for blob storage
+// SpaceUsedTotalAndBySatellite adds up the space used by and for all satellites for blob storage
 func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (total int64, totalBySatellite map[storj.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
