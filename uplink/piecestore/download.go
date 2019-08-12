@@ -198,7 +198,7 @@ func (client *Download) Close() (err error) {
 	if client.unread.Errored() {
 		// try to read any pending error message
 		_, recvErr := client.stream.Recv()
-		recvErr = ignoreCanceled(recvErr)
+		recvErr = ignoreCanceled(ignoreEOF(recvErr))
 
 		unreadErr := ignoreCanceled(client.unread.Error())
 
