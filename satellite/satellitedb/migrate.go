@@ -1114,6 +1114,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER COLUMN owner_id SET NOT NULL;`,
 				},
 			},
+			{
+				Description: "Remove certRecords table",
+				Version:     52,
+				Action: migrate.SQL{
+					`DROP TABLE certRecords CASCADE`,
+				},
+			},
 		},
 	}
 }
