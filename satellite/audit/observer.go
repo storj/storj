@@ -13,8 +13,8 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-// observer observes on the metainfo loop and adds segments to node reservoirs
-type observer struct {
+// Observer observes on the metainfo loop and adds segments to node reservoirs
+type Observer struct {
 	log *zap.Logger
 
 	overlay         *overlay.Service
@@ -23,8 +23,8 @@ type observer struct {
 }
 
 // NewObserver instantiates an audit observer
-func NewObserver(log *zap.Logger, overlay *overlay.Service, config ReservoirConfig) *observer {
-	return &observer{
+func NewObserver(log *zap.Logger, overlay *overlay.Service, config ReservoirConfig) *Observer {
+	return &Observer{
 		log:             log,
 		overlay:         overlay,
 		Reservoirs:      make(map[storj.NodeID]*Reservoir),
@@ -33,7 +33,7 @@ func NewObserver(log *zap.Logger, overlay *overlay.Service, config ReservoirConf
 }
 
 // RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already
-func (observer *observer) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (observer *Observer) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
@@ -46,11 +46,11 @@ func (observer *observer) RemoteSegment(ctx context.Context, path storj.Path, po
 }
 
 // RemoteObject returns nil because the audit service does not interact with remote objects
-func (observer *observer) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (observer *Observer) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
 // InlineSegment returns nil because we're only auditing for storage nodes for now
-func (observer *observer) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (observer *Observer) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	return nil
 }
