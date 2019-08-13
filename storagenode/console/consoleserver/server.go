@@ -198,7 +198,7 @@ func (server *Server) writeData(wr http.ResponseWriter, data interface{}) {
 	}
 }
 
-// helper method to write JSON error to http.ResponseWriter and log encoding error
+// writeError writes a JSON error payload to http.ResponseWriter and log encoding error.
 func (server *Server) writeError(wr http.ResponseWriter, status int, err error) {
 	wr.Header().Set(contentType, applicationJSON)
 	wr.WriteHeader(status)
