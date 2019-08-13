@@ -116,7 +116,7 @@ type Dashboard struct {
 	UpToDate bool           `json:"upToDate"`
 }
 
-// GetDashboardData returns stale dashboard data
+// GetDashboardData returns stale dashboard data.
 func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error) {
 	defer mon.Task()(&ctx)(&err)
 	data := new(Dashboard)
