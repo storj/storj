@@ -197,7 +197,9 @@ func (server *Server) writeData(wr http.ResponseWriter, data interface{}) {
 
 // writeError writes a JSON error payload to http.ResponseWriter log encoding error.
 func (server *Server) writeError(wr http.ResponseWriter, status int, err error) {
-	server.log.Error("api handler error", zap.Int("status code", status), zap.Error(err))
+	if status >= http.StatusInternalServerError {
+		server.log.Error("api handler server error", zap.Int("status code", status), zap.Error(err))
+	}
 
 	wr.Header().Set(contentType, applicationJSON)
 	wr.WriteHeader(status)
