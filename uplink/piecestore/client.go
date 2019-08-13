@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -96,14 +95,6 @@ func (client *Client) nextAllocationStep(previous int64) int64 {
 // ignoreEOF is an utility func for ignoring EOF error, when it's not important.
 func ignoreEOF(err error) error {
 	if err == io.EOF {
-		return nil
-	}
-	return err
-}
-
-// ignoreCanceled ignores context canceled errors.
-func ignoreCanceled(err error) error {
-	if errs2.IsCanceled(err) {
 		return nil
 	}
 	return err

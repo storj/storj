@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
@@ -198,9 +199,9 @@ func (client *Download) Close() (err error) {
 	if client.unread.Errored() {
 		// try to read any pending error message
 		_, recvErr := client.stream.Recv()
-		recvErr = ignoreCanceled(recvErr)
+		recvErr = errs2.IgnoreCanceled(recvErr)
 
-		unreadErr := ignoreCanceled(client.unread.Error())
+		unreadErr := errs2.IgnoreCanceled(client.unread.Error())
 
 		// something went wrong and we didn't manage to download all the content
 		return errs.Combine(ignoreEOF(unreadErr), ignoreEOF(closeErr), ignoreEOF(recvErr))
