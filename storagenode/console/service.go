@@ -219,7 +219,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellite, err e
 	}, nil
 }
 
-// VerifySatelliteID verifies if satellite belongs to the trust pool
+// VerifySatelliteID verifies if the satellite belongs to the trust pool.
 func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
