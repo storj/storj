@@ -171,7 +171,6 @@ type Satellite struct {
 // GetSatelliteData returns satellite related data
 func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// get current month edges
 	from, to := date.MonthBoundary(time.Now())
 
 	bandwidthDaily, err := s.consoleDB.Bandwidth().GetDaily(ctx, satelliteID, from, to)
@@ -202,7 +201,6 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 // among all satellites from node's trust pool
 func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(nil)
-	// get current month edges
 	from, to := date.MonthBoundary(time.Now())
 
 	bandwidthDaily, err := s.consoleDB.Bandwidth().GetDailyTotal(ctx, from, to)
