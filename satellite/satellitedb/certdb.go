@@ -20,7 +20,7 @@ type certDB struct {
 	db *dbx.DB
 }
 
-func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, pi *identity.PeerIdentity) (err error) {
+func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := certs.db.Begin()
@@ -36,20 +36,19 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, pi *identity.
 		}
 	}()
 
-	if pi == nil {
+	if peerIdent == nil {
 		return Error.New("Peer Identity cannot be nil")
 	}
-	chain := identity.EncodePeerIdentity(pi)
+	chain := identity.EncodePeerIdentity(peerIdent)
 
 	var id []byte
 	query := `SELECT node_id FROM peer_identities WHERE serial_number = ?;`
-	err = tx.QueryRow(certs.db.Rebind(query), pi.Leaf.SerialNumber.Bytes()).Scan(&id)
+	err = tx.QueryRow(certs.db.Rebind(query), peerIdent.Leaf.SerialNumber.Bytes()).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			// when storagenode can get a new leaf certificate, which should be store as a new entry. But currently
-			// for a storagenode to get a new leaf identity, it is controlled in our alpha network. When this changes, then same
-			// storagenode can have multiple entries, which is handled here
-			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO peer_identities ( serial_number, peer_identity, node_id, update_at ) VALUES ( ?, ?, ?, ? );`), pi.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
+			// when storagenode's leaf certificate's serial number changes from perious,
+			// a new entry will be made for the same storagenode ID
+			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO peer_identities ( serial_number, peer_identity, node_id, update_at ) VALUES ( ?, ?, ?, ? );`), peerIdent.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -74,12 +73,12 @@ func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.
 		return nil, Error.New("unknown nodeID :%+v: %+v", nodeID.Bytes(), err)
 	}
 
-	peer, err := identity.DecodePeerIdentity(ctx, dbxPeerID.PeerIdentity)
-	return peer, Error.Wrap(err)
+	peerIdent, err := identity.DecodePeerIdentity(ctx, dbxPeerID.PeerIdentity)
+	return peerIdent, Error.Wrap(err)
 }
 
 // BatchGet gets the public key based on the certificate's serial number
-func (certs *certDB) BatchGet(ctx context.Context, nodeIDs []storj.NodeID) (peers []*identity.PeerIdentity, err error) {
+func (certs *certDB) BatchGet(ctx context.Context, nodeIDs []storj.NodeID) (peerIdents []*identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodeIDs) == 0 {
 		return nil, nil
@@ -102,13 +101,13 @@ func (certs *certDB) BatchGet(ctx context.Context, nodeIDs []storj.NodeID) (peer
 		r := &dbx.PeerIdentity{}
 		err := rows.Scan(&r.SerialNumber, &r.PeerIdentity, &r.NodeId, &r.UpdateAt)
 		if err != nil {
-			return peers, Error.Wrap(err)
+			return peerIdents, Error.Wrap(err)
 		}
-		peer, err := identity.DecodePeerIdentity(ctx, r.PeerIdentity)
+		peerIdent, err := identity.DecodePeerIdentity(ctx, r.PeerIdentity)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		peers = append(peers, peer)
+		peerIdents = append(peerIdents, peerIdent)
 	}
-	return peers, nil
+	return peerIdents, nil
 }

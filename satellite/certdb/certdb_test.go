@@ -33,19 +33,24 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
 	{ //testing variables
 		snID, err := testidentity.NewTestIdentity(ctx)
 		require.NoError(t, err)
-		pi := snID.PeerIdentity()
-		expectedpubBytes, err := pkcrypto.PublicKeyToPEM(pi.CA.PublicKey)
+		peerIdent := snID.PeerIdentity()
+		expectedpubBytes, err := pkcrypto.PublicKeyToPEM(peerIdent.CA.PublicKey)
 		require.NoError(t, err)
 
 		{ // New entry
-			err := snCerts.Set(ctx, snID.ID, pi)
+			err := snCerts.Set(ctx, snID.ID, peerIdent)
 			assert.NoError(t, err)
 		}
 
-		{ // Get the corresponding Public key for the serialnum
-			snpi, err := snCerts.Get(ctx, snID.ID)
+		{ // already existing entry, just return nil
+			err := snCerts.Set(ctx, snID.ID, peerIdent)
 			assert.NoError(t, err)
-			pubBytes, err := pkcrypto.PublicKeyToPEM(snpi.CA.PublicKey)
+		}
+
+		{ // Get the corresponding Public key for the nodeID
+			gotPeerIdent, err := snCerts.Get(ctx, snID.ID)
+			assert.NoError(t, err)
+			pubBytes, err := pkcrypto.PublicKeyToPEM(gotPeerIdent.CA.PublicKey)
 			assert.NoError(t, err)
 			assert.EqualValues(t, expectedpubBytes, pubBytes)
 		}
@@ -71,13 +76,9 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
 				err := snCerts.Set(ctx, sn2PI.ID, sn1PI)
 				assert.NoError(t, err)
 			}
-			{ // add another key for the same storagenode ID, this the latest key
-				// as this is written later than the previous one by few seconds
+
+			{ // update the storagenode ID with new pi (latest)
 				err := snCerts.Set(ctx, sn2PI.ID, sn2PI)
-				assert.NoError(t, err)
-			}
-			{ // already existing public key, just return nil
-				err := snCerts.Set(ctx, sn1PI.ID, sn1PI)
 				assert.NoError(t, err)
 			}
 		}
@@ -90,7 +91,11 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
 			require.NoError(t, err)
 			assert.EqualValues(t, sn2PIpubBytes, pbytes)
 		}
-
+		// This describes a scenario that shouldn't happen: the node ID for which
+		// we're storing the identity, is from a completely different identity.
+		// This scenario does ensure that the peer identity will be overwritten
+		// for a given node ID but maybe it's worth a comment or something that
+		// this is for testing convenience
 		{ // Get all the corresponding Public key for the IDs
 			var PIDs []*identity.PeerIdentity
 			var NIDs []storj.NodeID
