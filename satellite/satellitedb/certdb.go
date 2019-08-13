@@ -77,15 +77,15 @@ func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.
 	return peerIdent, Error.Wrap(err)
 }
 
-// BatchGet gets the public key based on the certificate's serial number
-func (certs *certDB) BatchGet(ctx context.Context, nodeIDs []storj.NodeID) (peerIdents []*identity.PeerIdentity, err error) {
+// BatchGet gets the public key based on the certificate's nodeID
+func (certs *certDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodeIDs) == 0 {
 		return nil, nil
 	}
-	args := make([]interface{}, 0, len(nodeIDs))
-	for i := range nodeIDs {
-		args = append(args, nodeIDs[i].Bytes())
+	args := make([]interface{}, 0, len(nodeIDs)) // or `nodeIDs.Len()`, doesn't really matter
+	for _, nodeID := range nodeIDs {
+		args = append(args, nodeID)
 	}
 
 	rows, err := certs.db.Query(certs.db.Rebind(`

@@ -71,19 +71,24 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
 		sn2PIpubBytes, err := pkcrypto.PublicKeyToPEM(sn2PI.CA.PublicKey)
 		require.NoError(t, err)
 
-		{ // adding two different pubkeys for same storagenode
-			{ // add a key for to storagenode ID
+		// This describes a scenario that shouldn't happen: the node ID for which
+		// we're storing the identity, is from a completely different identity.
+		// This scenario does ensure that the peer identity will be overwritten
+		// for a given node ID but maybe it's worth a comment or something that
+		// this is for testing convenience
+		{ // adding two different peer ids for same storagenode
+			{
 				err := snCerts.Set(ctx, sn2PI.ID, sn1PI)
 				assert.NoError(t, err)
 			}
 
-			{ // update the storagenode ID with new pi (latest)
+			{ // update the storagenode ID with new peer identity (latest)
 				err := snCerts.Set(ctx, sn2PI.ID, sn2PI)
 				assert.NoError(t, err)
 			}
 		}
 
-		{ // Get the corresponding Public key for the ID
+		{ // Get the corresponding peer id for the ID
 			// test to return one key but the latest of the keys
 			pkey, err := snCerts.Get(ctx, sn2PI.ID)
 			assert.NoError(t, err)
@@ -91,12 +96,8 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
 			require.NoError(t, err)
 			assert.EqualValues(t, sn2PIpubBytes, pbytes)
 		}
-		// This describes a scenario that shouldn't happen: the node ID for which
-		// we're storing the identity, is from a completely different identity.
-		// This scenario does ensure that the peer identity will be overwritten
-		// for a given node ID but maybe it's worth a comment or something that
-		// this is for testing convenience
-		{ // Get all the corresponding Public key for the IDs
+
+		{ // Get all the corresponding peer ids for the IDs
 			var PIDs []*identity.PeerIdentity
 			var NIDs []storj.NodeID
 			for i := 0; i < 10; i++ {
@@ -107,10 +108,15 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
 				err = snCerts.Set(ctx, fid.PeerIdentity().ID, fid.PeerIdentity())
 				assert.NoError(t, err)
 			}
-			pkey, err := snCerts.BatchGet(ctx, NIDs)
+			gotIdents, err := snCerts.BatchGet(ctx, NIDs)
 			assert.NoError(t, err)
-			assert.NotNil(t, pkey)
-			assert.Equal(t, 10, len(pkey))
+			assert.NotNil(t, gotIdents)
+			assert.Equal(t, 10, len(gotIdents))
+			for i, ident := range gotIdents {
+				peerIdentBytes := identity.EncodePeerIdentity(PIDs[i])
+				gotIdentBytes := identity.EncodePeerIdentity(ident)
+				assert.EqualValues(t, peerIdentBytes, gotIdentBytes)
+			}
 		}
 	}
 }
