@@ -149,7 +149,7 @@ func (server *Server) satellitesHandler(wr http.ResponseWriter, req *http.Reques
 	server.writeData(wr, data)
 }
 
-// satelliteHandler handles satellite api requests
+// satelliteHandler handles satellite API requests.
 func (server *Server) satelliteHandler(wr http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	defer mon.Task()(&ctx)(nil)
