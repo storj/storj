@@ -22,6 +22,7 @@ type observer struct {
 	reservoirConfig ReservoirConfig
 }
 
+// NewObserver instantiates an audit observer
 func NewObserver(log *zap.Logger, overlay *overlay.Service, config ReservoirConfig) *observer {
 	return &observer{
 		log:             log,
