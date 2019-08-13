@@ -120,9 +120,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 
 		if info.err != nil {
 			if !errs2.IsCanceled(info.err) {
-				atomic.AddInt32(&failureCount, 1)
+				failureCount++
 			} else {
-				atomic.AddInt32(&cancellationCount, 1)
+				cancellationCount++
 			}
 			ec.log.Sugar().Debugf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
@@ -230,9 +230,9 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 
 		if info.err != nil {
 			if !errs2.IsCanceled(info.err) {
-				atomic.AddInt32(&failureCount, 1)
+				failureCount++
 			} else {
-				atomic.AddInt32(&cancellationCount, 1)
+				cancellationCount++
 			}
 			ec.log.Sugar().Debugf("Repair %s to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
@@ -243,7 +243,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
 		successfulHashes[info.i] = info.hash
-		atomic.AddInt32(&successfulCount, 1)
+		successfulCount++
 	}
 
 	// Ensure timer is stopped
@@ -261,16 +261,16 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 	}()
 
-	if atomic.LoadInt32(&successfulCount) == 0 {
+	if successfulCount == 0 {
 		return nil, nil, Error.New("repair %v to all nodes failed", path)
 	}
 
 	ec.log.Sugar().Infof("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount))
 
 	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))
-	mon.IntVal("repair_segment_pieces_successful").Observe(int64(atomic.LoadInt32(&successfulCount)))
-	mon.IntVal("repair_segment_pieces_failed").Observe(int64(atomic.LoadInt32(&failureCount)))
-	mon.IntVal("repair_segment_pieces_canceled").Observe(int64(atomic.LoadInt32(&cancellationCount)))
+	mon.IntVal("repair_segment_pieces_successful").Observe(int64(successfulCount))
+	mon.IntVal("repair_segment_pieces_failed").Observe(int64(failureCount))
+	mon.IntVal("repair_segment_pieces_canceled").Observe(int64(cancellationCount))
 
 	return successfulNodes, successfulHashes, nil
 }

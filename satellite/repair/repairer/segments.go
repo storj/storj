@@ -117,6 +117,17 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	if pointer.Remote.Redundancy.Total != 0 {
 		healthyRatioBeforeRepair = float64(numHealthy) / float64(pointer.Remote.Redundancy.Total)
 	}
+	mon.Meter("repair_attempts").Mark(1)
+	mon.IntVal("repair_segment_size").Observe(pointer.GetSegmentSize())
+	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq+1 {
+		mon.Meter("repair_nodes_unavailable").Mark(1)
+		return true, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
+	}
+	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
+		mon.Meter("repair_unnecessary").Mark(1)
+		repairer.log.Sugar().Debugf("segment %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		return true, nil
+	}
 	mon.FloatVal("healthy_ratio_before_repair").Observe(healthyRatioBeforeRepair)
 
 	lostPiecesSet := sliceToSet(missingPieces)
