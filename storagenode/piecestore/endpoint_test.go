@@ -65,12 +65,9 @@ func TestUploadAndPartialDownload(t *testing.T) {
 			}
 			totalDownload += piecestore.DefaultConfig.InitialStep
 
-			download, cleanup, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "testbucket", "test/path")
+			download, cleanup, err := planet.Uplinks[0].DownloadStreamRange(ctx, planet.Satellites[0], "testbucket", "test/path", tt.offset, -1)
 			require.NoError(t, err)
 			defer ctx.Check(cleanup)
-			pos, err := download.Seek(tt.offset, io.SeekStart)
-			require.NoError(t, err)
-			assert.Equal(t, pos, tt.offset)
 
 			data := make([]byte, tt.size)
 			n, err := io.ReadFull(download, data)
