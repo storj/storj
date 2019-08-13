@@ -95,25 +95,23 @@ This process including the Storage nodes transferring their pieces to other node
 ## Implementation (MVP)
 
 #### Satellite
-- Update DBX - Add updateable `exit_initiated_at` and `exit_completed_at` timestamps to nodes table with indexes
-  - Add GetExitingNodeIds method to overlaycache. Returns node IDs where `exit_initiated_at` is not null and `exit_completed_at` is null.
-  - Add GetExitedNodeIds method to overlaycache. Returns node IDs where `exit_initiated_at` is not null and `exit_completed_at` is not null. 
-- Create GracefulExit endpoint
-  - Endpoints should be secured using the peer Identity provided in context
-  - Initiates the exit by setting `nodes.exit_initiated_at` to current time
-  - ``` 
-	service GracefulExit {
-		rpc InitiateExit(InitiateExitRequest) returns (InitiateExitResponse) {}
-	}
+- Update DBX - Add fields to `nodes` table
+  ```
+    model nodes (
+		...
+		field metainfo_loop_count       int
+		field created_exit_orders       int64
+		field successful_exit_orders    int64
+		field failed_exit_orders        int64
+		field exit_initiated_at         timestamp ( updateable )
+		field exit_completed_at         timestamp ( updateable )
 
-	message InitiateExitRequest {
 	}
-
-	message InitiateExitResponse {
-	}
-	```
+  ```
+- Add GetExitingNodeIds method to overlaycache. Returns node IDs where `exit_initiated_at` is not null and `exit_completed_at` is null.
+- Add GetExitedNodeIds method to overlaycache. Returns node IDs where `exit_initiated_at` is not null and `exit_completed_at` is not null. 
 - Update DBX - Add table exit_pieceinfos
--  ```
+   ```
 	model exit_pieceinfo (
 		key node_id path
 
@@ -126,19 +124,71 @@ This process including the Storage nodes transferring their pieces to other node
 		field completed_at      timestamp ( updateable )
 	)
    ```
-- Durability ratio is used to prioritize the order in which pieces are moved to new nodes. durability_ratio == num pieces / optimal number of pieces. lower values take presedence.
 - Update `cache.FindStorageNodesWithPreferences` to ignore exiting nodes for uploads and repairs.
-- Update Repairer service
-  - Add a metainfo loop `observer` to check segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
 - Add `PieceAction_PUT_EXIT` to orders protobuf. This is used to differentiate exiting bandwidth from other bandwidth usage.
 - Create GracefulExit service
-  - SendOrders loop
-    - Iterates over `exit_pieceinfo`, creates signed order limits with action type `PieceAction_PUT_EXIT`
-    - Batches orders and sends them to the exiting storagenode `GracefulExit.ProcessOrders` endpoint
-    - Execution intervals and batch sizes should be configurable
-  - CheckStatus loop
-    - Queries `exit_order` grouping by node ID where all records are marked completed.  The MAX(completed_at) should be used to determine if the last order was completed within a reasonable (???) threshold to ensure the repairer/checker was able to make enough passes to capture all pieces for the exiting node.
+  - Add MetainfoObserver loop
+    - Create metainfo `observer` that checks segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
+    - The service queries the `nodes` to get a list of exiting node IDs with a `nodes.metainfo_loop_count` <= `requiredMetainfoLoops`.  It then joins the metainfo loop `observers` using the exiting node IDs for this given `Join`
+	  - Join returns after one full metainfo loop, or on err. On success, the service should increment `nodes.metainfo_loop_count`
+    - Execution intervals and requiredMetainfoLoops should be configurable
+  - Add CheckStatus loop
+    - Queries `exit_order` grouping by node ID and counts completed, and incomplete.  If all records are complete and `nodes.metainfo_loop_count` <= `requiredMetainfoLoops`
+      - Call the storagenode `Completed` endpoint
+      - Set `nodes.exit_completed` to current time.
+      - Remove all `exit_pieceinfos` for the compled node ID
     - Execution intervals should be configurable
+- Create GracefulExit endpoint
+  - Endpoints should be secured using the peer Identity provided in context
+  - InitiateExit initiates the exit process by setting `nodes.exit_initiated_at` to current time
+  - GetExitOrders returns a list of orderLimits for pieces to be moved to new nodes based on entries in `exit_pieceinfo` ordered by `durability_ratio`. durability_ratio == num pieces / optimal number of pieces. lower values take presedence.
+  - ProcessOrders is called by the storagenode to verify hashes and commit successful orders, and to report failures. Successes and failures should increment `successful_exit_orders` and `failed_exit_orders` respectively. Successful orders should set `exit_pieceinfo.completed_at` to the current timestamp.
+  - ``` 
+	service GracefulExit {
+		// Called by the storagenode to initiate an exit request
+		rpc InitiateExit(InitiateExitRequest) returns (InitiateExitResponse) {}
+
+		// Called by the storagenode to get a batch of piece orders to be moved to new nodes. Batch size TBD
+		rpc GetPutOrders(PutOrdersRequest) returns (PutOrdersResponse) {}
+		
+		// Called by the storagenode to commit successful piece orders, and report failures in batch
+		rpc ProcessOrders(ProcessOrdersRequest) returns (ProcessPOrdersResponse) {}
+	}
+
+	message InitiateExitRequest {
+	}
+
+	message InitiateExitResponse {
+	}
+
+
+	message PutOrder {
+		bytes hashing_key
+		AddressedOrderLimit addressed_order_limit 
+	}
+
+	message PutOrdersRequest {
+	}
+
+	message PutOrdersResponse {
+		PutOrder put_orders repeatable		
+	}
+
+	message CompletedOrder {
+		AddressedOrderLimit addressed_order_limit
+		bytes piece_hash
+	}
+
+	message FailedOrder {
+		AddressedOrderLimit addressed_order_limit
+		// TBD reason
+	}
+
+	message ProcessOrdersRequest {
+		CompletedOrder completed repeatable
+		FailedOrder failed repeatable
+	}
+	```
 - Create gracefulexitreport command in satellite cli
   - Accepts 2 parameter: start date and end date
   - Generates a list of all completed exits with NodeID, Wallet address, Date joined, Date exited, GB Transferred (calculated using `PieceAction_PUT_EXIT` bandwidth actions), ordered by date exited descending.
@@ -149,18 +199,8 @@ This process including the Storage nodes transferring their pieces to other node
   - After selecting a satellite, the user should be prompted for a confirmation
   - Once confirmed, the command should call the `GracefulExit.Initiate` endpoint for that satellite
   - Records starting disk usage in `gexit.exit_status`
-- Add `gexit` DB implementation with `exit_order`  and `exit_order` tables
+- Add `gexit` DB implementation with `exit_status` and `completed_exit_orders` tables
   - ```
-	model exit_order (
-		key satellite_id serial_number
-
-		field satellite_id            blob not null
-		field serial_number           blob not null
-		field order_limit_serialized  blob not null
-		filed order_limit_expiration  timestamp not null
-		field completed_at            timestamp ( updateable )
-	)
-
 	model exit_status (
 		key satellite_id
 
@@ -169,31 +209,27 @@ This process including the Storage nodes transferring their pieces to other node
 		field completed_at           timestamp ( updateable )
 		field starting_disk_usage    int64 not null
 		field bytes_deleted          int64
-	)	
+	)
+
+	model completed_exit_orders {
+		key satellite_id piece_id
+
+		field satellite_id           blob not null
+		field piece_id               blob not null
+		field piece_hash			 blob not null
+		filed order_limit            blob not null
+		field created_at             timestamp ( autoinsert ) not null
+	}
 	```
 - Add GracefulExit endpoint
-  - Endpoint used by satellites to tell the exiting storage node what pieces to process
+  - Endpoint used by satellites
 
   - ``` 
 	service GracefulExit {
-		// Called by the satellite to batch piece orders to be moved to new nodes
-		rpc ProcessOrders(OrderRequest) returns (OrderResponse) {}
 		// Called by the satellite to notify the storagenode that the exit is complete for this satellite
 		rpc Completed(CompletedRequest) returns (CompletedResponse)
 		// Called by the satellite to get exit status information
 		rpc Status(StatusRequest) returns (StatusResponse) {}
-	}
-
-	message Order {
-		bytes hashing_key
-		AddressedOrderLimit addressed_order_limit 
-	}
-
-	message OrderRequest {
-		Order orders repeatable
-	}
-
-	message OrderResponse {
 	}
 
     message CompletedRequest {
@@ -216,10 +252,19 @@ This process including the Storage nodes transferring their pieces to other node
 	```
 - Update bandwidth usage monitors to ignore `PieceAction_PUT_EXIT` bandwidth actions
 - Add GracefulExit service
-  - Iterates over `exit_order` where `completed_at` is null
-    - Pushes the pieces to the storage node identified in the order using `ecclient`
-    - Sends the signed new node response to the satellite via a new `CommitPiece` method (uses `metainfo.UpdatePieces`).
-    - Updates `bytes_deleted` with the number of bytes deleted and sets `completed_at` to current time
+  - Checks for any records in `completed_exit_orders` that were moved, but not commited to the satellite.  If records exist, the process should send a new  `ProcessOrdersRequest` to the satellite, and remove the records in `completed_exit_orders`.
+  - Calls satellite `GracefulExit.GetPutOrders` and iterates over the orders in batchs
+    - Pushes the pieces to the storage node identified in the order using piecestore
+      - On success...
+        -  Add order limit with the piece hash response to `ProcessOrdersRequest.completed`
+        -  Persist order limit and piece hash to `completed_exit_orders`. This is used to track completed orders that have not yet committed to the satellite.
+      - On failure, the order should be added to `ProcessOrdersRequest.failed` 
+    - Sends `ProcessOrdersRequest` using the satellite `ProcessOrders` endpoint
+      - On success...
+        - removes the successful orders from `completed_exit_orders`
+        - updates `bytes_deleted` with the number of bytes deleted
+        - deletes the pieces that were successfully moved
+      - On failure (ex. satellite is unavailable), successful orders stored in `completed_exit_orders` should be reprocessed on the next iteration
   - Execution intervals and batch sizes should be configurable
 
 ## Open Questions
