@@ -121,7 +121,7 @@ func (server *Server) dashboardHandler(wr http.ResponseWriter, req *http.Request
 
 	data, err := server.service.GetDashboardData(ctx)
 	if err != nil {
-		server.writeError(wr, http.StatusInternalServerError, err)
+		server.writeError(wr, http.StatusInternalServerError, Error.Wrap(err))
 		return
 	}
 
@@ -140,7 +140,7 @@ func (server *Server) satellitesHandler(wr http.ResponseWriter, req *http.Reques
 
 	data, err := server.service.GetAllSatellitesData(ctx)
 	if err != nil {
-		server.writeError(wr, http.StatusInternalServerError, err)
+		server.writeError(wr, http.StatusInternalServerError, Error.Wrap(err))
 		return
 	}
 
@@ -159,18 +159,18 @@ func (server *Server) satelliteHandler(wr http.ResponseWriter, req *http.Request
 
 	satelliteID, err := storj.NodeIDFromString(strings.TrimLeft(req.URL.Path, "/api/satellite/"))
 	if err != nil {
-		server.writeError(wr, http.StatusBadRequest, err)
+		server.writeError(wr, http.StatusBadRequest, Error.Wrap(err))
 		return
 	}
 
 	if err = server.service.VerifySatelliteID(ctx, satelliteID); err != nil {
-		server.writeError(wr, http.StatusNotFound, err)
+		server.writeError(wr, http.StatusNotFound, Error.Wrap(err))
 		return
 	}
 
 	data, err := server.service.GetSatelliteData(ctx, satelliteID)
 	if err != nil {
-		server.writeError(wr, http.StatusInternalServerError, err)
+		server.writeError(wr, http.StatusInternalServerError, Error.Wrap(err))
 		return
 	}
 
