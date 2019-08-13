@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -97,11 +96,6 @@ func (db *DB) DropSchema(schema string) error {
 		return pgutil.DropSchema(db.db, schema)
 	}
 	return nil
-}
-
-// CertDB is a getter for uplink's specific info like public key, id, etc...
-func (db *DB) CertDB() certdb.DB {
-	return &certDB{db: db.db}
 }
 
 // Attribution is a getter for value attribution repository
