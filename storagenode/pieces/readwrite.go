@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )
@@ -61,13 +62,15 @@ type Writer struct {
 	blob      storage.BlobWriter
 	pieceSize int64 // piece size only; i.e., not including piece header
 
-	closed bool
+	blobs     storage.Blobs
+	satellite storj.NodeID
+	closed    bool
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(blob storage.BlobWriter) (*Writer, error) {
+func NewWriter(blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID) (*Writer, error) {
 	w := &Writer{}
-	if blob.StorageFormatVersion() >= filestore.FormatV1 {
+	if blobWriter.StorageFormatVersion() >= filestore.FormatV1 {
 		// We skip past the reserved header area for now- we want the header to be at the
 		// beginning of the file, to make it quick to seek there and also to make it easier
 		// to identify situations where a blob file has been truncated incorrectly. And we
@@ -77,12 +80,14 @@ func NewWriter(blob storage.BlobWriter) (*Writer, error) {
 		//
 		// Once the writer calls Commit() on this writer, we will seek back to the beginning
 		// of the file and write the header.
-		if _, err := blob.Seek(V1PieceHeaderReservedArea, io.SeekStart); err != nil {
+		if _, err := blobWriter.Seek(V1PieceHeaderReservedArea, io.SeekStart); err != nil {
 			return nil, Error.Wrap(err)
 		}
 	}
-	w.blob = blob
+	w.blob = blobWriter
 	w.hash = pkcrypto.NewHash()
+	w.blobs = blobs
+	w.satellite = satellite
 	return w, nil
 }
 
@@ -110,7 +115,9 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	if w.closed {
 		return Error.New("already closed")
 	}
-
+	if cache, ok := w.blobs.(*BlobsUsageCache); ok {
+		cache.Update(ctx, w.satellite, w.Size())
+	}
 	// point of no return: after this we definitely either commit or cancel
 	w.closed = true
 	defer func() {
