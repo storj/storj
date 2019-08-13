@@ -304,6 +304,7 @@ func TestCacheCreateDelete(t *testing.T) {
 }
 
 func TestCacheCreateMultipleSatellites(t *testing.T) {
+	t.Skip("flaky: V3-2416")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 2, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
