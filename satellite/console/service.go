@@ -120,6 +120,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	// TODO: remove after vanguard release
+	// when user uses an open source partner referral link, there won't be a registration token in the link.
+	// therefore, we need to create one so we can still control the project limit on the account level
 	var registrationToken *RegistrationToken
 	if user.PartnerID != "" {
 		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
@@ -131,6 +133,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		if err != nil {
 			return nil, errs.New(vanguardRegTokenErrMsg)
 		}
+		// if a registration token is already associated with an user ID, that means the token is already used
+		// we should terminate the account creation process and return an error
 		if registrationToken.OwnerID != nil {
 			return nil, errs.New(usedRegTokenVanguardErrMsg)
 		}
