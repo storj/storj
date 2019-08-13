@@ -161,11 +161,11 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 
 // Satellite encapsulates satellite related data.
 type Satellite struct {
-	ID             storj.NodeID         `json:"satelliteID"`
+	ID             *storj.NodeID        `json:"satelliteID,omitempty"`
 	StorageDaily   []storageusage.Stamp `json:"storageDaily"`
 	BandwidthDaily []BandwidthUsed      `json:"bandwidthDaily"`
-	Audit          reputation.Metric    `json:"audit"`
-	Uptime         reputation.Metric    `json:"uptime"`
+	Audit          *reputation.Metric   `json:"audit"`
+	Uptime         *reputation.Metric   `json:"uptime"`
 }
 
 // GetSatelliteData returns satellite related data.
@@ -189,11 +189,11 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 	}
 
 	return &Satellite{
-		ID:             satelliteID,
+		ID:             &satelliteID,
 		StorageDaily:   storageDaily,
 		BandwidthDaily: bandwidthDaily,
-		Audit:          rep.Audit,
-		Uptime:         rep.Uptime,
+		Audit:          &rep.Audit,
+		Uptime:         &rep.Uptime,
 	}, nil
 }
 
