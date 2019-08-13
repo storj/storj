@@ -21,6 +21,9 @@ We also need to avoid triggering UAC so that the storage node process can run in
 * Create a wix.json file like [this one](https://github.com/mh-cbon/go-msi/blob/master/wix.json)
 * Apply a GUID with `go-msi set-guid`, you must do it once only for each app.
 * Run `go-msi make --msi your_program.msi --version 0.0.2`
+* MSI must install storage node binary.
+* MSI must install watch dog binary.
+* MSI must install Automatic Updater binary.
 
 ### service register script
 * Modify storage node/automatic updater startup code to implement [ServiceMain](https://docs.microsoft.com/en-us/windows/win32/api/winsvc/nc-winsvc-lpservice_main_functiona).

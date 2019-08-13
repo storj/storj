@@ -30,17 +30,15 @@ Docker is being used for:
     * Doesn't start the storage node if storage node has not created a valid config.
     * Send error reports to satellite.
     * Writes update related errors to log file.
-* Watchdog process
+* Watchdog process (binary)
     * Monitors storage node by periodically sending messages to pulse endpoint on storage node and waiting for responses.
     * Restarts the storage node if a crash/unresponsiveness is detected.
-* Storage Node (binary)
-    * Shares drive with satellite network.
-    * Writes storage node operation related errors to log file
-    * Has pulse endpoint that can be hit for knowing if the storage node is alive and healthy. 
-* Error gui application
-    * Shows errors from log file
-    * Notifies user of service errors.
-    * Saves last reported error timestamp to a file for knowing if there are unread errors.
+* Rotating Logger
+    * Log to disk.
+    * Rotate files.
+    * Compress old stuff.
+    * Delete really old stuff.
+    * Ensure we limit the size of logs...
 
 ## Testing
 
@@ -48,87 +46,9 @@ Verify program can be run with windows defender firewall and at least one other 
 
 ## Design Overview
 
-### Automatic Updates and Handling failures
-
 General
 * Windows firewall and other 3rd party firewalls can block storage node operations.
     * [isportallowed](https://docs.microsoft.com/en-us/windows/win32/api/netfw/nf-netfw-inetfwmgr-isportallowed) windows api function can be used to make sure we are allowed through firewall
     * Can we add code to detect if firewall is blocking storage node operations?
     * Unblock storage node operator in firewall settings.
     * Can we detect if windows firewall is running?
-
-When downloading a new binary:
-* download fails
-    * Log error in log file if possible
-    * Retry download on next cycle that checks if storage node is up to date.
-* out-of-space for downloading
-    * Log error in log file if possible
-    * Retry download on next cycle that checks if storage node is up to date.
-* filesystem read-only
-    * Log error in log file if possible
-    * Retry download on next cycle that checks if storage node is up to date.
-* Man in the Middle attacks/corrupted binary
-    * Log error in log file if possible
-    * Verify binary hashes with message from version server and with output of a hashing algorithm (shasum256)
-    * Retry download on next cycle that checks if storage node is up to date.
-
-When swapping in a new binary:
-* computer crashes during swapping
-    * Log error in log file if possible
-    * automatic updater checks binary version and reruns download/swap steps.
-* deletion/stopping of the old binary fails.
-    * Log error in log file if possible
-    
-When starting a new binary:
-* out-of-space during migrations
-    * Log error in log file if possible
-    * automatic updater will try to rerun the binary on next cycle
-* failure to start
-    * Log error in log file if possible
-    * automatic updater will try to rerun the binary on next cycle
-* not yet configured
-    * Log error in log file if possible
-    * storage node will run a setup or describe out to fix the problem...?
-
-When performing a gradual rollouts.
-* bad gradual rollout. We know it's a bad rollout if our application stops working
-    * Log error in log file if possible
-    * if we did have a database migration, api/grpc change, or file system change in the latest update then wait for next update???
-        * bad latest update might have had faulty database changes that will need to be migrated again.
-    * otherwise rollback to previous version
-
-### Rollout message structure
-
-* each automatic updater process will poll our version server from time to time
-* our version server will return some data of the following form:
-```json
-{
-  "processes": {
-    "storagenode": {
-      "allowed_version_minimum": "0.3.4",
-      "suggested_version": "0.5.1",
-      "rollout": {
-        "active": true,
-        "target_version": "0.5.2",
-        "rollout_seed": "04123bacde",
-        "rollout_cursor": "40",
-      }
-    }
-  }
-}
-```
-
-* independent of an active rollout, a process will confirm that it at least meets the allowed version minimum. if it does not, it will proceed to upgrade to at least the suggested_version if it is not part of a rollout.
-* if a rollout is active, it will hash its own node id with the rollout seed and compare that hash to the rollout cursor. if it sorts less then the rollout cursor it should upgrade to the rollout target version
-* also, we need to make sure to add jitter. see http://highscalability.com/blog/2012/4/17/youtube-strategy-adding-jitter-isnt-a-bug.html. having every process restart and sleep 12 hours is a definite way to kill ourselves without adding some randomness back in.
-
-## Implementation Milestones
-
-* Add pulse endpoint to storage node
-* Design automatic updater service
-    * Create and start an updater service that runs on an interval loop
-    * Determine which libraries will be used for the binary downloading
-      * https://github.com/rhysd/go-github-selfupdate
-      * Vet dependencies
-* Implement rhysd/go-github-selfupdate 
-* create msi installer
