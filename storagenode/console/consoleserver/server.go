@@ -195,8 +195,10 @@ func (server *Server) writeData(wr http.ResponseWriter, data interface{}) {
 	}
 }
 
-// writeError writes a JSON error payload to http.ResponseWriter and log encoding error.
+// writeError writes a JSON error payload to http.ResponseWriter log encoding error.
 func (server *Server) writeError(wr http.ResponseWriter, status int, err error) {
+	server.log.Error("api handler error", zap.Int("status code", status), zap.Error(err))
+
 	wr.Header().Set(contentType, applicationJSON)
 	wr.WriteHeader(status)
 
@@ -205,6 +207,4 @@ func (server *Server) writeError(wr http.ResponseWriter, status int, err error) 
 	if err := json.NewEncoder(wr).Encode(output); err != nil {
 		server.log.Error("json encoder error", zap.Error(err))
 	}
-
-	server.log.Error("api handler error", zap.Int("status code", status), zap.Error(err))
 }
