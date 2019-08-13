@@ -186,7 +186,7 @@ type jsonOutput struct {
 	Error string      `json:"error"`
 }
 
-// writeData is helper method to write JSON to http.ResponseWriter and log encoding error
+// writeData is helper method to write JSON to http.ResponseWriter and log encoding error.
 func (server *Server) writeData(wr http.ResponseWriter, data interface{}) {
 	wr.Header().Set(contentType, applicationJSON)
 	wr.WriteHeader(http.StatusOK)
