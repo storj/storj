@@ -102,7 +102,7 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStor
 	}, nil
 }
 
-// Dashboard encapsulates dashboard stale data
+// Dashboard encapsulates dashboard stale data.
 type Dashboard struct {
 	NodeID storj.NodeID `json:"nodeID"`
 	Wallet string       `json:"wallet"`
