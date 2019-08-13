@@ -15,7 +15,7 @@ RELEASE_DIR="$STORJ_NETWORK_DIR/release"
 
 # setup two different directories containing the code for the latest release tag
 # and for the current branch code
-git worktree add -f "$BRANCH_DIR"
+git worktree add -f "$BRANCH_DIR" master
 
 latestReleaseTag=$(git describe --tags `git rev-list --tags --max-count=1`)
 latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")
@@ -37,6 +37,8 @@ storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
 storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
 make -C "$BRANCH_DIR" install-sim
+
+sed -i -e 's#/release/#/branch/#g' $STORJ_NETWORK_DIR/satellite/0/config.yaml
 
 # run download part of backward compatibility tests from the current branch
 storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download

@@ -90,6 +90,19 @@ pipeline {
                         sh 'make test-sim'
                     }
                 }
+
+                stage('Backwards Compatibility') {
+                    // TODO: add a where clause and only run this check on master branch
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.3'
+                        STORJ_NETWORK_HOST6 = '127.0.0.3'
+                    }
+
+                    steps {
+                        sh 'make test-sim-backwards-compatible'
+
+                    }
+                }
             }
         }
     }
