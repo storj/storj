@@ -74,8 +74,8 @@ func TestAuditObserver(t *testing.T) {
 
 					remote := pointer.GetRemote()
 					for _, piece := range remote.GetRemotePieces() {
-						pieceId := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-						allPieces[pieceId] = piece.NodeId
+						pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+						allPieces[pieceID] = piece.NodeId
 					}
 
 					// if context has been canceled exit. Otherwise, continue
