@@ -29,8 +29,8 @@ var (
 
 // Config contains configurable values for garbage collection
 type Config struct {
-	Interval time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"168h" devDefault:"10m"`
-	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"false" devDefault:"true"`
+	Interval time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m"`
+	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int     `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64 `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
