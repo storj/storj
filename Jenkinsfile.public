@@ -92,7 +92,10 @@ pipeline {
                 }
 
                 stage('Backwards Compatibility') {
-                    // TODO: add a where clause and only run this check on master branch
+                    when{
+                        branch 'jg/2340-sa-config-backwards-compat'
+                        // branch 'master'
+                    }
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
