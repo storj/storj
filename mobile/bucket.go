@@ -308,10 +308,7 @@ type ReaderOptions struct {
 type Reader struct {
 	scope
 	readError error
-	reader    interface {
-		io.Reader
-		io.Closer
-	}
+	reader    io.ReadCloser
 }
 
 // NewReader returns new reader for downloading object

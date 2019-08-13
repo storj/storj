@@ -249,10 +249,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 // Download stores readcloser and context scope for downloading
 type Download struct {
 	scope
-	rc interface {
-		io.Reader
-		io.Closer
-	}
+	rc io.ReadCloser
 }
 
 //export download
