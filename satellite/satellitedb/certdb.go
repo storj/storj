@@ -46,7 +46,9 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, pi *identity.
 	err = tx.QueryRow(certs.db.Rebind(query), pi.Leaf.SerialNumber.Bytes()).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			// create a new entry
+			// when storagenode can get a new leaf certificate, which should be store as a new entry. But currently
+			// for a storagenode to get a new leaf identity, it is controlled in our alpha network. When this changes, then same
+			// storagenode can have multiple entries, which is handled here
 			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO peer_identities ( serial_number, peer_identity, node_id, update_at ) VALUES ( ?, ?, ?, ? );`), pi.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
 			if err != nil {
 				return Error.Wrap(err)
@@ -60,7 +62,7 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, pi *identity.
 	return nil
 }
 
-// Get gets the public key based on the certificate's serial number
+// Get gets the public key based on the certificate's nodeID
 func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxPeerID, err := certs.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))

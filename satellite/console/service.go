@@ -717,9 +717,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				Description: projectInfo.Description,
 				Name:        projectInfo.Name,
 				OwnerID:     auth.User.ID,
+				PartnerID:   auth.User.PartnerID,
 			},
 		)
 		if err != nil {
+			s.log.Error("internal error", zap.Error(err))
 			return errs.New(internalErrMsg)
 		}
 
@@ -947,15 +949,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		Name:      name,
 		ProjectID: projectID,
 		Secret:    secret,
-	}
-
-	user, err := s.GetUser(ctx, auth.User.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	// If the user has a partnerID set it in the apikey for value attribution
-	if !user.PartnerID.IsZero() {
-		apikey.PartnerID = user.PartnerID
+		PartnerID: auth.User.PartnerID,
 	}
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
