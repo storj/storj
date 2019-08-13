@@ -18,16 +18,28 @@ type Download struct {
 	streams streams.Store
 	reader  io.ReadCloser
 	offset  int64
+	limit   int64
 	closed  bool
 }
 
 // NewDownload creates new stream download.
-func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams streams.Store, offset int64) *Download {
+func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams streams.Store) *Download {
+	return &Download{
+		ctx:     ctx,
+		stream:  stream,
+		streams: streams,
+		limit:   -1,
+	}
+}
+
+// NewDownloadRange creates new stream range download.
+func NewDownloadRange(ctx context.Context, stream storj.ReadOnlyStream, streams streams.Store, offset, limit int64) *Download {
 	return &Download{
 		ctx:     ctx,
 		stream:  stream,
 		streams: streams,
 		offset:  offset,
+		limit:   limit,
 	}
 }
 
@@ -49,8 +61,16 @@ func (download *Download) Read(data []byte) (n int, err error) {
 		}
 	}
 
+	if download.limit == 0 {
+		return 0, io.EOF
+	}
+	if download.limit > 0 && download.limit > int64(len(data)) {
+		data = data[:download.limit]
+	}
 	n, err = download.reader.Read(data)
-
+	if download.limit >= 0 {
+		download.limit -= int64(n)
+	}
 	download.offset += int64(n)
 
 	return n, err

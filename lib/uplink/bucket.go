@@ -10,7 +10,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/storage/streams"
@@ -190,7 +189,7 @@ func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ io.ReadClose
 		return nil, err
 	}
 
-	return stream.NewDownload(ctx, segmentStream, b.streams, 0), nil
+	return stream.NewDownload(ctx, segmentStream, b.streams), nil
 }
 
 // DownloadRange creates a new reader that downloads the object data.
@@ -202,11 +201,7 @@ func (b *Bucket) DownloadRange(ctx context.Context, path storj.Path, start, limi
 		return nil, err
 	}
 
-	download := stream.NewDownload(ctx, segmentStream, b.streams, start)
-	if limit < 0 {
-		return download, nil
-	}
-	return readcloser.LimitReadCloser(download, limit), nil
+	return stream.NewDownloadRange(ctx, segmentStream, b.streams, start, limit), nil
 }
 
 // Close closes the Bucket session.
