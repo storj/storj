@@ -86,29 +86,29 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	group.Go(func() error {
-		return service.Loop.Run(ctx, func(ctx context.Context) error {
-			defer mon.Task()(&ctx)(&err)
-			err := service.process(ctx)
-			if err != nil {
-				service.log.Error("process", zap.Error(err))
-			}
-			return nil
-		})
-	})
-
 	//group.Go(func() error {
-	//	return service.ReservoirLoop.Run(ctx, func(ctx context.Context) error {
+	//	return service.Loop.Run(ctx, func(ctx context.Context) error {
 	//		defer mon.Task()(&ctx)(&err)
-	//		observer := NewObserver(service.log.Named("audit observer"), service.overlay, service.reservoirConfig)
-	//		err = service.MetainfoLoop.Join(ctx, observer)
+	//		err := service.process(ctx)
 	//		if err != nil {
-	//			service.log.Error("error joining metainfoloop", zap.Error(err))
-	//			return nil
+	//			service.log.Error("process", zap.Error(err))
 	//		}
 	//		return nil
 	//	})
 	//})
+
+	group.Go(func() error {
+		return service.ReservoirLoop.Run(ctx, func(ctx context.Context) error {
+			defer mon.Task()(&ctx)(&err)
+			observer := NewObserver(service.log.Named("audit observer"), service.overlay, service.reservoirConfig)
+			err = service.MetainfoLoop.Join(ctx, observer)
+			if err != nil {
+				service.log.Error("error joining metainfoloop", zap.Error(err))
+				return nil
+			}
+			return nil
+		})
+	})
 
 	return group.Wait()
 }

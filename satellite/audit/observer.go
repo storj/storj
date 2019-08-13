@@ -50,7 +50,7 @@ func (observer *observer) RemoteSegment(ctx context.Context, path storj.Path, po
 			}
 			observer.Reservoirs[piece.NodeId] = NewReservoir(slots)
 		}
-		observer.Reservoirs[piece.NodeId].sample(path)
+		observer.Reservoirs[piece.NodeId].Sample(path)
 	}
 	return nil
 }
