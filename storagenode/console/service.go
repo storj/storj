@@ -198,7 +198,7 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
-// among all satellites from node's trust pool
+// among all satellites from the node's trust pool.
 func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(nil)
 	from, to := date.MonthBoundary(time.Now())
