@@ -15,7 +15,7 @@ RELEASE_DIR="$STORJ_NETWORK_DIR/release"
 
 # setup two different directories containing the code for the latest release tag
 # and for the current branch code
-git worktree add -f "$BRANCH_DIR" master
+git worktree add -f "$BRANCH_DIR"
 
 latestReleaseTag=$(git describe --tags `git rev-list --tags --max-count=1`)
 latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")
