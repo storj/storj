@@ -159,7 +159,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	return data, nil
 }
 
-// Satellite encapsulates satellite related data
+// Satellite encapsulates satellite related data.
 type Satellite struct {
 	ID             storj.NodeID         `json:"satelliteID"`
 	StorageDaily   []storageusage.Stamp `json:"storageDaily"`
