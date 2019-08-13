@@ -100,7 +100,7 @@ This process including the Storage nodes transferring their pieces to other node
   - Add GetExitedNodeIds method to overlaycache. Returns node IDs where `exit_initiated_at` is not null and `exit_completed_at` is not null. 
 - Create GracefulExit endpoint
   - Endpoints should be secured using the peer Identity provided in context
-  - Initiates the exit by setting `nodes.exit_initiated` to current time
+  - Initiates the exit by setting `nodes.exit_initiated_at` to current time
   - ``` 
 	service GracefulExit {
 		rpc InitiateExit(InitiateExitRequest) returns (InitiateExitResponse) {}
@@ -128,7 +128,7 @@ This process including the Storage nodes transferring their pieces to other node
    ```
 - Add `PieceAction` field to, `cache.FindStorageNodesRequest`. Update `cache.FindStorageNodesWithPreferences` to ignore exiting nodes for uploads and repairs.
 - Update Repairer service
-  - Modify `checker` to check segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
+  - Add a metainfo loop `observer` to check segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
 - Add `PieceAction_PUT_EXIT` to orders protobuf. This is used to differentiate exiting bandwidth from other bandwidth usage.
 - Create GracefulExit service
   - SendOrders loop
