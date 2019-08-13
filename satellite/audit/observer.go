@@ -37,18 +37,7 @@ func (observer *observer) RemoteSegment(ctx context.Context, path storj.Path, po
 
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		if _, ok := observer.Reservoirs[piece.NodeId]; !ok {
-			reputable, err := observer.overlay.IsVetted(ctx, piece.NodeId)
-			if err != nil {
-				observer.log.Error("error finding if node is vetted", zap.Error(err))
-				return nil
-			}
-			var slots int
-			if reputable {
-				slots = observer.reservoirConfig.SlotsForVetted
-			} else {
-				slots = observer.reservoirConfig.SlotsForUnvetted
-			}
-			observer.Reservoirs[piece.NodeId] = NewReservoir(slots)
+			observer.Reservoirs[piece.NodeId] = NewReservoir(observer.reservoirConfig.Slots)
 		}
 		observer.Reservoirs[piece.NodeId].Sample(path)
 	}

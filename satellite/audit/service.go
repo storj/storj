@@ -37,8 +37,7 @@ type Config struct {
 
 // ReservoirConfig contains configurable values for audit reservoirs
 type ReservoirConfig struct {
-	SlotsForVetted   int `help:"number of reservoir slots allotted for vetted nodes" default:"1"`
-	SlotsForUnvetted int `help:"number of reservoir slots allotted for unvetted nodes" default:"1"`
+	Slots int `help:"number of reservoir slots allotted for nodes" default:"1"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -86,16 +85,16 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	//group.Go(func() error {
-	//	return service.Loop.Run(ctx, func(ctx context.Context) error {
-	//		defer mon.Task()(&ctx)(&err)
-	//		err := service.process(ctx)
-	//		if err != nil {
-	//			service.log.Error("process", zap.Error(err))
-	//		}
-	//		return nil
-	//	})
-	//})
+	group.Go(func() error {
+		return service.Loop.Run(ctx, func(ctx context.Context) error {
+			defer mon.Task()(&ctx)(&err)
+			err := service.process(ctx)
+			if err != nil {
+				service.log.Error("process", zap.Error(err))
+			}
+			return nil
+		})
+	})
 
 	group.Go(func() error {
 		return service.ReservoirLoop.Run(ctx, func(ctx context.Context) error {

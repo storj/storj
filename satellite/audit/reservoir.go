@@ -13,7 +13,7 @@ import (
 type Reservoir struct {
 	Paths []storj.Path
 	Size  int
-	index int
+	index int64
 }
 
 // NewReservoir instantiates a Reservoir
@@ -31,7 +31,7 @@ func (reservoir *Reservoir) Sample(path storj.Path) {
 	if len(reservoir.Paths) < reservoir.Size {
 		reservoir.Paths = append(reservoir.Paths, path)
 	} else {
-		random := rand.Intn(reservoir.index)
+		random := rand.Intn(int(reservoir.index))
 		if random < reservoir.Size {
 			reservoir.Paths[random] = path
 		}
