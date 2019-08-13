@@ -529,7 +529,7 @@ func backupPath(path string) string {
 	)
 }
 
-// EncodePeerIdentity encodes the complete idenitity chain to bytes
+// EncodePeerIdentity encodes the complete identity chain to bytes
 func EncodePeerIdentity(pi *PeerIdentity) []byte {
 	var chain []byte
 	chain = append(chain, pi.Leaf.Raw...)
@@ -540,7 +540,7 @@ func EncodePeerIdentity(pi *PeerIdentity) []byte {
 	return chain
 }
 
-// DecodePeerIdentity Decodes the bytes into complete idenitity chain
+// DecodePeerIdentity Decodes the bytes into complete identity chain
 func DecodePeerIdentity(ctx context.Context, chain []byte) (_ *PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 
