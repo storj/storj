@@ -130,11 +130,6 @@ func TestUpload(t *testing.T) {
 			err:           "",
 		},
 		{ // should err with piece ID not specified
-			contentLength: 1 * memory.KiB,
-			action:        pb.PieceAction_PUT,
-			err:           "missing piece id",
-		},
-		{ // should err with piece ID not specified
 			pieceID:       storj.PieceID{},
 			contentLength: 1 * memory.KiB,
 			action:        pb.PieceAction_PUT,
@@ -237,10 +232,6 @@ func TestDownload(t *testing.T) {
 		{ // should successfully download data
 			pieceID: orderLimit.PieceId,
 			action:  pb.PieceAction_GET,
-		},
-		{ // should err with piece ID not specified
-			action: pb.PieceAction_GET,
-			errs:   []string{"missing piece id"},
 		},
 		{ // should err with piece ID not specified
 			pieceID: storj.PieceID{},
@@ -358,10 +349,6 @@ func TestDelete(t *testing.T) {
 			pieceID: storj.PieceID{},
 			action:  pb.PieceAction_DELETE,
 			err:     "missing piece id",
-		},
-		{ // should err with piece ID not specified
-			action: pb.PieceAction_DELETE,
-			err:    "missing piece id",
 		},
 		{ // should err due to incorrect action
 			pieceID: orderLimit.PieceId,
