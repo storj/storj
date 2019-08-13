@@ -121,7 +121,6 @@ func (server *Server) dashboardHandler(wr http.ResponseWriter, req *http.Request
 
 	data, err := server.service.GetDashboardData(ctx)
 	if err != nil {
-		server.log.Error("dashboard handler internal error", zap.Error(err))
 		server.writeError(wr, http.StatusInternalServerError, err)
 		return
 	}
@@ -141,7 +140,6 @@ func (server *Server) satellitesHandler(wr http.ResponseWriter, req *http.Reques
 
 	data, err := server.service.GetAllSatellitesData(ctx)
 	if err != nil {
-		server.log.Error("satellites handler internal error", zap.Error(err))
 		server.writeError(wr, http.StatusInternalServerError, err)
 		return
 	}
@@ -172,7 +170,6 @@ func (server *Server) satelliteHandler(wr http.ResponseWriter, req *http.Request
 
 	data, err := server.service.GetSatelliteData(ctx, satelliteID)
 	if err != nil {
-		server.log.Error("satellite handler internal error", zap.Error(err))
 		server.writeError(wr, http.StatusInternalServerError, err)
 		return
 	}
@@ -208,4 +205,6 @@ func (server *Server) writeError(wr http.ResponseWriter, status int, err error) 
 	if err := json.NewEncoder(wr).Encode(output); err != nil {
 		server.log.Error("json encoder error", zap.Error(err))
 	}
+
+	server.log.Error("api handler error", zap.Int("status code", status), zap.Error(err))
 }
