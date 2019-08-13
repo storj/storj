@@ -231,7 +231,7 @@ func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeI
 	return nil
 }
 
-// CheckVersion checks if node version >= minAllowedVersion
+// CheckVersion checks if node version >= minAllowedVersion.
 func (s *Service) CheckVersion(ctx context.Context) bool {
 	defer mon.Task()(&ctx)(nil)
 	return s.version.IsAllowed()
