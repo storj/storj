@@ -42,24 +42,7 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
    - Audit success ratio and uptime count thresholds are per-satellite
    - The vouchers issued by the satellite should have an expiration on them (tunable by satellite)
    - Nodes are expected to get up to date vouchers
-
-```go
-   // Satellite
-   // IsVetted returns whether or not the node reaches reputable thresholds
-   IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
-  
-   // Storagenode
-   // DB implements storing and retrieving vouchers
-   type DB interface {
-      // Put inserts or updates a voucher from a satellite
-      Put(context.Context, *pb.Voucher) error
-      // GetExpiring retrieves all vouchers that are expired or about to expire
-      GetExpiring(context.Context) ([]storj.NodeID, error)
-      // GetAll returns all vouchers from the table
-      GetAll(context.Context) ([]*pb.Voucher, error)
-   }
-```
-
+   
 2. Trusted Satellites List
    - Create Whitelist/blacklist with an abstraction layer for trusted/untrusted Satellites
    - These lists will live on each Node
@@ -68,13 +51,15 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 3. Routing Table Antechamber
    - XOR ordered data structure (boltDB bucket)
    - A node can be added if it would be within the vetted node neighborhood
-   - When the routing table in populated/refreshed, it checks the vouchers from the nodes it communicates with. If a node doesn’t have any trustworthy vouchers, it cannot enter the main routing table.
+   - If a node is successfully connected to, it sends its vouchers to the other node
+   - If that node doesn't have any trustworthy vouchers, it cannot enter the main routing table.
+   - If the node is already in the routing table, it is removed and added to the antechamber if it fits in the node neighborhood
    - A Node may enter a Routing Table directly if at first contact it is already verified by a trusted Satellite. 
-   - A Node should be removed from a Routing Table if on bucket refresh it no longer provides a trusted, non-expired voucher.
    - Since the antechamber may only contain nodes that would be part of the node neighborhood, if the network grows, the space in the neighborhood will shrink so we must remove antechamber nodes that no longer fit in the neighborhood.
- 4. FindNear
-    - should return n XOR-closest nodes from the antechamber in addition to its current behavior
-    - During processes like Bootstrapping or Kademlia Lookups, we should only call FindNear on verified nodes, not on those that are in the antechamber.
+
+4. FindNear
+   - should return n XOR-closest nodes from the antechamber in addition to its current behavior
+   - During processes like Bootstrapping or Kademlia Lookups, we should only call FindNear on verified nodes, not on those that are in the antechamber.
 
 5. Progressively migrate nodes from the current Routing Table into antechamber until verified.
    - Deploy vetting and signing first
@@ -106,12 +91,17 @@ Q: Should closer buckets to self get refreshed more frequently?
 
 A: Yes, but not as part of this Epic. See this [ticket](https://storjlabs.atlassian.net/browse/V3-1907)
 
-Q: If a node is removed from the Routing Table, should it be added back to the antechamber?
-
-A: No, it must start the process from the beginning. No special action should be taken.
-
 Q: Should the routing table antechamber have a maximum size?
 
 A: We've decided not for now.
 
 
+## Related closed PRs. Reference for future development
+
+[Change antechamber keys to be the xor from local node](https://github.com/storj/storj/pull/2481)
+
+[kademlia: integrate antechamber and vouchers](https://github.com/storj/storj/pull/2453)
+
+[Move kbucketdb, nodebucketdb to kademliadb package](https://github.com/storj/storj/pull/2356)
+
+[Add ability for satellite to discover antechamber nodes](https://github.com/storj/storj/pull/2626)
