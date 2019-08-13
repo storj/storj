@@ -106,7 +106,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 		`
 		result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferInfo.RedeemableCap, shouldCreate)
 	default:
-		return errs.New("unsupported database: %s", t)
+		return errs.New("unsupported database: %t", t)
 	}
 
 	if err != nil {
