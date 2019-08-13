@@ -15,7 +15,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/utccheck"
@@ -52,10 +52,12 @@ type SQLDB interface {
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	db          SQLDB
-	bandwidthdb bandwidthdb
-	pieceinfo   pieceinfo
-	location    string
+	db                SQLDB
+	bandwidthdb       bandwidthdb
+	v0PieceInfo       v0PieceInfo
+	pieceExpirationDB pieceExpirationDB
+	location          string
+	pieceSpaceUsedDB  pieceSpaceUsedDB
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -72,9 +74,11 @@ func newInfo(path string) (*InfoDB, error) {
 	dbutil.Configure(db, mon)
 
 	infoDb := &InfoDB{db: db}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
+	infoDb.v0PieceInfo = v0PieceInfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
+	infoDb.pieceExpirationDB = pieceExpirationDB{InfoDB: infoDb}
 	infoDb.location = path
+	infoDb.pieceSpaceUsedDB = pieceSpaceUsedDB{InfoDB: infoDb}
 
 	return infoDb, nil
 }
@@ -99,8 +103,10 @@ func NewInfoTest() (*InfoDB, error) {
 		}))
 
 	infoDb := &InfoDB{db: utccheck.New(db)}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
+	infoDb.v0PieceInfo = v0PieceInfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
+	infoDb.pieceExpirationDB = pieceExpirationDB{InfoDB: infoDb}
+	infoDb.pieceSpaceUsedDB = pieceSpaceUsedDB{InfoDB: infoDb}
 
 	return infoDb, nil
 }
@@ -404,6 +410,80 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				Description: "Start piece_expirations table, deprecate pieceinfo table",
+				Version:     15,
+				Action: migrate.SQL{
+					// new table to hold expiration data (and only expirations. no other pieceinfo)
+					`CREATE TABLE piece_expirations (
+						satellite_id       BLOB      NOT NULL,
+						piece_id           BLOB      NOT NULL,
+						piece_expiration   TIMESTAMP NOT NULL, -- date when it can be deleted
+						deletion_failed_at TIMESTAMP,
+						PRIMARY KEY (satellite_id, piece_id)
+					)`,
+					`CREATE INDEX idx_piece_expirations_piece_expiration ON piece_expirations(piece_expiration)`,
+					`CREATE INDEX idx_piece_expirations_deletion_failed_at ON piece_expirations(deletion_failed_at)`,
+				},
+			},
+			{
+				Description: "Add reputation and storage usage cache tables",
+				Version:     16,
+				Action: migrate.SQL{
+					`CREATE TABLE reputation (
+						satellite_id BLOB NOT NULL,
+						uptime_success_count INTEGER NOT NULL,
+						uptime_total_count INTEGER NOT NULL,
+						uptime_reputation_alpha REAL NOT NULL,
+						uptime_reputation_beta REAL NOT NULL,
+						uptime_reputation_score REAL NOT NULL,
+						audit_success_count INTEGER NOT NULL,
+						audit_total_count INTEGER NOT NULL,
+						audit_reputation_alpha REAL NOT NULL,
+						audit_reputation_beta REAL NOT NULL,
+						audit_reputation_score REAL NOT NULL,
+						updated_at TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id)
+					)`,
+					`CREATE TABLE storage_usage (
+						satellite_id BLOB NOT NULL,
+						at_rest_total REAL NOT NUll,
+						timestamp TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id, timestamp)
+					)`,
+				},
+			},
+			{
+				Description: "Create piece_space_used table",
+				Version:     17,
+				Action: migrate.SQL{
+					// new table to hold the most recent totals from the piece space used cache
+					`CREATE TABLE piece_space_used (
+						total INTEGER NOT NULL,
+						satellite_id BLOB
+					)`,
+					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
+				},
+			},
 		},
 	}
+}
+
+// withTx is a helper method which executes callback in transaction scope
+func (db *InfoDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
 }

@@ -124,6 +124,11 @@ test-all-in-one: ## Test docker images locally
 	&& $(MAKE) satellite-image storagenode-image gateway-image \
 	&& ./scripts/test-aio.sh
 
+.PHONY: test-sim-backwards-compatible
+test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
+	@echo "Running ${@}"
+	@./scripts/test-sim-backwards.sh
+
 ##@ Build
 
 .PHONY: images
@@ -241,7 +246,7 @@ binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspe
 
 .PHONY: libuplink
 libuplink:
-	go build -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
+	go build -ldflags="-s -w" -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
 	cp lib/uplinkc/uplink_definitions.h uplink_definitions.h
 
 ##@ Deploy

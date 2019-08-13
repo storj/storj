@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -195,20 +196,25 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	return csv, nil
 }
 
-// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
-func (db *StoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeSpaceUsage, err error) {
+// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
+func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.StorageNodeUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// as entries are stored on daily basis we don't need
-	// to extract DATE from start_time
-	query := `SELECT at_rest_total, start_time 
+	query := `SELECT at_rest_total, start_time, 
+		LAG(at_rest_total) OVER win AS prev_at_rest, 
+		LAG(start_time) OVER win AS prev_start_time
 		FROM accounting_rollups
-		WHERE node_id = ?
-		AND ? <= start_time AND start_time <= ?
-		GROUP BY start_time
-		ORDER BY start_time ASC`
+		WHERE id IN (
+			SELECT MAX(id)
+			FROM accounting_rollups
+			WHERE node_id = ?
+			AND ? <= start_time AND start_time <= ?
+			GROUP BY start_time
+			ORDER BY start_time ASC
+		)
+		WINDOW win AS (ORDER BY start_time)`
 
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start, end)
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -217,24 +223,39 @@ func (db *StoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, n
 		err = errs.Combine(err, rows.Close())
 	}()
 
-	var nodeSpaceUsages []accounting.NodeSpaceUsage
+	var nodeStorageUsages []accounting.StorageNodeUsage
 	for rows.Next() {
 		var atRestTotal float64
 		var startTime time.Time
+		var prevAtRestTotal sql.NullFloat64
+		var prevStartTime dbutil.NullTime
 
-		err = rows.Scan(atRestTotal, startTime)
+		err = rows.Scan(&atRestTotal, &startTime, &prevAtRestTotal, &prevStartTime)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		nodeSpaceUsages = append(nodeSpaceUsages, accounting.NodeSpaceUsage{
+		// skip first entry as we can not extract hours
+		// properly without storagenode storage tallies
+		// which formed this value
+		if !prevStartTime.Valid {
+			continue
+		}
+
+		atRest := atRestTotal - prevAtRestTotal.Float64
+		hours := startTime.Sub(prevStartTime.Time).Hours()
+		if hours != 0 {
+			atRest /= hours
+		}
+
+		nodeStorageUsages = append(nodeStorageUsages, accounting.StorageNodeUsage{
 			NodeID:      nodeID,
-			AtRestTotal: atRestTotal,
-			TimeStamp:   startTime,
+			StorageUsed: atRest,
+			Timestamp:   startTime,
 		})
 	}
 
-	return nodeSpaceUsages, nil
+	return nodeStorageUsages, nil
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time

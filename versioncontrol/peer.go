@@ -61,12 +61,12 @@ func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 	if xfor = r.Header.Get("X-Forwarded-For"); xfor == "" {
 		xfor = r.RemoteAddr
 	}
-	zap.S().Debugf("Request from: %s for %s", r.RemoteAddr, xfor)
+	peer.Log.Sugar().Debugf("Request from: %s for %s", r.RemoteAddr, xfor)
 
 	w.Header().Set("Content-Type", "application/json")
 	_, err := w.Write(peer.response)
 	if err != nil {
-		zap.S().Errorf("error writing response to client: %v", err)
+		peer.Log.Sugar().Errorf("error writing response to client: %v", err)
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/storj"
 )
 
 // ErasureScheme represents the general format of any erasure scheme algorithm.
@@ -106,6 +107,17 @@ func NewRedundancyStrategyFromProto(scheme *pb.RedundancyScheme) (RedundancyStra
 	return NewRedundancyStrategy(es, int(scheme.GetRepairThreshold()), int(scheme.GetSuccessThreshold()))
 }
 
+// NewRedundancyStrategyFromStorj creates new RedundancyStrategy from the given
+// storj.RedundancyScheme.
+func NewRedundancyStrategyFromStorj(scheme storj.RedundancyScheme) (RedundancyStrategy, error) {
+	fc, err := infectious.NewFEC(int(scheme.RequiredShares), int(scheme.TotalShares))
+	if err != nil {
+		return RedundancyStrategy{}, Error.Wrap(err)
+	}
+	es := NewRSScheme(fc, int(scheme.ShareSize))
+	return NewRedundancyStrategy(es, int(scheme.RepairShares), int(scheme.OptimalShares))
+}
+
 // RepairThreshold is the number of available erasure pieces below which
 // the data must be repaired to avoid loss
 func (rs *RedundancyStrategy) RepairThreshold() int {
@@ -119,6 +131,7 @@ func (rs *RedundancyStrategy) OptimalThreshold() int {
 }
 
 type encodedReader struct {
+	log    *zap.Logger
 	ctx    context.Context
 	rs     RedundancyStrategy
 	pieces map[int]*encodedPiece
@@ -126,10 +139,11 @@ type encodedReader struct {
 
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
 // io.ReadClosers.
-func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []io.ReadCloser, err error) {
+func EncodeReader(ctx context.Context, log *zap.Logger, r io.Reader, rs RedundancyStrategy) (_ []io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	er := &encodedReader{
+		log:    log,
 		ctx:    ctx,
 		rs:     rs,
 		pieces: make(map[int]*encodedPiece, rs.TotalCount()),
@@ -175,7 +189,7 @@ func (er *encodedReader) fillBuffer(ctx context.Context, r io.Reader, w sync2.Pi
 	_, err = sync2.Copy(ctx, w, r)
 	err = w.CloseWithError(err)
 	if err != nil {
-		zap.S().Error(err)
+		er.log.Sugar().Error(err)
 	}
 }
 
@@ -231,20 +245,22 @@ func (ep *encodedPiece) Close() (err error) {
 // multiple Ranged sub-Readers. EncodedRanger does not match the normal Ranger
 // interface.
 type EncodedRanger struct {
-	rr ranger.Ranger
-	rs RedundancyStrategy
+	log *zap.Logger
+	rr  ranger.Ranger
+	rs  RedundancyStrategy
 }
 
 // NewEncodedRanger from the given Ranger and RedundancyStrategy. See the
 // comments for EncodeReader about the repair and success thresholds.
-func NewEncodedRanger(rr ranger.Ranger, rs RedundancyStrategy) (*EncodedRanger, error) {
+func NewEncodedRanger(log *zap.Logger, rr ranger.Ranger, rs RedundancyStrategy) (*EncodedRanger, error) {
 	if rr.Size()%int64(rs.StripeSize()) != 0 {
 		return nil, Error.New("invalid erasure encoder and range reader combo. " +
 			"range reader size must be a multiple of erasure encoder block size")
 	}
 	return &EncodedRanger{
-		rs: rs,
-		rr: rr,
+		log: log,
+		rs:  rs,
+		rr:  rr,
 	}, nil
 }
 
@@ -269,7 +285,7 @@ func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) (_ []i
 	if err != nil {
 		return nil, err
 	}
-	readers, err := EncodeReader(ctx, r, er.rs)
+	readers, err := EncodeReader(ctx, er.log, r, er.rs)
 	if err != nil {
 		return nil, err
 	}

@@ -8,3 +8,7 @@ declare type Answer = {
         message: any;
     };
 };
+
+declare type OnPageClickCallback = (index: number) => Promise<any>;
+
+declare type CheckSelected = (index: number) => boolean;

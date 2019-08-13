@@ -27,9 +27,6 @@ var (
 
 // HandlerConfig specifies the handler configuration
 type HandlerConfig struct {
-	// Log is a logger used for logging
-	Log *zap.Logger
-
 	// Uplink is the uplink used to talk to the storage network
 	Uplink *uplink.Uplink
 
@@ -46,11 +43,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new link sharing HTTP handler
-func NewHandler(config HandlerConfig) (*Handler, error) {
-	if config.Log == nil {
-		config.Log = zap.L()
-	}
-
+func NewHandler(log *zap.Logger, config HandlerConfig) (*Handler, error) {
 	if config.Uplink == nil {
 		return nil, errs.New("uplink is required")
 	}
@@ -61,7 +54,7 @@ func NewHandler(config HandlerConfig) (*Handler, error) {
 	}
 
 	return &Handler{
-		log:     config.Log,
+		log:     log,
 		uplink:  config.Uplink,
 		urlBase: urlBase,
 	}, nil
