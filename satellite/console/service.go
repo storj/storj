@@ -174,8 +174,14 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		if currentReward != nil {
-			// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration
-			newCredit, err := NewCredit(currentReward, Invitee, u.ID, nil)
+			var refID *uuid.UUID
+			if refUserID != "" {
+				refID, err = uuid.Parse(refUserID)
+				if err != nil {
+					return errs.New(internalErrMsg)
+				}
+			}
+			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
 			if err != nil {
 				return err
 			}

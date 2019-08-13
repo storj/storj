@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/currency"
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -111,7 +112,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 
 	if err != nil {
 		// check to see if there's a constraint error
-		if driverErr, ok := err.(*pq.Error); (ok && driverErr.Code.Class() == "23") || err == sqlite3.ErrConstraint {
+		if pgutil.IsConstraintError(err) || err == sqlite3.ErrConstraint {
 			_, err := dbExec.ExecContext(ctx, c.db.Rebind(`UPDATE offers SET status = ? AND expires_at = ? WHERE id = ?`), rewards.Done, time.Now().UTC(), userCredit.OfferID)
 			if err != nil {
 				return errs.Wrap(err)

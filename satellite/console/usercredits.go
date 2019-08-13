@@ -71,6 +71,7 @@ func NewCredit(currentReward *rewards.Offer, creditType CreditType, userID uuid.
 	var creditEarned currency.USD
 	switch creditType {
 	case Invitee:
+		// Invitee will only earn their credit once they have activated their account. Therefore, we set it to 0 on creation
 		creditEarned = currency.Cents(0)
 	case Referrer:
 		creditEarned = currentReward.AwardCredit
