@@ -181,7 +181,14 @@ func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOpt
 }
 
 // NewReader creates a new reader that downloads the object data.
+//
+// Deprecated: use Download or DownloadRange instead.
 func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ io.ReadCloser, err error) {
+	return b.Download(ctx, path)
+}
+
+// Download creates a new reader that downloads the object data.
+func (b *Bucket) Download(ctx context.Context, path storj.Path) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, path)

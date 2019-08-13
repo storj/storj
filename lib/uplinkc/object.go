@@ -264,7 +264,7 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRe
 
 	scope := bucket.scope.child()
 
-	rc, err := bucket.NewReader(scope.ctx, C.GoString(path))
+	rc, err := bucket.Download(scope.ctx, C.GoString(path))
 	if err != nil {
 		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))

@@ -251,7 +251,7 @@ func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.P
 		return err
 	}
 
-	downloader, err := bucket.NewReader(ctx, path)
+	downloader, err := bucket.Download(ctx, path)
 	return downloader, cleanup, err
 }
 
