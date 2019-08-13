@@ -109,7 +109,7 @@ func (server *Server) appHandler(wr http.ResponseWriter, req *http.Request) {
 	http.ServeFile(wr, req, filepath.Join(server.config.StaticDir, "dist", "index.html"))
 }
 
-// dashboardHandler handles dashboard api requests
+// dashboardHandler handles dashboard API requests.
 func (server *Server) dashboardHandler(wr http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	defer mon.Task()(&ctx)(nil)
