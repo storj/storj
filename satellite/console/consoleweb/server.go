@@ -72,7 +72,15 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 
-	schema graphql.Schema
+	schema    graphql.Schema
+	templates struct {
+		index         *template.Template
+		pageNotFound  *template.Template
+		usageReport   *template.Template
+		resetPassword *template.Template
+		success       *template.Template
+		activated     *template.Template
+	}
 }
 
 // NewServer creates new instance of console server
@@ -117,8 +125,42 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	return &server
 }
 
+// Run starts the server that host webapp and api endpoint
+func (server *Server) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	server.schema, err = consoleql.CreateSchema(server.log, server.service, server.mailService)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = server.initializeTemplates()
+	if err != nil {
+		// TODO: should it return error if some template can not be initialized or just log about it?
+		return Error.Wrap(err)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	var group errgroup.Group
+	group.Go(func() error {
+		<-ctx.Done()
+		return server.server.Shutdown(nil)
+	})
+	group.Go(func() error {
+		defer cancel()
+		return server.server.Serve(server.listener)
+	})
+
+	return group.Wait()
+}
+
+// Close closes server and underlying listener
+func (server *Server) Close() error {
+	return server.server.Close()
+}
+
 // appHandler is web app http handler function
-func (server *Server) appHandler(w http.ResponseWriter, req *http.Request) {
+func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
 	cspValues := []string{
@@ -131,7 +173,11 @@ func (server *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	header.Set("Content-Type", "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 
-	http.ServeFile(w, req, filepath.Join(server.config.StaticDir, "dist", "index.html"))
+	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
+		server.log.Error("satellite/console/server: index template could not be executed")
+		server.serveError(w, r, http.StatusNotFound)
+		return
+	}
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
@@ -147,8 +193,8 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
 
-		w.WriteHeader(http.StatusUnauthorized)
-		http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
+		// TODO: use http.StatusUnauthorized status when appropriate page will be created
+		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
 
@@ -156,8 +202,8 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
 
-		w.WriteHeader(http.StatusUnauthorized)
-		http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
+		//TODO: when new error pages will be created - change http.StatusNotFound on http.StatusUnauthorized
+		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
 
@@ -165,8 +211,8 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		if err != nil {
 			server.log.Error("bucket usage report error", zap.Error(err))
 
-			w.WriteHeader(http.StatusNotFound)
-			http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
+			server.serveError(w, r, http.StatusNotFound)
+			return
 		}
 	}()
 
@@ -198,12 +244,11 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	report, err := template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "UsageReport.html"))
-	if err != nil {
+	if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
+		server.log.Error("satellite/console/server: usage report template could not be executed", zap.Error(err))
+		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
-
-	err = report.Execute(w, bucketRollups)
 }
 
 // accountActivationHandler is web app http handler function
@@ -260,19 +305,25 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.String("token", activationToken),
 			zap.Error(err))
 
-		server.serveError(w, r)
+		// TODO: when new error pages will be created - change http.StatusNotFound on appropriate one
+		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
 
-	http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "activation", "success.html"))
+	if err = server.templates.activated.Execute(w, nil); err != nil {
+		server.log.Error("satellite/console/server: account activated template could not be executed", zap.Error(err))
+		server.serveError(w, r, http.StatusNotFound)
+		return
+	}
 }
 
 func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+
 	recoveryToken := r.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
-		server.serveError(w, r)
+		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
 
@@ -280,38 +331,36 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 	case http.MethodPost:
 		err := r.ParseForm()
 		if err != nil {
-			server.serveError(w, r)
+			server.serveError(w, r, http.StatusNotFound)
 			return
 		}
 
 		password := r.FormValue("password")
 		passwordRepeat := r.FormValue("passwordRepeat")
 		if strings.Compare(password, passwordRepeat) != 0 {
-			server.serveError(w, r)
+			server.serveError(w, r, http.StatusNotFound)
 			return
 		}
 
 		err = server.service.ResetPassword(ctx, recoveryToken, password)
 		if err != nil {
-			server.serveError(w, r)
+			server.serveError(w, r, http.StatusNotFound)
 			return
 		}
 
-		http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "resetPassword", "success.html"))
+		if err := server.templates.success.Execute(w, nil); err != nil {
+			server.log.Error("satellite/console/server: success reset password template could not be executed", zap.Error(err))
+			server.serveError(w, r, http.StatusNotFound)
+			return
+		}
 	case http.MethodGet:
-		t, err := template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
-		if err != nil {
-			server.serveError(w, r)
-			return
-		}
-
-		err = t.Execute(w, nil)
-		if err != nil {
-			server.serveError(w, r)
+		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
+			server.log.Error("satellite/console/server: reset password template could not be executed", zap.Error(err))
+			server.serveError(w, r, http.StatusNotFound)
 			return
 		}
 	default:
-		server.serveError(w, r)
+		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
 }
@@ -320,19 +369,24 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 	recoveryToken := r.URL.Query().Get("token")
-	if len(recoveryToken) == 0 {
-		http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
-	}
 
 	// No need to check error as we anyway redirect user to support page
 	_ = server.service.RevokeResetPasswordToken(ctx, recoveryToken)
 
+	// TODO: Should place this link to config
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
-func (server *Server) serveError(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotFound)
-	http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
+func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status int) {
+	// TODO: show different error pages depend on status
+	// F.e. switch(status)
+	//      case http.StatusNotFound: server.executeTemplate(w, r, notFound, nil)
+	//      case http.StatusInternalServerError: server.executeTemplate(w, r, internalError, nil)
+	w.WriteHeader(status)
+
+	if err := server.templates.pageNotFound.Execute(w, nil); err != nil {
+		server.log.Error("error occurred in console/server", zap.Error(err))
+	}
 }
 
 // grapqlHandler is graphql endpoint http handler function
@@ -383,34 +437,6 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	sugar.Debug(result)
 }
 
-// Run starts the server that host webapp and api endpoint
-func (server *Server) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	server.schema, err = consoleql.CreateSchema(server.log, server.service, server.mailService)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	var group errgroup.Group
-	group.Go(func() error {
-		<-ctx.Done()
-		return server.server.Shutdown(nil)
-	})
-	group.Go(func() error {
-		defer cancel()
-		return server.server.Serve(server.listener)
-	})
-
-	return group.Wait()
-}
-
-// Close closes server and underlying listener
-func (server *Server) Close() error {
-	return server.server.Close()
-}
-
 // gzipHandler is used to gzip static content to minify resources if browser support such decoding
 func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -424,9 +450,14 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		}
 		isNeededFormatToGzip := formats[extension]
 
+		// because we have some static content outside of console frontend app.
+		// for example: 404 page, account activation, passsrowd reset, etc.
+		// TODO: find better solution, its a temporary fix
+		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
+
 		// in case if old browser doesn't support gzip decoding or if file extension is not recommended to gzip
 		// just return original file
-		if !isGzipSupported || !isNeededFormatToGzip {
+		if !isGzipSupported || !isNeededFormatToGzip || !isFromStaticDir {
 			fn.ServeHTTP(w, r)
 			return
 		}
@@ -443,4 +474,39 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 
 		fn.ServeHTTP(w, newRequest)
 	})
+}
+
+// initializeTemplates is used to initialize all templates
+func (server *Server) initializeTemplates() (err error) {
+	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
+	if err != nil {
+		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
+	}
+
+	server.templates.activated, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "activation", "activated.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.templates.success, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "success.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.templates.resetPassword, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.templates.usageReport, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.templates.pageNotFound, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }

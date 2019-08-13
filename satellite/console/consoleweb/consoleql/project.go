@@ -27,6 +27,10 @@ const (
 	BucketUsagePageType = "bucketUsagePage"
 	// PaymentMethodType is a field name for payment method
 	PaymentMethodType = "paymentMethod"
+	// ProjectMembersPageType is a field name for project members page
+	ProjectMembersPageType = "projectMembersPage"
+	// ProjectMembersCursorInputType is a graphql type name for project members
+	ProjectMembersCursorInputType = "projectMembersCursor"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldBucketName is a field name for "bucket name"
@@ -55,6 +59,8 @@ const (
 	FieldCurrentPage = "currentPage"
 	// FieldTotalCount is a field name for bucket usage count total
 	FieldTotalCount = "totalCount"
+	// FieldProjectMembers is a field name for project members
+	FieldProjectMembers = "projectMembers"
 	// FieldCardBrand is a field name for credit card brand
 	FieldCardBrand = "brand"
 	// FieldCardLastFour is a field name for credit card last four digits
@@ -75,6 +81,8 @@ const (
 	SearchArg = "search"
 	// OrderArg is argument name for order
 	OrderArg = "order"
+	// OrderDirectionArg is argument name for order direction
+	OrderDirectionArg = "orderDirection"
 	// SinceArg marks start of the period
 	SinceArg = "since"
 	// BeforeArg marks end of the period
@@ -99,48 +107,28 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				Type: graphql.DateTime,
 			},
 			FieldMembers: &graphql.Field{
-				Type: graphql.NewList(types.projectMember),
+				Type: types.projectMemberPage,
 				Args: graphql.FieldConfigArgument{
-					OffsetArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-					LimitArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-					SearchArg: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					OrderArg: &graphql.ArgumentConfig{
-						Type: graphql.Int,
+					CursorArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.projectMembersCursor),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					offs, _ := p.Args[OffsetArg].(int)
-					lim, _ := p.Args[LimitArg].(int)
-					search, _ := p.Args[SearchArg].(string)
-					order, _ := p.Args[OrderArg].(int)
-
-					pagination := console.Pagination{
-						Limit:  lim,
-						Offset: int64(offs),
-						Search: search,
-						Order:  console.ProjectMemberOrder(order),
-					}
-
-					members, err := service.GetProjectMembers(p.Context, project.ID, pagination)
+					_, err := console.GetAuth(p.Context)
 					if err != nil {
 						return nil, err
 					}
 
-					_, err = console.GetAuth(p.Context)
+					cursor := cursorArgsToProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
+					page, err := service.GetProjectMembers(p.Context, project.ID, cursor)
 					if err != nil {
 						return nil, err
 					}
 
 					var users []projectMember
-					for _, member := range members {
+					for _, member := range page.ProjectMembers {
 						user, err := service.GetUser(p.Context, member.MemberID)
 						if err != nil {
 							return nil, err
@@ -152,7 +140,18 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 						})
 					}
 
-					return users, nil
+					projectMembersPage := projectMembersPage{
+						ProjectMembers: users,
+						TotalCount:     page.TotalCount,
+						Offset:         page.Offset,
+						Limit:          page.Limit,
+						Order:          int(page.Order),
+						OrderDirection: int(page.OrderDirection),
+						Search:         page.Search,
+						CurrentPage:    page.CurrentPage,
+						PageCount:      page.PageCount,
+					}
+					return projectMembersPage, nil
 				},
 			},
 			FieldAPIKeys: &graphql.Field{
@@ -420,4 +419,21 @@ func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.Bucke
 	cursor.Page = uint(page)
 	cursor.Search, _ = args[SearchArg].(string)
 	return
+}
+
+func cursorArgsToProjectMembersCursor(args map[string]interface{}) console.ProjectMembersCursor {
+	limit, _ := args[LimitArg].(int)
+	page, _ := args[PageArg].(int)
+	order, _ := args[OrderArg].(int)
+	orderDirection, _ := args[OrderDirectionArg].(int)
+
+	var cursor console.ProjectMembersCursor
+
+	cursor.Limit = uint(limit)
+	cursor.Page = uint(page)
+	cursor.Order = console.ProjectMemberOrder(order)
+	cursor.OrderDirection = console.ProjectMemberOrderDirection(orderDirection)
+	cursor.Search, _ = args[SearchArg].(string)
+
+	return cursor
 }

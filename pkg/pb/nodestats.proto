@@ -36,8 +36,8 @@ message DailyStorageUsageRequest {
 
 message DailyStorageUsageResponse {
     message StorageUsage {
-        double at_rest_total = 2;
-        google.protobuf.Timestamp time_stamp = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+        double at_rest_total = 1;
+        google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     }
 
     bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];

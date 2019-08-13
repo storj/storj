@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -473,31 +474,77 @@ func (lr *lazyPieceRanger) Size() int64 {
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	return &lazyPieceReader{
+		ranger: lr,
+		ctx:    ctx,
+		offset: offset,
+		length: length,
+	}, nil
+}
+
+type lazyPieceReader struct {
+	ranger *lazyPieceRanger
+	ctx    context.Context
+	offset int64
+	length int64
+
+	mu sync.RWMutex
+
+	isClosed bool
+	closers  []io.Closer
+	piecestore.Downloader
+}
+
+func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
+
+	if lr.isClosed {
+		return 0, io.EOF
+	}
+	if lr.Downloader == nil {
+		client, downloader, err := lr.ranger.dial(lr.ctx, lr.offset, lr.length)
+		if err != nil {
+			return 0, err
+		}
+		lr.Downloader = downloader
+		lr.closers = []io.Closer{downloader, client}
+	}
+
+	return lr.Downloader.Read(data)
+}
+
+func (lr *lazyPieceRanger) dial(ctx context.Context, offset, length int64) (_ *piecestore.Client, _ piecestore.Downloader, err error) {
+	defer mon.Task()(&ctx)(&err)
 	ps, err := lr.dialPiecestore(ctx, &pb.Node{
 		Id:      lr.limit.GetLimit().StorageNodeId,
 		Address: lr.limit.GetStorageNodeAddress(),
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	download, err := ps.Download(ctx, lr.limit.GetLimit(), lr.privateKey, offset, length)
 	if err != nil {
-		return nil, errs.Combine(err, ps.Close())
+		return nil, nil, errs.Combine(err, ps.Close())
 	}
-	return &clientCloser{download, ps}, nil
+	return ps, download, nil
 }
 
-type clientCloser struct {
-	piecestore.Downloader
-	client *piecestore.Client
-}
+func (lr *lazyPieceReader) Close() (err error) {
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
 
-func (client *clientCloser) Close() error {
-	return errs.Combine(
-		client.Downloader.Close(),
-		client.client.Close(),
-	)
+	if lr.isClosed {
+		return nil
+	}
+	lr.isClosed = true
+
+	for _, c := range lr.closers {
+		err = errs.Combine(err, c.Close())
+	}
+	return err
 }
 
 func nonNilCount(limits []*pb.AddressedOrderLimit) int {

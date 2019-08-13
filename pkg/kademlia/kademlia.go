@@ -272,7 +272,7 @@ func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoRespo
 
 	info, err := k.dialer.FetchInfo(ctx, node)
 	if err != nil {
-		return nil, NodeErr.Wrap(NodeErr.New("%s : %s failed to fetch info from node ID %s: %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), node.Id.String(), err))
+		return nil, NodeErr.Wrap(err)
 	}
 	return info, nil
 }
