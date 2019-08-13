@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strconv"
 	"time"
@@ -236,7 +237,7 @@ func (client *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 }
 
 // DownloadStream returns stream for downloading data
-func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) (_ libuplink.ReadSeekCloser, cleanup func() error, err error) {
+func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) (_ io.ReadCloser, cleanup func() error, err error) {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return nil, nil, err
@@ -250,7 +251,26 @@ func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.P
 		return err
 	}
 
-	downloader, err := bucket.NewReader(ctx, path)
+	downloader, err := bucket.Download(ctx, path)
+	return downloader, cleanup, err
+}
+
+// DownloadStreamRange returns stream for downloading data
+func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
+	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cleanup = func() error {
+		err = errs.Combine(err,
+			project.Close(),
+			bucket.Close(),
+		)
+		return err
+	}
+
+	downloader, err := bucket.DownloadRange(ctx, path, start, limit)
 	return downloader, cleanup, err
 }
 
