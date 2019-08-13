@@ -34,9 +34,13 @@ func TestUsercredits(t *testing.T) {
 
 		// test foreign key constraint for inserting a new user credit entry with randomID
 		var invalidUserCredits []console.CreateCredit
-		invalid1, _ := console.NewCredit(activeOffer, console.Invitee, randomID, &referrer.ID)
-		invalid2, _ := console.NewCredit(&invalidOffer, console.Invitee, user.ID, &referrer.ID)
-		invalid3, _ := console.NewCredit(activeOffer, console.Invitee, randomID, &randomID)
+		invalid1, err := console.NewCredit(activeOffer, console.Invitee, randomID, &referrer.ID)
+		require.NoError(t, err)
+		invalid2, err := console.NewCredit(&invalidOffer, console.Invitee, user.ID, &referrer.ID)
+		require.NoError(t, err)
+		invalid3, err := console.NewCredit(activeOffer, console.Invitee, randomID, &randomID)
+		require.NoError(t, err)
+
 		invalidUserCredits = append(invalidUserCredits, *invalid1, *invalid2, *invalid3)
 
 		for _, ivc := range invalidUserCredits {

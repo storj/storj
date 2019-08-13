@@ -130,7 +130,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 	}
 
 	if rows != 1 {
-		return rewards.MaxRedemptionErr.New("rows not equal to 1")
+		return rewards.MaxRedemptionErr.New("failed to create new credit")
 	}
 
 	return nil
