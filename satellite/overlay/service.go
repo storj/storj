@@ -58,14 +58,10 @@ type DB interface {
 	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
-	// BatchUpdateStats updates multiple storagenode's stats in one transaction
-	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest) (err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
-	// UpdateUptime updates a single storagenode's uptime stats.
-	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -91,11 +87,15 @@ type NodeCriteria struct {
 	DistinctIP     bool
 }
 
+type AuditResult struct {
+	Success bool
+}
+
 // UpdateRequest is used to update a node status.
 type UpdateRequest struct {
-	NodeID       storj.NodeID
-	AuditSuccess bool
-	IsUp         bool
+	NodeID      storj.NodeID
+	AuditResult *AuditResult
+	IsUp        bool
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
@@ -328,23 +328,8 @@ func (service *Service) IsVetted(ctx context.Context, nodeID storj.NodeID) (repu
 	return reputable, nil
 }
 
-// BatchUpdateStats updates multiple storagenode's stats in one transaction
-func (service *Service) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for _, request := range requests {
-		request.AuditLambda = service.config.Node.AuditReputationLambda
-		request.AuditWeight = service.config.Node.AuditReputationWeight
-		request.AuditDQ = service.config.Node.AuditReputationDQ
-		request.UptimeLambda = service.config.Node.UptimeReputationLambda
-		request.UptimeWeight = service.config.Node.UptimeReputationWeight
-		request.UptimeDQ = service.config.Node.UptimeReputationDQ
-	}
-	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
-}
-
 // UpdateStats all parts of single storagenode's stats.
-func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
+func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	request.AuditLambda = service.config.Node.AuditReputationLambda
@@ -363,16 +348,6 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
-// UpdateUptime updates a single storagenode's uptime stats.
-func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-	lambda := service.config.Node.UptimeReputationLambda
-	weight := service.config.Node.UptimeReputationWeight
-	uptimeDQ := service.config.Node.UptimeReputationDQ
-
-	return service.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
-}
-
 // ConnFailure implements the Transport Observer `ConnFailure` function
 func (service *Service) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
 	var err error
@@ -385,7 +360,16 @@ func (service *Service) ConnFailure(ctx context.Context, node *pb.Node, failureE
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the service so maybe we want to treat
 	// it differently.
-	_, err = service.db.UpdateUptime(ctx, node.Id, false, lambda, weight, uptimeDQ)
+	err = service.db.UpdateStats(ctx, &UpdateRequest{
+		NodeID: node.Id,
+		IsUp:   false,
+
+		// TODO(isaac): Remove these, make them stateful part of struct
+		// TODO(isaac): Also do the same for hte Audit lambda crap
+		UptimeLambda: lambda,
+		UptimeWeight: weight,
+		UptimeDQ:     uptimeDQ,
+	})
 	if err != nil {
 		service.log.Debug("error updating uptime for node", zap.Error(err))
 	}
@@ -405,7 +389,16 @@ func (service *Service) ConnSuccess(ctx context.Context, node *pb.Node) {
 	weight := service.config.Node.UptimeReputationWeight
 	uptimeDQ := service.config.Node.UptimeReputationDQ
 
-	_, err = service.db.UpdateUptime(ctx, node.Id, true, lambda, weight, uptimeDQ)
+	err = service.db.UpdateStats(ctx, &UpdateRequest{
+		NodeID: node.Id,
+		IsUp:   true,
+
+		// TODO(isaac): Remove these, make them stateful part of struct
+		// TODO(isaac): Also do the same for hte Audit lambda crap
+		UptimeLambda: lambda,
+		UptimeWeight: weight,
+		UptimeDQ:     uptimeDQ,
+	})
 	if err != nil {
 		service.log.Debug("error updating node connection info", zap.Error(err))
 	}

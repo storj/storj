@@ -666,82 +666,8 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 	return Error.Wrap(tx.Commit())
 }
 
-// BatchUpdateStats updates multiple storagenode's stats in one transaction
-func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if len(updateRequests) == 0 {
-		return failed, nil
-	}
-
-	doUpdate := func(updateSlice []*overlay.UpdateRequest) (duf storj.NodeIDList, err error) {
-		appendAll := func() {
-			for _, ur := range updateRequests {
-				duf = append(duf, ur.NodeID)
-			}
-		}
-
-		tx, err := cache.db.Open(ctx)
-		if err != nil {
-			appendAll()
-			return duf, Error.Wrap(err)
-		}
-
-		var allSQL string
-		for _, updateReq := range updateSlice {
-			dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(updateReq.NodeID.Bytes()))
-			if err != nil {
-
-				return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-			}
-
-			// do not update reputation if node is disqualified
-			if dbNode.Disqualified != nil {
-				continue
-			}
-
-			updateNodeStats := populateUpdateNodeStats(dbNode, updateReq)
-			sql := buildUpdateStatement(cache.db, updateNodeStats)
-
-			allSQL += sql
-		}
-
-		if allSQL != "" {
-			results, err := tx.Tx.Exec(allSQL)
-			if results == nil || err != nil {
-				appendAll()
-				return duf, errs.Combine(err, tx.Rollback())
-			}
-
-			_, err = results.RowsAffected()
-			if err != nil {
-				appendAll()
-				return duf, errs.Combine(err, tx.Rollback())
-			}
-		}
-		return duf, Error.Wrap(tx.Commit())
-	}
-
-	var errlist errs.Group
-	length := len(updateRequests)
-	for i := 0; i < length; i += batchSize {
-		end := i + batchSize
-		if end > length {
-			end = length
-		}
-
-		failedBatch, err := doUpdate(updateRequests[i:end])
-		if err != nil && len(failedBatch) > 0 {
-			for _, fb := range failedBatch {
-				errlist.Add(err)
-				failed = append(failed, fb)
-			}
-		}
-	}
-	return failed, errlist.Err()
-}
-
 // UpdateStats a single storagenode's stats in the db
-func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	nodeID := updateReq.NodeID
 
@@ -818,88 +744,6 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 	}
 
 	return convertDBNode(ctx, updatedDBNode)
-}
-
-// UpdateUptime updates a single storagenode's uptime stats in the db
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	tx, err := cache.db.Open(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-	// do not update reputation if node is disqualified
-	if dbNode.Disqualified != nil {
-		return getNodeStats(dbNode), Error.Wrap(tx.Commit())
-	}
-
-	updateFields := dbx.Node_Update_Fields{}
-	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
-		isUp,
-		dbNode.UptimeReputationAlpha,
-		dbNode.UptimeReputationBeta,
-		lambda,
-		weight,
-		dbNode.TotalUptimeCount,
-	)
-	mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
-	mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
-
-	updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(uptimeAlpha)
-	updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(uptimeBeta)
-	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
-
-	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
-	if uptimeRep <= uptimeDQ {
-		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
-	}
-
-	lastContactSuccess := dbNode.LastContactSuccess
-	lastContactFailure := dbNode.LastContactFailure
-	mon.Meter("uptime_updates").Mark(1)
-	if isUp {
-		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
-		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
-
-		mon.Meter("uptime_update_successes").Mark(1)
-		// we have seen this node in the past 24 hours
-		if time.Now().Sub(lastContactFailure) > time.Hour*24 {
-			mon.Meter("uptime_seen_24h").Mark(1)
-		}
-		// we have seen this node in the past week
-		if time.Now().Sub(lastContactFailure) > time.Hour*24*7 {
-			mon.Meter("uptime_seen_week").Mark(1)
-		}
-	} else {
-		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
-
-		mon.Meter("uptime_update_failures").Mark(1)
-		// it's been over 24 hours since we've seen this node
-		if time.Now().Sub(lastContactSuccess) > time.Hour*24 {
-			mon.Meter("uptime_not_seen_24h").Mark(1)
-		}
-		// it's been over a week since we've seen this node
-		if time.Now().Sub(lastContactSuccess) > time.Hour*24*7 {
-			mon.Meter("uptime_not_seen_week").Mark(1)
-		}
-	}
-
-	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
-	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
-	// but for now we're adding a nil check to prevent a panic.
-	if dbNode == nil {
-		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
-	}
-
-	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
@@ -1000,7 +844,7 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	return newAlpha, newBeta, totalCount + 1
 }
 
-func buildUpdateStatement(db *dbx.DB, update updateNodeStats) string {
+func buildUpdateStatement(db *dbx.DB, update *updateNodeStats) string {
 	if update.NodeID.IsZero() {
 		return ""
 	}
@@ -1091,6 +935,8 @@ func buildUpdateStatement(db *dbx.DB, update updateNodeStats) string {
 	if !atLeastOne {
 		return ""
 	}
+	// TODO(isaac): only delete pending audits if we've successfully done an
+	// audit. IE, skip on a pure uptime check
 	hexNodeID := hex.EncodeToString(update.NodeID.Bytes())
 	switch db.DB.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
@@ -1142,17 +988,33 @@ type updateNodeStats struct {
 	Contained             boolField
 }
 
-func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) updateNodeStats {
-	auditAlpha, auditBeta, totalAuditCount := updateReputation(
-		updateReq.AuditSuccess,
-		dbNode.AuditReputationAlpha,
-		dbNode.AuditReputationBeta,
-		updateReq.AuditLambda,
-		updateReq.AuditWeight,
-		dbNode.TotalAuditCount,
-	)
-	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)
-	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)
+func populateUpdateNodeStats(stats *updateNodeStats, updateReq *overlay.UpdateRequest) {
+	if updateReq.AuditResult != nil {
+		auditAlpha, auditBeta, totalAuditCount := updateReputation(
+			updateReq.AuditResult.Success,
+			stats.AuditReputationAlpha,
+			stats.AuditReputationBeta,
+			updateReq.AuditLambda,
+			updateReq.AuditWeight,
+			stats.TotalAuditCount,
+		)
+		mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)
+		mon.FloatVal("audit_reputation_beta").Observe(auditBeta)
+
+		stats.TotalAuditCount = int64Field{set: true, value: totalAuditCount}
+		stats.AuditReputationAlpha = float64Field{set: true, value: auditAlpha}
+		stats.AuditReputationBeta = float64Field{set: true, value: auditBeta}
+
+		auditRep := auditAlpha / (auditAlpha + auditBeta)
+		if auditRep <= updateReq.AuditDQ {
+			stats.Disqualified = timeField{set: true, value: time.Now().UTC()}
+		}
+
+		if updateReq.AuditResult.Success {
+			stats.AuditSuccessCount = int64Field{set: true, value: dbNode.AuditSuccessCount + 1}
+		}
+
+	}
 
 	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
 		updateReq.IsUp,
@@ -1165,43 +1027,26 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 	mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
 	mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
 
-	updateFields := updateNodeStats{
-		NodeID:                updateReq.NodeID,
-		TotalAuditCount:       int64Field{set: true, value: totalAuditCount},
-		TotalUptimeCount:      int64Field{set: true, value: totalUptimeCount},
-		AuditReputationAlpha:  float64Field{set: true, value: auditAlpha},
-		AuditReputationBeta:   float64Field{set: true, value: auditBeta},
-		UptimeReputationAlpha: float64Field{set: true, value: uptimeAlpha},
-		UptimeReputationBeta:  float64Field{set: true, value: uptimeBeta},
-	}
-
-	auditRep := auditAlpha / (auditAlpha + auditBeta)
-	if auditRep <= updateReq.AuditDQ {
-		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
-	}
+	stats.TotalUptimeCount = int64Field{set: true, value: totalUptimeCount}
+	stats.UptimeReputationAlpha = float64Field{set: true, value: uptimeAlpha}
+	stats.UptimeReputationBeta = float64Field{set: true, value: uptimeBeta}
 
 	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
 	if uptimeRep <= updateReq.UptimeDQ {
 		// n.b. that this will overwrite the audit DQ timestamp
 		// if it has already been set.
-		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
+		stats.Disqualified = timeField{set: true, value: time.Now().UTC()}
 	}
 
 	if updateReq.IsUp {
-		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
-		updateFields.LastContactSuccess = timeField{set: true, value: time.Now()}
+		stats.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
+		stats.LastContactSuccess = timeField{set: true, value: time.Now()}
 	} else {
-		updateFields.LastContactFailure = timeField{set: true, value: time.Now()}
-	}
-
-	if updateReq.AuditSuccess {
-		updateFields.AuditSuccessCount = int64Field{set: true, value: dbNode.AuditSuccessCount + 1}
+		stats.LastContactFailure = timeField{set: true, value: time.Now()}
 	}
 
 	// Updating node stats always exits it from containment mode
-	updateFields.Contained = boolField{set: true, value: false}
-
-	return updateFields
+	stats.Contained = boolField{set: true, value: false}
 }
 
 func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) dbx.Node_Update_Fields {

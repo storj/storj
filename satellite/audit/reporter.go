@@ -67,6 +67,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Rep
 
 	var errlist errs.Group
 
+	// TODO(isaac): Check the best way to handle this now
 	tries := 0
 	for tries <= reporter.maxRetries {
 		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
@@ -76,25 +77,25 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Rep
 		errlist = errs.Group{}
 
 		if len(successes) > 0 {
-			successes, err = reporter.recordAuditSuccessStatus(ctx, successes)
+			err = reporter.recordAuditSuccessStatus(ctx, successes)
 			if err != nil {
 				errlist.Add(err)
 			}
 		}
 		if len(fails) > 0 {
-			fails, err = reporter.recordAuditFailStatus(ctx, fails)
+			err = reporter.recordAuditFailStatus(ctx, fails)
 			if err != nil {
 				errlist.Add(err)
 			}
 		}
 		if len(offlines) > 0 {
-			offlines, err = reporter.recordOfflineStatus(ctx, offlines)
+			err = reporter.recordOfflineStatus(ctx, offlines)
 			if err != nil {
 				errlist.Add(err)
 			}
 		}
 		if len(pendingAudits) > 0 {
-			pendingAudits, err = reporter.recordPendingAudits(ctx, pendingAudits)
+			err = reporter.recordPendingAudits(ctx, pendingAudits)
 			if err != nil {
 				errlist.Add(err)
 			}
@@ -116,116 +117,91 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Rep
 }
 
 // recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
-func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateRequests := make([]*overlay.UpdateRequest, len(failedAuditNodeIDs))
-	for i, nodeID := range failedAuditNodeIDs {
-		updateRequests[i] = &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			IsUp:         true,
-			AuditSuccess: false,
+	for _, nodeID := range failedAuditNodeIDs {
+		// TODO(isaac): make sure the audit lambda stuff is handled correctly
+		err = reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:      nodeID,
+			IsUp:        true,
+			AuditResult: &overlay.AuditResult{Success: false},
+		})
+		if err != nil {
+			reporter.log.Debug("failed to record Failed Nodes ", zap.String("NodeID", nodeID.String()))
+			return errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), err)
 		}
 	}
-	if len(updateRequests) > 0 {
-		failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
-		if err != nil || len(failed) > 0 {
-			reporter.log.Debug("failed to record Failed Nodes ", zap.Strings("NodeIDs", failed.Strings()))
-			return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), err)
-		}
-	}
-	return nil, nil
+	return nil
 }
 
 // recordOfflineStatus updates nodeIDs in overlay with isup=false
-func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var errlist errs.Group
 	for _, nodeID := range offlineNodeIDs {
-		_, err := reporter.overlay.UpdateUptime(ctx, nodeID, false)
+		err = reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID: nodeID,
+			IsUp:   false,
+		})
 		if err != nil {
-			failed = append(failed, nodeID)
-			errlist.Add(err)
+			reporter.log.Debug("failed to record Offline Nodes ", zap.String("NodeIDs", nodeID.String()))
+			return errs.Combine(Error.New("failed to record some audit offline statuses in overlay"), err)
 		}
 	}
-	if len(failed) > 0 {
-		reporter.log.Debug("failed to record Offline Nodes ", zap.Strings("NodeIDs", failed.Strings()))
-		return failed, errs.Combine(Error.New("failed to record some audit offline statuses in overlay"), errlist.Err())
-	}
 
-	return nil, nil
+	return nil
 }
 
 // recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditsuccess=true
-func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateRequests := make([]*overlay.UpdateRequest, len(successNodeIDs))
-	for i, nodeID := range successNodeIDs {
-		updateRequests[i] = &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			IsUp:         true,
-			AuditSuccess: true,
+	for _, nodeID := range successNodeIDs {
+		err = reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:      nodeID,
+			IsUp:        true,
+			AuditResult: &overlay.AuditResult{Success: true},
+		})
+		if err != nil {
+			reporter.log.Debug("failed to record Success Nodes ", zap.String("NodeIDs", nodeID.String()))
+			return errs.Combine(Error.New("failed to record some audit success statuses in overlay"), err)
 		}
 	}
 
-	if len(updateRequests) > 0 {
-		failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
-		if err != nil || len(failed) > 0 {
-			reporter.log.Debug("failed to record Success Nodes ", zap.Strings("NodeIDs", failed.Strings()))
-			return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), err)
-		}
-	}
-	return nil, nil
+	return nil
 }
 
 // recordPendingAudits updates the containment status of nodes with pending audits
-func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (failed []*PendingAudit, err error) {
+func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var errlist errs.Group
 
 	var updateRequests []*overlay.UpdateRequest
 	for _, pendingAudit := range pendingAudits {
 		if pendingAudit.ReverifyCount < reporter.maxReverifyCount {
 			err := reporter.containment.IncrementPending(ctx, pendingAudit)
 			if err != nil {
-				failed = append(failed, pendingAudit)
-				errlist.Add(err)
+				reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", pendingAudit.NodeID))
+				return errs.Combine(Error.New("failed to record some pending audits"), err)
 			}
 		} else {
 			// record failure -- max reverify count reached
 			updateRequests = append(updateRequests, &overlay.UpdateRequest{
-				NodeID:       pendingAudit.NodeID,
-				IsUp:         true,
-				AuditSuccess: false,
+				NodeID:      pendingAudit.NodeID,
+				IsUp:        true,
+				AuditResult: &overlay.AuditResult{Success: false},
 			})
 		}
 	}
 
-	if len(updateRequests) > 0 {
-		failedBatch, err := reporter.overlay.BatchUpdateStats(ctx, updateRequests)
+	// TODO(isaac): Compare to old code, see if we want to do something with
+	// failed pending audits ...
+	for _, updateRequest := range updateRequests {
+		err = reporter.overlay.UpdateStats(ctx, updateRequest)
 		if err != nil {
-			errlist.Add(err)
-		}
-		if len(failedBatch) > 0 {
-			pendingMap := make(map[storj.NodeID]*PendingAudit)
-			for _, pendingAudit := range pendingAudits {
-				pendingMap[pendingAudit.NodeID] = pendingAudit
-			}
-			for _, nodeID := range failedBatch {
-				pending, ok := pendingMap[nodeID]
-				if ok {
-					failed = append(failed, pending)
-				}
-			}
-		}
-
-		if len(failed) > 0 {
-			for _, v := range failed {
-				reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", v.NodeID), zap.String("Path", v.Path))
-			}
-			return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
+			reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", updateRequest.NodeID))
+			return errs.Combine(Error.New("failed to record some pending audits"), err)
 		}
 	}
-	return nil, nil
+
+	return nil
 }

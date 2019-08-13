@@ -871,13 +871,6 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// BatchUpdateStats updates multiple storagenode's stats in one transaction
-func (m *lockedOverlayCache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.BatchUpdateStats(ctx, updateRequests, batchSize)
-}
-
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
@@ -956,17 +949,10 @@ func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.Node
 }
 
 // UpdateStats all parts of single storagenode's stats.
-func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest) (err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateStats(ctx, request)
-}
-
-// UpdateUptime updates a single storagenode's uptime stats.
-func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda float64, weight float64, uptimeDQ float64) (stats *overlay.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
 
 // ProjectAccounting returns database for storing information about project data use
