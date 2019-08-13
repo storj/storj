@@ -195,7 +195,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		err  error
 		hash *pb.PieceHash
 	}
-	infos := make(chan info, len(limits))
+	infos := make(chan info, pieceCount)
 
 	psCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -210,7 +210,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	ec.log.Sugar().Infof("Starting a timer for %s for repairing %s up to %d nodes to try to have a number of pieces around the successful threshold (%d)",
 		timeout, path, nonNilCount(limits), rs.OptimalThreshold())
 
-	var successfulCount int32
+	var successfulCount, failureCount, cancellationCount int32
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
 			ec.log.Sugar().Infof("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
@@ -218,8 +218,8 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 	})
 
-	successfulNodes = make([]*pb.Node, len(limits))
-	successfulHashes = make([]*pb.PieceHash, len(limits))
+	successfulNodes = make([]*pb.Node, pieceCount)
+	successfulHashes = make([]*pb.PieceHash, pieceCount)
 
 	for range limits {
 		info := <-infos
@@ -229,6 +229,11 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 
 		if info.err != nil {
+			if !errs2.IsCanceled(info.err) {
+				atomic.AddInt32(&failureCount, 1)
+			} else {
+				atomic.AddInt32(&cancellationCount, 1)
+			}
 			ec.log.Sugar().Debugf("Repair %s to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
@@ -261,6 +266,11 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	}
 
 	ec.log.Sugar().Infof("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount))
+
+	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))
+	mon.IntVal("repair_segment_pieces_successful").Observe(int64(atomic.LoadInt32(&successfulCount)))
+	mon.IntVal("repair_segment_pieces_failed").Observe(int64(atomic.LoadInt32(&failureCount)))
+	mon.IntVal("repair_segment_pieces_canceled").Observe(int64(atomic.LoadInt32(&cancellationCount)))
 
 	return successfulNodes, successfulHashes, nil
 }
