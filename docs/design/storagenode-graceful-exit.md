@@ -126,7 +126,8 @@ This process including the Storage nodes transferring their pieces to other node
 		field completed_at      timestamp ( updateable )
 	)
    ```
-- Add `PieceAction` field to, `cache.FindStorageNodesRequest`. Update `cache.FindStorageNodesWithPreferences` to ignore exiting nodes for uploads and repairs.
+- Durability ratio is used to prioritize the order in which pieces are moved to new nodes. durability_ratio == num pieces / optimal number of pieces. lower values take presedence.
+- Update `cache.FindStorageNodesWithPreferences` to ignore exiting nodes for uploads and repairs.
 - Update Repairer service
   - Add a metainfo loop `observer` to check segments for pieces associated with a storage node that is exiting. Add to `exit_pieceinfo` table if matches criteria.
 - Add `PieceAction_PUT_EXIT` to orders protobuf. This is used to differentiate exiting bandwidth from other bandwidth usage.
