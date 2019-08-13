@@ -64,7 +64,7 @@ func (download *Download) Read(data []byte) (n int, err error) {
 	if download.limit == 0 {
 		return 0, io.EOF
 	}
-	if download.limit > 0 && download.limit > int64(len(data)) {
+	if download.limit > 0 && download.limit < int64(len(data)) {
 		data = data[:download.limit]
 	}
 	n, err = download.reader.Read(data)
