@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
@@ -167,5 +168,47 @@ func TestV0PieceInfo(t *testing.T) {
 		require.Error(t, err)
 		_, err = pieceinfos.Get(ctx, info1.SatelliteID, info1.PieceID)
 		require.Error(t, err)
+	})
+}
+
+func TestPieceinfo_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		pieceinfos := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
+		satelliteID, pieceID := testrand.NodeID(), testrand.PieceID()
+
+		{ // Ensure Add works at all
+			err := pieceinfos.Add(ctx, &pieces.Info{
+				SatelliteID:     satelliteID,
+				PieceID:         pieceID,
+				PieceCreation:   time.Now(),
+				PieceExpiration: time.Now(),
+				OrderLimit:      &pb.OrderLimit{},
+				UplinkPieceHash: &pb.PieceHash{},
+			})
+			require.NoError(t, err)
+		}
+
+		{ // Ensure Get works at all
+			_, err := pieceinfos.Get(ctx, satelliteID, pieceID)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure DeleteFailed works at all
+			err := pieceinfos.DeleteFailed(ctx, satelliteID, pieceID, time.Now())
+			require.NoError(t, err)
+		}
+
+		{ // Ensure Delete works at all
+			err := pieceinfos.Delete(ctx, satelliteID, pieceID)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure GetExpired works at all
+			_, err := pieceinfos.GetExpired(ctx, time.Now(), 1)
+			require.NoError(t, err)
+		}
 	})
 }
