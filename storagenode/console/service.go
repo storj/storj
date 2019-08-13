@@ -168,7 +168,7 @@ type Satellite struct {
 	Uptime         reputation.Metric    `json:"uptime"`
 }
 
-// GetSatelliteData returns satellite related data
+// GetSatelliteData returns satellite related data.
 func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 	from, to := date.MonthBoundary(time.Now())
