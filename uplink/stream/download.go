@@ -32,7 +32,7 @@ func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams strea
 	}
 }
 
-// NewDownloadRange creates new stream range download.
+// NewDownloadRange creates new stream range download with range from offset to offset+limit.
 func NewDownloadRange(ctx context.Context, stream storj.ReadOnlyStream, streams streams.Store, offset, limit int64) *Download {
 	return &Download{
 		ctx:     ctx,

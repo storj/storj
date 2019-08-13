@@ -192,7 +192,7 @@ func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ io.ReadClose
 	return stream.NewDownload(ctx, segmentStream, b.streams), nil
 }
 
-// DownloadRange creates a new reader that downloads the object data.
+// DownloadRange creates a new reader that downloads the object data starting from start and upto start + limit.
 func (b *Bucket) DownloadRange(ctx context.Context, path storj.Path, start, limit int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
