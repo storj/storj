@@ -251,7 +251,6 @@ type Download struct {
 	scope
 	rc interface {
 		io.Reader
-		io.Seeker
 		io.Closer
 	}
 }

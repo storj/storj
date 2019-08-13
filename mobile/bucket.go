@@ -310,7 +310,6 @@ type Reader struct {
 	readError error
 	reader    interface {
 		io.Reader
-		io.Seeker
 		io.Closer
 	}
 }

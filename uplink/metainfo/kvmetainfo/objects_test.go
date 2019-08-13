@@ -198,7 +198,7 @@ func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams 
 		assertInlineSegment(t, segments[0], content)
 	}
 
-	download := stream.NewDownload(ctx, readOnly, streams)
+	download := stream.NewDownload(ctx, readOnly, streams, 0)
 	defer func() {
 		err = download.Close()
 		assert.NoError(t, err)

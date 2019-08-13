@@ -88,12 +88,7 @@ func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (_ io.
 		return nil, err
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, o.streams)
-	_, err = download.Seek(offset, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-
+	download := stream.NewDownload(ctx, readOnlyStream, o.streams, offset)
 	if length == -1 {
 		return download, nil
 	}
