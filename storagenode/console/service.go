@@ -161,11 +161,11 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 
 // Satellite encapsulates satellite related data.
 type Satellite struct {
-	ID             *storj.NodeID        `json:"satelliteID,omitempty"`
+	ID             storj.NodeID         `json:"id"`
 	StorageDaily   []storageusage.Stamp `json:"storageDaily"`
 	BandwidthDaily []BandwidthUsed      `json:"bandwidthDaily"`
-	Audit          *reputation.Metric   `json:"audit"`
-	Uptime         *reputation.Metric   `json:"uptime"`
+	Audit          reputation.Metric    `json:"audit"`
+	Uptime         reputation.Metric    `json:"uptime"`
 }
 
 // GetSatelliteData returns satellite related data.
@@ -189,17 +189,23 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 	}
 
 	return &Satellite{
-		ID:             &satelliteID,
+		ID:             satelliteID,
 		StorageDaily:   storageDaily,
 		BandwidthDaily: bandwidthDaily,
-		Audit:          &rep.Audit,
-		Uptime:         &rep.Uptime,
+		Audit:          rep.Audit,
+		Uptime:         rep.Uptime,
 	}, nil
+}
+
+// Satellites represents consolidated data across all satellites.
+type Satellites struct {
+	StorageDaily   []storageusage.Stamp `json:"storageDaily"`
+	BandwidthDaily []BandwidthUsed      `json:"bandwidthDaily"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
 // among all satellites from the node's trust pool.
-func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellite, err error) {
+func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err error) {
 	defer mon.Task()(&ctx)(nil)
 	from, to := date.MonthBoundary(time.Now())
 
@@ -213,7 +219,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellite, err e
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	return &Satellite{
+	return &Satellites{
 		StorageDaily:   storageDaily,
 		BandwidthDaily: bandwidthDaily,
 	}, nil
