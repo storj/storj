@@ -180,7 +180,7 @@ func (server *Server) satelliteHandler(wr http.ResponseWriter, req *http.Request
 	server.writeData(wr, data)
 }
 
-// jsonOutput defines json structure of api response data
+// jsonOutput defines json structure of api response data.
 type jsonOutput struct {
 	Data  interface{} `json:"data"`
 	Error string      `json:"error"`
