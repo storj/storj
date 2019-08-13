@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storagenode/pieces"
 )
 
 const oneWeek = 7 * 24 * time.Hour
@@ -328,6 +327,11 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 	for _, storageNode := range planet.StorageNodes {
 		availableSpace, err := storageNode.Storage2.Monitor.AvailableSpace(ctx)
 		require.NoError(t, err)
-		pieces.StoreForTest{Store: storageNode.Storage2.Store}.ReserveSpace(availableSpace - space)
+		// add these bytes to the space used cache so that we can test what happens
+		// when we exceeded available space on the storagenode
+		err = storageNode.DB.PieceSpaceUsedDB().UpdateTotal(ctx, availableSpace-space)
+		require.NoError(t, err)
+		err = storageNode.Storage2.CacheService.Init(ctx)
+		require.NoError(t, err)
 	}
 }

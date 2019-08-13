@@ -241,7 +241,7 @@ func writeABlob(ctx context.Context, t testing.TB, store *filestore.Store, blobR
 	switch formatVersion {
 	case filestore.FormatV0:
 		tStore := &filestore.StoreForTest{store}
-		blobWriter, err = tStore.CreateV0(ctx, blobRef)
+		blobWriter, err = tStore.TestCreateV0(ctx, blobRef)
 	case filestore.FormatV1:
 		blobWriter, err = store.Create(ctx, blobRef, int64(len(data)))
 	default:
