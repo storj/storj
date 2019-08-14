@@ -647,17 +647,31 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, status.Error(codes.InvalidArgument, Error.Wrap(err).Error())
 	}
 
-	numDeleted := 0
-
 	// subtract some time to leave room for clock difference between the satellite and storage node
 	createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
+
+	go func(satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) {
+		err := endpoint.retainPieces(ctx, satelliteID, createdBefore, filter)
+		if err != nil {
+			endpoint.log.Error("retain error", zap.Error(err))
+		}
+	}(peer.ID, createdBefore, filter)
+
+	return &pb.RetainResponse{}, nil
+}
+
+// retainPieces is called in a goroutine by Retain
+func (endpoint *Endpoint) retainPieces(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	numDeleted := 0
 
 	endpoint.log.Info("Prepared to run a Retain request.",
 		zap.Time("createdBefore", createdBefore),
 		zap.Int64("filterSize", filter.Size()),
-		zap.String("satellite", peer.ID.String()))
+		zap.String("satellite", satelliteID.String()))
 
-	err = endpoint.store.WalkSatellitePieces(ctx, peer.ID, func(access pieces.StoredPieceAccess) error {
+	err = endpoint.store.WalkSatellitePieces(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
 		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		defer runtime.Gosched()
@@ -675,15 +689,15 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		pieceID := access.PieceID()
 		if !filter.Contains(pieceID) {
 			endpoint.log.Debug("About to delete piece id",
-				zap.String("satellite", peer.ID.String()),
+				zap.String("satellite", satelliteID.String()),
 				zap.String("pieceID", pieceID.String()),
 				zap.String("retainStatus", endpoint.config.RetainStatus.String()))
 
 			// if retain status is enabled, delete pieceid
 			if endpoint.config.RetainStatus == RetainEnabled {
-				if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
+				if err = endpoint.store.Delete(ctx, satelliteID, pieceID); err != nil {
 					endpoint.log.Error("failed to delete piece",
-						zap.String("satellite", peer.ID.String()),
+						zap.String("satellite", satelliteID.String()),
 						zap.String("pieceID", pieceID.String()),
 						zap.Error(err))
 					return nil
@@ -694,12 +708,12 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil
 	})
 	if err != nil {
-		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
+		return Error.Wrap(err)
 	}
 	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
 	endpoint.log.Sugar().Debugf("Deleted %d pieces during retain. RetainStatus: %s", numDeleted, endpoint.config.RetainStatus.String())
 
-	return &pb.RetainResponse{}, nil
+	return nil
 }
 
 // min finds the min of two values
