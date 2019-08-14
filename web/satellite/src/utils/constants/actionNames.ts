@@ -26,6 +26,7 @@ export const NOTIFICATION_ACTIONS = {
     SUCCESS: 'success',
     ERROR: 'error',
     NOTIFY: 'notify',
+    WARNING: 'WARNING',
     DELETE: 'deleteNotification',
     PAUSE: 'pauseNotification',
     RESUME: 'resumeNotification',
