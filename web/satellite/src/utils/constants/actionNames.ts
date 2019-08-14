@@ -54,12 +54,9 @@ export const PROJETS_ACTIONS = {
 };
 
 export const USER_ACTIONS = {
-    UPDATE: 'updateAccount',
-    CHANGE_PASSWORD: 'changePassword',
-    DELETE: 'deleteAccount',
+    UPDATE: 'updateUser',
     GET: 'getUser',
     CLEAR: 'clearUser',
-    ACTIVATE: 'activateAccount',
 };
 
 export const API_KEYS_ACTIONS = {
