@@ -46,8 +46,17 @@
                 this.secret = this.$route.query.token.toString();
             }
 
-            let { ids } = this.$route.params;
-            let referralIds = ids ? JSON.parse(atob(ids)) : undefined;
+            let { ids = '' } = this.$route.params;
+            let decoded = '';
+            try {
+                decoded = atob(ids);
+            } catch {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, "Invalid Referral URL.");
+                this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
+
+                return;
+            }
+            let referralIds = ids ? JSON.parse(decoded) : undefined;
             if (referralIds) {
                 this.$data.partnerId = referralIds.partnerId;
                 this.$data.refUserId = referralIds.userId;
