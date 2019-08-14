@@ -160,6 +160,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
+	if err := peer.Storage2.CacheService.Init(ctx); err != nil {
+		zap.S().Error("Failed to initialize CacheService: ", err)
+	}
+
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 

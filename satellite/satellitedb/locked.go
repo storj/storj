@@ -7,7 +7,6 @@ package satellitedb
 
 import (
 	"context"
-	"crypto"
 	"sync"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -122,40 +120,6 @@ func (m *lockedBuckets) UpdateBucket(ctx context.Context, bucket storj.Bucket) (
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBucket(ctx, bucket)
-}
-
-// CertDB returns database for storing uplink's public key & ID
-func (m *locked) CertDB() certdb.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedCertDB{m.Locker, m.db.CertDB()}
-}
-
-// lockedCertDB implements locking wrapper for certdb.DB
-type lockedCertDB struct {
-	sync.Locker
-	db certdb.DB
-}
-
-// GetPublicKey gets one latest public key of a node
-func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (crypto.PublicKey, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetPublicKey(ctx, a1)
-}
-
-// GetPublicKey gets all the public keys of a node
-func (m *lockedCertDB) GetPublicKeys(ctx context.Context, a1 storj.NodeID) ([]crypto.PublicKey, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetPublicKeys(ctx, a1)
-}
-
-// SavePublicKey adds a new bandwidth agreement.
-func (m *lockedCertDB) SavePublicKey(ctx context.Context, a1 storj.NodeID, a2 crypto.PublicKey) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SavePublicKey(ctx, a1, a2)
 }
 
 // Close closes the database
@@ -328,11 +292,11 @@ func (m *lockedProjectMembers) GetByMemberID(ctx context.Context, memberID uuid.
 	return m.db.GetByMemberID(ctx, memberID)
 }
 
-// GetByProjectID is a method for querying project members from the database by projectID, offset and limit.
-func (m *lockedProjectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUID, pagination console.Pagination) ([]console.ProjectMember, error) {
+// GetPagedByProjectID is a method for querying project members from the database by projectID and cursor
+func (m *lockedProjectMembers) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (*console.ProjectMembersPage, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetByProjectID(ctx, projectID, pagination)
+	return m.db.GetPagedByProjectID(ctx, projectID, cursor)
 }
 
 // Insert is a method for inserting project member into the database.

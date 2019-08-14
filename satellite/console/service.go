@@ -718,9 +718,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				Description: projectInfo.Description,
 				Name:        projectInfo.Name,
 				OwnerID:     auth.User.ID,
+				PartnerID:   auth.User.PartnerID,
 			},
 		)
 		if err != nil {
+			s.log.Error("internal error", zap.Error(err))
 			return errs.New(internalErrMsg)
 		}
 
@@ -896,7 +898,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pagination Pagination) (pm []ProjectMember, err error) {
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
@@ -908,11 +910,11 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pa
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if pagination.Limit > maxLimit {
-		pagination.Limit = maxLimit
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
 	}
 
-	pm, err = s.store.ProjectMembers().GetByProjectID(ctx, projectID, pagination)
+	pmp, err = s.store.ProjectMembers().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
@@ -948,15 +950,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		Name:      name,
 		ProjectID: projectID,
 		Secret:    secret,
-	}
-
-	user, err := s.GetUser(ctx, auth.User.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	// If the user has a partnerID set it in the apikey for value attribution
-	if !user.PartnerID.IsZero() {
-		apikey.PartnerID = user.PartnerID
+		PartnerID: auth.User.PartnerID,
 	}
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
