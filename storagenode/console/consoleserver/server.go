@@ -184,29 +184,29 @@ type jsonOutput struct {
 }
 
 // writeData is helper method to write JSON to http.ResponseWriter and log encoding error.
-func (server *Server) writeData(wr http.ResponseWriter, data interface{}) {
-	wr.Header().Set(contentType, applicationJSON)
-	wr.WriteHeader(http.StatusOK)
+func (server *Server) writeData(w http.ResponseWriter, data interface{}) {
+	w.Header().Set(contentType, applicationJSON)
+	w.WriteHeader(http.StatusOK)
 
 	output := jsonOutput{Data: data}
 
-	if err := json.NewEncoder(wr).Encode(output); err != nil {
+	if err := json.NewEncoder(w).Encode(output); err != nil {
 		server.log.Error("json encoder error", zap.Error(err))
 	}
 }
 
 // writeError writes a JSON error payload to http.ResponseWriter log encoding error.
-func (server *Server) writeError(wr http.ResponseWriter, status int, err error) {
+func (server *Server) writeError(w http.ResponseWriter, status int, err error) {
 	if status >= http.StatusInternalServerError {
 		server.log.Error("api handler server error", zap.Int("status code", status), zap.Error(err))
 	}
 
-	wr.Header().Set(contentType, applicationJSON)
-	wr.WriteHeader(status)
+	w.Header().Set(contentType, applicationJSON)
+	w.WriteHeader(status)
 
 	output := jsonOutput{Error: err.Error()}
 
-	if err := json.NewEncoder(wr).Encode(output); err != nil {
+	if err := json.NewEncoder(w).Encode(output); err != nil {
 		server.log.Error("json encoder error", zap.Error(err))
 	}
 }
