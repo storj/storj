@@ -6,3 +6,8 @@ export enum ProjectMemberSortByEnum {
     EMAIL,
     CREATED_AT,
 }
+
+export enum ProjectMemberSortDirectionEnum {
+    ASCENDING = 1,
+    DESCENDING,
+}

@@ -41,6 +41,7 @@ export const PM_ACTIONS = {
     CLEAR: 'clearProjectMembers',
     SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
     SET_SORT_BY: 'setProjectMembersSortingBy',
+    SET_SORT_DIRECTION: 'setProjectMembersSortingDirection',
     CLEAR_OFFSET: 'clearProjectMembersOffset'
 };
 

@@ -28,11 +28,11 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-    import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import { TeamMember } from '@/types/teamMembers';
-    import { RequestResponse } from '@/types/response';
+    import Button from '../common/Button.vue';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '../../utils/constants/actionNames';
+    import HeaderComponent from '../common/HeaderComponent.vue';
+    import { ProjectMember } from '../../types/projectMembers';
+    import { RequestResponse } from '../../types/response';
 
     declare interface ClearSearch {
         clearSearch: () => void;
@@ -80,7 +80,7 @@
         }
 
         public async onDelete(): Promise<void> {
-            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMember) => {
+            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
                 return member.user.email;
             });
 
@@ -100,7 +100,7 @@
 
         public async processSearchQuery(search: string) {
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
-            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
 
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');

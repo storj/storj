@@ -7,35 +7,52 @@ import {
     deleteProjectMembersRequest,
     fetchProjectMembersRequest
 } from '@/api/projectMembers';
-import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
-import { TeamMember } from '@/types/teamMembers';
+import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
+import { ProjectMember, ProjectMemberCursor, ProjectMembersPage } from '@/types/projectMembers';
 import { RequestResponse } from '@/types/response';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
+
+const projectMembersLimit = 8;
+const firstPage = 1;
 
 export const projectMembersModule = {
     state: {
-        projectMembers: [],
-        projectMembersCount: 0,
-        searchParameters: {
-            sortBy: ProjectMemberSortByEnum.NAME,
-            searchQuery: ''
-        },
-        pagination: {
-            offset: 0,
-            limit: 20,
-        }
+        cursor: new ProjectMemberCursor(),
+        page: new ProjectMembersPage(),
+        selectedProjectMembers: [],
     },
     mutations: {
         [PROJECT_MEMBER_MUTATIONS.DELETE](state: any, projectMemberEmails: string[]) {
             const emailsCount = projectMemberEmails.length;
 
             for (let j = 0; j < emailsCount; j++) {
-                state.projectMembers = state.projectMembers.filter((element: any) => {
+                state.page.projectMembers = state.page.projectMembers.filter((element: any) => {
                     return element.user.email !== projectMemberEmails[j];
                 });
             }
         },
+        [PROJECT_MEMBER_MUTATIONS.FETCH](state: any, page: ProjectMembersPage) {
+            // todo expand this assignment
+            state.page = page;
+        },
+        [PROJECT_MEMBER_MUTATIONS.SET_PAGE](state: any, page: number) {
+            state.cursor.page = page;
+        },
+        [PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY](state: any, search: string) {
+            state.cursor.search = search;
+        },
+        [PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER](state: any, order: ProjectMemberSortByEnum) {
+            state.cursor.order = order;
+        },
+        [PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION](state: any, direction: ProjectMemberSortDirectionEnum) {
+            state.cursor.orderDirection = direction;
+        },
+        [PROJECT_MEMBER_MUTATIONS.CLEAR](state: any) {
+            state.cursor = {limit: projectMembersLimit, search: '', page: firstPage} as ProjectMemberCursor;
+            state.page = {projectMembers: [] as ProjectMember[]} as ProjectMembersPage;
+        },
         [PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION](state: any, projectMemberId: string) {
-            state.projectMembers = state.projectMembers.map((projectMember: any) => {
+            state.page.projectMembers = state.page.projectMembers.map((projectMember: any) => {
                 if (projectMember.user.id === projectMemberId) {
                     projectMember.isSelected = !projectMember.isSelected;
                 }
@@ -44,43 +61,20 @@ export const projectMembersModule = {
             });
         },
         [PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION](state: any) {
-            state.projectMembers = state.projectMembers.map((projectMember: any) => {
+            state.page.projectMembers = state.page.projectMembers.map((projectMember: any) => {
                 projectMember.isSelected = false;
 
                 return projectMember;
             });
         },
-        [PROJECT_MEMBER_MUTATIONS.FETCH](state: any, teamMembers: any[]) {
-            teamMembers.forEach(value => {
-                state.projectMembers.push(value);
-
-            });
-            state.projectMembersCount = state.projectMembers.length;
-        },
-        [PROJECT_MEMBER_MUTATIONS.CLEAR](state: any) {
-            state.projectMembers = [];
-        },
-        [PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER](state: any, sortBy: ProjectMemberSortByEnum) {
-            state.searchParameters.sortBy = sortBy;
-        },
-        [PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY](state: any, searchQuery: string) {
-            state.searchParameters.searchQuery = searchQuery;
-        },
-        [PROJECT_MEMBER_MUTATIONS.ADD_OFFSET](state: any) {
-            state.pagination.offset += state.pagination.limit;
-        },
-        [PROJECT_MEMBER_MUTATIONS.CLEAR_OFFSET](state: any) {
-            state.pagination.offset = 0;
-        }
-
     },
     actions: {
-        addProjectMembers: async function ({rootGetters}: any, emails: string[]): Promise<RequestResponse<null>> {
+        [PM_ACTIONS.ADD]: async function ({rootGetters}: any, emails: string[]): Promise<RequestResponse<null>> {
             const projectId = rootGetters.selectedProject.id;
 
             return await addProjectMembersRequest(projectId, emails);
         },
-        deleteProjectMembers: async function ({commit, rootGetters}: any, projectMemberEmails: string[]): Promise<RequestResponse<null>> {
+        [PM_ACTIONS.DELETE]: async function ({commit, rootGetters}: any, projectMemberEmails: string[]): Promise<RequestResponse<null>> {
             const projectId = rootGetters.selectedProject.id;
 
             const response = await deleteProjectMembersRequest(projectId, projectMemberEmails);
@@ -91,47 +85,40 @@ export const projectMembersModule = {
 
             return response;
         },
-        toggleProjectMemberSelection: function ({commit}: any, projectMemberId: string) {
-            commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMemberId);
-        },
-        clearProjectMemberSelection: function ({commit}: any) {
-            commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
-        },
-        fetchProjectMembers: async function ({commit, state, rootGetters}: any): Promise<RequestResponse<TeamMember[]>> {
-            const projectId = rootGetters.selectedProject.id;
-            const response: RequestResponse<TeamMember[]> = await fetchProjectMembersRequest(projectId, state.pagination.limit, state.pagination.offset,
-                state.searchParameters.sortBy, state.searchParameters.searchQuery);
+        [PM_ACTIONS.FETCH]: async function ({commit, rootGetters, state}: any, page: number): Promise<RequestResponse<ProjectMembersPage>> {
+            const projectID = rootGetters.selectedProject.id;
+            state.cursor.page = page;
 
-            if (response.isSuccess) {
-                commit(PROJECT_MEMBER_MUTATIONS.FETCH, response.data);
+            commit(PROJECT_MEMBER_MUTATIONS.SET_PAGE, page);
 
-                if (response.data.length > 0) {
-                    commit(PROJECT_MEMBER_MUTATIONS.ADD_OFFSET);
-                }
+            let result = await fetchProjectMembersRequest(projectID, state.cursor);
+            if (result.isSuccess) {
+                commit(PROJECT_MEMBER_MUTATIONS.FETCH, result.data);
             }
 
-            return response;
+            return result;
         },
-        setProjectMembersSortingBy: function ({commit, dispatch}, sortBy: ProjectMemberSortByEnum) {
-            commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER, sortBy);
+
+        [PM_ACTIONS.SET_SEARCH_QUERY]: function ({commit}, search: string) {
+            commit(PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY, search);
+        },
+        [PM_ACTIONS.SET_SORT_BY]: function ({commit}, order: ProjectMemberSortByEnum) {
+            commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER, order);
+        },
+        [PM_ACTIONS.SET_SORT_DIRECTION]: function ({commit}, direction: ProjectMemberSortDirectionEnum) {
+            commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION, direction);
+        },
+        [PM_ACTIONS.CLEAR]: function ({commit}) {
             commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
-            commit(PROJECT_MEMBER_MUTATIONS.CLEAR_OFFSET);
         },
-        setProjectMembersSearchQuery: function ({commit, dispatch}, searchQuery: string): void {
-            commit(PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY, searchQuery);
-            commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
-            commit(PROJECT_MEMBER_MUTATIONS.CLEAR_OFFSET);
+        [PM_ACTIONS.TOGGLE_SELECTION]: function ({commit}: any, projectMemberId: string) {
+            commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMemberId);
         },
-        clearProjectMembers: function ({commit}: any): void {
-            commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
+        [PM_ACTIONS.CLEAR_SELECTION]: function ({commit}: any) {
+            commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
         },
-        clearProjectMembersOffset: function ({commit}): void {
-            commit(PROJECT_MEMBER_MUTATIONS.CLEAR_OFFSET);
-        }
     },
     getters: {
-        projectMembers: (state: any): TeamMember[] => state.projectMembers,
-        projectMembersCount: (state: any): number => state.projectMembersCount,
-        selectedProjectMembers: (state: any): TeamMember[] => state.projectMembers.filter((member: TeamMember) => member.isSelected),
-    },
+        selectedProjectMembers: (state: any) => state.page.projectMembers.filter((member: any) => member.isSelected),
+    }
 };
