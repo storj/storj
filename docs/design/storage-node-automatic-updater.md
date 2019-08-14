@@ -54,39 +54,32 @@ Currently we are using Docker for automatic updates but we are migrating away fr
 * Implement rhysd/go-github-selfupdate 
 
 ### When downloading a new binary
+
+Possible Errors:
 * download fails
-    * Log error in log file if possible
-    * Retry download on next cycle that checks if storage node is up to date.
 * out-of-space for downloading
-    * Log error in log file if possible
-    * Retry download on next cycle that checks if storage node is up to date.
 * filesystem read-only
-    * Log error in log file if possible
-    * Retry download on next cycle that checks if storage node is up to date.
 * Man in the Middle attacks/corrupted binary
-    * Log error in log file if possible
     * Verify binary hashes with message from version server and with output of a hashing algorithm (shasum256)
-    * Retry download on next cycle that checks if storage node is up to date.
 
 ### When swapping in a new binary
+
+Possible Errors:
 * computer crashes during swapping
-    * Log error in log file if possible
     * automatic updater checks binary version and reruns download/swap steps.
 * deletion/stopping of the old binary fails.
-    * Log error in log file if possible
     
 ### When starting a new binary
+
+Possible Errors:
 * out-of-space during migrations
-    * Log error in log file if possible
-    * automatic updater will try to rerun the binary on next cycle
 * failure to start
-    * Log error in log file if possible
-    * automatic updater will try to rerun the binary on next cycle
 * not yet configured
-    * Log error in log file if possible
     * storage node will run a setup or describe out to fix the problem...?
 
 ### When performing a gradual rollouts
+
+Possible Errors:
 * bad gradual rollout. We know it's a bad rollout if our application stops working
     * Log error in log file if possible
     * if we did have a database migration, api/grpc change, or file system change in the latest update then wait for next update???
