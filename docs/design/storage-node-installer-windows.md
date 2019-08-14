@@ -61,13 +61,14 @@ The service register script needs to be registered the storgae node serivces as 
 ## Implementation
 
 1) Modify the storage node startup to implement ServiceMain so that the binary is considered a Windows Service.
-2) Modify the automatic updater startup to implement ServiceMain so that the binary is considered a Windows Service.
-3) Create script for registering binary as a Windows Background Service.
-4) Create wix.json for msi.
-5) Create msi.
-6) Install Storage Node using msi.
-7) Ensure binaries run on Windows startup, and it runs as a background process when not logged in.
-8) Ensure UAC is not triggered after installation.
+2) Create script for registering binary as a Windows Background Service. (sc.exc command)
+3) Create wix.json file for building an MSI.
+4) Update the build process to include the creation of the MSI. 
+5) Ensure the windows installer is working properly
+  * Install Storage Node using msi.
+  * Ensure binaries run on Windows startup, and it runs as a background process when not logged in.
+  * Ensure UAC(s) is not triggered after installation.
+  * Ensure that storage node restarts automatically after a crash 
 
 ## Open Issues/ Comments (if applicable)
 
