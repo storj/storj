@@ -2,39 +2,44 @@
 
 ## Abstract
 
-This design doc outlines how we will complete an installation process for a storage node on the Windows operating system. 
-We need to ensure that updater binary starts on computer start-up, without logging into the system. 
-We will build an msi for installing the necessary files onto the operating system. 
-We will set up the installed binary to run as a Windows service.
+This design doc outlines how we setup Storage Node on Windows.
 
 ## Background
 
-Docker is currently used to maintain storage nodes.
-Docker however does not run on Windows Home, yet Windows is a popular operating system among potential storage node operators.
-We need to install the storage node onto the user's operating system and configure the operating system to run the storage node as a Windows service. 
-We also need to avoid triggering UAC (user access control) so that the storage node process can run in the background while the user is logged out.
+Currently we are using Docker to maintain Storage Nodes.
+Unfortunately Docker is not supported for Windows Home, which is popular OS among Storage Node Operators.
+Similarly, Docker ends up using more resources than running natively on Windows.
 
-We need to ensure we can do the following:
-* Storage node binary restarts after a crash.
-* Avoid triggering UAC.
+Therefore, it would be nice to be able to run Storage Node without Docker.
 
-Registering the storage node process as a windows service enables the following:
-* Send a graceful shutdown message and restart storage node if memory usage is too high.
-* Limit the process memory and cpu usage.
-* Detect if the storage node process has stopped and restart the storage node process.
+For an easy setup process we would need an installer that:
+1. Sets up Storage Node to run in background,
+2. sets up automatic updates and
+3. ensures we log everything properly.
+
+We need to take care that we:
+* avoid triggering UAC unnecessarily,
+* start storage node before logging in and
+* restart on crashes.
 
 ## Design
 
-### MSI (Microsoft Installer Package)
-* Install developer dependency [go-msi](https://github.com/mh-cbon/go-msi)
-   * Needs to be installed on the build server.
+The high-level idea is to create an installer using WIX and make Storage Node a Windows service.
+
+### Installer
+
+For creating an installer we can use WIX Toolkit.
+There is [go-msi](https://github.com/mh-cbon/go-msi), which helps to get us setup the basic template.
+We also need to ensure that we supply all the Operator information during installation.
+
+To make the installer work we need to:
+
+* Install [go-msi](https://github.com/mh-cbon/go-msi) on the build server.
 * Create a wix.json file like [this one](https://github.com/mh-cbon/go-msi/blob/master/wix.json)
-   * go-msi requires a wix.json file to determine what the installer should do.
-   * The MSI must create a desktop shortcut for that opens the dashboard
-       * Automatically open the dashboard at the end of the installation
-   * Add the Storage Node binary to the windows USER PATH 
-       * This makes it so that when you open the command line you can run any of the Storage Node commands
-   * The wix.json file must include the following user perameters:
+* Add a guid with `go-msi set-guid` to uniquely identify the process.
+* The wix.json should contain steps for:
+  * adding Dashboard shortcut to the desktop
+  * configuring Storage Node Operator information:
        * Wallet Address
        * Email
        * Address/ Port
@@ -42,21 +47,22 @@ Registering the storage node process as a windows service enables the following:
        * Storge
        * Identity directory
        * Storge Directory
-* Apply a GUID with `go-msi set-guid`, you must do it once only for each app.
-   * This GUID is used to identify the windows process.
-* Run `go-msi make --msi your_program.msi --version 0.0.2`
-   * This generates the MSI
-* MSI must install storage node binary.
-* MSI must install Automatic Updater binary.
+  * install storagenode binary
+  * install automatic-updater binary
+  * register storagenode as a service
+  * register automatic-updater as a service
+  * adding Storage Node binary to Windows UserPath (optional)  
+  * open Dashboard at the end of the installer.
+* Finally run `go-msi make --msi your_program.msi --version 0.0.2` to create the installer.
 
-### Service Register Script
-The service register script needs to be registered the storgae node serivces as a windows serivces so that they can be ran in the background.
+### Service
+
+We need to Storage Node to implement Windows service API, as shown in:
 
 * Modify storage node/automatic updater startup code to implement [ServiceMain](https://docs.microsoft.com/en-us/windows/win32/api/winsvc/nc-winsvc-lpservice_main_functiona).
    * See [golang/sys](https://github.com/golang/sys/blob/master/windows/svc/example/service.go)
-* [sc.exe](https://docs.microsoft.com/en-us/windows/win32/api/winsvc/nc-winsvc-lpservice_main_functiona) can be used to create a Windows background service.
-    * Quotation marks around the binary path, and a space after the `binPath=` are required.
-    * The installer needs to run this command once the binaires are installed. 
+
+This means that Windows handles starting and restarting the binary in the background.
 
 ## Implementation
 
@@ -74,5 +80,5 @@ The service register script needs to be registered the storgae node serivces as 
 
 * Consider writing an uninstaller.
 * How do we prevent UAC from triggering?
-* Consider using wix without go-mis.
+* Consider using wix without go-msi.
 * We need to sign both the binaries and the installer, make sure its done for the MSI.
