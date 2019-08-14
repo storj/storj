@@ -93,7 +93,7 @@ type Service struct {
 	orders    DB
 	trust     *trust.Pool
 
-	Loop sync2.Cycle
+	Sender sync2.Cycle
 }
 
 // NewService creates an order service.
@@ -105,14 +105,14 @@ func NewService(log *zap.Logger, transport transport.Client, orders DB, trust *t
 		config:    config,
 		trust:     trust,
 
-		Loop: *sync2.NewCycle(config.Interval),
+		Sender: *sync2.NewCycle(config.Interval),
 	}
 }
 
 // Run sends orders on every interval to the appropriate satellites.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.Loop.Run(ctx, service.runOnce)
+	return service.Sender.Run(ctx, service.runOnce)
 }
 
 func (service *Service) runOnce(ctx context.Context) (err error) {
@@ -307,6 +307,6 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 
 // Close stops the sending service.
 func (service *Service) Close() error {
-	service.Loop.Close()
+	service.Sender.Close()
 	return nil
 }
