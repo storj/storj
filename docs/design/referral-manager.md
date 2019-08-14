@@ -3,8 +3,8 @@
 
 ## Abstract
 
-Right now, referral program only works per satellite meaning a user on us-east-1 satellite can only refer people to join us-ease-1. 
-However, it's crucial for the tardigrade branded satellites to be able to handle cross-satellite referrals. Therefore, we plan to have a program running in GCP along with tardigrade satellites to handle this issue.
+Right now, referral program only works per satellite meaning a user on us-east-1 satellite can only refer people to join us-east-1. 
+However, it's crucial for the tardigrade branded satellites to be able to handle cross-satellite referrals. Therefore, we plan to have a party in the network along with tardigrade satellites to handle this issue.
 
 ## Background
 
@@ -50,7 +50,6 @@ they would like to register an account with. Below design is built based on the 
             
 ## Rationale
 1. Will this overload satellites?
-2. Should we just have satellites communicate with each other directly?
 
 ## Implementation
 
@@ -183,16 +182,15 @@ message ReferralResponse {
 	field name text ( updatable )
 	field description text ( updatable )
 
-	field award_credit_in_cents int ( updatable )
-	field invitee_credit_in_cents int ( updatable )
+	field referrer_credit_in_cent int ( updatable, nullable )
+	field invitee_credit_in_cent int ( updatable )
 
-	field award_credit_duration_days int ( updatable )
+	field referrer_credit_duration_days int ( updatable, nullable )
 	field invitee_credit_duration_days int ( updatable )
 
-	field redeemable_cap int ( updatable )
-	field num_redeemed int ( updatable, autoinsert )
+	field redeemable_cap int ( updatable, nullable )
 
-	field expires_at timestamp ( updatable )
+	field expires_at timestamp ( updatable, nullable )
 	field created_at timestamp ( autoinsert )
 
 	// status has three possible value: NoStatus=0, Default=1, Active=2.
@@ -202,5 +200,3 @@ message ReferralResponse {
 ````
 
 ## Open issues (if applicable)
-1. Should we also store referral offers information in referral manager so all tardigrade satellites will have the same offer running? What technical concerns that would arise?
-2. Should we use signed message for the communication between satellites and referral manager?
