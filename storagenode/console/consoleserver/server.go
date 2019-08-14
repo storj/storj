@@ -105,76 +105,76 @@ func (server *Server) Close() error {
 }
 
 // appHandler is web app http handler function
-func (server *Server) appHandler(wr http.ResponseWriter, req *http.Request) {
-	http.ServeFile(wr, req, filepath.Join(server.config.StaticDir, "dist", "index.html"))
+func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "dist", "index.html"))
 }
 
 // dashboardHandler handles dashboard API requests.
-func (server *Server) dashboardHandler(wr http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (server *Server) dashboardHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	if req.Method != http.MethodGet {
-		http.Error(wr, "method not allowed", http.StatusMethodNotAllowed)
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	data, err := server.service.GetDashboardData(ctx)
 	if err != nil {
-		server.writeError(wr, http.StatusInternalServerError, Error.Wrap(err))
+		server.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
 		return
 	}
 
-	server.writeData(wr, data)
+	server.writeData(w, data)
 }
 
 // satelliteHandler handles satellites API request.
-func (server *Server) satellitesHandler(wr http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (server *Server) satellitesHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	if req.Method != http.MethodGet {
-		http.Error(wr, "method not allowed", http.StatusMethodNotAllowed)
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	data, err := server.service.GetAllSatellitesData(ctx)
 	if err != nil {
-		server.writeError(wr, http.StatusInternalServerError, Error.Wrap(err))
+		server.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
 		return
 	}
 
-	server.writeData(wr, data)
+	server.writeData(w, data)
 }
 
 // satelliteHandler handles satellite API requests.
-func (server *Server) satelliteHandler(wr http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+func (server *Server) satelliteHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	if req.Method != http.MethodGet {
-		http.Error(wr, "method not allowed", http.StatusMethodNotAllowed)
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(strings.TrimLeft(req.URL.Path, "/api/satellite/"))
+	satelliteID, err := storj.NodeIDFromString(strings.TrimLeft(r.URL.Path, "/api/satellite/"))
 	if err != nil {
-		server.writeError(wr, http.StatusBadRequest, Error.Wrap(err))
+		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
 		return
 	}
 
 	if err = server.service.VerifySatelliteID(ctx, satelliteID); err != nil {
-		server.writeError(wr, http.StatusNotFound, Error.Wrap(err))
+		server.writeError(w, http.StatusNotFound, Error.Wrap(err))
 		return
 	}
 
 	data, err := server.service.GetSatelliteData(ctx, satelliteID)
 	if err != nil {
-		server.writeError(wr, http.StatusInternalServerError, Error.Wrap(err))
+		server.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
 		return
 	}
 
-	server.writeData(wr, data)
+	server.writeData(w, data)
 }
 
 // jsonOutput defines json structure of api response data.
