@@ -249,11 +249,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 // Download stores readcloser and context scope for downloading
 type Download struct {
 	scope
-	rc interface {
-		io.Reader
-		io.Seeker
-		io.Closer
-	}
+	rc io.ReadCloser
 }
 
 //export download
@@ -268,7 +264,7 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRe
 
 	scope := bucket.scope.child()
 
-	rc, err := bucket.NewReader(scope.ctx, C.GoString(path))
+	rc, err := bucket.Download(scope.ctx, C.GoString(path))
 	if err != nil {
 		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))

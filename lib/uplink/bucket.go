@@ -180,15 +180,15 @@ func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOpt
 	return upload, nil
 }
 
-// ReadSeekCloser combines interfaces io.Reader, io.Seeker, io.Closer
-type ReadSeekCloser interface {
-	io.Reader
-	io.Seeker
-	io.Closer
+// NewReader creates a new reader that downloads the object data.
+//
+// Deprecated: use Download or DownloadRange instead.
+func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ io.ReadCloser, err error) {
+	return b.Download(ctx, path)
 }
 
-// NewReader creates a new reader that downloads the object data.
-func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ ReadSeekCloser, err error) {
+// Download creates a new reader that downloads the object data.
+func (b *Bucket) Download(ctx context.Context, path storj.Path) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, path)
@@ -197,6 +197,18 @@ func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ ReadSeekClos
 	}
 
 	return stream.NewDownload(ctx, segmentStream, b.streams), nil
+}
+
+// DownloadRange creates a new reader that downloads the object data starting from start and upto start + limit.
+func (b *Bucket) DownloadRange(ctx context.Context, path storj.Path, start, limit int64) (_ io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, path)
+	if err != nil {
+		return nil, err
+	}
+
+	return stream.NewDownloadRange(ctx, segmentStream, b.streams, start, limit), nil
 }
 
 // Close closes the Bucket session.
