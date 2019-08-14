@@ -39,6 +39,7 @@ To make the installer work we need to:
 * Add a guid with `go-msi set-guid` to uniquely identify the process.
 * The wix.json should contain steps for:
   * adding Dashboard shortcut to the desktop
+  * setting service recovery properties
   * configuring Storage Node Operator information:
        * Wallet Address
        * Email
@@ -59,6 +60,7 @@ We need to Storage Node to implement Windows service API, as shown in:
 
 * Modify storage node/automatic updater startup code to implement [ServiceMain](https://docs.microsoft.com/en-us/windows/win32/api/winsvc/nc-winsvc-lpservice_main_functiona).
    * See [golang/sys](https://github.com/golang/sys/blob/master/windows/svc/example/service.go)
+* Create inbound firewall rule using the following Powershell command: `New-NetFirewallRule -DisplayName "Storj v3" -Direction Inbound –Protocol TCP –LocalPort 28967 -Action allow`
 
 This means that Windows handles starting and restarting the binary in the background.
 
