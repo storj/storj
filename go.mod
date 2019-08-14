@@ -16,7 +16,7 @@ require (
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
 
-replace google.golang.org/grpc => github.com/storj/grpc-go v1.22.1-0.20190808142608-8c6988074762
+replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190814100231-be6da8714551
 
 require (
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
@@ -118,7 +118,7 @@ require (
 	golang.org/x/tools v0.0.0-20190614152001-1edc8e83c897
 	google.golang.org/appengine v1.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20190716160619-c506a9f90610 // indirect
-	google.golang.org/grpc v1.22.1
+	google.golang.org/grpc v1.23.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
