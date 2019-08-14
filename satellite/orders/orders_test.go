@@ -131,6 +131,9 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedData, data)
 
+		//HACKFIX: We need enough time to pass after the download ends for storagenodes to save orders
+		time.Sleep(200 * time.Millisecond)
+
 		var expectedBucketBandwidth int64
 		expectedStorageBandwidth := make(map[storj.NodeID]int64)
 		for _, storageNode := range planet.StorageNodes {
