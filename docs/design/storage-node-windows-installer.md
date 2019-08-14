@@ -39,7 +39,7 @@ To make the installer work we need to:
 * Add a guid with `go-msi set-guid` to uniquely identify the process.
 * The wix.json should contain steps for:
   * adding Dashboard shortcut to the desktop
-  * setting service recovery properties
+  * setting [service recovery properties](https://wixtoolset.org/documentation/manual/v3/xsd/util/serviceconfig.html)
   * configuring Storage Node Operator information:
        * Wallet Address
        * Email
