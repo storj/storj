@@ -74,7 +74,7 @@
 # garbage-collection.concurrent-sends: 1
 
 # set if garbage collection is enabled or not
-# garbage-collection.enabled: false
+# garbage-collection.enabled: true
 
 # the false positive rate used for creating a garbage collection bloom filter
 # garbage-collection.false-positive-rate: 0.1
@@ -83,7 +83,7 @@
 # garbage-collection.initial-pieces: 400000
 
 # the time between each send of garbage collection filters to storage nodes
-# garbage-collection.interval: 168h0m0s
+# garbage-collection.interval: 120h0m0s
 
 # help for setup
 # help: false
