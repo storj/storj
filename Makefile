@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.12.7
+GO_VERSION ?= 1.12.8
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -237,12 +237,15 @@ inspector_%:
 .PHONY: versioncontrol_%
 versioncontrol_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=versioncontrol $(MAKE) binary
+.PHONY: linksharing_%
+linksharing_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=linksharing $(MAKE) binary
 
-COMPONENTLIST := bootstrap certificates gateway identity inspector satellite storagenode uplink versioncontrol
+COMPONENTLIST := bootstrap certificates gateway identity inspector linksharing satellite storagenode uplink versioncontrol
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
 
 .PHONY: libuplink
 libuplink:
