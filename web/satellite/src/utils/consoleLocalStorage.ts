@@ -1,15 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-const localStorageConstants = {
-    USER_ID: 'userID',
-    USER_EMAIL: 'userEmail'
-};
+const USER_ID: string = 'userID';
 
-export function setUserId(userID: string) {
-    localStorage.setItem(localStorageConstants.USER_ID, userID);
+export function setUserId(userId: string) {
+    localStorage.setItem(USER_ID, userId);
 }
 
-export function getUserID() {
-    return localStorage.getItem(localStorageConstants.USER_ID);
+export function getUserId() {
+    return localStorage.getItem(USER_ID);
 }
