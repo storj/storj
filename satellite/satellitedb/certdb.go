@@ -20,6 +20,7 @@ type certDB struct {
 	db *dbx.DB
 }
 
+// Set adds a peer identity entry
 func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -57,11 +58,10 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 		return Error.Wrap(err)
 	}
 
-	// already public key exists, just return
 	return nil
 }
 
-// Get gets the public key based on the certificate's nodeID
+// Get gets the peer identity based on the certificate's nodeID
 func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxPeerID, err := certs.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
@@ -77,13 +77,13 @@ func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.
 	return peerIdent, Error.Wrap(err)
 }
 
-// BatchGet gets the public key based on the certificate's nodeID
+// BatchGet gets the peer idenities based on the certificate's nodeID
 func (certs *certDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodeIDs) == 0 {
 		return nil, nil
 	}
-	args := make([]interface{}, 0, len(nodeIDs)) // or `nodeIDs.Len()`, doesn't really matter
+	args := make([]interface{}, 0, nodeIDs.Len())
 	for _, nodeID := range nodeIDs {
 		args = append(args, nodeID)
 	}

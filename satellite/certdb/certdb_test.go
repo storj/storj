@@ -34,7 +34,7 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
 		snID, err := testidentity.NewTestIdentity(ctx)
 		require.NoError(t, err)
 		peerIdent := snID.PeerIdentity()
-		expectedpubBytes, err := pkcrypto.PublicKeyToPEM(peerIdent.CA.PublicKey)
+		expectedPubBytes, err := pkcrypto.PublicKeyToPEM(peerIdent.CA.PublicKey)
 		require.NoError(t, err)
 
 		{ // New entry
@@ -52,7 +52,7 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
 			assert.NoError(t, err)
 			pubBytes, err := pkcrypto.PublicKeyToPEM(gotPeerIdent.CA.PublicKey)
 			assert.NoError(t, err)
-			assert.EqualValues(t, expectedpubBytes, pubBytes)
+			assert.EqualValues(t, expectedPubBytes, pubBytes)
 		}
 	}
 
@@ -76,7 +76,7 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
 		// This scenario does ensure that the peer identity will be overwritten
 		// for a given node ID but maybe it's worth a comment or something that
 		// this is for testing convenience
-		{ // adding two different peer ids for same storagenode
+		{ // adding two different peer identities for the same node ID
 			{
 				err := snCerts.Set(ctx, sn2PI.ID, sn1PI)
 				assert.NoError(t, err)
