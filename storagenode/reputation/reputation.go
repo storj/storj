@@ -30,10 +30,10 @@ type Stats struct {
 
 // Metric encapsulates storagenode reputation metrics
 type Metric struct {
-	TotalCount   int64
-	SuccessCount int64
+	TotalCount   int64 `json:"totalCount"`
+	SuccessCount int64 `json:"successCount"`
 
-	Alpha float64
-	Beta  float64
-	Score float64
+	Alpha float64 `json:"alpha"`
+	Beta  float64 `json:"beta"`
+	Score float64 `json:"score"`
 }
