@@ -193,10 +193,10 @@ message ReferralResponse {
 	field expires_at timestamp ( updatable, nullable )
 	field created_at timestamp ( autoinsert )
 
-	// status has three possible value: NoStatus=0, Default=1, Active=2.
-	field status int ( updatable )
-	// type has two possible value: FREE_CREDIT=0, REFERRAL=1
-	field type int ( updatable )
+	// status has three possible value: NoStatus="no-status", Default="default", Active="active".
+	field status text ( updatable )
+	// type has three possible value: FREE_CREDIT="free-credit", REFERRAL="referral", PARTNER="partner".
+	field type text ( updatable )
 ````
 
 ## Open issues (if applicable)
