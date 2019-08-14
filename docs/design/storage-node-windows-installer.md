@@ -48,9 +48,7 @@ To make the installer work we need to:
        * Identity directory
        * Storge Directory
   * install storagenode binary
-  * install automatic-updater binary
   * register storagenode as a service
-  * register automatic-updater as a service
   * adding Storage Node binary to Windows UserPath (optional)  
   * open Dashboard at the end of the installer.
 * Finally run `go-msi make --msi your_program.msi --version 0.0.2` to create the installer.
