@@ -206,7 +206,7 @@ func (client *Download) handleClosingError(err error) {
 		return
 	}
 	client.closed = true
-	client.closingError = errs2.IgnoreCanceled(err)
+	client.closingError = err
 }
 
 // closeWithError is used when we include the err in the closing error and also close the stream.
