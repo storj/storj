@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"xojoc.pw/useragent"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
@@ -29,6 +30,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/meta"
@@ -1897,13 +1899,17 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 
 func getUserAgent(ctx context.Context) (_ *uuid.UUID, err error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if ua, ok := md["user-agent"]; ok {
-			if len(ua) == 1 {
-				ua, err := uuid.Parse(ua[0])
+		if userAgent, ok := md["user-agent"]; ok {
+			if len(userAgent) == 1 {
+				ua := useragent.Parse(userAgent[0])
+				if ua == nil {
+					return nil, status.Errorf(codes.InvalidArgument, err.Error())
+				}
+				partnerID, err := rewards.GetPartnerID(ua.Name)
 				if err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, err.Error())
 				}
-				return ua, nil
+				return uuid.Parse(partnerID)
 			}
 		}
 	}

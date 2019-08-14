@@ -24,6 +24,7 @@ require (
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v0.0.0-20180911162847-3657542c8629
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
+	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/boltdb/bolt v1.3.1
 	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b
 	github.com/djherbis/atime v1.0.0 // indirect
@@ -124,4 +125,5 @@ require (
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
 	gopkg.in/yaml.v2 v2.2.2
+	xojoc.pw/useragent v0.0.0-20170215185434-52903803fc66
 )
