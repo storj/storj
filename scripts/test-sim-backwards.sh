@@ -38,6 +38,7 @@ storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-bac
 
 make -C "$BRANCH_DIR" install-sim
 
+# this replaces anywhere that has "/release/" in the config file, which renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' $STORJ_NETWORK_DIR/satellite/0/config.yaml
 
 # run download part of backward compatibility tests from the current branch

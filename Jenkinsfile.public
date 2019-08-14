@@ -93,8 +93,8 @@ pipeline {
 
                 stage('Backwards Compatibility') {
                     when {
-                    expression {
-                        return env.BRANCH_NAME == 'master';
+                        expression {
+                            return env.BRANCH_NAME == 'master';
                         }
                     }
                     environment {
