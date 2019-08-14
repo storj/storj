@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	// SNOServiceErr defines sno service error
+	// SNOServiceErr defines sno service error.
 	SNOServiceErr = errs.Class("storage node dashboard service error")
 
 	mon = monkit.Package()
@@ -32,11 +32,11 @@ var (
 
 // DB exposes methods for managing SNO dashboard related data.
 type DB interface {
-	// Bandwidth is a getter for Bandwidth db
+	// Bandwidth is a getter for Bandwidth db.
 	Bandwidth() Bandwidth
 }
 
-// Service is handling storage node operator related logic
+// Service is handling storage node operator related logic.
 type Service struct {
 	log *zap.Logger
 
@@ -56,7 +56,7 @@ type Service struct {
 	versionInfo        version.Info
 }
 
-// NewService returns new instance of Service
+// NewService returns new instance of Service.
 func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceStore *pieces.Store, kademlia *kademlia.Kademlia, version *version.Service,
 	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
 	reputationDB reputation.DB, storageUsageDB storageusage.DB) (*Service, error) {
@@ -127,7 +127,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.UpToDate = s.version.IsAllowed()
 	data.Satellites = s.trust.GetSatellites(ctx)
 
-	spaceUsege, err := s.pieceStore.SpaceUsedForPieces(ctx)
+	spaceUsage, err := s.pieceStore.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
@@ -138,7 +138,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	}
 
 	data.DiskSpace = DiskSpaceInfo{
-		Used:      memory.Size(spaceUsege).GB(),
+		Used:      memory.Size(spaceUsage).GB(),
 		Available: s.allocatedDiskSpace.GB(),
 	}
 
@@ -235,10 +235,4 @@ func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeI
 	}
 
 	return nil
-}
-
-// CheckVersion checks if node version >= minAllowedVersion.
-func (s *Service) CheckVersion(ctx context.Context) bool {
-	defer mon.Task()(&ctx)(nil)
-	return s.version.IsAllowed()
 }

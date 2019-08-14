@@ -26,19 +26,19 @@ const (
 	applicationJSON = "application/json"
 )
 
-// Error is storagenode console web error type
+// Error is storagenode console web error type.
 var (
 	mon   = monkit.Package()
 	Error = errs.Class("storagenode console web error")
 )
 
-// Config contains configuration for storagenode console web server
+// Config contains configuration for storagenode console web server.
 type Config struct {
 	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
 	StaticDir string `help:"path to static resources" default:""`
 }
 
-// Server represents storagenode console web server
+// Server represents storagenode console web server.
 type Server struct {
 	log *zap.Logger
 
@@ -49,7 +49,7 @@ type Server struct {
 	server http.Server
 }
 
-// NewServer creates new instance of storagenode console web server
+// NewServer creates new instance of storagenode console web server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, listener net.Listener) *Server {
 	server := Server{
 		log:      logger,
@@ -81,7 +81,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 	return &server
 }
 
-// Run starts the server that host webapp and api endpoints
+// Run starts the server that host webapp and api endpoints.
 func (server *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -99,12 +99,12 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-// Close closes server and underlying listener
+// Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return server.server.Close()
 }
 
-// appHandler is web app http handler function
+// appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "dist", "index.html"))
 }
