@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package certdb_test
+package identdb_test
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/certdb"
+	"storj.io/storj/satellite/identdb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -25,11 +25,11 @@ func TestCertDB(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		testDatabase(ctx, t, db.CertDB())
+		testDatabase(ctx, t, db.IdentDB())
 	})
 }
 
-func testDatabase(ctx context.Context, t *testing.T, snCerts certdb.DB) {
+func testDatabase(ctx context.Context, t *testing.T, snCerts identdb.DB) {
 	{ //testing variables
 		snID, err := testidentity.NewTestIdentity(ctx)
 		require.NoError(t, err)

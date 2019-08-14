@@ -13,8 +13,8 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/identdb"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -99,8 +99,8 @@ func (db *DB) DropSchema(schema string) error {
 	return nil
 }
 
-// CertDB is a getter for the peer identity cache
-func (db *DB) CertDB() certdb.DB {
+// IdentDB is a getter for the peer identity cache
+func (db *DB) IdentDB() identdb.DB {
 	return &certDB{db: db.db}
 }
 

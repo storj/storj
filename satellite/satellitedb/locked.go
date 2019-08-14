@@ -21,8 +21,8 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/identdb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -124,17 +124,17 @@ func (m *lockedBuckets) UpdateBucket(ctx context.Context, bucket storj.Bucket) (
 	return m.db.UpdateBucket(ctx, bucket)
 }
 
-// CertDB returns database for storing uplink's public key & ID
-func (m *locked) CertDB() certdb.DB {
+// IdentDB is a getter for the peer identity cache
+func (m *locked) IdentDB() identdb.DB {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedCertDB{m.Locker, m.db.CertDB()}
+	return &lockedCertDB{m.Locker, m.db.IdentDB()}
 }
 
-// lockedCertDB implements locking wrapper for certdb.DB
+// lockedCertDB implements locking wrapper for identdb.DB
 type lockedCertDB struct {
 	sync.Locker
-	db certdb.DB
+	db identdb.DB
 }
 
 // BatchGet gets all nodes peer identities in a transaction
