@@ -36,7 +36,6 @@ import (
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -77,8 +76,6 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
-	// CertDB returns database for storing uplink's public key & ID
-	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
 	// Attribution returns database for partner keys information
@@ -386,7 +383,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
-			peer.DB.CertDB(),
 			peer.DB.Orders(),
 		)
 		peer.Orders.Service = orders.NewService(
