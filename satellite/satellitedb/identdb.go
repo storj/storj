@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"strings"
@@ -42,14 +43,12 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 	}
 	chain := identity.EncodePeerIdentity(peerIdent)
 
-	var id []byte
-	query := `SELECT node_id FROM peer_identities WHERE serial_number = ?;`
-	err = tx.QueryRow(certs.db.Rebind(query), peerIdent.Leaf.SerialNumber.Bytes()).Scan(&id)
+	var serialNum []byte
+	query := `SELECT serial_number FROM peer_identities WHERE node_id = ?;`
+	err = tx.QueryRow(certs.db.Rebind(query), nodeID.Bytes()).Scan(&serialNum)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			// when storagenode's leaf certificate's serial number changes from perious,
-			// a new entry will be made for the same storagenode ID
-			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO peer_identities ( serial_number, peer_identity, node_id, update_at ) VALUES ( ?, ?, ?, ? );`), peerIdent.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
+			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO peer_identities ( serial_number, peer_chain, node_id, update_at ) VALUES ( ?, ?, ?, ? );`), peerIdent.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -58,6 +57,12 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 		return Error.Wrap(err)
 	}
 
+	if !bytes.Equal(serialNum, peerIdent.Leaf.SerialNumber.Bytes()) {
+		_, err = tx.Exec(certs.db.Rebind(`UPDATE peer_identities SET node_id = ?, serial_number = ?, peer_chain = ?, update_at = ? WHERE node_id = ?`), nodeID.Bytes(), peerIdent.Leaf.SerialNumber.Bytes(), chain, time.Now(), nodeID.Bytes())
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
 	return nil
 }
 
@@ -73,7 +78,7 @@ func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.
 		return nil, Error.New("unknown nodeID :%+v: %+v", nodeID.Bytes(), err)
 	}
 
-	peerIdent, err := identity.DecodePeerIdentity(ctx, dbxPeerID.PeerIdentity)
+	peerIdent, err := identity.DecodePeerIdentity(ctx, dbxPeerID.PeerChain)
 	return peerIdent, Error.Wrap(err)
 }
 
@@ -89,7 +94,7 @@ func (certs *certDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (pe
 	}
 
 	rows, err := certs.db.Query(certs.db.Rebind(`
-			SELECT * FROM peer_identities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
+			SELECT peer_chain FROM peer_identities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -98,12 +103,12 @@ func (certs *certDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (pe
 	}()
 
 	for rows.Next() {
-		r := &dbx.PeerIdentity{}
-		err := rows.Scan(&r.SerialNumber, &r.PeerIdentity, &r.NodeId, &r.UpdateAt)
+		var peerChain []byte
+		err := rows.Scan(&peerChain)
 		if err != nil {
 			return peerIdents, Error.Wrap(err)
 		}
-		peerIdent, err := identity.DecodePeerIdentity(ctx, r.PeerIdentity)
+		peerIdent, err := identity.DecodePeerIdentity(ctx, peerChain)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

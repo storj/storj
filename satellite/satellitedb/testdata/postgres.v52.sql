@@ -281,11 +281,11 @@ CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id) WHERE credits_earned_in_cents=0;
 CREATE TABLE peer_identities (
-	serial_number bytea NOT NULL,
-	peer_identity bytea NOT NULL,
 	node_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	peer_chain bytea NOT NULL,
 	update_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( serial_number )
+	PRIMARY KEY ( node_id )
 );
 CREATE INDEX serial_number_update_at ON peer_identities ( serial_number, update_at );
 

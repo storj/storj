@@ -124,40 +124,6 @@ func (m *lockedBuckets) UpdateBucket(ctx context.Context, bucket storj.Bucket) (
 	return m.db.UpdateBucket(ctx, bucket)
 }
 
-// IdentDB is a getter for the peer identity cache
-func (m *locked) IdentDB() identdb.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedCertDB{m.Locker, m.db.IdentDB()}
-}
-
-// lockedCertDB implements locking wrapper for identdb.DB
-type lockedCertDB struct {
-	sync.Locker
-	db identdb.DB
-}
-
-// BatchGet gets all nodes peer identities in a transaction
-func (m *lockedCertDB) BatchGet(ctx context.Context, a1 storj.NodeIDList) (_ []*identity.PeerIdentity, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.BatchGet(ctx, a1)
-}
-
-// Get gets peer identity
-func (m *lockedCertDB) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, a1)
-}
-
-// Set adds a peer identity entry for a node
-func (m *lockedCertDB) Set(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Set(ctx, a1, a2)
-}
-
 // Close closes the database
 func (m *locked) Close() error {
 	m.Lock()
@@ -732,6 +698,40 @@ func (m *locked) DropSchema(schema string) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.DropSchema(schema)
+}
+
+// IdentDB is a getter for the peer identity cache
+func (m *locked) IdentDB() identdb.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedIdentDB{m.Locker, m.db.IdentDB()}
+}
+
+// lockedIdentDB implements locking wrapper for identdb.DB
+type lockedIdentDB struct {
+	sync.Locker
+	db identdb.DB
+}
+
+// BatchGet gets all nodes peer identities in a transaction
+func (m *lockedIdentDB) BatchGet(ctx context.Context, a1 storj.NodeIDList) (_ []*identity.PeerIdentity, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.BatchGet(ctx, a1)
+}
+
+// Get gets peer identity
+func (m *lockedIdentDB) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, a1)
+}
+
+// Set adds a peer identity entry for a node
+func (m *lockedIdentDB) Set(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Set(ctx, a1, a2)
 }
 
 // Irreparable returns database for failed repairs

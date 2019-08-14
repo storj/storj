@@ -118,11 +118,11 @@ CREATE TABLE offers (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE peer_identities (
-	serial_number BLOB NOT NULL,
-	peer_identity BLOB NOT NULL,
 	node_id BLOB NOT NULL,
+	serial_number BLOB NOT NULL,
+	peer_chain BLOB NOT NULL,
 	update_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( serial_number )
+	PRIMARY KEY ( node_id )
 );
 CREATE TABLE pending_audits (
 	node_id BLOB NOT NULL,

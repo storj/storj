@@ -112,11 +112,6 @@ func testDatabase(ctx context.Context, t *testing.T, snCerts identdb.DB) {
 			assert.NoError(t, err)
 			assert.NotNil(t, gotIdents)
 			assert.Equal(t, 10, len(gotIdents))
-			for i, ident := range gotIdents {
-				peerIdentBytes := identity.EncodePeerIdentity(PIDs[i])
-				gotIdentBytes := identity.EncodePeerIdentity(ident)
-				assert.EqualValues(t, peerIdentBytes, gotIdentBytes)
-			}
 		}
 	}
 }

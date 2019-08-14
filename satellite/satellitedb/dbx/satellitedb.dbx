@@ -618,16 +618,16 @@ read all (
 //--- peer_identity ---//
 
 model peer_identity (
-    key serial_number 
+    key node_id
 
     index (
         name serial_number_update_at
         fields serial_number update_at 
     )
     
-    field serial_number  blob
-    field peer_identity  blob
     field node_id        blob
+    field serial_number  blob
+    field peer_chain     blob      // x509 ASN.1 DER content 
     field update_at timestamp ( autoinsert, autoupdate )
 )
 
