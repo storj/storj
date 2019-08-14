@@ -38,7 +38,7 @@ type BandwidthInfo struct {
 	Egress    Egress  `json:"egress"`
 	Ingress   Ingress `json:"ingress"`
 	Used      float64 `json:"used"`
-	Available float64 `json:"remaining"`
+	Available float64 `json:"available"`
 }
 
 // BandwidthUsed stores bandwidth usage information
