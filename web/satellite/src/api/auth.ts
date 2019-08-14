@@ -1,7 +1,8 @@
-import apolloManager from '@/utils/apolloManager';
-import gql from 'graphql-tag';
-import { User } from '@/types/users';
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import { BaseGql } from '@/api/baseGql';
+import { User } from '@/types/users';
 
 /**
  * AuthApiGql is a graphql implementation of Auth API.
@@ -19,8 +20,9 @@ export class AuthApi extends BaseGql {
             `query ($userId: String!){
                 resendAccountActivationEmail(id: $userId)
             }`;
+
         const variables = {
-            userId: userId,
+            userId,
         };
 
         await this.query(query, variables);
@@ -42,8 +44,8 @@ export class AuthApi extends BaseGql {
             }`;
 
         const variables = {
-            email: email,
-            password: password,
+            email,
+            password,
         };
 
         const response = await this.query(query, variables);
@@ -64,7 +66,7 @@ export class AuthApi extends BaseGql {
             }`;
 
         const variables = {
-            email: email,
+            email,
         };
 
         await this.query(query, variables);
@@ -89,8 +91,8 @@ export class AuthApi extends BaseGql {
             }`;
 
         const variables = {
-            password: password,
-            newPassword: newPassword,
+            password,
+            newPassword,
         };
 
         await this.mutate(query, variables);
@@ -111,7 +113,7 @@ export class AuthApi extends BaseGql {
             }`;
 
         const variables = {
-            password: password,
+            password,
         };
 
         await this.mutate(query, variables);
@@ -146,12 +148,12 @@ export class AuthApi extends BaseGql {
 
         const variables = {
             email: user.email,
-            password: password,
             fullName: user.fullName,
             shortName: user.shortName,
             partnerID: user.partnerId ? user.partnerId : '',
             referrerUserId: referrerUserId ? referrerUserId : '',
-            secret: secret,
+            password,
+            secret,
         };
 
         const response = await this.mutate(query, variables);

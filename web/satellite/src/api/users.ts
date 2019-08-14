@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { UpdatedUser, User, UsersApi } from '@/types/users';
 import { BaseGql } from '@/api/baseGql';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
 
 /**
  * UsersApiGql is a graphql implementation of Users API.

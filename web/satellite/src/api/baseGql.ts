@@ -1,8 +1,11 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import gql from 'graphql-tag';
 import apolloManager from '@/utils/apolloManager';
 
 /**
- * BaseGql is a graphql utility which allows to perform quesries and mutations
+ * BaseGql is a graphql utility which allows to perform queries and mutations
  */
 export class BaseGql {
     /**
