@@ -31,17 +31,17 @@ Registering the storage node process as a windows service enables the following:
 * Create a wix.json file like [this one](https://github.com/mh-cbon/go-msi/blob/master/wix.json)
    * go-msi requires a wix.json file to determine what the installer should do.
    * The MSI must create a desktop shortcut for that opens the dashboard
-   ** Automatically open the dashboard at the end of the installation
+       * Automatically open the dashboard at the end of the installation
    * Add the Storage Node binary to the windows USER PATH 
-   ** This makes it so that when you open the command line you can run any of the Storage Node commands
+       * This makes it so that when you open the command line you can run any of the Storage Node commands
    * The wix.json file must include the following user perameters:
-   ** Wallet Address
-   ** Email
-   ** Address/ Port
-   ** Bandwidth 
-   ** Storge
-   ** Identity directory
-   ** Storge Directory
+       * Wallet Address
+       * Email
+       * Address/ Port
+       * Bandwidth 
+       * Storge
+       * Identity directory
+       * Storge Directory
 * Apply a GUID with `go-msi set-guid`, you must do it once only for each app.
    * This GUID is used to identify the windows process.
 * Run `go-msi make --msi your_program.msi --version 0.0.2`
