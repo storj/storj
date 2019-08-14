@@ -64,11 +64,12 @@
 
 <script lang='ts'>
     import { Component, Vue } from 'vue-property-decorator';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import Button from '@/components/common/Button.vue';
-    import { AuthToken } from '@/utils/authToken';
-    import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { AuthApi } from '@/api/auth';
+    import Button from '@/components/common/Button.vue';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { AuthToken } from '@/utils/authToken';
+    import ROUTES from '@/utils/constants/routerConstants';
 
     @Component({
         components: {
@@ -101,7 +102,7 @@
                 AuthToken.remove();
 
                 this.isLoading = false;
-                this.$router.push('/login');
+                this.$router.push(ROUTES.LOGIN.path);
             } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
                 this.isLoading = false;

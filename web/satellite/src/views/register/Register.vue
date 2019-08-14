@@ -57,7 +57,7 @@
             try {
                 decoded = atob(ids);
             } catch {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, "Invalid Referral URL.");
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Invalid Referral URL');
                 this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
                 return;

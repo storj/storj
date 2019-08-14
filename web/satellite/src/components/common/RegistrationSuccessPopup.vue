@@ -8,7 +8,7 @@
     import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
-    import { AuthApi } from '../../api/auth';
+    import { AuthApi } from '@/api/auth';
     import { getUserId } from '@/utils/consoleLocalStorage';
 
     @Component({
@@ -32,7 +32,7 @@
         public async onResendEmailButtonClick(): Promise<void> {
             this.isResendEmailButtonDisabled = true;
 
-            let userId = getUserId();
+            const userId = getUserId();
             if (!userId) {
                 return;
             }
@@ -57,19 +57,18 @@
 
         private startResendEmailCountdown(): void {
             let countdown = 30;
-            let self = this;
 
-            this.intervalID = setInterval(function () {
+            this.intervalID = setInterval(() => {
                 countdown--;
 
                 let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
-                self.timeToEnableResendEmailButton = `00:${secondsLeft}`;
+                this.timeToEnableResendEmailButton = `00:${secondsLeft}`;
 
                 if (countdown <= 0) {
-                    clearInterval(self.intervalID);
-                    self.isResendEmailButtonDisabled = false;
+                    clearInterval(this.intervalID);
+                    this.isResendEmailButtonDisabled = false;
                 }
-            }.bind(this), 1000);
+            }, 1000);
         }
     }
 </script>

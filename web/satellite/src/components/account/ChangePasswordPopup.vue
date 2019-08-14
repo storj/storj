@@ -134,32 +134,10 @@
 
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-
-            this.cancel();
         }
 
         public onCloseClick(): void {
-            this.cancel();
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-        }
-
-        private cancel(): void {
-            this.oldPassword = '';
-            this.newPassword = '';
-            this.confirmationPassword = '';
-
-            this.oldPasswordError = '';
-            this.newPasswordError = '';
-            this.confirmationPasswordError = '';
-
-            let oldPasswordInput: any = this.$refs['oldPasswordInput'];
-            oldPasswordInput.setValue('');
-
-            let newPasswordInput: any = this.$refs['newPasswordInput'];
-            newPasswordInput.setValue('');
-
-            let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
-            confirmPasswordInput.setValue('');
         }
     }
 </script>
