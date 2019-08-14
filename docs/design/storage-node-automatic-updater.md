@@ -14,9 +14,11 @@ Currently we are using Docker for automatic updates but we are migrating away fr
 
 * Contacts Version Server to determine if Storage Node needs to be updated.
 * Downloads latest Storage Node binary.
+* Validate binary signature.
+* Stop the Windows Service for Storage Node
 * Replaces current Storage Node binary with latest Storage Node binary.
 * Kills current Storage Node binary process.
-    * Storage Node Watch Dog process will start up the new Storage Node process.
+* Start the Windows Service for Storage Node.
 
 ### Rollout message structure
 
