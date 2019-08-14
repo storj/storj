@@ -149,13 +149,17 @@ func TestDB_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure ListUnsent works at all
-			_, err := db.Orders().ListUnsent(ctx, 1)
+			infos, err := db.Orders().ListUnsent(ctx, 1)
 			require.NoError(t, err)
+			require.Len(t, infos, 1)
 		}
 
 		{ // Ensure ListUnsentBySatellite works at all
-			_, err := db.Orders().ListUnsentBySatellite(ctx)
+			infos, err := db.Orders().ListUnsentBySatellite(ctx)
 			require.NoError(t, err)
+			require.Len(t, infos, 1)
+			require.Contains(t, infos, satelliteID)
+			require.Len(t, infos[satelliteID], 1)
 		}
 
 		{ // Ensure Archive works at all
@@ -164,8 +168,9 @@ func TestDB_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure ListArchived works at all
-			_, err := db.Orders().ListArchived(ctx, 1)
+			infos, err := db.Orders().ListArchived(ctx, 1)
 			require.NoError(t, err)
+			require.Len(t, infos, 1)
 		}
 	})
 }

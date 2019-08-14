@@ -308,18 +308,14 @@ type ReaderOptions struct {
 type Reader struct {
 	scope
 	readError error
-	reader    interface {
-		io.Reader
-		io.Seeker
-		io.Closer
-	}
+	reader    io.ReadCloser
 }
 
-// NewReader returns new reader for downloading object
+// NewReader returns new reader for downloading object.
 func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reader, error) {
 	scope := bucket.scope.child()
 
-	reader, err := bucket.lib.NewReader(scope.ctx, path)
+	reader, err := bucket.lib.Download(scope.ctx, path)
 	if err != nil {
 		return nil, safeError(err)
 	}
