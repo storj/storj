@@ -48,7 +48,11 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 	err = tx.QueryRow(certs.db.Rebind(query), nodeID.Bytes()).Scan(&serialNum)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			_, err = tx.Exec(certs.db.Rebind(`INSERT INTO peer_identities ( serial_number, peer_chain, node_id, update_at ) VALUES ( ?, ?, ?, ? );`), peerIdent.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
+			_, err = tx.Exec(certs.db.Rebind(
+				`INSERT INTO peer_identities 
+				( serial_number, peer_chain, node_id, update_at ) 
+				VALUES ( ?, ?, ?, ? );`),
+				peerIdent.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -58,7 +62,12 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 	}
 
 	if !bytes.Equal(serialNum, peerIdent.Leaf.SerialNumber.Bytes()) {
-		_, err = tx.Exec(certs.db.Rebind(`UPDATE peer_identities SET node_id = ?, serial_number = ?, peer_chain = ?, update_at = ? WHERE node_id = ?`), nodeID.Bytes(), peerIdent.Leaf.SerialNumber.Bytes(), chain, time.Now(), nodeID.Bytes())
+		_, err = tx.Exec(certs.db.Rebind(
+			`UPDATE peer_identities SET 
+			node_id = ?, serial_number = ?, 
+			peer_chain = ?, update_at = ? 
+			WHERE node_id = ?`),
+			nodeID.Bytes(), peerIdent.Leaf.SerialNumber.Bytes(), chain, time.Now(), nodeID.Bytes())
 		if err != nil {
 			return Error.Wrap(err)
 		}

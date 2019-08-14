@@ -95,34 +95,12 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 
 // CreateUser gets password hash value and creates new inactive User
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
-	offerType := rewards.FreeCredit
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
 	}
 
-	// TODO: remove after vanguard release
-	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
-	if err != nil {
-		return nil, errs.New(vanguardRegTokenErrMsg)
-	}
-	if registrationToken.OwnerID != nil {
-		return nil, errs.New(usedRegTokenVanguardErrMsg)
-	}
-
-	// TODO: store original email input in the db,
-	// add normalization
-	email := normalizeEmail(user.Email)
-
-	u, err = s.store.Users().GetByEmail(ctx, email)
-	if err == nil {
-		return nil, errs.New(emailUsedErrMsg)
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
-	}
+	offerType := rewards.FreeCredit
 	if user.PartnerID != "" {
 		offerType = rewards.Partner
 	} else if refUserID != "" {
@@ -138,6 +116,42 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
 	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
+		return nil, errs.New(internalErrMsg)
+	}
+
+	// TODO: remove after vanguard release
+	// when user uses an open source partner referral link, there won't be a registration token in the link.
+	// therefore, we need to create one so we can still control the project limit on the account level
+	var registrationToken *RegistrationToken
+	if user.PartnerID != "" {
+		// set the project limit to be 1 for open source partner invitees
+		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
+		if err != nil {
+			return nil, errs.New(internalErrMsg)
+		}
+	} else {
+		registrationToken, err = s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
+		if err != nil {
+			return nil, errs.New(vanguardRegTokenErrMsg)
+		}
+		// if a registration token is already associated with an user ID, that means the token is already used
+		// we should terminate the account creation process and return an error
+		if registrationToken.OwnerID != nil {
+			return nil, errs.New(usedRegTokenVanguardErrMsg)
+		}
+	}
+
+	// TODO: store original email input in the db,
+	// add normalization
+	email := normalizeEmail(user.Email)
+
+	u, err = s.store.Users().GetByEmail(ctx, email)
+	if err == nil {
+		return nil, errs.New(emailUsedErrMsg)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
+	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
 
