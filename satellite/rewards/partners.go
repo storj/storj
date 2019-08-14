@@ -171,7 +171,7 @@ func GeneratePartnerLink(offerName string) ([]string, error) {
 	encoded := base64.StdEncoding.EncodeToString(refJSON)
 
 	for i, url := range domains {
-		referralLinks[i] = path.Join(url, encoded)
+		referralLinks[i] = path.Join(url, "ref", encoded)
 	}
 
 	return referralLinks, nil
