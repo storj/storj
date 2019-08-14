@@ -138,7 +138,16 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			continue
 		}
 
-		fieldaddr := fieldval.Addr().Interface()
+		if !fieldval.CanAddr() {
+			panic(fmt.Sprintf("cannot addr field %s in %s", field.Name, typ))
+		}
+
+		fieldref := fieldval.Addr()
+		if !fieldref.CanInterface() {
+			panic(fmt.Sprintf("cannot get interface of field %s in %s", field.Name, typ))
+		}
+
+		fieldaddr := fieldref.Interface()
 		if fieldvalue, ok := fieldaddr.(pflag.Value); ok {
 			help := field.Tag.Get("help")
 			var def string

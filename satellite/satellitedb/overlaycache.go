@@ -974,7 +974,9 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
 		Latency90:             dbNode.Latency90,
 		AuditCount:            dbNode.TotalAuditCount,
+		AuditSuccessCount:     dbNode.AuditSuccessCount,
 		UptimeCount:           dbNode.TotalUptimeCount,
+		UptimeSuccessCount:    dbNode.UptimeSuccessCount,
 		LastContactSuccess:    dbNode.LastContactSuccess,
 		LastContactFailure:    dbNode.LastContactFailure,
 		AuditReputationAlpha:  dbNode.AuditReputationAlpha,
