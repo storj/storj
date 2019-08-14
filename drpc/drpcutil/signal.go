@@ -1,31 +1,35 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package drpcclient
+package drpcutil
 
 import "sync"
 
-type sigerr struct {
+type Signal struct {
 	once sync.Once
 	sig  chan struct{}
 	err  error
 }
 
-func newSigerr() sigerr {
-	return sigerr{
+func NewSignal() *Signal {
+	return &Signal{
 		sig: make(chan struct{}),
 		err: nil,
 	}
 }
 
-func (s *sigerr) signalWithError(err error) {
+func (s *Signal) Signal() chan struct{} {
+	return s.sig
+}
+
+func (s *Signal) SignalWithError(err error) {
 	s.once.Do(func() {
 		s.err = err
 		close(s.sig)
 	})
 }
 
-func (s *sigerr) wasSignaled() bool {
+func (s *Signal) WasSignaled() bool {
 	select {
 	case <-s.sig:
 		return true
@@ -34,7 +38,7 @@ func (s *sigerr) wasSignaled() bool {
 	}
 }
 
-func (s *sigerr) pollError() error {
+func (s *Signal) Err() error {
 	select {
 	case <-s.sig:
 		return s.err

@@ -32,8 +32,8 @@ type Client interface {
 
 type Stream interface {
 	Send(msg Message) error
-	CloseSend() error
-
 	Recv(msg Message) error
+	CloseSend() error
 	CloseRecv() error
+	Close() error
 }
