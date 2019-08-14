@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -648,13 +649,12 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	var partnerID uuid.UUID
 	if !keyInfo.PartnerID.IsZero() {
 		partnerID = keyInfo.PartnerID
-	} else if len(req.GetPartnerId()) > 0 { // check if partner id set in Open source connector
-		var oscPartnerID uuid.UUID
-		err = oscPartnerID.UnmarshalJSON(req.GetPartnerId())
+	} else {
+		ua, err := getUserAgent(ctx)
 		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+			return nil, err
 		}
-		partnerID = oscPartnerID
+		partnerID = *ua
 	}
 
 	// checks if partner id exists in the API keyinfo (referral link)
@@ -1893,4 +1893,19 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	}
 
 	return satSegmentID, nil
+}
+
+func getUserAgent(ctx context.Context) (_ *uuid.UUID, err error) {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if ua, ok := md["user-agent"]; ok {
+			if len(ua) == 1 {
+				ua, err := uuid.Parse(ua[0])
+				if err != nil {
+					return nil, status.Errorf(codes.InvalidArgument, err.Error())
+				}
+				return ua, nil
+			}
+		}
+	}
+	return nil, status.Errorf(codes.InvalidArgument, err.Error())
 }
