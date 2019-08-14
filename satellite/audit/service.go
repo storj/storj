@@ -88,7 +88,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 			defer mon.Task()(&ctx)(&err)
-			err := service.process(ctx)
+			err = service.process(ctx)
 			if err != nil {
 				service.log.Error("process", zap.Error(err))
 			}
