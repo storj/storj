@@ -86,7 +86,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return service.Loop.Run(ctx, func(ctx context.Context) error {
+		return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 			defer mon.Task()(&ctx)(&err)
 			err := service.process(ctx)
 			if err != nil {
@@ -97,7 +97,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
-		return service.ReservoirLoop.Run(ctx, func(ctx context.Context) error {
+		return service.ReservoirLoop.Run(ctx, func(ctx context.Context) (err error) {
 			defer mon.Task()(&ctx)(&err)
 			observer := NewObserver(service.log.Named("audit observer"), service.overlay, service.reservoirConfig)
 			err = service.MetainfoLoop.Join(ctx, observer)
