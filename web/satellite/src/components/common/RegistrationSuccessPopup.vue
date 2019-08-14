@@ -6,10 +6,10 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
-    import { resendEmailRequest } from '../../api/users';
-    import { getUserID } from '@/utils/consoleLocalStorage';
+    import { AuthApi } from '../../api/auth';
+    import { getUserId } from '@/utils/consoleLocalStorage';
 
     @Component({
         components: {
@@ -21,6 +21,8 @@
         private timeToEnableResendEmailButton: string = '00:30';
         private intervalID: any = null;
 
+        private readonly auth: AuthApi = new AuthApi();
+
         public beforeDestroy(): void {
             if (this.intervalID) {
                 clearInterval(this.intervalID);
@@ -30,15 +32,18 @@
         public async onResendEmailButtonClick(): Promise<void> {
             this.isResendEmailButtonDisabled = true;
 
-            let userID = getUserID();
-            if (!userID) {
+            let userId = getUserId();
+            if (!userId) {
                 return;
             }
 
-            let response = await resendEmailRequest(userID);
-            if (response.isSuccess) {
-                this.startResendEmailCountdown();
+            try {
+                await this.auth.resendEmail(userId);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'could not send email ');
             }
+
+            this.startResendEmailCountdown();
         }
 
         public onCloseClick(): void {

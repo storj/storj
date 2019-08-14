@@ -63,9 +63,9 @@
     import { Component, Vue } from 'vue-property-decorator';
     import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
     import Button from '@/components/common/Button.vue';
-    import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import { validatePassword } from '@/utils/validation';
-    import { RequestResponse } from '@/types/response';
+    import { AuthApi } from '@/api/auth';
 
     @Component({
         components: {
@@ -80,6 +80,8 @@
         private oldPasswordError: string = '';
         private newPasswordError: string = '';
         private confirmationPasswordError: string = '';
+
+        private readonly auth: AuthApi = new AuthApi();
 
         public setOldPassword(value: string): void {
             this.oldPassword = value;
@@ -122,15 +124,10 @@
                 return;
             }
 
-            let response: RequestResponse<object> = await this.$store.dispatch(USER_ACTIONS.CHANGE_PASSWORD,
-                {
-                    oldPassword: this.oldPassword,
-                    newPassword: this.newPassword
-                }
-            );
-
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+            try {
+                await this.auth.changePassword(this.oldPassword, this.newPassword);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
                 return;
             }
@@ -138,22 +135,7 @@
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
 
-            this.oldPassword = '';
-            this.newPassword = '';
-            this.confirmationPassword = '';
-
-            this.oldPasswordError = '';
-            this.newPasswordError = '';
-            this.confirmationPasswordError = '';
-
-            let oldPasswordInput: any = this.$refs['oldPasswordInput'];
-            oldPasswordInput.setValue('');
-
-            let newPasswordInput: any = this.$refs['newPasswordInput'];
-            newPasswordInput.setValue('');
-
-            let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
-            confirmPasswordInput.setValue('');
+            this.cancel();
         }
 
         public onCloseClick(): void {
