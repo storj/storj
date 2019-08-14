@@ -489,16 +489,16 @@ type lazyPieceReader struct {
 	offset int64
 	length int64
 
-	mu sync.RWMutex
+	mu sync.Mutex
 
 	isClosed bool
-	closers  []io.Closer
 	piecestore.Downloader
+	client *piecestore.Client
 }
 
 func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
-	lr.mu.RLock()
-	defer lr.mu.RUnlock()
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
 
 	if lr.isClosed {
 		return 0, io.EOF
@@ -509,7 +509,7 @@ func (lr *lazyPieceReader) Read(data []byte) (_ int, err error) {
 			return 0, err
 		}
 		lr.Downloader = downloader
-		lr.closers = []io.Closer{downloader, client}
+		lr.client = client
 	}
 
 	return lr.Downloader.Read(data)
@@ -541,8 +541,11 @@ func (lr *lazyPieceReader) Close() (err error) {
 	}
 	lr.isClosed = true
 
-	for _, c := range lr.closers {
-		err = errs.Combine(err, c.Close())
+	if lr.Downloader != nil {
+		err = errs.Combine(err, lr.Downloader.Close())
+	}
+	if lr.client != nil {
+		err = errs.Combine(err, lr.client.Close())
 	}
 	return err
 }

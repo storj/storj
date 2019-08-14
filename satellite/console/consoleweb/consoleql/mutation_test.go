@@ -77,7 +77,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				FullName:  "John Roll",
 				ShortName: "Roll",
 				Email:     "test@mail.test",
-				PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
+				PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
 			},
 			Password: "123a123",
 		}
@@ -124,7 +124,7 @@ func TestGrapqhlMutation(t *testing.T) {
 					FullName:  "Green Mickey",
 					ShortName: "Green",
 					Email:     "u1@mail.test",
-					PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
+					PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
 				},
 				Password: "123a123",
 			}
@@ -343,6 +343,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		project, err := service.GetProject(authCtx, *pID)
 		require.NoError(t, err)
+		require.Equal(t, rootUser.PartnerID, project.PartnerID)
 
 		t.Run("Update project description mutation", func(t *testing.T) {
 			query := fmt.Sprintf(

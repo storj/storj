@@ -57,6 +57,7 @@ type InfoDB struct {
 	v0PieceInfo       v0PieceInfo
 	pieceExpirationDB pieceExpirationDB
 	location          string
+	pieceSpaceUsedDB  pieceSpaceUsedDB
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -77,6 +78,7 @@ func newInfo(path string) (*InfoDB, error) {
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
 	infoDb.pieceExpirationDB = pieceExpirationDB{InfoDB: infoDb}
 	infoDb.location = path
+	infoDb.pieceSpaceUsedDB = pieceSpaceUsedDB{InfoDB: infoDb}
 
 	return infoDb, nil
 }
@@ -104,6 +106,7 @@ func NewInfoTest() (*InfoDB, error) {
 	infoDb.v0PieceInfo = v0PieceInfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
 	infoDb.pieceExpirationDB = pieceExpirationDB{InfoDB: infoDb}
+	infoDb.pieceSpaceUsedDB = pieceSpaceUsedDB{InfoDB: infoDb}
 
 	return infoDb, nil
 }
@@ -448,6 +451,18 @@ func (db *InfoDB) Migration() *migrate.Migration {
 						timestamp TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, timestamp)
 					)`,
+				},
+			},
+			{
+				Description: "Create piece_space_used table",
+				Version:     17,
+				Action: migrate.SQL{
+					// new table to hold the most recent totals from the piece space used cache
+					`CREATE TABLE piece_space_used (
+						total INTEGER NOT NULL,
+						satellite_id BLOB
+					)`,
+					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
 				},
 			},
 		},
