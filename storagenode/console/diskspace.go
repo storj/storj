@@ -5,6 +5,6 @@ package console
 
 // DiskSpaceInfo stores all info about storagenode disk space usage
 type DiskSpaceInfo struct {
-	Available int64 `json:"available"`
-	Used      int64 `json:"used"`
+	Used      float64 `json:"used"`
+	Available float64 `json:"available"`
 }

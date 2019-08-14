@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.12.7
+GO_VERSION ?= 1.12.8
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -246,7 +246,7 @@ binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspe
 
 .PHONY: libuplink
 libuplink:
-	go build -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
+	go build -ldflags="-s -w" -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
 	cp lib/uplinkc/uplink_definitions.h uplink_definitions.h
 
 ##@ Deploy
