@@ -48,12 +48,16 @@
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import Checkbox from '@/components/common/Checkbox.vue';
     import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
+    import {
+        API_KEYS_ACTIONS,
+        APP_STATE_ACTIONS,
+        NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS,
+        PROJETS_ACTIONS,
+        BUCKET_USAGE_ACTIONS
+    } from '@/utils/constants/actionNames';
     import { PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { TeamMember } from '@/types/teamMembers';
     import { RequestResponse } from '@/types/response';
     import { CreateProjectModel, Project } from '@/types/projects';
-    import ROUTES from '@/utils/constants/routerConstants';
 
     @Component({
         components: {
@@ -103,13 +107,17 @@
 
             this.selectCreatedProject();
 
-            this.fetchProjectMembers();
+            this.clearProjectMembers();
+
+            this.clearApiKeys();
+
+            this.clearUsage();
+
+            this.clearBucketUsage();
 
             this.checkIfsFirstProject();
 
             this.isLoading = false;
-
-            this.$router.push(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
         }
 
         private validateProjectName(): boolean {
@@ -162,13 +170,22 @@
                 : this.notifySuccess('Project created successfully!');
         }
 
-        private async fetchProjectMembers(): Promise<any> {
+        private clearProjectMembers(): void {
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+            this.$store.dispatch(PM_ACTIONS.CLEAR);
+        }
 
-            const response: RequestResponse<TeamMember[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
-            if (!response.isSuccess) {
-                this.notifyError(response.errorMessage);
-            }
+        private clearApiKeys(): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+        }
+
+        private clearUsage(): void {
+            this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
+        }
+
+        private clearBucketUsage(): void {
+            this.$store.dispatch(BUCKET_USAGE_ACTIONS.SET_SEARCH, '');
+            this.$store.dispatch(BUCKET_USAGE_ACTIONS.CLEAR);
         }
 
         private notifyError(message: string): void {
