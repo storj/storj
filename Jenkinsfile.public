@@ -92,11 +92,6 @@ pipeline {
                 }
 
                 stage('Backwards Compatibility') {
-                    when {
-                        expression {
-                            return env.BRANCH_NAME == 'master';
-                        }
-                    }
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
