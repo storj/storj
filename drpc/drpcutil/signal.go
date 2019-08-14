@@ -22,11 +22,22 @@ func (s *Signal) Signal() chan struct{} {
 	return s.sig
 }
 
-func (s *Signal) SignalWithError(err error) {
+func (s *Signal) SignalWithError(err error) (ok bool) {
 	s.once.Do(func() {
 		s.err = err
 		close(s.sig)
+		ok = true
 	})
+	return ok
+}
+
+func (s *Signal) State() (error, bool) {
+	select {
+	case <-s.sig:
+		return s.err, true
+	default:
+		return nil, false
+	}
 }
 
 func (s *Signal) WasSignaled() bool {

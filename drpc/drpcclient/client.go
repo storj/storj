@@ -20,7 +20,7 @@ type Client struct {
 	streamID uint64
 
 	sig     *drpcutil.Signal
-	rwc     io.ReadWriteCloser
+	rw      io.ReadWriter
 	mu      sync.Mutex
 	streams map[uint64]*drpcstream.Stream
 	recv    *drpcwire.Receiver
@@ -29,29 +29,21 @@ type Client struct {
 
 var _ drpc.Client = (*Client)(nil)
 
-func New(rwc io.ReadWriteCloser) *Client {
+func New(rw io.ReadWriter) *Client {
 	c := &Client{
 		sig:     drpcutil.NewSignal(),
-		rwc:     rwc,
+		rw:      rw,
 		streams: make(map[uint64]*drpcstream.Stream),
-		recv:    drpcwire.NewReceiver(rwc),
-		lbuf:    drpcutil.NewLockedBuffer(drpcwire.NewBuffer(rwc, drpcwire.MaxPacketSize)),
+		recv:    drpcwire.NewReceiver(rw),
+		lbuf:    drpcutil.NewLockedBuffer(drpcwire.NewBuffer(rw, drpcwire.MaxPacketSize)),
 	}
 	go c.fillStreamQueues()
 	return c
 }
 
-func (c *Client) Transport() io.ReadWriteCloser {
-	return c.rwc
-}
-
 func (c *Client) Close() error {
-	return c.closeWithError(drpc.Error.New("client closed"))
-}
-
-func (c *Client) closeWithError(err error) error {
-	c.sig.SignalWithError(err)
-	return c.rwc.Close()
+	c.sig.SignalWithError(drpc.Error.New("client closed"))
+	return nil
 }
 
 func (c *Client) newStream(ctx context.Context) *drpcstream.Stream {
@@ -82,17 +74,19 @@ func (c *Client) monitorStream(ctx context.Context, stream *drpcstream.Stream) {
 }
 
 func (c *Client) fillStreamQueues() {
-	defer c.closeWithError(drpc.InternalError.New("fillStreamQueues exited with no error"))
+	defer c.sig.SignalWithError(drpc.InternalError.New("fillStreamQueues exited with no error"))
 
 	for {
 		p, err := c.recv.ReadPacket()
+		// fmt.Println("rawcli", p, err)
+
 		switch {
 		case err != nil:
-			c.closeWithError(err)
+			c.sig.SignalWithError(err)
 			return
 
 		case p == nil:
-			c.closeWithError(io.EOF)
+			c.sig.SignalWithError(nil)
 			return
 		}
 
@@ -107,11 +101,15 @@ func (c *Client) fillStreamQueues() {
 			stream.Sig().SignalWithError(drpc.ProtocolError.New("server sent invoke message"))
 
 		case p.PayloadKind == drpcwire.PayloadKind_Error:
-			err := io.EOF
-			if len(p.Data) > 0 {
-				err = errs.New("%s", p.Data)
+			switch {
+			case len(p.Data) > 0:
+				stream.Sig().SignalWithError(errs.New("%s", p.Data))
+			case stream.Remote().SignalWithError(nil):
+				close(stream.Queue())
+			default:
+				c.sig.SignalWithError(drpc.ProtocolError.New("server sent after stream closed"))
+				return
 			}
-			stream.Sig().SignalWithError(err)
 
 		default:
 			// we do a double select to ensure that multiple loops of packets cannot
@@ -119,18 +117,21 @@ func (c *Client) fillStreamQueues() {
 			select {
 			case <-stream.Sig().Signal(): // stream dead: just drop the message
 			case <-stream.RecvSig().Signal(): // stream closed recv: just drop the message
+			case <-stream.Remote().Signal(): // remote already said stream is done: problem
+				c.sig.SignalWithError(drpc.ProtocolError.New("server sent after stream closed"))
+				return
 			case <-c.sig.Signal(): // client dead: we're done filling queues
 				return
-
 			default:
 				select {
 				case <-stream.Sig().Signal(): // stream dead: just drop the message
 				case <-stream.RecvSig().Signal(): // stream closed recv: just drop the message
 				case <-c.sig.Signal(): // client dead: we're done filling queues
 					return
-
+				case <-stream.Remote().Signal(): // remote already said stream is done: problem
+					c.sig.SignalWithError(drpc.ProtocolError.New("server sent after stream closed"))
+					return
 				case stream.Queue() <- p: // yay we passed the message
-
 				default: // producer overan: kill stream
 					stream.Sig().SignalWithError(drpc.Error.New("stream buffer full"))
 				}

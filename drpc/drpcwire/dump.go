@@ -48,15 +48,7 @@ func (d *Dumper) Write(p []byte) (n int, err error) {
 		}
 		d.buf = d.buf[advance:]
 
-		if _, err := fmt.Fprintf(
-			d.out, "     | pid:<%d,%d> kind:%d cont:%-5v start:%-5v len:%-4d data:%x\n",
-			pkt.StreamID, pkt.MessageID,
-			pkt.PayloadKind,
-			pkt.Continuation,
-			pkt.Starting,
-			pkt.Length,
-			pkt.Data,
-		); err != nil {
+		if _, err := fmt.Fprintf(d.out, "     | %s\n", pkt); err != nil {
 			return len(p), err
 		}
 	}

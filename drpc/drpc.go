@@ -5,7 +5,6 @@ package drpc
 
 import (
 	"context"
-	"io"
 
 	"github.com/zeebo/errs"
 )
@@ -24,8 +23,6 @@ type Message interface {
 }
 
 type Client interface {
-	Transport() io.ReadWriteCloser
-
 	Invoke(ctx context.Context, rpc string, in, out Message) error
 	NewStream(ctx context.Context, rpc string) (Stream, error)
 }
@@ -36,4 +33,11 @@ type Stream interface {
 	CloseSend() error
 	CloseRecv() error
 	Close() error
+}
+
+type Handler = func(srv interface{}, ctx context.Context, in1, in2 interface{}) (out interface{}, err error)
+
+type Description interface {
+	NumMethods() int
+	Method(n int) (rpc string, handler Handler, method interface{}, ok bool)
 }

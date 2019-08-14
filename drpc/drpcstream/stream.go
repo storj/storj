@@ -4,6 +4,7 @@
 package drpcstream
 
 import (
+	"io"
 	"sync"
 	"sync/atomic"
 
@@ -21,10 +22,10 @@ type Stream struct {
 	sig    *drpcutil.Signal
 	lbuf   *drpcutil.LockedBuffer
 	queue  chan *drpcwire.Packet
-	sendmu sync.Mutex
+	mu     sync.Mutex
 	send   *drpcutil.Signal
 	recv   *drpcutil.Signal
-	closed bool
+	remote *drpcutil.Signal
 }
 
 func New(streamID uint64, lbuf *drpcutil.LockedBuffer) *Stream {
@@ -32,11 +33,12 @@ func New(streamID uint64, lbuf *drpcutil.LockedBuffer) *Stream {
 		messageID: 0,
 		streamID:  streamID,
 
-		sig:   drpcutil.NewSignal(),
-		lbuf:  lbuf,
-		queue: make(chan *drpcwire.Packet, 100),
-		send:  drpcutil.NewSignal(),
-		recv:  drpcutil.NewSignal(),
+		sig:    drpcutil.NewSignal(),
+		lbuf:   lbuf,
+		queue:  make(chan *drpcwire.Packet, 100),
+		send:   drpcutil.NewSignal(),
+		recv:   drpcutil.NewSignal(),
+		remote: drpcutil.NewSignal(),
 	}
 }
 
@@ -50,6 +52,7 @@ func (s *Stream) StreamID() uint64             { return s.streamID }
 func (s *Stream) Sig() *drpcutil.Signal        { return s.sig }
 func (s *Stream) RecvSig() *drpcutil.Signal    { return s.recv }
 func (s *Stream) SendSig() *drpcutil.Signal    { return s.send }
+func (s *Stream) Remote() *drpcutil.Signal     { return s.remote }
 func (s *Stream) Queue() chan *drpcwire.Packet { return s.queue }
 
 //
@@ -100,8 +103,8 @@ func (s *Stream) recvPollClosed() error {
 
 func (s *Stream) RawSend(kind drpcwire.PayloadKind, data []byte) error {
 	return drpcwire.Split(kind, s.nextPid(), data, func(pkt drpcwire.Packet) error {
-		s.sendmu.Lock()
-		defer s.sendmu.Unlock()
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
 		if err := s.sendPollClosed(); err != nil {
 			return err
@@ -111,8 +114,8 @@ func (s *Stream) RawSend(kind drpcwire.PayloadKind, data []byte) error {
 }
 
 func (s *Stream) RawFlush() error {
-	s.sendmu.Lock()
-	defer s.sendmu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if err := s.sendPollClosed(); err != nil {
 		return err
@@ -130,23 +133,29 @@ func (s *Stream) RawRecv() (*drpcwire.Packet, error) {
 		return nil, s.sig.Err()
 	case <-s.recv.Signal():
 		return nil, s.recv.Err()
-	case p := <-s.queue:
+	case p, ok := <-s.queue:
+		if !ok {
+			return nil, io.EOF
+		}
 		return p, nil
 	}
 }
 
-func (s *Stream) RawClose() error {
-	s.sendmu.Lock()
-	defer s.sendmu.Unlock()
+func (s *Stream) RawCloseWithError(err error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	select {
-	case <-s.sig.Signal():
-		return s.sig.Err()
-	default:
+	if err, ok := s.sig.State(); ok {
+		return err
+	}
+
+	var data []byte
+	if err != nil {
+		data = []byte(err.Error())
 	}
 
 	if err := s.try(func() error {
-		return drpcwire.Split(drpcwire.PayloadKind_Error, s.nextPid(), nil,
+		return drpcwire.Split(drpcwire.PayloadKind_Error, s.nextPid(), data,
 			func(pkt drpcwire.Packet) error { return s.lbuf.Write(pkt) })
 	}); err != nil {
 		s.sig.SignalWithError(err)
@@ -183,7 +192,7 @@ func (s *Stream) Send(msg drpc.Message) error {
 func (s *Stream) CloseSend() error {
 	s.send.SignalWithError(drpc.Error.New("send after CloseSend"))
 	if s.recv.WasSignaled() {
-		return s.RawClose()
+		return s.RawCloseWithError(nil)
 	}
 	return nil
 }
@@ -199,7 +208,7 @@ func (s *Stream) Recv(msg drpc.Message) error {
 func (s *Stream) CloseRecv() error {
 	s.recv.SignalWithError(drpc.Error.New("recv after CloseRecv"))
 	if s.send.WasSignaled() {
-		return s.RawClose()
+		return s.RawCloseWithError(nil)
 	}
 	return nil
 }

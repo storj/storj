@@ -4,6 +4,8 @@
 package drpcwire
 
 import (
+	"fmt"
+
 	"storj.io/storj/drpc"
 )
 
@@ -192,4 +194,18 @@ bad:
 // AppendPacket appends a byte form of the packet to buf.
 func AppendPacket(buf []byte, pkt Packet) []byte {
 	return append(AppendHeader(buf, pkt.Header), pkt.Data...)
+}
+
+func (p *Packet) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("pid:<%d,%d> kind:%d cont:%-5v start:%-5v len:%-4d data:%x",
+		p.StreamID, p.MessageID,
+		p.PayloadKind,
+		p.Continuation,
+		p.Starting,
+		p.Length,
+		p.Data,
+	)
 }

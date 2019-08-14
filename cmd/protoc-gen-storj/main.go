@@ -13,10 +13,6 @@ import (
 	"github.com/gogo/protobuf/vanity/command"
 )
 
-const (
-	handlerType = "func(interface{}, context.Context, interface{}, interface{}) (interface{}, error)"
-)
-
 func main() {
 	generator.RegisterPlugin(new(drpc))
 	command.Write(command.Generate(command.Read()))
@@ -25,10 +21,11 @@ func main() {
 type drpc struct {
 	*generator.Generator
 
-	contextPkg string
-	drpcPkg    string
-	drpcClient string
-	drpcStream string
+	contextPkg  string
+	drpcPkg     string
+	drpcClient  string
+	drpcStream  string
+	drpcHandler string
 }
 
 //
@@ -55,6 +52,7 @@ func (d *drpc) Generate(file *generator.FileDescriptor) {
 	d.drpcPkg = string(d.AddImport("storj.io/storj/drpc"))
 	d.drpcClient = d.drpcPkg + ".Client"
 	d.drpcStream = d.drpcPkg + ".Stream"
+	d.drpcHandler = d.drpcPkg + ".Handler"
 	d.contextPkg = string(d.AddImport("context"))
 
 	for i, service := range file.FileDescriptorProto.Service {
@@ -132,7 +130,7 @@ func (d *drpc) generateService(file *generator.FileDescriptor, service *pb.Servi
 	d.P()
 	d.P("func (", servName, "Description) NumMethods() int { return ", len(service.Method), " }")
 	d.P()
-	d.P("func (", servName, "Description) Method(n int) (string, ", handlerType, ", interface{}, bool) {")
+	d.P("func (", servName, "Description) Method(n int) (string, ", d.drpcHandler, ", interface{}, bool) {")
 	d.P("switch n {")
 	for i, method := range service.Method {
 		methName := generator.CamelCase(method.GetName())
@@ -192,7 +190,7 @@ func (d *drpc) generateClientMethod(servName, fullServName string, method *pb.Me
 	d.P("if err != nil { return nil, err }")
 	d.P("x := &", streamType, "{stream}")
 	if !method.GetClientStreaming() {
-		d.P("if err := x.stream.SendMsg(in); err != nil { return nil, err }")
+		d.P("if err := x.stream.Send(in); err != nil { return nil, err }")
 		d.P("if err := x.stream.CloseSend(); err != nil { return nil, err }")
 	}
 	d.P("return x, nil")
