@@ -12,12 +12,12 @@ import (
 // Reservoir holds a certain number of segments to reflect a random sample
 type Reservoir struct {
 	Paths []storj.Path
-	Size  int
+	Size  int8
 	index int64
 }
 
 // NewReservoir instantiates a Reservoir
-func NewReservoir(size int) *Reservoir {
+func NewReservoir(size int8) *Reservoir {
 	return &Reservoir{
 		Size:  size,
 		index: 0,
@@ -28,11 +28,11 @@ func NewReservoir(size int) *Reservoir {
 // pick a random number r = rand(0..i), and if r < size, replace reservoir.Segments[r] with segment
 func (reservoir *Reservoir) Sample(path storj.Path) {
 	reservoir.index++
-	if len(reservoir.Paths) < reservoir.Size {
+	if reservoir.index <= int64(reservoir.Size) {
 		reservoir.Paths = append(reservoir.Paths, path)
 	} else {
-		random := rand.Intn(int(reservoir.index))
-		if random < reservoir.Size {
+		random := rand.Int63n(reservoir.index)
+		if random < int64(reservoir.Size) {
 			reservoir.Paths[random] = path
 		}
 	}

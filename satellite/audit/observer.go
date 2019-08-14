@@ -38,7 +38,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path storj.Path, po
 
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		if _, ok := observer.Reservoirs[piece.NodeId]; !ok {
-			observer.Reservoirs[piece.NodeId] = NewReservoir(observer.reservoirConfig.Slots)
+			observer.Reservoirs[piece.NodeId] = NewReservoir(int8(observer.reservoirConfig.Slots))
 		}
 		observer.Reservoirs[piece.NodeId].Sample(path)
 	}
