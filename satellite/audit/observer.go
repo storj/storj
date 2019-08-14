@@ -17,18 +17,18 @@ import (
 type Observer struct {
 	log *zap.Logger
 
-	overlay         *overlay.Service
-	Reservoirs      map[storj.NodeID]*Reservoir
-	reservoirConfig ReservoirConfig
+	overlay        *overlay.Service
+	Reservoirs     map[storj.NodeID]*Reservoir
+	reservoirSlots int
 }
 
 // NewObserver instantiates an audit observer
-func NewObserver(log *zap.Logger, overlay *overlay.Service, config ReservoirConfig) *Observer {
+func NewObserver(log *zap.Logger, overlay *overlay.Service, reservoirSlots int) *Observer {
 	return &Observer{
-		log:             log,
-		overlay:         overlay,
-		Reservoirs:      make(map[storj.NodeID]*Reservoir),
-		reservoirConfig: config,
+		log:            log,
+		overlay:        overlay,
+		Reservoirs:     make(map[storj.NodeID]*Reservoir),
+		reservoirSlots: reservoirSlots,
 	}
 }
 
@@ -38,7 +38,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path storj.Path, po
 
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		if _, ok := observer.Reservoirs[piece.NodeId]; !ok {
-			observer.Reservoirs[piece.NodeId] = NewReservoir(int8(observer.reservoirConfig.Slots))
+			observer.Reservoirs[piece.NodeId] = NewReservoir(int8(observer.reservoirSlots))
 		}
 		observer.Reservoirs[piece.NodeId].Sample(path)
 	}
