@@ -124,6 +124,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	// therefore, we need to create one so we can still control the project limit on the account level
 	var registrationToken *RegistrationToken
 	if user.PartnerID != "" {
+		// set the project limit to be 1 for open source partner invitees
 		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
 		if err != nil {
 			return nil, errs.New(internalErrMsg)
