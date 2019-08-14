@@ -25,12 +25,12 @@ import (
 
 // TestAuditObserver does the following:
 // - start testplanet with 5 nodes and a reservoir size of 3
-// - upload like 5 files
+// - upload 5 files
 // - iterate over all the segments in satellite.Metainfo and store them in allPieces map
 // - create a audit observer and call metaloop.Join(auditObs)
 //
 // Then for every node in testplanet:
-//    - expect that there is a reservoir for that node
+//    - expect that there is a reservoir for that node on the audit observer
 //    - that the reservoir size is <= 3
 //    - that every item in the reservoir is unique
 //    - that looking up each pieceID in allPieces results in the same node ID
@@ -58,7 +58,7 @@ func TestAuditObserver(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		observer := audit.NewObserver(zaptest.NewLogger(t), satellite.Overlay.Service, audit.ReservoirConfig{3})
+		observer := audit.NewObserver(zaptest.NewLogger(t), satellite.Overlay.Service, 3)
 		allPieces := make(map[storj.PieceID]storj.NodeID)
 
 		err = satellite.Metainfo.Service.Iterate(ctx, "", "", true, false,
