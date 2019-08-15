@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
 import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue';
