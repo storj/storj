@@ -152,10 +152,10 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 	}
 
 	// TODO: need to add here the extracting of partnerID...
-	// keyPartnerID, err := endpoint.getUserAgent(ctx)
-	// if err == nil {
-	// 	keyInfo.PartnerID = *keyPartnerID
-	// }
+	keyPartnerID, err := endpoint.getUserAgent(ctx)
+	if err == nil {
+		keyInfo.PartnerID = *keyPartnerID
+	}
 
 	return keyInfo, nil
 }
@@ -388,18 +388,15 @@ func (endpoint *Endpoint) getUserAgent(ctx context.Context) (_ *uuid.UUID, err e
 			if len(userAgent) == 1 {
 				ua := useragent.Parse(userAgent[0])
 				if ua == nil {
-					endpoint.log.Sugar().Info("invalid user-agent found %s", userAgent[0])
-					return nil, status.Errorf(codes.InvalidArgument, err.Error())
+					return nil, errs.New("invalid user-agent found %s", userAgent[0])
 				}
 				partnerID, err := rewards.GetPartnerID(ua.Name)
 				if err != nil {
-					endpoint.log.Sugar().Info("no matching partnerID found %s", partnerID)
-					return nil, status.Errorf(codes.InvalidArgument, err.Error())
+					return nil, errs.New("no matching partnerID found %s", partnerID)
 				}
 				partnerUUID, err := uuid.Parse(partnerID)
 				if err != nil {
-					endpoint.log.Sugar().Info("uuid parse error %s", partnerID)
-					return nil, status.Errorf(codes.InvalidArgument, err.Error())
+					return nil, errs.New("uuid parse error %s", partnerID)
 				}
 				return partnerUUID, nil
 			}
