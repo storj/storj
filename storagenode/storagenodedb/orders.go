@@ -201,7 +201,10 @@ func (db *ordersdb) archiveOne(ctx context.Context, txn *sql.Tx, req orders.Arch
 		return ErrInfo.Wrap(err)
 	}
 	if count == 0 {
-		return ErrInfo.New("order was not in unsent list")
+		return ErrInfo.New(
+			"order was not in unsent list (satellitte: %s, serial number: %s)",
+			req.Satellite.String(), req.Serial.String(),
+		)
 	}
 
 	return nil
