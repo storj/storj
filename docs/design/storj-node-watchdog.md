@@ -16,7 +16,8 @@ Storage Node
 
 Watchdog Process
 * Process runs on a loop periodically checking a Storage Node's Health.
-* Must be able to kill an already existing Storage Node process.
+* Must be able to initialize a graceful shutdown of an already existing Storage Node process.
+    * If the Graceful shutdown fails then kill the Storage Node process.
 * Must be able to start a new Storage Node process.
 
 ## Implementation
@@ -31,4 +32,4 @@ Watchdog Process
 ## Open issues (if applicable)
 
 * Should the Health endpoint be a private endpoint?
-* Should we add timers that start at the beginning of each Storage Node endpoint, keep track of all the timers, and report in the Health check if the timers have unusually high lengths of time?
+* Should we add timers that start at the beginning of each Storage Node endThese point, keep track of all the timers, and report in the Health check if the timers have unusually high lengths of time?
