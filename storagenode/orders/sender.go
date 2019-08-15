@@ -222,6 +222,12 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 		return OrderError.New("failed to start settlement: %v", err)
 	}
 
+	var errList errs.Group
+	errHandle := func(logErrMsg string, err error) {
+		log.Error(logErrMsg, zap.Error(err))
+		errList.Add(err)
+	}
+
 	var group errgroup.Group
 	group.Go(func() error {
 		for _, order := range orders {
@@ -230,17 +236,21 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 				Order: order.Order,
 			})
 			if err != nil {
-				return err
+				errHandle(
+					"gRPC client when sending new orders settlements",
+					OrderError.New("sending settlement agreements returned an error: %v", err),
+				)
+				return nil
 			}
 		}
-		return client.CloseSend()
+
+		errHandle(
+			"gRPC client error when closing sender ",
+			OrderError.New("CloseSend settlement agreements returned an error: %v", err),
+		)
+		return nil
 	})
 
-	var errList errs.Group
-	errHandle := func(cls errs.Class, format string, args ...interface{}) {
-		log.Sugar().Errorf(format, args...)
-		errList.Add(cls.New(format, args...))
-	}
 	for {
 		response, err := client.Recv()
 		if err != nil {
@@ -248,7 +258,9 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 				break
 			}
 
-			errHandle(OrderError, "failed to receive response: %v", err)
+			errHandle("gRPC client error when receiveing new order settlements",
+				OrderError.New("failed to receive settlement response: %v", err),
+			)
 			break
 		}
 
@@ -259,7 +271,9 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 		case pb.SettlementResponse_REJECTED:
 			status = StatusRejected
 		default:
-			errHandle(OrderError, "unexpected response: %v", response.Status)
+			errHandle("gRPC client received a unexpected new orders setlement status",
+				OrderError.New("unexpected settlement status response: %d", response.Status),
+			)
 			continue
 		}
 
@@ -270,10 +284,8 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 		}
 	}
 
-	if err := group.Wait(); err != nil {
-		errHandle(OrderError, "sending agreements returned an error: %v", err)
-	}
-
+	// Errors of this group are reported to errList so it always return nil
+	_ = group.Wait()
 	return errList.Err()
 }
 
