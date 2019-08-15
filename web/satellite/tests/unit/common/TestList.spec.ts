@@ -12,7 +12,7 @@ describe('TestList.vue', () => {
                 onItemClick: sinon.stub()
             }
         });
-        expect(wrapper.html()).toBe('<div class="item-component"><h1 class="item-component__item">1</h1><h1 class="item-component__item">2</h1><h1 class="item-component__item">3</h1></div>');
+        expect(wrapper).toMatchSnapshot();
     });
 
     it('should retrieve callback', function () {
