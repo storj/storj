@@ -45,8 +45,6 @@
         private readonly totalPageCount: number;
         @Prop({default: () => { return new Promise(() => false); }})
         private readonly onPageClickCallback: OnPageClickCallback;
-        @Prop({default: 1})
-        private readonly pageIndex: number;
 
         public mounted() {
             this.populatePagesArray();
@@ -75,11 +73,6 @@
 
         @Watch('totalPageCount')
         public onPageCountChange(val: number, oldVal: number) {
-            this.resetPageIndex();
-        }
-
-        @Watch('pageIndex')
-        public onPageIndexChange(val: number, oldVal: number) {
             this.resetPageIndex();
         }
 
@@ -119,7 +112,7 @@
             this.isLoading = false;
         }
 
-        public resetPageIndex() {
+        public resetPageIndex(): void {
             this.pagesArray = [];
             this.firstBlockPages = [];
             this.setCurrentPage(1);

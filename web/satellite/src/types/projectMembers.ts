@@ -16,7 +16,7 @@ export class ProjectMemberCursor {
 
     public constructor() {
         this.search = '';
-        this.limit = 8;
+        this.limit = 6;
         this.page = 1;
         this.order = ProjectMemberSortByEnum.NAME;
         this.orderDirection = ProjectMemberSortDirectionEnum.ASCENDING;
@@ -52,8 +52,7 @@ export class ProjectMember {
     public isSelected: boolean;
 
     public constructor(fullName: string, shortName: string, email: string, joinedAt: string, id?: string) {
-        this.user = new User(fullName, shortName, email);
-        this.user.id = id || '';
+        this.user = new User(id || '', fullName, shortName, email);
         this.joinedAt = joinedAt;
     }
 

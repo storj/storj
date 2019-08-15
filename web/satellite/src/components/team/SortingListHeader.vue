@@ -61,7 +61,7 @@
                 this.sortBy = sortBy;
                 this.sortDirection = ProjectMemberSortDirectionEnum.ASCENDING;
 
-                await this.notifyDatasetChanged();
+                await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
 
                 return;
             }
@@ -72,10 +72,6 @@
                 this.sortDirection = ProjectMemberSortDirectionEnum.DESCENDING;
             }
 
-            await this.notifyDatasetChanged();
-        }
-
-        public async notifyDatasetChanged() {
             await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
         }
     }

@@ -18,10 +18,9 @@
             </div>
             <Pagination
                 class="pagination-area"
+                ref="pagination"
                 :totalPageCount="totalPageCount"
-                :onPageClickCallback="onPageClick"
-                :pageIndex="pageIndex"
-            />
+                :onPageClickCallback="onPageClick"/>
         </div>
         <div class="empty-search-result-area" v-if="(projectMembers.length === 0 && projectMembersCount === 0)">
             <h1 class="empty-search-result-area__text">No results found</h1>
@@ -137,6 +136,7 @@
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
+            (this.$refs.pagination as Pagination).resetPageIndex();
         }
     }
 </script>
