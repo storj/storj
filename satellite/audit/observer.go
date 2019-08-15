@@ -10,23 +10,20 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/overlay"
 )
 
 // Observer observes on the metainfo loop and adds segments to node reservoirs
 type Observer struct {
 	log *zap.Logger
 
-	overlay        *overlay.Service
 	Reservoirs     map[storj.NodeID]*Reservoir
 	reservoirSlots int
 }
 
 // NewObserver instantiates an audit observer
-func NewObserver(log *zap.Logger, overlay *overlay.Service, reservoirSlots int) *Observer {
+func NewObserver(log *zap.Logger, reservoirSlots int) *Observer {
 	return &Observer{
 		log:            log,
-		overlay:        overlay,
 		Reservoirs:     make(map[storj.NodeID]*Reservoir),
 		reservoirSlots: reservoirSlots,
 	}

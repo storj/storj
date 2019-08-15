@@ -58,7 +58,7 @@ func TestAuditObserver(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		observer := audit.NewObserver(zaptest.NewLogger(t), satellite.Overlay.Service, 3)
+		observer := audit.NewObserver(zaptest.NewLogger(t), 3)
 		allPieces := make(map[storj.PieceID]storj.NodeID)
 
 		err = satellite.Metainfo.Service.Iterate(ctx, "", "", true, false,

@@ -47,7 +47,6 @@ type Service struct {
 
 	// for audit 2.0 using metainfoloop
 	ReservoirLoop  sync2.Cycle
-	overlay        *overlay.Service
 	MetainfoLoop   *metainfo.Loop
 	reservoirSlots int
 	Reservoirs     map[storj.NodeID]*Reservoir
@@ -64,13 +63,12 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 		Verifier: NewVerifier(log.Named("audit:verifier"), metainfo, transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
 		Reporter: NewReporter(log.Named("audit:reporter"), overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
 
+		Loop: *sync2.NewCycle(config.Interval),
+
 		// for audit 2.0
-		overlay:        overlay,
 		reservoirSlots: config.Slots,
 		MetainfoLoop:   metaLoop,
-
-		Loop:          *sync2.NewCycle(config.Interval),
-		ReservoirLoop: *sync2.NewCycle(config.Interval),
+		ReservoirLoop:  *sync2.NewCycle(config.Interval),
 	}, nil
 }
 
@@ -95,7 +93,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return service.ReservoirLoop.Run(ctx, func(ctx context.Context) (err error) {
 			defer mon.Task()(&ctx)(&err)
-			observer := NewObserver(service.log.Named("audit observer"), service.overlay, service.reservoirSlots)
+			observer := NewObserver(service.log.Named("audit observer"), service.reservoirSlots)
 			err = service.MetainfoLoop.Join(ctx, observer)
 			if err != nil {
 				service.log.Error("error joining metainfoloop", zap.Error(err))
