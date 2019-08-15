@@ -31,7 +31,6 @@ const store = new Vuex.Store({
 describe('ApiKeysArea', () => {
     let apiKey = new ApiKey('testId', 'test', 'test', 'test');
     let apiKey1 = new ApiKey('testId1', 'test1', 'test1', 'test1');
-    let value = 'testValue';
 
     it('renders correctly', () => {
         const wrapper = mount(ApiKeysArea, {
@@ -99,43 +98,6 @@ describe('ApiKeysArea', () => {
         expect(wrapper.vm.$data.isDeleteClicked).toBe(true);
     });
 
-    it('function onCloseClick works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
-            store,
-            localVue,
-        });
-
-        wrapper.vm.onCloseClick();
-
-        expect(wrapper.vm.$data.isNewApiKeyPopupShown).toBe(false);
-        expect(wrapper.vm.$data.isCopiedButtonShown).toBe(false);
-        expect(wrapper.vm.$data.isCopyApiKeyPopupShown).toBe(false);
-    });
-
-    it('function onChangeName works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
-            store,
-            localVue,
-        });
-
-        wrapper.vm.onChangeName(value);
-
-        wrapper.vm.$data.name = value.trim();
-        expect(wrapper.vm.$data.name).toMatch('testValue');
-        expect(wrapper.vm.$data.errorMessage).toMatch('');
-    });
-
-    it('function onCopyClick works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
-            store,
-            localVue,
-        });
-
-        wrapper.vm.onCopyClick();
-
-        expect(wrapper.vm.$data.isCopiedButtonShown).toBe(true);
-    });
-
     it('function apiKeyCountTitle works correctly', () => {
         const wrapper = mount(ApiKeysArea, {
             store,
@@ -195,18 +157,40 @@ describe('ApiKeysArea', () => {
         expect(wrapper.vm.apiKeyCountTitle).toMatch('api keys');
     });
 
-    it('action on onNextClick with no name works correctly', async () => {
+    it('function closeNewApiKeyPopup works correctly', () => {
         const wrapper = mount(ApiKeysArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.$data.isLoading = false;
-        wrapper.vm.$data.name = '';
+        wrapper.vm.closeNewApiKeyPopup();
 
-        await wrapper.vm.onNextClick();
+        expect(wrapper.vm.$data.isNewApiKeyPopupShown).toBe(false);
+    });
 
-        expect(wrapper.vm.$data.errorMessage).toMatch('API Key name can`t be empty');
+    it('function showCopyApiKeyPopup works correctly', () => {
+        const wrapper = mount(ApiKeysArea, {
+            store,
+            localVue,
+        });
+
+        let testSecret = 'testSecret';
+
+        wrapper.vm.showCopyApiKeyPopup(testSecret);
+
+        expect(wrapper.vm.$data.isCopyApiKeyPopupShown).toBe(true);
+        expect(wrapper.vm.$data.apiKeySecret).toMatch('testSecret');
+    });
+
+    it('function closeCopyNewApiKeyPopup works correctly', () => {
+        const wrapper = mount(ApiKeysArea, {
+            store,
+            localVue,
+        });
+
+        wrapper.vm.closeCopyNewApiKeyPopup();
+
+        expect(wrapper.vm.$data.isCopyApiKeyPopupShown).toBe(false);
     });
 });
 
@@ -219,22 +203,11 @@ describe('ApiKeysArea async success', () => {
 
     beforeEach(() => {
         actions = {
-            fetchAPIKeys: jest.fn(),
-            toggleAPIKeySelection: jest.fn(),
-            clearAPIKeySelection: jest.fn(),
             deleteAPIKey: async () => {
                 return {
                     errorMessage: '',
                     isSuccess: true,
                     data: null
-                };
-            },
-
-            createAPIKey: async () => {
-                return {
-                    errorMessage: '',
-                    isSuccess: true,
-                    data: apiKey,
                 };
             },
             success: jest.fn()
@@ -257,26 +230,6 @@ describe('ApiKeysArea async success', () => {
                 }
             }
         });
-    });
-
-    it('action on onNextClick with name works correctly', async () => {
-        const wrapper = mount(ApiKeysArea, {
-            store,
-            localVue,
-        });
-
-        wrapper.vm.$data.isLoading = false;
-        wrapper.vm.$data.name = 'testName';
-
-        wrapper.vm.onNextClick();
-
-        let result = await actions.createAPIKey();
-
-        expect(actions.success.mock.calls).toHaveLength(1);
-        expect(wrapper.vm.$data.key).toBe(result.data.secret);
-        expect(wrapper.vm.$data.isLoading).toBe(false);
-        expect(wrapper.vm.$data.isNewApiKeyPopupShown).toBe(false);
-        expect(wrapper.vm.$data.isCopyApiKeyPopupShown).toBe(true);
     });
 
     it('action on onDelete with name works correctly', async () => {
@@ -302,22 +255,11 @@ describe('ApiKeysArea async not success', () => {
 
     beforeEach(() => {
         actions = {
-            fetchAPIKeys: jest.fn(),
-            toggleAPIKeySelection: jest.fn(),
-            clearAPIKeySelection: jest.fn(),
             deleteAPIKey: async () => {
                 return {
                     errorMessage: '',
                     isSuccess: false,
                     data: null
-                };
-            },
-
-            createAPIKey: async () => {
-                return {
-                    errorMessage: '',
-                    isSuccess: false,
-                    data: null,
                 };
             },
             error: jest.fn()
@@ -340,36 +282,6 @@ describe('ApiKeysArea async not success', () => {
                 }
             }
         });
-    });
-
-    it('action on onNextClick while loading works correctly', async () => {
-        const wrapper = mount(ApiKeysArea, {
-            store,
-            localVue,
-        });
-
-        wrapper.vm.$data.isLoading = true;
-
-        wrapper.vm.onNextClick();
-
-        expect(wrapper.vm.$data.isLoading).toBe(true);
-    });
-
-    it('action on onNextClick works correctly', async () => {
-        const wrapper = mount(ApiKeysArea, {
-            store,
-            localVue,
-        });
-
-        wrapper.vm.$data.isLoading = false;
-        wrapper.vm.$data.name = 'testName';
-
-        wrapper.vm.onNextClick();
-
-        await actions.createAPIKey();
-
-        expect(actions.error.mock.calls).toHaveLength(1);
-        expect(wrapper.vm.$data.isLoading).toBe(false);
     });
 
     it('action on onDelete with name works correctly', async () => {

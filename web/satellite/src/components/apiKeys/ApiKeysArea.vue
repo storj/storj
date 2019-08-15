@@ -5,80 +5,38 @@
     <div class="api-keys-area">
         <h1>Api Key</h1>
         <div class="api-keys-area__container">
-            <div class="api-keys-area__container__new-api-key" v-if="isNewApiKeyPopupShown">
-                <h2>Name Your API Key</h2>
-                <HeaderlessInput
-                    @setData="onChangeName"
-                    :error="errorMessage"
-                    placeholder="Enter API Key Name"
-                    class="full-input"
-                    width="100%" />
-                <Button class="next-button" label="Next >" width="128px" height="48px" :onPress="onNextClick" />
-                <div class="api-keys-area__container__new-api-key__close-cross-container" @click="onCloseClick">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
-                    </svg>
-                </div>
-                <div class="blur-content"></div>
-            </div>
-            <div class="api-keys-area__container__save-api-popup" v-if="isCopyApiKeyPopupShown">
-                <h2>Name Your API Key</h2>
-                <div class="api-keys-area__container__save-api-popup__copy-area">
-                    <div class="api-keys-area__container__save-api-popup__copy-area__key-area">
-                        <p>{{key}}</p>
+            <ApiKeysCreationPopup
+                @closePopup="closeNewApiKeyPopup"
+                @showCopyPopup="showCopyApiKeyPopup"
+                :isPopupShown="isNewApiKeyPopupShown"/>
+            <ApiKeysCopyPopup
+                :isPopupShown="isCopyApiKeyPopupShown"
+                :apiKeySecret="apiKeySecret"
+                @closePopup="closeCopyNewApiKeyPopup"/>
+            <div v-if="!isEmpty" class="api-keys-header">
+                <HeaderComponent ref="headerComponent" placeHolder="API Key">
+                    <div class="header-default-state" v-if="headerState === 0">
+                        <Button class="button" label="+Create API Key" width="180px" height="48px" :onPress="onCreateApiKeyClick"/>
                     </div>
-                    <div class="copy-button" v-clipboard="key" @click="onCopyClick" v-if="!isCopiedButtonShown">
-                        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M13.3763 7.7002H3.34383C2.46383 7.7002 1.76001 8.40402 1.76001 9.28402V19.3378C1.76001 20.1954 2.46383 20.9216 3.34383 20.9216H13.3976C14.2553 20.9216 14.9814 20.2178 14.9814 19.3378L14.9823 9.28402C14.96 8.40402 14.2561 7.7002 13.3761 7.7002H13.3763ZM13.6401 19.3164C13.6401 19.4488 13.5301 19.5588 13.3977 19.5588L3.34397 19.5579C3.21162 19.5579 3.10161 19.4479 3.10161 19.3156L3.10247 9.284C3.10247 9.15165 3.21247 9.04164 3.34483 9.04164H13.3986C13.5309 9.04164 13.641 9.15164 13.641 9.284L13.6401 19.3164Z" fill="white"/>
-                            <path d="M18.6563 1.09974H8.62386C7.74386 1.09974 7.04004 1.80356 7.04004 2.68356V6.37978H8.36004V2.68356C8.36004 2.55122 8.47004 2.44121 8.60239 2.44121H18.6562C18.7885 2.44121 18.8985 2.55121 18.8985 2.68356V12.7373C18.8985 12.8697 18.7885 12.9797 18.6562 12.9797H16.2799V14.2997H18.6562C19.5138 14.2997 20.24 13.5959 20.24 12.7159V2.68343C20.24 1.80343 19.5362 1.09961 18.6562 1.09961L18.6563 1.09974Z" fill="#354049"/>
-                            <rect x="2.93335" y="8.7998" width="11.7333" height="11" fill="white"/>
-                            <rect x="7.1001" y="1.2334" width="12.9333" height="12.9333" rx="1.5" fill="white" stroke="#2683FF"/>
-                        </svg>
-                        <p>Copy</p>
+                    <div class="header-selected-api-keys" v-if="headerState === 1 && !isDeleteClicked">
+                        <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onFirstDeleteClick"/>
+                        <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                     </div>
-                    <div class="copied-button" v-if="isCopiedButtonShown">
-                        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M13.3763 7.7002H3.34383C2.46383 7.7002 1.76001 8.40402 1.76001 9.28402V19.3378C1.76001 20.1954 2.46383 20.9216 3.34383 20.9216H13.3976C14.2553 20.9216 14.9814 20.2178 14.9814 19.3378L14.9823 9.28402C14.96 8.40402 14.2561 7.7002 13.3761 7.7002H13.3763ZM13.6401 19.3164C13.6401 19.4488 13.5301 19.5588 13.3977 19.5588L3.34397 19.5579C3.21162 19.5579 3.10161 19.4479 3.10161 19.3156L3.10247 9.284C3.10247 9.15165 3.21247 9.04164 3.34483 9.04164H13.3986C13.5309 9.04164 13.641 9.15164 13.641 9.284L13.6401 19.3164Z" fill="white"/>
-                            <path d="M18.6563 1.09974H8.62386C7.74386 1.09974 7.04004 1.80356 7.04004 2.68356V6.37978H8.36004V2.68356C8.36004 2.55122 8.47004 2.44121 8.60239 2.44121H18.6562C18.7885 2.44121 18.8985 2.55121 18.8985 2.68356V12.7373C18.8985 12.8697 18.7885 12.9797 18.6562 12.9797H16.2799V14.2997H18.6562C19.5138 14.2997 20.24 13.5959 20.24 12.7159V2.68343C20.24 1.80343 19.5362 1.09961 18.6562 1.09961L18.6563 1.09974Z" fill="#354049"/>
-                            <rect x="2.93335" y="8.7998" width="11.7333" height="11" fill="white"/>
-                            <rect x="7.1001" y="1.2334" width="12.9333" height="12.9333" rx="1.5" fill="white" stroke="#2683FF"/>
-                        </svg>
-                        <p>Copied</p>
-                    </div>
-                </div>
-                <div class="api-keys-area__container__new-api-key__close-cross-container" @click="onCloseClick">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
-                    </svg>
-                </div>
-                <div class="blur-content"></div>
-            </div>
-            <div class="api-keys-area__container__content">
-                <div v-if="!isEmpty" class="api-keys-header">
-                    <HeaderComponent ref="headerComponent" placeHolder="API Key">
-                        <div class="header-default-state" v-if="headerState === 0">
-                            <Button class="button" label="+Create API Key" width="180px" height="48px" :onPress="onCreateApiKeyClick"/>
-                        </div>
-                        <div class="header-selected-api-keys" v-if="headerState === 1 && !isDeleteClicked">
-                            <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onFirstDeleteClick"/>
+                    <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
+                        <span>Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}}</span>
+                        <div class="header-after-delete-click__button-area">
+                            <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
                             <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                         </div>
-                        <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                            <span>Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}}</span>
-                            <div class="header-after-delete-click__button-area">
-                                <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
-                                <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
-                            </div>
-                        </div>
-                    </HeaderComponent>
-                </div>
-                <div v-if="!isEmpty" class="api-keys-items">
-                    <div class="api-keys-items__content">
-                        <div v-for="apiKey in apiKeyList" v-on:click="toggleSelection(apiKey.id)">
-                            <ApiKeysItem
-                                v-bind:class="[apiKey.isSelected ? 'selected': null]"
-                                :apiKey="apiKey" />
-                        </div>
+                    </div>
+                </HeaderComponent>
+            </div>
+            <div v-if="!isEmpty" class="api-keys-items">
+                <div class="api-keys-items__content">
+                    <div v-for="apiKey in apiKeyList" v-on:click="toggleSelection(apiKey.id)">
+                        <ApiKeysItem
+                            v-bind:class="[apiKey.isSelected ? 'selected': null]"
+                            :apiKey="apiKey" />
                     </div>
                 </div>
             </div>
@@ -104,8 +62,9 @@
     import { ApiKey } from '@/types/apiKeys';
     import Button from '@/components/common/Button.vue';
     import { RequestResponse } from '@/types/response';
-    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
     import VueClipboards from 'vue-clipboards';
+    import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
+    import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
 
     Vue.use(VueClipboards);
 
@@ -121,19 +80,16 @@
             HeaderComponent,
             ApiKeysItem,
             Button,
-            HeaderlessInput
+            ApiKeysCreationPopup,
+            ApiKeysCopyPopup,
         },
     })
     export default class ApiKeysArea extends Vue {
         public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
-        private name: string = '';
-        private errorMessage: string = '';
-        private key: string = '';
-        private isLoading: boolean = false;
+        private isDeleteClicked: boolean = false;
         private isNewApiKeyPopupShown: boolean = false;
         private isCopyApiKeyPopupShown: boolean = false;
-        private isCopiedButtonShown: boolean = false;
-        private isDeleteClicked: boolean = false;
+        private apiKeySecret: string = '';
 
         public mounted(): void {
             this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
@@ -156,50 +112,17 @@
             this.isDeleteClicked = false;
         }
 
-        public onCloseClick(): void {
+        public closeNewApiKeyPopup() {
             this.isNewApiKeyPopupShown = false;
-            this.isCopyApiKeyPopupShown = false;
-            this.isCopiedButtonShown = false;
-            this.isDeleteClicked = false;
         }
 
-        public onChangeName(value: string): void {
-            this.name = value.trim();
-            this.errorMessage = '';
-        }
-
-        public onCopyClick(): void {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
-            this.isCopiedButtonShown = true;
-        }
-
-        public async onNextClick(): Promise<void> {
-            if (this.isLoading) {
-                return;
-            }
-
-            if (!this.name) {
-                this.errorMessage = 'API Key name can`t be empty';
-
-                return;
-            }
-
-            this.isLoading = true;
-
-            let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.name);
-            if (!result.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
-                this.isLoading = false;
-
-                return;
-            }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
-            this.key = result.data.secret;
-
-            this.isLoading = false;
-            this.isNewApiKeyPopupShown = false;
+        public showCopyApiKeyPopup(secret: string) {
             this.isCopyApiKeyPopupShown = true;
+            this.apiKeySecret = secret;
+        }
+
+        public closeCopyNewApiKeyPopup() {
+            this.isCopyApiKeyPopupShown = false;
         }
 
         public async onDelete(): Promise<void> {
@@ -264,112 +187,6 @@
             font-size: 32px;
             line-height: 39px;
             margin: 0;
-        }
-
-        &__container {
-
-            &__new-api-key {
-                padding: 32px 58px 41px 40px;
-                background-color: #FFFFFF;
-                border-radius: 24px;
-                margin-top: 29px;
-                max-width: 93.5%;
-                height: auto;
-                position: relative;
-
-                .next-button {
-                    margin-top: 20px;
-                }
-
-                &__close-cross-container {
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    position: absolute;
-                    right: 29px;
-                    top: 29px;
-                    height: 24px;
-                    width: 24px;
-                    cursor: pointer;
-
-                    &:hover svg path {
-                        fill: #2683FF;
-                    }
-                }
-            }
-
-            &__save-api-popup {
-                padding: 32px 40px 60px 40px;
-                background-color: #FFFFFF;
-                border-radius: 24px;
-                margin-top: 29px;
-                max-width: 94.8%;
-                height: auto;
-                position: relative;
-
-                &__copy-area {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    background-color: #F5F6FA;
-                    padding: 29px 32px 29px 24px;
-                    border-radius: 12px;
-                    position: relative;
-
-                    &__key-area {
-
-                        p {
-                            font-family: 'font_regular';
-                            margin: 0;
-                            font-size: 16px;
-                            line-height: 21px;
-                            word-break: break-all;
-                        }
-                    }
-
-                    .copy-button,
-                    .copied-button {
-                        display: flex;
-                        background-color: #2683FF;
-                        padding: 13px 36px;
-                        cursor: pointer;
-                        align-items: center;
-                        justify-content: space-between;
-                        color: #FFFFFF;
-                        border: 1px solid #2683FF;
-                        box-sizing: border-box;
-                        border-radius: 8px;
-                        font-size: 14px;
-                        font-family: 'font_bold';
-                        margin-left: 10px;
-
-                        p {
-                            margin: 0;
-                        }
-
-                        &:hover {
-                            background-color: #196CDA;
-                        }
-                    }
-
-                    .copied-button {
-                        padding: 13px 28.5px;
-                        background-color: #196CDA;
-                        cursor: default;
-                    }
-                }
-            }
-        }
-
-        .blur-content {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background-color: #F5F6FA;
-            width: 100%;
-            height: 70vh;
-            z-index: 100;
-            opacity: 0.3;
         }
 
         .api-keys-header {

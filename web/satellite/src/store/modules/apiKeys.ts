@@ -9,7 +9,7 @@ import { RequestResponse } from '@/types/response';
 
 export const apiKeysModule = {
     state: {
-        apiKeys: [],
+        apiKeys: []
     },
     mutations: {
         [API_KEYS_MUTATIONS.FETCH](state: any, apiKeys: ApiKey[]) {

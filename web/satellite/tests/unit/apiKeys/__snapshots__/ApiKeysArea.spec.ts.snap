@@ -6,10 +6,8 @@ exports[`ApiKeysArea renders correctly 1`] = `
   <div class="api-keys-area__container">
     <!---->
     <!---->
-    <div class="api-keys-area__container__content">
-      <!---->
-      <!---->
-    </div>
+    <!---->
+    <!---->
     <div class="empty-state">
       <div class="empty-state__wrap">
         <h1>Let's create your first API Key</h1>
