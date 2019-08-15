@@ -242,7 +242,7 @@ func (client *Download) Close() (err error) {
 	}()
 
 	client.closeWithError(nil)
-	return errs2.IgnoreCanceled(client.closingError)
+	return client.closingError
 }
 
 // ReadBuffer implements buffered reading with an error.
