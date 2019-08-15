@@ -16,7 +16,7 @@ Currently we are using Docker for automatic updates but we are migrating away fr
 * Downloads latest Storage Node binary.
 * Validate binary signature.
 * Replaces current Storage Node binary with latest Storage Node binary.
-* Kills current Storage Node binary process.
+* Trigger graceful shutdown of the current Storage Node binary process.
 
 ### Rollout message structure
 
