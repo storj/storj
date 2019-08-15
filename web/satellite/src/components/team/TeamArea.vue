@@ -63,7 +63,7 @@
     import { Component, Vue } from 'vue-property-decorator';
     import HeaderArea from '@/components/team/HeaderArea.vue';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { ProjectMember } from '@/types/projectMembers';
+    import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
     import List from '@/components/common/List.vue';
     import TeamMemberListItem from '@/components/team/TeamMemberListItem.vue';
     import Pagination from '@/components/common/Pagination.vue';
@@ -85,8 +85,6 @@
         }
     })
     export default class TeamArea extends Vue {
-        private isFetchInProgress: boolean = false;
-
         public mounted(): void {
             this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         }
@@ -135,11 +133,9 @@
         public async onHeaderSectionClickCallback(sortBy: ProjectMemberSortByEnum, sortDirection: ProjectMemberSortDirectionEnum) {
             this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
             this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
-            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+            const response: RequestResponse<ProjectMembersPage> = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-
-                return;
             }
         }
     }

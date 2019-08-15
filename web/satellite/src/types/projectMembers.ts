@@ -16,7 +16,7 @@ export class ProjectMemberCursor {
 
     public constructor() {
         this.search = '';
-        this.limit = 6;
+        this.limit = 8;
         this.page = 1;
         this.order = ProjectMemberSortByEnum.NAME;
         this.orderDirection = ProjectMemberSortDirectionEnum.ASCENDING;
