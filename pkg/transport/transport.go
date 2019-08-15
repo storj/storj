@@ -92,6 +92,9 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 			if err != nil {
 				return nil, err
 			}
+			if tcp, ok := conn.(*net.TCPConn); ok {
+				tcp.SetNoDelay(false)
+			}
 			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
 		}),
 	}, opts...)
@@ -129,6 +132,9 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 			if err != nil {
 				return nil, err
+			}
+			if tcp, ok := conn.(*net.TCPConn); ok {
+				tcp.SetNoDelay(false)
 			}
 			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
 		}),
