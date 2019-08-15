@@ -1,13 +1,25 @@
 import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
+import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue';
+import * as apiKeysApi from '@/api/apiKeys';
 import { ApiKey } from '@/types/apiKeys';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
-import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue';
+import { makeProjectsModule } from '@/store/modules/projects';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { Project } from '@/types/projects';
+import { RequestResponse } from '@/types/response';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 const apiKeysModule = makeApiKeysModule();
-const store = new Vuex.Store(apiKeysModule);
+const projectsModule = makeProjectsModule();
+
+const selectedProject = new Project();
+selectedProject.id = '1';
+
+projectsModule.state.selectedProject = selectedProject;
+
+const store = new Vuex.Store({modules: { projectsModule, apiKeysModule }});
 
 describe('ApiKeysCreationPopup', () => {
     let value = 'testValue';
@@ -58,47 +70,14 @@ describe('ApiKeysCreationPopup', () => {
 
         expect(wrapper.vm.$data.errorMessage).toMatch('API Key name can`t be empty');
     });
-});
-
-describe('ApiKeysArea async success', () => {
-    let store;
-    let actions;
-    let state;
-    let getters;
-    let apiKey = new ApiKey('testId', 'test', 'test', 'test');
-
-    beforeEach(() => {
-        actions = {
-            createAPIKey: async () => {
-                return {
-                    errorMessage: '',
-                    isSuccess: true,
-                    data: apiKey,
-                };
-            },
-            success: jest.fn()
-        };
-
-        getters = {
-            selectedAPIKeys: () => [apiKey]
-        };
-
-        state = {
-            apiKeys: [apiKey]
-        };
-
-        store = new Vuex.Store({
-            modules: {
-                apiKeysModule: {
-                    state,
-                    actions,
-                    getters
-                }
-            }
-        });
-    });
 
     it('action on onNextClick with name works correctly', async () => {
+        jest.spyOn(apiKeysApi, 'createAPIKey').mockReturnValue(
+            Promise.resolve(<RequestResponse<ApiKey>>{
+                isSuccess: true,
+                data: {id: 'testId',  secret: 'testSecret',  name: 'testName',  createdAt: 'test'}, errorMessage: ''})
+        );
+
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
             localVue,
@@ -109,12 +88,10 @@ describe('ApiKeysArea async success', () => {
 
         wrapper.vm.onNextClick();
 
-        let result = await actions.createAPIKey();
+        let result = await store.dispatch(API_KEYS_ACTIONS.CREATE, 'testName');
 
-        expect(actions.success.mock.calls).toHaveLength(1);
         expect(wrapper.vm.$data.key).toBe(result.data.secret);
         expect(wrapper.vm.$data.isLoading).toBe(false);
-        expect(wrapper.emitted()).toEqual({'closePopup': [[]], 'showCopyPopup': [['test']]});
+        expect(wrapper.emitted()).toEqual({'closePopup': [[]], 'showCopyPopup': [['testSecret']]});
     });
 });
-
