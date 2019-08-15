@@ -4,6 +4,7 @@
 <template>
     <div class="item-component">
         <component
+            ref="listComponent"
             v-for="item in dataSet"
             class="item-component__item"
             :is="itemComponent"
@@ -16,8 +17,12 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
+    import ApiKeysItem from "@/components/apiKeys/ApiKeysItem.vue";
 
     declare type listItemClickCallback = (item: any) => Promise<void>;
+    declare interface DisableContent {
+        disableContent: () => void;
+    }
 
     @Component
     export default class List extends Vue {
@@ -31,6 +36,14 @@
         private readonly onItemClick: listItemClickCallback;
         @Prop({default: Array()})
         private readonly dataSet: any[];
+
+        public $refs!: {
+            listComponent: ApiKeysItem & DisableContent;
+        };
+
+        public disableContent() {
+            this.$refs.listComponent.disableContent();
+        }
     }
 </script>
 

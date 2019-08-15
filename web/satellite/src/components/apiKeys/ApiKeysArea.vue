@@ -33,11 +33,12 @@
             </div>
             <div v-if="!isEmpty" class="api-keys-items">
                 <div class="api-keys-items__content">
-                    <div v-for="apiKey in apiKeyList" v-on:click="toggleSelection(apiKey.id)">
-                        <ApiKeysItem
-                            :class="{selected: apiKey.isSelected}"
-                            :apiKey="apiKey" />
-                    </div>
+                    <SortingHeader/>
+                    <List
+                        ref="listComponent"
+                        :dataSet="apiKeyList"
+                        :itemComponent="itemComponent"
+                        :onItemClick="toggleSelection"/>
                 </div>
             </div>
             <EmptyState
@@ -52,15 +53,16 @@
     </div>
 </template>
 
-<script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+<script lang="ts">    import { Component, Vue } from 'vue-property-decorator';
     import VueClipboards from 'vue-clipboards';
     import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
     import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
     import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
     import Button from '@/components/common/Button.vue';
     import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import List from "@/components/common/List.vue";
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
+    import SortingHeader from "@/components/apiKeys/SortingHeader.vue";
     import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { ApiKey } from '@/types/apiKeys';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
@@ -74,14 +76,20 @@
         ON_SELECT,
     }
 
+    declare interface DisableContent {
+        disableContent: () => void;
+    }
+
     @Component({
         components: {
+            List,
             EmptyState,
             HeaderComponent,
             ApiKeysItem,
             Button,
             ApiKeysCreationPopup,
             ApiKeysCopyPopup,
+            SortingHeader,
         },
     })
     export default class ApiKeysArea extends Vue {
@@ -91,12 +99,20 @@
         private isCopyApiKeyPopupShown: boolean = false;
         private apiKeySecret: string = '';
 
+        public $refs!: {
+            itemComponent: List & DisableContent;
+        };
+
         public mounted(): void {
             this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
         }
 
-        public toggleSelection(id: string): void {
-            this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
+        public disableContent() {
+            this.$refs.itemComponent.disableContent();
+        }
+
+        public toggleSelection(apiKey: ApiKey): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, apiKey.id);
         }
 
         public onCreateApiKeyClick(): void {
@@ -105,6 +121,7 @@
 
         public onFirstDeleteClick(): void {
             this.isDeleteClicked = true;
+            this.disableContent();
         }
 
         public onClearSelection(): void {
@@ -139,6 +156,10 @@
             }
 
             this.isDeleteClicked = false;
+        }
+
+        public get itemComponent() {
+            return ApiKeysItem;
         }
 
         public get apiKeyList(): ApiKey[] {
@@ -200,12 +221,10 @@
             height: 82vh;
 
             &__content {
-                display: grid;
-                grid-template-columns: 190px 190px 190px 190px 190px 190px 190px;
+                display: flex;
+                flex-direction: column;
                 width: 100%;
-                grid-row-gap: 20px;
-                grid-column-gap: 20px;
-                justify-content: space-between;
+                justify-content: flex-start;
                 margin-top: 20px;
                 margin-bottom: 100px;
             }
