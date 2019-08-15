@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 	"storj.io/storj/drpc"
 	"storj.io/storj/drpc/drpcutil"
 	"storj.io/storj/drpc/drpcwire"
@@ -124,6 +125,11 @@ func (s *Stream) RawCloseRecv() {
 	if s.recvSig.SignalWithError(nil) {
 		close(s.queue)
 	}
+}
+
+func (s *Stream) RawCancel() error {
+	// TODO: make this a thing
+	return errs.New("TODO")
 }
 
 //

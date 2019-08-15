@@ -57,6 +57,10 @@ func (c *Client) newStream(ctx context.Context) *drpcstream.Stream {
 }
 
 func (c *Client) monitorStream(ctx context.Context, stream *drpcstream.Stream) {
+	// TODO: this is wrong. We don't handle contexts correctly and that needs
+	// to be its own signaling, like PayloadKind_Close.PayloadKind_Cancel? Then
+	// the server can propagate the cancel as well. stream.RawCancel()?
+
 	var err error
 	select {
 	case <-ctx.Done():

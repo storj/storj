@@ -31,82 +31,84 @@ func TestSimple(t *testing.T) {
 
 	fmt.Println("=== 1")
 	out, err := cli.Method1(context.Background(), &pb.In{In: 1})
-	fmt.Println("cli", out, err)
+	fmt.Println("=> 1.0 =>", out, err)
 
 	fmt.Println("=== 2")
 	stream2, err := cli.Method2(context.Background())
+	fmt.Println("=> 2.0 =>", err)
 	defer stream2.Close()
-	fmt.Println("cli", err, stream2.Send(&pb.In{In: 2}))
+	fmt.Println("=> 2.1 =>", stream2.Send(&pb.In{In: 2}))
 	out, err = stream2.CloseAndRecv()
-	fmt.Println("cli", out, err)
+	fmt.Println("=> 2.2 =>", out, err)
 
 	fmt.Println("=== 3")
 	stream3, err := cli.Method3(context.Background(), &pb.In{In: 3})
 	defer stream3.Close()
-	fmt.Println("cli", err)
+	fmt.Println("=> 3.0 =>", err)
 	for {
 		out, err := stream3.Recv()
-		fmt.Println("cli", out, err)
-		if err == io.EOF {
+		fmt.Println("=> 3.1 =>", out, err)
+		if err != nil {
 			break
 		}
 	}
-	stream3.Close()
 
 	fmt.Println("=== 4")
-	stream4, err := cli.Method4(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	stream4, err := cli.Method4(ctx)
 	defer stream4.Close()
-	fmt.Println("cli", stream4.Send(&pb.In{In: 4}))
-	fmt.Println("cli", stream4.Send(&pb.In{In: 4}))
-	fmt.Println("cli", stream4.Send(&pb.In{In: 4}))
-	fmt.Println("cli", stream4.CloseSend())
+	fmt.Println("=> 4.0 =>", stream4.Send(&pb.In{In: 4}))
+	fmt.Println("=> 4.1 =>", stream4.Send(&pb.In{In: 4}))
+	fmt.Println("=> 4.2 =>", stream4.Send(&pb.In{In: 4}))
+	cancel()
+	fmt.Println("=> 4.3 =>", stream4.Send(&pb.In{In: 5}))
+	fmt.Println("=> 4.4 =>", stream4.CloseSend())
 	for {
 		out, err := stream4.Recv()
-		fmt.Println("cli", out, err)
-		if err == io.EOF {
+		fmt.Println("=> 4.5 =>", out, err)
+		if err != nil {
 			break
 		}
 	}
 
-	pr1.Close()
-	pr2.Close()
-	pw1.Close()
-	pw2.Close()
 	select {}
 }
 
 type impl struct{}
 
 func (impl) DRPCMethod1(ctx context.Context, in *pb.In) (*pb.Out, error) {
-	fmt.Println("srv", in)
+	fmt.Println("<= 1.0 <=", in)
 	return &pb.Out{Out: 1}, nil
 }
 
 func (impl) DRPCMethod2(stream pb.DRPCService_Method2Stream) error {
 	for {
 		in, err := stream.Recv()
-		fmt.Println("srv", in, err)
-		if err == io.EOF {
+		fmt.Println("<= 2.0 <=", in, err)
+		if err != nil {
 			break
 		}
 	}
-	return stream.SendAndClose(&pb.Out{Out: 2})
+	err := stream.SendAndClose(&pb.Out{Out: 2})
+	fmt.Println("<= 2.1 <=", err)
+	return err
 }
 
 func (impl) DRPCMethod3(in *pb.In, stream pb.DRPCService_Method3Stream) error {
-	fmt.Println("srv", in)
+	fmt.Println("<= 3.0 <=", in)
 	var err error
 	err = errs.Combine(err, stream.Send(&pb.Out{Out: 3}))
 	err = errs.Combine(err, stream.Send(&pb.Out{Out: 3}))
 	err = errs.Combine(err, stream.Send(&pb.Out{Out: 3}))
+	fmt.Println("<= 3.1 <=", err)
 	return err
 }
 
 func (impl) DRPCMethod4(stream pb.DRPCService_Method4Stream) error {
 	for {
 		in, err := stream.Recv()
-		fmt.Println("srv", in, err)
-		if err == io.EOF {
+		fmt.Println("<= 4.0 <=", in, err)
+		if err != nil {
 			break
 		}
 	}
@@ -115,5 +117,6 @@ func (impl) DRPCMethod4(stream pb.DRPCService_Method4Stream) error {
 	err = errs.Combine(err, stream.Send(&pb.Out{Out: 4}))
 	err = errs.Combine(err, stream.Send(&pb.Out{Out: 4}))
 	err = errs.Combine(err, stream.Send(&pb.Out{Out: 4}))
+	fmt.Println("<= 4.1 <=", err)
 	return err
 }
