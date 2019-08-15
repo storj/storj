@@ -653,6 +653,13 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 
 	go func(satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) {
 		if endpoint.retainCtx != nil {
+			select {
+			case <-endpoint.retainCtx.Done():
+				endpoint.log.Error("retain error", zap.Error(endpoint.retainCtx.Err()))
+				return
+			default:
+			}
+
 			err := endpoint.RetainPieces(endpoint.retainCtx, satelliteID, createdBefore, filter)
 			if err != nil {
 				endpoint.log.Error("retain error", zap.Error(err))
