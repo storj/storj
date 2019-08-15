@@ -7,26 +7,21 @@ import sinon from 'sinon';
 import Notification from '@/components/notifications/Notification.vue';
 import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 import { DelayedNotification } from '@/types/DelayedNotification';
+import { makeNotificationsModule } from '@/store/modules/notifications';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 const localVue = createLocalVue();
 
 localVue.use(Vuex);
-
 const pauseSpy = sinon.spy();
 const resumeSpy = sinon.spy();
 const deleteSpy = sinon.spy();
+const notificationModule = makeNotificationsModule();
+notificationModule.actions[NOTIFICATION_ACTIONS.PAUSE] = pauseSpy;
+notificationModule.actions[NOTIFICATION_ACTIONS.RESUME] = resumeSpy;
+notificationModule.actions[NOTIFICATION_ACTIONS.DELETE] = deleteSpy;
 
-const store = new Vuex.Store({
-    modules: {
-        notificationsModule: {
-            actions: {
-                pauseNotification: pauseSpy,
-                resumeNotification: resumeSpy,
-                deleteNotification: deleteSpy,
-            }
-        }
-    }
-});
+const store = new Vuex.Store(notificationModule);
 
 describe('Notification.vue', () => {
 
