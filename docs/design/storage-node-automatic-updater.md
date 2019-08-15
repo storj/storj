@@ -15,7 +15,7 @@ The Updater has several responsibilities:
 1. figure out whether something needs to be updated with gradual rollout,
 2. safely download the binaries,
 3. safely update the binaries,
-4. safely restart the binaries and
+4. safely restart the binaries
 
 ## Design
 
@@ -60,7 +60,7 @@ Once we have decided on a new version we need to download the new version. We wi
 
 Once we have successfully downloaded we must verify that the binary signature is valid.
 
-* The downloaded file may be quaranteed by the anti-virus or blocked by the firewall.
+* The downloaded file may be quarantined by the anti-virus or blocked by the firewall.
 
 Possible problems:
 * downloading could fail
