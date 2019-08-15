@@ -1129,7 +1129,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						node_id bytea NOT NULL,
 						serial_number bytea NOT NULL,
 						peer_chain bytea NOT NULL,
-						update_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( node_id )
 					);`,
 				},

@@ -121,7 +121,7 @@ CREATE TABLE peer_identities (
 	node_id BLOB NOT NULL,
 	serial_number BLOB NOT NULL,
 	peer_chain BLOB NOT NULL,
-	update_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE pending_audits (
@@ -283,7 +283,7 @@ CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_ba
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
-CREATE INDEX serial_number_update_at ON peer_identities ( serial_number, update_at );
+CREATE INDEX serial_number_updated_at ON peer_identities ( serial_number, updated_at );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );

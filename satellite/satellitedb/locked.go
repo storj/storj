@@ -700,7 +700,7 @@ func (m *locked) DropSchema(schema string) error {
 	return m.db.DropSchema(schema)
 }
 
-// IdentDB is a getter for the peer identity cache
+// IdentDB is a getter for the peer identity
 func (m *locked) IdentDB() identdb.DB {
 	m.Lock()
 	defer m.Unlock()

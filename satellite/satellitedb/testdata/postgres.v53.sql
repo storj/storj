@@ -284,10 +284,10 @@ CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
 	serial_number bytea NOT NULL,
 	peer_chain bytea NOT NULL,
-	update_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
-CREATE INDEX serial_number_update_at ON peer_identities ( serial_number, update_at );
+CREATE INDEX serial_number_updated_at ON peer_identities ( serial_number, updated_at );
 
 ---
 

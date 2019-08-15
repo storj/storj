@@ -50,7 +50,7 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 		if err == sql.ErrNoRows {
 			_, err = tx.Exec(certs.db.Rebind(
 				`INSERT INTO peer_identities 
-				( serial_number, peer_chain, node_id, update_at ) 
+				( serial_number, peer_chain, node_id, updated_at ) 
 				VALUES ( ?, ?, ?, ? );`),
 				peerIdent.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
 			if err != nil {
@@ -65,7 +65,7 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 		_, err = tx.Exec(certs.db.Rebind(
 			`UPDATE peer_identities SET 
 			node_id = ?, serial_number = ?, 
-			peer_chain = ?, update_at = ? 
+			peer_chain = ?, updated_at = ? 
 			WHERE node_id = ?`),
 			nodeID.Bytes(), peerIdent.Leaf.SerialNumber.Bytes(), chain, time.Now(), nodeID.Bytes())
 		if err != nil {
@@ -78,7 +78,7 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 // Get gets the peer identity based on the certificate's nodeID
 func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxPeerID, err := certs.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdateAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+	dbxPeerID, err := certs.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

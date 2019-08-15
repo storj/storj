@@ -621,14 +621,14 @@ model peer_identity (
     key node_id
 
     index (
-        name serial_number_update_at
-        fields serial_number update_at 
+        name serial_number_updated_at
+        fields serial_number updated_at 
     )
     
     field node_id        blob
     field serial_number  blob
     field peer_chain     blob      // x509 ASN.1 DER content 
-    field update_at timestamp ( autoinsert, autoupdate )
+    field updated_at timestamp ( autoinsert, autoupdate )
 )
 
 create peer_identity ( )
@@ -636,7 +636,7 @@ create peer_identity ( )
 read one (
     select peer_identity
     where  peer_identity.node_id = ?
-    orderby desc peer_identity.update_at
+    orderby desc peer_identity.updated_at
 )
 
 
