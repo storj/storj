@@ -18,7 +18,7 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue, Prop } from 'vue-property-decorator';
+    import { Component, Vue, Prop, Watch } from "vue-property-decorator";
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import PagesBlock from '@/components/common/PagesBlock.vue';
     import { Page } from '@/types/pagination';
@@ -45,6 +45,8 @@
         private readonly totalPageCount: number;
         @Prop({default: () => { return new Promise(() => false); }})
         private readonly onPageClickCallback: OnPageClickCallback;
+        @Prop({default: 1})
+        private readonly pageIndex: number;
 
         public mounted() {
             this.populatePagesArray();
@@ -69,6 +71,18 @@
 
         public isSelected(page: number): boolean {
             return page === this.currentPageNumber;
+        }
+
+        @Watch('totalPageCount')
+        public onPageCountChange(val: number, oldVal: number) {
+            console.log('val: ' + val + 'oldVal: ' + oldVal + 'this.:' + this.totalPageCount);
+            this.resetPageIndex();
+        }
+
+        @Watch('pageIndex')
+        public onPageIndexChange(val: number, oldVal: number) {
+            console.log('PAGE INDEX CHANGE val: ' + val + 'oldVal: ' + oldVal + 'this.:' + this.pageIndex);
+            this.resetPageIndex();
         }
 
         public async onPageClick(page: number): Promise<void> {
@@ -105,6 +119,15 @@
             this.decrementCurrentPage();
             this.reorganizePageBlocks();
             this.isLoading = false;
+        }
+
+        public resetPageIndex() {
+            console.log("reset")
+            this.pagesArray = [];
+            this.firstBlockPages = [];
+            this.setCurrentPage(1);
+
+            this.populatePagesArray();
         }
 
         private populatePagesArray(): void {

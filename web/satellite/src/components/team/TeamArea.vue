@@ -19,7 +19,9 @@
             <Pagination
                 class="pagination-area"
                 :totalPageCount="totalPageCount"
-                :onPageClickCallback="onPageClick"/>
+                :onPageClickCallback="onPageClick"
+                :pageIndex="pageIndex"
+            />
         </div>
         <div class="empty-search-result-area" v-if="(projectMembers.length === 0 && projectMembersCount === 0)">
             <h1 class="empty-search-result-area__text">No results found</h1>
@@ -109,6 +111,11 @@
             return this.$store.state.projectMembersModule.page.pageCount;
         }
 
+        public get pageIndex(): number {
+
+            return this.$store.state.projectMembersModule.page.currentPage;
+        }
+
         public get selectedProjectMembers(): ProjectMember[] {
             return this.$store.getters.selectedProjectMembers;
         }
@@ -129,8 +136,11 @@
             this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
             this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
             const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-            if (response.isSuccess) return;
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+
+                return;
+            }
         }
     }
 </script>
