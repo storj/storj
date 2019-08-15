@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package drpcwire
+package drpcwire_test
 
 import (
 	"fmt"
@@ -9,8 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+	"storj.io/storj/drpc/drpctest"
+	"storj.io/storj/drpc/drpcutil"
+	"storj.io/storj/drpc/drpcwire"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 )
@@ -24,15 +26,15 @@ func TestSplitRecv(t *testing.T) {
 
 	// set up shared state for the senders and receivers to communicate
 	pr, pw := io.Pipe()
-	chRecv := make(chan Packet, numPackets)
-	chSent := make(chan Packet, numPackets)
+	chRecv := make(chan drpcwire.Packet, numPackets)
+	chSent := make(chan drpcwire.Packet, numPackets)
 
 	// launch a goroutine to receive packets and send them down a channel
 	ctx.Go(func() error {
 		defer close(chRecv)
 		defer pr.Close()
 
-		recv := NewReceiver(pr)
+		recv := drpcwire.NewReceiver(pr)
 		for {
 			pkt, err := recv.ReadPacket()
 			if err != nil {
@@ -49,11 +51,11 @@ func TestSplitRecv(t *testing.T) {
 	var group errgroup.Group
 	for i := 0; i < numPackets; i++ {
 		group.Go(func() error {
-			buf := NewBuffer(pw, 64*1024)
-			pkt := RandCompletePacket()
+			buf := drpcutil.NewBuffer(pw, 64*1024)
+			pkt := drpctest.RandCompletePacket()
 			chSent <- pkt
 
-			err := Split(pkt.Header.PayloadKind, pkt.Header.PacketID, pkt.Data, buf.Write)
+			err := drpcwire.Split(pkt.Header.PayloadKind, pkt.Header.PacketID, pkt.Data, buf.Write)
 			if err != nil {
 				pw.CloseWithError(err)
 				return err
@@ -80,18 +82,36 @@ func TestSplitRecv(t *testing.T) {
 
 	// record what was sent and what was received in a way that makes it easy
 	// to compare the two and then ensure they are equal.
-	recordPacket := func(to map[Header][]byte, pkt Packet) { to[pkt.Header] = pkt.Data }
 	size := int64(0)
-	got := make(map[Header][]byte)
+	got := make(map[drpcwire.Header][]byte)
 	for pkt := range chRecv {
-		recordPacket(got, pkt)
+		got[pkt.Header] = pkt.Data
 		size += int64(len(pkt.Data))
 	}
-	exp := make(map[Header][]byte)
+	exp := make(map[drpcwire.Header][]byte)
 	for pkt := range chSent {
-		recordPacket(exp, pkt)
+		exp[pkt.Header] = pkt.Data
 		size += int64(len(pkt.Data))
 	}
 	t.Logf("rate: %s/s", memory.Size(float64(size)/stop.Sub(start).Seconds()))
-	require.Equal(t, exp, got)
+
+	if len(got) != len(exp) {
+		t.Fatalf("got:%d exp:%d", len(got), len(exp))
+	}
+	for hdr, gdata := range got {
+		if edata, ok := exp[hdr]; !ok || string(gdata) != string(edata) {
+			t.Log("ok: ", ok)
+			t.Log("got:", &drpcwire.Packet{Header: hdr, Data: gdata})
+			t.Log("exp:", &drpcwire.Packet{Header: hdr, Data: edata})
+			t.FailNow()
+		}
+	}
+	for hdr, edata := range exp {
+		if gdata, ok := got[hdr]; !ok || string(edata) != string(gdata) {
+			t.Log("ok: ", ok)
+			t.Log("got:", &drpcwire.Packet{Header: hdr, Data: gdata})
+			t.Log("exp:", &drpcwire.Packet{Header: hdr, Data: edata})
+			t.FailNow()
+		}
+	}
 }

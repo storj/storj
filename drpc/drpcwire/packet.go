@@ -14,10 +14,13 @@ type PayloadKind uint8
 
 const (
 	PayloadKind_Reserved PayloadKind = iota
-	PayloadKind_Invoke
-	PayloadKind_Message
-	PayloadKind_Error
-	payloadKind_largest
+
+	PayloadKind_Invoke  // body is rpc name
+	PayloadKind_Message // body is message data
+	PayloadKind_Error   // body is error data
+	PayloadKind_Close   // body must be empty
+
+	PayloadKind_Largest
 )
 
 // MaxPacketSize is the maximum size of any packet on the wire.
@@ -42,7 +45,7 @@ func ParsePacketID(buf []byte) (rem []byte, pid PacketID, ok bool, err error) {
 		goto bad
 	}
 
-	rem, pid.StreamID, ok, err = readVarint(buf)
+	rem, pid.StreamID, ok, err = ReadVarint(buf)
 	if !ok || err != nil {
 		goto bad
 	}
@@ -50,7 +53,7 @@ func ParsePacketID(buf []byte) (rem []byte, pid PacketID, ok bool, err error) {
 		err = drpc.ProtocolError.New("zero stream id")
 		goto bad
 	}
-	rem, pid.MessageID, ok, err = readVarint(rem)
+	rem, pid.MessageID, ok, err = ReadVarint(rem)
 	if !ok || err != nil {
 		goto bad
 	}
@@ -66,7 +69,7 @@ bad:
 
 // AppendPacketID appends a byte form of the packet id to buf.
 func AppendPacketID(buf []byte, pid PacketID) []byte {
-	return appendVarint(appendVarint(buf, pid.StreamID), pid.MessageID)
+	return AppendVarint(AppendVarint(buf, pid.StreamID), pid.MessageID)
 }
 
 //

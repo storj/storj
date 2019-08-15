@@ -1,12 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package drpcwire
+package drpcwire_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"storj.io/storj/drpc/drpctest"
+	"storj.io/storj/drpc/drpcwire"
 )
 
 func TestAppendParse(t *testing.T) {
@@ -22,29 +24,29 @@ func TestAppendParse(t *testing.T) {
 
 	t.Run("PacketID_RoundTrip_Fuzz", func(t *testing.T) {
 		for i := 0; i < 10000; i++ {
-			exp := RandPacketID()
-			requireGoodParse(t, exp)(ParsePacketID(AppendPacketID(nil, exp)))
+			exp := drpctest.RandPacketID()
+			requireGoodParse(t, exp)(drpcwire.ParsePacketID(drpcwire.AppendPacketID(nil, exp)))
 		}
 	})
 
 	t.Run("FrameInfo_RoundTrip_Fuzz", func(t *testing.T) {
 		for i := 0; i < 10000; i++ {
-			exp := RandFrameInfo()
-			requireGoodParse(t, exp)(ParseFrameInfo(AppendFrameInfo(nil, exp)))
+			exp := drpctest.RandFrameInfo()
+			requireGoodParse(t, exp)(drpcwire.ParseFrameInfo(drpcwire.AppendFrameInfo(nil, exp)))
 		}
 	})
 
 	t.Run("Header_RoundTrip_Fuzz", func(t *testing.T) {
 		for i := 0; i < 10000; i++ {
-			exp := RandHeader()
-			requireGoodParse(t, exp)(ParseHeader(AppendHeader(nil, exp)))
+			exp := drpctest.RandHeader()
+			requireGoodParse(t, exp)(drpcwire.ParseHeader(drpcwire.AppendHeader(nil, exp)))
 		}
 	})
 
 	t.Run("Packet_RoundTrip_Fuzz", func(t *testing.T) {
 		for i := 0; i < 1000; i++ {
-			exp := RandIncompletePacket()
-			requireGoodParse(t, exp)(ParsePacket(AppendPacket(nil, exp)))
+			exp := drpctest.RandIncompletePacket()
+			requireGoodParse(t, exp)(drpcwire.ParsePacket(drpcwire.AppendPacket(nil, exp)))
 		}
 	})
 }

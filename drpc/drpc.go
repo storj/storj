@@ -14,6 +14,7 @@ var (
 	InternalError = errs.Class("internal error")
 	ProtocolError = errs.Class("protocol error")
 	Canceled      = errs.Class("canceled")
+	StreamClosed  = errs.Class("stream closed")
 )
 
 type Message interface {
@@ -28,10 +29,9 @@ type Client interface {
 }
 
 type Stream interface {
-	Send(msg Message) error
-	Recv(msg Message) error
+	MsgSend(msg Message) error
+	MsgRecv(msg Message) error
 	CloseSend() error
-	CloseRecv() error
 	Close() error
 }
 

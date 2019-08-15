@@ -22,7 +22,7 @@ type session struct {
 	mu      sync.Mutex
 	streams map[uint64]*drpcstream.Stream
 	recv    *drpcwire.Receiver
-	lbuf    *drpcutil.LockedBuffer
+	lbuf    *drpcutil.Buffer
 }
 
 func newSession(rw io.ReadWriter, rpcs map[string]rpcData) *session {
@@ -31,7 +31,7 @@ func newSession(rw io.ReadWriter, rpcs map[string]rpcData) *session {
 		rpcs:    rpcs,
 		streams: make(map[uint64]*drpcstream.Stream),
 		recv:    drpcwire.NewReceiver(rw),
-		lbuf:    drpcutil.NewLockedBuffer(drpcwire.NewBuffer(rw, drpcwire.MaxPacketSize)),
+		lbuf:    drpcutil.NewBuffer(rw, drpcwire.MaxPacketSize),
 	}
 }
 
@@ -54,7 +54,6 @@ func (s *session) monitorStream(stream *drpcstream.Stream) {
 func (s *session) Run() error {
 	for {
 		p, err := s.recv.ReadPacket()
-		// fmt.Println("rawsrv", p, err)
 		switch {
 		case err != nil:
 			return err
@@ -81,29 +80,27 @@ func (s *session) Run() error {
 			stream.Sig().SignalWithError(drpc.ProtocolError.New("invoke on an existing stream"))
 
 		case p.PayloadKind == drpcwire.PayloadKind_Error:
-			switch {
-			case len(p.Data) > 0:
-				stream.Sig().SignalWithError(errs.New("%s", p.Data))
-			case stream.Remote().SignalWithError(nil):
-				close(stream.Queue())
-			default:
-				stream.Sig().SignalWithError(drpc.ProtocolError.New("client sent after stream closed"))
-			}
+			stream.Sig().SignalWithError(errs.New("%s", p.Data))
+
+		case p.PayloadKind == drpcwire.PayloadKind_Close:
+			stream.RawCloseRecv()
+
+			s.mu.Lock()
+			delete(s.streams, stream.StreamID())
+			s.mu.Unlock()
 
 		default:
 			// we do a double select to ensure that multiple loops of packets cannot
 			// send into the queue multiple times when the client or stream is closed.
 			select {
 			case <-stream.Sig().Signal(): // stream dead: just drop the message
-			case <-stream.RecvSig().Signal(): // stream closed recv: just drop the message
-			case <-stream.Remote().Signal(): // remote already said stream is done: problem
-				stream.Sig().SignalWithError(drpc.ProtocolError.New("server sent after stream closed"))
+			case <-stream.RecvSig().Signal(): // remote already said stream is done: problem
+				stream.Sig().SignalWithError(drpc.ProtocolError.New("client sent after CloseSend"))
 			default:
 				select {
 				case <-stream.Sig().Signal(): // stream dead: just drop the message
-				case <-stream.RecvSig().Signal(): // stream closed recv: just drop the message
-				case <-stream.Remote().Signal(): // remote already said stream is done: problem
-					stream.Sig().SignalWithError(drpc.ProtocolError.New("server sent after stream closed"))
+				case <-stream.RecvSig().Signal(): // remote already said stream is done: problem
+					stream.Sig().SignalWithError(drpc.ProtocolError.New("client sent after CloseSend"))
 				case stream.Queue() <- p: // yay we passed the message
 				default: // producer overan: kill stream
 					stream.Sig().SignalWithError(drpc.Error.New("stream buffer full"))
@@ -114,14 +111,17 @@ func (s *session) Run() error {
 }
 
 func (s *session) runRPC(stream *drpcstream.Stream, data rpcData) {
-	stream.RawCloseWithError(s.performRPC(stream, data))
+	defer stream.Close()
+	if err := s.performRPC(stream, data); err != nil {
+		stream.RawSend(drpcwire.PayloadKind_Error, []byte(err.Error()))
+	}
 }
 
 func (s *session) performRPC(stream *drpcstream.Stream, data rpcData) (err error) {
 	var in interface{} = stream
 	if data.in1 != streamType {
 		msg := reflect.New(data.in1.Elem()).Interface().(drpc.Message)
-		if err := stream.Recv(msg); err != nil {
+		if err := stream.MsgRecv(msg); err != nil {
 			return err
 		}
 		in = msg
@@ -132,7 +132,7 @@ func (s *session) performRPC(stream *drpcstream.Stream, data rpcData) (err error
 	case err != nil:
 		return err
 	case out != nil:
-		return stream.Send(out.(drpc.Message))
+		return stream.MsgSend(out.(drpc.Message))
 	default:
 		return nil
 	}

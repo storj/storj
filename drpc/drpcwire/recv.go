@@ -44,26 +44,31 @@ func (r *Receiver) ReadPacket() (p *Packet, err error) {
 		// the scanner should return us exactly one packet, so if there's remaining
 		// bytes or if it didn't parse, then there's some internal error.
 		rem, pkt, ok, err = ParsePacket(r.scanner.Bytes())
-		if err != nil {
+		switch {
+		case err != nil:
 			return nil, drpc.InternalError.Wrap(err)
-		} else if !ok {
+		case !ok:
 			return nil, drpc.InternalError.New("invalid data returned from scanner")
-		} else if len(rem) != 0 {
+		case len(rem) != 0:
 			return nil, drpc.InternalError.New("remaining bytes from parsing packet")
-		} else if len(pkt.Data) != int(pkt.Length) {
+		case pkt.Length == 0 && pkt.PayloadKind != PayloadKind_Close:
+			return nil, drpc.InternalError.New("invalid zero data length packet sent")
+		case len(pkt.Data) != int(pkt.Length):
 			return nil, drpc.InternalError.New("invalid length of data and header length")
 		}
 
 		// get the payload state for the packet and ensure that the starting bit on the
 		// frame is consistent with the payload state's existence.
 		state, packetExists := r.pending[pkt.PacketID]
-		if !packetExists && !pkt.Starting {
+		switch {
+		case !packetExists && !pkt.Starting:
 			return nil, drpc.ProtocolError.New("unknown packet id with no starting bit")
-		} else if packetExists && pkt.Starting {
+		case packetExists && pkt.Starting:
 			return nil, drpc.ProtocolError.New("starting packet id that already exists")
-		} else if packetExists && state.kind != pkt.PayloadKind {
+		case packetExists && state.kind != pkt.PayloadKind:
 			return nil, drpc.ProtocolError.New("changed payload kind for in flight message")
 		}
+
 		state = payloadState{
 			kind: pkt.PayloadKind,
 			data: append(state.data, pkt.Data...),
@@ -76,6 +81,7 @@ func (r *Receiver) ReadPacket() (p *Packet, err error) {
 			pkt.Data = state.data
 			break
 		}
+
 		r.pending[pkt.PacketID] = state
 	}
 

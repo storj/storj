@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"storj.io/storj/drpc"
 	"storj.io/storj/drpc/drpcstream"
@@ -24,7 +25,7 @@ type Client struct {
 	mu      sync.Mutex
 	streams map[uint64]*drpcstream.Stream
 	recv    *drpcwire.Receiver
-	lbuf    *drpcutil.LockedBuffer
+	lbuf    *drpcutil.Buffer
 }
 
 var _ drpc.Client = (*Client)(nil)
@@ -35,7 +36,7 @@ func New(rw io.ReadWriter) *Client {
 		rw:      rw,
 		streams: make(map[uint64]*drpcstream.Stream),
 		recv:    drpcwire.NewReceiver(rw),
-		lbuf:    drpcutil.NewLockedBuffer(drpcwire.NewBuffer(rw, drpcwire.MaxPacketSize)),
+		lbuf:    drpcutil.NewBuffer(rw, drpcwire.MaxPacketSize),
 	}
 	go c.fillStreamQueues()
 	return c
@@ -78,8 +79,6 @@ func (c *Client) fillStreamQueues() {
 
 	for {
 		p, err := c.recv.ReadPacket()
-		// fmt.Println("rawcli", p, err)
-
 		switch {
 		case err != nil:
 			c.sig.SignalWithError(err)
@@ -101,35 +100,32 @@ func (c *Client) fillStreamQueues() {
 			stream.Sig().SignalWithError(drpc.ProtocolError.New("server sent invoke message"))
 
 		case p.PayloadKind == drpcwire.PayloadKind_Error:
-			switch {
-			case len(p.Data) > 0:
-				stream.Sig().SignalWithError(errs.New("%s", p.Data))
-			case stream.Remote().SignalWithError(nil):
-				close(stream.Queue())
-			default:
-				c.sig.SignalWithError(drpc.ProtocolError.New("server sent after stream closed"))
-				return
-			}
+			stream.Sig().SignalWithError(errs.New("%s", p.Data))
+
+		case p.PayloadKind == drpcwire.PayloadKind_Close:
+			stream.RawCloseRecv()
+
+			c.mu.Lock()
+			delete(c.streams, stream.StreamID())
+			c.mu.Unlock()
 
 		default:
 			// we do a double select to ensure that multiple loops of packets cannot
 			// send into the queue multiple times when the client or stream is closed.
 			select {
 			case <-stream.Sig().Signal(): // stream dead: just drop the message
-			case <-stream.RecvSig().Signal(): // stream closed recv: just drop the message
-			case <-stream.Remote().Signal(): // remote already said stream is done: problem
-				c.sig.SignalWithError(drpc.ProtocolError.New("server sent after stream closed"))
+			case <-stream.RecvSig().Signal(): // remote already said stream is done: problem
+				c.sig.SignalWithError(drpc.ProtocolError.New("server sent after CloseSend"))
 				return
 			case <-c.sig.Signal(): // client dead: we're done filling queues
 				return
 			default:
 				select {
 				case <-stream.Sig().Signal(): // stream dead: just drop the message
-				case <-stream.RecvSig().Signal(): // stream closed recv: just drop the message
-				case <-c.sig.Signal(): // client dead: we're done filling queues
+				case <-stream.RecvSig().Signal(): // remote already said stream is done: problem
+					c.sig.SignalWithError(drpc.ProtocolError.New("server sent after CloseSend"))
 					return
-				case <-stream.Remote().Signal(): // remote already said stream is done: problem
-					c.sig.SignalWithError(drpc.ProtocolError.New("server sent after stream closed"))
+				case <-c.sig.Signal(): // client dead: we're done filling queues
 					return
 				case stream.Queue() <- p: // yay we passed the message
 				default: // producer overan: kill stream
@@ -141,16 +137,24 @@ func (c *Client) fillStreamQueues() {
 }
 
 func (c *Client) Invoke(ctx context.Context, rpc string, in, out drpc.Message) (err error) {
+	data, err := proto.Marshal(in)
+	if err != nil {
+		return err
+	}
+
 	stream := c.newStream(ctx)
 	defer func() { err = errs.Combine(err, stream.Close()) }()
 
 	if err := stream.RawSend(drpcwire.PayloadKind_Invoke, []byte(rpc)); err != nil {
 		return err
 	}
-	if err := stream.Send(in); err != nil {
+	if err := stream.RawSend(drpcwire.PayloadKind_Message, data); err != nil {
 		return err
 	}
-	return stream.Recv(out)
+	if err := stream.CloseSend(); err != nil {
+		return err
+	}
+	return stream.MsgRecv(out)
 }
 
 func (c *Client) NewStream(ctx context.Context, rpc string) (_ drpc.Stream, err error) {

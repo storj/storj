@@ -190,8 +190,8 @@ func (d *drpc) generateClientMethod(servName, fullServName string, method *pb.Me
 	d.P("if err != nil { return nil, err }")
 	d.P("x := &", streamType, "{stream}")
 	if !method.GetClientStreaming() {
-		d.P("if err := x.stream.Send(in); err != nil { return nil, err }")
-		d.P("if err := x.stream.CloseSend(); err != nil { return nil, err }")
+		d.P("if err := x.MsgSend(in); err != nil { return nil, err }")
+		d.P("if err := x.CloseSend(); err != nil { return nil, err }")
 	}
 	d.P("return x, nil")
 	d.P("}")
@@ -203,6 +203,7 @@ func (d *drpc) generateClientMethod(servName, fullServName string, method *pb.Me
 
 	// Stream auxiliary types and methods.
 	d.P("type ", servName, "_", methName, "Client interface {")
+	d.P("drpc.Stream")
 	if genSend {
 		d.P("Send(*", inType, ") error")
 	}
@@ -216,29 +217,29 @@ func (d *drpc) generateClientMethod(servName, fullServName string, method *pb.Me
 	d.P()
 
 	d.P("type ", streamType, " struct {")
-	d.P("stream ", d.drpcStream)
+	d.P(d.drpcStream)
 	d.P("}")
 	d.P()
 
 	if genSend {
 		d.P("func (x *", streamType, ") Send(m *", inType, ") error {")
-		d.P("return x.stream.Send(m)")
+		d.P("return x.MsgSend(m)")
 		d.P("}")
 		d.P()
 	}
 	if genRecv {
 		d.P("func (x *", streamType, ") Recv() (*", outType, ", error) {")
 		d.P("m := new(", outType, ")")
-		d.P("if err := x.stream.Recv(m); err != nil { return nil, err }")
+		d.P("if err := x.MsgRecv(m); err != nil { return nil, err }")
 		d.P("return m, nil")
 		d.P("}")
 		d.P()
 	}
 	if genCloseAndRecv {
 		d.P("func (x *", streamType, ") CloseAndRecv() (*", outType, ", error) {")
-		d.P("if err := x.stream.CloseSend(); err != nil { return nil, err }")
+		d.P("if err := x.CloseSend(); err != nil { return nil, err }")
 		d.P("m := new(", outType, ")")
-		d.P("if err := x.stream.Recv(m); err != nil { return nil, err }")
+		d.P("if err := x.MsgRecv(m); err != nil { return nil, err }")
 		d.P("return m, nil")
 		d.P("}")
 		d.P()
@@ -306,6 +307,7 @@ func (d *drpc) generateServerMethod(servName, fullServName string, method *pb.Me
 
 	// Stream auxiliary types and methods.
 	d.P("type ", servName, "_", methName, "Stream interface {")
+	d.P("drpc.Stream")
 	if genSend {
 		d.P("Send(*", outType, ") error")
 	}
@@ -319,27 +321,27 @@ func (d *drpc) generateServerMethod(servName, fullServName string, method *pb.Me
 	d.P()
 
 	d.P("type ", streamType, " struct {")
-	d.P("streamer ", d.drpcStream)
+	d.P(d.drpcStream)
 	d.P("}")
 	d.P()
 
 	if genSend {
 		d.P("func (x *", streamType, ") Send(m *", outType, ") error {")
-		d.P("return x.streamer.Send(m)")
+		d.P("return x.MsgSend(m)")
 		d.P("}")
 		d.P()
 	}
 	if genSendAndClose {
 		d.P("func (x *", streamType, ") SendAndClose(m *", outType, ") error {")
-		d.P("if err := x.streamer.Send(m); err != nil { return err }")
-		d.P("return x.streamer.CloseSend()")
+		d.P("if err := x.MsgSend(m); err != nil { return err }")
+		d.P("return x.CloseSend()")
 		d.P("}")
 		d.P()
 	}
 	if genRecv {
 		d.P("func (x *", streamType, ") Recv() (*", inType, ", error) {")
 		d.P("m := new(", inType, ")")
-		d.P("if err := x.streamer.Recv(m); err != nil { return nil, err }")
+		d.P("if err := x.MsgRecv(m); err != nil { return nil, err }")
 		d.P("return m, nil")
 		d.P("}")
 		d.P()
