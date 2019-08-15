@@ -134,6 +134,7 @@ model node (
 	field wallet         text  ( updatable ) // TODO: use compressed format
 	field free_bandwidth int64 ( updatable )
 	field free_disk      int64 ( updatable )
+	field piece_count    int64 ( updatable )
 
  	field major             int64 ( updatable )
 	field minor             int64 ( updatable )
@@ -147,7 +148,6 @@ model node (
 	field total_audit_count    int64   ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
-	field piece_count          int64   ( updatable )
 
 	field created_at           timestamp ( autoinsert )
 	field updated_at           timestamp ( autoinsert, autoupdate )
