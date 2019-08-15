@@ -11,10 +11,13 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"xojoc.pw/useragent"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/encryption"
@@ -22,6 +25,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -146,6 +150,12 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
 	}
+
+	// TODO: need to add here the extracting of partnerID...
+	// keyPartnerID, err := endpoint.getUserAgent(ctx)
+	// if err == nil {
+	// 	keyInfo.PartnerID = *keyPartnerID
+	// }
 
 	return keyInfo, nil
 }
@@ -370,4 +380,30 @@ func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.Remot
 		}
 	}
 	return nil
+}
+
+func (endpoint *Endpoint) getUserAgent(ctx context.Context) (_ *uuid.UUID, err error) {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if userAgent, ok := md["user-agent"]; ok {
+			if len(userAgent) == 1 {
+				ua := useragent.Parse(userAgent[0])
+				if ua == nil {
+					endpoint.log.Sugar().Info("invalid user-agent found %s", userAgent[0])
+					return nil, status.Errorf(codes.InvalidArgument, err.Error())
+				}
+				partnerID, err := rewards.GetPartnerID(ua.Name)
+				if err != nil {
+					endpoint.log.Sugar().Info("no matching partnerID found %s", partnerID)
+					return nil, status.Errorf(codes.InvalidArgument, err.Error())
+				}
+				partnerUUID, err := uuid.Parse(partnerID)
+				if err != nil {
+					endpoint.log.Sugar().Info("uuid parse error %s", partnerID)
+					return nil, status.Errorf(codes.InvalidArgument, err.Error())
+				}
+				return partnerUUID, nil
+			}
+		}
+	}
+	return nil, status.Errorf(codes.InvalidArgument, err.Error())
 }

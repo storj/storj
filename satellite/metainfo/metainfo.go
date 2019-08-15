@@ -15,10 +15,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-	"xojoc.pw/useragent"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
@@ -30,7 +28,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/storage/meta"
@@ -651,12 +648,6 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	var partnerID uuid.UUID
 	if !keyInfo.PartnerID.IsZero() {
 		partnerID = keyInfo.PartnerID
-	} else {
-		ua, err := getUserAgent(ctx)
-		if err != nil {
-			return nil, err
-		}
-		partnerID = *ua
 	}
 
 	// checks if partner id exists in the API keyinfo (referral link)
@@ -1905,23 +1896,4 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	}
 
 	return satSegmentID, nil
-}
-
-func getUserAgent(ctx context.Context) (_ *uuid.UUID, err error) {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if userAgent, ok := md["user-agent"]; ok {
-			if len(userAgent) == 1 {
-				ua := useragent.Parse(userAgent[0])
-				if ua == nil {
-					return nil, status.Errorf(codes.InvalidArgument, err.Error())
-				}
-				partnerID, err := rewards.GetPartnerID(ua.Name)
-				if err != nil {
-					return nil, status.Errorf(codes.InvalidArgument, err.Error())
-				}
-				return uuid.Parse(partnerID)
-			}
-		}
-	}
-	return nil, status.Errorf(codes.InvalidArgument, err.Error())
 }
