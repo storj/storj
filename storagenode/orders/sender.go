@@ -23,6 +23,8 @@ import (
 var (
 	// OrderError represents errors with orders
 	OrderError = errs.Class("order")
+	// OrderNotFoundError is the error returned when an order is not found
+	OrderNotFoundError = errs.Class("order not found")
 
 	mon = monkit.Package()
 )
@@ -178,7 +180,11 @@ func (sender *Sender) handleBatches(ctx context.Context, requests chan ArchiveRe
 		}
 
 		if err := sender.orders.Archive(ctx, buffer...); err != nil {
-			return err
+			if !OrderNotFoundError.Has(err) {
+				return err
+			}
+
+			sender.log.Warn("some unsent order aren't in the DB", zap.Error(err))
 		}
 		buffer = buffer[:0]
 	}
