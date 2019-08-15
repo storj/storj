@@ -41,9 +41,9 @@ We change the path handling to support listing parts uploaded in arbitrary order
 
 The object will contain a `<stream-id>` that defines the immutable content. We suffix the path with the version number to distinguish between different versions.
 
-We don't know the part sizes, and segments cannot be arbitrarily large, which means we need to split each part into multiple segments. To uniquely find segments we'll assign them a unique number `<part-number>_<segment-number>`, which we call the _segment position_.
+We don't know the part sizes, and segments cannot be arbitrarily large, which means we need to split each part into multiple segments. To uniquely find segments we'll assign them a unique number `0x<part-number>_<segment-number>` which we call the _segment position_. To calculate _`segment position = uint64(part_number) << 32 | uint64(segment_number)`_.
 
-As an example, when we have 3 parts, each with different number of segments, we'll assign each segment a position (written in hex):
+As an example, when we have 3 parts, each with different number of segments, we'll assign each segment a position (written in hex, `_` is used to make numbers easier to read):
 
 ```
 Part 0 and 3 segments = 0x00000000_00000000, 0x00000000_000000001, 0x00000000_00000002
