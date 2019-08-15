@@ -28,11 +28,11 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import Button from '../common/Button.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '../../utils/constants/actionNames';
-    import HeaderComponent from '../common/HeaderComponent.vue';
-    import { ProjectMember } from '../../types/projectMembers';
-    import { RequestResponse } from '../../types/response';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+    import Button from '@/components/common/Button.vue';
+    import HeaderComponent from '@/components/common/HeaderComponent.vue';
+    import { ProjectMember } from '@/types/projectMembers';
+    import { RequestResponse } from '@/types/response';
 
     declare interface ClearSearch {
         clearSearch: () => void;

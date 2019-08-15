@@ -4,8 +4,8 @@
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 import * as sinon from 'sinon';
 import Vuex from 'vuex';
-import HeaderArea from '../../../src/components/team/HeaderArea.vue';
-import { ProjectMember } from '../../../src/types/projectMembers';
+import HeaderArea from '@/components/team/HeaderArea.vue';
+import { ProjectMember } from '@/types/projectMembers';
 
 const localVue = createLocalVue();
 

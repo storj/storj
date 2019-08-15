@@ -26,9 +26,9 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
+    import OnHeaderClickCallback from '@/types/projectMembers';
     import VerticalArrows from '@/components/common/VerticalArrows.vue';
     import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
-    import { OnHeaderClickCallback } from '@/types/projectMembers';
 
     @Component({
         components: {

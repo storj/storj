@@ -18,16 +18,10 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import Checkbox from '../common/Checkbox.vue';
-    import { ProjectMember } from '@/types/projectMembers';
-    import { getColor } from '@/utils/avatarColorManager';
+    import getColor from '@/utils/avatarColorManager';
+    import ProjectMember from '@/types/projectMembers';
 
-    @Component({
-        components: {
-            Checkbox,
-
-        },
-    })
+    @Component
     export default class TeamMemberListItem extends Vue {
         @Prop({default: new ProjectMember('', '', '', '', '')})
         public itemData: ProjectMember;

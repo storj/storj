@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 import { mount } from '@vue/test-utils';
-import SortingListHeader from '@/components/team/SortingListHeader.vue';
 import sinon from 'sinon';
+import SortingListHeader from '@/components/team/SortingListHeader.vue';
 import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
 
 describe('SortingListHeader.vue', () => {

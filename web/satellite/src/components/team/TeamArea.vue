@@ -62,14 +62,14 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import HeaderArea from '@/components/team/HeaderArea.vue';
-    import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
     import List from '@/components/common/List.vue';
-    import TeamMemberListItem from '@/components/team/TeamMemberListItem.vue';
+    import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Pagination from '@/components/common/Pagination.vue';
-    import SortingListHeader from '@/components/team/SortingListHeader.vue';
+    import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
     import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
-    import { RequestResponse } from '@/types/response';
+    import RequestResponse from '@/types/response';
+    import SortingListHeader from '@/components/team/SortingListHeader.vue';
+    import TeamMemberListItem from '@/components/team/TeamMemberListItem.vue';
 
     enum HeaderState {
         DEFAULT = 0,
