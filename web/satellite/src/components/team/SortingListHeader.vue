@@ -6,19 +6,19 @@
         <div class="sort-header-container__name-container" @click="onHeaderItemClick(ProjectMemberSortByEnum.NAME)">
             <p>Name</p>
             <VerticalArrows
-                :isActive="sortBy === ProjectMemberSortByEnum.NAME"
+                :isActive="getSortBy === ProjectMemberSortByEnum.NAME"
                 :direction="getSortDirection"/>
         </div>
         <div class="sort-header-container__added-container" @click="onHeaderItemClick(ProjectMemberSortByEnum.CREATED_AT)">
             <p>Added</p>
             <VerticalArrows
-                :isActive="sortBy === ProjectMemberSortByEnum.CREATED_AT"
+                :isActive="getSortBy === ProjectMemberSortByEnum.CREATED_AT"
                 :direction="getSortDirection"/>
         </div>
         <div class="sort-header-container__email-container" @click="onHeaderItemClick(ProjectMemberSortByEnum.EMAIL)">
             <p>Email</p>
             <VerticalArrows
-                :isActive="sortBy === ProjectMemberSortByEnum.EMAIL"
+                :isActive="getSortBy === ProjectMemberSortByEnum.EMAIL"
                 :direction="getSortDirection"/>
         </div>
     </div>
@@ -26,7 +26,7 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import OnHeaderClickCallback from '@/types/projectMembers';
+    import { OnHeaderClickCallback } from '@/types/projectMembers';
     import VerticalArrows from '@/components/common/VerticalArrows.vue';
     import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
 
@@ -50,6 +50,10 @@
             }
 
             return ProjectMemberSortDirectionEnum.DESCENDING;
+        }
+
+        public get getSortBy() {
+            return this.sortBy;
         }
 
         public async onHeaderItemClick(sortBy: ProjectMemberSortByEnum) {

@@ -67,7 +67,7 @@
     import Pagination from '@/components/common/Pagination.vue';
     import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
     import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
-    import RequestResponse from '@/types/response';
+    import { RequestResponse } from '@/types/response';
     import SortingListHeader from '@/components/team/SortingListHeader.vue';
     import TeamMemberListItem from '@/components/team/TeamMemberListItem.vue';
 
