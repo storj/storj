@@ -7,7 +7,7 @@ Automatic Updater is a process separate from the Storage Node that automatically
 ## Background
 
 As more Storage Node Operators join the network we must ensure these nodes have a mechanism to automatically keep their nodes software up to date.
-If a Storage Node Operator fails to keep their node up to date with the minimum version required by satellites they will no longer be selected for upload or download requests.s
+If a Storage Node Operator fails to keep their node up to date with the minimum version required by satellites they will no longer be selected for upload or download requests.
 Currently we are using Docker for automatic updates but we are migrating away from docker so we need to write out own automatic update utility for Storage Nodes.
 
 ## Design
@@ -15,10 +15,8 @@ Currently we are using Docker for automatic updates but we are migrating away fr
 * Contacts Version Server to determine if Storage Node needs to be updated.
 * Downloads latest Storage Node binary.
 * Validate binary signature.
-* Stop the Windows Service for Storage Node
 * Replaces current Storage Node binary with latest Storage Node binary.
 * Kills current Storage Node binary process.
-* Start the Windows Service for Storage Node.
 
 ### Rollout message structure
 
