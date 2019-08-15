@@ -204,6 +204,7 @@ message ReferralResponse {
 	field invitee_credit_duration_days int ( updatable )
 
 	field redeemable_cap int ( updatable, nullable )
+    field partner_id blob ( nullable )
 
 	field expires_at timestamp ( updatable, nullable )
 	field created_at timestamp ( autoinsert )
