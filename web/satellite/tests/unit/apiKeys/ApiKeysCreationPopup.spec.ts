@@ -1,28 +1,13 @@
 import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
-import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue';
 import { ApiKey } from '@/types/apiKeys';
-import { apiKeysModule } from '@/store/modules/apiKeys';
+import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue';
 
 const localVue = createLocalVue();
-
 localVue.use(Vuex);
-
-let state = apiKeysModule.state;
-let mutations = apiKeysModule.mutations;
-let actions = apiKeysModule.actions;
-let getters = apiKeysModule.getters;
-
-const store = new Vuex.Store({
-    modules: {
-        apiKeysModule: {
-            state,
-            mutations,
-            actions,
-            getters
-        }
-    }
-});
+const apiKeysModule = makeApiKeysModule();
+const store = new Vuex.Store(apiKeysModule);
 
 describe('ApiKeysCreationPopup', () => {
     let value = 'testValue';
@@ -59,17 +44,6 @@ describe('ApiKeysCreationPopup', () => {
         expect(wrapper.vm.$data.name).toMatch('testValue');
         expect(wrapper.vm.$data.errorMessage).toMatch('');
     });
-
-    // it('function onCopyClick works correctly', () => {
-    //     const wrapper = mount(ApiKeysCreationPopup, {
-    //         store,
-    //         localVue,
-    //     });
-    //
-    //     wrapper.vm.onCopyClick();
-    //
-    //     expect(wrapper.vm.$data.isCopiedButtonShown).toBe(true);
-    // });
 
     it('action on onNextClick with no name works correctly', async () => {
         const wrapper = mount(ApiKeysCreationPopup, {
@@ -144,70 +118,3 @@ describe('ApiKeysArea async success', () => {
     });
 });
 
-describe('ApiKeysArea async not success', () => {
-    let store;
-    let actions;
-    let state;
-    let getters;
-
-    beforeEach(() => {
-        actions = {
-            createAPIKey: async () => {
-                return {
-                    errorMessage: '',
-                    isSuccess: false,
-                    data: null,
-                };
-            },
-            error: jest.fn()
-        };
-
-        getters = {
-            selectedAPIKeys: () => []
-        };
-
-        state = {
-            apiKeys: []
-        };
-
-        store = new Vuex.Store({
-            modules: {
-                apiKeysModule: {
-                    state,
-                    actions,
-                    getters
-                }
-            }
-        });
-    });
-
-    it('action on onNextClick while loading works correctly', async () => {
-        const wrapper = mount(ApiKeysCreationPopup, {
-            store,
-            localVue,
-        });
-
-        wrapper.vm.$data.isLoading = true;
-
-        wrapper.vm.onNextClick();
-
-        expect(wrapper.vm.$data.isLoading).toBe(true);
-    });
-
-    it('action on onNextClick works correctly', async () => {
-        const wrapper = mount(ApiKeysCreationPopup, {
-            store,
-            localVue,
-        });
-
-        wrapper.vm.$data.isLoading = false;
-        wrapper.vm.$data.name = 'testName';
-
-        wrapper.vm.onNextClick();
-
-        await actions.createAPIKey();
-
-        expect(actions.error.mock.calls).toHaveLength(1);
-        expect(wrapper.vm.$data.isLoading).toBe(false);
-    });
-});

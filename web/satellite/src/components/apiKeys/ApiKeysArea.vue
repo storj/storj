@@ -142,7 +142,7 @@
         }
 
         public get apiKeyList(): ApiKey[] {
-            return this.$store.state.apiKeysModule.apiKeys;
+            return this.$store.getters.apiKeys;
         }
 
         public get apiKeyCountTitle(): string {
@@ -154,7 +154,7 @@
         }
 
         public get isEmpty(): boolean {
-            return this.$store.state.apiKeysModule.apiKeys.length === 0;
+            return this.$store.getters.apiKeys.length === 0;
         }
 
         public get isSelected(): boolean {

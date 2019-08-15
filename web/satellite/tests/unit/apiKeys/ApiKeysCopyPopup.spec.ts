@@ -1,27 +1,12 @@
 import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
 import ApiKeysCopyPopup from '@/components/apiKeys/ApiKeysCopyPopup.vue';
-import { apiKeysModule } from '@/store/modules/apiKeys';
+import { makeApiKeysModule } from '@/store/modules/apiKeys';
 
 const localVue = createLocalVue();
-
 localVue.use(Vuex);
-
-let state = apiKeysModule.state;
-let mutations = apiKeysModule.mutations;
-let actions = apiKeysModule.actions;
-let getters = apiKeysModule.getters;
-
-const store = new Vuex.Store({
-    modules: {
-        apiKeysModule: {
-            state,
-            mutations,
-            actions,
-            getters
-        }
-    }
-});
+const apiKeysModule = makeApiKeysModule();
+const store = new Vuex.Store(apiKeysModule);
 
 describe('ApiKeysCopyPopup', () => {
     it('renders correctly', () => {

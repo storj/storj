@@ -3,30 +3,15 @@
 
 import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
-import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import { ApiKey } from '@/types/apiKeys';
-import { apiKeysModule } from '@/store/modules/apiKeys';
+import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { API_KEYS_MUTATIONS } from '@/store/mutationConstants';
+import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 
 const localVue = createLocalVue();
-
 localVue.use(Vuex);
-
-let state = apiKeysModule.state;
-let mutations = apiKeysModule.mutations;
-let actions = apiKeysModule.actions;
-let getters = apiKeysModule.getters;
-
-const store = new Vuex.Store({
-    modules: {
-        apiKeysModule: {
-            state,
-            mutations,
-            actions,
-            getters
-        }
-    }
-});
+const apiKeysModule = makeApiKeysModule();
+const store = new Vuex.Store(apiKeysModule);
 
 describe('ApiKeysArea', () => {
     let apiKey = new ApiKey('testId', 'test', 'test', 'test');
@@ -35,7 +20,7 @@ describe('ApiKeysArea', () => {
     it('renders correctly', () => {
         const wrapper = mount(ApiKeysArea, {
             store,
-            localVue
+            localVue,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -192,45 +177,6 @@ describe('ApiKeysArea', () => {
 
         expect(wrapper.vm.$data.isCopyApiKeyPopupShown).toBe(false);
     });
-});
-
-describe('ApiKeysArea async success', () => {
-    let store;
-    let actions;
-    let state;
-    let getters;
-    let apiKey = new ApiKey('testId', 'test', 'test', 'test');
-
-    beforeEach(() => {
-        actions = {
-            deleteAPIKey: async () => {
-                return {
-                    errorMessage: '',
-                    isSuccess: true,
-                    data: null
-                };
-            },
-            success: jest.fn()
-        };
-
-        getters = {
-            selectedAPIKeys: () => [apiKey]
-        };
-
-        state = {
-            apiKeys: [apiKey]
-        };
-
-        store = new Vuex.Store({
-            modules: {
-                apiKeysModule: {
-                    state,
-                    actions,
-                    getters
-                }
-            }
-        });
-    });
 
     it('action on onDelete with name works correctly', async () => {
         const wrapper = mount(ApiKeysArea, {
@@ -239,61 +185,7 @@ describe('ApiKeysArea async success', () => {
         });
 
         wrapper.vm.onDelete();
-
-        await actions.deleteAPIKey();
 
         expect(wrapper.vm.$data.isDeleteClicked).toBe(false);
-        expect(actions.success.mock.calls).toHaveLength(1);
-    });
-});
-
-describe('ApiKeysArea async not success', () => {
-    let store;
-    let actions;
-    let state;
-    let getters;
-
-    beforeEach(() => {
-        actions = {
-            deleteAPIKey: async () => {
-                return {
-                    errorMessage: '',
-                    isSuccess: false,
-                    data: null
-                };
-            },
-            error: jest.fn()
-        };
-
-        getters = {
-            selectedAPIKeys: () => []
-        };
-
-        state = {
-            apiKeys: []
-        };
-
-        store = new Vuex.Store({
-            modules: {
-                apiKeysModule: {
-                    state,
-                    actions,
-                    getters
-                }
-            }
-        });
-    });
-
-    it('action on onDelete with name works correctly', async () => {
-        const wrapper = mount(ApiKeysArea, {
-            store,
-            localVue,
-        });
-
-        wrapper.vm.onDelete();
-
-        await actions.deleteAPIKey();
-
-        expect(actions.error.mock.calls).toHaveLength(1);
     });
 });

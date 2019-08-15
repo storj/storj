@@ -48,7 +48,7 @@
             Button,
         },
     })
-    export default class ApiKeysCreationPopup extends Vue {
+    export default class ApiKeysCopyPopup extends Vue {
         @Prop({default: false})
         private readonly isPopupShown: boolean;
         @Prop({default: ''})
