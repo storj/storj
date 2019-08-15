@@ -18,6 +18,7 @@ type Download struct {
 	streams streams.Store
 	reader  io.ReadCloser
 	offset  int64
+	limit   int64
 	closed  bool
 }
 
@@ -27,6 +28,18 @@ func NewDownload(ctx context.Context, stream storj.ReadOnlyStream, streams strea
 		ctx:     ctx,
 		stream:  stream,
 		streams: streams,
+		limit:   -1,
+	}
+}
+
+// NewDownloadRange creates new stream range download with range from offset to offset+limit.
+func NewDownloadRange(ctx context.Context, stream storj.ReadOnlyStream, streams streams.Store, offset, limit int64) *Download {
+	return &Download{
+		ctx:     ctx,
+		stream:  stream,
+		streams: streams,
+		offset:  offset,
+		limit:   limit,
 	}
 }
 
@@ -42,43 +55,25 @@ func (download *Download) Read(data []byte) (n int, err error) {
 	}
 
 	if download.reader == nil {
-		err = download.resetReader(0)
+		err = download.resetReader(download.offset)
 		if err != nil {
 			return 0, err
 		}
 	}
 
+	if download.limit == 0 {
+		return 0, io.EOF
+	}
+	if download.limit > 0 && download.limit < int64(len(data)) {
+		data = data[:download.limit]
+	}
 	n, err = download.reader.Read(data)
-
+	if download.limit >= 0 {
+		download.limit -= int64(n)
+	}
 	download.offset += int64(n)
 
 	return n, err
-}
-
-// Seek changes the offset for the next Read call.
-//
-// See io.Seeker for more details.
-func (download *Download) Seek(offset int64, whence int) (int64, error) {
-	if download.closed {
-		return 0, Error.New("already closed")
-	}
-
-	var off int64
-	switch whence {
-	case io.SeekStart:
-		off = offset
-	case io.SeekEnd:
-		off = download.stream.Info().Size - offset
-	case io.SeekCurrent:
-		off += offset
-	}
-
-	err := download.resetReader(off)
-	if err != nil {
-		return off, err
-	}
-
-	return download.offset, nil
 }
 
 // Close closes the stream and releases the underlying resources.
