@@ -37,6 +37,7 @@ To make the installer work we need to:
 * Install [go-msi](https://github.com/mh-cbon/go-msi) on the build server.
 * Create a wix.json file like [this one](https://github.com/mh-cbon/go-msi/blob/master/wix.json)
 * Add a guid with `go-msi set-guid` to uniquely identify the process.
+* Ensure that binaries are signed before or during building the installer.
 * The wix.json should contain steps for:
   * adding Dashboard shortcut to the desktop
   * setting [service recovery properties](https://wixtoolset.org/documentation/manual/v3/xsd/util/serviceconfig.html)
@@ -52,7 +53,8 @@ To make the installer work we need to:
   * register storagenode as a service
   * adding Storage Node binary to Windows UserPath (optional)  
   * open Dashboard at the end of the installer.
-* Finally run `go-msi make --msi your_program.msi --version 0.0.2` to create the installer.
+* Run `go-msi make --msi your_program.msi --version 0.0.2` to create the installer.
+* Ensure that installer is signed by the build server.
 
 ### Service
 
@@ -81,4 +83,3 @@ This means that Windows handles starting and restarting the binary in the backgr
 * Consider writing an uninstaller.
 * How do we prevent UAC from triggering?
 * Consider using wix without go-msi.
-* We need to sign both the binaries and the installer, make sure its done for the MSI.
