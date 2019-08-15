@@ -187,8 +187,9 @@ func cleanup(cmd *cobra.Command) {
 			}
 		}
 
-		for key := range allKeys {
-			// Check if the key is a flag, and if so, propagate it.
+		// Propagate keys that are missing to flags, and remove any used keys
+		// from the missing set.
+		for key := range missingKeys {
 			if f := cmd.Flags().Lookup(key); f != nil {
 				val := vip.GetString(key)
 				err := f.Value.Set(val)
@@ -206,12 +207,10 @@ func cleanup(cmd *cobra.Command) {
 					usedKeys[key] = struct{}{}
 				}
 			}
-
-			// A key is only missing if it was missing from every single config struct, so
-			// remove all of the used keys from it.
+		}
+		for key := range missingKeys {
 			if _, ok := usedKeys[key]; ok {
 				delete(missingKeys, key)
-				continue
 			}
 		}
 
