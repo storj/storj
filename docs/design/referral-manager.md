@@ -55,10 +55,14 @@ After user Alice on satellite B pays their first invoice:
     
     With the referral manager, we will migrate the existing offers table from satelites to the referral manager database.
     
-    In this way, the marketing team does not need to go through each tardigrade satellite to set up the configuration for offers.
-
 ## Rationale
-1. Will this overload satellites?
+
+1. Separation of concern
+    * referral manager will handle all the referral logic, satellite will only store user's credit data.
+    * marketing admin gui logic will be separate from the open source code.
+    
+2. Single source of truth
+    * the marketing team does not need to go through each tardigrade satellite to set up the configuration for offers.
 
 ## Implementation
 
@@ -204,6 +208,8 @@ message ReferralResponse {
 	field invitee_credit_duration_days int ( updatable )
 
 	field redeemable_cap int ( updatable, nullable )
+    field num_redeemed int ( updatable, nullable )
+
     field partner_id blob ( nullable )
 
 	field expires_at timestamp ( updatable, nullable )
@@ -216,3 +222,4 @@ message ReferralResponse {
 ````
 
 ## Open issues (if applicable)
+1. How to keep num_redeemed up-to-date in real time?
