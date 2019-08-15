@@ -422,6 +422,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	// set retainCtx on the endpoint so garbage collection can run properly
+	peer.Storage2.Endpoint.RetainCtx(ctx)
+
 	return group.Wait()
 }
 
