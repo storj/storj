@@ -107,6 +107,6 @@ export function makeNotificationsModule(): StoreModule<NotificationsState> {
 }
 
 
-function getNotificationById(notifications: DelayedNotification[], id: string) {
+function getNotificationById(notifications: DelayedNotification[], id: string): DelayedNotification | undefined {
     return notifications.find((notification: DelayedNotification) => notification.id === id);
 }
