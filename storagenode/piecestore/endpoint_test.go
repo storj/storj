@@ -510,7 +510,7 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, storageNode storj.
 	}, piecePrivateKey
 }
 
-func TestRetain(t *testing.T) {
+func TestRetainPieces(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
