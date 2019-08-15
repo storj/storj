@@ -77,7 +77,7 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
-	// IdentDB is a getter for the peer identity cache
+	// IdentDB is a getter for the peer identity
 	IdentDB() identdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
