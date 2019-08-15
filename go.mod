@@ -16,7 +16,7 @@ require (
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
 
-replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190814100231-be6da8714551
+replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190814103321-ef17d024197d
 
 require (
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
