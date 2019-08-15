@@ -223,22 +223,24 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 	}
 
 	var errList errs.Group
-	errHandle := func(logErrMsg string, err error) {
-		log.Error(logErrMsg, zap.Error(err))
+	errHandle := func(logErrMsg string, err error, fields ...zap.Field) {
+		log.Error(logErrMsg, append([]zap.Field{zap.Error(err)}, fields...)...)
 		errList.Add(err)
 	}
 
 	var group errgroup.Group
 	group.Go(func() error {
 		for _, order := range orders {
-			err := client.Send(&pb.SettlementRequest{
+			req := pb.SettlementRequest{
 				Limit: order.Limit,
 				Order: order.Order,
-			})
+			}
+			err := client.Send(&req)
 			if err != nil {
 				errHandle(
 					"gRPC client when sending new orders settlements",
 					OrderError.New("sending settlement agreements returned an error: %v", err),
+					zap.Any("request", req),
 				)
 				return nil
 			}
@@ -273,6 +275,7 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 		default:
 			errHandle("gRPC client received a unexpected new orders setlement status",
 				OrderError.New("unexpected settlement status response: %d", response.Status),
+				zap.Any("response", response),
 			)
 			continue
 		}
