@@ -101,7 +101,7 @@ func (db *DB) DropSchema(schema string) error {
 
 // IdentDB is a getter for the peer identity cache
 func (db *DB) IdentDB() identdb.DB {
-	return &certDB{db: db.db}
+	return &identDB{db: db.db}
 }
 
 // Attribution is a getter for value attribution repository

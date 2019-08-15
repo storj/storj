@@ -17,15 +17,15 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-type certDB struct {
+type identDB struct {
 	db *dbx.DB
 }
 
 // Set adds a peer identity entry
-func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *identity.PeerIdentity) (err error) {
+func (idents *identDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	tx, err := certs.db.Begin()
+	tx, err := idents.db.Begin()
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -45,10 +45,10 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 
 	var serialNum []byte
 	query := `SELECT serial_number FROM peer_identities WHERE node_id = ?;`
-	err = tx.QueryRow(certs.db.Rebind(query), nodeID.Bytes()).Scan(&serialNum)
+	err = tx.QueryRow(idents.db.Rebind(query), nodeID.Bytes()).Scan(&serialNum)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			_, err = tx.Exec(certs.db.Rebind(
+			_, err = tx.Exec(idents.db.Rebind(
 				`INSERT INTO peer_identities 
 				( serial_number, peer_chain, node_id, updated_at ) 
 				VALUES ( ?, ?, ?, ? );`),
@@ -62,7 +62,7 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 	}
 
 	if !bytes.Equal(serialNum, peerIdent.Leaf.SerialNumber.Bytes()) {
-		_, err = tx.Exec(certs.db.Rebind(
+		_, err = tx.Exec(idents.db.Rebind(
 			`UPDATE peer_identities SET 
 			node_id = ?, serial_number = ?, 
 			peer_chain = ?, updated_at = ? 
@@ -76,9 +76,9 @@ func (certs *certDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *id
 }
 
 // Get gets the peer identity based on the certificate's nodeID
-func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
+func (idents *identDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxPeerID, err := certs.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+	dbxPeerID, err := idents.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -92,7 +92,7 @@ func (certs *certDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.
 }
 
 // BatchGet gets the peer idenities based on the certificate's nodeID
-func (certs *certDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
+func (idents *identDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodeIDs) == 0 {
 		return nil, nil
@@ -102,7 +102,7 @@ func (certs *certDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (pe
 		args = append(args, nodeID)
 	}
 
-	rows, err := certs.db.Query(certs.db.Rebind(`
+	rows, err := idents.db.Query(idents.db.Rebind(`
 			SELECT peer_chain FROM peer_identities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
 	if err != nil {
 		return nil, Error.Wrap(err)
