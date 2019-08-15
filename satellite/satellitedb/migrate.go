@@ -1128,7 +1128,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`CREATE TABLE peer_identities (
 						node_id bytea NOT NULL,
 						serial_number bytea NOT NULL,
-						peer_chain bytea NOT NULL,
+						chain bytea NOT NULL,
 						updated_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( node_id )
 					);`,

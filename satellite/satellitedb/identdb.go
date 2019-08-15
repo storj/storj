@@ -50,7 +50,7 @@ func (idents *identDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *
 		if err == sql.ErrNoRows {
 			_, err = tx.Exec(idents.db.Rebind(
 				`INSERT INTO peer_identities 
-				( serial_number, peer_chain, node_id, updated_at ) 
+				( serial_number, chain, node_id, updated_at ) 
 				VALUES ( ?, ?, ?, ? );`),
 				peerIdent.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
 			if err != nil {
@@ -65,7 +65,7 @@ func (idents *identDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *
 		_, err = tx.Exec(idents.db.Rebind(
 			`UPDATE peer_identities SET 
 			node_id = ?, serial_number = ?, 
-			peer_chain = ?, updated_at = ? 
+			chain = ?, updated_at = ? 
 			WHERE node_id = ?`),
 			nodeID.Bytes(), peerIdent.Leaf.SerialNumber.Bytes(), chain, time.Now(), nodeID.Bytes())
 		if err != nil {
@@ -87,7 +87,7 @@ func (idents *identDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identit
 		return nil, Error.New("unknown nodeID :%+v: %+v", nodeID.Bytes(), err)
 	}
 
-	peerIdent, err := identity.DecodePeerIdentity(ctx, dbxPeerID.PeerChain)
+	peerIdent, err := identity.DecodePeerIdentity(ctx, dbxPeerID.Chain)
 	return peerIdent, Error.Wrap(err)
 }
 
@@ -103,7 +103,7 @@ func (idents *identDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (
 	}
 
 	rows, err := idents.db.Query(idents.db.Rebind(`
-			SELECT peer_chain FROM peer_identities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
+			SELECT chain FROM peer_identities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

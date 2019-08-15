@@ -392,7 +392,7 @@ CREATE TABLE offers (
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
 	serial_number bytea NOT NULL,
-	peer_chain bytea NOT NULL,
+	chain bytea NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -742,7 +742,7 @@ CREATE TABLE offers (
 CREATE TABLE peer_identities (
 	node_id BLOB NOT NULL,
 	serial_number BLOB NOT NULL,
-	peer_chain BLOB NOT NULL,
+	chain BLOB NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -2978,7 +2978,7 @@ func (Offer_Type_Field) _Column() string { return "type" }
 type PeerIdentity struct {
 	NodeId       []byte
 	SerialNumber []byte
-	PeerChain    []byte
+	Chain        []byte
 	UpdatedAt    time.Time
 }
 
@@ -3025,24 +3025,24 @@ func (f PeerIdentity_SerialNumber_Field) value() interface{} {
 
 func (PeerIdentity_SerialNumber_Field) _Column() string { return "serial_number" }
 
-type PeerIdentity_PeerChain_Field struct {
+type PeerIdentity_Chain_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func PeerIdentity_PeerChain(v []byte) PeerIdentity_PeerChain_Field {
-	return PeerIdentity_PeerChain_Field{_set: true, _value: v}
+func PeerIdentity_Chain(v []byte) PeerIdentity_Chain_Field {
+	return PeerIdentity_Chain_Field{_set: true, _value: v}
 }
 
-func (f PeerIdentity_PeerChain_Field) value() interface{} {
+func (f PeerIdentity_Chain_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (PeerIdentity_PeerChain_Field) _Column() string { return "peer_chain" }
+func (PeerIdentity_Chain_Field) _Column() string { return "chain" }
 
 type PeerIdentity_UpdatedAt_Field struct {
 	_set   bool
@@ -6091,22 +6091,22 @@ func (obj *postgresImpl) Create_StoragenodeStorageTally(ctx context.Context,
 func (obj *postgresImpl) Create_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_serial_number PeerIdentity_SerialNumber_Field,
-	peer_identity_peer_chain PeerIdentity_PeerChain_Field) (
+	peer_identity_chain PeerIdentity_Chain_Field) (
 	peer_identity *PeerIdentity, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := peer_identity_node_id.value()
 	__serial_number_val := peer_identity_serial_number.value()
-	__peer_chain_val := peer_identity_peer_chain.value()
+	__chain_val := peer_identity_chain.value()
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, serial_number, peer_chain, updated_at ) VALUES ( ?, ?, ?, ? ) RETURNING peer_identities.node_id, peer_identities.serial_number, peer_identities.peer_chain, peer_identities.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? ) RETURNING peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __serial_number_val, __peer_chain_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __serial_number_val, __chain_val, __updated_at_val)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __serial_number_val, __peer_chain_val, __updated_at_val).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.PeerChain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __serial_number_val, __chain_val, __updated_at_val).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7528,7 +7528,7 @@ func (obj *postgresImpl) Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx c
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.peer_chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ? ORDER BY peer_identities.updated_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ? ORDER BY peer_identities.updated_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, peer_identity_node_id.value())
@@ -7537,7 +7537,7 @@ func (obj *postgresImpl) Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx c
 	obj.logStmt(__stmt, __values...)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.PeerChain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9846,21 +9846,21 @@ func (obj *sqlite3Impl) Create_StoragenodeStorageTally(ctx context.Context,
 func (obj *sqlite3Impl) Create_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_serial_number PeerIdentity_SerialNumber_Field,
-	peer_identity_peer_chain PeerIdentity_PeerChain_Field) (
+	peer_identity_chain PeerIdentity_Chain_Field) (
 	peer_identity *PeerIdentity, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := peer_identity_node_id.value()
 	__serial_number_val := peer_identity_serial_number.value()
-	__peer_chain_val := peer_identity_peer_chain.value()
+	__chain_val := peer_identity_chain.value()
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, serial_number, peer_chain, updated_at ) VALUES ( ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __serial_number_val, __peer_chain_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __serial_number_val, __chain_val, __updated_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __serial_number_val, __peer_chain_val, __updated_at_val)
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __serial_number_val, __chain_val, __updated_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11301,7 +11301,7 @@ func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx co
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.peer_chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ? ORDER BY peer_identities.updated_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ? ORDER BY peer_identities.updated_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, peer_identity_node_id.value())
@@ -11310,7 +11310,7 @@ func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx co
 	obj.logStmt(__stmt, __values...)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.PeerChain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13153,13 +13153,13 @@ func (obj *sqlite3Impl) getLastPeerIdentity(ctx context.Context,
 	pk int64) (
 	peer_identity *PeerIdentity, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.peer_chain, peer_identities.updated_at FROM peer_identities WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.PeerChain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13947,13 +13947,13 @@ func (rx *Rx) Create_Offer(ctx context.Context,
 func (rx *Rx) Create_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_serial_number PeerIdentity_SerialNumber_Field,
-	peer_identity_peer_chain PeerIdentity_PeerChain_Field) (
+	peer_identity_chain PeerIdentity_Chain_Field) (
 	peer_identity *PeerIdentity, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_PeerIdentity(ctx, peer_identity_node_id, peer_identity_serial_number, peer_identity_peer_chain)
+	return tx.Create_PeerIdentity(ctx, peer_identity_node_id, peer_identity_serial_number, peer_identity_chain)
 
 }
 
@@ -15000,7 +15000,7 @@ type Methods interface {
 	Create_PeerIdentity(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field,
 		peer_identity_serial_number PeerIdentity_SerialNumber_Field,
-		peer_identity_peer_chain PeerIdentity_PeerChain_Field) (
+		peer_identity_chain PeerIdentity_Chain_Field) (
 		peer_identity *PeerIdentity, err error)
 
 	Create_PendingAudits(ctx context.Context,

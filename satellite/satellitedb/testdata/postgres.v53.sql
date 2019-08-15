@@ -283,7 +283,7 @@ CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_i
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
 	serial_number bytea NOT NULL,
-	peer_chain bytea NOT NULL,
+	chain bytea NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );

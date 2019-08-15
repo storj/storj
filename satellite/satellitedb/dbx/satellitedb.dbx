@@ -627,8 +627,8 @@ model peer_identity (
     
     field node_id        blob
     field serial_number  blob
-    field peer_chain     blob      // x509 ASN.1 DER content 
-    field updated_at timestamp ( autoinsert, autoupdate )
+    field chain          blob      // x509 ASN.1 DER content 
+    field updated_at     timestamp ( autoinsert, autoupdate )
 )
 
 create peer_identity ( )
