@@ -35,7 +35,7 @@ Update check will regularly, with jitter, contact Version Server, which responds
         "active": true,
         "target_version": "0.5.2",
         "rollout_seed": "04123bacde",
-        "rollout_cursor": "40",
+        "rollout_cursor": "40"
       }
     }
   }
