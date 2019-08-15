@@ -126,6 +126,15 @@ func TestDB(t *testing.T) {
 			},
 		}, archived, cmp.Comparer(pb.Equal)))
 
+		// with 1 hour ttl, archived order should not be deleted
+		n, err := db.Orders().CleanArchive(ctx, time.Hour)
+		require.NoError(t, err)
+		require.Equal(t, 0, n)
+
+		// with 1 nanosecond ttl, archived order should be deleted
+		n, err = db.Orders().CleanArchive(ctx, time.Nanosecond)
+		require.NoError(t, err)
+		require.Equal(t, 1, n)
 	})
 }
 
@@ -171,6 +180,11 @@ func TestDB_Trivial(t *testing.T) {
 			infos, err := db.Orders().ListArchived(ctx, 1)
 			require.NoError(t, err)
 			require.Len(t, infos, 1)
+		}
+		{ // Ensure CleanArchive works at all
+			n, err := db.Orders().CleanArchive(ctx, time.Nanosecond)
+			require.NoError(t, err)
+			require.Equal(t, 1, n)
 		}
 	})
 }
