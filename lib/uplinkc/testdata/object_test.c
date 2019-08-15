@@ -168,7 +168,7 @@ void handle_project(ProjectRef project) {
             size_t downloaded_total = 0;
 
             size_t size_to_read = 256 + i;
-            while (true) {
+            while (downloaded_total < data_len) {
                 size_t read_size = download_read(downloader, &downloaded_data[downloaded_total], size_to_read, err);
                 require_noerror(*err);
 
