@@ -621,15 +621,11 @@ func TestRetain(t *testing.T) {
 			},
 		})
 
-		retainReq := pb.RetainRequest{}
-		retainReq.Filter = filter.Bytes()
-		retainReq.CreationDate = recentTime
-
 		// expect that disabled and debug endpoints do not delete any pieces
-		_, err = endpointDisabled.Retain(ctxSatellite0, &retainReq)
+		err = endpointDisabled.RetainPieces(ctxSatellite0, satellite0.ID, recentTime, filter)
 		require.NoError(t, err)
 
-		_, err = endpointDebug.Retain(ctxSatellite0, &retainReq)
+		err = endpointDebug.RetainPieces(ctxSatellite0, satellite0.ID, recentTime, filter)
 		require.NoError(t, err)
 
 		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))
@@ -641,7 +637,7 @@ func TestRetain(t *testing.T) {
 		require.Equal(t, numPieces, len(satellite0Pieces))
 
 		// expect that enabled endpoint deletes the correct pieces
-		_, err = endpointEnabled.Retain(ctxSatellite0, &retainReq)
+		err = endpointEnabled.RetainPieces(ctxSatellite0, satellite0.ID, recentTime, filter)
 		require.NoError(t, err)
 
 		// check we have deleted nothing for satellite1
