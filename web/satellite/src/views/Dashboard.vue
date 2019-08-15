@@ -44,10 +44,13 @@
     @Component({
     mounted: async function() {
         setTimeout(async () => {
-            let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
-            if (!response.isSuccess) {
+            let user: User;
+
+            try {
+                user = await this.$store.dispatch(USER_ACTIONS.GET);
+            } catch (error) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
                 this.$router.push(ROUTES.LOGIN);
                 AuthToken.remove();
 
