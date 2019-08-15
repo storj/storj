@@ -138,7 +138,16 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			continue
 		}
 
-		fieldaddr := fieldval.Addr().Interface()
+		if !fieldval.CanAddr() {
+			panic(fmt.Sprintf("cannot addr field %s in %s", field.Name, typ))
+		}
+
+		fieldref := fieldval.Addr()
+		if !fieldref.CanInterface() {
+			panic(fmt.Sprintf("cannot get interface of field %s in %s", field.Name, typ))
+		}
+
+		fieldaddr := fieldref.Interface()
 		if fieldvalue, ok := fieldaddr.(pflag.Value); ok {
 			help := field.Tag.Get("help")
 			var def string
@@ -154,6 +163,7 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			}
 			flags.Var(fieldvalue, flagname, help)
 
+			markHidden := false
 			if onlyForSetup {
 				setBoolAnnotation(flags, flagname, "setup")
 			}
@@ -161,6 +171,14 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				setBoolAnnotation(flags, flagname, "user")
 			}
 			if field.Tag.Get("hidden") == "true" {
+				markHidden = true
+				setBoolAnnotation(flags, flagname, "hidden")
+			}
+			if field.Tag.Get("deprecated") == "true" {
+				markHidden = true
+				setBoolAnnotation(flags, flagname, "deprecated")
+			}
+			if markHidden {
 				err := flags.MarkHidden(flagname)
 				if err != nil {
 					panic(fmt.Sprintf("mark hidden failed %s: %v", flagname, err))
@@ -239,9 +257,21 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			if field.Tag.Get("user") == "true" {
 				setBoolAnnotation(flags, flagname, "user")
 			}
+
+			markHidden := false
 			if field.Tag.Get("hidden") == "true" {
+				markHidden = true
+				setBoolAnnotation(flags, flagname, "hidden")
+			}
+			if field.Tag.Get("deprecated") == "true" {
+				markHidden = true
+				setBoolAnnotation(flags, flagname, "deprecated")
+			}
+			if markHidden {
 				err := flags.MarkHidden(flagname)
-				check(err)
+				if err != nil {
+					panic(fmt.Sprintf("mark hidden failed %s: %v", flagname, err))
+				}
 			}
 		}
 	}

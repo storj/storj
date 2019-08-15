@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.12.7
+GO_VERSION ?= 1.12.8
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -124,6 +124,11 @@ test-all-in-one: ## Test docker images locally
 	&& $(MAKE) satellite-image storagenode-image gateway-image \
 	&& ./scripts/test-aio.sh
 
+.PHONY: test-sim-backwards-compatible
+test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
+	@echo "Running ${@}"
+	@./scripts/test-sim-backwards.sh
+
 ##@ Build
 
 .PHONY: images
@@ -232,16 +237,19 @@ inspector_%:
 .PHONY: versioncontrol_%
 versioncontrol_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=versioncontrol $(MAKE) binary
+.PHONY: linksharing_%
+linksharing_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=linksharing $(MAKE) binary
 
-COMPONENTLIST := bootstrap certificates gateway identity inspector satellite storagenode uplink versioncontrol
+COMPONENTLIST := bootstrap certificates gateway identity inspector linksharing satellite storagenode uplink versioncontrol
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
 
 .PHONY: libuplink
 libuplink:
-	go build -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
+	go build -ldflags="-s -w" -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
 	cp lib/uplinkc/uplink_definitions.h uplink_definitions.h
 
 ##@ Deploy

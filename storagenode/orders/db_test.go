@@ -99,11 +99,11 @@ func TestDB(t *testing.T) {
 		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
 
 		// test archival
-		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusAccepted)
+		err = ordersdb.Archive(ctx, orders.ArchiveRequest{satellite0.ID, serialNumber, orders.StatusAccepted})
 		require.NoError(t, err)
 
 		// duplicate archive
-		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusRejected)
+		err = ordersdb.Archive(ctx, orders.ArchiveRequest{satellite0.ID, serialNumber, orders.StatusRejected})
 		require.Error(t, err)
 
 		// shouldn't be in unsent list
@@ -149,23 +149,28 @@ func TestDB_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure ListUnsent works at all
-			_, err := db.Orders().ListUnsent(ctx, 1)
+			infos, err := db.Orders().ListUnsent(ctx, 1)
 			require.NoError(t, err)
+			require.Len(t, infos, 1)
 		}
 
 		{ // Ensure ListUnsentBySatellite works at all
-			_, err := db.Orders().ListUnsentBySatellite(ctx)
+			infos, err := db.Orders().ListUnsentBySatellite(ctx)
 			require.NoError(t, err)
+			require.Len(t, infos, 1)
+			require.Contains(t, infos, satelliteID)
+			require.Len(t, infos[satelliteID], 1)
 		}
 
 		{ // Ensure Archive works at all
-			err := db.Orders().Archive(ctx, satelliteID, serial, orders.StatusAccepted)
+			err := db.Orders().Archive(ctx, orders.ArchiveRequest{satelliteID, serial, orders.StatusAccepted})
 			require.NoError(t, err)
 		}
 
 		{ // Ensure ListArchived works at all
-			_, err := db.Orders().ListArchived(ctx, 1)
+			infos, err := db.Orders().ListArchived(ctx, 1)
 			require.NoError(t, err)
+			require.Len(t, infos, 1)
 		}
 	})
 }

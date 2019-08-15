@@ -4,8 +4,7 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
-
-import { usersModule } from '@/store/modules/users';
+import { makeUsersModule } from '@/store/modules/users';
 import { projectsModule } from '@/store/modules/projects';
 import { projectMembersModule } from '@/store/modules/projectMembers';
 import { notificationsModule } from '@/store/modules/notifications';
@@ -13,13 +12,23 @@ import { appStateModule } from '@/store/modules/appState';
 import { apiKeysModule } from '@/store/modules/apiKeys';
 import { bucketUsageModule, usageModule, creditUsageModule } from '@/store/modules/usage';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
+import { UsersApiGql } from '@/api/users';
 
 Vue.use(Vuex);
+
+export class StoreModule<S> {
+    public state: S;
+    public mutations: any;
+    public actions: any;
+    public getters: any;
+}
+
+const usersApi = new UsersApiGql();
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
     modules: {
-        usersModule,
+        usersModule: makeUsersModule(usersApi),
         projectsModule,
         projectMembersModule,
         notificationsModule,

@@ -30,7 +30,7 @@ type Config struct {
 type Service struct {
 	logger                  *zap.Logger
 	metainfo                *metainfo.Service
-	overlay                 *overlay.Cache
+	overlay                 *overlay.Service
 	limit                   int
 	ticker                  *time.Ticker
 	storagenodeAccountingDB accounting.StoragenodeAccounting
@@ -39,7 +39,7 @@ type Service struct {
 }
 
 // New creates a new tally Service
-func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, metainfo *metainfo.Service, overlay *overlay.Cache, limit int, interval time.Duration) *Service {
+func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, metainfo *metainfo.Service, overlay *overlay.Service, limit int, interval time.Duration) *Service {
 	return &Service{
 		logger:                  logger,
 		metainfo:                metainfo,

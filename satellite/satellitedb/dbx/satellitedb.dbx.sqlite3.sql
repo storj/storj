@@ -55,12 +55,6 @@ CREATE TABLE bucket_usages (
 	audit_egress INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE certRecords (
-	publickey BLOB NOT NULL,
-	id BLOB NOT NULL,
-	update_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
 CREATE TABLE injuredsegments (
 	path BLOB NOT NULL,
 	data BLOB NOT NULL,
@@ -139,6 +133,7 @@ CREATE TABLE projects (
 	description TEXT NOT NULL,
 	usage_limit INTEGER NOT NULL,
 	partner_id BLOB,
+	owner_id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -251,9 +246,10 @@ CREATE TABLE used_serials (
 );
 CREATE TABLE user_credits (
 	id INTEGER NOT NULL,
-	user_id BLOB NOT NULL REFERENCES users( id ),
+	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	offer_id INTEGER NOT NULL REFERENCES offers( id ),
-	referred_by BLOB REFERENCES users( id ),
+	referred_by BLOB REFERENCES users( id ) ON DELETE SET NULL,
+	type TEXT NOT NULL,
 	credits_earned_in_cents INTEGER NOT NULL,
 	credits_used_in_cents INTEGER NOT NULL,
 	expires_at TIMESTAMP NOT NULL,

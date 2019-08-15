@@ -36,7 +36,6 @@ import (
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -77,8 +76,6 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
-	// CertDB returns database for storing uplink's public key & ID
-	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
 	// Attribution returns database for partner keys information
@@ -158,7 +155,8 @@ type Peer struct {
 	}
 
 	Overlay struct {
-		Service   *overlay.Cache
+		DB        overlay.DB
+		Service   *overlay.Service
 		Inspector *overlay.Inspector
 	}
 
@@ -245,7 +243,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(config.Version, versionInfo, "Satellite")
+		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server
@@ -262,7 +260,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if sc.DebugLogTraffic {
 			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
 		}
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, unaryInterceptor)
+		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -270,9 +268,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup overlay
 		log.Debug("Starting overlay")
-		config := config.Overlay
 
-		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Node)
+		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
+		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
@@ -336,7 +334,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, nil)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
@@ -385,7 +383,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
-			peer.DB.CertDB(),
 			peer.DB.Orders(),
 		)
 		peer.Orders.Service = orders.NewService(
@@ -437,10 +434,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
-			peer.Metainfo.Service,
+			peer.Log.Named("checker"),
 			peer.DB.RepairQueue(),
-			peer.Overlay.Service, peer.DB.Irreparable(),
-			0, peer.Log.Named("checker"),
+			peer.DB.Irreparable(),
+			peer.Metainfo.Service,
+			peer.Metainfo.Loop,
+			peer.Overlay.Service,
 			config.Checker)
 
 		peer.Repair.Repairer = repairer.NewService(
@@ -484,7 +483,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("garbage collection"),
 			config.GarbageCollection,
 			peer.Transport,
-			peer.DB.OverlayCache(),
+			peer.Overlay.DB,
 			peer.Metainfo.Loop,
 		)
 	}
@@ -642,7 +641,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
-			peer.DB.OverlayCache(),
+			peer.Overlay.DB,
 			peer.DB.StoragenodeAccounting())
 
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)

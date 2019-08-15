@@ -15,7 +15,8 @@ import (
 	"storj.io/storj/pkg/server"
 )
 
-type batchCfg struct {
+// BatchCfg defines configuration for batching
+type BatchCfg struct {
 	EmailsPath string `help:"optional path to a list of emails, delimited by <delimiter>, for batch processing"`
 	Delimiter  string `help:"delimiter to split emails loaded from <emails-path> on (e.g. comma, new-line)" default:"\n"`
 }
@@ -33,7 +34,7 @@ var (
 	}
 
 	config struct {
-		batchCfg
+		BatchCfg
 		CA       identity.CASetupConfig
 		Identity identity.SetupConfig
 		Server   struct { // workaround server.Config change
@@ -59,7 +60,7 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		zap.S().Fatal(err)
 	}
 
-	return config.Server.Run(ctx, identity, nil, config.Signer)
+	return config.Server.Run(ctx, zap.L(), identity, nil, config.Signer)
 }
 
 func main() {

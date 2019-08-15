@@ -142,7 +142,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
@@ -172,7 +172,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"))
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
@@ -220,6 +220,9 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("Invalid date format. Please use YYYY-MM-DD")
 	}
+
+	//Adding one day to properly account for the entire end day
+	end = end.Add(time.Hour * 24)
 
 	// Ensure that start date is not after end date
 	if start.After(end) {

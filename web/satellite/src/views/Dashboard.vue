@@ -1,4 +1,3 @@
-import {AppState} from "../utils/constants/appStateEnum";
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -45,10 +44,13 @@ import {AppState} from "../utils/constants/appStateEnum";
     @Component({
     mounted: async function() {
         setTimeout(async () => {
-            let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
-            if (!response.isSuccess) {
+            let user: User;
+
+            try {
+                user = await this.$store.dispatch(USER_ACTIONS.GET);
+            } catch (error) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
                 this.$router.push(ROUTES.LOGIN);
                 AuthToken.remove();
 

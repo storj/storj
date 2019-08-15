@@ -146,10 +146,36 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 }
 
 // Archive marks order as being handled.
-func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) (err error) {
+func (db *ordersdb) Archive(ctx context.Context, requests ...orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result, err := db.db.Exec(`
+	txn, err := db.Begin()
+	if err != nil {
+		return ErrInfo.Wrap(err)
+	}
+	defer func() {
+		if err == nil {
+			err = txn.Commit()
+		} else {
+			err = errs.Combine(err, txn.Rollback())
+		}
+	}()
+
+	for _, req := range requests {
+		err := db.archiveOne(ctx, txn, req)
+		if err != nil {
+			return ErrInfo.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// archiveOne marks order as being handled.
+func (db *ordersdb) archiveOne(ctx context.Context, txn *sql.Tx, req orders.ArchiveRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := txn.Exec(`
 		INSERT INTO order_archive_ (
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized,
@@ -165,7 +191,7 @@ func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial 
 
 		DELETE FROM unsent_order
 		WHERE satellite_id = ? AND serial_number = ?;
-	`, int(status), time.Now().UTC(), satellite, serial, satellite, serial)
+	`, int(req.Status), time.Now().UTC(), req.Satellite, req.Serial, req.Satellite, req.Serial)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}

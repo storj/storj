@@ -99,7 +99,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
@@ -142,7 +142,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		overrides[kademliaBootstrapAddr.Name] = "127.0.0.1" + defaultServerAddr
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
+		process.SaveConfigWithOverrides(overrides))
 }
 
 func main() {

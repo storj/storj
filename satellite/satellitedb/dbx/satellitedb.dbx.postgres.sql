@@ -55,12 +55,6 @@ CREATE TABLE bucket_usages (
 	audit_egress bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE certRecords (
-	publickey bytea NOT NULL,
-	id bytea NOT NULL,
-	update_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
@@ -139,6 +133,7 @@ CREATE TABLE projects (
 	description text NOT NULL,
 	usage_limit bigint NOT NULL,
 	partner_id bytea,
+	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -251,9 +246,10 @@ CREATE TABLE used_serials (
 );
 CREATE TABLE user_credits (
 	id serial NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ),
+	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	offer_id integer NOT NULL REFERENCES offers( id ),
-	referred_by bytea REFERENCES users( id ),
+	referred_by bytea REFERENCES users( id ) ON DELETE SET NULL,
+	type text NOT NULL,
 	credits_earned_in_cents integer NOT NULL,
 	credits_used_in_cents integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
