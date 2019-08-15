@@ -47,6 +47,16 @@ After user Alice on satellite B pays their first invoice:
 
     If a satellite address, C, is found in the database that's associated to the referral code XYZ, referral manager sends the referral code XYZ to satellite C. Satellite C looks up the user Bonnie that's associated with the referral code XYZ. satellite C injects a new entry into user_credits table for Bonnie for their earned referrer credits.
 
+### Marketing admin GUI 
+
+    Admin GUI is a web user interface that allows the marketing team to set different offers into the offers table (schema see below).
+    
+    Currently, each satellite has its own offers table in the satellitedb and marketing admin GUI.
+    
+    With the referral manager, we will migrate the existing offers table from satelites to the referral manager database.
+    
+    In this way, the marketing team does not need to go through each tardigrade satellite to set up the configuration for offers.
+
 ## Rationale
 1. Will this overload satellites?
 
