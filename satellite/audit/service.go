@@ -66,9 +66,10 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 		Loop: *sync2.NewCycle(config.Interval),
 
 		// for audit 2.0
-		reservoirSlots: config.Slots,
-		MetainfoLoop:   metaLoop,
 		ReservoirLoop:  *sync2.NewCycle(config.Interval),
+		MetainfoLoop:   metaLoop,
+		reservoirSlots: config.Slots,
+		Reservoirs:     make(map[storj.NodeID]*Reservoir),
 	}, nil
 }
 
