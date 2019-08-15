@@ -126,7 +126,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 
 	defer func() {
 		if len(requests) > 0 {
-			err = endpoint.processOrders(ctx, stream, requests)
+			err = errs.Combine(err, endpoint.processOrders(ctx, stream, requests))
 			if err != nil {
 				err = formatError(err)
 			}
@@ -191,7 +191,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 
 		requests = append(requests, &ProcessOrderRequest{Order: order, OrderLimit: orderLimit})
 
-		if len(requests) == endpoint.settlementBatchSize {
+		if len(requests) >= endpoint.settlementBatchSize {
 			err = endpoint.processOrders(ctx, stream, requests)
 			requests = requests[:0]
 			if err != nil {

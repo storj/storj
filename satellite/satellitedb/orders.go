@@ -224,12 +224,12 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	defer mon.Task()(&ctx)(&err)
 
 	if len(requests) == 0 {
-		return []*pb.SettlementResponse{}, err
+		return nil, err
 	}
 
 	tx, err := db.db.Begin()
 	if err != nil {
-		return []*pb.SettlementResponse{}, errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 	defer func() {
 		if err == nil {
@@ -253,14 +253,19 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	}
 
 	// processes the insert to used serials table individually so we can handle
-	// the case where the order has already been process.  Duplicates are rejected
+	// the case where the order has already been process.  Duplicates and previously
+	// processed orders are rejected
 	for _, request := range requests {
-		_, err := tx.Exec(db.buildInsertUseSerialStatement(request.OrderLimit))
+		stmt, err := db.buildInsertUseSerialStatement(request.OrderLimit)
+		if err != nil {
+			return nil, err
+		}
+		_, err = tx.Exec(stmt)
 		if err != nil {
 			if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
 				reject(request.OrderLimit.SerialNumber)
 			} else {
-				return []*pb.SettlementResponse{}, Error.Wrap(err)
+				return nil, Error.Wrap(err)
 			}
 		}
 	}
@@ -276,18 +281,18 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 
 	rows, err := tx.Query(statement, args...)
 	if err != nil {
-		return []*pb.SettlementResponse{}, errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 	bucketMap := make(map[storj.SerialNumber][]byte)
 	for rows.Next() {
 		var serialNumber, bucketID []byte
 		err := rows.Scan(&serialNumber, &bucketID)
 		if err != nil {
-			return []*pb.SettlementResponse{}, errs.Wrap(err)
+			return nil, errs.Wrap(err)
 		}
 		sn, err := storj.SerialNumberFromBytes(serialNumber)
 		if err != nil {
-			return []*pb.SettlementResponse{}, errs.Wrap(err)
+			return nil, errs.Wrap(err)
 		}
 		bucketMap[sn] = bucketID
 	}
@@ -301,11 +306,20 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 			if ok {
 				projectID, bucketName, err := orders.SplitBucketID(bucketID)
 				if err != nil {
-					return []*pb.SettlementResponse{}, errs.Wrap(err)
+					return nil, errs.Wrap(err)
 				}
 
-				updateRollupStatement += db.buildUpdateBucketBandwidthRollupStatements(request.OrderLimit, request.Order, projectID[:], bucketName, intervalStart)
-				updateRollupStatement += db.buildUpdateStorageNodeBandwidthRollupStatements(request.OrderLimit, request.Order, intervalStart)
+				stmt, err := db.buildUpdateBucketBandwidthRollupStatements(request.OrderLimit, request.Order, projectID[:], bucketName, intervalStart)
+				if err != nil {
+					return nil, err
+				}
+				updateRollupStatement += stmt
+
+				stmt, err = db.buildUpdateStorageNodeBandwidthRollupStatements(request.OrderLimit, request.Order, intervalStart)
+				if err != nil {
+					return nil, err
+				}
+				updateRollupStatement += stmt
 			} else {
 				reject(request.OrderLimit.SerialNumber)
 			}
@@ -314,7 +328,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 
 	_, err = tx.Exec(updateRollupStatement)
 	if err != nil {
-		return []*pb.SettlementResponse{}, errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 	for _, request := range requests {
 		_, rejected := rejectedRequests[request.OrderLimit.SerialNumber]
@@ -330,9 +344,18 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	return responses, nil
 }
 
-func (db *ordersDB) buildInsertUseSerialStatement(orderLimit *pb.OrderLimit) string {
+func (db *ordersDB) buildInsertUseSerialStatement(orderLimit *pb.OrderLimit) (string, error) {
+	hexNodeID, err := db.toHex(orderLimit.StorageNodeId.Bytes())
+	if err != nil {
+		return "", err
+	}
+	hexSN, err := db.toHex(orderLimit.SerialNumber.Bytes())
+	if err != nil {
+		return "", err
+	}
+
 	return fmt.Sprintf("INSERT INTO  used_serials (serial_number_id, storage_node_id) SELECT id, %v FROM serial_numbers WHERE serial_number = %s;\n",
-		db.toHex(orderLimit.StorageNodeId.Bytes()), db.toHex(orderLimit.SerialNumber.Bytes()))
+		hexNodeID, hexSN), nil
 }
 
 func (db *ordersDB) buildGetBucketIdsQuery(argCount int) string {
@@ -343,30 +366,43 @@ func (db *ordersDB) buildGetBucketIdsQuery(argCount int) string {
 	return fmt.Sprintf("SELECT serial_number, bucket_id FROM serial_numbers WHERE serial_number IN (%s);\n", strings.Join(args, ","))
 }
 
-func (db *ordersDB) buildUpdateBucketBandwidthRollupStatements(orderLimit *pb.OrderLimit, order *pb.Order, projectID []byte, bucketName []byte, intervalStart time.Time) string {
+func (db *ordersDB) buildUpdateBucketBandwidthRollupStatements(orderLimit *pb.OrderLimit, order *pb.Order, projectID []byte, bucketName []byte, intervalStart time.Time) (string, error) {
+	hexName, err := db.toHex(bucketName)
+	if err != nil {
+		return "", err
+	}
+	hexProjectID, err := db.toHex(projectID)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf(`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 		VALUES (%s, %s, '%s', %d, %d, %d, %d, %d)
 		ON CONFLICT(bucket_name, project_id, interval_start, action)
 		DO UPDATE SET settled = bucket_bandwidth_rollups.settled + %d;
-`, db.toHex(bucketName), db.toHex(projectID), intervalStart.Format("2006-01-02 15:04:05+00:00"), defaultIntervalSeconds, orderLimit.Action, 0, 0, uint64(order.Amount), uint64(order.Amount))
+`, hexName, hexProjectID, intervalStart.Format("2006-01-02 15:04:05+00:00"), defaultIntervalSeconds, orderLimit.Action, 0, 0, order.Amount, order.Amount), nil
 }
 
-func (db *ordersDB) buildUpdateStorageNodeBandwidthRollupStatements(orderLimit *pb.OrderLimit, order *pb.Order, intervalStart time.Time) string {
+func (db *ordersDB) buildUpdateStorageNodeBandwidthRollupStatements(orderLimit *pb.OrderLimit, order *pb.Order, intervalStart time.Time) (string, error) {
+	hexNodeID, err := db.toHex(orderLimit.StorageNodeId.Bytes())
+	if err != nil {
+		return "", err
+	}
+
 	return fmt.Sprintf(`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
 		VALUES (%s, '%s', %d, %d, %d, %d)
 		ON CONFLICT(storagenode_id, interval_start, action)
 		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + %d;
-`, db.toHex(orderLimit.StorageNodeId.Bytes()), intervalStart.Format("2006-01-02 15:04:05+00:00"), defaultIntervalSeconds, orderLimit.Action, 0, uint64(order.Amount), uint64(order.Amount))
+`, hexNodeID, intervalStart.Format("2006-01-02 15:04:05+00:00"), defaultIntervalSeconds, orderLimit.Action, 0, order.Amount, order.Amount), nil
 }
 
-func (db *ordersDB) toHex(value []byte) string {
+func (db *ordersDB) toHex(value []byte) (string, error) {
 	hexValue := hex.EncodeToString(value)
-	switch db.db.Driver().(type) {
+	switch t := db.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
-		return fmt.Sprintf("X'%v'", hexValue)
+		return fmt.Sprintf("X'%v'", hexValue), nil
 	case *pq.Driver:
-		return fmt.Sprintf("decode('%v', 'hex')", hexValue)
+		return fmt.Sprintf("decode('%v', 'hex')", hexValue), nil
 	default:
-		return ""
+		return "", errs.New("Unsupported DB type %q", t)
 	}
 }
