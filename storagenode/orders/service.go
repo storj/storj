@@ -80,8 +80,9 @@ type DB interface {
 
 // Config defines configuration for sending orders.
 type Config struct {
-	Interval time.Duration `help:"duration between sending" default:"1h0m0s"`
-	Timeout  time.Duration `help:"timeout for sending" default:"1h0m0s"`
+	SenderInterval  time.Duration `help:"duration between sending" default:"1h0m0s"`
+	CleanupInterval time.Duration `help:"duration between archive cleanups. Each cleanup deletes all orders archived before the previous iteration, leaving the last period available for reference" default:"720h0m0s"`
+	Timeout         time.Duration `help:"timeout for sending" default:"1h0m0s"`
 }
 
 // Service sends every interval unsent orders to the satellite.
@@ -93,7 +94,8 @@ type Service struct {
 	orders    DB
 	trust     *trust.Pool
 
-	Sender sync2.Cycle
+	Sender  sync2.Cycle
+	Cleanup sync2.Cycle
 }
 
 // NewService creates an order service.
@@ -105,7 +107,8 @@ func NewService(log *zap.Logger, transport transport.Client, orders DB, trust *t
 		config:    config,
 		trust:     trust,
 
-		Sender: *sync2.NewCycle(config.Interval),
+		Sender:  *sync2.NewCycle(config.SenderInterval),
+		Cleanup: *sync2.NewCycle(config.CleanupInterval),
 	}
 }
 
@@ -113,6 +116,19 @@ func NewService(log *zap.Logger, transport transport.Client, orders DB, trust *t
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.Sender.Run(ctx, service.runOnce)
+}
+
+func (service *Service) cleanArchive(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	service.log.Debug("cleaning")
+
+	deleted, err := service.orders.CleanArchive(ctx, service.config.CleanupInterval)
+	if err != nil {
+		return OrderError.Wrap(err)
+	}
+
+	service.log.Debug("cleanup finished", zap.Int("items deleted", deleted))
+	return nil
 }
 
 func (service *Service) runOnce(ctx context.Context) (err error) {
