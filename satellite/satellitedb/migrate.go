@@ -1125,7 +1125,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add piece_count column to nodes table",
 				Version:     53,
 				Action: migrate.SQL{
-					`ALTER TABLE nodes ADD piece_count INTEGER NOT NULL DEFAULT 0;`,
+					`ALTER TABLE nodes ADD piece_count BIGINT NOT NULL DEFAULT 0;`,
 				},
 			},
 		},
