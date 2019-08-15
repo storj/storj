@@ -219,7 +219,7 @@ func (db *ordersdb) archiveOne(ctx context.Context, txn *sql.Tx, req orders.Arch
 		return ErrInfo.Wrap(err)
 	}
 	if count == 0 {
-		return orders.OrderNotFoundError.New("satellitte: %s, serial number: %s",
+		return orders.OrderNotFoundError.New("satellite: %s, serial number: %s",
 			req.Satellite.String(), req.Serial.String(),
 		)
 	}
