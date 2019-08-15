@@ -178,13 +178,13 @@ type StoreForTest struct {
 	*Store
 }
 
-// CreateV0 creates a new V0 blob that can be written. This is only appropriate in test situations.
-func (testStore *StoreForTest) CreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error) {
+// TestCreateV0 creates a new V0 blob that can be written. This is only appropriate in test situations.
+func (store *Store) TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	file, err := testStore.dir.CreateTemporaryFile(ctx, -1)
+	file, err := store.dir.CreateTemporaryFile(ctx, -1)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, testStore.Store, FormatV0, file), nil
+	return newBlobWriter(ref, store, FormatV0, file), nil
 }

@@ -57,6 +57,7 @@ type DB interface {
 	Orders() orders.DB
 	V0PieceInfo() pieces.V0PieceInfoDB
 	PieceExpirationDB() pieces.PieceExpirationDB
+	PieceSpaceUsedDB() pieces.PieceSpaceUsedDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
@@ -120,12 +121,14 @@ type Peer struct {
 
 	Storage2 struct {
 		// TODO: lift things outside of it to organize better
-		Trust     *trust.Pool
-		Store     *pieces.Store
-		Endpoint  *piecestore.Endpoint
-		Inspector *inspector.Endpoint
-		Monitor   *monitor.Service
-		Sender    *orders.Sender
+		Trust        *trust.Pool
+		Store        *pieces.Store
+		BlobsCache   *pieces.BlobsUsageCache
+		CacheService *pieces.CacheService
+		Endpoint     *piecestore.Endpoint
+		Inspector    *inspector.Endpoint
+		Monitor      *monitor.Service
+		Sender       *orders.Sender
 	}
 
 	Vouchers *vouchers.Service
@@ -181,6 +184,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		}
 	}
 
+	{ // setup trust pool before kademlia
+		peer.Storage2.Trust, err = trust.NewPool(peer.Transport, config.Storage.WhitelistedSatellites)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
 	{ // setup kademlia
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
@@ -222,7 +232,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, peer.Storage2.Trust)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
@@ -230,12 +240,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup storage
-		peer.Storage2.Trust, err = trust.NewPool(peer.Transport, config.Storage.WhitelistedSatellites)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
+		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.DB.Pieces())
 
-		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"), peer.DB.Pieces(), peer.DB.V0PieceInfo(), peer.DB.PieceExpirationDB())
+		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"),
+			peer.Storage2.BlobsCache,
+			peer.DB.V0PieceInfo(),
+			peer.DB.PieceExpirationDB(),
+			peer.DB.PieceSpaceUsedDB(),
+		)
+
+		peer.Storage2.CacheService = pieces.NewService(
+			log.Named("piecestore:cacheUpdate"),
+			peer.Storage2.BlobsCache,
+			peer.Storage2.Store,
+			config.Storage2.CacheSyncInterval,
+		)
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
@@ -309,7 +328,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
 			config.Kademlia.Operator.Wallet,
-			versionInfo)
+			versionInfo,
+			peer.Storage2.Trust,
+			peer.DB.Reputation(),
+			peer.DB.StorageUsage())
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -374,6 +396,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
 	})
 
@@ -424,6 +449,9 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Storage2.Sender != nil {
 		errlist.Add(peer.Storage2.Sender.Close())
+	}
+	if peer.Storage2.CacheService != nil {
+		errlist.Add(peer.Storage2.CacheService.Close())
 	}
 	if peer.Collector != nil {
 		errlist.Add(peer.Collector.Close())

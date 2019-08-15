@@ -1368,6 +1368,15 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		RemotePieces: pieces,
 	}
 
+	metadata, err := proto.Marshal(&pb.SegmentMeta{
+		EncryptedKey: req.EncryptedKey,
+		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
+	})
+	if err != nil {
+		endpoint.log.Error("unable to marshal segment metadata", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
 	pointer := &pb.Pointer{
 		Type:        pb.Pointer_REMOTE,
 		Remote:      remote,
@@ -1375,6 +1384,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 		CreationDate:   streamID.CreationDate,
 		ExpirationDate: streamID.ExpirationDate,
+		Metadata:       metadata,
 	}
 
 	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
@@ -1705,28 +1715,28 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	var encryptedKeyNonce storj.Nonce
 	var encryptedKey []byte
 	if len(pointer.Metadata) != 0 {
-		var segmentMeta *pb.SegmentMeta
+		segmentMeta := pb.SegmentMeta{}
 		if req.CursorPosition.Index == lastSegment {
 			streamMeta := &pb.StreamMeta{}
 			err = proto.Unmarshal(pointer.Metadata, streamMeta)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, err.Error())
 			}
-			segmentMeta = streamMeta.LastSegmentMeta
+			segmentMeta = *streamMeta.LastSegmentMeta
 		} else {
-			err = proto.Unmarshal(pointer.Metadata, segmentMeta)
+			err = proto.Unmarshal(pointer.Metadata, &segmentMeta)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, err.Error())
 			}
 		}
-		if segmentMeta != nil {
-			encryptedKeyNonce, err = storj.NonceFromBytes(segmentMeta.KeyNonce)
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "unable to get encryption key nonce from metadata: %v", err.Error())
-			}
 
-			encryptedKey = segmentMeta.EncryptedKey
+		encryptedKeyNonce, err = storj.NonceFromBytes(segmentMeta.KeyNonce)
+		if err != nil {
+			endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
+			return nil, status.Errorf(codes.Internal, err.Error())
 		}
+
+		encryptedKey = segmentMeta.EncryptedKey
 	}
 
 	if pointer.Type == pb.Pointer_INLINE {
