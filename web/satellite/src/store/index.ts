@@ -7,7 +7,7 @@ import Vuex from 'vuex';
 import { makeUsersModule } from '@/store/modules/users';
 import { projectsModule } from '@/store/modules/projects';
 import { projectMembersModule } from '@/store/modules/projectMembers';
-import { notificationsModule } from '@/store/modules/notifications';
+import { makeNotificationsModule } from '@/store/modules/notifications';
 import { appStateModule } from '@/store/modules/appState';
 import { apiKeysModule } from '@/store/modules/apiKeys';
 import { bucketUsageModule, usageModule, creditUsageModule } from '@/store/modules/usage';
@@ -31,7 +31,7 @@ const store = new Vuex.Store({
         usersModule: makeUsersModule(usersApi),
         projectsModule,
         projectMembersModule,
-        notificationsModule,
+        notificationsModule: makeNotificationsModule(),
         appStateModule,
         apiKeysModule,
         usageModule,

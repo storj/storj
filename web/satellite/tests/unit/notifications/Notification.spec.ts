@@ -12,28 +12,23 @@ const localVue = createLocalVue();
 
 localVue.use(Vuex);
 
-describe('Notification.vue', () => {
-    let actions;
-    let store;
-    const pauseSpy = sinon.spy();
-    const resumeSpy = sinon.spy();
-    const deleteSpy = sinon.spy();
+const pauseSpy = sinon.spy();
+const resumeSpy = sinon.spy();
+const deleteSpy = sinon.spy();
 
-    beforeEach(() => {
-        actions = {
-            pauseNotification: pauseSpy,
-            resumeNotification: resumeSpy,
-            deleteNotification: deleteSpy,
-        };
-
-        store = new Vuex.Store({
-            modules: {
-                notificationsModule: {
-                    actions
-                }
+const store = new Vuex.Store({
+    modules: {
+        notificationsModule: {
+            actions: {
+                pauseNotification: pauseSpy,
+                resumeNotification: resumeSpy,
+                deleteNotification: deleteSpy,
             }
-        });
-    });
+        }
+    }
+});
+
+describe('Notification.vue', () => {
 
     it('renders correctly', () => {
         const wrapper = shallowMount(Notification);
