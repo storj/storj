@@ -115,7 +115,7 @@ func (idents *identDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (
 		var peerChain []byte
 		err := rows.Scan(&peerChain)
 		if err != nil {
-			return peerIdents, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 		peerIdent, err := identity.DecodePeerIdentity(ctx, peerChain)
 		if err != nil {
