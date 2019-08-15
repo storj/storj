@@ -58,7 +58,6 @@ func TestAuditObserver(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		observer := audit.NewObserver(zaptest.NewLogger(t), 3)
 		allPieces := make(map[storj.PieceID]storj.NodeID)
 
 		err = satellite.Metainfo.Service.Iterate(ctx, "", "", true, false,
@@ -89,6 +88,7 @@ func TestAuditObserver(t *testing.T) {
 			})
 		require.NoError(t, err)
 
+		observer := audit.NewObserver(zaptest.NewLogger(t), 3)
 		err = audits.MetainfoLoop.Join(ctx, observer)
 		require.NoError(t, err)
 
