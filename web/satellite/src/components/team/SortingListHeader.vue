@@ -77,7 +77,6 @@
 
         public async notifyDatasetChanged() {
             await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
-            this.$forceUpdate();
         }
     }
 </script>
