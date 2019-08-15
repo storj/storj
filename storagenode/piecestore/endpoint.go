@@ -710,6 +710,13 @@ func (endpoint *Endpoint) RetainPieces(ctx context.Context, satelliteID storj.No
 			}
 			numDeleted++
 		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		return nil
 	})
 	if err != nil {
