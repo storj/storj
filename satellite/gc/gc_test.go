@@ -43,6 +43,7 @@ func TestGarbageCollection(t *testing.T) {
 		upl := planet.Uplinks[0]
 		targetNode := planet.StorageNodes[0]
 		gcService := satellite.GarbageCollection.Service
+		gcService.Loop.Pause()
 
 		// Upload two objects
 		testData1 := testrand.Bytes(8 * memory.KiB)
@@ -92,15 +93,30 @@ func TestGarbageCollection(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		// Wait for next iteration of garbage collection to finish
+		gcService.Loop.Restart()
 		gcService.Loop.TriggerWait()
 
-		// Check that piece of the deleted object is not on the storagenode
-		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
-			Namespace: satellite.ID().Bytes(),
-			Key:       deletedPieceID.Bytes(),
-		})
-		require.Error(t, err)
-		require.Nil(t, pieceAccess)
+		// gc on the storagenode happens in a separate goroutine, so we need to poll until either the piece has been deleted or we time out
+		timeout := 2 * time.Second
+		waitTime := 250 * time.Millisecond
+		startTime := time.Now()
+		for {
+			currTime := time.Now()
+			dt := currTime.Sub(startTime)
+
+			// Check that piece of the deleted object is not on the storagenode
+			pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
+				Namespace: satellite.ID().Bytes(),
+				Key:       deletedPieceID.Bytes(),
+			})
+			if err != nil && pieceAccess == nil {
+				break
+			} else if dt > timeout {
+				t.Fatalf("Garbage collection did not complete within time period of %f seconds", timeout.Seconds())
+			}
+
+			time.Sleep(waitTime)
+		}
 
 		// Check that piece of the kept object is on the storagenode
 		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{
