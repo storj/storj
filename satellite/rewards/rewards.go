@@ -53,6 +53,16 @@ type UpdateOffer struct {
 	ExpiresAt time.Time
 }
 
+// RedeemOffer holds field needed for redeem an offer
+type RedeemOffer struct {
+	RedeemableCap int
+	Status        OfferStatus
+	Type          OfferType
+}
+
+// Offers contains a slice of offers.
+type Offers []Offer
+
 // OfferType indicates the type of an offer
 type OfferType int
 
@@ -75,11 +85,11 @@ const (
 	// Done is the status of an offer that is no longer in use.
 	Done = OfferStatus(iota)
 
-	// Active is the status of an offer that is currently in use.
-	Active
-
 	// Default is the status of an offer when there is no active offer.
 	Default
+
+	// Active is the status of an offer that is currently in use.
+	Active
 )
 
 // Offer contains info needed for giving users free credits through different offer programs
@@ -137,5 +147,7 @@ func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offe
 	return offer, nil
 }
 
-// Offers contains a slice of offers.
-type Offers []Offer
+// IsDefault checks if a offer's status is default
+func (status OfferStatus) IsDefault() bool {
+	return status == Default
+}

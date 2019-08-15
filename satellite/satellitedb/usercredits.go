@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/currency"
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -58,9 +59,7 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 }
 
 // Create insert a new record of user credit
-func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) error {
-	var statement string
-
+func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredit) (err error) {
 	if userCredit.ExpiresAt.Before(time.Now().UTC()) {
 		return errs.New("user credit is already expired")
 	}
@@ -70,37 +69,58 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 		referrerID = userCredit.ReferredBy[:]
 	}
 
-	var result sql.Result
-	var err error
+	var shouldCreate bool
+	switch userCredit.OfferInfo.Type {
+	case rewards.Partner:
+		shouldCreate = false
+	default:
+		shouldCreate = userCredit.OfferInfo.Status.IsDefault()
+	}
 
+	var dbExec interface {
+		ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	}
+
+	if c.tx != nil {
+		dbExec = c.tx.Tx
+	} else {
+		dbExec = c.db.DB
+	}
+
+	var (
+		result    sql.Result
+		statement string
+	)
 	switch t := c.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
 				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, ?, time('now'))) AS v
-					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < NULLIF(?, 0) , ?);
 		`
-		if c.tx != nil {
-			result, err = c.tx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferID)
-		} else {
-			result, err = c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferID)
-		}
+		result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, userCredit.Type, userCredit.OfferID, userCredit.OfferInfo.RedeemableCap, shouldCreate)
 	case *pq.Driver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, type, created_at)
 				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), ?::text, now())) AS v
-					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? AND referred_by IS NOT NULL ) < NULLIF(?, 0), ?);
 		`
-		if c.tx != nil {
-			result, err = c.tx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferID)
-		} else {
-			result, err = c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferID)
-		}
+		result, err = dbExec.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.Type, userCredit.OfferID, userCredit.OfferInfo.RedeemableCap, shouldCreate)
 	default:
-		return errs.New("Unsupported database %t", t)
+		return errs.New("unsupported database: %t", t)
 	}
 
 	if err != nil {
+		// check to see if there's a constraint error
+		if pgutil.IsConstraintError(err) || err == sqlite3.ErrConstraint {
+			_, err := dbExec.ExecContext(ctx, c.db.Rebind(`UPDATE offers SET status = ? AND expires_at = ? WHERE id = ?`), rewards.Done, time.Now().UTC(), userCredit.OfferID)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			return rewards.MaxRedemptionErr.Wrap(err)
+		}
+
 		return errs.Wrap(err)
 	}
 
@@ -110,7 +130,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 	}
 
 	if rows != 1 {
-		return rewards.MaxRedemptionErr.New("create credit failed")
+		return rewards.MaxRedemptionErr.New("failed to create new credit")
 	}
 
 	return nil

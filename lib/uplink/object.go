@@ -8,7 +8,6 @@ import (
 	"io"
 	"time"
 
-	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink/metainfo/kvmetainfo"
 	"storj.io/storj/uplink/storage/streams"
@@ -78,27 +77,16 @@ type Object struct {
 	streams    streams.Store
 }
 
-// DownloadRange returns an Object's data. A length of -1 will mean
-// (Object.Size - offset).
+// DownloadRange returns an Object's data. A length of -1 will mean (Object.Size - offset).
 func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	readOnlyStream, err := o.metainfoDB.GetObjectStream(ctx, o.Meta.Bucket, o.Meta.Path)
+	segmentStream, err := o.metainfoDB.GetObjectStream(ctx, o.Meta.Bucket, o.Meta.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	download := stream.NewDownload(ctx, readOnlyStream, o.streams)
-	_, err = download.Seek(offset, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-
-	if length == -1 {
-		return download, nil
-	}
-
-	return readcloser.LimitReadCloser(download, length), nil
+	return stream.NewDownloadRange(ctx, segmentStream, o.streams, offset, length), nil
 }
 
 // Close closes the Object.

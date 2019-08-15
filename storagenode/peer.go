@@ -328,7 +328,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
 			config.Kademlia.Operator.Wallet,
-			versionInfo)
+			versionInfo,
+			peer.Storage2.Trust,
+			peer.DB.Reputation(),
+			peer.DB.StorageUsage())
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

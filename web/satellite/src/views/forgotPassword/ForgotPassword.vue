@@ -7,11 +7,11 @@
     import { Component, Vue } from 'vue-property-decorator';
     import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
     import { LOADING_CLASSES } from '@/utils/constants/classConstants';
-    import { forgotPasswordRequest } from '@/api/users';
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import { validateEmail } from '@/utils/validation';
     import EVENTS from '@/utils/constants/analyticsEventNames';
+    import { AuthApi } from '@/api/auth';
 
     @Component({
         components: {
@@ -22,6 +22,8 @@
         public loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
         private email: string = '';
         private emailError: string = '';
+
+        private readonly auth: AuthApi = new AuthApi();
 
         public setEmail(value: string): void {
             this.email = value;
@@ -35,14 +37,12 @@
                 return;
             }
 
-            let passwordRecoveryResponse = await forgotPasswordRequest(this.email);
-            if (!passwordRecoveryResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, passwordRecoveryResponse.errorMessage);
-
-                return;
+            try {
+                await this.auth.forgotPassword(this.email);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
             }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
         }
 
         public onBackToLoginClick(): void {
