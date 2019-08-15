@@ -259,3 +259,25 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 
 	return infos, ErrInfo.Wrap(rows.Err())
 }
+
+// CleanArchive deletes all entries older than ttl
+func (db *ordersdb) CleanArchive(ctx context.Context, ttl time.Duration) (_ int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	deleteBefore := time.Now().UTC().Add(-1 * ttl)
+	result, err := db.db.Exec(`
+		DELETE FROM order_archive_
+		WHERE archived_at <= ?
+	`, deleteBefore)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		return 0, ErrInfo.Wrap(err)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return 0, ErrInfo.Wrap(err)
+	}
+	return int(count), nil
+}
