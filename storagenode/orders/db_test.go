@@ -183,7 +183,7 @@ func TestDB(t *testing.T) {
 		// with 1 nanosecond ttl, archived order should be deleted
 		n, err = db.Orders().CleanArchive(ctx, time.Nanosecond)
 		require.NoError(t, err)
-		require.Equal(t, 1, n)
+		require.Equal(t, 2, n)
 	})
 }
 
