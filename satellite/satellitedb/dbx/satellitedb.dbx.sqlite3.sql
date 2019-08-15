@@ -90,6 +90,7 @@ CREATE TABLE nodes (
 	total_audit_count INTEGER NOT NULL,
 	uptime_success_count INTEGER NOT NULL,
 	total_uptime_count INTEGER NOT NULL,
+	piece_count INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	last_contact_success TIMESTAMP NOT NULL,

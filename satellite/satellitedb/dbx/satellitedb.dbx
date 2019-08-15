@@ -147,6 +147,7 @@ model node (
 	field total_audit_count    int64   ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
+	field piece_count          int64   ( updatable )
 
 	field created_at           timestamp ( autoinsert )
 	field updated_at           timestamp ( autoinsert, autoupdate )
