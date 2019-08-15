@@ -113,8 +113,9 @@ func (v *RetainStatus) String() string {
 
 // Endpoint implements uploading, downloading and deleting for a storage node.
 type Endpoint struct {
-	log    *zap.Logger
-	config Config
+	log       *zap.Logger
+	config    Config
+	retainCtx context.Context
 
 	signer  signing.Signer
 	trust   *trust.Pool
@@ -651,10 +652,15 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
 	go func(satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) {
-		err := endpoint.RetainPieces(context.Background(), satelliteID, createdBefore, filter)
-		if err != nil {
-			endpoint.log.Error("retain error", zap.Error(err))
+		if endpoint.retainCtx != nil {
+			err := endpoint.RetainPieces(endpoint.retainCtx, satelliteID, createdBefore, filter)
+			if err != nil {
+				endpoint.log.Error("retain error", zap.Error(err))
+			}
+		} else {
+			endpoint.log.Error("No retain context. Stopping garbage collection.")
 		}
+
 	}(peer.ID, createdBefore, filter)
 
 	return &pb.RetainResponse{}, nil
