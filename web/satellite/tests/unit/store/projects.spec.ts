@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { projectsModule } from '@/store/modules/projects';
+import { makeProjectsModule } from '@/store/modules/projects';
 import * as api from '@/api/projects';
 import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
 import { PROJECTS_MUTATIONS } from '@/store/mutationConstants';
@@ -10,7 +10,10 @@ import Vuex from 'vuex';
 import { RequestResponse } from '@/types/response';
 import { Project } from '@/types/projects';
 
+const projectsModule = makeProjectsModule();
 const mutations = projectsModule.mutations;
+const localVue = createLocalVue();
+localVue.use(Vuex);
 
 describe('mutations', () => {
     beforeEach(() => {
