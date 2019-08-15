@@ -38,14 +38,14 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-    import Button from '@/components/common/Button.vue';
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import Button from '@/components/common/Button.vue';
+    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
     @Component({
         components: {
             HeaderlessInput,
-            Button
+            Button,
         },
     })
     export default class ApiKeysCreationPopup extends Vue {

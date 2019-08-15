@@ -35,7 +35,7 @@
                 <div class="api-keys-items__content">
                     <div v-for="apiKey in apiKeyList" v-on:click="toggleSelection(apiKey.id)">
                         <ApiKeysItem
-                            v-bind:class="[apiKey.isSelected ? 'selected': null]"
+                            :class="{selected: apiKey.isSelected}"
                             :apiKey="apiKey" />
                     </div>
                 </div>
@@ -54,17 +54,17 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
-    import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { ApiKey } from '@/types/apiKeys';
-    import Button from '@/components/common/Button.vue';
-    import { RequestResponse } from '@/types/response';
     import VueClipboards from 'vue-clipboards';
     import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
     import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
+    import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
+    import Button from '@/components/common/Button.vue';
+    import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import HeaderComponent from '@/components/common/HeaderComponent.vue';
+    import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { ApiKey } from '@/types/apiKeys';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { RequestResponse } from '@/types/response';
 
     Vue.use(VueClipboards);
 
