@@ -98,6 +98,20 @@ type V0PieceInfoDBForTest interface {
 	Add(context.Context, *Info) error
 }
 
+// PieceSpaceUsedDB stores the most recent totals from the space used cache
+type PieceSpaceUsedDB interface {
+	// Init creates the one total record if it doesn't already exist
+	Init(ctx context.Context) error
+	// GetTotal returns the total space used by all pieces stored on disk
+	GetTotal(ctx context.Context) (int64, error)
+	// GetTotalsForAllSatellites returns how much total space used by pieces stored on disk for each satelliteID
+	GetTotalsForAllSatellites(ctx context.Context) (map[storj.NodeID]int64, error)
+	// UpdateTotal updates the record for total spaced used with a new value
+	UpdateTotal(ctx context.Context, newTotal int64) error
+	// UpdateTotalsForAllSatellites updates each record for total spaced used with a new value for each satelliteID
+	UpdateTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]int64) error
+}
+
 // StoredPieceAccess allows inspection and manipulation of a piece during iteration with
 // WalkSatellitePieces-type methods.
 type StoredPieceAccess interface {
@@ -127,35 +141,30 @@ type Store struct {
 	blobs          storage.Blobs
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
-
-	// The value of reservedSpace is always added to the return value from the
-	// SpaceUsedForPieces() method.
-	// The reservedSpace field is part of an unfortunate hack that enables testing of low-space
-	// or no-space conditions. It is not (or should not be) used under regular operating
-	// conditions.
-	reservedSpace int64
+	spaceUsedDB    PieceSpaceUsedDB
 }
 
 // StoreForTest is a wrapper around Store to be used only in test scenarios. It enables writing
-// pieces with older storage formats and allows use of the ReserveSpace() method.
+// pieces with older storage formats
 type StoreForTest struct {
 	*Store
 }
 
 // NewStore creates a new piece store
-func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB) *Store {
+func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, pieceSpaceUsedDB PieceSpaceUsedDB) *Store {
 	return &Store{
 		log:            log,
 		blobs:          blobs,
 		v0PieceInfo:    v0PieceInfo,
 		expirationInfo: expirationInfo,
+		spaceUsedDB:    pieceSpaceUsedDB,
 	}
 }
 
 // Writer returns a new piece writer.
 func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	blob, err := store.blobs.Create(ctx, storage.BlobRef{
+	blobWriter, err := store.blobs.Create(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}, preallocSize.Int64())
@@ -163,7 +172,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(blob)
+	writer, err := NewWriter(blobWriter, store.blobs, satellite)
 	return writer, Error.Wrap(err)
 }
 
@@ -177,24 +186,25 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	}
-	var blob storage.BlobWriter
+	var blobWriter storage.BlobWriter
 	switch formatVersion {
 	case filestore.FormatV0:
-		fStore, ok := store.blobs.(*filestore.Store)
+		fStore, ok := store.blobs.(interface {
+			TestCreateV0(ctx context.Context, ref storage.BlobRef) (_ storage.BlobWriter, err error)
+		})
 		if !ok {
 			return nil, Error.New("can't make a WriterForFormatVersion with this blob store (%T)", store.blobs)
 		}
-		tStore := filestore.StoreForTest{Store: fStore}
-		blob, err = tStore.CreateV0(ctx, blobRef)
+		blobWriter, err = fStore.TestCreateV0(ctx, blobRef)
 	case filestore.FormatV1:
-		blob, err = store.blobs.Create(ctx, blobRef, preallocSize.Int64())
+		blobWriter, err = store.blobs.Create(ctx, blobRef, preallocSize.Int64())
 	default:
 		return nil, Error.New("please teach me how to make V%d pieces", formatVersion)
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	writer, err := NewWriter(blob)
+	writer, err := NewWriter(blobWriter, store.blobs, satellite)
 	return writer, Error.Wrap(err)
 }
 
@@ -243,6 +253,7 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
 	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
 	// both of these calls should return no error if the requested record is not found.
 	if store.expirationInfo != nil {
@@ -334,6 +345,9 @@ func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when 
 // The value of reservedSpace for this Store is added to the result, but this should only affect
 // tests (reservedSpace should always be 0 in real usage).
 func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
+	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
+		return cache.SpaceUsedForPieces(ctx)
+	}
 	satellites, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
 		return 0, err
@@ -346,7 +360,7 @@ func (store *Store) SpaceUsedForPieces(ctx context.Context) (int64, error) {
 		}
 		total += spaceUsed
 	}
-	return total + store.reservedSpace, nil
+	return total, nil
 }
 
 func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID, error) {
@@ -373,6 +387,10 @@ func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID
 // storj/filestore/store.(*Store).SpaceUsedInNamespace() *does* include all space used by the
 // blobs.
 func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error) {
+	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
+		return cache.SpaceUsedBySatellite(ctx, satelliteID)
+	}
+
 	var totalUsed int64
 	err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
 		contentSize, statErr := access.ContentSize(ctx)
@@ -390,12 +408,35 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	return totalUsed, nil
 }
 
-// ReserveSpace marks some amount of free space as used, even if it's not, so that future calls
-// to SpaceUsedForPieces() are raised by this amount. Calls to ReserveSpace invalidate earlier
-// calls, so ReserveSpace(0) undoes all prior space reservation. This should only be used in
-// test scenarios.
-func (store StoreForTest) ReserveSpace(amount int64) {
-	store.reservedSpace = amount
+// SpaceUsedTotalAndBySatellite adds up the space used by and for all satellites for blob storage
+func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (total int64, totalBySatellite map[storj.NodeID]int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	satelliteIDs, err := store.getAllStoringSatellites(ctx)
+	if err != nil {
+		return total, totalBySatellite, Error.New("failed to enumerate satellites: %v", err)
+	}
+
+	totalBySatellite = map[storj.NodeID]int64{}
+	for _, satelliteID := range satelliteIDs {
+		var totalUsed int64
+
+		err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
+			contentSize, err := access.ContentSize(ctx)
+			if err != nil {
+				return err
+			}
+			totalUsed += contentSize
+			return nil
+		})
+		if err != nil {
+			return total, totalBySatellite, err
+		}
+
+		total += totalUsed
+		totalBySatellite[satelliteID] = totalUsed
+	}
+	return total, totalBySatellite, nil
 }
 
 // StorageStatus contains information about the disk store is using.

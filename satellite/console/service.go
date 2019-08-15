@@ -16,7 +16,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/currency"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -95,34 +94,12 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 
 // CreateUser gets password hash value and creates new inactive User
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
-	offerType := rewards.FreeCredit
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
 	}
 
-	// TODO: remove after vanguard release
-	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
-	if err != nil {
-		return nil, errs.New(vanguardRegTokenErrMsg)
-	}
-	if registrationToken.OwnerID != nil {
-		return nil, errs.New(usedRegTokenVanguardErrMsg)
-	}
-
-	// TODO: store original email input in the db,
-	// add normalization
-	email := normalizeEmail(user.Email)
-
-	u, err = s.store.Users().GetByEmail(ctx, email)
-	if err == nil {
-		return nil, errs.New(emailUsedErrMsg)
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
-	}
+	offerType := rewards.FreeCredit
 	if user.PartnerID != "" {
 		offerType = rewards.Partner
 	} else if refUserID != "" {
@@ -138,6 +115,42 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
 	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
+		return nil, errs.New(internalErrMsg)
+	}
+
+	// TODO: remove after vanguard release
+	// when user uses an open source partner referral link, there won't be a registration token in the link.
+	// therefore, we need to create one so we can still control the project limit on the account level
+	var registrationToken *RegistrationToken
+	if user.PartnerID != "" {
+		// set the project limit to be 1 for open source partner invitees
+		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
+		if err != nil {
+			return nil, errs.New(internalErrMsg)
+		}
+	} else {
+		registrationToken, err = s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
+		if err != nil {
+			return nil, errs.New(vanguardRegTokenErrMsg)
+		}
+		// if a registration token is already associated with an user ID, that means the token is already used
+		// we should terminate the account creation process and return an error
+		if registrationToken.OwnerID != nil {
+			return nil, errs.New(usedRegTokenVanguardErrMsg)
+		}
+	}
+
+	// TODO: store original email input in the db,
+	// add normalization
+	email := normalizeEmail(user.Email)
+
+	u, err = s.store.Users().GetByEmail(ctx, email)
+	if err == nil {
+		return nil, errs.New(emailUsedErrMsg)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
+	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
 
@@ -175,16 +188,18 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		if currentReward != nil {
-			// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration
-			newCredit := UserCredit{
-				UserID:        u.ID,
-				OfferID:       currentReward.ID,
-				ReferredBy:    nil,
-				CreditsEarned: currency.Cents(0),
-				ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.InviteeCreditDurationDays),
+			var refID *uuid.UUID
+			if refUserID != "" {
+				refID, err = uuid.Parse(refUserID)
+				if err != nil {
+					return errs.New(internalErrMsg)
+				}
 			}
-
-			err = tx.UserCredits().Create(ctx, newCredit)
+			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
+			if err != nil {
+				return err
+			}
+			err = tx.UserCredits().Create(ctx, *newCredit)
 			if err != nil {
 				return err
 			}
@@ -717,9 +732,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				Description: projectInfo.Description,
 				Name:        projectInfo.Name,
 				OwnerID:     auth.User.ID,
+				PartnerID:   auth.User.PartnerID,
 			},
 		)
 		if err != nil {
+			s.log.Error("internal error", zap.Error(err))
 			return errs.New(internalErrMsg)
 		}
 
@@ -895,7 +912,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pagination Pagination) (pm []ProjectMember, err error) {
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
@@ -907,11 +924,11 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pa
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if pagination.Limit > maxLimit {
-		pagination.Limit = maxLimit
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
 	}
 
-	pm, err = s.store.ProjectMembers().GetByProjectID(ctx, projectID, pagination)
+	pmp, err = s.store.ProjectMembers().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
@@ -947,15 +964,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		Name:      name,
 		ProjectID: projectID,
 		Secret:    secret,
-	}
-
-	user, err := s.GetUser(ctx, auth.User.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	// If the user has a partnerID set it in the apikey for value attribution
-	if !user.PartnerID.IsZero() {
-		apikey.PartnerID = user.PartnerID
+		PartnerID: auth.User.PartnerID,
 	}
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)

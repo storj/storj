@@ -215,11 +215,14 @@ func runTest(ctx context.Context, t *testing.T, apiKey, satelliteAddr string,
 
 	// Download all files, make sure they work
 	for _, path := range test.paths {
-		r, err := bu.NewReader(ctx, path)
+		r, err := bu.Download(ctx, path)
 		require.NoError(t, err)
+
 		downloaded, err := ioutil.ReadAll(r)
 		require.NoError(t, err)
 		require.Equal(t, fmt.Sprintf("%s%s", path, "hi"), string(downloaded))
+
+		require.NoError(t, r.Close())
 	}
 
 }

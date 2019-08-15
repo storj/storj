@@ -2,10 +2,9 @@
 // See LICENSE for copying information.
 
 export const USER_MUTATIONS = {
-    SET_USER_INFO: 'SET_USER_INFO',
-    REVERT_TO_DEFAULT_USER_INFO: 'REVERT_TO_DEFAULT_USER_INFO',
-    UPDATE_USER_INFO: 'UPDATE_USER_INFO',
-    CLEAR: 'CLEAR_USER',
+    SET_USER: 'setUser',
+    UPDATE_USER: 'updateUser',
+    CLEAR: 'clearUser',
 };
 
 export const PROJECTS_MUTATIONS = {
