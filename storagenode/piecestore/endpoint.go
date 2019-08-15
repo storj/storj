@@ -651,7 +651,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
 	go func(satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) {
-		err := endpoint.retainPieces(ctx, satelliteID, createdBefore, filter)
+		err := endpoint.RetainPieces(ctx, satelliteID, createdBefore, filter)
 		if err != nil {
 			endpoint.log.Error("retain error", zap.Error(err))
 		}
@@ -660,9 +660,14 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	return &pb.RetainResponse{}, nil
 }
 
-// retainPieces is called in a goroutine by Retain
-func (endpoint *Endpoint) retainPieces(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (err error) {
+// RetainPieces is called in a goroutine by Retain
+func (endpoint *Endpoint) RetainPieces(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// if retain status is disabled, return immediately
+	if endpoint.config.RetainStatus == RetainDisabled {
+		return nil
+	}
 
 	numDeleted := 0
 
