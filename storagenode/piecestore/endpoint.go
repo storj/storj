@@ -651,7 +651,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
 	go func(satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) {
-		err := endpoint.RetainPieces(ctx, satelliteID, createdBefore, filter)
+		err := endpoint.RetainPieces(context.Background(), satelliteID, createdBefore, filter)
 		if err != nil {
 			endpoint.log.Error("retain error", zap.Error(err))
 		}
