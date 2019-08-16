@@ -116,33 +116,33 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		return nil, err
 	}
 
-	db := &DB{
-		log:    log,
-		pieces: pieces,
-		kdb:    dbs[0],
-		ndb:    dbs[1],
-		adb:    dbs[2],
-	}
-
 	versionsPath := config.Info2
 	versionsDB, err := openDatabase(versionsPath)
 	if err != nil {
 		return nil, err
 	}
 
-	// Initialize databases. Currently shares one info.db database file but
-	// in the future these will initialize their own database connections.
-	db.versions = newVersions(versionsDB, versionsPath)
-	db.v0PieceInfo = newPieceInfo(versionsDB, versionsPath)
-	db.bandwidth = newBandwidth(versionsDB, versionsPath)
-	db.console = newConsole(versionsDB)
-	db.orders = newOrders(versionsDB, versionsPath)
-	db.pieceExpirationDB = newPieceExpirationDB(versionsDB, versionsPath)
-	db.pieceSpaceUsedDB = newPieceSpaceUsedDB(versionsDB, versionsPath)
-	db.reputation = newReputationDB(versionsDB, versionsPath)
-	db.storageUsage = newStorageusageDB(versionsDB, versionsPath)
-	db.usedserials = newUsedSerials(versionsDB, versionsPath)
-	db.vouchers = newVouchers(versionsDB, versionsPath)
+	db := &DB{
+		log:    log,
+		pieces: pieces,
+		kdb:    dbs[0],
+		ndb:    dbs[1],
+		adb:    dbs[2],
+
+		// Initialize databases. Currently shares one info.db database file but
+		// in the future these will initialize their own database connections.
+		versions:          newVersions(versionsDB, versionsPath),
+		v0PieceInfo:       newPieceInfo(versionsDB, versionsPath),
+		bandwidth:         newBandwidth(versionsDB, versionsPath),
+		console:           newConsole(versionsDB),
+		orders:            newOrders(versionsDB, versionsPath),
+		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
+		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
+		reputation:        newReputationDB(versionsDB, versionsPath),
+		storageUsage:      newStorageusageDB(versionsDB, versionsPath),
+		usedserials:       newUsedSerials(versionsDB, versionsPath),
+		vouchers:          newVouchers(versionsDB, versionsPath),
+	}
 
 	return db, nil
 }
@@ -155,34 +155,33 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 	}
 	pieces := filestore.New(log, piecesDir)
 
-	db := &DB{
-		log:    log,
-		pieces: pieces,
-		kdb:    teststore.New(),
-		ndb:    teststore.New(),
-		adb:    teststore.New(),
-	}
-
 	versionsPath := ""
 	versionsDB, err := openTestDatabase()
 	if err != nil {
 		return nil, err
 	}
 
-	// Initialize databases. Currently shares one info.db database file but
-	// in the future these will initialize their own database connections.
-	db.versions = newVersions(versionsDB, versionsPath)
-	db.v0PieceInfo = newPieceInfo(versionsDB, versionsPath)
-	db.bandwidth = newBandwidth(versionsDB, versionsPath)
-	db.console = newConsole(versionsDB)
-	db.orders = newOrders(versionsDB, versionsPath)
-	db.pieceExpirationDB = newPieceExpirationDB(versionsDB, versionsPath)
-	db.pieceSpaceUsedDB = newPieceSpaceUsedDB(versionsDB, versionsPath)
-	db.reputation = newReputationDB(versionsDB, versionsPath)
-	db.storageUsage = newStorageusageDB(versionsDB, versionsPath)
-	db.usedserials = newUsedSerials(versionsDB, versionsPath)
-	db.vouchers = newVouchers(versionsDB, versionsPath)
+	db := &DB{
+		log:    log,
+		pieces: pieces,
+		kdb:    teststore.New(),
+		ndb:    teststore.New(),
+		adb:    teststore.New(),
 
+		// Initialize databases. Currently shares one info.db database file but
+		// in the future these will initialize their own database connections.
+		versions:          newVersions(versionsDB, versionsPath),
+		v0PieceInfo:       newPieceInfo(versionsDB, versionsPath),
+		bandwidth:         newBandwidth(versionsDB, versionsPath),
+		console:           newConsole(versionsDB),
+		orders:            newOrders(versionsDB, versionsPath),
+		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
+		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
+		reputation:        newReputationDB(versionsDB, versionsPath),
+		storageUsage:      newStorageusageDB(versionsDB, versionsPath),
+		usedserials:       newUsedSerials(versionsDB, versionsPath),
+		vouchers:          newVouchers(versionsDB, versionsPath),
+	}
 	return db, nil
 }
 
