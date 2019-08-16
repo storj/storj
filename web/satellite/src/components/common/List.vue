@@ -9,7 +9,7 @@
             :is="itemComponent"
             :itemData="item"
             @click.native="onItemClick(item)"
-            :class="[item.isSelected ? 'selected' : '']"/>
+            :class="{ selected: item.isSelected }"/>
     </div>
 </template>
 

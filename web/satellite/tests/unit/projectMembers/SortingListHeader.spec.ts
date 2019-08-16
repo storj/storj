@@ -3,8 +3,9 @@
 
 import { mount } from '@vue/test-utils';
 import sinon from 'sinon';
+import { ProjectMemberOrderBy } from '@/types/projectMembers';
+import { SortDirection } from '@/types/common';
 import SortingListHeader from '@/components/team/SortingListHeader.vue';
-import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
 
 describe('SortingListHeader.vue', () => {
     it('should render correctly', function () {
@@ -34,14 +35,14 @@ describe('SortingListHeader.vue', () => {
             }
         });
 
-        expect(wrapper.vm.sortBy).toBe(ProjectMemberSortByEnum.NAME);
-        expect(wrapper.vm.sortDirection).toBe(ProjectMemberSortDirectionEnum.ASCENDING);
+        expect(wrapper.vm.sortBy).toBe(ProjectMemberOrderBy.NAME);
+        expect(wrapper.vm.sortDirection).toBe(SortDirection.ASCENDING);
 
         wrapper.find('.sort-header-container__name-container').trigger('click');
         expect(onPressSpy.callCount).toBe(1);
 
-        expect(wrapper.vm.sortBy).toBe(ProjectMemberSortByEnum.NAME);
-        expect(wrapper.vm.sortDirection).toBe(ProjectMemberSortDirectionEnum.DESCENDING);
+        expect(wrapper.vm.sortBy).toBe(ProjectMemberOrderBy.NAME);
+        expect(wrapper.vm.sortDirection).toBe(SortDirection.DESCENDING);
     });
 
     it('should change sort by value', function () {
@@ -53,13 +54,13 @@ describe('SortingListHeader.vue', () => {
             }
         });
 
-        expect(wrapper.vm.sortBy).toBe(ProjectMemberSortByEnum.NAME);
-        expect(wrapper.vm.sortDirection).toBe(ProjectMemberSortDirectionEnum.ASCENDING);
+        expect(wrapper.vm.sortBy).toBe(ProjectMemberOrderBy.NAME);
+        expect(wrapper.vm.sortDirection).toBe(SortDirection.ASCENDING);
 
         wrapper.find('.sort-header-container__added-container').trigger('click');
         expect(onPressSpy.callCount).toBe(1);
 
-        expect(wrapper.vm.sortBy).toBe(ProjectMemberSortByEnum.CREATED_AT);
-        expect(wrapper.vm.sortDirection).toBe(ProjectMemberSortDirectionEnum.ASCENDING);
+        expect(wrapper.vm.sortBy).toBe(ProjectMemberOrderBy.CREATED_AT);
+        expect(wrapper.vm.sortDirection).toBe(SortDirection.ASCENDING);
     });
 });
