@@ -99,13 +99,13 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
-		  unmarshalErrors.Add(ErrInfo.Wrap(err))
+			unmarshalErrors.Add(ErrOrders.Wrap(err))
 			continue
 		}
 
 		err = proto.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
-			unmarshalErrors.Add(ErrInfo.Wrap(err))
+			unmarshalErrors.Add(ErrOrders.Wrap(err))
 			continue
 		}
 
@@ -158,13 +158,13 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
-			unmarshalErrors.Add(ErrInfo.Wrap(err))
+			unmarshalErrors.Add(ErrOrders.Wrap(err))
 			continue
 		}
 
 		err = proto.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
-			unmarshalErrors.Add(ErrInfo.Wrap(err))
+			unmarshalErrors.Add(ErrOrders.Wrap(err))
 			continue
 		}
 
@@ -314,7 +314,7 @@ func (db *ordersdb) CleanArchive(ctx context.Context, ttl time.Duration) (_ int,
 	defer mon.Task()(&ctx)(&err)
 
 	deleteBefore := time.Now().UTC().Add(-1 * ttl)
-	result, err := db.db.Exec(`
+	result, err := db.Exec(`
 		DELETE FROM order_archive_
 		WHERE archived_at <= ?
 	`, deleteBefore)
@@ -322,11 +322,11 @@ func (db *ordersdb) CleanArchive(ctx context.Context, ttl time.Duration) (_ int,
 		if err == sql.ErrNoRows {
 			return 0, nil
 		}
-		return 0, ErrInfo.Wrap(err)
+		return 0, ErrOrders.Wrap(err)
 	}
 	count, err := result.RowsAffected()
 	if err != nil {
-		return 0, ErrInfo.Wrap(err)
+		return 0, ErrOrders.Wrap(err)
 	}
 	return int(count), nil
 }
