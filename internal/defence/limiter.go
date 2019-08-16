@@ -4,8 +4,11 @@
 package defence
 
 import (
+	"context"
 	"sync"
 	"time"
+
+	"storj.io/storj/internal/sync2"
 
 	"golang.org/x/time/rate"
 )
@@ -30,8 +33,6 @@ func (attacker *Attacker) attack(attemptTime time.Time, banDuration time.Duratio
 		return true
 	}
 
-	//attacker.expire = attemptTime.Add(banDuration)
-
 	isBanned := !attacker.limiter.AllowN(attemptTime, 1)
 
 	if isBanned {
@@ -52,11 +53,8 @@ type Limiter struct {
 	AttemptsPeriod time.Duration
 	BanDuration    time.Duration
 
-	// ClearPeriod defines period when
-	ClearPeriod time.Duration
-
-	cleanUpTicker *time.Ticker
-	sync.Mutex
+	mu   sync.Mutex
+	loop *sync2.Cycle
 }
 
 // NewLimiter is a constructor for Limiter
@@ -66,15 +64,15 @@ func NewLimiter(attempts int, attemptsPeriod, banDuration, clearPeriod time.Dura
 		Attempts:       attempts,
 		AttemptsPeriod: attemptsPeriod,
 		BanDuration:    banDuration,
-		ClearPeriod:    clearPeriod,
+		loop:           sync2.NewCycle(clearPeriod),
 	}
 }
 
 // Attack is use to add new fail attack
 func (limiter *Limiter) Attack(key string) bool {
-	limiter.Lock()
+	limiter.mu.Lock()
 
-	defer limiter.Unlock()
+	defer limiter.mu.Unlock()
 	now := time.Now()
 
 	// Try to retrieve the
@@ -93,6 +91,10 @@ func (limiter *Limiter) Attack(key string) bool {
 
 // Banned returns the list of banned attackers
 func (limiter *Limiter) Banned() []*Attacker {
+	limiter.mu.Lock()
+
+	defer limiter.mu.Unlock()
+
 	var attackers []*Attacker
 
 	for _, attacker := range limiter.attackers {
@@ -106,27 +108,26 @@ func (limiter *Limiter) Banned() []*Attacker {
 
 // Find can be used to find an attacker by specified key
 func (limiter *Limiter) Find(key string) (Attacker, bool) {
+	limiter.mu.Lock()
+
+	defer limiter.mu.Unlock()
+
 	attacker, ok := limiter.attackers[key]
 	return *attacker, ok
 }
 
 // CleanUp is used to clean all attackers whose ban is expired
-func (limiter *Limiter) CleanUp() {
-	limiter.cleanUpTicker = time.NewTicker(limiter.AttemptsPeriod)
-
-	go func() {
-		for range limiter.cleanUpTicker.C {
-			func() {
-				limiter.cleanUpCallback()
-			}()
-		}
-	}()
+func (limiter *Limiter) CleanUp(ctx context.Context) error {
+	return limiter.loop.Run(ctx, func(ctx context.Context) error {
+		limiter.cleanUpCallback()
+		return nil
+	})
 }
 
 func (limiter *Limiter) cleanUpCallback() {
-	limiter.Lock()
+	limiter.mu.Lock()
 
-	defer limiter.Unlock()
+	defer limiter.mu.Unlock()
 
 	for key, limit := range limiter.attackers {
 		if time.Now().After(limit.Expire) {
@@ -137,7 +138,9 @@ func (limiter *Limiter) cleanUpCallback() {
 
 // Close should be used when limiter is no longer needed
 func (limiter *Limiter) Close() {
-	limiter.Lock()
+	limiter.mu.Lock()
 
-	limiter.cleanUpTicker.Stop()
+	defer limiter.mu.Unlock()
+
+	limiter.loop.Stop()
 }

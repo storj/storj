@@ -7,10 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/storj/internal/testcontext"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLimiter(t *testing.T) {
+	ctx := testcontext.New(t)
 	key1 := "email1@example.com"
 	key2 := "email2@example.com"
 	maxAttempts := 3
@@ -24,7 +27,6 @@ func TestLimiter(t *testing.T) {
 		assert.Equal(t, limiter.Attempts, maxAttempts)
 		assert.Equal(t, limiter.AttemptsPeriod, attemptsPeriod)
 		assert.Equal(t, limiter.BanDuration, banDuration)
-		assert.Equal(t, limiter.ClearPeriod, clearPeriod)
 		assert.NotNil(t, limiter.Attempts)
 	})
 
@@ -58,7 +60,12 @@ func TestLimiter(t *testing.T) {
 
 		assert.Equal(t, len(limiter.Banned()), 2)
 
-		limiter.CleanUp()
+		var err error
+
+		go func() {
+			err = limiter.CleanUp(ctx)
+			assert.NoError(t, err)
+		}()
 
 		ticker := time.NewTicker(clearPeriod)
 
@@ -67,5 +74,7 @@ func TestLimiter(t *testing.T) {
 			ticker.Stop()
 			break
 		}
+
+		limiter.Close()
 	})
 }
