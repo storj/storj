@@ -2,27 +2,27 @@
 // See LICENSE for copying information.
 
 import Vue from 'vue';
-import Router from 'vue-router';
-import ROUTES from '@/utils/constants/routerConstants';
-import Login from '@/views/login/Login.vue';
-import Register from '@/views/register/Register.vue';
-import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
-import Profile from '@/components/account/Profile.vue';
 import AccountBillingHistory from '@/components/account/billing/BillingArea.vue';
 import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
-import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
-import TeamArea from '@/components/team/ProjectMembersArea.vue';
-import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
-import UsageReport from '@/components/project/UsageReport.vue';
-import ProjectDetails from '@/components/project/ProjectDetails.vue';
-import ProjectBillingHistory from '@/components/project/billing/BillingArea.vue';
-import ProjectPaymentMethods from '@/components/project/ProjectPaymentMethods.vue';
-import BucketArea from '@/components/buckets/BucketArea.vue';
 import { AuthToken } from '@/utils/authToken';
+import BucketArea from '@/components/buckets/BucketArea.vue';
+import Dashboard from '@/views/Dashboard.vue';
+import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
+import Login from '@/views/login/Login.vue';
+import Page404 from '@/components/errors/Page404.vue';
+import Profile from '@/components/account/Profile.vue';
+import ProjectBillingHistory from '@/components/project/billing/BillingArea.vue';
+import ProjectDetails from '@/components/project/ProjectDetails.vue';
+import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
+import ProjectPaymentMethods from '@/components/project/ProjectPaymentMethods.vue';
+import Register from '@/views/register/Register.vue';
+import Router from 'vue-router';
+import ROUTES from '@/utils/constants/routerConstants';
 import store from '@/store';
+import UsageReport from '@/components/project/UsageReport.vue';
 
 Vue.use(Router);
 
@@ -114,7 +114,7 @@ let router = new Router({
                 {
                     path: ROUTES.TEAM.path,
                     name: ROUTES.TEAM.name,
-                    component: TeamArea
+                    component: ProjectMembersArea
                 },
                 {
                     path: ROUTES.API_KEYS.path,
