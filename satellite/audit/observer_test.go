@@ -94,6 +94,7 @@ func TestAuditObserver(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			// expect a reservoir for every node
 			require.NotNil(t, observer.Reservoirs[node.ID()])
+			require.True(t, len(observer.Reservoirs[node.ID()].Paths) > 1)
 			require.True(t, len(observer.Reservoirs[node.ID()].Paths) <= 3)
 			repeats := make(map[storj.Path]bool)
 			for _, path := range observer.Reservoirs[node.ID()].Paths {
