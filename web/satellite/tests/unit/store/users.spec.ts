@@ -19,9 +19,6 @@ Vue.use(Vuex);
 const store = new Vuex.Store(usersModule);
 
 describe('mutations', () => {
-    beforeEach(() => {
-        createLocalVue().use(Vuex);
-    });
     it('Set user', () => {
         const user = new User('1', 'fullName', 'shortName', 'example@email.com');
 
