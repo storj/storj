@@ -20,7 +20,7 @@
                             class="add-user__form-container__inputs-group__item"
                             :key="index" >
                                 <input
-                                    placeholder="example@storj.io"
+                                    placeholder="email@example.com"
                                     v-model="input.value"
                                     :class="[input.error ? 'error' : 'no-error']"
                                     @keyup="resetFormErrors(index)" />
