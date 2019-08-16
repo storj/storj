@@ -26,6 +26,7 @@ type drpc struct {
 	drpcClient  string
 	drpcStream  string
 	drpcHandler string
+	drpcMessage string
 }
 
 //
@@ -53,6 +54,7 @@ func (d *drpc) Generate(file *generator.FileDescriptor) {
 	d.drpcClient = d.drpcPkg + ".Client"
 	d.drpcStream = d.drpcPkg + ".Stream"
 	d.drpcHandler = d.drpcPkg + ".Handler"
+	d.drpcMessage = d.drpcPkg + ".Message"
 	d.contextPkg = string(d.AddImport("context"))
 
 	for i, service := range file.FileDescriptorProto.Service {
@@ -273,7 +275,7 @@ func (d *drpc) generateServerHandler(servName string, method *pb.MethodDescripto
 	methName := generator.CamelCase(method.GetName())
 	streamType := unexport(servName) + methName + "Stream"
 
-	d.P("func (srv interface{}, ctx context.Context, in1, in2 interface{}) (interface{}, error) {")
+	d.P("func (srv interface{}, ctx context.Context, in1, in2 interface{}) (" + d.drpcMessage + ", error) {")
 	if !method.GetServerStreaming() && !method.GetClientStreaming() {
 		d.P("return srv.(", servName, "Server).")
 	} else {

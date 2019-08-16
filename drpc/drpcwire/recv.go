@@ -51,10 +51,14 @@ func (r *Receiver) ReadPacket() (p *Packet, err error) {
 			return nil, drpc.InternalError.New("invalid data returned from scanner")
 		case len(rem) != 0:
 			return nil, drpc.InternalError.New("remaining bytes from parsing packet")
-		case pkt.Length == 0 && pkt.PayloadKind != PayloadKind_Close:
+		case pkt.Length == 0 &&
+			pkt.PayloadKind != PayloadKind_CloseSend &&
+			pkt.PayloadKind != PayloadKind_Cancel:
 			return nil, drpc.InternalError.New("invalid zero data length packet sent")
 		case len(pkt.Data) != int(pkt.Length):
 			return nil, drpc.InternalError.New("invalid length of data and header length")
+		case pkt.Length == 0 && pkt.Continuation:
+			return nil, drpc.InternalError.New("invalid send of zero length continuation")
 		}
 
 		// get the payload state for the packet and ensure that the starting bit on the

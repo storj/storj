@@ -9,16 +9,19 @@ import (
 	"storj.io/storj/drpc"
 )
 
+//go:generate stringer -type=PayloadKind -trimprefix=PayloadKind_ -output=packet_string.go
+
 // PayloadKind is an enumeration of all the different kinds of payloads.
 type PayloadKind uint8
 
 const (
 	PayloadKind_Reserved PayloadKind = iota
 
-	PayloadKind_Invoke  // body is rpc name
-	PayloadKind_Message // body is message data
-	PayloadKind_Error   // body is error data
-	PayloadKind_Close   // body must be empty
+	PayloadKind_Invoke    // body is rpc name
+	PayloadKind_Message   // body is message data
+	PayloadKind_Error     // body is error data
+	PayloadKind_CloseSend // body must be empty
+	PayloadKind_Cancel    // body must be empty
 
 	PayloadKind_Largest
 )
@@ -203,7 +206,7 @@ func (p *Packet) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("pid:<%d,%d> kind:%d cont:%-5v start:%-5v len:%-4d data:%x",
+	return fmt.Sprintf("pid:<%d,%d> kind:%v cont:%-5v start:%-5v len:%-4d data:%x",
 		p.StreamID, p.MessageID,
 		p.PayloadKind,
 		p.Continuation,

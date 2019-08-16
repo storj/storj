@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
-	"github.com/zeebo/errs"
 	"storj.io/storj/drpc/drpcclient"
 	"storj.io/storj/drpc/drpcserver"
 	"storj.io/storj/pkg/pb"
@@ -21,102 +21,118 @@ type rw struct {
 }
 
 func TestSimple(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	pr1, pw1 := io.Pipe()
 	pr2, pw2 := io.Pipe()
+	defer pr1.Close()
+	defer pr2.Close()
 
 	srv := drpcserver.New()
 	srv.Register(new(impl), new(pb.DRPCServiceDescription))
-	cli := pb.NewDRPCServiceClient(drpcclient.New(rw{pr1, pw2}))
-	go srv.Handle(rw{pr2, pw1})
+	go srv.Manage(ctx, rw{pr2, pw1})
 
-	fmt.Println("=== 1")
-	out, err := cli.Method1(context.Background(), &pb.In{In: 1})
-	fmt.Println("=> 1.0 =>", out, err)
+	dcli := drpcclient.New(ctx, rw{pr1, pw2})
+	cli := pb.NewDRPCServiceClient(dcli)
+	defer dcli.Close()
 
-	fmt.Println("=== 2")
-	stream2, err := cli.Method2(context.Background())
-	fmt.Println("=> 2.0 =>", err)
-	defer stream2.Close()
-	fmt.Println("=> 2.1 =>", stream2.Send(&pb.In{In: 2}))
-	out, err = stream2.CloseAndRecv()
-	fmt.Println("=> 2.2 =>", out, err)
-
-	fmt.Println("=== 3")
-	stream3, err := cli.Method3(context.Background(), &pb.In{In: 3})
-	defer stream3.Close()
-	fmt.Println("=> 3.0 =>", err)
-	for {
-		out, err := stream3.Recv()
-		fmt.Println("=> 3.1 =>", out, err)
-		if err != nil {
-			break
-		}
+	{
+		fmt.Println("=== 1")
+		out, err := cli.Method1(ctx, &pb.In{In: 1})
+		fmt.Println("CLI 0 =>", err, out)
 	}
 
-	fmt.Println("=== 4")
-	ctx, cancel := context.WithCancel(context.Background())
-	stream4, err := cli.Method4(ctx)
-	defer stream4.Close()
-	fmt.Println("=> 4.0 =>", stream4.Send(&pb.In{In: 4}))
-	fmt.Println("=> 4.1 =>", stream4.Send(&pb.In{In: 4}))
-	fmt.Println("=> 4.2 =>", stream4.Send(&pb.In{In: 4}))
-	cancel()
-	fmt.Println("=> 4.3 =>", stream4.Send(&pb.In{In: 5}))
-	fmt.Println("=> 4.4 =>", stream4.CloseSend())
-	for {
-		out, err := stream4.Recv()
-		fmt.Println("=> 4.5 =>", out, err)
-		if err != nil {
-			break
-		}
+	time.Sleep(time.Second)
+
+	{
+		fmt.Println("=== 2")
+		stream2, err := cli.Method2(ctx)
+		fmt.Println("CLI 0 =>", err)
+		fmt.Println("CLI 1 =>", stream2.Send(&pb.In{In: 2}))
+		fmt.Println("CLI 2 =>", stream2.Send(&pb.In{In: 2}))
+		out, err := stream2.CloseAndRecv()
+		fmt.Println("CLI 3 =>", err, out)
+		fmt.Println("CLI 4 =>", stream2.Close())
 	}
 
-	select {}
+	time.Sleep(time.Second)
+
+	{
+		fmt.Println("=== 3")
+		stream3, err := cli.Method3(ctx, &pb.In{In: 3})
+		fmt.Println("CLI 0 =>", err)
+		for {
+			out, err := stream3.Recv()
+			fmt.Println("CLI 1 =>", err, out)
+			if err != nil {
+				break
+			}
+		}
+		fmt.Println("CLI 2 =>", stream3.Close())
+	}
+
+	time.Sleep(time.Second)
+
+	{
+		fmt.Println("=== 4")
+		stream4, err := cli.Method4(ctx)
+		fmt.Println("CLI 0 =>", err)
+		fmt.Println("CLI 1 =>", stream4.Send(&pb.In{In: 4}))
+		fmt.Println("CLI 2 =>", stream4.Send(&pb.In{In: 4}))
+		fmt.Println("CLI 3 =>", stream4.Send(&pb.In{In: 4}))
+		fmt.Println("CLI 4 =>", stream4.Send(&pb.In{In: 5}))
+		fmt.Println("CLI 5 =>", stream4.CloseSend())
+		for {
+			out, err := stream4.Recv()
+			fmt.Println("CLI 6 =>", err, out)
+			if err != nil {
+				break
+			}
+		}
+		fmt.Println("CLI 7 =>", stream4.Close())
+	}
 }
 
 type impl struct{}
 
 func (impl) DRPCMethod1(ctx context.Context, in *pb.In) (*pb.Out, error) {
-	fmt.Println("<= 1.0 <=", in)
+	fmt.Println("SRV 0 <=", in)
 	return &pb.Out{Out: 1}, nil
 }
 
 func (impl) DRPCMethod2(stream pb.DRPCService_Method2Stream) error {
 	for {
 		in, err := stream.Recv()
-		fmt.Println("<= 2.0 <=", in, err)
+		fmt.Println("SRV 0 <=", err, in)
 		if err != nil {
 			break
 		}
 	}
 	err := stream.SendAndClose(&pb.Out{Out: 2})
-	fmt.Println("<= 2.1 <=", err)
+	fmt.Println("SRV 1 <=", err)
 	return err
 }
 
 func (impl) DRPCMethod3(in *pb.In, stream pb.DRPCService_Method3Stream) error {
-	fmt.Println("<= 3.0 <=", in)
-	var err error
-	err = errs.Combine(err, stream.Send(&pb.Out{Out: 3}))
-	err = errs.Combine(err, stream.Send(&pb.Out{Out: 3}))
-	err = errs.Combine(err, stream.Send(&pb.Out{Out: 3}))
-	fmt.Println("<= 3.1 <=", err)
-	return err
+	fmt.Println("SRV 0 <=", in)
+	fmt.Println("SRV 1 <=", stream.Send(&pb.Out{Out: 3}))
+	fmt.Println("SRV 2 <=", stream.Send(&pb.Out{Out: 3}))
+	fmt.Println("SRV 3 <=", stream.Send(&pb.Out{Out: 3}))
+	return nil
 }
 
 func (impl) DRPCMethod4(stream pb.DRPCService_Method4Stream) error {
 	for {
 		in, err := stream.Recv()
-		fmt.Println("<= 4.0 <=", in, err)
+		fmt.Println("SRV 0 <=", err, in)
 		if err != nil {
 			break
 		}
 	}
-	var err error
-	err = errs.Combine(err, stream.Send(&pb.Out{Out: 4}))
-	err = errs.Combine(err, stream.Send(&pb.Out{Out: 4}))
-	err = errs.Combine(err, stream.Send(&pb.Out{Out: 4}))
-	err = errs.Combine(err, stream.Send(&pb.Out{Out: 4}))
-	fmt.Println("<= 4.1 <=", err)
-	return err
+	fmt.Println("SRV 1 <=", stream.Send(&pb.Out{Out: 4}))
+	fmt.Println("SRV 2 <=", stream.Send(&pb.Out{Out: 4}))
+	fmt.Println("SRV 3 <=", stream.Send(&pb.Out{Out: 4}))
+	fmt.Println("SRV 4 <=", stream.Send(&pb.Out{Out: 4}))
+	return nil
 }

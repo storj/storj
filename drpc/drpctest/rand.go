@@ -32,18 +32,27 @@ func RandPayloadKind() drpcwire.PayloadKind {
 // payloadMaxSize maps a payload kind to 1 more than the maximum number of bytes that can
 // be sent with a packet with that kind.
 var payloadMaxSize = map[drpcwire.PayloadKind]func() int{
-	drpcwire.PayloadKind_Invoke:  func() int { return testrand.Intn(1023) + 1 },
-	drpcwire.PayloadKind_Message: func() int { return testrand.Intn(1023) + 1 },
-	drpcwire.PayloadKind_Error:   func() int { return testrand.Intn(1023) + 1 },
-	drpcwire.PayloadKind_Close:   func() int { return 0 },
+	drpcwire.PayloadKind_Invoke:    func() int { return testrand.Intn(1023) + 1 },
+	drpcwire.PayloadKind_Message:   func() int { return testrand.Intn(1023) + 1 },
+	drpcwire.PayloadKind_Error:     func() int { return testrand.Intn(1023) + 1 },
+	drpcwire.PayloadKind_CloseSend: func() int { return 0 },
+	drpcwire.PayloadKind_Cancel:    func() int { return 0 },
+}
+
+var kindCanContinue = map[drpcwire.PayloadKind]bool{
+	drpcwire.PayloadKind_Invoke:    true,
+	drpcwire.PayloadKind_Message:   true,
+	drpcwire.PayloadKind_Error:     true,
+	drpcwire.PayloadKind_CloseSend: false,
+	drpcwire.PayloadKind_Cancel:    false,
 }
 
 func RandFrameInfo() drpcwire.FrameInfo {
 	kind := RandPayloadKind()
 	return drpcwire.FrameInfo{
 		Length:       uint16(payloadMaxSize[kind]()),
-		Continuation: RandBool(),
-		Starting:     RandBool(),
+		Continuation: kindCanContinue[kind] && RandBool(),
+		Starting:     !kindCanContinue[kind] || RandBool(),
 		PayloadKind:  kind,
 	}
 }

@@ -13,8 +13,7 @@ var (
 	Error         = errs.Class("drpc")
 	InternalError = errs.Class("internal error")
 	ProtocolError = errs.Class("protocol error")
-	Canceled      = errs.Class("canceled")
-	StreamClosed  = errs.Class("stream closed")
+	Closed        = errs.Class("closed")
 )
 
 type Message interface {
@@ -35,7 +34,7 @@ type Stream interface {
 	Close() error
 }
 
-type Handler = func(srv interface{}, ctx context.Context, in1, in2 interface{}) (out interface{}, err error)
+type Handler = func(srv interface{}, ctx context.Context, in1, in2 interface{}) (out Message, err error)
 
 type Description interface {
 	NumMethods() int

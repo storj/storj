@@ -4,11 +4,15 @@
 package drpcserver
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"reflect"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/drpc"
+	"storj.io/storj/drpc/drpcmanager"
+	"storj.io/storj/drpc/drpcstream"
 )
 
 type Server struct {
@@ -53,29 +57,72 @@ func (s *Server) registerOne(srv interface{}, rpc string, handler drpc.Handler, 
 		panicf("rpc already registered for %q", rpc)
 	}
 	data := rpcData{srv: srv, handler: handler}
-	mt := reflect.TypeOf(method)
-	switch {
-	case mt.NumOut() == 2: // unitary input, unitary output
+
+	switch mt := reflect.TypeOf(method); {
+	// unitary input, unitary output
+	case mt.NumOut() == 2:
 		data.in1 = mt.In(2)
 		if !data.in1.Implements(messageType) {
 			panicf("input argument not a drpc message: %v", data.in1)
 		}
-	case mt.NumIn() == 3: // unitary input, stream output
+
+	// unitary input, stream output
+	case mt.NumIn() == 3:
 		data.in1 = mt.In(1)
 		if !data.in1.Implements(messageType) {
 			panicf("input argument not a drpc message: %v", data.in1)
 		}
 		data.in2 = streamType
-	case mt.NumIn() == 2: // stream input
+
+	// stream input
+	case mt.NumIn() == 2:
 		data.in1 = streamType
+
+	// code gen bug?
 	default:
 		panicf("unknown method type: %v", mt)
 	}
+
 	s.rpcs[rpc] = data
 }
 
-// TODO(jeff): maybe there's a way to share more of this dispatch code
+func (s *Server) Manage(ctx context.Context, rw io.ReadWriter) error {
+	return drpcmanager.New(rw, s).Run(ctx)
+}
 
-func (s *Server) Handle(rw io.ReadWriter) error {
-	return newSession(rw, s.rpcs).Run()
+func (s *Server) Handle(stream *drpcstream.Stream, rpc string) error {
+	err := s.doHandle(stream, rpc)
+	if err != nil {
+		stream.Sig().SignalWithError(err)
+	}
+	return errs.Combine(err, stream.Close())
+}
+
+func (s *Server) doHandle(stream *drpcstream.Stream, rpc string) error {
+	data, ok := s.rpcs[rpc]
+	if !ok {
+		return drpc.ProtocolError.New("unknown rpc: %q", rpc)
+	}
+
+	in := interface{}(stream)
+	if data.in1 != streamType {
+		msg := reflect.New(data.in1.Elem()).Interface().(drpc.Message)
+		if err := stream.MsgRecv(msg); err != nil {
+			return err
+		}
+		in = msg
+	}
+
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	out, err := data.handler(data.srv, ctx, in, stream)
+	switch {
+	case err != nil:
+		return err
+	case out != nil:
+		return stream.MsgSend(out)
+	default:
+		return nil
+	}
 }

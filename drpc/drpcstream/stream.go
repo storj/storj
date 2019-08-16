@@ -4,12 +4,12 @@
 package drpcstream
 
 import (
+	"context"
 	"io"
 	"sync"
 	"sync/atomic"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/zeebo/errs"
 	"storj.io/storj/drpc"
 	"storj.io/storj/drpc/drpcutil"
 	"storj.io/storj/drpc/drpcwire"
@@ -17,24 +17,33 @@ import (
 
 type Stream struct {
 	messageID uint64
+	ctx       context.Context
+	cancel    func()
 	streamID  uint64
+	buf       *drpcutil.Buffer
 	sig       *drpcutil.Signal
-	lbuf      *drpcutil.Buffer
-	queue     chan *drpcwire.Packet
-	sendMu    sync.Mutex
 	sendSig   *drpcutil.Signal
 	recvSig   *drpcutil.Signal
+	termSig   *drpcutil.Signal
+	queue     chan *drpcwire.Packet
+	sendMu    sync.Mutex
 }
 
-func New(streamID uint64, lbuf *drpcutil.Buffer) *Stream {
-	return &Stream{
+func New(ctx context.Context, streamID uint64, buf *drpcutil.Buffer) *Stream {
+	ctx, cancel := context.WithCancel(ctx)
+	s := &Stream{
+		ctx:      ctx,
+		cancel:   cancel,
 		streamID: streamID,
+		buf:      buf,
 		sig:      drpcutil.NewSignal(),
-		lbuf:     lbuf,
-		queue:    make(chan *drpcwire.Packet, 100),
 		sendSig:  drpcutil.NewSignal(),
 		recvSig:  drpcutil.NewSignal(),
+		termSig:  drpcutil.NewSignal(),
+		queue:    make(chan *drpcwire.Packet, 100),
 	}
+	go s.monitor()
+	return s
 }
 
 var _ drpc.Stream = (*Stream)(nil)
@@ -43,10 +52,13 @@ var _ drpc.Stream = (*Stream)(nil)
 // exported accessors
 //
 
+func (s *Stream) Cancel()                      { s.cancel() }
+func (s *Stream) Context() context.Context     { return s.ctx }
 func (s *Stream) StreamID() uint64             { return s.streamID }
 func (s *Stream) Sig() *drpcutil.Signal        { return s.sig }
 func (s *Stream) SendSig() *drpcutil.Signal    { return s.sendSig }
 func (s *Stream) RecvSig() *drpcutil.Signal    { return s.recvSig }
+func (s *Stream) TermSig() *drpcutil.Signal    { return s.termSig }
 func (s *Stream) Queue() chan *drpcwire.Packet { return s.queue }
 
 //
@@ -60,6 +72,35 @@ func (s *Stream) nextPid() drpcwire.PacketID {
 	}
 }
 
+func (s *Stream) monitor() {
+	select {
+	case <-s.sig.Signal():
+		s.RawError(s.sig.Err())
+	case <-s.ctx.Done():
+		s.RawCancel()
+	}
+}
+
+func (s *Stream) pollSend() (error, bool) {
+	if err, ok := s.sig.State(); ok {
+		return err, false
+	}
+	if err, ok := s.termSig.State(); ok {
+		return err, false
+	}
+	if err, ok := s.sendSig.State(); ok {
+		return err, true
+	}
+	return nil, false
+}
+
+func (s *Stream) wireSendFlush(kind drpcwire.PayloadKind, data []byte) error {
+	if err := drpcwire.Split(kind, s.nextPid(), data, s.buf.Write); err != nil {
+		return err
+	}
+	return s.buf.Flush()
+}
+
 //
 // raw send/recv/close primitives
 //
@@ -68,68 +109,65 @@ func (s *Stream) RawSend(kind drpcwire.PayloadKind, data []byte) error {
 	err := drpcwire.Split(kind, s.nextPid(), data, func(pkt drpcwire.Packet) error {
 		s.sendMu.Lock()
 		defer s.sendMu.Unlock()
-
-		select {
-		case <-s.sig.Signal():
-			return s.sig.Err()
-		case <-s.sendSig.Signal():
-			return s.sendSig.Err()
-		default:
+		if err, _ := s.pollSend(); err != nil {
+			return err
 		}
-
-		return s.lbuf.Write(pkt)
+		return s.buf.Write(pkt)
 	})
 	if err != nil {
 		s.sig.SignalWithError(err)
+		return err
 	}
-	return err
+	return nil
 }
 
 func (s *Stream) RawFlush() error {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
-
-	select {
-	case <-s.sig.Signal():
-		return s.sig.Err()
-	case <-s.sendSig.Signal():
-		return s.sendSig.Err()
-	default:
+	if err, _ := s.pollSend(); err != nil {
+		return err
 	}
-
-	err := s.lbuf.Flush()
-	if err != nil {
+	if err := s.buf.Flush(); err != nil {
 		s.sig.SignalWithError(err)
+		return err
 	}
-	return err
+	return nil
 }
 
 func (s *Stream) RawRecv() (*drpcwire.Packet, error) {
+	if err, ok := s.sig.State(); ok {
+		return nil, err
+	}
 	select {
 	case <-s.sig.Signal():
 		return nil, s.sig.Err()
-	default:
-		select {
-		case <-s.sig.Signal():
-			return nil, s.sig.Err()
-		case p, ok := <-s.queue:
-			if !ok {
-				return nil, io.EOF
-			}
-			return p, nil
+	case p, ok := <-s.queue:
+		if !ok {
+			return nil, io.EOF
 		}
+		return p, nil
 	}
 }
 
-func (s *Stream) RawCloseRecv() {
-	if s.recvSig.SignalWithError(nil) {
-		close(s.queue)
+func (s *Stream) RawError(err error) {
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
+	defer s.termSig.SignalWithError(drpc.Error.New("stream terminated"))
+
+	if _, ok := s.termSig.State(); !ok {
+		_ = s.wireSendFlush(drpcwire.PayloadKind_Error, []byte(err.Error()))
 	}
 }
 
-func (s *Stream) RawCancel() error {
-	// TODO: make this a thing
-	return errs.New("TODO")
+func (s *Stream) RawCancel() {
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
+	defer s.termSig.SignalWithError(drpc.Error.New("stream terminated"))
+	defer s.sig.SignalWithError(context.Canceled)
+
+	if _, ok := s.termSig.State(); !ok {
+		_ = s.wireSendFlush(drpcwire.PayloadKind_Cancel, nil)
+	}
 }
 
 //
@@ -159,53 +197,27 @@ func (s *Stream) MsgRecv(msg drpc.Message) error {
 }
 
 func (s *Stream) CloseSend() error {
-	// we don't use the Raw* functions so that we can hold the mutex the whole time
-	// ensuring that we are the unique senders of Close, and that anyone else will
-	// see the send signal closed.
-
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
+	defer s.sendSig.SignalWithError(drpc.Error.New("send after CloseSend"))
 
-	select {
-	case <-s.sig.Signal():
-		return s.sig.Err()
-	case <-s.sendSig.Signal():
+	if err, sendClosed := s.pollSend(); sendClosed {
 		return nil
-	default:
-	}
-
-	defer s.sendSig.SignalWithError(drpc.Error.New("attempted to issue a send after CloseSend"))
-	if err := drpcwire.Split(drpcwire.PayloadKind_Close, s.nextPid(), nil, s.lbuf.Write); err != nil {
-		s.sig.SignalWithError(err)
+	} else if err != nil {
 		return err
 	}
-	if err := s.lbuf.Flush(); err != nil {
-		s.sig.SignalWithError(err)
-		return err
-	}
-	return nil
+	return s.wireSendFlush(drpcwire.PayloadKind_CloseSend, nil)
 }
 
 func (s *Stream) Close() error {
-	defer s.sig.SignalWithError(drpc.StreamClosed.New(""))
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
+	defer s.sendSig.SignalWithError(drpc.Error.New("send after CloseSend"))
+	defer s.termSig.SignalWithError(drpc.Error.New("stream terminated"))
+	defer s.sig.SignalWithError(drpc.Error.New("stream closed"))
 
-	select {
-	case <-s.sig.Signal():
-		if err := s.sig.Err(); !drpc.StreamClosed.Has(err) {
-			return err
-		}
+	if err, sendClosed := s.pollSend(); err != nil && !sendClosed {
 		return nil
-	default:
-		select {
-		case <-s.sig.Signal():
-			if err := s.sig.Err(); !drpc.StreamClosed.Has(err) {
-				return err
-			}
-			return nil
-		case <-s.sendSig.Signal():
-			return nil
-		default:
-			return s.CloseSend()
-		}
 	}
+	return s.wireSendFlush(drpcwire.PayloadKind_CloseSend, nil)
 }
