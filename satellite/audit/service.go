@@ -80,31 +80,27 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	group.Go(func() error {
-		return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
-			defer mon.Task()(&ctx)(&err)
-			err = service.process(ctx)
-			if err != nil {
-				service.log.Error("process", zap.Error(err))
-			}
-			return nil
-		})
+	service.Loop.Start(ctx, group, func(ctx context.Context) (err error) {
+		defer mon.Task()(&ctx)(&err)
+		err = service.process(ctx)
+		if err != nil {
+			service.log.Error("process", zap.Error(err))
+		}
+		return nil
 	})
 
-	group.Go(func() error {
-		return service.ReservoirLoop.Run(ctx, func(ctx context.Context) (err error) {
-			defer mon.Task()(&ctx)(&err)
-			observer := NewObserver(service.reservoirSlots)
-			err = service.MetainfoLoop.Join(ctx, observer)
-			if err != nil {
-				service.log.Error("error joining metainfoloop", zap.Error(err))
-				return nil
-			}
-			for nodeID, res := range observer.Reservoirs {
-				service.Reservoirs[nodeID] = res
-			}
+	service.ReservoirLoop.Start(ctx, group, func(ctx context.Context) (err error) {
+		defer mon.Task()(&ctx)(&err)
+		observer := NewObserver(service.reservoirSlots)
+		err = service.MetainfoLoop.Join(ctx, observer)
+		if err != nil {
+			service.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
-		})
+		}
+		for nodeID, res := range observer.Reservoirs {
+			service.Reservoirs[nodeID] = res
+		}
+		return nil
 	})
 
 	return group.Wait()
