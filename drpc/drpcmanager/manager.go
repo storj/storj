@@ -61,14 +61,14 @@ func (m *Manager) Run(ctx context.Context) error {
 
 func (m *Manager) monitorContext(ctx context.Context) {
 	<-ctx.Done()
-	m.sig.SignalWithError(ctx.Err())
+	m.sig.Set(ctx.Err())
 }
 
 func (m *Manager) NewStream(ctx context.Context, streamID uint64) (*drpcstream.Stream, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if err, ok := m.sig.State(); ok {
+	if err, ok := m.sig.Get(); ok {
 		return nil, err
 	}
 
@@ -86,7 +86,7 @@ func (m *Manager) NewStream(ctx context.Context, streamID uint64) (*drpcstream.S
 func (m *Manager) monitorStream(stream *drpcstream.Stream) {
 	select {
 	case <-m.sig.Signal():
-		stream.Sig().SignalWithError(m.sig.Err())
+		stream.Sig().Set(m.sig.Err())
 	case <-stream.Sig().Signal():
 	}
 
@@ -96,16 +96,16 @@ func (m *Manager) monitorStream(stream *drpcstream.Stream) {
 }
 
 func (m *Manager) manageStreams(ctx context.Context) {
-	defer m.sig.SignalWithError(drpc.InternalError.New("manageStreams exited with no signal"))
+	defer m.sig.Set(drpc.InternalError.New("manageStreams exited with no signal"))
 
 	for {
 		p, err := m.recv.ReadPacket()
 		switch {
 		case err != nil:
-			m.sig.SignalWithError(err)
+			m.sig.Set(err)
 			return
 		case p == nil:
-			m.sig.SignalWithError(io.EOF)
+			m.sig.Set(io.EOF)
 			return
 		}
 
@@ -115,19 +115,19 @@ func (m *Manager) manageStreams(ctx context.Context) {
 
 		switch {
 		// manager error: we're done
-		case m.sig.WasSignaled():
+		case m.sig.IsSet():
 			return
 
 		// invoke with no handler: protocol error
 		case p.PayloadKind == drpcwire.PayloadKind_Invoke && m.handler == nil:
-			m.sig.SignalWithError(drpc.ProtocolError.New("invalid invoke message to client"))
+			m.sig.Set(drpc.ProtocolError.New("invalid invoke message to client"))
 			return
 
 		// invoke with a fresh stream: start up a handler
 		case p.PayloadKind == drpcwire.PayloadKind_Invoke && stream == nil:
 			stream, err := m.NewStream(ctx, p.StreamID)
 			if err != nil {
-				m.sig.SignalWithError(err)
+				m.sig.Set(err)
 				return
 			}
 			go m.handler.Handle(stream, string(p.Data))
@@ -137,12 +137,12 @@ func (m *Manager) manageStreams(ctx context.Context) {
 
 		// invoke with an existing stream: double invoke
 		case p.PayloadKind == drpcwire.PayloadKind_Invoke:
-			m.sig.SignalWithError(drpc.ProtocolError.New("invoke on an existing stream"))
+			m.sig.Set(drpc.ProtocolError.New("invoke on an existing stream"))
 			return
 
 		// close send: signal to the stream that no more sends will happen
 		case p.PayloadKind == drpcwire.PayloadKind_CloseSend:
-			if stream.RecvSig().SignalWithError(drpc.Closed.New("remote sent CloseSend")) {
+			if stream.RecvSig().Set(drpc.Closed.New("remote sent CloseSend")) {
 				close(stream.Queue())
 			}
 
@@ -152,15 +152,15 @@ func (m *Manager) manageStreams(ctx context.Context) {
 
 		// error: signal to the stream what the error is
 		case p.PayloadKind == drpcwire.PayloadKind_Error:
-			stream.Sig().SignalWithError(errs.New("%s", p.Data))
+			stream.Sig().Set(errs.New("%s", p.Data))
 
 		// send after close send: protocol error
-		case stream.RecvSig().WasSignaled():
-			m.sig.SignalWithError(drpc.ProtocolError.New("remote sent message after CloseSend"))
+		case stream.RecvSig().IsSet():
+			m.sig.Set(drpc.ProtocolError.New("remote sent message after CloseSend"))
 			return
 
 		// stream error: drop the message
-		case stream.Sig().WasSignaled():
+		case stream.Sig().IsSet():
 
 		default:
 			select {
@@ -170,7 +170,7 @@ func (m *Manager) manageStreams(ctx context.Context) {
 
 			// send after close send: protocol error
 			case <-stream.RecvSig().Signal():
-				m.sig.SignalWithError(drpc.ProtocolError.New("remote sent message after CloseSend"))
+				m.sig.Set(drpc.ProtocolError.New("remote sent message after CloseSend"))
 				return
 
 			// stream error: drop the message
@@ -181,7 +181,7 @@ func (m *Manager) manageStreams(ctx context.Context) {
 
 			// if we couldn't put it in the queue, the stream is full.
 			default:
-				stream.Sig().SignalWithError(drpc.ProtocolError.New("stream buffer full"))
+				stream.Sig().Set(drpc.ProtocolError.New("stream buffer full"))
 			}
 		}
 	}

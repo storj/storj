@@ -82,13 +82,13 @@ func (s *Stream) monitor() {
 }
 
 func (s *Stream) pollSend() (error, bool) {
-	if err, ok := s.sig.State(); ok {
+	if err, ok := s.sig.Get(); ok {
 		return err, false
 	}
-	if err, ok := s.termSig.State(); ok {
+	if err, ok := s.termSig.Get(); ok {
 		return err, false
 	}
-	if err, ok := s.sendSig.State(); ok {
+	if err, ok := s.sendSig.Get(); ok {
 		return err, true
 	}
 	return nil, false
@@ -115,7 +115,7 @@ func (s *Stream) RawSend(kind drpcwire.PayloadKind, data []byte) error {
 		return s.buf.Write(pkt)
 	})
 	if err != nil {
-		s.sig.SignalWithError(err)
+		s.sig.Set(err)
 		return err
 	}
 	return nil
@@ -128,14 +128,14 @@ func (s *Stream) RawFlush() error {
 		return err
 	}
 	if err := s.buf.Flush(); err != nil {
-		s.sig.SignalWithError(err)
+		s.sig.Set(err)
 		return err
 	}
 	return nil
 }
 
 func (s *Stream) RawRecv() (*drpcwire.Packet, error) {
-	if err, ok := s.sig.State(); ok {
+	if err, ok := s.sig.Get(); ok {
 		return nil, err
 	}
 	select {
@@ -152,9 +152,9 @@ func (s *Stream) RawRecv() (*drpcwire.Packet, error) {
 func (s *Stream) RawError(err error) {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
-	defer s.termSig.SignalWithError(drpc.Error.New("stream terminated"))
+	defer s.termSig.Set(drpc.Error.New("stream terminated"))
 
-	if _, ok := s.termSig.State(); !ok {
+	if _, ok := s.termSig.Get(); !ok {
 		_ = s.wireSendFlush(drpcwire.PayloadKind_Error, []byte(err.Error()))
 	}
 }
@@ -162,10 +162,10 @@ func (s *Stream) RawError(err error) {
 func (s *Stream) RawCancel() {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
-	defer s.termSig.SignalWithError(drpc.Error.New("stream terminated"))
-	defer s.sig.SignalWithError(context.Canceled)
+	defer s.termSig.Set(drpc.Error.New("stream terminated"))
+	defer s.sig.Set(context.Canceled)
 
-	if _, ok := s.termSig.State(); !ok {
+	if _, ok := s.termSig.Get(); !ok {
 		_ = s.wireSendFlush(drpcwire.PayloadKind_Cancel, nil)
 	}
 }
@@ -199,7 +199,7 @@ func (s *Stream) MsgRecv(msg drpc.Message) error {
 func (s *Stream) CloseSend() error {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
-	defer s.sendSig.SignalWithError(drpc.Error.New("send after CloseSend"))
+	defer s.sendSig.Set(drpc.Error.New("send after CloseSend"))
 
 	if err, sendClosed := s.pollSend(); sendClosed {
 		return nil
@@ -212,9 +212,9 @@ func (s *Stream) CloseSend() error {
 func (s *Stream) Close() error {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
-	defer s.sendSig.SignalWithError(drpc.Error.New("send after CloseSend"))
-	defer s.termSig.SignalWithError(drpc.Error.New("stream terminated"))
-	defer s.sig.SignalWithError(drpc.Error.New("stream closed"))
+	defer s.sendSig.Set(drpc.Error.New("send after CloseSend"))
+	defer s.termSig.Set(drpc.Error.New("stream terminated"))
+	defer s.sig.Set(drpc.Error.New("stream closed"))
 
 	if err, sendClosed := s.pollSend(); err != nil && !sendClosed {
 		return nil

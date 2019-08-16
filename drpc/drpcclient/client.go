@@ -25,7 +25,7 @@ var _ drpc.Client = (*Client)(nil)
 func New(ctx context.Context, rw io.ReadWriter) *Client {
 	sig := drpcutil.NewSignal()
 	man := drpcmanager.New(rw, nil)
-	go func() { sig.SignalWithError(man.Run(ctx)) }()
+	go func() { sig.Set(man.Run(ctx)) }()
 
 	return &Client{
 		sig: sig,
@@ -34,7 +34,7 @@ func New(ctx context.Context, rw io.ReadWriter) *Client {
 }
 
 func (c *Client) Close() error {
-	c.man.Sig().SignalWithError(drpc.Error.New("client closed"))
+	c.man.Sig().Set(drpc.Error.New("client closed"))
 	<-c.sig.Signal()
 	return nil
 }

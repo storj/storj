@@ -93,7 +93,7 @@ func (s *Server) Manage(ctx context.Context, rw io.ReadWriter) error {
 func (s *Server) Handle(stream *drpcstream.Stream, rpc string) error {
 	err := s.doHandle(stream, rpc)
 	if err != nil {
-		stream.Sig().SignalWithError(err)
+		stream.Sig().Set(err)
 	}
 	return errs.Combine(err, stream.Close())
 }

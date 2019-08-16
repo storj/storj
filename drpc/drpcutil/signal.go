@@ -22,7 +22,7 @@ func (s *Signal) Signal() chan struct{} {
 	return s.sig
 }
 
-func (s *Signal) SignalWithError(err error) (ok bool) {
+func (s *Signal) Set(err error) (ok bool) {
 	s.once.Do(func() {
 		s.err = err
 		close(s.sig)
@@ -31,7 +31,7 @@ func (s *Signal) SignalWithError(err error) (ok bool) {
 	return ok
 }
 
-func (s *Signal) State() (error, bool) {
+func (s *Signal) Get() (error, bool) {
 	select {
 	case <-s.sig:
 		return s.err, true
@@ -40,7 +40,7 @@ func (s *Signal) State() (error, bool) {
 	}
 }
 
-func (s *Signal) WasSignaled() bool {
+func (s *Signal) IsSet() bool {
 	select {
 	case <-s.sig:
 		return true
