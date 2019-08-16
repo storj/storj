@@ -13,6 +13,7 @@ export enum ProjectMemberOrderBy {
     CREATED_AT,
 }
 
+// ProjectMemberCursor is a type, used for paged project members request
 export class ProjectMemberCursor {
     public constructor(
         public search: string = '',
@@ -23,6 +24,7 @@ export class ProjectMemberCursor {
     }
 }
 
+// ProjectMembersPage is a type, used to describe paged project members list
 export class ProjectMembersPage {
     public constructor(
         public projectMembers: ProjectMember[] = [],
@@ -36,6 +38,7 @@ export class ProjectMembersPage {
     }
 }
 
+// ProjectMember is a type, used to describe project member
 export class ProjectMember {
     public user: User;
 
