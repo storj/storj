@@ -228,13 +228,10 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 		return OrderError.New("failed to start settlement: %v", err)
 	}
 
-	var errList errs.Group
-	errHandle := func(logErrMsg string, err error, fields ...zap.Field) {
-		log.Error(logErrMsg, append([]zap.Field{zap.Error(err)}, fields...)...)
-		errList.Add(err)
-	}
-
-	var group errgroup.Group
+	var (
+		errList errs.Group
+		group   errgroup.Group
+	)
 	group.Go(func() error {
 		for _, order := range orders {
 			req := pb.SettlementRequest{
@@ -243,11 +240,12 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 			}
 			err := client.Send(&req)
 			if err != nil {
-				errHandle(
-					"gRPC client when sending new orders settlements",
-					OrderError.New("sending settlement agreements returned an error: %v", err),
+				err = OrderError.New("sending settlement agreements returned an error: %v", err)
+				log.Error("gRPC client when sending new orders settlements",
+					zap.Error(err),
 					zap.Any("request", req),
 				)
+				errList.Add(err)
 				return nil
 			}
 		}
@@ -255,7 +253,8 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 		err := client.CloseSend()
 		if err != nil {
 			err = OrderError.New("CloseSend settlement agreements returned an error: %v", err)
-			errHandle("gRPC client error when closing sender ", err)
+			log.Error("gRPC client error when closing sender ", zap.Error(err))
+			errList.Add(err)
 		}
 
 		return nil
@@ -268,9 +267,9 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 				break
 			}
 
-			errHandle("gRPC client error when receiveing new order settlements",
-				OrderError.New("failed to receive settlement response: %v", err),
-			)
+			err = OrderError.New("failed to receive settlement response: %v", err)
+			log.Error("gRPC client error when receiveing new order settlements", zap.Error(err))
+			errList.Add(err)
 			break
 		}
 
@@ -281,10 +280,11 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 		case pb.SettlementResponse_REJECTED:
 			status = StatusRejected
 		default:
-			errHandle("gRPC client received a unexpected new orders setlement status",
-				OrderError.New("unexpected settlement status response: %d", response.Status),
-				zap.Any("response", response),
+			err := OrderError.New("unexpected settlement status response: %d", response.Status)
+			log.Error("gRPC client received a unexpected new orders setlement status",
+				zap.Error(err), zap.Any("response", response),
 			)
+			errList.Add(err)
 			continue
 		}
 
