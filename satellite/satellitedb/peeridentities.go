@@ -87,10 +87,13 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 	if len(nodeIDs) == 0 {
 		return nil, nil
 	}
+
 	args := make([]interface{}, 0, nodeIDs.Len())
 	for _, nodeID := range nodeIDs {
 		args = append(args, nodeID)
 	}
+
+	// TODO: optimize using arrays like overlay
 
 	rows, err := idents.db.Query(idents.db.Rebind(`
 			SELECT chain FROM peer_identities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
