@@ -13,6 +13,7 @@ import (
 type Receiver struct {
 	scanner *bufio.Scanner
 	pending map[PacketID]payloadState
+	size    uint64
 }
 
 type payloadState struct {
@@ -46,19 +47,19 @@ func (r *Receiver) ReadPacket() (p *Packet, err error) {
 		rem, pkt, ok, err = ParsePacket(r.scanner.Bytes())
 		switch {
 		case err != nil:
-			return nil, drpc.InternalError.Wrap(err)
+			return nil, drpc.ProtocolError.Wrap(err)
 		case !ok:
-			return nil, drpc.InternalError.New("invalid data returned from scanner")
+			return nil, drpc.InternalError.New("invalid parse after scanner")
 		case len(rem) != 0:
-			return nil, drpc.InternalError.New("remaining bytes from parsing packet")
+			return nil, drpc.ProtocolError.New("remaining bytes from parsing packet")
 		case pkt.Length == 0 &&
 			pkt.PayloadKind != PayloadKind_CloseSend &&
 			pkt.PayloadKind != PayloadKind_Cancel:
-			return nil, drpc.InternalError.New("invalid zero data length packet sent")
+			return nil, drpc.ProtocolError.New("invalid zero data length packet sent")
 		case len(pkt.Data) != int(pkt.Length):
-			return nil, drpc.InternalError.New("invalid length of data and header length")
+			return nil, drpc.ProtocolError.New("invalid length of data and header length")
 		case pkt.Length == 0 && pkt.Continuation:
-			return nil, drpc.InternalError.New("invalid send of zero length continuation")
+			return nil, drpc.ProtocolError.New("invalid send of zero length continuation")
 		}
 
 		// get the payload state for the packet and ensure that the starting bit on the
@@ -73,6 +74,7 @@ func (r *Receiver) ReadPacket() (p *Packet, err error) {
 			return nil, drpc.ProtocolError.New("changed payload kind for in flight message")
 		}
 
+		r.size -= uint64(len(state.data))
 		state = payloadState{
 			kind: pkt.PayloadKind,
 			data: append(state.data, pkt.Data...),
@@ -87,6 +89,11 @@ func (r *Receiver) ReadPacket() (p *Packet, err error) {
 		}
 
 		r.pending[pkt.PacketID] = state
+		r.size += uint64(len(state.data))
+
+		if r.size > 10<<20 {
+			return nil, drpc.ProtocolError.New("too much packet data buffered")
+		}
 	}
 
 	// if we're returning an error packet, we can delete all the other pending messages

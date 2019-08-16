@@ -5,18 +5,22 @@ header
     4  bits control
         0: reserved
         1: invoke
-        2: data
+        2: message
         3: error
-        4-15: unused
+        4. close send
+        5. cancel
+        6-15: unused
 
     varint stream id
     varint message id
 
 payload
     0: n/a
-    1: name
-    2: message
-    3: error
+    1: rpc name
+    2: message data
+    3: error data
+    4: empty
+    5: empty
 
 - any protocol errors close the transport
 - it is a protocol error to use a stream/message id of 0
@@ -27,10 +31,13 @@ payload
 - messages are handled in the order they finish being sent which is
   when the continuation is unset
 - it is a protocol error to send different control bits for the same
-  active  stream id/message id pair
-- it is a protocol error for a server to send invoke
+  active stream id/message id pair
+- it is a protocol error for a server to send invoke to a client
 - invoke both allocates the stream id that messages will flow on and
   chooses the rpc
+- it is a protocol error for a client to send two invokes on the same stream
 - clients and servers may arbitarily close streams if too much
   buffered data or messages are present
-- a successful close is marked by an error message with no bytes
+- it is a protocol error to send data for payloads with empty bodies
+- it is a protocol error to send a packet that requires a paylod body
+  with no body

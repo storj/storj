@@ -15,12 +15,12 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-type rw struct {
-	io.Reader
-	io.Writer
-}
-
 func TestSimple(t *testing.T) {
+	type rw struct {
+		io.Reader
+		io.Writer
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

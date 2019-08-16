@@ -96,7 +96,7 @@ func (m *Manager) monitorStream(stream *drpcstream.Stream) {
 }
 
 func (m *Manager) manageStreams(ctx context.Context) {
-	defer m.sig.Set(drpc.InternalError.New("manageStreams exited with no signal"))
+	defer m.sig.Set(drpc.InternalError.New("manager exited with no signal"))
 
 	for {
 		p, err := m.recv.ReadPacket()
