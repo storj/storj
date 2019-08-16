@@ -58,12 +58,12 @@ func (s *RetainService) QueueRetain(req RetainRequest) {
 }
 
 // Run listens for queued retain requests and processes them as they come in
-func (s *RetainService) Run(ctx context.Context) {
+func (s *RetainService) Run(ctx context.Context) error {
 	for {
 		// exit if context has been canceled. Otherwise, block until an item can be added to the semaphore
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case s.sem <- struct{}{}:
 		}
 
@@ -72,7 +72,7 @@ func (s *RetainService) Run(ctx context.Context) {
 		select {
 		case req = <-s.ch:
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 
 		// TODO make it possible to sync with this goroutine

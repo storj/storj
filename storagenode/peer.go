@@ -121,14 +121,15 @@ type Peer struct {
 
 	Storage2 struct {
 		// TODO: lift things outside of it to organize better
-		Trust        *trust.Pool
-		Store        *pieces.Store
-		BlobsCache   *pieces.BlobsUsageCache
-		CacheService *pieces.CacheService
-		Endpoint     *piecestore.Endpoint
-		Inspector    *inspector.Endpoint
-		Monitor      *monitor.Service
-		Sender       *orders.Sender
+		Trust         *trust.Pool
+		Store         *pieces.Store
+		BlobsCache    *pieces.BlobsUsageCache
+		CacheService  *pieces.CacheService
+		RetainService *piecestore.RetainService
+		Endpoint      *piecestore.Endpoint
+		Inspector     *inspector.Endpoint
+		Monitor       *monitor.Service
+		Sender        *orders.Sender
 	}
 
 	Vouchers *vouchers.Service
@@ -232,8 +233,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		// TODO add retain service
-
 		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, peer.Storage2.Trust)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
 
@@ -270,11 +269,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Storage2.Monitor,
 		)
 
+		peer.Storage2.RetainService = piecestore.NewRetainService(
+			peer.Log.Named("piecestore:retain"),
+			config.Storage2.RetainStatus,
+			config.Storage2.MaxConcurrentRetain,
+			peer.Storage2.Store,
+		)
+
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
+			peer.Storage2.RetainService,
 			peer.Storage2.Store,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
@@ -377,8 +384,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	// TODO start retain service
-
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
@@ -401,6 +406,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
