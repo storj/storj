@@ -636,7 +636,6 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 			dbx.Node_TotalAuditCount(0),
 			dbx.Node_UptimeSuccessCount(0),
 			dbx.Node_TotalUptimeCount(0),
-			dbx.Node_PieceCount(0),
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 			dbx.Node_Contained(false),
