@@ -1,7 +1,24 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// APIKeyInfo describing api key model in the database
+/**
+ * Exposes all apiKey-related functionality
+ */
+export interface ApiKeysApi {
+    /**
+     * Fetch apiKey
+     *
+     * @returns ApiKey
+     * @throws Error
+     */
+    get(projectId: string): Promise<ApiKey[]>;
+    create(projectId: string, name: string): Promise<ApiKey>;
+    delete(ids: string[]): Promise<null>;
+}
+
+/**
+ * ApiKey class holds info for ApiKey entity.
+ */
 export class ApiKey {
     public id: string;
     public secret: string;

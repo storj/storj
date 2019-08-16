@@ -25,6 +25,9 @@
     import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
     import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+    import { ApiKey } from '@/types/apiKeys';
+
+    const CREATE = API_KEYS_ACTIONS.CREATE;
 
     @Component({
         components: {
@@ -64,16 +67,19 @@
 
             this.isLoading = true;
 
-            let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.name);
-            if (!result.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
+            let createdApiKey: ApiKey;
+
+            try {
+                createdApiKey = await this.$store.dispatch(CREATE, this.name);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
                 this.isLoading = false;
 
                 return;
             }
 
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
-            this.key = result.data.secret;
+            this.key = createdApiKey.secret;
             this.isLoading = false;
 
             this.$emit('closePopup');
