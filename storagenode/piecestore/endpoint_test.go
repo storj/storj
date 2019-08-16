@@ -140,7 +140,6 @@ func TestUpload(t *testing.T) {
 		},
 	} {
 		data := testrand.Bytes(tt.contentLength)
-		expectedHash := pkcrypto.SHA256Hash(data)
 		serialNumber := testrand.SerialNumber()
 
 		orderLimit, piecePrivateKey := GenerateOrderLimit(
@@ -171,6 +170,7 @@ func TestUpload(t *testing.T) {
 		} else {
 			require.NoError(t, err)
 
+			expectedHash := pkcrypto.SHA256Hash(data)
 			assert.Equal(t, expectedHash, pieceHash.Hash)
 
 			signee := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
@@ -229,6 +229,11 @@ func TestDownload(t *testing.T) {
 		{ // should successfully download data
 			pieceID: orderLimit.PieceId,
 			action:  pb.PieceAction_GET,
+		},
+		{ // should err with piece ID not specified
+			pieceID: storj.PieceID{},
+			action:  pb.PieceAction_GET,
+			errs:    []string{"missing piece id"},
 		},
 		{ // should err with piece ID not specified
 			pieceID: storj.PieceID{2},
@@ -327,17 +332,22 @@ func TestDelete(t *testing.T) {
 		action  pb.PieceAction
 		err     string
 	}{
-		{ // should successfully download data
+		{ // should successfully delete data
 			pieceID: orderLimit.PieceId,
 			action:  pb.PieceAction_DELETE,
 			err:     "",
 		},
-		{ // should err with piece ID not specified
+		{ // should err with piece ID not found
 			pieceID: storj.PieceID{99},
 			action:  pb.PieceAction_DELETE,
 			err:     "", // TODO should this return error
 		},
-		{ // should successfully download data
+		{ // should err with piece ID not specified
+			pieceID: storj.PieceID{},
+			action:  pb.PieceAction_DELETE,
+			err:     "missing piece id",
+		},
+		{ // should err due to incorrect action
 			pieceID: orderLimit.PieceId,
 			action:  pb.PieceAction_GET,
 			err:     "expected delete action got GET",

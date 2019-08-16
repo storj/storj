@@ -22,7 +22,8 @@ import (
 
 // Config is a configuration struct for orders Service.
 type Config struct {
-	Expiration time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
+	Expiration         time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
+	SettlmentBatchSize int           `help:"how many orders to batch per transaction" default:"250"`
 }
 
 // Service for creating order limits.

@@ -549,7 +549,7 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) error {
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.CreateCredit) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, userCredit)
@@ -820,6 +820,12 @@ func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.S
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UseSerialNumber(ctx, serialNumber, storageNodeID)
+}
+
+func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*pb.SettlementResponse, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ProcessOrders(ctx, requests)
 }
 
 // OverlayCache returns database for caching overlay information

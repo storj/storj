@@ -18,7 +18,7 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { ApiKey } from '../../types/apiKeys';
+    import { ApiKey } from '@/types/apiKeys';
 
     @Component
     export default class ApiKeysItem extends Vue {

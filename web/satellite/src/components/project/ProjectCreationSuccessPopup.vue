@@ -67,7 +67,6 @@
         public onCreateAPIKeyClick(): void {
             this.$router.push(ROUTES.API_KEYS.path);
             this.onCloseClick();
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
         }
 
         public get isPopupShown(): boolean {
