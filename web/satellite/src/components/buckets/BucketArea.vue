@@ -31,7 +31,7 @@
     import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
     import Pagination from '@/components/common/Pagination.vue';
-    import List from "@/components/common/List.vue";
+    import List from '@/components/common/List.vue';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { BUCKET_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
@@ -68,7 +68,7 @@
         public get buckets(): BucketUsage[] {
             return this.$store.state.bucketUsageModule.page.bucketUsages;
         }
-        
+
         public get search(): string {
             return this.$store.state.bucketUsageModule.cursor.search;
         }
