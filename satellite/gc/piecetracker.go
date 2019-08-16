@@ -23,7 +23,7 @@ type PieceTracker struct {
 	// TODO: does it make sense to name this type?
 	//  (If so, where to put it that doesn't create import cycle?)
 	// TODO: should we use int or int64 consistently for piece count (db type is int64)?
-	pieceCounts  map[storj.NodeID]int
+	pieceCounts map[storj.NodeID]int
 
 	retainInfos map[storj.NodeID]*RetainInfo
 }
