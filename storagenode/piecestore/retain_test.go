@@ -172,6 +172,7 @@ func TestRetainPieces(t *testing.T) {
 			require.NotContains(t, satellite0Pieces, id, "piece should have been deleted")
 		}
 
+		// shut down retain services
 		cancel()
 		err = group.Wait()
 		require.True(t, errs2.IsCanceled(err))
