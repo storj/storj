@@ -32,23 +32,6 @@ describe('SearchComponent.vue', () => {
         expect(wrapper.vm.style.width).toMatch('56px');
     });
 
-    it('function onInput works correctly', () => {
-        let onMouseLeaveSpy = sinon.spy();
-        let processSearchQuerySpy = sinon.spy();
-
-        const wrapper = mount(SearchComponent, {
-            methods: {
-                onMouseLeave: onMouseLeaveSpy,
-                processSearchQuery: processSearchQuerySpy,
-            }
-        });
-
-        wrapper.vm.onInput();
-
-        expect(onMouseLeaveSpy.callCount).toBe(1);
-        expect(processSearchQuerySpy.callCount).toBe(1);
-    });
-
     it('function clearSearch works correctly', () => {
         let processSearchQuerySpy = sinon.spy();
 

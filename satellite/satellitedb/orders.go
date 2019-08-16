@@ -6,12 +6,16 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/dbutil/sqliteutil"
@@ -213,4 +217,179 @@ func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.Se
 				  serial_number_id IN (SELECT id FROM serial_numbers WHERE serial_number = ?)`
 	_, err = db.db.ExecContext(ctx, db.db.Rebind(statement), storageNodeID.Bytes(), serialNumber.Bytes())
 	return err
+}
+
+// ProcessOrders take a list of order requests and "settles" them in one transaction
+func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*pb.SettlementResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(requests) == 0 {
+		return nil, err
+	}
+
+	tx, err := db.db.Begin()
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			err = errs.Combine(err, tx.Rollback())
+		}
+	}()
+
+	now := time.Now().UTC()
+	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+
+	rejectedRequests := make(map[storj.SerialNumber]bool)
+	reject := func(serialNumber storj.SerialNumber) {
+		r := &pb.SettlementResponse{
+			SerialNumber: serialNumber,
+			Status:       pb.SettlementResponse_REJECTED,
+		}
+		rejectedRequests[serialNumber] = true
+		responses = append(responses, r)
+	}
+
+	// processes the insert to used serials table individually so we can handle
+	// the case where the order has already been processed.  Duplicates and previously
+	// processed orders are rejected
+	for _, request := range requests {
+		insert := "INSERT INTO used_serials (serial_number_id, storage_node_id) SELECT id, ? FROM serial_numbers WHERE serial_number = ?"
+		if err != nil {
+			return nil, err
+		}
+		_, err = tx.Exec(db.db.Rebind(insert), request.OrderLimit.StorageNodeId.Bytes(), request.OrderLimit.SerialNumber.Bytes())
+		if err != nil {
+			if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
+				reject(request.OrderLimit.SerialNumber)
+			} else {
+				return nil, Error.Wrap(err)
+			}
+		}
+	}
+
+	// call to get all the bucket IDs
+	query := db.buildGetBucketIdsQuery(len(requests))
+	statement := db.db.Rebind(query)
+
+	args := make([]interface{}, len(requests))
+	for i, request := range requests {
+		args[i] = request.OrderLimit.SerialNumber.Bytes()
+	}
+
+	rows, err := tx.Query(statement, args...)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	bucketMap := make(map[storj.SerialNumber][]byte)
+	for rows.Next() {
+		var serialNumber, bucketID []byte
+		err := rows.Scan(&serialNumber, &bucketID)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		sn, err := storj.SerialNumberFromBytes(serialNumber)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		bucketMap[sn] = bucketID
+	}
+
+	// build all the bandwidth updates into one sql statement
+	var updateRollupStatement string
+	for _, request := range requests {
+		_, rejected := rejectedRequests[request.OrderLimit.SerialNumber]
+		if rejected {
+			continue
+		}
+		bucketID, ok := bucketMap[request.OrderLimit.SerialNumber]
+		if !ok {
+			reject(request.OrderLimit.SerialNumber)
+			continue
+		}
+		projectID, bucketName, err := orders.SplitBucketID(bucketID)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		stmt, err := db.buildUpdateBucketBandwidthRollupStatements(request.OrderLimit, request.Order, projectID[:], bucketName, intervalStart)
+		if err != nil {
+			return nil, err
+		}
+		updateRollupStatement += stmt
+
+		stmt, err = db.buildUpdateStorageNodeBandwidthRollupStatements(request.OrderLimit, request.Order, intervalStart)
+		if err != nil {
+			return nil, err
+		}
+		updateRollupStatement += stmt
+	}
+
+	_, err = tx.Exec(updateRollupStatement)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	for _, request := range requests {
+		_, rejected := rejectedRequests[request.OrderLimit.SerialNumber]
+		if !rejected {
+			r := &pb.SettlementResponse{
+				SerialNumber: request.OrderLimit.SerialNumber,
+				Status:       pb.SettlementResponse_ACCEPTED,
+			}
+
+			responses = append(responses, r)
+		}
+	}
+	return responses, nil
+}
+
+func (db *ordersDB) buildGetBucketIdsQuery(argCount int) string {
+	args := make([]string, argCount)
+	for i := 0; i < argCount; i++ {
+		args[i] = "?"
+	}
+	return fmt.Sprintf("SELECT serial_number, bucket_id FROM serial_numbers WHERE serial_number IN (%s);\n", strings.Join(args, ","))
+}
+
+func (db *ordersDB) buildUpdateBucketBandwidthRollupStatements(orderLimit *pb.OrderLimit, order *pb.Order, projectID []byte, bucketName []byte, intervalStart time.Time) (string, error) {
+	hexName, err := db.toHex(bucketName)
+	if err != nil {
+		return "", err
+	}
+	hexProjectID, err := db.toHex(projectID)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+		VALUES (%s, %s, '%s', %d, %d, %d, %d, %d)
+		ON CONFLICT(bucket_name, project_id, interval_start, action)
+		DO UPDATE SET settled = bucket_bandwidth_rollups.settled + %d;
+`, hexName, hexProjectID, intervalStart.Format("2006-01-02 15:04:05+00:00"), defaultIntervalSeconds, orderLimit.Action, 0, 0, order.Amount, order.Amount), nil
+}
+
+func (db *ordersDB) buildUpdateStorageNodeBandwidthRollupStatements(orderLimit *pb.OrderLimit, order *pb.Order, intervalStart time.Time) (string, error) {
+	hexNodeID, err := db.toHex(orderLimit.StorageNodeId.Bytes())
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf(`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
+		VALUES (%s, '%s', %d, %d, %d, %d)
+		ON CONFLICT(storagenode_id, interval_start, action)
+		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + %d;
+`, hexNodeID, intervalStart.Format("2006-01-02 15:04:05+00:00"), defaultIntervalSeconds, orderLimit.Action, 0, order.Amount, order.Amount), nil
+}
+
+func (db *ordersDB) toHex(value []byte) (string, error) {
+	hexValue := hex.EncodeToString(value)
+	switch t := db.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		return fmt.Sprintf("X'%v'", hexValue), nil
+	case *pq.Driver:
+		return fmt.Sprintf("decode('%v', 'hex')", hexValue), nil
+	default:
+		return "", errs.New("Unsupported DB type %q", t)
+	}
 }
