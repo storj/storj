@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="apikey-item-container" :class="[isDeleted ? 'deleted' : '']">
+    <div class="apikey-item-container">
         <div class="apikey-item-container__common-info">
             <div class="checkbox-container">
                 <svg width="23" height="23" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -31,13 +31,6 @@
     export default class ApiKeysItem extends Vue {
         @Prop({default: () => new ApiKey('', '', '', '')})
         private readonly itemData: ApiKey;
-
-        private isDeleted: boolean = false;
-
-        public disableContent(): void {
-            this.isDeleted = !this.isDeleted;
-            console.log(this.isDeleted)
-        }
     }
 </script>
 

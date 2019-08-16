@@ -35,7 +35,6 @@
                 <div class="api-keys-items__content">
                     <SortingHeader/>
                     <List
-                        ref="listComponent"
                         :dataSet="apiKeyList"
                         :itemComponent="itemComponent"
                         :onItemClick="toggleSelection"/>
@@ -76,10 +75,6 @@
         ON_SELECT,
     }
 
-    declare interface DisableContent {
-        disableContent: () => void;
-    }
-
     @Component({
         components: {
             List,
@@ -99,16 +94,8 @@
         private isCopyApiKeyPopupShown: boolean = false;
         private apiKeySecret: string = '';
 
-        public $refs!: {
-            itemComponent: List & DisableContent;
-        };
-
         public mounted(): void {
             this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-        }
-
-        public disableContent() {
-            this.$refs.itemComponent.disableContent();
         }
 
         public toggleSelection(apiKey: ApiKey): void {
@@ -121,7 +108,6 @@
 
         public onFirstDeleteClick(): void {
             this.isDeleteClicked = true;
-            this.disableContent();
         }
 
         public onClearSelection(): void {
@@ -308,6 +294,10 @@
     ::-webkit-scrollbar-thumb {
         width: 0;
     }
+
+    /*/deep/ .apikey-item-container.selected {*/
+    /*    background-color: red;*/
+    /*}*/
 
     @media screen and (max-width: 1840px) {
         .api-keys-area {
