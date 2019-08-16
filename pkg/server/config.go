@@ -12,6 +12,7 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 )
 
 // Config holds server specific configuration parameters
@@ -26,7 +27,12 @@ type Config struct {
 func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	opts, err := tlsopts.NewOptions(identity, sc.Config)
+	revDB, err := revocation.NewDBFromCfg(sc.Config)
+	if err != nil {
+		return err
+	}
+
+	opts, err := tlsopts.NewOptions(identity, sc.Config, revDB)
 	if err != nil {
 		return err
 	}

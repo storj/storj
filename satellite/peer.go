@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
@@ -249,7 +250,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	{ // setup listener and server
 		log.Debug("Starting listener and server")
 		sc := config.Server
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config)
+
+		revDB, err := revocation.NewDBFromCfg(sc.Config)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
