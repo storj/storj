@@ -10,7 +10,7 @@ import (
 // Attacker stores information about attacker entity
 type Attacker struct {
 	limiter *rate.Limiter
-	Expire  time
+	Expire  time.Time
 	// TODO: could be interface{}
 	key string
 
