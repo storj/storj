@@ -62,9 +62,22 @@ We cannot use `<segment-number>/<path>` (conceptually), because then it would be
 
 This way, we can list all the segments belonging to a single object. This single namespace for segments has other benefits, such as easily listing undeleted segments.
 
+### Changes to data model
+
+To support the above our data-model needs to have Objects and Segments. The following describes them in terms of protobuf definitions, however, they could be SQL tables or something else entirely. Similarly, for transitioning from old to new model, we may need some temporary adjustments.
+
+``` protobuf
+
+
+
+```
+
+
+
 ## Rationale
 
 Multipart uploads can also be implemented with a "temporary location." First, the segments are uploaded to a temporary location and then, during object commit, moved to the main database. The benefit is that the database layout doesn't have to change. However, this adds more work to the satellite, and there are more ways this can fail.
+
 
 ## Implementation
 
