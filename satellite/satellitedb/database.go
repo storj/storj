@@ -98,7 +98,7 @@ func (db *DB) DropSchema(schema string) error {
 	return nil
 }
 
-//  PeerIdentities returns a storage for peer identities
+// PeerIdentities returns a storage for peer identities
 func (db *DB) PeerIdentities() overlay.PeerIdentities {
 	return &peerIdentities{db: db.db}
 }
