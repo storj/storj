@@ -33,6 +33,7 @@ Active Offer
 	* Referral Manager checks current total amount of usage of the active offer.
         * When the total amount is less than the redeemable capacity, then the referral manager updates the counter for the total amount of usage and sends a success response to the satellite. Satellite will proceed with the account creation flow.
         * When the total amount is greater than the redeemable capacity, then the referral manager sends back an error and satellite will not create an account for the user.
+            
 2. Account Activation:
 	* Satellite B requests a Referral Code from Referral Manager.
 	* Referral Manager generates a unique code XYZ, and then stores Satellite ID and XYZ in a database.
@@ -63,8 +64,10 @@ After user Alice on satellite B pays their first invoice:
     
 ### Active offers cache
 
-    Creating a cache layer for all active offers. (referrence: https://github.com/storj/storj/pull/2681/files)
- 
+    Creating a cache layer for all active offers. 
+        
+    We will use a map to store the cache using offer ID as the key.
+     
 ## Rationale
 
 1. Separation of concern
@@ -74,7 +77,7 @@ After user Alice on satellite B pays their first invoice:
 2. Single source of truth
     * the marketing team does not need to go through each tardigrade satellite to set up the configuration for offers.
 
-3. Use cache to reduce read for active offer into the database
+3. Use cache to reduce read operation for active offer from the database
 
 ## Implementation
 
@@ -235,4 +238,10 @@ message ReferralResponse {
 
 ## Open issues (if applicable)
 1. If the account creation failed, should we update the counter too? Do we even care in this situation to keep the counter accurate?
-
+2. What data structure should we use for the cache?
+    * On account creation, we will need to get an active offer based on offer type
+    * When redeem an offer after account activation, we will need to get the offer info based on offer ID since the active offer might already changed in the cache. 
+3. Where should we store partner ids? 
+    * When uplink uploads data, we need to validate the partner ID  in the upload request context on the satellite, which requires access to all partner IDs.
+    * Marketing team needs to set partner offers through marketing admin gui on the referral manager which also needs access to partner IDs.
+4. For working with the activation token, we will potentially need to add a counter for each referral code.
