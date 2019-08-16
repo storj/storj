@@ -13,16 +13,22 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storagenode/vouchers"
 )
 
-type vouchersdb struct{ *InfoDB }
+var ErrVouchers = errs.Class("vouchers error")
 
-// Vouchers returns database for storing vouchers
-func (db *DB) Vouchers() vouchers.DB { return db.info.Vouchers() }
+type vouchersdb struct {
+	location string
+	SQLDB
+}
 
-// Vouchers returns database for storing vouchers
-func (db *InfoDB) Vouchers() vouchers.DB { return &vouchersdb{db} }
+// newVouchers returns a new instance of vouchersdb initialized with the specified database.
+func newVouchers(db SQLDB, location string) *vouchersdb {
+	return &vouchersdb{
+		location: location,
+		SQLDB:    db,
+	}
+}
 
 // Put inserts or updates a voucher from a satellite
 func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) {
@@ -30,10 +36,10 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 
 	voucherSerialized, err := proto.Marshal(voucher)
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrVouchers.Wrap(err)
 	}
 
-	_, err = db.db.Exec(`
+	_, err = db.Exec(`
 		INSERT INTO vouchers(
 			satellite_id,
 			voucher_serialized,
@@ -54,7 +60,7 @@ func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID,
 	expiresBefore := time.Now().Add(expirationBuffer)
 
 	// query returns row if voucher is good. If not, it is either expiring or does not exist
-	row := db.db.QueryRow(`
+	row := db.QueryRow(`
 		SELECT satellite_id
 		FROM vouchers
 		WHERE satellite_id = ? AND expiration >= ?
@@ -66,7 +72,7 @@ func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID,
 		if err == sql.ErrNoRows {
 			return true, nil
 		}
-		return false, ErrInfo.Wrap(err)
+		return false, ErrVouchers.Wrap(err)
 	}
 	return false, nil
 }
@@ -75,7 +81,7 @@ func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID,
 func (db *vouchersdb) GetAll(ctx context.Context) (vouchers []*pb.Voucher, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.db.Query(`
+	rows, err := db.Query(`
 		SELECT voucher_serialized
 		FROM vouchers
 	`)
@@ -83,7 +89,7 @@ func (db *vouchersdb) GetAll(ctx context.Context) (vouchers []*pb.Voucher, err e
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrVouchers.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -91,12 +97,12 @@ func (db *vouchersdb) GetAll(ctx context.Context) (vouchers []*pb.Voucher, err e
 		var voucherSerialized []byte
 		err := rows.Scan(&voucherSerialized)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrVouchers.Wrap(err)
 		}
 		voucher := &pb.Voucher{}
 		err = proto.Unmarshal(voucherSerialized, voucher)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrVouchers.Wrap(err)
 		}
 		vouchers = append(vouchers, voucher)
 	}
