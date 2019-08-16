@@ -902,6 +902,24 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
+// AllPieceCounts returns a map of node IDs to piece counts from the db.
+func (cache *overlaycache) AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error) {
+	defer mon.Task()(&ctx, err)
+
+	rows, err := cache.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var nodeID storj.NodeID
+	for _, row := range rows {
+		// NB: assumes node IDs in nodes table are always valid.
+		copy(nodeID[:], row.Id)
+		pieceCounts[nodeID] = int(row.PieceCount)
+	}
+	return pieceCounts, nil
+}
+
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if info == nil {

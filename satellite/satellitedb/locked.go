@@ -841,6 +841,13 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
+// AllPieceCounts returns a map of node IDs to piece counts from the db.
+func (m *lockedOverlayCache) AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.AllPieceCounts(ctx)
+}
+
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
 func (m *lockedOverlayCache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
 	m.Lock()

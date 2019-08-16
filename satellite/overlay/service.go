@@ -66,6 +66,9 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
+
+	// AllPieceCounts returns a map of node IDs to piece counts from the db.
+	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
