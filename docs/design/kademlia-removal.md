@@ -2,83 +2,95 @@
 
 ## Abstract
 
-This design document outlines the communication protocol between satellites and 
-storage nodes, network refreshes, and kademlia removal given the satellite opt-in 
-capability for storage nodes. 
+This design document outlines the communication protocol between satellites and
+storage nodes, network refreshes, and kademlia removal given the satellite opt-in
+capability for storage nodes.
 
 ## Background
-User research on how Storage Node Operators would connect to satellites resulted in a 
-simple solution called Opt-in SNO select. Satellites wait for storage nodes to work 
-with them, and storage nodes manually select the satellites they want to work with. 
-The initial implementation of this allows SNOs to update their trusted satellite list 
-in a hardcoded configuration file, but future improvements will enable users to manage 
-this list through a web console. Due to the nature of this change, the Storj network 
-at this point in time no longer requires the Kademlia DHT or related entities. 
-We will replace this protocol with direct communication between satellites and 
-storage nodes, and keep the network fresh without kademlia node discovery and random 
-lookups.
+
+Many peer-to-peer, decentralized systems employ the Kademlia implementation of a distributed hash table to allow for 
+locating peer nodes, exchanging messages and sharing data. However, due to the nature of our network, we only use Kademlia 
+for node discovery and address lookups given node IDs. This is useful when satellites don’t know about all the nodes in 
+the network and nodes are unfamiliar with all of the satellites in the network.
+
+With our recent business decision of simplifying the storage node operator user experience, we no longer require kademlia 
+for node discovery. In a solution called SNO-select, storage nodes manually select the satellites they want to work with 
+and satellites wait for storage nodes to work with them. The initial implementation of this solution allows SNOs to update 
+their trusted satellite list in a hardcoded configuration file, but future improvements will enable users to manage
+this list through a web console. 
+
+We will replace our Kademlia DHT and related entities with direct communication between satellites and storage nodes, 
+and keep the network fresh without kademlia node discovery and random lookups.
 
 ## Design
 
-1. Nodes reach out to satellites that they want to work with
-    
-    - At the time of writing, a storage node operator can input a list of trusted satellite 
-    IDs and addresses into their configuration file on setup. There are several tardigrade-level 
-    satellites already listed as a preset. This list is imported into a Go map data structure 
-    within the “trust” package.
-    - Eventually during the design and implementation of trusted satellite management, 
-    this configured list may be imported into a on-disk data store, eg SQL table. Users will 
-    be able to modify this list through the storage node operator console. However, this is a 
-    separate discussion from this design document. This design is satisfied with a static trusted 
-    satellites list.
-    - Nodes will be able to communicate with satellites through the “transport” and “trust” packages 
-    directly rather than using kademlia to traverse the network to find the address of a given ID.
+### Nodes reach out to satellites that they want to work with
+- The satellites are listed in the trust package
+- Nodes should communicate with satellites directly rather than using kademlia to traverse the network to find the address of a given ID.
+- Storage nodes should notify satellites when they start up, wait a random amount of time (to add jitter 
+http://highscalability.com/blog/2012/4/17/youtube-strategy-adding-jitter-isnt-a-bug.html), then start reporting in roughly on the hour
 
-2. Network refreshes at a regular interval
-    - Nodes will keep themselves up to date in the network by pinging all the satellites in their 
-    trusted list every hour. 
-    - Satellites will ping the nodes back
-        - If is it successful, the satellite will insert or update the node in the overlay cache and 
-        notify the node of success
-        - If not, it does not proceed with updating the overlay cache, and the node receives an error message
-    - This will use grpc for now, but future development may use a non-ssl connection from node to satellite 
-    to initiate the refresh connection
-    - Update the overlay cache refresh method to communicate with nodes directly, without relying on 
-    kademlia lookups. Iterate through cache and dial each node.
+### Network refreshes at a regular interval
+- Nodes will keep themselves up to date in the network by pinging all the satellites in their
+   trusted list every hour.
+- Satellites will ping the nodes back to confirm their addresses
+    - If is it successful, the satellite will insert or update the node in the overlay cache and
+       notify the node of success. Make sure to close the connection. Don’t use the transport observer to update the cache.
+    - If the the satellite does not confirm the node address, it does not proceed with updating the overlay cache. The node 
+    receives an error message and closes the connection when it times out.
+- Reaper service: Satellites check node connections on nodes that they haven’t heard from in a certain amount of time.
 
-3. Disintegrate Kademlia from the network, storj sim and testplanet setups
-    - Remove the “discovery” package
-    - Remove the bootstrap node - work with Ops
-    - Work with QA to make sure storage nodes don’t crash on errors related to the elimination of Kademlia 
-    if they don’t update immediately
+### Disintegrate Kademlia from the network, storj sim and testplanet setups
+- Remove kademlia from the discovery package
+- Remove the bootstrap node - work with Ops
+  - Remove the vouchers service and related tables
+  - Work with QA to make sure storage nodes don’t crash on errors related to the elimination of Kademlia
+- if they don’t update immediately ->  keep just the overlay.Ping rpc method, it will be much easier for a new satellite 
+to work with old and new storage nodes.
 
-4.Update whitepaper to address kademlia removal and the addition of satellite opt-in
-    - Remove the audit gating design doc
-    - Update the wiki
-
-## Rationale
-Many peer-to-peer, decentralized systems employ the Kademlia implementation of a distributed hash table to 
-allow for locating peer nodes, exchanging messages and sharing data. However, due to the nature of our 
-network, we only use Kademlia for node discovery and address lookups given node IDs. This is useful when 
-satellites don’t know about all the nodes in the network and nodes are unfamiliar with all of the satellites 
-in the network. But with our recent business decision of simplifying the storage node operator user experience, 
-allowing nodes to directly select which satellites the would like to work with, we no longer require kademlia 
-for node discovery.
+### Update whitepaper to address kademlia removal and the addition of satellite opt-in
+  - Delete the audit gating design doc
+  - Update the wiki
 
 ## Implementation
 
-1. [Nodes should find satellites through the trust packages rather than kademlia](https://storjlabs.atlassian.net/browse/V3-2274)
+- [Nodes should find satellites through the trust packages rather than kademlia](https://storjlabs.atlassian.net/browse/V3-2274)
 
-2. [Nodes keep up to date with satellites by periodically pinging and updating their trusted list](https://storjlabs.atlassian.net/browse/V3-2275)
+- [Nodes keep up to date with satellites by periodically pinging and updating their trusted list](https://storjlabs.atlassian.net/browse/V3-2275)
 
-3. [Remove kad random lookups for discovery & update overlay cache refresh](https://storjlabs.atlassian.net/browse/V3-2305])
+- [Remove kad random lookups for discovery & update overlay cache refresh](https://storjlabs.atlassian.net/browse/V3-2305])
 
-4. [Disintegrate kademlia from the network, storj sim and testplanet setups](https://storjlabs.atlassian.net/browse/V3-2276)
+- [Remove kademlia related setups and files from the network, storj sim and testplanet setups](https://storjlabs.atlassian.net/browse/V3-2276)
 
-5. Update Documentation
+- [Update Documentation](https://storjlabs.atlassian.net/browse/V3-2461)
 
-## Open issues (if applicable)
+## Future considerations
 
-[A discussion of issues relating to this proposal for which the author does not
-know the solution. This section may be omitted if there are none.]
+### Selected satellite management
+- Currently, a storage node operator can input a list of satellite IDs and addresses into their configuration file on setup. 
+Several tardigrade-level satellites are included by default. 
+- Next steps are to allow users to modify their selected satellites list through a web based console.
+- The satellite list will need to be stored in a sql table or equivalent for persistence
+
+### NodeID updates
+- Is there anything that we should redesign regarding the nodeID and node data structures? 
+- Do we need the node dossier any longer?
+
+### Retiring the Transport Observer
+- If the routing table and the overlay cache are the only features that use the transport observer, and we move to directly 
+update the overlay cache, we can remove the transport observer. This would simplify uptime checks.
+
+### Node -> satellite communication initiation
+- To save resources and improve performance, satellites can have a “tip box” to receive UDP messages about new nodes
+- UDP messages need the address of the node, the certificate chain to be expected once talking to the node that identifies 
+the node, and a signature of the above things with the leaf private key of that certificate chain.
+- Messages will ultimately be ignored if the difficulty of the computed ID isn't high enough or the node you end up talking 
+to doesn't have the same node id as the one computed from the tipster certificate chain.
+
+### Uptime checking
+- Re-evaluate whether the data structures for keeping track of uptime are the right ones anymore
+- Should satellites determine how often nodes are supposed to check in for uptime checks. Perhaps there is an 
+"introduction ping" that occurs the first time the node comes online, and when the satellite responds, it includes how 
+often nodes are expected to check back in to maintain good reputation
+- [Uptime Disqualification Design Doc](https://github.com/storj/storj/pull/2733)
 
