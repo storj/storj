@@ -21,6 +21,8 @@ latestReleaseTag=$(git describe --tags `git rev-list --tags --max-count=1`)
 latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")
 echo "Checking out latest release tag: $latestReleaseTag"
 git worktree add -f "$RELEASE_DIR" "$latestReleaseCommit"
+# delete this file that forces production config settings
+rm "$RELEASE_DIR/internal/version/release.go"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
@@ -31,8 +33,6 @@ STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
 # setup the network
 if [ -z ${STORJ_SIM_POSTGRES} ]; then
-    # to run with sqlite, we need to delete this release file that forces postgres
-    rm "$RELEASE_DIR/internal/version/release.go"
     storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
 else
     storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
