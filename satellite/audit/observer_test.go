@@ -10,7 +10,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -88,7 +87,7 @@ func TestAuditObserver(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		observer := audit.NewObserver(zaptest.NewLogger(t), 3)
+		observer := audit.NewObserver(3)
 		err = audits.MetainfoLoop.Join(ctx, observer)
 		require.NoError(t, err)
 

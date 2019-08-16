@@ -6,24 +6,19 @@ package audit
 import (
 	"context"
 
-	"go.uber.org/zap"
-
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
 // Observer observes on the metainfo loop and adds segments to node reservoirs
 type Observer struct {
-	log *zap.Logger
-
 	Reservoirs     map[storj.NodeID]*Reservoir
 	reservoirSlots int
 }
 
 // NewObserver instantiates an audit observer
-func NewObserver(log *zap.Logger, reservoirSlots int) *Observer {
+func NewObserver(reservoirSlots int) *Observer {
 	return &Observer{
-		log:            log,
 		Reservoirs:     make(map[storj.NodeID]*Reservoir),
 		reservoirSlots: reservoirSlots,
 	}

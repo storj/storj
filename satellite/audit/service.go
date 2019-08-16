@@ -94,7 +94,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return service.ReservoirLoop.Run(ctx, func(ctx context.Context) (err error) {
 			defer mon.Task()(&ctx)(&err)
-			observer := NewObserver(service.log.Named("audit observer"), service.reservoirSlots)
+			observer := NewObserver(service.reservoirSlots)
 			err = service.MetainfoLoop.Join(ctx, observer)
 			if err != nil {
 				service.log.Error("error joining metainfoloop", zap.Error(err))
