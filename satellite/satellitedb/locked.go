@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/identdb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -700,40 +699,6 @@ func (m *locked) DropSchema(schema string) error {
 	return m.db.DropSchema(schema)
 }
 
-// IdentDB is a getter for the peer identity
-func (m *locked) IdentDB() identdb.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedIdentDB{m.Locker, m.db.IdentDB()}
-}
-
-// lockedIdentDB implements locking wrapper for identdb.DB
-type lockedIdentDB struct {
-	sync.Locker
-	db identdb.DB
-}
-
-// BatchGet gets all nodes peer identities in a transaction
-func (m *lockedIdentDB) BatchGet(ctx context.Context, a1 storj.NodeIDList) (_ []*identity.PeerIdentity, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.BatchGet(ctx, a1)
-}
-
-// Get gets peer identity
-func (m *lockedIdentDB) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, a1)
-}
-
-// Set adds a peer identity entry for a node
-func (m *lockedIdentDB) Set(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Set(ctx, a1, a2)
-}
-
 // Irreparable returns database for failed repairs
 func (m *locked) Irreparable() irreparable.DB {
 	m.Lock()
@@ -967,6 +932,40 @@ func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.Node
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
+}
+
+// PeerIdentities returns a storage for peer identities
+func (m *locked) PeerIdentities() overlay.PeerIdentities {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedPeerIdentities{m.Locker, m.db.PeerIdentities()}
+}
+
+// lockedPeerIdentities implements locking wrapper for overlay.PeerIdentities
+type lockedPeerIdentities struct {
+	sync.Locker
+	db overlay.PeerIdentities
+}
+
+// BatchGet gets all nodes peer identities in a transaction
+func (m *lockedPeerIdentities) BatchGet(ctx context.Context, a1 storj.NodeIDList) (_ []*identity.PeerIdentity, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.BatchGet(ctx, a1)
+}
+
+// Get gets peer identity
+func (m *lockedPeerIdentities) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, a1)
+}
+
+// Set adds a peer identity entry for a node
+func (m *lockedPeerIdentities) Set(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Set(ctx, a1, a2)
 }
 
 // ProjectAccounting returns database for storing information about project data use

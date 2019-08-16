@@ -17,12 +17,12 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-type identDB struct {
+type peerIdentities struct {
 	db *dbx.DB
 }
 
 // Set adds a peer identity entry
-func (idents *identDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *identity.PeerIdentity) (err error) {
+func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := idents.db.Begin()
@@ -76,7 +76,7 @@ func (idents *identDB) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *
 }
 
 // Get gets the peer identity based on the certificate's nodeID
-func (idents *identDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
+func (idents *peerIdentities) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxPeerID, err := idents.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
 	if err != nil {
@@ -92,7 +92,7 @@ func (idents *identDB) Get(ctx context.Context, nodeID storj.NodeID) (_ *identit
 }
 
 // BatchGet gets the peer idenities based on the certificate's nodeID
-func (idents *identDB) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
+func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodeIDs) == 0 {
 		return nil, nil

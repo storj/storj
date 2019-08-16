@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package identdb
+package overlay
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// DB stores storagenode peer identities
-type DB interface {
+// PeerIdentities stores storagenode peer identities
+type PeerIdentities interface {
 	// Set adds a peer identity entry for a node
 	Set(context.Context, storj.NodeID, *identity.PeerIdentity) error
 	// Get gets peer identity

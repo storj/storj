@@ -41,7 +41,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
-	"storj.io/storj/satellite/identdb"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -77,8 +76,8 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
-	// IdentDB is a getter for the peer identity
-	IdentDB() identdb.DB
+	// PeerIdentities returns a storage for peer identities
+	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
 	// Attribution returns database for partner keys information
