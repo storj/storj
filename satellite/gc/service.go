@@ -75,8 +75,10 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return nil
 	}
 
-	// TODO retrieve piece counts from overlay (when there is a column for them)
-	lastPieceCounts := make(map[storj.NodeID]int)
+	lastPieceCounts, err := service.overlay.AllPieceCounts(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
