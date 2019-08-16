@@ -16,18 +16,19 @@ import (
 )
 
 type consoledb struct {
-	*InfoDB
+	SQLDB
 }
-
-// Console returns console.DB
-func (db *InfoDB) Console() console.DB { return &consoledb{db} }
-
-// Console returns console.DB
-func (db *DB) Console() console.DB { return db.info.Console() }
 
 // Bandwidth returns consoledb as console.Bandwidth
 func (db *consoledb) Bandwidth() console.Bandwidth {
 	return db
+}
+
+// newConsole returns a new instance of consoledb initialized with the specified database.
+func newConsole(db SQLDB) *consoledb {
+	return &consoledb{
+		SQLDB: db,
+	}
 }
 
 // GetDaily returns slice of daily bandwidth usage for provided time range,
@@ -67,7 +68,7 @@ func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 				GROUP BY DATE(created_at), action
 				ORDER BY created_at ASC`
 
-	rows, err := db.db.QueryContext(ctx, query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

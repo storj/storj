@@ -16,13 +16,20 @@ import (
 	"storj.io/storj/storagenode/orders"
 )
 
-type ordersdb struct{ *InfoDB }
+var ErrOrders = errs.Class("ordersdb error")
 
-// Orders returns database for storing orders
-func (db *DB) Orders() orders.DB { return db.info.Orders() }
+type ordersdb struct {
+	location string
+	SQLDB
+}
 
-// Orders returns database for storing orders
-func (db *InfoDB) Orders() orders.DB { return &ordersdb{db} }
+// newOrders returns a new instance of ordersdb initialized with the specified database.
+func newOrders(db SQLDB, location string) *ordersdb {
+	return &ordersdb{
+		location: location,
+		SQLDB:    db,
+	}
+}
 
 // Enqueue inserts order to the unsent list
 func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) {
@@ -30,16 +37,16 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 
 	limitSerialized, err := proto.Marshal(info.Limit)
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrOrders.Wrap(err)
 	}
 
 	orderSerialized, err := proto.Marshal(info.Order)
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrOrders.Wrap(err)
 	}
 
 	// TODO: remove uplink_cert_id
-	_, err = db.db.Exec(`
+	_, err = db.Exec(`
 		INSERT INTO unsent_order(
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized, order_limit_expiration,
@@ -47,14 +54,14 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 		) VALUES (?,?, ?,?,?, ?)
 	`, info.Limit.SatelliteId, info.Limit.SerialNumber, limitSerialized, orderSerialized, info.Limit.OrderExpiration.UTC(), 0)
 
-	return ErrInfo.Wrap(err)
+	return ErrOrders.Wrap(err)
 }
 
 // ListUnsent returns orders that haven't been sent yet.
 func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.db.Query(`
+	rows, err := db.Query(`
 		SELECT order_limit_serialized, order_serialized
 		FROM unsent_order
 		LIMIT ?
@@ -63,7 +70,7 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrOrders.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -74,7 +81,7 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 
 		err := rows.Scan(&limitSerialized, &orderSerialized)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrOrders.Wrap(err)
 		}
 
 		var info orders.Info
@@ -83,18 +90,18 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrOrders.Wrap(err)
 		}
 
 		err = proto.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrOrders.Wrap(err)
 		}
 
 		infos = append(infos, &info)
 	}
 
-	return infos, ErrInfo.Wrap(rows.Err())
+	return infos, ErrOrders.Wrap(rows.Err())
 }
 
 // ListUnsentBySatellite returns orders that haven't been sent yet grouped by satellite.
@@ -103,7 +110,7 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 	defer mon.Task()(&ctx)(&err)
 	// TODO: add some limiting
 
-	rows, err := db.db.Query(`
+	rows, err := db.Query(`
 		SELECT order_limit_serialized, order_serialized
 		FROM unsent_order
 	`)
@@ -111,7 +118,7 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrOrders.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -122,7 +129,7 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 
 		err := rows.Scan(&limitSerialized, &orderSerialized)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrOrders.Wrap(err)
 		}
 
 		var info orders.Info
@@ -131,18 +138,18 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrOrders.Wrap(err)
 		}
 
 		err = proto.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrOrders.Wrap(err)
 		}
 
 		infos[info.Limit.SatelliteId] = append(infos[info.Limit.SatelliteId], &info)
 	}
 
-	return infos, ErrInfo.Wrap(rows.Err())
+	return infos, ErrOrders.Wrap(rows.Err())
 }
 
 // Archive marks order as being handled.
@@ -151,7 +158,7 @@ func (db *ordersdb) Archive(ctx context.Context, requests ...orders.ArchiveReque
 
 	txn, err := db.Begin()
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrOrders.Wrap(err)
 	}
 	defer func() {
 		if err == nil {
@@ -164,7 +171,7 @@ func (db *ordersdb) Archive(ctx context.Context, requests ...orders.ArchiveReque
 	for _, req := range requests {
 		err := db.archiveOne(ctx, txn, req)
 		if err != nil {
-			return ErrInfo.Wrap(err)
+			return ErrOrders.Wrap(err)
 		}
 	}
 
@@ -193,15 +200,15 @@ func (db *ordersdb) archiveOne(ctx context.Context, txn *sql.Tx, req orders.Arch
 		WHERE satellite_id = ? AND serial_number = ?;
 	`, int(req.Status), time.Now().UTC(), req.Satellite, req.Serial, req.Satellite, req.Serial)
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrOrders.Wrap(err)
 	}
 
 	count, err := result.RowsAffected()
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrOrders.Wrap(err)
 	}
 	if count == 0 {
-		return ErrInfo.New("order was not in unsent list")
+		return ErrOrders.New("order was not in unsent list")
 	}
 
 	return nil
@@ -211,7 +218,7 @@ func (db *ordersdb) archiveOne(ctx context.Context, txn *sql.Tx, req orders.Arch
 func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.ArchivedInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.db.Query(`
+	rows, err := db.Query(`
 		SELECT order_limit_serialized, order_serialized, status, archived_at
 		FROM order_archive_
 		LIMIT ?
@@ -220,7 +227,7 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrOrders.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -234,7 +241,7 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 
 		err := rows.Scan(&limitSerialized, &orderSerialized, &status, &archivedAt)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrOrders.Wrap(err)
 		}
 
 		var info orders.ArchivedInfo
@@ -246,16 +253,16 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrOrders.Wrap(err)
 		}
 
 		err = proto.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrOrders.Wrap(err)
 		}
 
 		infos = append(infos, &info)
 	}
 
-	return infos, ErrInfo.Wrap(rows.Err())
+	return infos, ErrOrders.Wrap(rows.Err())
 }
