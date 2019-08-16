@@ -3,12 +3,10 @@
 
 <template>
     <div class="header-container">
-        <div class="header-container__wrapper">
-            <div class="header-container__buttons-area">
-                <slot></slot>
-            </div>
-            <SearchComponent ref="search" :placeHolder="placeHolder" :search="search"/>
+        <div class="header-container__buttons-area">
+            <slot></slot>
         </div>
+        <SearchComponent ref="search" :placeHolder="placeHolder" :search="search"/>
     </div>
 </template>
 
@@ -45,22 +43,17 @@
 <style scoped lang="scss">
     .header-container {
         width: 100%;
+        height: 85px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
 
-        &__wrapper {
-            width: 100%;
-            height: 85px;
-            position: relative;
+        &__buttons-area {
+            width: auto;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-top: 10px;
-
-            &__buttons-area {
-                width: auto;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-            }
         }
     }
 </style>
