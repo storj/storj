@@ -3,9 +3,10 @@
 
 <template>
     <input
+        ref="input"
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
-        @input="onInput"
+        @input="processSearchQuery"
         v-model="searchQuery"
         :placeholder="`Search ${placeHolder}`"
         :style="style"
@@ -31,6 +32,10 @@
         private inputWidth: string = '56px';
         private searchQuery: string = '';
 
+        public $refs!: {
+            input: HTMLElement;
+        };
+
         public get style(): SearchStyle {
             return { width: this.inputWidth };
         }
@@ -41,23 +46,22 @@
 
         public onMouseEnter(): void {
             this.inputWidth = '602px';
+
+            this.$refs.input.focus();
         }
 
         public onMouseLeave(): void {
             if (!this.searchString) {
                 this.inputWidth = '56px';
             }
+
+            this.$refs.input.blur();
         }
 
         public clearSearch() {
             this.searchQuery = '';
             this.processSearchQuery();
             this.inputWidth = '56px';
-        }
-
-        public onInput(): void {
-            this.onMouseLeave();
-            this.processSearchQuery();
         }
 
         private async processSearchQuery() {
