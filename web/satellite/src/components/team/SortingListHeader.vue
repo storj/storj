@@ -32,7 +32,7 @@
 
     @Component({
         components: {
-            VerticalArrows
+            VerticalArrows,
         },
     })
     export default class SortingListHeader extends Vue {

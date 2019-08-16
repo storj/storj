@@ -80,7 +80,7 @@
             HeaderArea,
             List,
             Pagination,
-            SortingListHeader
+            SortingListHeader,
         }
     })
     export default class ProjectMembersArea extends Vue {
@@ -126,11 +126,11 @@
             return HeaderState.DEFAULT;
         }
 
-        public async onPageClick(index: number) {
+        public async onPageClick(index: number):Promise<void> {
             await this.$store.dispatch(PM_ACTIONS.FETCH, index);
         }
 
-        public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) {
+        public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<any> {
             this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
             this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
             const response: RequestResponse<ProjectMembersPage> = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
