@@ -65,6 +65,7 @@ func TestLimiter(t *testing.T) {
 		for range ticker.C {
 			assert.Equal(t, len(limiter.Banned()), 0)
 			ticker.Stop()
+			break
 		}
 	})
 }
