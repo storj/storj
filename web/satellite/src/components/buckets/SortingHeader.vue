@@ -2,28 +2,20 @@
 // See LICENSE for copying information.
 
 <template functional>
-    <tr class="sort-header-container">
-        <th class="sort-header-container__item">
-            <div class="row">
-                <p>Bucket Name</p>
-            </div>
-        </th>
-        <th class="sort-header-container__item">
-            <div class="row">
-                <p>Storage Used</p>
-            </div>
-        </th>
-        <th class="sort-header-container__item">
-            <div class="row">
-                <p>Egress Used</p>
-            </div>
-        </th>
-        <th class="sort-header-container__item">
-            <div class="row">
-                <p>Objects Stored</p>
-            </div>
-        </th>
-    </tr>
+    <div class="sort-header-container">
+        <div class="sort-header-container__item">
+            <p>Bucket Name</p>
+        </div>
+        <div class="sort-header-container__item">
+            <p>Storage Used</p>
+        </div>
+        <div class="sort-header-container__item">
+            <p>Egress Used</p>
+        </div>
+        <div class="sort-header-container__item">
+            <p>Objects Stored</p>
+        </div>
+    </div>
 </template>
 
 <script lang="ts">
@@ -35,35 +27,18 @@
 
 <style scoped lang="scss">
     .sort-header-container {
-        height: 80px;
+        display: flex;
+        background: #FFFFFF;
+        opacity: 0.5;
+        max-height: 40px;
+        align-items: center;
         
         &__item {
+            width: 25%;
             margin: 0;
             cursor: pointer;
             text-align: left;
-            padding-left: 30px;
-            
-            &__arrows {
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-start;
-                padding-bottom: 12px;
-                margin-left: 10px;
-                
-                span.selected {
-                    
-                    svg {
-                    
-                        path {
-                            fill: #2683FF !important;
-                        }
-                    }
-                }
-                
-                span {
-                    height: 10px;
-                }
-            }
+            padding-left: 26px;
             
             p {
                 font-family: 'font_medium';
@@ -71,17 +46,7 @@
                 line-height: 23px;
                 color: #AFB7C1;
             }
-            
-            &:nth-child(1) {
-                margin-left: 0px;
-            }
         }
-    }
-    
-    .row {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
     }
     
     @media screen and (max-width: 1600px) {
