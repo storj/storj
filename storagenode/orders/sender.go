@@ -123,8 +123,12 @@ func (sender *Sender) runOnce(ctx context.Context) (err error) {
 
 	ordersBySatellite, err := sender.orders.ListUnsentBySatellite(ctx)
 	if err != nil {
-		sender.log.Error("listing orders", zap.Error(err))
-		return nil
+		if ordersBySatellite == nil {
+			sender.log.Error("listing orders", zap.Error(err))
+			return nil
+		}
+
+		sender.log.Warn("DB contains invalid marshalled orders", zap.Error(err))
 	}
 
 	requests := make(chan ArchiveRequest, batchSize)

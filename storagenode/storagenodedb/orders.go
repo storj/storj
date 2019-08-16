@@ -51,6 +51,13 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 }
 
 // ListUnsent returns orders that haven't been sent yet.
+//
+// If there is some unmarshal error while reading an order, the method proceed
+// with the following ones and the function will return the ones which have
+// been successfully read but returning an error with information of the ones
+// which have not. In case of database or other system error, the method will
+// stop without any further processing and will return an error without any
+// order.
 func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -65,7 +72,9 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 		}
 		return nil, ErrInfo.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var unmarshalErrors errs.Group
+	defer func() { err = errs.Combine(err, unmarshalErrors.Err(), rows.Close()) }()
 
 	var infos []*orders.Info
 	for rows.Next() {
@@ -83,12 +92,14 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			unmarshalErrors.Add(ErrInfo.Wrap(err))
+			continue
 		}
 
 		err = proto.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			unmarshalErrors.Add(ErrInfo.Wrap(err))
+			continue
 		}
 
 		infos = append(infos, &info)
@@ -97,8 +108,15 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 	return infos, ErrInfo.Wrap(rows.Err())
 }
 
-// ListUnsentBySatellite returns orders that haven't been sent yet grouped by satellite.
-// Does not return uplink identity.
+// ListUnsentBySatellite returns orders that haven't been sent yet grouped by
+// satellite. Does not return uplink identity.
+//
+// If there is some unmarshal error while reading an order, the method proceed
+// with the following ones and the function will return the ones which have
+// been successfully read but returning an error with information of the ones
+// which have not. In case of database or other system error, the method will
+// stop without any further processing and will return an error without any
+// order.
 func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.NodeID][]*orders.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: add some limiting
@@ -113,7 +131,9 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 		}
 		return nil, ErrInfo.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var unmarshalErrors errs.Group
+	defer func() { err = errs.Combine(err, unmarshalErrors.Err(), rows.Close()) }()
 
 	infos := map[storj.NodeID][]*orders.Info{}
 	for rows.Next() {
@@ -131,12 +151,14 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			unmarshalErrors.Add(ErrInfo.Wrap(err))
+			continue
 		}
 
 		err = proto.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			unmarshalErrors.Add(ErrInfo.Wrap(err))
+			continue
 		}
 
 		infos[info.Limit.SatelliteId] = append(infos[info.Limit.SatelliteId], &info)
