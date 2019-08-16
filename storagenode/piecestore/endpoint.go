@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -59,9 +58,11 @@ type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
-	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
-	RetainStatus          RetainStatus  `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
 	CacheSyncInterval     time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
+
+	RetainTimeBuffer    time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
+	RetainStatus        RetainStatus  `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
+	MaxConcurrentRetain int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
@@ -113,13 +114,13 @@ func (v *RetainStatus) String() string {
 
 // Endpoint implements uploading, downloading and deleting for a storage node.
 type Endpoint struct {
-	log       *zap.Logger
-	config    Config
-	retainCtx context.Context
+	log    *zap.Logger
+	config Config
 
 	signer  signing.Signer
 	trust   *trust.Pool
 	monitor *monitor.Service
+	retain  *RetainService
 
 	store       *pieces.Store
 	orders      orders.DB
@@ -130,7 +131,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *RetainService, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -138,6 +139,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		signer:  signer,
 		trust:   trust,
 		monitor: monitor,
+		retain:  retain,
 
 		store:       store,
 		orders:      orders,
@@ -651,99 +653,13 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	// subtract some time to leave room for clock difference between the satellite and storage node
 	createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
-	go func(satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) {
-		if endpoint.retainCtx != nil {
-			select {
-			case <-endpoint.retainCtx.Done():
-				endpoint.log.Error("retain error", zap.Error(endpoint.retainCtx.Err()))
-				return
-			default:
-			}
-
-			err := endpoint.RetainPieces(endpoint.retainCtx, satelliteID, createdBefore, filter)
-			if err != nil {
-				endpoint.log.Error("retain error", zap.Error(err))
-			}
-		} else {
-			endpoint.log.Error("No retain context. Stopping garbage collection.")
-		}
-
-	}(peer.ID, createdBefore, filter)
+	endpoint.retain.QueueRetain(RetainRequest{
+		SatelliteID:   peer.ID,
+		CreatedBefore: createdBefore,
+		Filter:        filter,
+	})
 
 	return &pb.RetainResponse{}, nil
-}
-
-// RetainPieces is called in a goroutine by Retain
-func (endpoint *Endpoint) RetainPieces(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// if retain status is disabled, return immediately
-	if endpoint.config.RetainStatus == RetainDisabled {
-		return nil
-	}
-
-	numDeleted := 0
-
-	endpoint.log.Info("Prepared to run a Retain request.",
-		zap.Time("createdBefore", createdBefore),
-		zap.Int64("filterSize", filter.Size()),
-		zap.String("satellite", satelliteID.String()))
-
-	err = endpoint.store.WalkSatellitePieces(ctx, satelliteID, func(access pieces.StoredPieceAccess) error {
-		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
-		// so other goroutines can continue serving requests.
-		defer runtime.Gosched()
-		// See the comment above the Retain() function for a discussion on the correctness
-		// of using ModTime in place of the more precise CreationTime.
-		mTime, err := access.ModTime(ctx)
-		if err != nil {
-			endpoint.log.Error("failed to determine mtime of blob", zap.Error(err))
-			// but continue iterating.
-			return nil
-		}
-		if !mTime.Before(createdBefore) {
-			return nil
-		}
-		pieceID := access.PieceID()
-		if !filter.Contains(pieceID) {
-			endpoint.log.Debug("About to delete piece id",
-				zap.String("satellite", satelliteID.String()),
-				zap.String("pieceID", pieceID.String()),
-				zap.String("retainStatus", endpoint.config.RetainStatus.String()))
-
-			// if retain status is enabled, delete pieceid
-			if endpoint.config.RetainStatus == RetainEnabled {
-				if err = endpoint.store.Delete(ctx, satelliteID, pieceID); err != nil {
-					endpoint.log.Error("failed to delete piece",
-						zap.String("satellite", satelliteID.String()),
-						zap.String("pieceID", pieceID.String()),
-						zap.Error(err))
-					return nil
-				}
-			}
-			numDeleted++
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		return nil
-	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
-	endpoint.log.Sugar().Debugf("Deleted %d pieces during retain. RetainStatus: %s", numDeleted, endpoint.config.RetainStatus.String())
-
-	return nil
-}
-
-// RetainCtx sets the context used for RetainPieces. The context is canceled when the storagenode is shut down
-func (endpoint *Endpoint) RetainCtx(ctx context.Context) {
-	endpoint.retainCtx = ctx
 }
 
 // min finds the min of two values
