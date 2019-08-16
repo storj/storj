@@ -12,8 +12,8 @@ import { RequestResponse } from '@/types/response';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { SortDirection } from '@/types/common';
 
-const projectMembersLimit = 8;
-const firstPage = 1;
+const PROJECT_MEMBERS_PAGE_LIMIT = 8;
+const FIRST_PAGE = 1;
 
 export const projectMembersModule = {
     state: {
@@ -47,7 +47,7 @@ export const projectMembersModule = {
             state.cursor.orderDirection = direction;
         },
         [PROJECT_MEMBER_MUTATIONS.CLEAR](state: any) {
-            state.cursor = {limit: projectMembersLimit, search: '', page: firstPage} as ProjectMemberCursor;
+            state.cursor = {limit: PROJECT_MEMBERS_PAGE_LIMIT, search: '', page: FIRST_PAGE} as ProjectMemberCursor;
             state.page = {projectMembers: [] as ProjectMember[]} as ProjectMembersPage;
         },
         [PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION](state: any, projectMemberId: string) {

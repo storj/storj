@@ -56,7 +56,7 @@
             return this.sortBy;
         }
 
-        public async onHeaderItemClick(sortBy: ProjectMemberOrderBy) {
+        public async onHeaderItemClick(sortBy: ProjectMemberOrderBy): Promise<void> {
             if (this.sortBy != sortBy) {
                 this.sortBy = sortBy;
                 this.sortDirection = SortDirection.ASCENDING;
