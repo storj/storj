@@ -252,10 +252,12 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 			}
 		}
 
-		errHandle(
-			"gRPC client error when closing sender ",
-			OrderError.New("CloseSend settlement agreements returned an error: %v", err),
-		)
+		err := client.CloseSend()
+		if err != nil {
+			err = OrderError.New("CloseSend settlement agreements returned an error: %v", err)
+			errHandle("gRPC client error when closing sender ", err)
+		}
+
 		return nil
 	})
 
