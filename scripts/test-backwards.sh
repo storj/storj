@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -ueo pipefail
+set -x
 
 : "${STORJ_NETWORK_DIR?Environment variable STORJ_NETWORK_DIR needs to be set}"
 

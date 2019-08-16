@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -ueo pipefail
+set -x
 
 #setup tmpdir for testfiles and cleanup
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)

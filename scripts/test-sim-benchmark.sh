@@ -1,5 +1,6 @@
 #!/bin/bash
 set -ueo pipefail
+set -x
 
 # Purpose: This script executes uplink upload and download benchmark tests against storj-sim.
 # Setup: Remove any existing uplink configs.

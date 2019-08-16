@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -ueo pipefail
-set +x
+set -x
 
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 export STORJ_NETWORK_DIR=$TMP
