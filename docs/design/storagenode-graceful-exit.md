@@ -112,14 +112,15 @@ This process including the Storage nodes transferring their pieces to other node
 	model exit_pieceinfo (
 		key node_id path
 
-		field node_id           blob
-		field path              blob
-		field piece_num          blob
-		field durability_ratio  float64
-		field queued_at         timestamp ( autoinsert )
-		field requested_at      timestamp ( updateable )
-		field failed_at         timestamp ( updateable )
-		field completed_at      timestamp ( updateable )
+		field node_id             blob
+		field path                blob
+		field piece_num           blob
+		field durability_ratio    float64
+		field queued_at           timestamp ( autoinsert )
+		field requested_at        timestamp ( updateable )
+		field failed_at           timestamp ( updateable )
+		field failed_status_code  int
+		field completed_at        timestamp ( updateable )
 	)
    ```
 - Update `cache.FindStorageNodesWithPreferences` to ignore exiting nodes for uploads and repairs.
@@ -127,7 +128,7 @@ This process including the Storage nodes transferring their pieces to other node
 - Create GracefulExit service
   - Add MetainfoObserver loop
     - The service queries the `nodes` to get a list of exiting node IDs where `exit_loop_count` <= `requiredMetainfoLoops`, then
-      - Joins the metainfo loop `observers` using the exiting node IDs and looks for segments that contain remote pieces that the exiting node stores. It adds `node_id`, `path`, `piece_num`, `durability_ratio`, and `queued_at` in `exit_pieceinfo` if it does not exist.
+      - Joins the metainfo loop `observers` using the exiting node IDs and looks for segments that contain remote pieces that the exiting node stores. It adds `node_id`, `path`, `piece_num`, `durability_ratio`, and `queued_at` in `exit_pieceinfo` if a record does not exist.
 	  - Join returns after one full metainfo loop, or on err. On success, the service should increment `nodes.exit_loop_count` for the nodeIDs that were processed in the full loop.
     - Execution intervals and requiredMetainfoLoops should be configurable
   - Add CheckStatus loop
@@ -140,12 +141,13 @@ This process including the Storage nodes transferring their pieces to other node
   - InitiateExit initiates the exit process by setting `nodes.exit_initiated_at` to current time
   - GetPutOrders
     - Queries `nodes` by `id` and `exit_completed`.
-      - If completed it returns `PutOrdersResponse` with `exit_completed` set to true
-      - Else it checks whether there are any records in `exit_pieceinfo` for the node ID. If not, it returns any empty `PutOrdersResponse`. This covers the case where the metainfo loop hasn't added records into `exit_pieceinfo` yet. // TODO: maybe we return a time when the node should check again.
-      - Else it checks whether there are any records in `exit_pieceinfo` where `exit_pieceinfo.requested_at` is not null and `exit_pieceinfo.failed_at` is not null or `exit_pieceinfo.completed_at` is null
+      - If completed it returns `PutOrdersResponse` with `exit_completed` set to true and `exit_completed_signature` set to a satellite signed value of satellite id, storage, node id, "gracefuleexit-successfully-complete", completed timestamp.
+      - Else it checks whether there are any records in `exit_pieceinfo` for the node ID. If not, it returns a `PutOrdersResponse` with `next_execution` set to now + 1hr (this should be configurable, and in the future may be calculated). This covers the case where the metainfo loop hasn't added records into `exit_pieceinfo` yet. // TODO: maybe we return a time when the node should check again.
+      - Else it checks whether there are any records in `exit_pieceinfo` where `exit_pieceinfo.requested_at` is not null and (`exit_pieceinfo.failed_at is not null and exit_pieceinfo.failed_status_code <> NOT_FOUND`) or `exit_pieceinfo.completed_at` is null
         - If records are found, it should create new order limits for the found records, and return for reprocessing
         - Else it returns a list of order limits for pieces to be moved to new nodes from  `exit_pieceinfo` ordered by `durability_ratio`. durability_ratio == num pieces / optimal number of pieces. lower values take presedence.
-  - ProcessPutOrders is called by the storagenode to send processed order limits. ProcessPutOrders verifies the hashes of successful orders limits, updates `exit_pieceinfo.completed_at`, and updates metainfo with the new piece location. Failures update `exit_pieceinfo.failed_at`, for reprocessing.
+  - ProcessPutOrders is called by the storagenode to send processed order limits. ProcessPutOrders verifies the hashes of successful orders limits, updates `exit_pieceinfo.completed_at`, and updates metainfo with the new piece location. Failures update `exit_pieceinfo.failed_at`  `exit_pieceinfo.failed_status_code`, for reprocessing. 
+    - If the failed status code is NOT_FOUND, the exiting storage node no longer stores that piece. In this case the node/piece should be removed from the pointer so that a repair is triggered.
   - ``` 
 	service GracefulExit {
 		// Called by the storagenode to initiate an exit request
@@ -175,6 +177,8 @@ This process including the Storage nodes transferring their pieces to other node
 
 	message PutOrdersResponse {
 		bool exit_completed
+		bytes exit_complete_signature
+		google.protobuf.Timestamp next_execution
 		PutOrder put_orders repeatable		
 	}
 
@@ -185,7 +189,7 @@ This process including the Storage nodes transferring their pieces to other node
 
 	message FailedPutOrder {
 		AddressedOrderLimit addressed_order_limit
-		// TBD reason
+		int32 error_status  // Ex. NOT_FOUND when exiting node no longer has the piece.  Others TBD
 	}
 
 	message ProcessOrdersRequest {
@@ -195,7 +199,7 @@ This process including the Storage nodes transferring their pieces to other node
 	```
 - Create gracefulexitreport command in satellite cli
   - Accepts 2 parameter: start date and end date
-  - Generates a list of all completed exits with NodeID, Wallet address, Date joined, Date exited, GB Transferred (calculated using `PieceAction_PUT_EXIT` bandwidth actions), ordered by date exited descending.
+  - Generates a list of all completed exits with NodeID, Wallet address, Date joined, Date exited, GB Transferred (calculated using `PieceAction_PUT_EXIT` bandwidth actions), failed pieces, successful pieces, ordered by date exited descending.
 
 #### Storagenode
 - Add `gracefulexit` command to storagenode CLI
@@ -208,11 +212,12 @@ This process including the Storage nodes transferring their pieces to other node
 	model exit_status (
 		key satellite_id
 
-		field satellite_id           blob not null
-		field initiated_at           timestamp ( autoinsert ) not null
-		field completed_at           timestamp ( updateable )
-		field starting_disk_usage    int64 not null
-		field bytes_deleted          int64
+		field satellite_id              blob not null
+		field initiated_at              timestamp ( autoinsert ) not null
+		field completed_at              timestamp ( updateable )
+		field starting_disk_usage       int64 not null
+		field bytes_deleted             int64
+		field completed_exit_signature  blob
 	)
 
 	model exit_orders {
@@ -228,20 +233,21 @@ This process including the Storage nodes transferring their pieces to other node
 	```
 - Update bandwidth usage monitors to ignore `PieceAction_PUT_EXIT` bandwidth actions
 - Add GracefulExit service
-  - Checks for any records in `completed_exit_orders` that were processed, but not commited to the satellite.  If records exist, it should send a new  `ProcessOrdersRequest` to the satellite and remove the records in `exit_orders` on success.
-  - Calls satellite `GracefulExit.GetPutOrders` and iterates over the orders in batchs
-    - If `PutOrdersResponse.exit_completed` is true, then the process should update `exit_status.completed_at` and stop processing exit orders for this satellite
-    - Else if `GracefulExit.GetPutOrders` is empty and `PutOrdersResponse.exit_completed` is false, the process should skip processing exit orders for this satellite for a specified time. TODO: hour? day?
+  - Checks for any records in `exit_orders` that were processed, but not commited to the satellite.  If records exist, it should send a new  `ProcessOrdersRequest` to the satellite and remove the records in `exit_orders` on success.
+  - Calls satellite `GracefulExit.GetPutOrders` and iterates over the order limits in batchs
+    - If `PutOrdersResponse.exit_completed` is true, then the process should update `exit_status.completed_at` and `exit_status.completed_exit_signature` values and stop processing exit orders for this satellite
+    - Else if `GracefulExit.GetPutOrders` is empty and `PutOrdersResponse.exit_completed` is false, the process should skip processing exit orders for this satellite until time >= `PutOrdersResponse.next_execution`
     - Else
-      - Pushes the pieces to the storage node identified in the order using piecestore and persists order limit and piece hash or failure to `exit_orders`. This is used to track processed orders that have not yet committed to the satellite.
-      - On success, add order with the piece hash response to `ProcessOrdersRequest.completed`
-      - On failure, the order should be added to `ProcessOrdersRequest.failed` 
+      - Pushes the pieces to the storage node identified in the order limit using piecestore and persists order limit and piece hash or failure to `exit_orders`. This is used to track processed orders that have not yet committed to the satellite.
+      - On success, add order limit with the piece hash response to `ProcessOrdersRequest.completed`
+      - On failure, the order limit should be added to `ProcessOrdersRequest.failed` 
+        - If the failure is due to a missing piece on the exiting node, the `FailedPutOrder.failure_status_code` should be set to NOT_FOUND. Other failures TBD
     - Sends `ProcessOrdersRequest` using the satellite `ProcessOrders` endpoint
       - On success...
-        - Removes the successful orders from `exit_orders`
+        - Removes the successful order limits from `exit_orders`
         - Updates `bytes_deleted` with the number of bytes deleted
         - Deletes the pieces that were successfully moved
-      - On failure (ex. satellite is unavailable), successful orders stored in `exit_orders` should be reprocessed on the next iteration
+      - On failure (ex. satellite is unavailable), successful orders limits stored in `exit_orders` should be reprocessed on the next iteration
   - Execution intervals and batch sizes should be configurable
 
 ## Open Questions
@@ -250,3 +256,5 @@ This process including the Storage nodes transferring their pieces to other node
 	- Option 1. Leave the transferred piece as garbage on the new node. The GC process will take care of it.
 	- Option 2. Once the exiting node sends the proof of transfer to the satellite, the satellite can check if the segment of this piece is still in the pointer db. If it was deleted, the satellite can send a delete request to the new node.
 - What happens if a piece is deleted when the piece is in the process of being transferred from the exiting node to other node in the network?
+- How long is too long for a storage node to exit?
+- What is an acceptable failure rate for exiting nodes?
