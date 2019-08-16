@@ -33,9 +33,9 @@ STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 if [ -z ${STORJ_SIM_POSTGRES} ]; then
     # to run with sqlite, we need to delete this release file that forces postgres
     rm "$RELEASE_DIR/internal/version/release.go"
-	storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
+    storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
 else
-	storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+    storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 fi
 
 # run upload part of backward compatibility tests from the lastest release branch
