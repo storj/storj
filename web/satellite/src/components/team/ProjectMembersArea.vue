@@ -64,11 +64,11 @@
     import List from '@/components/common/List.vue';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Pagination from '@/components/common/Pagination.vue';
-    import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
-    import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
+    import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
+    import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
     import { RequestResponse } from '@/types/response';
     import SortingListHeader from '@/components/team/SortingListHeader.vue';
-    import TeamMemberListItem from '@/components/team/TeamMemberListItem.vue';
+    import { SortDirection } from '@/types/common';
 
     enum HeaderState {
         DEFAULT = 0,
@@ -83,7 +83,7 @@
             SortingListHeader
         }
     })
-    export default class TeamArea extends Vue {
+    export default class ProjectMembersArea extends Vue {
         public mounted(): void {
             this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         }
@@ -97,7 +97,7 @@
         }
 
         public get getItemComponent() {
-            return TeamMemberListItem;
+            return ProjectMemberListItem;
         }
 
         public get projectMembersCount(): number {
@@ -129,7 +129,7 @@
             await this.$store.dispatch(PM_ACTIONS.FETCH, index);
         }
 
-        public async onHeaderSectionClickCallback(sortBy: ProjectMemberSortByEnum, sortDirection: ProjectMemberSortDirectionEnum) {
+        public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) {
             this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
             this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
             const response: RequestResponse<ProjectMembersPage> = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);

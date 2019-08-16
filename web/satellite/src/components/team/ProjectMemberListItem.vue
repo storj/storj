@@ -22,7 +22,7 @@
     import { ProjectMember } from '@/types/projectMembers';
 
     @Component
-    export default class TeamMemberListItem extends Vue {
+    export default class ProjectMemberListItem extends Vue {
         @Prop({default: new ProjectMember('', '', '', '', '')})
         public itemData: ProjectMember;
 

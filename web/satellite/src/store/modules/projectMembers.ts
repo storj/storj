@@ -7,10 +7,10 @@ import {
     deleteProjectMembersRequest,
     fetchProjectMembersRequest
 } from '@/api/projectMembers';
-import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
-import { ProjectMember, ProjectMemberCursor, ProjectMembersPage } from '@/types/projectMembers';
+import { ProjectMember, ProjectMemberCursor, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
 import { RequestResponse } from '@/types/response';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { SortDirection } from '@/types/common';
 
 const projectMembersLimit = 8;
 const firstPage = 1;
@@ -41,10 +41,10 @@ export const projectMembersModule = {
         [PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY](state: any, search: string) {
             state.cursor.search = search;
         },
-        [PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER](state: any, order: ProjectMemberSortByEnum) {
+        [PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER](state: any, order: ProjectMemberOrderBy) {
             state.cursor.order = order;
         },
-        [PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION](state: any, direction: ProjectMemberSortDirectionEnum) {
+        [PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION](state: any, direction: SortDirection) {
             state.cursor.orderDirection = direction;
         },
         [PROJECT_MEMBER_MUTATIONS.CLEAR](state: any) {
@@ -102,10 +102,10 @@ export const projectMembersModule = {
         [PM_ACTIONS.SET_SEARCH_QUERY]: function ({commit}, search: string) {
             commit(PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY, search);
         },
-        [PM_ACTIONS.SET_SORT_BY]: function ({commit}, order: ProjectMemberSortByEnum) {
+        [PM_ACTIONS.SET_SORT_BY]: function ({commit}, order: ProjectMemberOrderBy) {
             commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER, order);
         },
-        [PM_ACTIONS.SET_SORT_DIRECTION]: function ({commit}, direction: ProjectMemberSortDirectionEnum) {
+        [PM_ACTIONS.SET_SORT_DIRECTION]: function ({commit}, direction: SortDirection) {
             commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION, direction);
         },
         [PM_ACTIONS.CLEAR]: function ({commit}) {

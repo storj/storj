@@ -87,7 +87,7 @@
             const response = await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
 
             if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from team');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from projectMembers');
 
                 return;
             }

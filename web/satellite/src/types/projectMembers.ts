@@ -3,31 +3,37 @@
 
 // ProjectMember stores needed info about user info to show it on UI
 import { User } from '@/types/users';
-import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
+import { SortDirection } from '@/types/common';
 
-export type OnHeaderClickCallback = (sortBy: ProjectMemberSortByEnum, sortDirection: ProjectMemberSortDirectionEnum) => Promise<any>;
+export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<any>;
+
+export enum ProjectMemberOrderBy {
+    NAME = 1,
+    EMAIL,
+    CREATED_AT,
+}
 
 export class ProjectMemberCursor {
     public search: string;
     public limit: number;
     public page: number;
-    public order: ProjectMemberSortByEnum;
-    public orderDirection: ProjectMemberSortDirectionEnum;
+    public order: ProjectMemberOrderBy;
+    public orderDirection: SortDirection;
 
     public constructor() {
         this.search = '';
         this.limit = 6;
         this.page = 1;
-        this.order = ProjectMemberSortByEnum.NAME;
-        this.orderDirection = ProjectMemberSortDirectionEnum.ASCENDING;
+        this.order = ProjectMemberOrderBy.NAME;
+        this.orderDirection = SortDirection.ASCENDING;
     }
 }
 
 export class ProjectMembersPage {
     public projectMembers: ProjectMember[];
     public search: string;
-    public order: ProjectMemberSortByEnum;
-    public orderDirection: ProjectMemberSortDirectionEnum;
+    public order: ProjectMemberOrderBy;
+    public orderDirection: SortDirection;
     public limit: number;
     public pageCount: number;
     public currentPage: number;
@@ -36,8 +42,8 @@ export class ProjectMembersPage {
     public constructor() {
         this.projectMembers = [];
         this.search = '';
-        this.order = ProjectMemberSortByEnum.NAME;
-        this.orderDirection = ProjectMemberSortDirectionEnum.ASCENDING;
+        this.order = ProjectMemberOrderBy.NAME;
+        this.orderDirection = SortDirection.ASCENDING;
         this.limit = 8;
         this.pageCount = 0;
         this.currentPage = 1;

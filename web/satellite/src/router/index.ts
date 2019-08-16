@@ -13,7 +13,7 @@ import Profile from '@/components/account/Profile.vue';
 import AccountBillingHistory from '@/components/account/billing/BillingArea.vue';
 import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
 import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
-import TeamArea from '@/components/team/TeamArea.vue';
+import TeamArea from '@/components/team/ProjectMembersArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';

@@ -3,7 +3,7 @@
 
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 import Vuex from 'vuex';
-import TeamArea from '@/components/team/TeamArea.vue';
+import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import { projectMembersModule } from '@/store/modules/projectMembers';
 import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
@@ -15,7 +15,7 @@ localVue.use(Vuex);
 const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
 const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
 
-describe('TeamArea.vue', () => {
+describe('ProjectMembersArea.vue', () => {
     const state = projectMembersModule.state;
     const mutations = projectMembersModule.mutations;
     const actions = projectMembersModule.actions;
@@ -34,7 +34,7 @@ describe('TeamArea.vue', () => {
 
 
     it('renders correctly', () => {
-        const wrapper = shallowMount(TeamArea, {
+        const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue
         });
@@ -50,7 +50,7 @@ describe('TeamArea.vue', () => {
 
         store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
-        const wrapper = mount(TeamArea, {
+        const wrapper = mount(ProjectMembersArea, {
             store,
             localVue,
             mocks: {
@@ -69,7 +69,7 @@ describe('TeamArea.vue', () => {
     });
 
     it('action on toggle works correctly', () => {
-        const wrapper = mount(TeamArea, {
+        const wrapper = mount(ProjectMembersArea, {
             store,
             localVue,
             mocks: {
@@ -85,7 +85,7 @@ describe('TeamArea.vue', () => {
     });
 
     it('clear selection works correctly', () => {
-        const wrapper = mount(TeamArea, {
+        const wrapper = mount(ProjectMembersArea, {
             store,
             localVue,
             mocks: {
@@ -108,7 +108,7 @@ describe('TeamArea.vue', () => {
 
         store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
-        const wrapper = mount(TeamArea, {
+        const wrapper = mount(ProjectMembersArea, {
             store,
             localVue,
             mocks: {
@@ -135,7 +135,7 @@ describe('TeamArea.vue', () => {
 
         store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
-        const wrapper = mount(TeamArea, {
+        const wrapper = mount(ProjectMembersArea, {
             store,
             localVue,
             mocks: {

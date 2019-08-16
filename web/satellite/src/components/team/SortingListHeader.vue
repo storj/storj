@@ -3,22 +3,22 @@
 
 <template>
     <div class="sort-header-container">
-        <div class="sort-header-container__name-container" @click="onHeaderItemClick(ProjectMemberSortByEnum.NAME)">
+        <div class="sort-header-container__name-container" @click="onHeaderItemClick(ProjectMemberOrderBy.NAME)">
             <p>Name</p>
             <VerticalArrows
-                :isActive="getSortBy === ProjectMemberSortByEnum.NAME"
+                :isActive="getSortBy === ProjectMemberOrderBy.NAME"
                 :direction="getSortDirection"/>
         </div>
-        <div class="sort-header-container__added-container" @click="onHeaderItemClick(ProjectMemberSortByEnum.CREATED_AT)">
+        <div class="sort-header-container__added-container" @click="onHeaderItemClick(ProjectMemberOrderBy.CREATED_AT)">
             <p>Added</p>
             <VerticalArrows
-                :isActive="getSortBy === ProjectMemberSortByEnum.CREATED_AT"
+                :isActive="getSortBy === ProjectMemberOrderBy.CREATED_AT"
                 :direction="getSortDirection"/>
         </div>
-        <div class="sort-header-container__email-container" @click="onHeaderItemClick(ProjectMemberSortByEnum.EMAIL)">
+        <div class="sort-header-container__email-container" @click="onHeaderItemClick(ProjectMemberOrderBy.EMAIL)">
             <p>Email</p>
             <VerticalArrows
-                :isActive="getSortBy === ProjectMemberSortByEnum.EMAIL"
+                :isActive="getSortBy === ProjectMemberOrderBy.EMAIL"
                 :direction="getSortDirection"/>
         </div>
     </div>
@@ -26,9 +26,9 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { OnHeaderClickCallback } from '@/types/projectMembers';
+    import { OnHeaderClickCallback, ProjectMemberOrderBy } from '@/types/projectMembers';
+    import { SortDirection } from '@/types/common';
     import VerticalArrows from '@/components/common/VerticalArrows.vue';
-    import { ProjectMemberSortByEnum, ProjectMemberSortDirectionEnum } from '@/utils/constants/ProjectMemberSortEnum';
 
     @Component({
         components: {
@@ -39,37 +39,37 @@
         @Prop({default: () => { return new Promise(() => false); }})
         private readonly onHeaderClickCallback: OnHeaderClickCallback;
 
-        public ProjectMemberSortByEnum = ProjectMemberSortByEnum;
+        public ProjectMemberOrderBy = ProjectMemberOrderBy;
 
-        public sortBy: ProjectMemberSortByEnum = ProjectMemberSortByEnum.NAME;
-        public sortDirection: ProjectMemberSortDirectionEnum = ProjectMemberSortDirectionEnum.ASCENDING;
+        public sortBy: ProjectMemberOrderBy = ProjectMemberOrderBy.NAME;
+        public sortDirection: SortDirection = SortDirection.ASCENDING;
 
         public get getSortDirection() {
-            if (this.sortDirection === ProjectMemberSortDirectionEnum.DESCENDING) {
-                return ProjectMemberSortDirectionEnum.ASCENDING;
+            if (this.sortDirection === SortDirection.DESCENDING) {
+                return SortDirection.ASCENDING;
             }
 
-            return ProjectMemberSortDirectionEnum.DESCENDING;
+            return SortDirection.DESCENDING;
         }
 
         public get getSortBy() {
             return this.sortBy;
         }
 
-        public async onHeaderItemClick(sortBy: ProjectMemberSortByEnum) {
+        public async onHeaderItemClick(sortBy: ProjectMemberOrderBy) {
             if (this.sortBy != sortBy) {
                 this.sortBy = sortBy;
-                this.sortDirection = ProjectMemberSortDirectionEnum.ASCENDING;
+                this.sortDirection = SortDirection.ASCENDING;
 
                 await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
 
                 return;
             }
 
-            if (this.sortDirection === ProjectMemberSortDirectionEnum.DESCENDING) {
-                this.sortDirection = ProjectMemberSortDirectionEnum.ASCENDING;
+            if (this.sortDirection === SortDirection.DESCENDING) {
+                this.sortDirection = SortDirection.ASCENDING;
             } else {
-                this.sortDirection = ProjectMemberSortDirectionEnum.DESCENDING;
+                this.sortDirection = SortDirection.DESCENDING;
             }
 
             await this.onHeaderClickCallback(this.sortBy, this.sortDirection);

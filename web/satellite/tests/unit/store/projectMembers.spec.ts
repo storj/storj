@@ -90,7 +90,7 @@ describe('mutations', () => {
         expect(state.page.projectMembers[1].isSelected).toBeFalsy();
     });
 
-    it('fetch team members', () => {
+    it('fetch projectMembers members', () => {
         const state = {
             cursor: new ProjectMemberCursor(),
             page: new ProjectMembersPage(),

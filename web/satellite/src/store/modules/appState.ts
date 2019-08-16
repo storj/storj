@@ -26,7 +26,7 @@ export const appStateModule = {
         },
     },
     mutations: {
-        // Mutation changing add team members popup visibility
+        // Mutation changing add projectMembers members popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: any): void {
             state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
         },
