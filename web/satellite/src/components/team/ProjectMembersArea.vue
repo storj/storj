@@ -64,7 +64,7 @@
     import List from '@/components/common/List.vue';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Pagination from '@/components/common/Pagination.vue';
-    import { firstPage, ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
+    import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
     import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
     import { RequestResponse } from '@/types/response';
     import { SortDirection } from '@/types/common';
@@ -84,8 +84,9 @@
         }
     })
     export default class ProjectMembersArea extends Vue {
+        private FIRST_PAGE = 1;
         public mounted(): void {
-            this.$store.dispatch(PM_ACTIONS.FETCH, firstPage);
+            this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         }
 
         public onMemberClick(member: ProjectMember): void {
@@ -132,7 +133,7 @@
         public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) {
             this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
             this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
-            const response: RequestResponse<ProjectMembersPage> = await this.$store.dispatch(PM_ACTIONS.FETCH, firstPage);
+            const response: RequestResponse<ProjectMembersPage> = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }

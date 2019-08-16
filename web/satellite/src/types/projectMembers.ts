@@ -5,8 +5,6 @@
 import { User } from '@/types/users';
 import { SortDirection } from '@/types/common';
 
-export const firstPage = 1;
-
 export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<any>;
 
 export enum ProjectMemberOrderBy {
@@ -16,40 +14,25 @@ export enum ProjectMemberOrderBy {
 }
 
 export class ProjectMemberCursor {
-    public search: string;
-    public limit: number;
-    public page: number;
-    public order: ProjectMemberOrderBy;
-    public orderDirection: SortDirection;
-
-    public constructor() {
-        this.search = '';
-        this.limit = 6;
-        this.page = 1;
-        this.order = ProjectMemberOrderBy.NAME;
-        this.orderDirection = SortDirection.ASCENDING;
+    public constructor(
+        public search: string = '',
+        public limit: number = 6,
+        public page: number = 1,
+        public order: ProjectMemberOrderBy = ProjectMemberOrderBy.NAME,
+        public orderDirection: SortDirection = SortDirection.ASCENDING) {
     }
 }
 
 export class ProjectMembersPage {
-    public projectMembers: ProjectMember[];
-    public search: string;
-    public order: ProjectMemberOrderBy;
-    public orderDirection: SortDirection;
-    public limit: number;
-    public pageCount: number;
-    public currentPage: number;
-    public totalCount: number;
-
-    public constructor() {
-        this.projectMembers = [];
-        this.search = '';
-        this.order = ProjectMemberOrderBy.NAME;
-        this.orderDirection = SortDirection.ASCENDING;
-        this.limit = 8;
-        this.pageCount = 0;
-        this.currentPage = 1;
-        this.totalCount = 0;
+    public constructor(
+        public projectMembers: ProjectMember[] = [],
+        public search: string = '',
+        public order: ProjectMemberOrderBy = ProjectMemberOrderBy.NAME,
+        public orderDirection: SortDirection = SortDirection.ASCENDING,
+        public limit: number = 6,
+        public pageCount: number = 0,
+        public currentPage: number = 1,
+        public totalCount: number = 0) {
     }
 }
 

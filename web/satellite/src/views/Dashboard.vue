@@ -34,7 +34,6 @@
     } from '@/utils/constants/actionNames';
     import { AuthToken } from '@/utils/authToken';
     import DashboardHeader from '@/components/header/Header.vue';
-    import { firstPage } from '@/types/projectMembers';
     import NavigationArea from '@/components/navigation/NavigationArea.vue';
     import { Project } from '@/types/projects';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
@@ -68,7 +67,7 @@
             await this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
 
             await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, firstPage);
+            const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
             if (!projectMembersResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
