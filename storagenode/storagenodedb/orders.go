@@ -146,6 +146,11 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 }
 
 // Archive marks order as being handled.
+//
+// If any of the request contains an order which doesn't exist the method will
+// follow with the next ones without interrupting the operation and it will
+// return an error of the class orders.OrderNotFoundError. Any other error, will
+// abort the operation, rolling back the transaction.
 func (db *ordersdb) Archive(ctx context.Context, requests ...orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -153,9 +158,17 @@ func (db *ordersdb) Archive(ctx context.Context, requests ...orders.ArchiveReque
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
+
+	var notFoundErrs errs.Group
 	defer func() {
 		if err == nil {
 			err = txn.Commit()
+			if err == nil {
+				if len(notFoundErrs) > 0 {
+					// Return a class error to allow to the caler to identify this case
+					err = orders.OrderNotFoundError.New(notFoundErrs.Err().Error())
+				}
+			}
 		} else {
 			err = errs.Combine(err, txn.Rollback())
 		}
@@ -164,7 +177,12 @@ func (db *ordersdb) Archive(ctx context.Context, requests ...orders.ArchiveReque
 	for _, req := range requests {
 		err := db.archiveOne(ctx, txn, req)
 		if err != nil {
-			return ErrInfo.Wrap(err)
+			if orders.OrderNotFoundError.Has(err) {
+				notFoundErrs.Add(err)
+				continue
+			}
+
+			return err
 		}
 	}
 
@@ -201,7 +219,9 @@ func (db *ordersdb) archiveOne(ctx context.Context, txn *sql.Tx, req orders.Arch
 		return ErrInfo.Wrap(err)
 	}
 	if count == 0 {
-		return ErrInfo.New("order was not in unsent list")
+		return orders.OrderNotFoundError.New("satellite: %s, serial number: %s",
+			req.Satellite.String(), req.Serial.String(),
+		)
 	}
 
 	return nil
