@@ -30,6 +30,7 @@
     BUCKET_USAGE_ACTIONS,
     PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
+    import { firstPage } from '@/types/projectMembers';
     import { Project } from '@/types/projects';
 
     @Component
@@ -40,7 +41,7 @@
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
             // TODO: add types
-            const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+            const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, firstPage);
             const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
             const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
             const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);

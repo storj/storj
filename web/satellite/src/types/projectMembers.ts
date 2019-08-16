@@ -5,6 +5,8 @@
 import { User } from '@/types/users';
 import { SortDirection } from '@/types/common';
 
+export const firstPage = 1;
+
 export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<any>;
 
 export enum ProjectMemberOrderBy {
