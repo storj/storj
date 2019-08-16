@@ -19,7 +19,6 @@ export const projectMembersModule = {
     state: {
         cursor: new ProjectMemberCursor(),
         page: new ProjectMembersPage(),
-        selectedProjectMembers: [],
     },
     mutations: {
         [PROJECT_MEMBER_MUTATIONS.DELETE](state: any, projectMemberEmails: string[]) {
