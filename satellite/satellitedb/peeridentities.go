@@ -8,7 +8,6 @@ import (
 	"context"
 	"database/sql"
 	"strings"
-	"time"
 
 	"github.com/zeebo/errs"
 
@@ -22,10 +21,14 @@ type peerIdentities struct {
 }
 
 // Set adds a peer identity entry
-func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, peerIdent *identity.PeerIdentity) (err error) {
+func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, ident *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	tx, err := idents.db.Begin()
+	if ident == nil {
+		return Error.New("identitiy is nil")
+	}
+
+	tx, err := idents.db.Open(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -38,57 +41,44 @@ func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, peer
 		}
 	}()
 
-	if peerIdent == nil {
-		return Error.New("Peer Identity cannot be nil")
-	}
-	chain := identity.EncodePeerIdentity(peerIdent)
-
-	var serialNum []byte
-	query := `SELECT serial_number FROM peer_identities WHERE node_id = ?;`
-	err = tx.QueryRow(idents.db.Rebind(query), nodeID.Bytes()).Scan(&serialNum)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			_, err = tx.Exec(idents.db.Rebind(
-				`INSERT INTO peer_identities 
-				( serial_number, chain, node_id, updated_at ) 
-				VALUES ( ?, ?, ?, ? );`),
-				peerIdent.Leaf.SerialNumber.Bytes(), chain, nodeID.Bytes(), time.Now())
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			return nil
+	serial, err := tx.Get_PeerIdentity_SerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+	if serial == nil || err != nil {
+		if serial == nil || err == sql.ErrNoRows {
+			_, err = tx.Create_PeerIdentity(ctx,
+				dbx.PeerIdentity_NodeId(nodeID.Bytes()),
+				dbx.PeerIdentity_SerialNumber(ident.Leaf.SerialNumber.Bytes()),
+				dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
+			)
+			return Error.Wrap(err)
 		}
 		return Error.Wrap(err)
 	}
-
-	if !bytes.Equal(serialNum, peerIdent.Leaf.SerialNumber.Bytes()) {
-		_, err = tx.Exec(idents.db.Rebind(
-			`UPDATE peer_identities SET 
-			node_id = ?, serial_number = ?, 
-			chain = ?, updated_at = ? 
-			WHERE node_id = ?`),
-			nodeID.Bytes(), peerIdent.Leaf.SerialNumber.Bytes(), chain, time.Now(), nodeID.Bytes())
-		if err != nil {
-			return Error.Wrap(err)
-		}
+	if !bytes.Equal(serial.SerialNumber, ident.Leaf.SerialNumber.Bytes()) {
+		_, err = tx.Update_PeerIdentity_By_NodeId(ctx,
+			dbx.PeerIdentity_NodeId(nodeID.Bytes()),
+			dbx.PeerIdentity_Update_Fields{
+				SerialNumber: dbx.PeerIdentity_SerialNumber(ident.Leaf.SerialNumber.Bytes()),
+				Chain:        dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
+			},
+		)
 	}
-	return nil
+
+	return Error.Wrap(err)
 }
 
 // Get gets the peer identity based on the certificate's nodeID
 func (idents *peerIdentities) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxPeerID, err := idents.db.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+	dbxIdent, err := idents.db.Get_PeerIdentity_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	if dbxPeerID == nil {
-		return nil, Error.New("unknown nodeID :%+v: %+v", nodeID.Bytes(), err)
+	if dbxIdent == nil {
+		return nil, Error.New("missing node id: %v", nodeID)
 	}
 
-	peerIdent, err := identity.DecodePeerIdentity(ctx, dbxPeerID.Chain)
-	return peerIdent, Error.Wrap(err)
+	ident, err := identity.DecodePeerIdentity(ctx, dbxIdent.Chain)
+	return ident, Error.Wrap(err)
 }
 
 // BatchGet gets the peer idenities based on the certificate's nodeID
@@ -117,11 +107,11 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		peerIdent, err := identity.DecodePeerIdentity(ctx, peerChain)
+		ident, err := identity.DecodePeerIdentity(ctx, peerChain)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		peerIdents = append(peerIdents, peerIdent)
+		peerIdents = append(peerIdents, ident)
 	}
 	return peerIdents, nil
 }

@@ -620,25 +620,25 @@ read all (
 model peer_identity (
     key node_id
 
-    index (
-        name serial_number_updated_at
-        fields serial_number updated_at 
-    )
-    
     field node_id        blob
-    field serial_number  blob
-    field chain          blob      // x509 ASN.1 DER content 
+    field serial_number  blob (updatable)
+    field chain          blob (updatable) // x509 ASN.1 DER content 
     field updated_at     timestamp ( autoinsert, autoupdate )
 )
 
 create peer_identity ( )
+update peer_identity (
+	where  peer_identity.node_id = ?
+)
 
 read one (
     select peer_identity
     where  peer_identity.node_id = ?
-    orderby desc peer_identity.updated_at
 )
-
+read one (
+    select peer_identity.serial_number
+    where  peer_identity.node_id = ?
+)
 
 //--- satellite registration token for Vanguard release (temporary table) ---//
 

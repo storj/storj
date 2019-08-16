@@ -287,7 +287,6 @@ CREATE TABLE peer_identities (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
-CREATE INDEX serial_number_updated_at ON peer_identities ( serial_number, updated_at );
 
 ---
 

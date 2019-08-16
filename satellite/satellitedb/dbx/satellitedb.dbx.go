@@ -555,7 +555,6 @@ CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_ba
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
-CREATE INDEX serial_number_updated_at ON peer_identities ( serial_number, updated_at );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
@@ -905,7 +904,6 @@ CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_ba
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
-CREATE INDEX serial_number_updated_at ON peer_identities ( serial_number, updated_at );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
@@ -2985,6 +2983,8 @@ type PeerIdentity struct {
 func (PeerIdentity) _Table() string { return "peer_identities" }
 
 type PeerIdentity_Update_Fields struct {
+	SerialNumber PeerIdentity_SerialNumber_Field
+	Chain        PeerIdentity_Chain_Field
 }
 
 type PeerIdentity_NodeId_Field struct {
@@ -5525,6 +5525,10 @@ type Id_Row struct {
 	Id []byte
 }
 
+type SerialNumber_Row struct {
+	SerialNumber []byte
+}
+
 type Value_Row struct {
 	Value time.Time
 }
@@ -7524,11 +7528,11 @@ func (obj *postgresImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterO
 
 }
 
-func (obj *postgresImpl) Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx context.Context,
+func (obj *postgresImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ? ORDER BY peer_identities.updated_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, peer_identity_node_id.value())
@@ -7542,6 +7546,27 @@ func (obj *postgresImpl) Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx c
 		return nil, obj.makeErr(err)
 	}
 	return peer_identity, nil
+
+}
+
+func (obj *postgresImpl) Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	row *SerialNumber_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, peer_identity_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &SerialNumber_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.SerialNumber)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -8336,6 +8361,52 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *postgresImpl) Update_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	update PeerIdentity_Update_Fields) (
+	peer_identity *PeerIdentity, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ? RETURNING peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.SerialNumber._set {
+		__values = append(__values, update.SerialNumber.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("serial_number = ?"))
+	}
+
+	if update.Chain._set {
+		__values = append(__values, update.Chain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("chain = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, peer_identity_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	peer_identity = &PeerIdentity{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return peer_identity, nil
 }
 
 func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
@@ -11297,11 +11368,11 @@ func (obj *sqlite3Impl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOr
 
 }
 
-func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx context.Context,
+func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ? ORDER BY peer_identities.updated_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, peer_identity_node_id.value())
@@ -11315,6 +11386,27 @@ func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx co
 		return nil, obj.makeErr(err)
 	}
 	return peer_identity, nil
+
+}
+
+func (obj *sqlite3Impl) Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	row *SerialNumber_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, peer_identity_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &SerialNumber_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.SerialNumber)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -12189,6 +12281,62 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *sqlite3Impl) Update_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	update PeerIdentity_Update_Fields) (
+	peer_identity *PeerIdentity, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.SerialNumber._set {
+		__values = append(__values, update.SerialNumber.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("serial_number = ?"))
+	}
+
+	if update.Chain._set {
+		__values = append(__values, update.Chain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("chain = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, peer_identity_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	peer_identity = &PeerIdentity{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return peer_identity, nil
 }
 
 func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
@@ -14441,14 +14589,24 @@ func (rx *Rx) Get_Offer_By_Id(ctx context.Context,
 	return tx.Get_Offer_By_Id(ctx, offer_id)
 }
 
-func (rx *Rx) Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx context.Context,
+func (rx *Rx) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx, peer_identity_node_id)
+	return tx.Get_PeerIdentity_By_NodeId(ctx, peer_identity_node_id)
+}
+
+func (rx *Rx) Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	row *SerialNumber_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_PeerIdentity_SerialNumber_By_NodeId(ctx, peer_identity_node_id)
 }
 
 func (rx *Rx) Get_PendingAudits_By_NodeId(ctx context.Context,
@@ -14752,6 +14910,17 @@ func (rx *Rx) Update_Offer_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_Offer_By_Id(ctx, offer_id, update)
+}
+
+func (rx *Rx) Update_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	update PeerIdentity_Update_Fields) (
+	peer_identity *PeerIdentity, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_PeerIdentity_By_NodeId(ctx, peer_identity_node_id, update)
 }
 
 func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
@@ -15220,9 +15389,13 @@ type Methods interface {
 		offer_id Offer_Id_Field) (
 		offer *Offer, err error)
 
-	Get_PeerIdentity_By_NodeId_OrderBy_Desc_UpdatedAt(ctx context.Context,
+	Get_PeerIdentity_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
 		peer_identity *PeerIdentity, err error)
+
+	Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field) (
+		row *SerialNumber_Row, err error)
 
 	Get_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field) (
@@ -15358,6 +15531,11 @@ type Methods interface {
 		offer_id Offer_Id_Field,
 		update Offer_Update_Fields) (
 		offer *Offer, err error)
+
+	Update_PeerIdentity_By_NodeId(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field,
+		update PeerIdentity_Update_Fields) (
+		peer_identity *PeerIdentity, err error)
 
 	Update_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field,
