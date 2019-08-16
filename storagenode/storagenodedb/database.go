@@ -300,25 +300,6 @@ func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
 	return db.kdb, db.ndb, db.adb
 }
 
-// withTx is a helper method which executes callback in transaction scope
-func (db *DB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-
-	return cb(tx)
-}
-
 // Migration returns table migrations.
 func (db *DB) Migration() *migrate.Migration {
 	return &migrate.Migration{

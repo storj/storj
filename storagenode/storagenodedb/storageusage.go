@@ -138,3 +138,22 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 
 	return stamps, nil
 }
+
+// withTx is a helper method which executes callback in transaction scope
+func (db *storageusageDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
+}
