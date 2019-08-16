@@ -20,7 +20,7 @@ type RetainService struct {
 	mu     sync.Mutex
 	queued map[storj.NodeID]RetainRequest
 
-	ch           chan RetainRequest
+	reqChan      chan RetainRequest
 	sem          chan struct{}
 	emptyTrigger chan struct{}
 
@@ -40,7 +40,7 @@ func NewRetainService(log *zap.Logger, retainStatus RetainStatus, concurrentReta
 		log:          log,
 		retainStatus: retainStatus,
 		queued:       make(map[storj.NodeID]RetainRequest),
-		ch:           make(chan RetainRequest),
+		reqChan:      make(chan RetainRequest),
 		sem:          make(chan struct{}, concurrentRetain),
 		emptyTrigger: make(chan struct{}),
 		store:        store,
@@ -55,7 +55,7 @@ func (s *RetainService) QueueRetain(req RetainRequest) {
 	// only queue retain request if we do not already have one for this satellite
 	if _, ok := s.queued[req.SatelliteID]; !ok {
 		s.queued[req.SatelliteID] = req
-		go func() { s.ch <- req }()
+		go func() { s.reqChan <- req }()
 	}
 }
 
@@ -72,7 +72,7 @@ func (s *RetainService) Run(ctx context.Context) error {
 		// get the next request
 		var req RetainRequest
 		select {
-		case req = <-s.ch:
+		case req = <-s.reqChan:
 		case <-ctx.Done():
 			return ctx.Err()
 		}
