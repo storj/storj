@@ -306,4 +306,56 @@ describe('Pagination.vue', () => {
         expect(wrapperData.middleBlockPages.length).toBe(0);
         expect(wrapperData.lastBlockPages.length).toBe(3);
     });
+
+    it('should reset current page index to 1', () => {
+        const wrapper = shallowMount(Pagination, {
+            propsData: {
+                totalPageCount: 4,
+                onPageClickCallback: () => new Promise(() => false)
+            },
+            mocks: {
+                $route: {
+                    query: {
+                        pageNumber: null
+                    }
+                },
+                $router: {
+                    replace: () => false
+                }
+            }
+        });
+
+        wrapper.vm.resetPageIndex();
+
+        const wrapperData = wrapper.vm.$data;
+
+        expect(wrapperData.currentPageNumber).toBe(1);
+        expect(wrapperData.pagesArray.length).toBe(4);
+    });
+
+    it('should completely reinitialize Pagination on totalPageCount change', () => {
+        const wrapper = shallowMount(Pagination, {
+            propsData: {
+                totalPageCount: 4,
+                onPageClickCallback: () => new Promise(() => false)
+            },
+            mocks: {
+                $route: {
+                    query: {
+                        pageNumber: null
+                    }
+                },
+                $router: {
+                    replace: () => false
+                }
+            }
+        });
+
+        wrapper.setProps({totalPageCount: 7});
+
+        const wrapperData = wrapper.vm.$data;
+
+        expect(wrapperData.currentPageNumber).toBe(1);
+        expect(wrapperData.pagesArray.length).toBe(7);
+    });
 });

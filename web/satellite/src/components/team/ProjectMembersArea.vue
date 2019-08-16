@@ -67,8 +67,8 @@
     import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
     import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
     import { RequestResponse } from '@/types/response';
-    import SortingListHeader from '@/components/team/SortingListHeader.vue';
     import { SortDirection } from '@/types/common';
+    import SortingListHeader from '@/components/team/SortingListHeader.vue';
 
     enum HeaderState {
         DEFAULT = 0,
