@@ -4,16 +4,15 @@
 package piecestore_test
 
 import (
-	"crypto/tls"
-	"crypto/x509"
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
+	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/bloomfilter"
@@ -24,7 +23,6 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	ps "storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
-	"storj.io/storj/storagenode/trust"
 )
 
 func TestRetainPieces(t *testing.T) {
@@ -47,27 +45,7 @@ func TestRetainPieces(t *testing.T) {
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
 
-		whitelisted := storj.NodeURLs{
-			storj.NodeURL{ID: satellite0.ID},
-			storj.NodeURL{ID: satellite1.ID},
-		}
-
-		trusted, err := trust.NewPool(nil, whitelisted)
-		require.NoError(t, err)
-
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
-		endpointEnabled, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, nil, nil, nil, ps.Config{
-			RetainStatus: ps.RetainEnabled,
-		})
-		require.NoError(t, err)
-		endpointDisabled, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, nil, nil, nil, ps.Config{
-			RetainStatus: ps.RetainDisabled,
-		})
-		require.NoError(t, err)
-		endpointDebug, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, nil, nil, nil, ps.Config{
-			RetainStatus: ps.RetainDebug,
-		})
-		require.NoError(t, err)
 
 		recentTime := time.Now()
 		oldTime := recentTime.Add(-time.Duration(48) * time.Hour)
@@ -130,20 +108,34 @@ func TestRetainPieces(t *testing.T) {
 
 		}
 
-		ctxSatellite0 := peer.NewContext(ctx, &peer.Peer{
-			AuthInfo: credentials.TLSInfo{
-				State: tls.ConnectionState{
-					PeerCertificates: []*x509.Certificate{satellite0.PeerIdentity().Leaf, satellite0.PeerIdentity().CA},
-				},
-			},
+		retainEnabled := ps.NewRetainService(zaptest.NewLogger(t), ps.RetainEnabled, 1, store)
+		retainDisabled := ps.NewRetainService(zaptest.NewLogger(t), ps.RetainDisabled, 1, store)
+		retainDebug := ps.NewRetainService(zaptest.NewLogger(t), ps.RetainDebug, 1, store)
+
+		// start the retain services
+		var group errgroup.Group
+		ctx2, cancel := context.WithCancel(ctx)
+		group.Go(func() error {
+			return retainEnabled.Run(ctx2)
+		})
+		group.Go(func() error {
+			return retainDisabled.Run(ctx2)
+		})
+		group.Go(func() error {
+			return retainDebug.Run(ctx2)
 		})
 
 		// expect that disabled and debug endpoints do not delete any pieces
-		err = endpointDisabled.RetainPieces(ctxSatellite0, satellite0.ID, recentTime, filter)
-		require.NoError(t, err)
+		req := ps.RetainRequest{
+			SatelliteID:   satellite0.ID,
+			CreatedBefore: recentTime,
+			Filter:        filter,
+		}
+		retainDisabled.QueueRetain(req)
+		retainDisabled.Wait(ctx2)
 
-		err = endpointDebug.RetainPieces(ctxSatellite0, satellite0.ID, recentTime, filter)
-		require.NoError(t, err)
+		retainDebug.QueueRetain(req)
+		retainDebug.Wait(ctx2)
 
 		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))
 		require.NoError(t, err)
@@ -154,8 +146,8 @@ func TestRetainPieces(t *testing.T) {
 		require.Equal(t, numPieces, len(satellite0Pieces))
 
 		// expect that enabled endpoint deletes the correct pieces
-		err = endpointEnabled.RetainPieces(ctxSatellite0, satellite0.ID, recentTime, filter)
-		require.NoError(t, err)
+		retainEnabled.QueueRetain(req)
+		retainEnabled.Wait(ctx2)
 
 		// check we have deleted nothing for satellite1
 		satellite1Pieces, err = getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))
@@ -179,5 +171,9 @@ func TestRetainPieces(t *testing.T) {
 		for _, id := range pieceIDs[numPiecesToKeep : numPiecesToKeep+numOldPieces] {
 			require.NotContains(t, satellite0Pieces, id, "piece should have been deleted")
 		}
+
+		cancel()
+		err = group.Wait()
+		require.True(t, errs2.IsCanceled(err))
 	})
 }

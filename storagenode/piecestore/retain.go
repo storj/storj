@@ -20,8 +20,9 @@ type RetainService struct {
 	mu     sync.Mutex
 	queued map[storj.NodeID]RetainRequest
 
-	ch  chan RetainRequest
-	sem chan struct{}
+	ch           chan RetainRequest
+	sem          chan struct{}
+	emptyTrigger chan struct{}
 
 	store *pieces.Store
 }
@@ -41,6 +42,7 @@ func NewRetainService(log *zap.Logger, retainStatus RetainStatus, concurrentReta
 		queued:       make(map[storj.NodeID]RetainRequest),
 		ch:           make(chan RetainRequest),
 		sem:          make(chan struct{}, concurrentRetain),
+		emptyTrigger: make(chan struct{}),
 		store:        store,
 	}
 }
@@ -85,9 +87,24 @@ func (s *RetainService) Run(ctx context.Context) error {
 			delete(s.queued, req.SatelliteID)
 			s.mu.Unlock()
 
+			if len(s.queued) == 0 {
+				s.emptyTrigger <- struct{}{}
+			}
+
 			// remove item from semaphore and free up process for another retain job
 			<-s.sem
 		}(ctx, req)
+	}
+}
+
+// Wait blocks until the context is canceled or until the queue is empty
+func (s *RetainService) Wait(ctx context.Context) {
+	if len(s.queued) == 0 {
+		return
+	}
+	select {
+	case <-s.emptyTrigger:
+	case <-ctx.Done():
 	}
 }
 
