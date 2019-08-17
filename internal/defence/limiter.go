@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"storj.io/storj/internal/sync2"
-
 	"golang.org/x/time/rate"
+
+	"storj.io/storj/internal/sync2"
 )
 
 // Attacker stores information about attacker entity

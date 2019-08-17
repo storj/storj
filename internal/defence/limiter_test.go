@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/internal/testcontext"
-
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/internal/testcontext"
 )
 
 func TestLimiter(t *testing.T) {
