@@ -152,9 +152,10 @@ func (s *Service) Run(ctx context.Context) error {
 			}
 			s.mu.Lock()
 			delete(s.queued, req.SatelliteID)
+			queueLength := len(s.queued)
 			s.mu.Unlock()
 
-			if len(s.queued) == 0 {
+			if queueLength == 0 {
 				s.emptyTrigger <- struct{}{}
 			}
 
