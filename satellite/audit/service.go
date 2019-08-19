@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -46,18 +47,6 @@ type Service struct {
 	Loop sync2.Cycle
 }
 
-// Service2 is a temp name for the service struct during the audit 2.0 refactor.
-// Once V3-2363 and V3-2364 are implemented, Service2 will replace the existing Service struct.
-type Service2 struct {
-	log *zap.Logger
-
-	reservoirSlots int
-	Reservoirs     map[storj.NodeID]*Reservoir
-
-	MetainfoLoop  *metainfo.Loop
-	ReservoirLoop sync2.Cycle
-}
-
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Service,
@@ -73,13 +62,27 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	}, nil
 }
 
+// Service2 is a temp name for the service struct during the audit 2.0 refactor.
+// Once V3-2363 and V3-2364 are implemented, Service2 will replace the existing Service struct.
+type Service2 struct {
+	log *zap.Logger
+
+	reservoirSlots int
+	Reservoirs     map[storj.NodeID]*Reservoir
+	rand           *rand.Rand
+
+	MetainfoLoop  *metainfo.Loop
+	ReservoirLoop sync2.Cycle
+}
+
 // NewService2 instantiates Service2
-func NewService2(log *zap.Logger, metaLoop *metainfo.Loop, config Config) (*Service2, error) {
+func NewService2(log *zap.Logger, metaLoop *metainfo.Loop, r *rand.Rand, config Config) (*Service2, error) {
 	return &Service2{
 		log: log,
 
 		reservoirSlots: config.Slots,
 		Reservoirs:     make(map[storj.NodeID]*Reservoir),
+		rand:           r,
 
 		MetainfoLoop:  metaLoop,
 		ReservoirLoop: *sync2.NewCycle(config.Interval),
@@ -95,7 +98,7 @@ func (service *Service2) Run(ctx context.Context) (err error) {
 
 	service.ReservoirLoop.Start(ctx, group, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
-		pathCollector := NewPathCollector(service.reservoirSlots)
+		pathCollector := NewPathCollector(service.reservoirSlots, service.rand)
 		err = service.MetainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
 			service.log.Error("error joining metainfoloop", zap.Error(err))

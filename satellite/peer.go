@@ -6,11 +6,13 @@ package satellite
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/mail"
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -478,8 +480,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 
 		// setup audit 2.0
+		r := rand.New(rand.NewSource(time.Now().Unix()))
 		peer.Audit.Service2, err = audit.NewService2(peer.Log.Named("audit2"),
 			peer.Metainfo.Loop,
+			r,
 			config,
 		)
 		if err != nil {

@@ -31,12 +31,12 @@ func NewReservoir(size int) *Reservoir {
 
 // Sample makes sure that for every segment in metainfo from index i=size..n-1,
 // pick a random number r = rand(0..i), and if r < size, replace reservoir.Segments[r] with segment
-func (reservoir *Reservoir) Sample(path storj.Path) {
+func (reservoir *Reservoir) Sample(r *rand.Rand, path storj.Path) {
 	reservoir.index++
 	if reservoir.index < int64(reservoir.size) {
 		reservoir.Paths[reservoir.index] = path
 	} else {
-		random := rand.Int63n(reservoir.index)
+		random := r.Int63n(reservoir.index)
 		if random < int64(reservoir.size) {
 			reservoir.Paths[random] = path
 		}

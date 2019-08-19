@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"math/rand"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -14,13 +15,15 @@ import (
 type PathCollector struct {
 	Reservoirs     map[storj.NodeID]*Reservoir
 	reservoirSlots int
+	rand           *rand.Rand
 }
 
 // NewPathCollector instantiates a path collector
-func NewPathCollector(reservoirSlots int) *PathCollector {
+func NewPathCollector(reservoirSlots int, r *rand.Rand) *PathCollector {
 	return &PathCollector{
 		Reservoirs:     make(map[storj.NodeID]*Reservoir),
 		reservoirSlots: reservoirSlots,
+		rand:           r,
 	}
 }
 
@@ -32,7 +35,7 @@ func (pathCollector *PathCollector) RemoteSegment(ctx context.Context, path stor
 		if _, ok := pathCollector.Reservoirs[piece.NodeId]; !ok {
 			pathCollector.Reservoirs[piece.NodeId] = NewReservoir(pathCollector.reservoirSlots)
 		}
-		pathCollector.Reservoirs[piece.NodeId].Sample(path)
+		pathCollector.Reservoirs[piece.NodeId].Sample(pathCollector.rand, path)
 	}
 	return nil
 }

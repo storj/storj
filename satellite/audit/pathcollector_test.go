@@ -5,7 +5,9 @@ package audit_test
 
 import (
 	"context"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -87,7 +89,8 @@ func TestAuditPathCollector(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		observer := audit.NewPathCollector(3)
+		r := rand.New(rand.NewSource(time.Now().Unix()))
+		observer := audit.NewPathCollector(3, r)
 		err = audits.Service2.MetainfoLoop.Join(ctx, observer)
 		require.NoError(t, err)
 
