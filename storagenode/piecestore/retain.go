@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/pieces"
