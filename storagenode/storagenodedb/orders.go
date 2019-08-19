@@ -302,11 +302,11 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 	return infos, ErrInfo.Wrap(rows.Err())
 }
 
-// CleanArchive deletes all entries older than ttl
-func (db *ordersdb) CleanArchive(ctx context.Context, ttl time.Duration) (_ int, err error) {
+// CleanArchive deletes all entries older than interval
+func (db *ordersdb) CleanArchive(ctx context.Context, interval time.Duration) (_ int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	deleteBefore := time.Now().UTC().Add(-1 * ttl)
+	deleteBefore := time.Now().UTC().Add(-1 * interval)
 	result, err := db.db.Exec(`
 		DELETE FROM order_archive_
 		WHERE archived_at <= ?
