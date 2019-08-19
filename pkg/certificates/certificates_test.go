@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -605,7 +606,11 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 					Address:        "127.0.0.1:0",
 					PrivateAddress: "127.0.0.1:0",
 				}
-				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config)
+
+				revDB, err := revocation.NewDBFromCfg(sc.Config)
+				require.NoError(t, err)
+
+				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config, revDB)
 				require.NoError(t, err)
 				require.NotNil(t, serverOpts)
 
@@ -620,7 +625,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				})
 				defer ctx.Check(service.Close)
 
-				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "*"})
+				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "*"}, nil)
 				require.NoError(t, err)
 
 				clientTransport := transport.NewClient(clientOpts)
@@ -704,7 +709,7 @@ func TestNewClient(t *testing.T) {
 		}
 	})
 
-	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{}, nil)
 	require.NoError(t, err)
 
 	clientTransport := transport.NewClient(tlsOptions)

@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
@@ -204,7 +205,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 				wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
 				require.NoError(t, err)
-				options, err := tlsopts.NewOptions(storageNode.Identity, tlsopts.Config{
+				tlscfg := tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: wl,
@@ -213,7 +214,10 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
-				})
+				}
+				revDB, err := revocation.NewDBFromCfg(tlscfg)
+				require.NoError(t, err)
+				options, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revDB)
 				require.NoError(t, err)
 
 				server, err := server.New(storageNode.Log.Named("mock-server"), options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
