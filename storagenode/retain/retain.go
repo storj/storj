@@ -92,7 +92,7 @@ type Service struct {
 	queued map[storj.NodeID]Request
 
 	reqChan      chan Request
-	sem          chan struct{}
+	semaphore    chan struct{}
 	emptyTrigger chan struct{}
 
 	store *pieces.Store
@@ -105,7 +105,7 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 		config:       config,
 		queued:       make(map[storj.NodeID]Request),
 		reqChan:      make(chan Request),
-		sem:          make(chan struct{}, config.MaxConcurrentRetain),
+		semaphore:    make(chan struct{}, config.MaxConcurrentRetain),
 		emptyTrigger: make(chan struct{}),
 		store:        store,
 	}
@@ -133,7 +133,7 @@ func (s *Service) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case s.sem <- struct{}{}:
+		case s.semaphore <- struct{}{}:
 		}
 
 		// get the next request
@@ -144,7 +144,6 @@ func (s *Service) Run(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		// TODO make it possible to sync with this goroutine
 		go func(ctx context.Context, req Request) {
 			err := s.retainPieces(ctx, req)
 			if err != nil {
@@ -160,7 +159,7 @@ func (s *Service) Run(ctx context.Context) error {
 			}
 
 			// remove item from semaphore and free up process for another retain job
-			<-s.sem
+			<-s.semaphore
 		}(ctx, req)
 	}
 }
@@ -179,7 +178,7 @@ func (s *Service) Wait(ctx context.Context) {
 	}
 }
 
-// Status returns the retain status
+// Status returns the retain status.
 func (s *Service) Status() Status {
 	return s.config.RetainStatus
 }
