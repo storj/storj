@@ -47,7 +47,7 @@ func TestOverlaycache_AllPieceCounts(t *testing.T) {
 		args     []interface{}
 	)
 	expectedPieceCounts := make(map[storj.NodeID]int)
-	updateSql := "UPDATE nodes SET ( piece_count ) = ( %d ) WHERE id == ?;"
+	updateSQL := "UPDATE nodes SET ( piece_count ) = ( %d ) WHERE id == ?;"
 	for i, node := range testNodes {
 		pieceCount := int(math.Pow10(i))
 		nodeID, err := storj.NodeIDFromBytes(node.Id)
@@ -55,7 +55,7 @@ func TestOverlaycache_AllPieceCounts(t *testing.T) {
 		require.NotEqual(t, storj.NodeID{}, nodeID)
 
 		expectedPieceCounts[nodeID] = pieceCount
-		sqlQuery = sqlQuery + fmt.Sprintf(updateSql+"\n", pieceCount)
+		sqlQuery += fmt.Sprintf(updateSQL+"\n", pieceCount)
 		args = append(args, node.Id)
 	}
 	_, err = overlay.db.DB.ExecContext(ctx, overlay.db.Rebind(sqlQuery), args...)
