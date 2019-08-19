@@ -8,7 +8,6 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_ACCOUNT: 'toggleAccountDropdown',
     TOGGLE_DEL_PROJ: 'toggleDeleteProjectPopup',
     TOGGLE_DEL_ACCOUNT: 'toggleDeleteAccountPopup',
-    TOGGLE_NEW_API_KEY: 'toggleNewAPIKeyPopup',
     TOGGLE_SORT_PM_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',
     TOGGLE_SUCCESSFUL_REGISTRATION_POPUP: 'toggleSuccessfulRegistrationPopup',
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
@@ -60,7 +59,7 @@ export const USER_ACTIONS = {
 };
 
 export const API_KEYS_ACTIONS = {
-    FETCH: 'fetchAPIKeys',
+    FETCH: 'setAPIKeys',
     CREATE: 'createAPIKey',
     DELETE: 'deleteAPIKey',
     CLEAR: 'clearAPIKeys',
