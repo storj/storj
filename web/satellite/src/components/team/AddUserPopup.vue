@@ -138,7 +138,7 @@
 
             let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
             if (!result.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding team members!');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding projectMembers members!');
                 this.isLoading = false;
 
                 return;
