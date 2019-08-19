@@ -52,7 +52,7 @@
 
         public async mounted() {
             // TODO: we pre-fetch all data in /src/views/Dashboard, but this is tardigrade related, so could be here
-            this.fetch();
+            await this.fetch();
         }
 
         public async fetch(): Promise<void> {
