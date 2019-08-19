@@ -559,11 +559,14 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	}
 
 	// the queue function will update the created before time based on the configurable retain buffer
-	endpoint.retain.Queue(retain.Request{
+	queued := endpoint.retain.Queue(retain.Request{
 		SatelliteID:   peer.ID,
 		CreatedBefore: retainReq.GetCreationDate(),
 		Filter:        filter,
 	})
+	if !queued {
+		endpoint.log.Debug("Retain job not queued for satellite", zap.String("satellite ID", peer.ID.String()))
+	}
 
 	return &pb.RetainResponse{}, nil
 }

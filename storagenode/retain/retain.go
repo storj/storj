@@ -112,7 +112,9 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 }
 
 // Queue adds a retain request to the queue.
-func (s *Service) Queue(req Request) {
+// It discards a request for a satellite that already has a queued request.
+// true is returned if the request is queued and false is returned if it is discarded
+func (s *Service) Queue(req Request) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -123,7 +125,11 @@ func (s *Service) Queue(req Request) {
 	if _, ok := s.queued[req.SatelliteID]; !ok {
 		s.queued[req.SatelliteID] = req
 		go func() { s.reqChan <- req }()
+
+		return true
 	}
+
+	return false
 }
 
 // Run listens for queued retain requests and processes them as they come in.
