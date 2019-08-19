@@ -16,7 +16,7 @@ import (
 // limited stores information about attacker entity
 type limited struct {
 	limiter *rate.Limiter
-	Expire  time.Time
+	expire  time.Time
 }
 
 // Limiter is used to store and manage list of banned entities
@@ -55,7 +55,7 @@ func (limiter *Limiter) Limit(key string) bool {
 	if !found {
 		attacker = &limited{
 			limiter: rate.NewLimiter(rate.Every(limiter.lockDuration), limiter.attempts),
-			Expire:  now.Add(limiter.lockDuration),
+			expire:  now.Add(limiter.lockDuration),
 		}
 		limiter.attackers[key] = attacker
 	}
@@ -82,7 +82,7 @@ func (limiter *Limiter) cleanUp(ctx context.Context, cleanUpTime time.Time) erro
 		default:
 		}
 
-		if cleanUpTime.After(limit.Expire) {
+		if cleanUpTime.After(limit.expire) {
 			delete(limiter.attackers, key)
 		}
 	}
