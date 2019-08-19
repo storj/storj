@@ -6,6 +6,8 @@ TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 export STORJ_NETWORK_DIR=$TMP
 cleanup(){
     rm -rf "$STORJ_NETWORK_DIR"
+    git worktree remove -f "$RELEASE_DIR"
+    git worktree remove -f "$BRANCH_DIR"
     echo "cleaned up test successfully"
 }
 trap cleanup EXIT
@@ -15,7 +17,7 @@ RELEASE_DIR="$STORJ_NETWORK_DIR/release"
 
 # setup two different directories containing the code for the latest release tag
 # and for the current branch code
-git worktree add -f "$BRANCH_DIR"
+git worktree add -f "$BRANCH_DIR" HEAD
 
 latestReleaseTag=$(git describe --tags `git rev-list --tags --max-count=1`)
 latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")
