@@ -14,7 +14,7 @@ for node discovery and address lookups given node IDs. This is useful when satel
 the network and nodes are unfamiliar with all of the satellites in the network.
 
 With our recent business decision of simplifying the storage node operator user experience, we no longer require kademlia 
-for node discovery. In a solution called SNO-select, storage nodes manually select the satellites they want to work with 
+for node discovery. In a solution called SNO-select, storage nodes operators manually select the satellites they want to work with 
 and satellites wait for storage nodes to work with them. The initial implementation of this solution allows SNOs to update 
 their trusted satellite list in a hardcoded configuration file, but future improvements will enable users to manage
 this list through a web console. 
