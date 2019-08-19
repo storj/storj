@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/vouchers"
 )
@@ -110,7 +111,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
 				},
-				RetainStatus: piecestore.RetainEnabled,
+			},
+			Retain: retain.Config{
+				RetainStatus:        retain.Enabled,
+				MaxConcurrentRetain: 5,
 			},
 			Vouchers: vouchers.Config{
 				Interval: time.Hour,
