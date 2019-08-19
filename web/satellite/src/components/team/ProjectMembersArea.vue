@@ -6,20 +6,23 @@
         <div class="team-header">
             <HeaderArea :headerState="headerState" :selectedProjectMembers="selectedProjectMembers.length"/>
         </div>
-        <div id="scrollable_team_container" v-if="projectMembers.length > 0 || projectMembersCount > 0" v-on:scroll="onScroll" class="team-container">
+        <div id="team_container" v-if="projectMembersCount > 0 || projectMembersTotalCount > 0" class="team-container">
             <div class="team-container__content">
-                <div v-for="member in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="member.id">
-                    <TeamMemberItem
-                        :projectMember = "member"
-                        v-bind:class = "[member.isSelected ? 'selected' : '']" />
-                </div>
+                <SortingListHeader
+                    class="team-container__content__sort-header-container"
+                    :onHeaderClickCallback="onHeaderSectionClickCallback"/>
+                <List
+                    :dataSet="projectMembers"
+                    :itemComponent="getItemComponent"
+                    :onItemClick="onMemberClick"/>
             </div>
-            <!-- only when selecting team members -->
-            <div v-if="selectedProjectMembers.length > 0" >
-                <Footer/>
-            </div>
+            <Pagination
+                class="pagination-area"
+                ref="pagination"
+                :totalPageCount="totalPageCount"
+                :onPageClickCallback="onPageClick"/>
         </div>
-        <div class="empty-search-result-area" v-if="(projectMembers.length === 0 && projectMembersCount === 0)">
+        <div class="empty-search-result-area" v-if="(projectMembersCount === 0 && projectMembersTotalCount === 0)">
             <h1 class="empty-search-result-area__text">No results found</h1>
             <svg width="380" height="295" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M168 295C246.997 295 311 231.2 311 152.5C311 73.8 246.997 10 168 10C89.0028 10 25 73.8 25 152.5C25 231.2 89.0028 295 168 295Z" fill="#E8EAF2"/>
@@ -57,12 +60,15 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
-    import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
-    import Footer from '@/components/team/footerArea/Footer.vue';
+    import HeaderArea from '@/components/team/HeaderArea.vue';
+    import List from '@/components/common/List.vue';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { TeamMember } from '@/types/teamMembers';
+    import Pagination from '@/components/common/Pagination.vue';
+    import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
+    import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
     import { RequestResponse } from '@/types/response';
+    import { SortDirection } from '@/types/common';
+    import SortingListHeader from '@/components/team/SortingListHeader.vue';
 
     enum HeaderState {
         DEFAULT = 0,
@@ -71,53 +77,48 @@
 
     @Component({
         components: {
-            TeamMemberItem,
             HeaderArea,
-            Footer,
+            List,
+            Pagination,
+            SortingListHeader,
         }
     })
-    export default class TeamArea extends Vue {
-        private isFetchInProgress: boolean = false;
-
+    export default class ProjectMembersArea extends Vue {
+        private FIRST_PAGE = 1;
         public mounted(): void {
-            this.$store.dispatch(PM_ACTIONS.FETCH);
+            this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         }
 
-        public onMemberClick(member: any): void {
+        public onMemberClick(member: ProjectMember): void {
             this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
         }
 
-        public async onScroll(): Promise<void> {
-            // TODO: cache team container
-            const teamContainer = document.getElementById('scrollable_team_container');
-            if (!teamContainer) {
-                return;
-            }
-
-            const isAtBottom = teamContainer.scrollTop + teamContainer.clientHeight === teamContainer.scrollHeight;
-
-            if (!isAtBottom || this.isFetchInProgress) return;
-
-            this.isFetchInProgress = true;
-
-            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
-
-            this.isFetchInProgress = false;
-
-            if (response.isSuccess) return;
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+        public get projectMembers(): ProjectMember[] {
+            return this.$store.state.projectMembersModule.page.projectMembers;
         }
 
-        public get projectMembers(): TeamMember[] {
-            return this.$store.getters.projectMembers;
+        public get getItemComponent() {
+            return ProjectMemberListItem;
+        }
+
+        public get projectMembersTotalCount(): number {
+            return this.$store.state.projectMembersModule.page.totalCount;
         }
 
         public get projectMembersCount(): number {
-            return this.$store.getters.projectMembersCount;
+            return this.$store.state.projectMembersModule.page.projectMembers.length;
         }
 
-        public get selectedProjectMembers(): TeamMember[] {
+        public get totalPageCount(): number {
+            return this.$store.state.projectMembersModule.page.pageCount;
+        }
+
+        public get pageIndex(): number {
+
+            return this.$store.state.projectMembersModule.page.currentPage;
+        }
+
+        public get selectedProjectMembers(): ProjectMember[] {
             return this.$store.getters.selectedProjectMembers;
         }
 
@@ -127,6 +128,20 @@
             }
 
             return HeaderState.DEFAULT;
+        }
+
+        public async onPageClick(index: number):Promise<void> {
+            await this.$store.dispatch(PM_ACTIONS.FETCH, index);
+        }
+
+        public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<any> {
+            this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
+            this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
+            const response: RequestResponse<ProjectMembersPage> = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            }
+            (this.$refs.pagination as Pagination).resetPageIndex();
         }
     }
 </script>
@@ -142,33 +157,34 @@
         max-width: 78.7%;
         width: 100%;
         background-color: #F5F6FA;
-        z-index: 999;
+        z-index: 1;
         top: auto;
     }
     
     .team-container {
         padding: 0px 30px 55px 64px;
-        overflow-y: scroll;
         max-height: 84vh;
         height: 84vh;
         position: relative;
-        
+
+
         &__content {
-            display: grid;
-            grid-template-columns: 230px 230px 230px 230px 230px 230px;
-            width: 100%;
-            grid-column-gap: 20px;
-            grid-row-gap: 20px;
+            display: flex;
             justify-content: space-between;
-            margin-top: 185px;
-            margin-bottom: 100px;
+            /*margin-top: 225px;*/
+            margin-bottom: 20px;
+            flex-direction: column;
         }
     }
-    
-    .user-container {
-        height: 160px;
+
+    .sort-header-container {
+        margin-top: 190px;
     }
-    
+
+    .pagination-area {
+        margin-left: -25px;
+    }
+
     .empty-search-result-area {
         height: 80vh;
         display: flex;
@@ -205,15 +221,11 @@
         .team-header {
             max-width: 75%;
         }
-        
-        .user-container {
-            height: 160px;
-        }
     }
     
     @media screen and (max-width: 1366px) {
         .team-container {
-        
+
             &__content {
                 grid-template-columns: 210px 210px 210px 210px;
             }
@@ -221,10 +233,6 @@
         
         .team-header {
             max-width: 70.2%;
-        }
-        
-        .user-container {
-            height: 160px;
         }
     }
     
@@ -238,10 +246,6 @@
         
         .team-header {
             max-width: 82.7%;
-        }
-        
-        .user-container {
-            height: 150px;
         }
     }
 </style>

@@ -220,7 +220,7 @@ func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.Se
 }
 
 // ProcessOrders take a list of order requests and "settles" them in one transaction
-func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*pb.SettlementResponse, err error) {
+func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(requests) == 0 {
@@ -244,7 +244,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 
 	rejectedRequests := make(map[storj.SerialNumber]bool)
 	reject := func(serialNumber storj.SerialNumber) {
-		r := &pb.SettlementResponse{
+		r := &orders.ProcessOrderResponse{
 			SerialNumber: serialNumber,
 			Status:       pb.SettlementResponse_REJECTED,
 		}
@@ -334,7 +334,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	for _, request := range requests {
 		_, rejected := rejectedRequests[request.OrderLimit.SerialNumber]
 		if !rejected {
-			r := &pb.SettlementResponse{
+			r := &orders.ProcessOrderResponse{
 				SerialNumber: request.OrderLimit.SerialNumber,
 				Status:       pb.SettlementResponse_ACCEPTED,
 			}
