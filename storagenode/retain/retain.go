@@ -236,11 +236,11 @@ func (s *Service) Status() Status {
 // ideally, but just running "touch" on all blobs is sufficient to avoid incorrect deletion of
 // data).
 func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
-	mon.Task()(&ctx, req.SatelliteID, req.CreatedBefore, req.Filter.Size())(&err)
-
 	// if retain status is disabled, return immediately
 	if s.config.RetainStatus == Disabled {
 		return nil
+	} else {
+		defer mon.Task()(&ctx, req.SatelliteID, req.CreatedBefore, req.Filter.Size())(&err)
 	}
 
 	numDeleted := 0
