@@ -186,7 +186,8 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service *audit.Service
+		Service  *audit.Service
+		Service2 *audit.Service2
 	}
 
 	GarbageCollection struct {
@@ -475,6 +476,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		// setup audit 2.0
+		peer.Audit.Service2, err = audit.NewService2(peer.Log.Named("audit2"),
+			peer.Metainfo.Loop,
+			config,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup garbage collection
@@ -686,6 +696,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.Service2.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))

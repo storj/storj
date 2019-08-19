@@ -44,12 +44,18 @@ type Service struct {
 	Reporter reporter
 
 	Loop sync2.Cycle
+}
 
-	// for audit 2.0 using metainfoloop
-	ReservoirLoop  sync2.Cycle
-	MetainfoLoop   *metainfo.Loop
+// Service2 is a temp name for the service struct during the audit 2.0 refactor.
+// Once V3-2363 and V3-2364 are implemented, Service2 will replace the existing Service struct.
+type Service2 struct {
+	log *zap.Logger
+
 	reservoirSlots int
 	Reservoirs     map[storj.NodeID]*Reservoir
+
+	MetainfoLoop  *metainfo.Loop
+	ReservoirLoop sync2.Cycle
 }
 
 // NewService instantiates a Service with access to a Cursor and Verifier
@@ -64,13 +70,44 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 		Reporter: NewReporter(log.Named("audit:reporter"), overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
 
 		Loop: *sync2.NewCycle(config.Interval),
+	}, nil
+}
 
-		// for audit 2.0
-		ReservoirLoop:  *sync2.NewCycle(config.Interval),
-		MetainfoLoop:   metaLoop,
+// NewService2 instantiates Service2
+func NewService2(log *zap.Logger, metaLoop *metainfo.Loop, config Config) (*Service2, error) {
+	return &Service2{
+		log: log,
+
 		reservoirSlots: config.Slots,
 		Reservoirs:     make(map[storj.NodeID]*Reservoir),
+
+		MetainfoLoop:  metaLoop,
+		ReservoirLoop: *sync2.NewCycle(config.Interval),
 	}, nil
+}
+
+// Run runs auditing service 2.0
+func (service *Service2) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	service.log.Info("audit 2.0 is starting up")
+
+	group, ctx := errgroup.WithContext(ctx)
+
+	service.ReservoirLoop.Start(ctx, group, func(ctx context.Context) (err error) {
+		defer mon.Task()(&ctx)(&err)
+		pathCollector := NewPathCollector(service.reservoirSlots)
+		err = service.MetainfoLoop.Join(ctx, pathCollector)
+		if err != nil {
+			service.log.Error("error joining metainfoloop", zap.Error(err))
+			return nil
+		}
+		for nodeID, res := range pathCollector.Reservoirs {
+			service.Reservoirs[nodeID] = res
+		}
+		return nil
+	})
+
+	return group.Wait()
 }
 
 // Run runs auditing service
@@ -85,20 +122,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		err = service.process(ctx)
 		if err != nil {
 			service.log.Error("process", zap.Error(err))
-		}
-		return nil
-	})
-
-	service.ReservoirLoop.Start(ctx, group, func(ctx context.Context) (err error) {
-		defer mon.Task()(&ctx)(&err)
-		pathCollector := NewPathCollector(service.reservoirSlots)
-		err = service.MetainfoLoop.Join(ctx, pathCollector)
-		if err != nil {
-			service.log.Error("error joining metainfoloop", zap.Error(err))
-			return nil
-		}
-		for nodeID, res := range pathCollector.Reservoirs {
-			service.Reservoirs[nodeID] = res
 		}
 		return nil
 	})
