@@ -3,10 +3,12 @@
 
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 import Vuex from 'vuex';
+
+import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
-import { projectMembersModule } from '@/store/modules/projectMembers';
 import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
+import { ProjectMembersApiGql } from '@/api/projectMembers';
 
 const localVue = createLocalVue();
 
@@ -16,22 +18,10 @@ const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'tes
 const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
 
 describe('ProjectMembersArea.vue', () => {
-    const state = projectMembersModule.state;
-    const mutations = projectMembersModule.mutations;
-    const actions = projectMembersModule.actions;
-    const getters = projectMembersModule.getters;
+    const pmApi = new ProjectMembersApiGql();
+    const pmModule = makeProjectMembersModule(pmApi);
 
-    const store = new Vuex.Store({
-        modules: {
-            projectMembersModule: {
-                state,
-                mutations,
-                actions,
-                getters,
-            }
-        }
-    });
-
+    const store = new Vuex.Store(pmModule);
 
     it('renders correctly', () => {
         const wrapper = shallowMount(ProjectMembersArea, {

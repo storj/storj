@@ -1,111 +1,86 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { projectMembersModule } from '@/store/modules/projectMembers';
 import { createLocalVue } from '@vue/test-utils';
 import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
 import Vuex from 'vuex';
-import { ProjectMember, ProjectMemberCursor, ProjectMembersPage } from '@/types/projectMembers';
+import { ProjectMember, ProjectMemberCursor, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
+import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { makeProjectMembersModule } from '@/store/modules/projectMembers';
+import { SortDirection } from '@/types/common';
 
-const mutations = projectMembersModule.mutations;
+const Vue = createLocalVue();
+const pmApi = new ProjectMembersApiGql();
+const projectMembersModule = makeProjectMembersModule(pmApi);
+
+Vue.use(Vuex);
+
+const store = new Vuex.Store({modules: {projectMembersModule}});
+const state = (store.state as any).projectMembersModule;
+
+const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
+const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
 
 describe('mutations', () => {
     beforeEach(() => {
         createLocalVue().use(Vuex);
     });
 
-    it('success delete project members', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: {
-                projectMembers: [{user: {email: '1'}}, {user: {email: '2'}}]
-            } as ProjectMembersPage,
-        };
-        const store = new Vuex.Store({state, mutations});
+    it('fetch project members', function () {
+        const testProjectMembersPage = new ProjectMembersPage();
+        testProjectMembersPage.projectMembers = [projectMember1];
+        testProjectMembersPage.totalCount = 1;
+        testProjectMembersPage.pageCount = 1;
 
-        const membersToDelete = ['1', '2'];
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.DELETE, membersToDelete);
-
-        expect(state.page.projectMembers.length).toBe(0);
-    });
-
-    it('error delete project members', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: {
-                projectMembers: [{user: {email: '1'}}, {user: {email: '2'}}]
-            } as ProjectMembersPage,
-        };
-        const store = new Vuex.Store({state, mutations});
-
-        const membersToDelete = ['3', '4'];
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.DELETE, membersToDelete);
-
-        expect(state.page.projectMembers.length).toBe(2);
-    });
-
-    it('toggle selection', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: {
-                projectMembers: [{
-                    user: {id: '1'},
-                    isSelected: false
-                }, {
-                    user: {id: '2'},
-                    isSelected: false
-                }]
-            } as ProjectMembersPage,
-        };
-        const store = new Vuex.Store({state, mutations});
-
-        const memberId = '1';
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, memberId);
-
-        expect(state.page.projectMembers[0].isSelected).toBeTruthy();
-        expect(state.page.projectMembers[1].isSelected).toBeFalsy();
-    });
-
-    it('clear selection', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: {
-                projectMembers: [{
-                    user: {id: '1'},
-                    isSelected: true
-                }, {
-                    user: {id: '2'},
-                    isSelected: true
-                }]
-            } as ProjectMembersPage,
-        };
-        const store = new Vuex.Store({state, mutations});
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
-
-        expect(state.page.projectMembers[0].isSelected).toBeFalsy();
-        expect(state.page.projectMembers[1].isSelected).toBeFalsy();
-    });
-
-    it('fetch projectMembers members', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: new ProjectMembersPage(),
-        };
-        const store = new Vuex.Store({state, mutations});
-
-        const teamMembers = new ProjectMembersPage();
-        teamMembers.projectMembers = [
-            new ProjectMember('', '', '', '', '1'),
-        ];
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, teamMembers);
+        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
         expect(state.page.projectMembers.length).toBe(1);
+        expect(state.page.search).toBe('');
+        expect(state.page.order).toBe(ProjectMemberOrderBy.NAME);
+        expect(state.page.orderDirection).toBe(SortDirection.ASCENDING);
+        expect(state.page.limit).toBe(6);
+        expect(state.page.pageCount).toBe(1);
+        expect(state.page.currentPage).toBe(1);
+        expect(state.page.totalCount).toBe(1);
     });
+
+    it('set project members page', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.SET_PAGE, 2);
+
+        expect(state.cursor.page).toBe(2);
+    });
+
+    it('set search query', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY, 'testSearchQuery');
+
+        expect(state.cursor.search).toBe('testSearchQuery');
+    });
+
+    it('set sort order', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER, ProjectMemberOrderBy.EMAIL);
+
+        expect(state.cursor.order).toBe(ProjectMemberOrderBy.EMAIL);
+    });
+
+    it('set sort direction', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION, SortDirection.DESCENDING);
+
+        expect(state.cursor.orderDirection).toBe(SortDirection.DESCENDING);
+    });
+
+    it('set search query', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMember1.user.id);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(true);
+    });
+
+    it('clear selection', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(false);
+    });
+
+
 });
 
 // describe('actions', () => {

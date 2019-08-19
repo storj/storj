@@ -17,7 +17,6 @@ const {
     FETCH,
     TOGGLE_SELECTION,
     CLEAR_SELECTION,
-    DELETE,
     CLEAR,
     CHANGE_SORT_ORDER,
     CHANGE_SORT_ORDER_DIRECTION,
@@ -37,15 +36,6 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
     return {
         state: new ProjectMembersState(),
         mutations: {
-            deleteProjectMembers(state: any, projectMemberEmails: string[]) {
-                const emailsCount = projectMemberEmails.length;
-
-                for (let j = 0; j < emailsCount; j++) {
-                    state.page.projectMembers = state.page.projectMembers.filter((element: any) => {
-                        return element.user.email !== projectMemberEmails[j];
-                    });
-                }
-            },
             fetchProjectMembers(state: any, page: ProjectMembersPage) {
                 state.page = page;
             },

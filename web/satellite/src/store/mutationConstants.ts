@@ -20,7 +20,6 @@ export const PROJECT_MEMBER_MUTATIONS = {
     FETCH: 'fetchProjectMembers',
     TOGGLE_SELECTION: 'toggleSelection',
     CLEAR_SELECTION: 'clearSelection',
-    DELETE: 'deleteProjectMembers',
     CLEAR: 'clearProjectMembers',
     CHANGE_SORT_ORDER: 'changeProjectMembersSortOrder',
     CHANGE_SORT_ORDER_DIRECTION: 'changeProjectMembersSortOrderDirection',
