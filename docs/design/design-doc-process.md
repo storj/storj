@@ -5,11 +5,11 @@ Design documents will be checked in as Markdown files in `docs/design` folder.
 Design documents should have an editor, at least one discussion meeting, and at least two reviewers from the architecture board.
 
 The editor is responsible for:
-* soliciting authors or authoring the document themselves,
-* scheduling discussion meetings,
-* finding reviewers, 
-* posting the document in our [forum](https://forum.storj.io/c/engineer-amas/design-draft), and
-* getting the document finalized and merged.
+* soliciting authors or authoring the document themselves
+* scheduling discussion meetings
+* finding reviewers
+* posting the document in our [forum](https://forum.storj.io/c/engineer-amas/design-draft)
+* getting the document finalized and merged
 
 The editor is also responsible for making a list of epics and tickets after the design document is finalized and merged.
 
