@@ -6,7 +6,7 @@
         <div class="team-header">
             <HeaderArea :headerState="headerState" :selectedProjectMembers="selectedProjectMembers.length"/>
         </div>
-        <div id="team_container" v-if="projectMembers.length > 0 || projectMembersCount > 0" class="team-container">
+        <div id="team_container" v-if="projectMembersCount > 0 || projectMembersTotalCount > 0" class="team-container">
             <div class="team-container__content">
                 <SortingListHeader
                     class="team-container__content__sort-header-container"
@@ -22,7 +22,7 @@
                 :totalPageCount="totalPageCount"
                 :onPageClickCallback="onPageClick"/>
         </div>
-        <div class="empty-search-result-area" v-if="(projectMembers.length === 0 && projectMembersCount === 0)">
+        <div class="empty-search-result-area" v-if="(projectMembersCount === 0 && projectMembersTotalCount === 0)">
             <h1 class="empty-search-result-area__text">No results found</h1>
             <svg width="380" height="295" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M168 295C246.997 295 311 231.2 311 152.5C311 73.8 246.997 10 168 10C89.0028 10 25 73.8 25 152.5C25 231.2 89.0028 295 168 295Z" fill="#E8EAF2"/>
@@ -101,8 +101,12 @@
             return ProjectMemberListItem;
         }
 
-        public get projectMembersCount(): number {
+        public get projectMembersTotalCount(): number {
             return this.$store.state.projectMembersModule.page.totalCount;
+        }
+
+        public get projectMembersCount(): number {
+            return this.$store.state.projectMembersModule.page.projectMembers.length;
         }
 
         public get totalPageCount(): number {

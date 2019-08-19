@@ -307,11 +307,11 @@ describe('Pagination.vue', () => {
         expect(wrapperData.lastBlockPages.length).toBe(3);
     });
 
-    it('should reset current page index to 1', () => {
+    it('should reset current page index to 1', async () => {
         const wrapper = shallowMount(Pagination, {
             propsData: {
                 totalPageCount: 4,
-                onPageClickCallback: () => new Promise(() => false)
+                onPageClickCallback: () => Promise.resolve({})
             },
             mocks: {
                 $route: {
@@ -324,6 +324,10 @@ describe('Pagination.vue', () => {
                 }
             }
         });
+
+        await wrapper.vm.nextPage();
+
+        expect(wrapper.vm.$data.currentPageNumber).toBe(2);
 
         wrapper.vm.resetPageIndex();
 
@@ -333,11 +337,11 @@ describe('Pagination.vue', () => {
         expect(wrapperData.pagesArray.length).toBe(4);
     });
 
-    it('should completely reinitialize Pagination on totalPageCount change', () => {
+    it('should completely reinitialize Pagination on totalPageCount change', async () => {
         const wrapper = shallowMount(Pagination, {
             propsData: {
                 totalPageCount: 4,
-                onPageClickCallback: () => new Promise(() => false)
+                onPageClickCallback: () => Promise.resolve({})
             },
             mocks: {
                 $route: {
@@ -350,6 +354,10 @@ describe('Pagination.vue', () => {
                 }
             }
         });
+
+        await wrapper.vm.nextPage();
+
+        expect(wrapper.vm.$data.currentPageNumber).toBe(2);
 
         wrapper.setProps({totalPageCount: 7});
 
