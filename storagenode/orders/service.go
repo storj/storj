@@ -115,7 +115,23 @@ func NewService(log *zap.Logger, transport transport.Client, orders DB, trust *t
 // Run sends orders on every interval to the appropriate satellites.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.Sender.Run(ctx, service.runOnce)
+
+	var group errgroup.Group
+	service.Sender.Start(ctx, &group, func(ctx context.Context) error {
+		err := service.sendOrders(ctx)
+		if err != nil {
+			service.log.Error("error sending orders: ", zap.Error(err))
+		}
+		return nil
+	})
+	service.Cleanup.Start(ctx, &group, func(ctx context.Context) error {
+		err := service.cleanArchive(ctx)
+		if err != nil {
+			service.log.Error("error cleaning archive: ", zap.Error(err))
+		}
+		return nil
+	})
+	return group.Wait()
 }
 
 func (service *Service) cleanArchive(ctx context.Context) (err error) {
@@ -131,7 +147,7 @@ func (service *Service) cleanArchive(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) runOnce(ctx context.Context) (err error) {
+func (service *Service) sendOrders(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Debug("sending")
 
