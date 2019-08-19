@@ -4,7 +4,6 @@
 package piecestore_test
 
 import (
-	"context"
 	"io"
 	"strings"
 	"sync/atomic"
@@ -30,7 +29,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -499,28 +497,4 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, storageNode storj.
 		PieceExpiration: now.Add(pieceExpiration),
 		Limit:           limit,
 	}, piecePrivateKey
-}
-
-func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID, createdBefore time.Time) (pieceIDs []storj.PieceID, err error) {
-	err = store.WalkSatellitePieces(ctx, satellite, func(pieceAccess pieces.StoredPieceAccess) error {
-		mTime, err := pieceAccess.CreationTime(ctx)
-		if err != nil {
-			return err
-		}
-		if !mTime.Before(createdBefore) {
-			return nil
-		}
-		pieceIDs = append(pieceIDs, pieceAccess.PieceID())
-		return nil
-	})
-	return pieceIDs, err
-}
-
-// generateTestIDs generates n piece ids
-func generateTestIDs(n int) []storj.PieceID {
-	ids := make([]storj.PieceID, n)
-	for i := range ids {
-		ids[i] = testrand.PieceID()
-	}
-	return ids
 }

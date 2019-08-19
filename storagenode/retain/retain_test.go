@@ -192,7 +192,6 @@ func TestRetainPieces(t *testing.T) {
 	})
 }
 
-// getAllPieceIDs and generateTestIDs copied from storagenode/piecestore/endpoint_test.go
 func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID, createdBefore time.Time) (pieceIDs []storj.PieceID, err error) {
 	err = store.WalkSatellitePieces(ctx, satellite, func(pieceAccess pieces.StoredPieceAccess) error {
 		mTime, err := pieceAccess.CreationTime(ctx)
