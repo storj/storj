@@ -93,7 +93,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		// save piece counts for next iteration
+		// save piece counts in memory for next iteration
 		for id := range lastPieceCounts {
 			delete(lastPieceCounts, id)
 		}
