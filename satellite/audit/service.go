@@ -62,9 +62,9 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	}, nil
 }
 
-// Service2 is a temp name for the service struct during the audit 2.0 refactor.
+// ReservoirService is a temp name for the service struct during the audit 2.0 refactor.
 // Once V3-2363 and V3-2364 are implemented, Service2 will replace the existing Service struct.
-type Service2 struct {
+type ReservoirService struct {
 	log *zap.Logger
 
 	reservoirSlots int
@@ -76,8 +76,8 @@ type Service2 struct {
 }
 
 // NewService2 instantiates Service2
-func NewService2(log *zap.Logger, metaLoop *metainfo.Loop, r *rand.Rand, config Config) (*Service2, error) {
-	return &Service2{
+func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, r *rand.Rand, config Config) (*ReservoirService, error) {
+	return &ReservoirService{
 		log: log,
 
 		reservoirSlots: config.Slots,
@@ -90,7 +90,7 @@ func NewService2(log *zap.Logger, metaLoop *metainfo.Loop, r *rand.Rand, config 
 }
 
 // Run runs auditing service 2.0
-func (service *Service2) Run(ctx context.Context) (err error) {
+func (service *ReservoirService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("audit 2.0 is starting up")
 

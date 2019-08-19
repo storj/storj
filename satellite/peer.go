@@ -188,8 +188,8 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service  *audit.Service
-		Service2 *audit.Service2
+		Service          *audit.Service
+		ReservoirService *audit.ReservoirService
 	}
 
 	GarbageCollection struct {
@@ -481,7 +481,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		// setup audit 2.0
 		r := rand.New(rand.NewSource(time.Now().Unix()))
-		peer.Audit.Service2, err = audit.NewService2(peer.Log.Named("audit2"),
+		peer.Audit.ReservoirService, err = audit.NewReservoirService(peer.Log.Named("reservoir service"),
 			peer.Metainfo.Loop,
 			r,
 			config,
@@ -702,7 +702,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Service2.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Audit.ReservoirService.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
