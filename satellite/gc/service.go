@@ -75,6 +75,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return nil
 	}
 
+	// load last piece counts from overlay db
 	lastPieceCounts, err := service.overlay.AllPieceCounts(ctx)
 	if err != nil {
 		return Error.Wrap(err)
