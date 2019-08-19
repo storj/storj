@@ -66,13 +66,13 @@
 
 <script lang='ts'>
     import { Component, Vue } from 'vue-property-decorator';
+
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import { EmailInput } from '@/types/EmailInput';
-    import { validateEmail } from '@/utils/validation';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import ROUTES from '@/utils/constants/routerConstants';
-    import { RequestResponse } from '@/types/response';
+    import { validateEmail } from '@/utils/validation';
 
     @Component({
         components: {
@@ -84,6 +84,8 @@
         private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
         private formError: string = '';
         private isLoading: boolean = false;
+
+        private FIRST_PAGE = 1;
 
         public async onAddUsersClick(): Promise<void> {
             if (this.isLoading) {
@@ -136,18 +138,10 @@
                 return;
             }
 
-            let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
-            if (!result.isSuccess) {
+            try {
+                await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
+            } catch (err) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding projectMembers members!');
-                this.isLoading = false;
-
-                return;
-            }
-
-            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, { limit: 20, offset: 0 });
-
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
                 this.isLoading = false;
 
                 return;
@@ -156,8 +150,9 @@
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-            const fetchMembersResponse: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
-            if (!fetchMembersResponse.isSuccess) {
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
 

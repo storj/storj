@@ -60,13 +60,13 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
+
     import HeaderArea from '@/components/team/HeaderArea.vue';
     import List from '@/components/common/List.vue';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Pagination from '@/components/common/Pagination.vue';
-    import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
+    import { ProjectMember, ProjectMemberOrderBy } from '@/types/projectMembers';
     import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
-    import { RequestResponse } from '@/types/response';
     import { SortDirection } from '@/types/common';
     import SortingListHeader from '@/components/team/SortingListHeader.vue';
 
@@ -85,9 +85,6 @@
     })
     export default class ProjectMembersArea extends Vue {
         private FIRST_PAGE = 1;
-        public mounted(): void {
-            this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-        }
 
         public onMemberClick(member: ProjectMember): void {
             this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
@@ -113,11 +110,6 @@
             return this.$store.state.projectMembersModule.page.pageCount;
         }
 
-        public get pageIndex(): number {
-
-            return this.$store.state.projectMembersModule.page.currentPage;
-        }
-
         public get selectedProjectMembers(): ProjectMember[] {
             return this.$store.getters.selectedProjectMembers;
         }
@@ -137,10 +129,12 @@
         public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<any> {
             this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
             this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
-            const response: RequestResponse<ProjectMembersPage> = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            if (!response.isSuccess) {
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
+
             (this.$refs.pagination as Pagination).resetPageIndex();
         }
     }

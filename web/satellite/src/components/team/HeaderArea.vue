@@ -28,6 +28,7 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
+
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
@@ -86,9 +87,9 @@
                 return member.user.email;
             });
 
-            const response = await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
-
-            if (!response.isSuccess) {
+            try {
+                await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
+            } catch (err) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from projectMembers');
 
                 return;
@@ -102,9 +103,9 @@
 
         public async processSearchQuery(search: string) {
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
-            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-
-            if (!response.isSuccess) {
+            try {
+                const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (err) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
         }

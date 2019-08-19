@@ -17,15 +17,15 @@ export const PROJECTS_MUTATIONS = {
 };
 
 export const PROJECT_MEMBER_MUTATIONS = {
-    FETCH: 'FETCH_MEMBERS',
-    TOGGLE_SELECTION: 'TOGGLE_SELECTION',
-    CLEAR_SELECTION: 'CLEAR_SELECTION',
-    DELETE: 'DELETE_MEMBERS',
-    CLEAR: 'CLEAR_MEMBERS',
-    CHANGE_SORT_ORDER: 'CHANGE_SORT_ORDER',
-    CHANGE_SORT_ORDER_DIRECTION: 'CHANGE_SORT_ORDER_DIRECTION',
-    SET_SEARCH_QUERY: 'SET_SEARCH_QUERY',
-    SET_PAGE: 'SET_PROJECT_MEMBERS_PAGE',
+    FETCH: 'fetchProjectMembers',
+    TOGGLE_SELECTION: 'toggleSelection',
+    CLEAR_SELECTION: 'clearSelection',
+    DELETE: 'deleteProjectMembers',
+    CLEAR: 'clearProjectMembers',
+    CHANGE_SORT_ORDER: 'changeProjectMembersSortOrder',
+    CHANGE_SORT_ORDER_DIRECTION: 'changeProjectMembersSortOrderDirection',
+    SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
+    SET_PAGE: 'setProjectMembersPage',
 };
 
 export const API_KEYS_MUTATIONS = {

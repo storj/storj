@@ -4,16 +4,17 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
-import { makeUsersModule } from '@/store/modules/users';
-import { makeProjectsModule } from '@/store/modules/projects';
-import { projectMembersModule } from '@/store/modules/projectMembers';
-import { notificationsModule } from '@/store/modules/notifications';
+import { ApiKeysApiGql } from '@/api/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
-import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { bucketUsageModule, usageModule, creditUsageModule } from '@/store/modules/usage';
+import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { makeProjectMembersModule } from '@/store/modules/projectMembers';
+import { makeProjectsModule } from '@/store/modules/projects';
+import { makeUsersModule } from '@/store/modules/users';
+import { notificationsModule } from '@/store/modules/notifications';
+import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 import { UsersApiGql } from '@/api/users';
-import { ApiKeysApiGql } from '@/api/apiKeys';
 
 Vue.use(Vuex);
 
@@ -26,20 +27,20 @@ export class StoreModule<S> {
 
 const usersApi = new UsersApiGql();
 const apiKeysApi = new ApiKeysApiGql();
+const projectMembersApi = new ProjectMembersApiGql();
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
     modules: {
-        usersModule: makeUsersModule(usersApi),
-        projectsModule: makeProjectsModule(),
-        projectMembersModule,
-        notificationsModule,
-        appStateModule,
         apiKeysModule: makeApiKeysModule(apiKeysApi),
-        usageModule,
+        appStateModule,
         bucketUsageModule,
+        projectMembersModule: makeProjectMembersModule(projectMembersApi),
         projectPaymentsMethodsModule,
-        creditUsageModule
+        projectsModule: makeProjectsModule(),
+        notificationsModule,
+        usageModule,
+        usersModule: makeUsersModule(usersApi),
     }
 });
 

@@ -13,6 +13,38 @@ export enum ProjectMemberOrderBy {
     CREATED_AT,
 }
 
+export interface ProjectMembersApi {
+    /**
+     * Add members to project by user emails.
+     *
+     * @param projectId
+     * @param emails list of project members email to add
+     *
+     * @throws Error
+     */
+    add(projectId: string, emails: string[]): Promise<null>;
+
+    /**
+     * Deletes ProjectMembers from project by project member emails
+     *
+     * @param projectId
+     * @param emails
+     *
+     * @throws Error
+     */
+    delete(projectId: string, emails: string[]): Promise<null>;
+
+    /**
+     * Fetch Project Members
+     *
+     * @param projectId
+     * @param cursor
+     *
+     * @throws Error
+     */
+    get(projectId: string, cursor: ProjectMemberCursor): Promise<ProjectMembersPage>;
+}
+
 // ProjectMemberCursor is a type, used for paged project members request
 export class ProjectMemberCursor {
     public constructor(
