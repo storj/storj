@@ -12,10 +12,10 @@ Currently we are using Docker for updates, but due to it's limitations with cert
 
 The Updater has several responsibilities:
 
-1. figure out whether something needs to be updated with gradual rollout,
-2. safely download the binaries,
-3. safely update the binaries,
-4. safely restart the binaries
+1. Figure out whether something needs to be updated with gradual rollout/
+1. Safely download the binaries.
+1. Safely update the binaries.
+1. Safely restart the binaries.
 
 ## Design
 
@@ -48,11 +48,11 @@ When there is a newer version is available it needs to calculate whether it need
 * The update check should have a jitter to avoid a stampeding herd. See http://highscalability.com/blog/2012/4/17/youtube-strategy-adding-jitter-isnt-a-bug.html for more information.
 
 Possible problems:
-* bad gradual rollout. We know it's a bad rollout if our application stops working
-    * Log error in log file if possible
-    * if we did have a database migration, api/grpc change, or file system change in the latest update then wait for next update???
-        * bad latest update might have had faulty database changes that will need to be migrated again.
-    * otherwise rollback to previous version
+* Bad gradual rollout. We know it's a bad rollout if our application stops working.
+    * Log error in log file if possible.
+    * If we did have a database migration, API/gRPC change, or file system change in the latest update then wait for next update???
+        * Bad latest update might have had faulty database changes that will need to be migrated again.
+    * Otherwise rollback to previous version.
 
 ### Downloading the binaries
 
@@ -60,42 +60,42 @@ Once we have decided on a new version we need to download the new version. We wi
 
 Once we have successfully downloaded we must verify that the binary signature is valid.
 
-* The downloaded file may be quarantined by the anti-virus or blocked by the firewall.
-
 Possible problems:
-* downloading could fail
-* out-of-space for downloading
-* filesystem read-only
-* corrupted binary
-* Man in the Middle attacks
-    * verify binary hashes and the binary signature
+* Downloading could fail.
+* Out-of-space for downloading.
+* Filesystem is read-only.
+* Corrupted binary.
+* Man in the Middle attacks.
+    * Verify binary hashes and the binary signature.
+* Downloaded file may be quarantined by the anti-virus or blocked by the firewall.
 
 ### Updating the binaries
 
 To update the binaries we can take two approaches. 
 
 1. Rename `storagenode.exe` into `storagenode.old.<release>.exe`
-2. Rename `storagenode.<release>.exe` into `storagenode.exe`.
-3. Restart the service using Windows API.
+1. Rename `storagenode.<release>.exe` into `storagenode.exe`.
+1. Restart the service using Windows API.
+
 
 Alternatively this could be:
 
 1. Stop the service using Windows API.
-2. Rename `storagenode.exe` into `storagenode.old.<release>.exe`
-3. Rename `storagenode.<release>.exe` into `storagenode.exe`.
-4. Start the service using Windows API.
+1. Rename `storagenode.exe` into `storagenode.old.<release>.exe`
+1. Rename `storagenode.<release>.exe` into `storagenode.exe`.
+1. Start the service using Windows API.
 
 Usually automatic updaters prefer the first approach because it allows for inplace updating of the same binary that is doing the updating.
 
 Possible problems:
-* computer crashes during swapping
-    * automatic updater checks binary version and reruns download/swap steps.
-* deletion/stopping of the old binary fails.
-* out-of-space during migrations
-* failure to start
-* not yet configured
-    * storage node will run a setup or describe out to fix the problem...?
-* anti-virus or other protection prevents new binary from starting
+* Computer crashes during swapping.
+    * Automatic updater checks binary version and reruns download/swap steps.
+* Deletion/stopping of the old binary fails.
+* Out-of-space during migrations.
+* Failure to start.
+* Not yet configured.
+    * Storage node will run a setup or describe out to fix the problem...?
+* Anti-virus or other protection prevents new binary from starting.
 
 If the service fails to start then we should try to report and/or correct the issue.
 
