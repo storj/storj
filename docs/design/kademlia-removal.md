@@ -36,9 +36,9 @@ http://highscalability.com/blog/2012/4/17/youtube-strategy-adding-jitter-isnt-a-
 - Satellites will ping the nodes back to confirm their addresses
     - If is it successful, the satellite will insert or update the node in the overlay cache and
        notify the node of success. Make sure to close the connection. Don’t use the transport observer to update the cache.
+       Update the IP and uptime directly.
     - If the the satellite does not confirm the node address, it does not proceed with updating the overlay cache. The node 
-    receives an error message and closes the connection when it times out.
-- Reaper service: Satellites check node connections on nodes that they haven’t heard from in a certain amount of time.
+    receives an log message and closes the connection when it times out.
 
 ### Disintegrate Kademlia from the network, storj sim and testplanet setups
 - Remove kademlia from the discovery package
