@@ -33,7 +33,7 @@ The other reviewer should be someone with significant distributed systems expert
 * Matt (@brimstone),
 * unless agreed otherwise.
 
-However, it is expected that there should be feedback from the engineering team, DevOps team, data science team, UX team, and QA.
+However, it is expected that there should be feedback from the engineering team, DevOps team, data science team, UX team, QA team, and the community.
 
 ## Template
 
