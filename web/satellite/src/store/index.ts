@@ -15,6 +15,7 @@ import { bucketUsageModule, usageModule } from '@/store/modules/usage';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 import { CreditsApiGql } from '@/api/credits';
 import { UsersApiGql } from '@/api/users';
+import { ApiKeysApiGql } from '@/api/apiKeys';
 
 Vue.use(Vuex);
 
@@ -27,6 +28,7 @@ export class StoreModule<S> {
 
 // TODO: remove it after we will use modules as classes and use some DI framework
 const usersApi = new UsersApiGql();
+const apiKeysApi = new ApiKeysApiGql();
 const creditsApi = new CreditsApiGql();
 
 // Satellite store (vuex)
@@ -37,7 +39,7 @@ const store = new Vuex.Store({
         projectMembersModule,
         notificationsModule,
         appStateModule,
-        apiKeysModule: makeApiKeysModule(),
+        apiKeysModule: makeApiKeysModule(apiKeysApi),
         usageModule,
         bucketUsageModule,
         projectPaymentsMethodsModule,

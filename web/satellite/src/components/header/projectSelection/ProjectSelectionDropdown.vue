@@ -34,13 +34,15 @@
 
     @Component
     export default class ProjectSelectionDropdown extends Vue {
+        private FIRST_PAGE = 0;
+
         public async onProjectSelected(projectID: string): Promise<void> {
             this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
             // TODO: add types
-            const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
             const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
             const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
             const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
