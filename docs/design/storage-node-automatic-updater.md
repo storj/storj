@@ -47,13 +47,6 @@ When there is a newer version is available it needs to calculate whether it need
 * The update check must verify that it is a trusted server.
 * The update check should have a jitter to avoid a stampeding herd. See http://highscalability.com/blog/2012/4/17/youtube-strategy-adding-jitter-isnt-a-bug.html for more information.
 
-Possible problems:
-* Bad gradual rollout. We know it's a bad rollout if our application stops working.
-    * Log error in log file if possible.
-    * If we did have a database migration, API/gRPC change, or file system change in the latest update then wait for next update???
-        * Bad latest update might have had faulty database changes that will need to be migrated again.
-    * Otherwise rollback to previous version.
-
 ### Downloading the binaries
 
 Once we have decided on a new version we need to download the new version. We will download the appropriate release from a trusted server beside the current binary (instead of temporary directory).
@@ -76,7 +69,7 @@ To update the binaries we can take two approaches.
 1. Rename `storagenode.exe` into `storagenode.old.<release>.exe`.
 1. Rename `storagenode.<release>.exe` into `storagenode.exe`.
 1. Restart the service using Windows API.
-1. Delete `storagenode.old.<release>.exe` from previous updates. Keep the latest `storagenode.old.<release>.exe` to be able to roll back, if necessary.
+1. Delete `storagenode.old.<release>.exe`.
 
 
 Alternatively this could be:
@@ -85,7 +78,7 @@ Alternatively this could be:
 1. Rename `storagenode.exe` into `storagenode.old.<release>.exe`
 1. Rename `storagenode.<release>.exe` into `storagenode.exe`.
 1. Start the service using Windows API.
-1. Delete `storagenode.old.<release>.exe` from previous updates. Keep the latest `storagenode.old.<release>.exe` to be able to roll back, if necessary.
+1. Delete `storagenode.old.<release>.exe`.
 
 Usually automatic updaters prefer the first approach because it allows for inplace updating of the same binary that is doing the updating.
 
@@ -101,6 +94,20 @@ Possible problems:
 
 If the service fails to start then we should try to report and/or correct the issue.
 
+## Rollbacks
+
+There will be cases when, despite our best efforts, we will release a bad version. In such case, storage nodes which got the update will malfunction.
+
+We won't support rolling back to the previous version.
+
+To mitigate the risk, we will have canary releases and gradual release rollout. If a problem with the new version is identified, we will:
+
+1. Stop the canary releases - set the canary channel to the previous last known good version.
+1. Stop the gradual release rollout.
+1. Prepare a new patch version with the fix.
+1. Update the canary channel to the new patch version.
+1. If canary nodes report successful fix, restart the gradual release rollout with the new patch version.
+
 ## Implementation
 
 * Create an automatic updater.
@@ -111,6 +118,6 @@ If the service fails to start then we should try to report and/or correct the is
 
 ## Open issues (if applicable)
 
-* Do we want to rollback if an update fails?
-    * If yes then we need to make backwards migrations for every forward migration.
-    * Otherwise we can wait until the version server requests a new update.
+* Should we try to update new and small nodes first to further mitigate the impact of bad releases?
+  * Storage Node Operators of new nodes are expected to check their logs more frequently.
+  * Is this possible at all using the jitter?
