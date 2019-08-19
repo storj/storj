@@ -37,8 +37,8 @@ http://highscalability.com/blog/2012/4/17/youtube-strategy-adding-jitter-isnt-a-
     - If is it successful, the satellite will insert or update the node in the overlay cache and
        notify the node of success. Make sure to close the connection. Don’t use the transport observer to update the cache.
        Update the IP and uptime directly.
-    - If the the satellite does not confirm the node address, it does not proceed with updating the overlay cache. The node 
-    receives an log message and closes the connection when it times out.
+    - If the satellite does not confirm the node address, it does not proceed with updating the overlay cache. The node 
+    receives a log message and closes the connection when it times out.
 
 ### Disintegrate Kademlia from the network, storj sim and testplanet setups
 - Remove kademlia from the discovery package
@@ -54,13 +54,13 @@ to work with old and new storage nodes.
 
 ## Implementation
 
-- [Nodes should find satellites through the trust packages rather than kademlia](https://storjlabs.atlassian.net/browse/V3-2274)
+- [Nodes should communicate with satellites directly](https://storjlabs.atlassian.net/browse/V3-2274)
 
-- [Nodes keep up to date with satellites by periodically pinging and updating their trusted list](https://storjlabs.atlassian.net/browse/V3-2275)
+- [Network refreshes at a regular interval](https://storjlabs.atlassian.net/browse/V3-2275)
 
-- [Remove kad random lookups for discovery & update overlay cache refresh](https://storjlabs.atlassian.net/browse/V3-2305])
+- [Remove the overlay cache from transport observers](https://storjlabs.atlassian.net/browse/V3-2305])
 
-- [Remove kademlia related setups and files from the network, storj sim and testplanet setups](https://storjlabs.atlassian.net/browse/V3-2276)
+- [Delete Kademlia](https://storjlabs.atlassian.net/browse/V3-2276)
 
 - [Update Documentation](https://storjlabs.atlassian.net/browse/V3-2461)
 
