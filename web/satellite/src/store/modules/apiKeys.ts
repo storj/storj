@@ -2,28 +2,38 @@
 // See LICENSE for copying information.
 
 import { API_KEYS_MUTATIONS } from '../mutationConstants';
-import { createAPIKey, deleteAPIKeys, fetchAPIKeys } from '@/api/apiKeys';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
-import { ApiKey } from '@/types/apiKeys';
-import { RequestResponse } from '@/types/response';
+import { ApiKey, ApiKeysApi } from '@/types/apiKeys';
 import { StoreModule } from '@/store';
 
+const {
+    FETCH,
+    ADD,
+    DELETE,
+    TOGGLE_SELECTION,
+    CLEAR_SELECTION,
+} = API_KEYS_MUTATIONS;
 
 class ApiKeysState {
     public apiKeys: ApiKey[] = [];
 }
 
-export function makeApiKeysModule(): StoreModule<ApiKeysState> {
+/**
+ * creates apiKeys module with all dependencies
+ *
+ * @param api - apiKeys api
+ */
+export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
     return {
         state: new ApiKeysState(),
+
         mutations: {
-            [API_KEYS_MUTATIONS.FETCH](state: any, apiKeys: ApiKey[]) {
+            setAPIKeys(state: any, apiKeys: ApiKey[]) {
                 state.apiKeys = apiKeys;
             },
-            [API_KEYS_MUTATIONS.ADD](state: any, apiKey: ApiKey) {
+            addAPIKey(state: any, apiKey: ApiKey) {
                 state.apiKeys.push(apiKey);
             },
-            [API_KEYS_MUTATIONS.DELETE](state: any, ids: string[]) {
+            deleteAPIKey(state: any, ids: string[]) {
                 const keysCount = ids.length;
 
                 for (let j = 0; j < keysCount; j++) {
@@ -32,7 +42,7 @@ export function makeApiKeysModule(): StoreModule<ApiKeysState> {
                     });
                 }
             },
-            [API_KEYS_MUTATIONS.TOGGLE_SELECTION](state: any, apiKeyID: string) {
+            toggleSelection(state: any, apiKeyID: string) {
                 state.apiKeys = state.apiKeys.map((apiKey: ApiKey) => {
                     if (apiKey.id === apiKeyID) {
                         apiKey.isSelected = !apiKey.isSelected;
@@ -41,7 +51,7 @@ export function makeApiKeysModule(): StoreModule<ApiKeysState> {
                     return apiKey;
                 });
             },
-            [API_KEYS_MUTATIONS.CLEAR_SELECTION](state: any) {
+            clearSelection(state: any) {
                 state.apiKeys = state.apiKeys.map((apiKey: ApiKey) => {
                     apiKey.isSelected = false;
 
@@ -50,44 +60,39 @@ export function makeApiKeysModule(): StoreModule<ApiKeysState> {
             },
         },
         actions: {
-            [API_KEYS_ACTIONS.FETCH]: async function ({commit, rootGetters}): Promise<RequestResponse<ApiKey[]>> {
+            setAPIKeys: async function ({commit, rootGetters}): Promise<ApiKey[]> {
                 const projectId = rootGetters.selectedProject.id;
 
-                let fetchResult: RequestResponse<ApiKey[]> = await fetchAPIKeys(projectId);
-                if (fetchResult.isSuccess) {
-                    commit(API_KEYS_MUTATIONS.FETCH, fetchResult.data);
-                }
+                let apiKeys = await api.get(projectId);
 
-                return fetchResult;
+                commit(FETCH, apiKeys);
+
+                return apiKeys;
             },
-            [API_KEYS_ACTIONS.CREATE]: async function ({commit, rootGetters}: any, name: string): Promise<RequestResponse<ApiKey>> {
+            createAPIKey: async function ({commit, rootGetters}: any, name: string): Promise<ApiKey> {
                 const projectId = rootGetters.selectedProject.id;
 
-                let result: RequestResponse<ApiKey> = await createAPIKey(projectId, name);
+                let apiKey = await api.create(projectId, name);
 
-                if (result.isSuccess) {
-                    commit(API_KEYS_MUTATIONS.ADD, result.data);
-                }
+                commit(ADD, apiKey);
+
+                return apiKey;
+            },
+            deleteAPIKey: async function({commit}: any, ids: string[]): Promise<null> {
+                let result = await api.delete(ids);
+
+                commit(DELETE, ids);
 
                 return result;
             },
-            [API_KEYS_ACTIONS.DELETE]: async function({commit}: any, ids: string[]): Promise<RequestResponse<null>> {
-                let result = await deleteAPIKeys(ids);
-
-                if (result.isSuccess) {
-                    commit(API_KEYS_MUTATIONS.DELETE, ids);
-                }
-
-                return result;
+            toggleAPIKeySelection: function({commit}, apiKeyID: string): void {
+                commit(TOGGLE_SELECTION, apiKeyID);
             },
-            [API_KEYS_ACTIONS.TOGGLE_SELECTION]: function({commit}, apiKeyID: string): void {
-                commit(API_KEYS_MUTATIONS.TOGGLE_SELECTION, apiKeyID);
+            clearAPIKeySelection: function({commit}): void {
+                commit(CLEAR_SELECTION);
             },
-            [API_KEYS_ACTIONS.CLEAR_SELECTION]: function({commit}): void {
-                commit(API_KEYS_MUTATIONS.CLEAR_SELECTION);
-            },
-            [API_KEYS_ACTIONS.CLEAR]: function ({commit}): void {
-                commit(API_KEYS_MUTATIONS.FETCH, []);
+            clearAPIKeys: function ({commit}): void {
+                commit(FETCH, []);
             },
         },
         getters: {

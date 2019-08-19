@@ -72,8 +72,9 @@
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
 
-            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            if (!keysResponse.isSuccess) {
+            try {
+                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            } catch {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 

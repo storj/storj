@@ -29,12 +29,12 @@ export const PROJECT_MEMBER_MUTATIONS = {
 };
 
 export const API_KEYS_MUTATIONS = {
-    FETCH: 'FETCH_API_KEYS',
-    ADD: 'ADD_API_KEY',
-    DELETE: 'DELETE_API_KEY',
-    TOGGLE_SELECTION: 'TOGGLE_SELECTION',
-    CLEAR_SELECTION: 'CLEAR_SELECTION',
-    CLEAR: 'CLEAR_API_KEYS',
+    FETCH: 'setAPIKeys',
+    ADD: 'addAPIKey',
+    DELETE: 'deleteAPIKey',
+    TOGGLE_SELECTION: 'toggleSelection',
+    CLEAR_SELECTION: 'clearSelection',
+    CLEAR: 'clear',
 };
 
 export const PROJECT_USAGE_MUTATIONS = {
