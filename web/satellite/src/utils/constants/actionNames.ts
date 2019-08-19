@@ -59,7 +59,7 @@ export const USER_ACTIONS = {
 };
 
 export const API_KEYS_ACTIONS = {
-    FETCH: 'fetchAPIKeys',
+    FETCH: 'setAPIKeys',
     CREATE: 'createAPIKey',
     DELETE: 'deleteAPIKey',
     CLEAR: 'clearAPIKeys',

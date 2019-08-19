@@ -62,9 +62,8 @@
     import EmptyState from '@/components/common/EmptyStateArea.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
     import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { ApiKey } from '@/types/apiKeys';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { RequestResponse } from '@/types/response';
+    import { ApiKey } from '@/types/apiKeys';
 
     Vue.use(VueClipboards);
 
@@ -73,6 +72,13 @@
         DEFAULT = 0,
         ON_SELECT,
     }
+
+    const {
+        FETCH,
+        DELETE,
+        TOGGLE_SELECTION,
+        CLEAR_SELECTION,
+    } = API_KEYS_ACTIONS;
 
     @Component({
         components: {
@@ -92,11 +98,11 @@
         private apiKeySecret: string = '';
 
         public mounted(): void {
-            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            this.$store.dispatch(FETCH);
         }
 
         public toggleSelection(id: string): void {
-            this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
+            this.$store.dispatch(TOGGLE_SELECTION, id);
         }
 
         public onCreateApiKeyClick(): void {
@@ -108,7 +114,7 @@
         }
 
         public onClearSelection(): void {
-            this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
+            this.$store.dispatch(CLEAR_SELECTION);
             this.isDeleteClicked = false;
         }
 
@@ -127,15 +133,13 @@
 
         public async onDelete(): Promise<void> {
             let selectedKeys: string[] = this.$store.getters.selectedAPIKeys.map((key) => { return key.id; });
-
-            const dispatchResult: RequestResponse<null> = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys);
-
             let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
 
-            if (dispatchResult.isSuccess) {
+            try {
+                await this.$store.dispatch(DELETE, selectedKeys);
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
-            } else {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, dispatchResult.errorMessage);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
             }
 
             this.isDeleteClicked = false;

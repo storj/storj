@@ -5,10 +5,12 @@ import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
 import ApiKeysCopyPopup from '@/components/apiKeys/ApiKeysCopyPopup.vue';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { ApiKeysApiGql } from '@/api/apiKeys';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
-const apiKeysModule = makeApiKeysModule();
+const apiKeysApi = new ApiKeysApiGql();
+const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const store = new Vuex.Store(apiKeysModule);
 
 describe('ApiKeysCopyPopup', () => {
