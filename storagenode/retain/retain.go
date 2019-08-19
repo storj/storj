@@ -21,37 +21,37 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the default error class for retain errors
+	// Error is the default error class for retain errors.
 	Error = errs.Class("retain")
 )
 
-// Config defines parameters for the retain service
+// Config defines parameters for the retain service.
 type Config struct {
 	RetainTimeBuffer    time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
 	RetainStatus        Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
 	MaxConcurrentRetain int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
 }
 
-// Request contains all the info necessary to process a retain request
+// Request contains all the info necessary to process a retain request.
 type Request struct {
 	SatelliteID   storj.NodeID
 	CreatedBefore time.Time
 	Filter        *bloomfilter.Filter
 }
 
-// Status is a type defining the enabled/disabled status of retain requests
+// Status is a type defining the enabled/disabled status of retain requests.
 type Status uint32
 
 const (
-	// Disabled means we do not do anything with retain requests
+	// Disabled means we do not do anything with retain requests.
 	Disabled Status = iota + 1
-	// Enabled means we fully enable retain requests and delete data not defined by bloom filter
+	// Enabled means we fully enable retain requests and delete data not defined by bloom filter.
 	Enabled
-	// Debug means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
+	// Debug means we partially enable retain requests, and print out pieces we should delete, without actually deleting them.
 	Debug
 )
 
-// Set implements pflag.Value
+// Set implements pflag.Value.
 func (v *Status) Set(s string) error {
 	switch s {
 	case "disabled":
@@ -66,10 +66,10 @@ func (v *Status) Set(s string) error {
 	return nil
 }
 
-// Type implements pflag.Value
+// Type implements pflag.Value.
 func (*Status) Type() string { return "storj.RetainStatus" }
 
-// String implements pflag.Value
+// String implements pflag.Value.
 func (v *Status) String() string {
 	switch *v {
 	case Disabled:
@@ -83,7 +83,7 @@ func (v *Status) String() string {
 	}
 }
 
-// Service queues and processes retain requests from satellites
+// Service queues and processes retain requests from satellites.
 type Service struct {
 	log    *zap.Logger
 	config Config
@@ -98,7 +98,7 @@ type Service struct {
 	store *pieces.Store
 }
 
-// NewService creates a new retain service
+// NewService creates a new retain service.
 func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 	return &Service{
 		log:          log,
@@ -111,7 +111,7 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 	}
 }
 
-// Queue adds a retain request to the queue
+// Queue adds a retain request to the queue.
 func (s *Service) Queue(req Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -126,7 +126,7 @@ func (s *Service) Queue(req Request) {
 	}
 }
 
-// Run listens for queued retain requests and processes them as they come in
+// Run listens for queued retain requests and processes them as they come in.
 func (s *Service) Run(ctx context.Context) error {
 	for {
 		// exit if context has been canceled. Otherwise, block until an item can be added to the semaphore
@@ -165,7 +165,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 }
 
-// Wait blocks until the context is canceled or until the queue is empty
+// Wait blocks until the context is canceled or until the queue is empty.
 func (s *Service) Wait(ctx context.Context) {
 	s.mu.Lock()
 	queueLength := len(s.queued)
