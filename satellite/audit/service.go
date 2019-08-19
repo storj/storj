@@ -91,13 +91,13 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	service.ReservoirLoop.Start(ctx, group, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
-		observer := NewObserver(service.reservoirSlots)
-		err = service.MetainfoLoop.Join(ctx, observer)
+		pathCollector := NewPathCollector(service.reservoirSlots)
+		err = service.MetainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
 			service.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
-		for nodeID, res := range observer.Reservoirs {
+		for nodeID, res := range pathCollector.Reservoirs {
 			service.Reservoirs[nodeID] = res
 		}
 		return nil

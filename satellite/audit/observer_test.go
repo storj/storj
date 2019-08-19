@@ -22,7 +22,7 @@ import (
 	"storj.io/storj/uplink"
 )
 
-// TestAuditObserver does the following:
+// TestAuditPathCollector does the following:
 // - start testplanet with 5 nodes and a reservoir size of 3
 // - upload 5 files
 // - iterate over all the segments in satellite.Metainfo and store them in allPieces map
@@ -33,7 +33,7 @@ import (
 //    - that the reservoir size is <= 3
 //    - that every item in the reservoir is unique
 //    - that looking up each pieceID in allPieces results in the same node ID
-func TestAuditObserver(t *testing.T) {
+func TestAuditPathCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -87,7 +87,7 @@ func TestAuditObserver(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		observer := audit.NewObserver(3)
+		observer := audit.NewPathCollector(3)
 		err = audits.MetainfoLoop.Join(ctx, observer)
 		require.NoError(t, err)
 

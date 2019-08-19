@@ -10,39 +10,39 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Observer observes on the metainfo loop and adds segments to node reservoirs
-type Observer struct {
+// PathCollector uses the metainfo loop to add paths to node reservoirs
+type PathCollector struct {
 	Reservoirs     map[storj.NodeID]*Reservoir
 	reservoirSlots int
 }
 
-// NewObserver instantiates an audit observer
-func NewObserver(reservoirSlots int) *Observer {
-	return &Observer{
+// NewPathCollector instantiates a path collector
+func NewPathCollector(reservoirSlots int) *PathCollector {
+	return &PathCollector{
 		Reservoirs:     make(map[storj.NodeID]*Reservoir),
 		reservoirSlots: reservoirSlots,
 	}
 }
 
 // RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already
-func (observer *Observer) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pathCollector *PathCollector) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		if _, ok := observer.Reservoirs[piece.NodeId]; !ok {
-			observer.Reservoirs[piece.NodeId] = NewReservoir(int8(observer.reservoirSlots))
+		if _, ok := pathCollector.Reservoirs[piece.NodeId]; !ok {
+			pathCollector.Reservoirs[piece.NodeId] = NewReservoir(int8(pathCollector.reservoirSlots))
 		}
-		observer.Reservoirs[piece.NodeId].Sample(path)
+		pathCollector.Reservoirs[piece.NodeId].Sample(path)
 	}
 	return nil
 }
 
 // RemoteObject returns nil because the audit service does not interact with remote objects
-func (observer *Observer) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pathCollector *PathCollector) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
 // InlineSegment returns nil because we're only auditing for storage nodes for now
-func (observer *Observer) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pathCollector *PathCollector) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	return nil
 }
