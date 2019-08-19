@@ -30,7 +30,7 @@ export const PROJECT_MEMBER_MUTATIONS = {
 };
 
 export const API_KEYS_MUTATIONS = {
-    FETCH: 'fetchAPIKeys',
+    FETCH: 'setAPIKeys',
     ADD: 'addAPIKey',
     DELETE: 'deleteAPIKey',
     TOGGLE_SELECTION: 'toggleSelection',

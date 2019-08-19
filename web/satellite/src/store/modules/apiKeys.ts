@@ -27,7 +27,7 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
         state: new ApiKeysState(),
 
         mutations: {
-            fetchAPIKeys(state: any, apiKeys: ApiKey[]) {
+            setAPIKeys(state: any, apiKeys: ApiKey[]) {
                 state.apiKeys = apiKeys;
             },
             addAPIKey(state: any, apiKey: ApiKey) {
@@ -60,7 +60,7 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
             },
         },
         actions: {
-            fetchAPIKeys: async function ({commit, rootGetters}): Promise<ApiKey[]> {
+            setAPIKeys: async function ({commit, rootGetters}): Promise<ApiKey[]> {
                 const projectId = rootGetters.selectedProject.id;
 
                 let apiKeys = await api.get(projectId);

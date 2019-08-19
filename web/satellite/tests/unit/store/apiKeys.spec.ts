@@ -4,11 +4,11 @@
 import Vuex from 'vuex';
 import { createLocalVue } from '@vue/test-utils';
 import { ApiKeysApiGql } from '@/api/apiKeys';
-import { API_KEYS_MUTATIONS } from '@/store/mutationConstants';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { API_KEYS_MUTATIONS } from '@/store/mutationConstants';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
-import { ApiKey } from '@/types/apiKeys';
 import { makeProjectsModule } from '@/store/modules/projects';
+import { ApiKey } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
 
 const Vue = createLocalVue();
@@ -29,6 +29,8 @@ Vue.use(Vuex);
 
 const store = new Vuex.Store({modules: { projectsModule, apiKeysModule } });
 
+const state = (store.state as any).apiKeysModule;
+
 describe('mutations', () => {
     beforeEach(() => {
         createLocalVue().use(Vuex);
@@ -37,10 +39,10 @@ describe('mutations', () => {
     it('add apiKey', () => {
         store.commit(API_KEYS_MUTATIONS.ADD, apiKey);
 
-        expect((store.state as any).apiKeysModule.apiKeys[0].id).toBe(apiKey.id);
-        expect((store.state as any).apiKeysModule.apiKeys[0].name).toBe(apiKey.name);
-        expect((store.state as any).apiKeysModule.apiKeys[0].createdAt).toBe(apiKey.createdAt);
-        expect((store.state as any).apiKeysModule.apiKeys[0].secret).toBe(apiKey.secret);
+        expect(state.apiKeys[0].id).toBe(apiKey.id);
+        expect(state.apiKeys[0].name).toBe(apiKey.name);
+        expect(state.apiKeys[0].createdAt).toBe(apiKey.createdAt);
+        expect(state.apiKeys[0].secret).toBe(apiKey.secret);
     });
 });
 
@@ -56,10 +58,10 @@ describe('actions', () => {
 
         await store.dispatch(FETCH);
 
-        expect((store.state as any).apiKeysModule.apiKeys[0].id).toBe(apiKey.id);
-        expect((store.state as any).apiKeysModule.apiKeys[0].name).toBe(apiKey.name);
-        expect((store.state as any).apiKeysModule.apiKeys[0].createdAt).toBe(apiKey.createdAt);
-        expect((store.state as any).apiKeysModule.apiKeys[0].secret).toBe(apiKey.secret);
+        expect(state.apiKeys[0].id).toBe(apiKey.id);
+        expect(state.apiKeys[0].name).toBe(apiKey.name);
+        expect(state.apiKeys[0].createdAt).toBe(apiKey.createdAt);
+        expect(state.apiKeys[0].secret).toBe(apiKey.secret);
     });
 
     it('fetch throws an error when api call fails', async () => {
@@ -70,7 +72,7 @@ describe('actions', () => {
             await store.dispatch(FETCH);
             expect(true).toBe(false);
         } catch (error) {
-            expect((store.state as any).apiKeysModule.apiKeys).toBe(apikeys);
+            expect(state.apiKeys).toBe(apikeys);
         }
     });
 
@@ -81,10 +83,10 @@ describe('actions', () => {
 
         await store.dispatch(CREATE, 'testName');
 
-        expect((store.state as any).apiKeysModule.apiKeys[1].id).toBe(apiKey.id);
-        expect((store.state as any).apiKeysModule.apiKeys[1].name).toBe(apiKey.name);
-        expect((store.state as any).apiKeysModule.apiKeys[1].createdAt).toBe(apiKey.createdAt);
-        expect((store.state as any).apiKeysModule.apiKeys[1].secret).toBe(apiKey.secret);
+        expect(state.apiKeys[1].id).toBe(apiKey.id);
+        expect(state.apiKeys[1].name).toBe(apiKey.name);
+        expect(state.apiKeys[1].createdAt).toBe(apiKey.createdAt);
+        expect(state.apiKeys[1].secret).toBe(apiKey.secret);
     });
 
     it('create throws an error when api call fails', async () => {
@@ -94,7 +96,7 @@ describe('actions', () => {
             await store.dispatch(CREATE, 'testName');
             expect(true).toBe(false);
         } catch (error) {
-            expect((store.state as any).apiKeysModule.apiKeys).toEqual([apiKey, apiKey]);
+            expect(state.apiKeys).toEqual([apiKey, apiKey]);
         }
     });
 
@@ -105,7 +107,7 @@ describe('actions', () => {
 
         await store.dispatch(DELETE, ['testId', 'testId']);
 
-        expect((store.state as any).apiKeysModule.apiKeys).toEqual([]);
+        expect(state.apiKeys).toEqual([]);
     });
 
     it('delete throws an error when api call fails', async () => {
@@ -117,7 +119,7 @@ describe('actions', () => {
             await store.dispatch(DELETE, 'testId');
             expect(true).toBe(false);
         } catch (error) {
-            expect((store.state as any).apiKeysModule.apiKeys).toEqual([apiKey]);
+            expect(state.apiKeys).toEqual([apiKey]);
         }
     });
 
@@ -138,7 +140,7 @@ describe('actions', () => {
     it('success clearAPIKeys', () => {
         store.dispatch(CLEAR);
 
-        expect((store.state as any).apiKeysModule.apiKeys).toEqual([]);
+        expect(state.apiKeys).toEqual([]);
     });
 });
 

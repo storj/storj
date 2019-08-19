@@ -62,8 +62,8 @@
     import EmptyState from '@/components/common/EmptyStateArea.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
     import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { ApiKey } from '@/types/apiKeys';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { ApiKey } from '@/types/apiKeys';
 
     Vue.use(VueClipboards);
 

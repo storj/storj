@@ -22,9 +22,9 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
     import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+    import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { ApiKey } from '@/types/apiKeys';
 
     const CREATE = API_KEYS_ACTIONS.CREATE;

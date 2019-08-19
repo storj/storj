@@ -6,18 +6,30 @@
  */
 export interface ApiKeysApi {
     /**
-     * Fetch apiKey
+     * Fetch apiKeys
+     *
+     * @returns ApiKey[]
+     * @throws Error
+     */
+    get(projectId: string): Promise<ApiKey[]>;
+    /**
+     * Create new apiKey
      *
      * @returns ApiKey
      * @throws Error
      */
-    get(projectId: string): Promise<ApiKey[]>;
     create(projectId: string, name: string): Promise<ApiKey>;
+    /**
+     * Delete existing apiKey
+     *
+     * @returns null
+     * @throws Error
+     */
     delete(ids: string[]): Promise<null>;
 }
 
 /**
- * ApiKey class holds info for ApiKey entity.
+ * ApiKey class holds info for ApiKeys entity.
  */
 export class ApiKey {
     public id: string;

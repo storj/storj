@@ -4,9 +4,13 @@
 import { BaseGql } from '@/api/baseGql';
 import { ApiKey, ApiKeysApi } from '@/types/apiKeys';
 
+/**
+ * ApiKeysApiGql is a graphql implementation of ApiKeys API.
+ * Exposes all apiKey-related functionality
+ */
 export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
     /**
-     * Fetch apiKey
+     * Fetch apiKeys
      *
      * @returns ApiKey
      * @throws Error
@@ -35,7 +39,7 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
     }
 
     /**
-     * Used to create account
+     * Used to create apiKey
      *
      * @param projectId - stores current project id
      * @param name - name of apiKey that will be created
@@ -71,7 +75,7 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
     }
 
     /**
-     * Used to delete account
+     * Used to delete apiKey
      *
      * @param ids - ids of apiKeys that will be deleted
      * @throws Error
