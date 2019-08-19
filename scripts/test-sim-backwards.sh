@@ -5,9 +5,9 @@ set +x
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 export STORJ_NETWORK_DIR=$TMP
 cleanup(){
-    rm -rf "$STORJ_NETWORK_DIR"
     git worktree remove -f "$RELEASE_DIR"
     git worktree remove -f "$BRANCH_DIR"
+    rm -rf "$STORJ_NETWORK_DIR"
     echo "cleaned up test successfully"
 }
 trap cleanup EXIT
