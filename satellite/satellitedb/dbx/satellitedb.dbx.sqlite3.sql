@@ -79,6 +79,7 @@ CREATE TABLE nodes (
 	wallet TEXT NOT NULL,
 	free_bandwidth INTEGER NOT NULL,
 	free_disk INTEGER NOT NULL,
+	piece_count INTEGER NOT NULL,
 	major INTEGER NOT NULL,
 	minor INTEGER NOT NULL,
 	patch INTEGER NOT NULL,

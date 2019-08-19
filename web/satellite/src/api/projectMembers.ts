@@ -3,8 +3,7 @@
 
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
-import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
-import { TeamMember } from '@/types/teamMembers';
+import { ProjectMember, ProjectMemberCursor, ProjectMembersPage } from '@/types/projectMembers';
 import { RequestResponse } from '@/types/response';
 
 // Performs graqhQL request.
@@ -80,38 +79,55 @@ export async function deleteProjectMembersRequest(projectId: string, emails: str
 }
 
 // Performs graqhQL request.
-export async function fetchProjectMembersRequest(projectId: string, limit: number, offset: number, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMember[]>> {
-    let result: RequestResponse<TeamMember[]> = {
+export async function fetchProjectMembersRequest(projectId: string, cursor: ProjectMemberCursor): Promise<RequestResponse<ProjectMembersPage>> {
+    let result: RequestResponse<ProjectMembersPage> = {
         errorMessage: '',
         isSuccess: false,
-        data: []
+        data: new ProjectMembersPage()
     };
 
     let response: any = await apollo.query(
         {
             query: gql(`
-                query($projectId: String!, $limit: Int!, $offset: Int!, $order: Int!, $search: String!) {
-                    project(
+                query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
+                    project (
                         id: $projectId,
                     ) {
-                        members(limit: $limit, offset: $offset, order: $order, search: $search) {
-                            user {
-                                id,
-                                fullName,
-                                shortName,
-                                email
+                        members (
+                            cursor: {
+                                limit: $limit,
+                                search: $search,
+                                page: $page,
+                                order: $order,
+                                orderDirection: $orderDirection
+                            }
+                        ) {
+                            projectMembers {
+                                user {
+                                    id,
+                                    fullName,
+                                    shortName,
+                                    email
+                                },
+                                joinedAt
                             },
-                            joinedAt
+                            search, 
+                            limit, 
+                            order,
+                            pageCount, 
+                            currentPage,
+                            totalCount
                         }
                     }
                 }`
             ),
             variables: {
                 projectId: projectId,
-                limit: limit,
-                offset: offset,
-                order: sortBy,
-                search: searchQuery
+                limit: cursor.limit,
+                search: cursor.search,
+                page: cursor.page,
+                order: cursor.order,
+                orderDirection: cursor.orderDirection,
             },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
@@ -128,10 +144,21 @@ export async function fetchProjectMembersRequest(projectId: string, limit: numbe
     return result;
 }
 
-function getProjectMembersList(projectMembers: any[]): TeamMember[] {
+function getProjectMembersList(projectMembers: any): ProjectMembersPage {
     if (!projectMembers) {
-        return [];
+        return new ProjectMembersPage();
     }
 
-    return projectMembers.map(key => new TeamMember(key.user.fullName, key.user.shortName, key.user.email, '', key.user.id));
+    const projectMembersPage: ProjectMembersPage = new ProjectMembersPage();
+    projectMembersPage.projectMembers = projectMembers.projectMembers.map(key => new ProjectMember(key.user.fullName, key.user.shortName, key.user.email, key.joinedAt, key.user.id));
+
+    projectMembersPage.search = projectMembers.search;
+    projectMembersPage.limit = projectMembers.limit;
+    projectMembersPage.order = projectMembers.order;
+    projectMembersPage.orderDirection = projectMembers.orderDirection;
+    projectMembersPage.pageCount = projectMembers.pageCount;
+    projectMembersPage.currentPage = projectMembers.currentPage;
+    projectMembersPage.totalCount = projectMembers.totalCount;
+
+    return projectMembersPage;
 }

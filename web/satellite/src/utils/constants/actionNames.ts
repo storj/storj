@@ -40,6 +40,7 @@ export const PM_ACTIONS = {
     CLEAR: 'clearProjectMembers',
     SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
     SET_SORT_BY: 'setProjectMembersSortingBy',
+    SET_SORT_DIRECTION: 'setProjectMembersSortingDirection',
     CLEAR_OFFSET: 'clearProjectMembersOffset'
 };
 
@@ -59,7 +60,7 @@ export const USER_ACTIONS = {
 };
 
 export const API_KEYS_ACTIONS = {
-    FETCH: 'fetchAPIKeys',
+    FETCH: 'setAPIKeys',
     CREATE: 'createAPIKey',
     DELETE: 'deleteAPIKey',
     CLEAR: 'clearAPIKeys',

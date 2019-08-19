@@ -21,9 +21,7 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import DashboardHeader from '@/components/header/Header.vue';
-    import NavigationArea from '@/components/navigation/NavigationArea.vue';
-    import { AuthToken } from '@/utils/authToken';
+    import { AppState } from '@/utils/constants/appStateEnum';
     import {
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
@@ -34,12 +32,14 @@
         PROJECT_USAGE_ACTIONS,
         BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
-    import ROUTES from '@/utils/constants/routerConstants';
-    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
-    import { AppState } from '../utils/constants/appStateEnum';
-    import { RequestResponse } from '../types/response';
-    import { User } from '../types/users';
+    import { AuthToken } from '@/utils/authToken';
+    import DashboardHeader from '@/components/header/Header.vue';
+    import NavigationArea from '@/components/navigation/NavigationArea.vue';
     import { Project } from '@/types/projects';
+    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
+    import { RequestResponse } from '@/types/response';
+    import ROUTES from '@/utils/constants/routerConstants';
+    import { User } from '@/types/users';
 
     @Component({
     mounted: async function() {
@@ -67,13 +67,14 @@
             await this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
 
             await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
             if (!projectMembersResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
 
-            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            if (!keysResponse.isSuccess) {
+            try {
+                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            } catch {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
