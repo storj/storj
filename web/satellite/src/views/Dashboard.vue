@@ -28,10 +28,10 @@
         NOTIFICATION_ACTIONS,
         PM_ACTIONS,
         PROJETS_ACTIONS,
-        USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
         BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
+    import { USER_ACTIONS } from '@/store/modules/users';
     import { AuthToken } from '@/utils/authToken';
     import DashboardHeader from '@/components/header/Header.vue';
     import NavigationArea from '@/components/navigation/NavigationArea.vue';
