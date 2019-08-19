@@ -4,8 +4,8 @@
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 import * as sinon from 'sinon';
 import Vuex from 'vuex';
-import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
-import { TeamMember } from '@/types/teamMembers';
+import HeaderArea from '@/components/team/HeaderArea.vue';
+import { ProjectMember } from '@/types/projectMembers';
 
 const localVue = createLocalVue();
 
@@ -43,8 +43,8 @@ describe('projectMembers/notification Actions', () => {
     let actions;
     let getters;
     let state;
-    let teamMember = new TeamMember('test', 'test', 'test@test.test', 'test');
-    let teamMember1 = new TeamMember('test1', 'test1', 'test1@test.test', 'test1');
+    let teamMember = new ProjectMember('test', 'test', 'test@test.test', 'test');
+    let teamMember1 = new ProjectMember('test1', 'test1', 'test1@test.test', 'test1');
     let searchQuery = 'test';
 
     beforeEach(() => {

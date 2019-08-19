@@ -28,10 +28,10 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+    import Button from '@/components/common/Button.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import { TeamMember } from '@/types/teamMembers';
+    import { ProjectMember } from '@/types/projectMembers';
     import { RequestResponse } from '@/types/response';
 
     declare interface ClearSearch {
@@ -49,6 +49,8 @@
         private readonly headerState: number;
         @Prop({default: 0})
         private readonly selectedProjectMembers: number;
+
+        private FIRST_PAGE = 1;
 
         private isDeleteClicked: boolean = false;
 
@@ -80,14 +82,14 @@
         }
 
         public async onDelete(): Promise<void> {
-            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMember) => {
+            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
                 return member.user.email;
             });
 
             const response = await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
 
             if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from team');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from projectMembers');
 
                 return;
             }
@@ -100,7 +102,7 @@
 
         public async processSearchQuery(search: string) {
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
-            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
 
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
