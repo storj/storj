@@ -33,12 +33,13 @@ make -C "$RELEASE_DIR" install-sim
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
-# setup the network
 if [ -z ${STORJ_SIM_POSTGRES} ]; then
-    storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
-else
-    storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+    echo "Postgres is required for the satllite DB. Exiting."
+    exit 1
 fi
+
+# setup the network
+storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 
 # run upload part of backward compatibility tests from the lastest release branch
 storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
