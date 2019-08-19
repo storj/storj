@@ -102,7 +102,10 @@ func (s *RetainService) Run(ctx context.Context) error {
 
 // Wait blocks until the context is canceled or until the queue is empty
 func (s *RetainService) Wait(ctx context.Context) {
-	if len(s.queued) == 0 {
+	s.mu.Lock()
+	queueLength := len(s.queued)
+	s.mu.Unlock()
+	if queueLength == 0 {
 		return
 	}
 	select {
