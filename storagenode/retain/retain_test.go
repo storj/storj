@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package piecestore_test
+package retain_test
 
 import (
 	"context"
@@ -15,13 +15,14 @@ import (
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/pieces"
-	ps "storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
@@ -108,9 +109,21 @@ func TestRetainPieces(t *testing.T) {
 
 		}
 
-		retainEnabled := ps.NewRetainService(zaptest.NewLogger(t), ps.RetainEnabled, 1, store)
-		retainDisabled := ps.NewRetainService(zaptest.NewLogger(t), ps.RetainDisabled, 1, store)
-		retainDebug := ps.NewRetainService(zaptest.NewLogger(t), ps.RetainDebug, 1, store)
+		retainEnabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
+			RetainStatus:        retain.Enabled,
+			MaxConcurrentRetain: 1,
+			RetainTimeBuffer:    0,
+		})
+		retainDisabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
+			RetainStatus:        retain.Disabled,
+			MaxConcurrentRetain: 1,
+			RetainTimeBuffer:    0,
+		})
+		retainDebug := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
+			RetainStatus:        retain.Debug,
+			MaxConcurrentRetain: 1,
+			RetainTimeBuffer:    0,
+		})
 
 		// start the retain services
 		var group errgroup.Group
@@ -126,15 +139,15 @@ func TestRetainPieces(t *testing.T) {
 		})
 
 		// expect that disabled and debug endpoints do not delete any pieces
-		req := ps.RetainRequest{
+		req := retain.Request{
 			SatelliteID:   satellite0.ID,
 			CreatedBefore: recentTime,
 			Filter:        filter,
 		}
-		retainDisabled.QueueRetain(req)
+		retainDisabled.Queue(req)
 		retainDisabled.Wait(ctx2)
 
-		retainDebug.QueueRetain(req)
+		retainDebug.Queue(req)
 		retainDebug.Wait(ctx2)
 
 		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))
@@ -146,7 +159,7 @@ func TestRetainPieces(t *testing.T) {
 		require.Equal(t, numPieces, len(satellite0Pieces))
 
 		// expect that enabled endpoint deletes the correct pieces
-		retainEnabled.QueueRetain(req)
+		retainEnabled.Queue(req)
 		retainEnabled.Wait(ctx2)
 
 		// check we have deleted nothing for satellite1
@@ -177,4 +190,29 @@ func TestRetainPieces(t *testing.T) {
 		err = group.Wait()
 		require.True(t, errs2.IsCanceled(err))
 	})
+}
+
+// getAllPieceIDs and generateTestIDs copied from storagenode/piecestore/endpoint_test.go
+func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID, createdBefore time.Time) (pieceIDs []storj.PieceID, err error) {
+	err = store.WalkSatellitePieces(ctx, satellite, func(pieceAccess pieces.StoredPieceAccess) error {
+		mTime, err := pieceAccess.CreationTime(ctx)
+		if err != nil {
+			return err
+		}
+		if !mTime.Before(createdBefore) {
+			return nil
+		}
+		pieceIDs = append(pieceIDs, pieceAccess.PieceID())
+		return nil
+	})
+	return pieceIDs, err
+}
+
+// generateTestIDs generates n piece ids
+func generateTestIDs(n int) []storj.PieceID {
+	ids := make([]storj.PieceID, n)
+	for i := range ids {
+		ids[i] = testrand.PieceID()
+	}
+	return ids
 }
