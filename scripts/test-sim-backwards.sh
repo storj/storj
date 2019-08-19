@@ -34,7 +34,7 @@ STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
 if [ -z ${STORJ_SIM_POSTGRES} ]; then
-    echo "Postgres is required for the satllite DB. Exiting."
+    echo "Postgres is required for the satellite DB. Exiting."
     exit 1
 fi
 
