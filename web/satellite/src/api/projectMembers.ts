@@ -3,12 +3,11 @@
 
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
-import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
-import { TeamMember } from '@/types/teamMembers';
+import { ProjectMember, ProjectMemberCursor, ProjectMembersPage } from '@/types/projectMembers';
 import { RequestResponse } from '@/types/response';
 
 // Performs graqhQL request.
-export async function addProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+export async function addProjectMembersRequest(projectId: string, emails: string[]): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -18,13 +17,17 @@ export async function addProjectMembersRequest(projectID: string, emails: string
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                addProjectMembers(
-                    projectID: "${projectID}",
-                    email: [${prepareEmailList(emails)}]
-                ) {id}
-            }`,
+                mutation($projectId: String!, $emails:[String!]!) {
+                    addProjectMembers(
+                        projectID: $projectId,
+                        email: $emails
+                    ) {id}
+                }`,
             ),
+            variables: {
+                projectId: projectId,
+                emails: emails
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -40,7 +43,7 @@ export async function addProjectMembersRequest(projectID: string, emails: string
 }
 
 // Performs graqhQL request.
-export async function deleteProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
+export async function deleteProjectMembersRequest(projectId: string, emails: string[]): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -50,13 +53,17 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
-            mutation {
-                deleteProjectMembers(
-                    projectID: "${projectID}",
-                    email: [${prepareEmailList(emails)}]
-                ) {id}
-            }`
+                mutation($projectId: String!, $emails:[String!]!) {
+                    deleteProjectMembers(
+                        projectID: $projectId,
+                        email: $emails
+                    ) {id}
+                }`
             ),
+            variables: {
+                projectId: projectId,
+                emails: emails
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -72,32 +79,56 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
 }
 
 // Performs graqhQL request.
-export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMember[]>> {
-    let result: RequestResponse<TeamMember[]> = {
+export async function fetchProjectMembersRequest(projectId: string, cursor: ProjectMemberCursor): Promise<RequestResponse<ProjectMembersPage>> {
+    let result: RequestResponse<ProjectMembersPage> = {
         errorMessage: '',
         isSuccess: false,
-        data: []
+        data: new ProjectMembersPage()
     };
 
     let response: any = await apollo.query(
         {
             query: gql(`
-            query {
-                project(
-                    id: "${projectID}",
-                ) {
-                    members(limit: ${limit}, offset: ${offset}, order: ${sortBy}, search: "${searchQuery}") {
-                        user {
-                            id,
-                            fullName,
-                            shortName,
-                            email
-                        },
-                        joinedAt
+                query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
+                    project (
+                        id: $projectId,
+                    ) {
+                        members (
+                            cursor: {
+                                limit: $limit,
+                                search: $search,
+                                page: $page,
+                                order: $order,
+                                orderDirection: $orderDirection
+                            }
+                        ) {
+                            projectMembers {
+                                user {
+                                    id,
+                                    fullName,
+                                    shortName,
+                                    email
+                                },
+                                joinedAt
+                            },
+                            search, 
+                            limit, 
+                            order,
+                            pageCount, 
+                            currentPage,
+                            totalCount
+                        }
                     }
-                }
-            }`
+                }`
             ),
+            variables: {
+                projectId: projectId,
+                limit: cursor.limit,
+                search: cursor.search,
+                page: cursor.page,
+                order: cursor.order,
+                orderDirection: cursor.orderDirection,
+            },
             fetchPolicy: 'no-cache',
             errorPolicy: 'all',
         }
@@ -113,20 +144,21 @@ export async function fetchProjectMembersRequest(projectID: string, limit: strin
     return result;
 }
 
-function prepareEmailList(emails: string[]): string {
-    let emailString: string = '';
-
-    emails.forEach(email => {
-        emailString += `"${email}", `;
-    });
-
-    return emailString;
-}
-
-function getProjectMembersList(projectMembers: any[]): TeamMember[] {
+function getProjectMembersList(projectMembers: any): ProjectMembersPage {
     if (!projectMembers) {
-        return [];
+        return new ProjectMembersPage();
     }
 
-    return projectMembers.map(key => new TeamMember(key.user.fullName, key.user.shortName, key.user.email, '', key.user.id));
+    const projectMembersPage: ProjectMembersPage = new ProjectMembersPage();
+    projectMembersPage.projectMembers = projectMembers.projectMembers.map(key => new ProjectMember(key.user.fullName, key.user.shortName, key.user.email, key.joinedAt, key.user.id));
+
+    projectMembersPage.search = projectMembers.search;
+    projectMembersPage.limit = projectMembers.limit;
+    projectMembersPage.order = projectMembers.order;
+    projectMembersPage.orderDirection = projectMembers.orderDirection;
+    projectMembersPage.pageCount = projectMembers.pageCount;
+    projectMembersPage.currentPage = projectMembers.currentPage;
+    projectMembersPage.totalCount = projectMembers.totalCount;
+
+    return projectMembersPage;
 }

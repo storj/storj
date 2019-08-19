@@ -22,7 +22,7 @@ var (
 // DB holds information about offer
 type DB interface {
 	ListAll(ctx context.Context) (Offers, error)
-	GetCurrentByType(ctx context.Context, offerType OfferType) (*Offer, error)
+	GetActiveOffersByType(ctx context.Context, offerType OfferType) (Offers, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
 	Finish(ctx context.Context, offerID int) error
 }
@@ -53,6 +53,16 @@ type UpdateOffer struct {
 	ExpiresAt time.Time
 }
 
+// RedeemOffer holds field needed for redeem an offer
+type RedeemOffer struct {
+	RedeemableCap int
+	Status        OfferStatus
+	Type          OfferType
+}
+
+// Offers contains a slice of offers.
+type Offers []Offer
+
 // OfferType indicates the type of an offer
 type OfferType int
 
@@ -75,11 +85,11 @@ const (
 	// Done is the status of an offer that is no longer in use.
 	Done = OfferStatus(iota)
 
-	// Active is the status of an offer that is currently in use.
-	Active
-
 	// Default is the status of an offer when there is no active offer.
 	Default
+
+	// Active is the status of an offer that is currently in use.
+	Active
 )
 
 // Offer contains info needed for giving users free credits through different offer programs
@@ -108,5 +118,36 @@ func (o Offer) IsEmpty() bool {
 	return o.Name == ""
 }
 
-// Offers contains a slice of offers.
-type Offers []Offer
+// GetActiveOffer returns an offer that is active based on its type
+func (offers Offers) GetActiveOffer(offerType OfferType, partnerID string) (offer *Offer, err error) {
+	if len(offers) < 1 {
+		return nil, NoCurrentOfferErr.New("no active offers")
+	}
+	switch offerType {
+	case Partner:
+		if partnerID == "" {
+			return nil, errs.New("partner ID is empty")
+		}
+		partnerInfo, ok := LoadPartnerInfos()[partnerID]
+		if !ok {
+			return nil, NoMatchPartnerIDErr.New("no partnerInfo found")
+		}
+		for i := range offers {
+			if offers[i].Name == partnerInfo.Name {
+				offer = &offers[i]
+			}
+		}
+	default:
+		if len(offers) > 1 {
+			return nil, errs.New("multiple active offers found")
+		}
+		offer = &offers[0]
+	}
+
+	return offer, nil
+}
+
+// IsDefault checks if a offer's status is default
+func (status OfferStatus) IsDefault() bool {
+	return status == Default
+}

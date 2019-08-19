@@ -26,6 +26,12 @@ func Int63n(n int64) int64 {
 	return rand.Int63n(n)
 }
 
+// Float64n returns floating point pseudo-random number in [-n,0] || [0,n]
+// based on the sign of the input
+func Float64n(n int64) float64 {
+	return rand.Float64() * float64(n)
+}
+
 // Read reads pseudo-random data into data.
 func Read(data []byte) {
 	const newSourceThreshold = 64

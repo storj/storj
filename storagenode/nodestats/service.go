@@ -12,10 +12,12 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/storageusage"
+	"storj.io/storj/storagenode/trust"
 )
 
 var (
@@ -24,32 +26,6 @@ var (
 
 	mon = monkit.Package()
 )
-
-// Stats encapsulates storagenode stats retrieved from the satellite
-type Stats struct {
-	SatelliteID storj.NodeID
-
-	UptimeCheck ReputationStats
-	AuditCheck  ReputationStats
-}
-
-// ReputationStats encapsulates storagenode reputation metrics
-type ReputationStats struct {
-	TotalCount   int64
-	SuccessCount int64
-
-	ReputationAlpha float64
-	ReputationBeta  float64
-	ReputationScore float64
-}
-
-// SpaceUsageStamp is space usage for satellite at some point in time
-type SpaceUsageStamp struct {
-	SatelliteID storj.NodeID
-	AtRestTotal float64
-
-	TimeStamp time.Time
-}
 
 // Client encapsulates NodeStatsClient with underlying connection
 type Client struct {
@@ -67,23 +43,23 @@ type Service struct {
 	log *zap.Logger
 
 	transport transport.Client
-	kademlia  *kademlia.Kademlia
+	trust     *trust.Pool
 }
 
 // NewService creates new instance of service
-func NewService(log *zap.Logger, transport transport.Client, kademlia *kademlia.Kademlia) *Service {
+func NewService(log *zap.Logger, transport transport.Client, trust *trust.Pool) *Service {
 	return &Service{
 		log:       log,
 		transport: transport,
-		kademlia:  kademlia,
+		trust:     trust,
 	}
 }
 
-// GetStatsFromSatellite retrieves node stats from particular satellite
-func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *Stats, err error) {
+// GetReputationStats retrieves reputation stats from particular satellite
+func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := s.DialNodeStats(ctx, satelliteID)
+	client, err := s.dial(ctx, satelliteID)
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
@@ -102,30 +78,31 @@ func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.N
 	uptime := resp.GetUptimeCheck()
 	audit := resp.GetAuditCheck()
 
-	return &Stats{
+	return &reputation.Stats{
 		SatelliteID: satelliteID,
-		UptimeCheck: ReputationStats{
-			TotalCount:      uptime.GetTotalCount(),
-			SuccessCount:    uptime.GetSuccessCount(),
-			ReputationAlpha: uptime.GetReputationAlpha(),
-			ReputationBeta:  uptime.GetReputationBeta(),
-			ReputationScore: uptime.GetReputationScore(),
+		Uptime: reputation.Metric{
+			TotalCount:   uptime.GetTotalCount(),
+			SuccessCount: uptime.GetSuccessCount(),
+			Alpha:        uptime.GetReputationAlpha(),
+			Beta:         uptime.GetReputationBeta(),
+			Score:        uptime.GetReputationScore(),
 		},
-		AuditCheck: ReputationStats{
-			TotalCount:      audit.GetTotalCount(),
-			SuccessCount:    audit.GetSuccessCount(),
-			ReputationAlpha: audit.GetReputationAlpha(),
-			ReputationBeta:  audit.GetReputationBeta(),
-			ReputationScore: audit.GetReputationScore(),
+		Audit: reputation.Metric{
+			TotalCount:   audit.GetTotalCount(),
+			SuccessCount: audit.GetSuccessCount(),
+			Alpha:        audit.GetReputationAlpha(),
+			Beta:         audit.GetReputationBeta(),
+			Score:        audit.GetReputationScore(),
 		},
+		UpdatedAt: time.Now(),
 	}, nil
 }
 
-// GetDailyStorageUsedForSatellite returns daily SpaceUsageStamps over a period of time for a particular satellite
-func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []SpaceUsageStamp, err error) {
+// GetDailyStorageUsage returns daily storage usage over a period of time for a particular satellite
+func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := s.DialNodeStats(ctx, satelliteID)
+	client, err := s.dial(ctx, satelliteID)
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
@@ -136,7 +113,7 @@ func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satellite
 		}
 	}()
 
-	resp, err := client.DailyStorageUsage(ctx, &pb.DailyStorageUsageRequest{})
+	resp, err := client.DailyStorageUsage(ctx, &pb.DailyStorageUsageRequest{From: from, To: to})
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
@@ -144,11 +121,21 @@ func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satellite
 	return fromSpaceUsageResponse(resp, satelliteID), nil
 }
 
-// DialNodeStats dials GRPC NodeStats client for the satellite by id
-func (s *Service) DialNodeStats(ctx context.Context, satelliteID storj.NodeID) (*Client, error) {
-	satellite, err := s.kademlia.FindNode(ctx, satelliteID)
+// dial dials GRPC NodeStats client for the satellite by id
+func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	address, err := s.trust.GetAddress(ctx, satelliteID)
 	if err != nil {
 		return nil, errs.New("unable to find satellite %s: %v", satelliteID, err)
+	}
+
+	satellite := pb.Node{
+		Id: satelliteID,
+		Address: &pb.NodeAddress{
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			Address:   address,
+		},
 	}
 
 	conn, err := s.transport.DialNode(ctx, &satellite)
@@ -162,15 +149,15 @@ func (s *Service) DialNodeStats(ctx context.Context, satelliteID storj.NodeID) (
 	}, nil
 }
 
-// fromSpaceUsageResponse get SpaceUsageStamp slice from pb.SpaceUsageResponse
-func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []SpaceUsageStamp {
-	var stamps []SpaceUsageStamp
+// fromSpaceUsageResponse get DiskSpaceUsage slice from pb.SpaceUsageResponse
+func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []storageusage.Stamp {
+	var stamps []storageusage.Stamp
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {
-		stamps = append(stamps, SpaceUsageStamp{
+		stamps = append(stamps, storageusage.Stamp{
 			SatelliteID: satelliteID,
 			AtRestTotal: pbUsage.AtRestTotal,
-			TimeStamp:   pbUsage.TimeStamp,
+			Timestamp:   pbUsage.Timestamp,
 		})
 	}
 

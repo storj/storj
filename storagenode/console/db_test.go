@@ -20,18 +20,16 @@ func TestDB_Trivial(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		{ // Ensure GetSatelliteIDs works at all
-			_, err := db.Console().GetSatelliteIDs(ctx, time.Now(), time.Now())
+		satelliteID := testrand.NodeID()
+		now := time.Now()
+
+		{ // Ensure Bandwidth GetDailyTotal works at all
+			_, err := db.Console().Bandwidth().GetDailyTotal(ctx, now, now)
 			require.NoError(t, err)
 		}
 
-		{ // Ensure GetDailyTotalBandwidthUsed works at all
-			_, err := db.Console().GetDailyTotalBandwidthUsed(ctx, time.Now(), time.Now())
-			require.NoError(t, err)
-		}
-
-		{ // Ensure GetDailyBandwidthUsed works at all
-			_, err := db.Console().GetDailyBandwidthUsed(ctx, testrand.NodeID(), time.Now(), time.Now())
+		{ // Ensure Bandwidth GetDaily works at all
+			_, err := db.Console().Bandwidth().GetDaily(ctx, satelliteID, now, now)
 			require.NoError(t, err)
 		}
 	})

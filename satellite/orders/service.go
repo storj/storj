@@ -22,14 +22,15 @@ import (
 
 // Config is a configuration struct for orders Service.
 type Config struct {
-	Expiration time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
+	Expiration          time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
+	SettlementBatchSize int           `help:"how many orders to batch per transaction" default:"250"`
 }
 
 // Service for creating order limits.
 type Service struct {
 	log                                 *zap.Logger
 	satellite                           signing.Signer
-	cache                               *overlay.Cache
+	overlay                             *overlay.Service
 	orders                              DB
 	satelliteAddress                    *pb.NodeAddress
 	orderExpiration                     time.Duration
@@ -38,14 +39,14 @@ type Service struct {
 
 // NewService creates new service for creating order limits.
 func NewService(
-	log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
+	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
 	orders DB, orderExpiration time.Duration, satelliteAddress *pb.NodeAddress,
 	repairMaxExcessRateOptimalThreshold float64,
 ) *Service {
 	return &Service{
 		log:                                 log,
 		satellite:                           satellite,
-		cache:                               cache,
+		overlay:                             overlay,
 		orders:                              orders,
 		satelliteAddress:                    satelliteAddress,
 		orderExpiration:                     orderExpiration,
@@ -145,9 +146,9 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, err := service.cache.Get(ctx, piece.NodeId)
+		node, err := service.overlay.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Debug("error getting node from overlay cache", zap.Error(err))
+			service.log.Debug("error getting node from overlay", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -158,7 +159,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 			continue
 		}
 
-		if !service.cache.IsOnline(node) {
+		if !service.overlay.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
@@ -289,9 +290,9 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, err := service.cache.Get(ctx, piece.NodeId)
+		node, err := service.overlay.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Error("error getting node from overlay cache", zap.Error(err))
+			service.log.Error("error getting node from overlay", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -302,7 +303,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 			continue
 		}
 
-		if !service.cache.IsOnline(node) {
+		if !service.overlay.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
@@ -373,9 +374,9 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 			continue
 		}
 
-		node, err := service.cache.Get(ctx, piece.NodeId)
+		node, err := service.overlay.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Error("error getting node from the overlay cache", zap.Error(err))
+			service.log.Error("error getting node from overlay", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -386,7 +387,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 			continue
 		}
 
-		if !service.cache.IsOnline(node) {
+		if !service.overlay.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
@@ -454,7 +455,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	node, err := service.cache.Get(ctx, nodeID)
+	node, err := service.overlay.Get(ctx, nodeID)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -463,7 +464,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeDisqualified.New(nodeID.String())
 	}
 
-	if !service.cache.IsOnline(node) {
+	if !service.overlay.IsOnline(node) {
 		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New(nodeID.String())
 	}
 
@@ -538,9 +539,9 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 	var limitsCount int
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range healthy {
-		node, err := service.cache.Get(ctx, piece.NodeId)
+		node, err := service.overlay.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Error("error getting node from the overlay cache", zap.Error(err))
+			service.log.Error("error getting node from the overlay", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -551,7 +552,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 			continue
 		}
 
-		if !service.cache.IsOnline(node) {
+		if !service.overlay.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue

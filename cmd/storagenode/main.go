@@ -27,8 +27,7 @@ import (
 
 // StorageNodeFlags defines storage node configuration
 type StorageNodeFlags struct {
-	EditConf        bool `default:"false" help:"open config in default editor"`
-	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
+	EditConf bool `default:"false" help:"open config in default editor"`
 
 	storagenode.Config
 }
@@ -161,6 +160,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
+	if err := peer.Storage2.CacheService.Init(ctx); err != nil {
+		zap.S().Error("Failed to initialize CacheService: ", err)
+	}
+
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 
@@ -197,11 +200,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")
-	if setupCfg.SaveAllDefaults {
-		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
-	} else {
-		err = process.SaveConfig(cmd.Flags(), configFile, overrides)
-	}
+	err = process.SaveConfig(cmd, configFile, process.SaveConfigWithOverrides(overrides))
 	if err != nil {
 		return err
 	}

@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/certdb"
 )
 
 // DB implements saving order after receiving from storage node
@@ -47,6 +46,9 @@ type DB interface {
 	GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error)
 	// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
+
+	// ProcessOrders takes a list of order requests and processes them in a batch
+	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*ProcessOrderResponse, err error)
 }
 
 var (
@@ -58,21 +60,33 @@ var (
 	mon = monkit.Package()
 )
 
+// ProcessOrderRequest for batch order processing
+type ProcessOrderRequest struct {
+	Order      *pb.Order
+	OrderLimit *pb.OrderLimit
+}
+
+// ProcessOrderResponse for batch order processing responses
+type ProcessOrderResponse struct {
+	SerialNumber storj.SerialNumber
+	Status       pb.SettlementResponse_Status
+}
+
 // Endpoint for orders receiving
 type Endpoint struct {
-	log             *zap.Logger
-	satelliteSignee signing.Signee
-	DB              DB
-	certdb          certdb.DB
+	log                 *zap.Logger
+	satelliteSignee     signing.Signee
+	DB                  DB
+	settlementBatchSize int
 }
 
 // NewEndpoint new orders receiving endpoint
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, certdb certdb.DB, db DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, settlementBatchSize int) *Endpoint {
 	return &Endpoint{
-		log:             log,
-		satelliteSignee: satelliteSignee,
-		DB:              db,
-		certdb:          certdb,
+		log:                 log,
+		satelliteSignee:     satelliteSignee,
+		DB:                  db,
+		settlementBatchSize: settlementBatchSize,
 	}
 }
 
@@ -94,7 +108,7 @@ func monitoredSettlementStreamSend(ctx context.Context, stream pb.Orders_Settlem
 	return stream.Send(resp)
 }
 
-// Settlement receives and handles orders.
+// Settlement receives orders and handles them in batches
 func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
@@ -113,8 +127,19 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 
 	log := endpoint.log.Named(peer.ID.String())
 	log.Debug("Settlement")
+
+	requests := make([]*ProcessOrderRequest, 0, endpoint.settlementBatchSize)
+
+	defer func() {
+		if len(requests) > 0 {
+			err = errs.Combine(err, endpoint.processOrders(ctx, stream, requests))
+			if err != nil {
+				err = formatError(err)
+			}
+		}
+	}()
+
 	for {
-		// TODO: batch these requests so we hit the db in batches
 		request, err := monitoredSettlementStreamReceive(ctx, stream)
 		if err != nil {
 			return formatError(err)
@@ -138,34 +163,14 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		}
 
 		rejectErr := func() error {
+			// satellite verifies that it signed the order limit
 			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
 				return Error.New("unable to verify order limit")
 			}
 
-			if orderLimit.DeprecatedUplinkId == nil { // new signature handling
-				if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
-					return Error.New("unable to verify order")
-				}
-			} else {
-				var uplinkSignee signing.Signee
-
-				// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
-				if endpoint.satelliteSignee.ID() == *orderLimit.DeprecatedUplinkId {
-					uplinkSignee = endpoint.satelliteSignee
-				} else {
-					uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, *orderLimit.DeprecatedUplinkId)
-					if err != nil {
-						log.Warn("unable to find uplink public key", zap.Error(err))
-						return status.Errorf(codes.Internal, "unable to find uplink public key")
-					}
-					uplinkSignee = &signing.PublicKey{
-						Self: *orderLimit.DeprecatedUplinkId,
-						Key:  uplinkPubKey,
-					}
-				}
-				if err := signing.VerifyOrderSignature(ctx, uplinkSignee, order); err != nil {
-					return Error.New("unable to verify order")
-				}
+			// satellite verifies that the order signature matches pub key in order limit
+			if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+				return Error.New("unable to verify order")
 			}
 
 			// TODO should this reject or just error ??
@@ -178,8 +183,8 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			}
 			return nil
 		}()
-		if rejectErr != err {
-			log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(err), zap.Error(rejectErr))
+		if rejectErr != nil {
+			log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(rejectErr))
 			err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
 				SerialNumber: orderLimit.SerialNumber,
 				Status:       pb.SettlementResponse_REJECTED,
@@ -190,55 +195,35 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			continue
 		}
 
-		bucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
-		if err != nil {
-			log.Warn("unable to use serial number", zap.Error(err))
-			if ErrUsingSerialNumber.Has(err) {
-				err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
-					SerialNumber: orderLimit.SerialNumber,
-					Status:       pb.SettlementResponse_REJECTED,
-				})
-				if err != nil {
-					return formatError(err)
-				}
-				continue
-			}
-			return err
-		}
-		now := time.Now().UTC()
-		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+		requests = append(requests, &ProcessOrderRequest{Order: order, OrderLimit: orderLimit})
 
-		projectID, bucketName, err := SplitBucketID(bucketID)
-		if err != nil {
-			return err
-		}
-		if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, *projectID, bucketName, orderLimit.Action, order.Amount, intervalStart); err != nil {
-			// TODO: we should use the serial number in the same transaction we settle the bandwidth? that way we don't need this undo in an error case?
-			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
-				log.Error("unable to unuse serial number", zap.Error(err))
+		if len(requests) >= endpoint.settlementBatchSize {
+			err = endpoint.processOrders(ctx, stream, requests)
+			requests = requests[:0]
+			if err != nil {
+				return formatError(err)
 			}
-			return err
 		}
-
-		// TODO: whoa this should also be in the same transaction
-		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount, intervalStart); err != nil {
-			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
-				log.Error("unable to unuse serial number", zap.Error(err))
-			}
-			if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, *projectID, bucketName, orderLimit.Action, -order.Amount, intervalStart); err != nil {
-				log.Error("unable to rollback bucket bandwidth", zap.Error(err))
-			}
-			return err
-		}
-
-		err = monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
-			SerialNumber: orderLimit.SerialNumber,
-			Status:       pb.SettlementResponse_ACCEPTED,
-		})
-		if err != nil {
-			return formatError(err)
-		}
-
-		// TODO: in fact, why don't we batch these into group transactions as they come in from Recv() ?
 	}
+}
+
+func (endpoint *Endpoint) processOrders(ctx context.Context, stream pb.Orders_SettlementServer, requests []*ProcessOrderRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
+	if err != nil {
+		return err
+	}
+
+	for _, response := range responses {
+		r := &pb.SettlementResponse{
+			SerialNumber: response.SerialNumber,
+			Status:       response.Status,
+		}
+		err = monitoredSettlementStreamSend(ctx, stream, r)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

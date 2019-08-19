@@ -8,7 +8,6 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_ACCOUNT: 'toggleAccountDropdown',
     TOGGLE_DEL_PROJ: 'toggleDeleteProjectPopup',
     TOGGLE_DEL_ACCOUNT: 'toggleDeleteAccountPopup',
-    TOGGLE_NEW_API_KEY: 'toggleNewAPIKeyPopup',
     TOGGLE_SORT_PM_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',
     TOGGLE_SUCCESSFUL_REGISTRATION_POPUP: 'toggleSuccessfulRegistrationPopup',
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
@@ -41,6 +40,7 @@ export const PM_ACTIONS = {
     CLEAR: 'clearProjectMembers',
     SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
     SET_SORT_BY: 'setProjectMembersSortingBy',
+    SET_SORT_DIRECTION: 'setProjectMembersSortingDirection',
     CLEAR_OFFSET: 'clearProjectMembersOffset'
 };
 
@@ -54,16 +54,13 @@ export const PROJETS_ACTIONS = {
 };
 
 export const USER_ACTIONS = {
-    UPDATE: 'updateAccount',
-    CHANGE_PASSWORD: 'changePassword',
-    DELETE: 'deleteAccount',
+    UPDATE: 'updateUser',
     GET: 'getUser',
     CLEAR: 'clearUser',
-    ACTIVATE: 'activateAccount',
 };
 
 export const API_KEYS_ACTIONS = {
-    FETCH: 'fetchAPIKeys',
+    FETCH: 'setAPIKeys',
     CREATE: 'createAPIKey',
     DELETE: 'deleteAPIKey',
     CLEAR: 'clearAPIKeys',

@@ -7,12 +7,12 @@ package main
 import "C"
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"time"
 	"unsafe"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
@@ -138,7 +138,7 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 	}
 
 	if err := upload.ctx.Err(); err != nil {
-		if err != context.Canceled {
+		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
 		}
 		return C.size_t(0)
@@ -148,7 +148,9 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 
 	n, err := upload.wc.Write(buf)
 	if err != nil {
-		*cErr = C.CString(fmt.Sprintf("%+v", err))
+		if !errs2.IsCanceled(err) {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 	}
 	return C.size_t(n)
 }
@@ -162,7 +164,7 @@ func upload_commit(uploader C.UploaderRef, cErr **C.char) {
 	}
 
 	if err := upload.ctx.Err(); err != nil {
-		if err != context.Canceled {
+		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
 		}
 		return
@@ -171,7 +173,7 @@ func upload_commit(uploader C.UploaderRef, cErr **C.char) {
 
 	err := upload.wc.Close()
 	if err != nil {
-		if err != context.Canceled {
+		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
 		}
 		return
@@ -187,7 +189,7 @@ func upload_cancel(uploader C.UploaderRef, cErr **C.char) {
 	}
 
 	if err := upload.ctx.Err(); err != nil {
-		if err != context.Canceled {
+		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
 		}
 		return
@@ -227,7 +229,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 	objListLen := len(objectList.Items)
 
 	objectSize := int(C.sizeof_ObjectInfo)
-	ptr := C.malloc(C.size_t(objListLen * objectSize))
+	ptr := C.malloc(C.size_t(objectSize * objListLen))
 	cObjectsPtr := (*[1 << 30]C.ObjectInfo)(ptr)
 
 	for i, object := range objectList.Items {
@@ -247,11 +249,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 // Download stores readcloser and context scope for downloading
 type Download struct {
 	scope
-	rc interface {
-		io.Reader
-		io.Seeker
-		io.Closer
-	}
+	rc io.ReadCloser
 }
 
 //export download
@@ -266,9 +264,11 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRe
 
 	scope := bucket.scope.child()
 
-	rc, err := bucket.NewReader(scope.ctx, C.GoString(path))
+	rc, err := bucket.Download(scope.ctx, C.GoString(path))
 	if err != nil {
-		*cErr = C.CString(fmt.Sprintf("%+v", err))
+		if !errs2.IsCanceled(err) {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 		return C.DownloaderRef{}
 	}
 
@@ -287,7 +287,7 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 	}
 
 	if err := download.ctx.Err(); err != nil {
-		if err != context.Canceled {
+		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
 		}
 		return C.size_t(0)
@@ -296,7 +296,7 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := download.rc.Read(buf)
-	if err != nil && err != io.EOF {
+	if err != nil && err != io.EOF && !errs2.IsCanceled(err) {
 		*cErr = C.CString(fmt.Sprintf("%+v", err))
 	}
 	return C.size_t(n)
@@ -310,7 +310,7 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 	}
 
 	if err := download.ctx.Err(); err != nil {
-		if err != context.Canceled {
+		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
 		}
 		return
@@ -320,7 +320,9 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 
 	err := download.rc.Close()
 	if err != nil {
-		*cErr = C.CString(fmt.Sprintf("%+v", err))
+		if !errs2.IsCanceled(err) {
+			*cErr = C.CString(fmt.Sprintf("%+v", err))
+		}
 		return
 	}
 }
@@ -334,7 +336,7 @@ func download_cancel(downloader C.DownloaderRef, cErr **C.char) {
 	}
 
 	if err := download.ctx.Err(); err != nil {
-		if err != context.Canceled {
+		if !errs2.IsCanceled(err) {
 			*cErr = C.CString(fmt.Sprintf("%+v", err))
 		}
 		return

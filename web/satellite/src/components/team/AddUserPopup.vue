@@ -20,7 +20,7 @@
                             class="add-user__form-container__inputs-group__item"
                             :key="index" >
                                 <input
-                                    placeholder="test@mail.test"
+                                    placeholder="email@example.com"
                                     v-model="input.value"
                                     :class="[input.error ? 'error' : 'no-error']"
                                     @keyup="resetFormErrors(index)" />
@@ -138,7 +138,7 @@
 
             let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
             if (!result.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding team members!');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding projectMembers members!');
                 this.isLoading = false;
 
                 return;
