@@ -47,6 +47,14 @@ When there is a newer version is available it needs to calculate whether it need
 * The update check must verify that it is a trusted server.
 * The update check should have a jitter to avoid a stampeding herd. See http://highscalability.com/blog/2012/4/17/youtube-strategy-adding-jitter-isnt-a-bug.html for more information.
 
+### Canary releases
+
+Canary nodes are the first storage nodes that will receive a new release. They will receive it even before first nodes in the gradual rollout. Canary nodes are on the front line on the risk of receiving a bad new release. Only after confirming that canary nodes are behaving correctly after the update, the gradual rollout will begin.
+
+It shall be possible for Storage Node Operator to opt-in to the canary release channel. We expect that those will be mostly Storj employees and enthusiastic community members.
+
+Canary nodes will query the Version Server on a different designated URL to find the latest canary version.
+
 ### Downloading the binaries
 
 Once we have decided on a new version we need to download the new version. We will download the appropriate release from a trusted server beside the current binary (instead of temporary directory).
@@ -94,7 +102,7 @@ Possible problems:
 
 If the service fails to start then we should try to report and/or correct the issue.
 
-## Rollbacks
+### Rollbacks
 
 There will be cases when, despite our best efforts, we will release a bad version. In such case, storage nodes which got the update will malfunction.
 
@@ -121,3 +129,4 @@ To mitigate the risk, we will have canary releases and gradual release rollout. 
 * Should we try to update new and small nodes first to further mitigate the impact of bad releases?
   * Storage Node Operators of new nodes are expected to check their logs more frequently.
   * Is this possible at all using the jitter?
+* We need to define the Web API of the Version Server.
