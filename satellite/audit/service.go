@@ -75,7 +75,7 @@ type ReservoirService struct {
 	ReservoirLoop sync2.Cycle
 }
 
-// NewService2 instantiates Service2
+// NewReservoirService instantiates Service2
 func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, r *rand.Rand, config Config) (*ReservoirService, error) {
 	return &ReservoirService{
 		log: log,
