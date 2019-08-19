@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 )
 
+// ErrBandwidth represents errors from the bandwidthdb database.
 var ErrBandwidth = errs.Class("bandwidthdb error")
 
 type bandwidthdb struct {

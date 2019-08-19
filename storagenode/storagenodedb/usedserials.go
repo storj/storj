@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 )
 
+// ErrUsedSerials represents errors from the used serials database.
 var ErrUsedSerials = errs.Class("usedserials error")
 
 type usedSerials struct {

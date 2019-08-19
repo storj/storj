@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 )
 
+// ErrOrders represents errors from the ordersdb database.
 var ErrOrders = errs.Class("ordersdb error")
 
 type ordersdb struct {

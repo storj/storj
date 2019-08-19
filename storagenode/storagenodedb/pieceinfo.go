@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
+// ErrPieceInfo represents errors from the piece info database.
 var ErrPieceInfo = errs.Class("v0pieceinfo error")
 
 type v0PieceInfo struct {
