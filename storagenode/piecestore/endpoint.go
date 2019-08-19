@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/bloomfilter"
@@ -522,8 +523,9 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			// TODO: add timeout here
 			message, err = stream.Recv()
 			if err != nil {
-				// err is io.EOF when uplink closed the connection, no need to return error
-				return ErrProtocol.Wrap(ignoreEOF(err))
+				// err is io.EOF or canceled when uplink closed the connection, no need to return error
+				err = errs2.IgnoreCanceled(ignoreEOF(err))
+				return ErrProtocol.Wrap(err)
 			}
 
 			if message == nil || message.Order == nil {
