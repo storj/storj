@@ -90,17 +90,17 @@ type DB struct {
 		Close() error
 	}
 
-	versions          *versions
-	v0PieceInfo       *v0PieceInfo
-	bandwidth         *bandwidthdb
-	console           *consoledb
-	orders            *ordersdb
+	versionsDB        *versionsDB
+	v0PieceInfoDB     *v0PieceInfoDB
+	bandwidthDB       *bandwidthDB
+	consoleDB         *consoleDB
+	ordersDB          *ordersDB
 	pieceExpirationDB *pieceExpirationDB
 	pieceSpaceUsedDB  *pieceSpaceUsedDB
-	reputation        *reputationDB
-	storageUsage      *storageusageDB
-	usedserials       *usedSerials
-	vouchers          *vouchersdb
+	reputationDB      *reputationDB
+	storageUsageDB    *storageusageDB
+	usedSerialsDB     *usedSerialsDB
+	vouchersDB        *vouchersDB
 
 	kdb, ndb, adb storage.KeyValueStore
 }
@@ -133,17 +133,17 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 
 		// Initialize databases. Currently shares one info.db database file but
 		// in the future these will initialize their own database connections.
-		versions:          newVersions(versionsDB, versionsPath),
-		v0PieceInfo:       newPieceInfo(versionsDB, versionsPath),
-		bandwidth:         newBandwidth(versionsDB, versionsPath),
-		console:           newConsole(versionsDB),
-		orders:            newOrders(versionsDB, versionsPath),
+		versionsDB:        newVersionsDB(versionsDB, versionsPath),
+		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
+		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
+		consoleDB:         newConsoleDB(versionsDB),
+		ordersDB:          newOrdersDB(versionsDB, versionsPath),
 		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
 		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
-		reputation:        newReputationDB(versionsDB, versionsPath),
-		storageUsage:      newStorageusageDB(versionsDB, versionsPath),
-		usedserials:       newUsedSerials(versionsDB, versionsPath),
-		vouchers:          newVouchers(versionsDB, versionsPath),
+		reputationDB:      newReputationDB(versionsDB, versionsPath),
+		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
+		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
+		vouchersDB:        newVouchersDB(versionsDB, versionsPath),
 	}
 
 	return db, nil
@@ -172,17 +172,17 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 
 		// Initialize databases. Currently shares one info.db database file but
 		// in the future these will initialize their own database connections.
-		versions:          newVersions(versionsDB, versionsPath),
-		v0PieceInfo:       newPieceInfo(versionsDB, versionsPath),
-		bandwidth:         newBandwidth(versionsDB, versionsPath),
-		console:           newConsole(versionsDB),
-		orders:            newOrders(versionsDB, versionsPath),
+		versionsDB:        newVersionsDB(versionsDB, versionsPath),
+		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
+		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
+		consoleDB:         newConsoleDB(versionsDB),
+		ordersDB:          newOrdersDB(versionsDB, versionsPath),
 		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
 		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
-		reputation:        newReputationDB(versionsDB, versionsPath),
-		storageUsage:      newStorageusageDB(versionsDB, versionsPath),
-		usedserials:       newUsedSerials(versionsDB, versionsPath),
-		vouchers:          newVouchers(versionsDB, versionsPath),
+		reputationDB:      newReputationDB(versionsDB, versionsPath),
+		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
+		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
+		vouchersDB:        newVouchersDB(versionsDB, versionsPath),
 	}
 	return db, nil
 }
@@ -227,7 +227,7 @@ func openTestDatabase() (*sql.DB, error) {
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables() error {
 	migration := db.Migration()
-	return migration.Run(db.log.Named("migration"), db.versions)
+	return migration.Run(db.log.Named("migration"), db.versionsDB)
 }
 
 // Close closes any resources.
@@ -237,48 +237,48 @@ func (db *DB) Close() error {
 		db.ndb.Close(),
 		db.adb.Close(),
 
-		db.versions.Close(),
-		db.v0PieceInfo.Close(),
-		db.bandwidth.Close(),
-		db.console.Close(),
-		db.orders.Close(),
+		db.versionsDB.Close(),
+		db.v0PieceInfoDB.Close(),
+		db.bandwidthDB.Close(),
+		db.consoleDB.Close(),
+		db.ordersDB.Close(),
 		db.pieceExpirationDB.Close(),
 		db.pieceSpaceUsedDB.Close(),
-		db.reputation.Close(),
-		db.storageUsage.Close(),
-		db.usedserials.Close(),
-		db.vouchers.Close(),
+		db.reputationDB.Close(),
+		db.storageUsageDB.Close(),
+		db.usedSerialsDB.Close(),
+		db.vouchersDB.Close(),
 	)
 }
 
 // VersionsMigration returns the instance of the versions database.
 func (db *DB) VersionsMigration() migrate.DB {
-	return db.versions
+	return db.versionsDB
 }
 
 // Versions returns the instance of the versions database.
 func (db *DB) Versions() SQLDB {
-	return db.versions
+	return db.versionsDB
 }
 
 // V0PieceInfo returns the instance of the V0PieceInfoDB database.
 func (db *DB) V0PieceInfo() pieces.V0PieceInfoDB {
-	return db.v0PieceInfo
+	return db.v0PieceInfoDB
 }
 
 // Bandwidth returns the instance of the Bandwidth database.
 func (db *DB) Bandwidth() bandwidth.DB {
-	return db.bandwidth
+	return db.bandwidthDB
 }
 
 // Console returns the instance of the Console database.
 func (db *DB) Console() console.DB {
-	return db.console
+	return db.consoleDB
 }
 
 // Orders returns the instance of the Orders database.
 func (db *DB) Orders() orders.DB {
-	return db.orders
+	return db.ordersDB
 }
 
 // Pieces returns blob storage for pieces
@@ -298,22 +298,22 @@ func (db *DB) PieceSpaceUsedDB() pieces.PieceSpaceUsedDB {
 
 // Reputation returns the instance of the Reputation database.
 func (db *DB) Reputation() reputation.DB {
-	return db.reputation
+	return db.reputationDB
 }
 
 // StorageUsage returns the instance of the StorageUsage database.
 func (db *DB) StorageUsage() storageusage.DB {
-	return db.storageUsage
+	return db.storageUsageDB
 }
 
 // UsedSerials returns the instance of the UsedSerials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials {
-	return db.usedserials
+	return db.usedSerialsDB
 }
 
 // Vouchers returns the instance of the Vouchers database.
 func (db *DB) Vouchers() vouchers.DB {
-	return db.vouchers
+	return db.vouchersDB
 }
 
 // RoutingTable returns kademlia routing table
@@ -556,23 +556,23 @@ func (db *DB) Migration() *migrate.Migration {
 				Version:     13,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
 					// When using inmemory DB, skip deletion process
-					if db.versions.location == "" {
+					if db.versionsDB.location == "" {
 						return nil
 					}
 
-					err := os.RemoveAll(filepath.Join(filepath.Dir(db.versions.location), "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
+					err := os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versions.location), "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
+					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versions.location), "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
+					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versions.location), "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
+					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
@@ -585,11 +585,11 @@ func (db *DB) Migration() *migrate.Migration {
 				Version:     14,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
 					// When using inmemory DB, skip deletion process
-					if db.versions.location == "" {
+					if db.versionsDB.location == "" {
 						return nil
 					}
 
-					err := os.RemoveAll(filepath.Join(filepath.Dir(db.versions.location), "tmp"))
+					err := os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "tmp"))
 					if err != nil {
 						log.Sugar().Debug(err)
 					}

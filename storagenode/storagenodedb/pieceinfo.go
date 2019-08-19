@@ -19,23 +19,23 @@ import (
 )
 
 // ErrPieceInfo represents errors from the piece info database.
-var ErrPieceInfo = errs.Class("v0pieceinfo error")
+var ErrPieceInfo = errs.Class("v0pieceinfodb error")
 
-type v0PieceInfo struct {
+type v0PieceInfoDB struct {
 	location string
 	SQLDB
 }
 
-// newPieceInfo returns a new instance of pieceinfo initialized with the specified database.
-func newPieceInfo(db SQLDB, location string) *v0PieceInfo {
-	return &v0PieceInfo{
+// newV0PieceInfoDB returns a new instance of pieceinfo initialized with the specified database.
+func newV0PieceInfoDB(db SQLDB, location string) *v0PieceInfoDB {
+	return &v0PieceInfoDB{
 		location: location,
 		SQLDB:    db,
 	}
 }
 
 // Add inserts piece information into the database.
-func (db *v0PieceInfo) Add(ctx context.Context, info *pieces.Info) (err error) {
+func (db *v0PieceInfoDB) Add(ctx context.Context, info *pieces.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	orderLimit, err := proto.Marshal(info.OrderLimit)
@@ -64,7 +64,7 @@ func (db *v0PieceInfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	return ErrPieceInfo.Wrap(err)
 }
 
-func (db *v0PieceInfo) getAllPiecesOwnedBy(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID) ([]v0StoredPieceAccess, error) {
+func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID) ([]v0StoredPieceAccess, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT piece_id, piece_size, piece_creation, piece_expiration
 		FROM pieceinfo_
@@ -97,7 +97,7 @@ func (db *v0PieceInfo) getAllPiecesOwnedBy(ctx context.Context, blobStore storag
 //
 // If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
 // instances will not work, but otherwise everything should be ok.
-func (db *v0PieceInfo) WalkSatelliteV0Pieces(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
+func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: is it worth paging this query? we hope that SNs will not yet have too many V0 pieces.
@@ -119,7 +119,7 @@ func (db *v0PieceInfo) WalkSatelliteV0Pieces(ctx context.Context, blobStore stor
 }
 
 // Get gets piece information by satellite id and piece id.
-func (db *v0PieceInfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (_ *pieces.Info, err error) {
+func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (_ *pieces.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 	info := &pieces.Info{}
 	info.SatelliteID = satelliteID
@@ -158,7 +158,7 @@ func (db *v0PieceInfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceI
 }
 
 // Delete deletes piece information.
-func (db *v0PieceInfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+func (db *v0PieceInfoDB) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `
@@ -171,7 +171,7 @@ func (db *v0PieceInfo) Delete(ctx context.Context, satelliteID storj.NodeID, pie
 }
 
 // DeleteFailed marks piece as a failed deletion.
-func (db *v0PieceInfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) (err error) {
+func (db *v0PieceInfoDB) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.ExecContext(ctx, `
@@ -185,7 +185,7 @@ func (db *v0PieceInfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeI
 }
 
 // GetExpired gets ExpiredInfo records for pieces that are expired.
-func (db *v0PieceInfo) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
+func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, `

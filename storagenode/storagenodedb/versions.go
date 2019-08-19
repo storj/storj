@@ -4,20 +4,24 @@
 package storagenodedb
 
 // versions represents the database that contains the database schema version history.
-type versions struct {
+type versionsDB struct {
 	location string
 	SQLDB
 }
 
-func newVersions(db SQLDB, location string) *versions {
-	return &versions{
+func newVersionsDB(db SQLDB, location string) *versionsDB {
+	return &versionsDB{
 		location: location,
 		SQLDB:    db,
 	}
 }
 
 // Rebind rebind parameters
-func (db *versions) Rebind(s string) string { return s }
+// These are implemented because the migrate.DB interface requires them.
+// Maybe in the future we should untangle those.
+func (db *versionsDB) Rebind(s string) string { return s }
 
 // Schema returns schema
-func (db *versions) Schema() string { return "" }
+// These are implemented because the migrate.DB interface requires them.
+// Maybe in the future we should untangle those.
+func (db *versionsDB) Schema() string { return "" }

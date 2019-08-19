@@ -14,23 +14,23 @@ import (
 )
 
 // ErrUsedSerials represents errors from the used serials database.
-var ErrUsedSerials = errs.Class("usedserials error")
+var ErrUsedSerials = errs.Class("usedserialsdb error")
 
-type usedSerials struct {
+type usedSerialsDB struct {
 	location string
 	SQLDB
 }
 
-// newUsedSerials returns a new instance of usedSerials initialized with the specified database.
-func newUsedSerials(db SQLDB, location string) *usedSerials {
-	return &usedSerials{
+// newUsedSerialsDB returns a new instance of usedSerials initialized with the specified database.
+func newUsedSerialsDB(db SQLDB, location string) *usedSerialsDB {
+	return &usedSerialsDB{
 		location: location,
 		SQLDB:    db,
 	}
 }
 
 // Add adds a serial to the database.
-func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) (err error) {
+func (db *usedSerialsDB) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.Exec(`
@@ -42,7 +42,7 @@ func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serial
 }
 
 // DeleteExpired deletes expired serial numbers
-func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) (err error) {
+func (db *usedSerialsDB) DeleteExpired(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.Exec(`DELETE FROM used_serial_ WHERE expiration < ?`, now.UTC())
@@ -51,7 +51,7 @@ func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) (err er
 
 // IterateAll iterates all serials.
 // Note, this will lock the database and should only be used during startup.
-func (db *usedSerials) IterateAll(ctx context.Context, fn piecestore.SerialNumberFn) (err error) {
+func (db *usedSerialsDB) IterateAll(ctx context.Context, fn piecestore.SerialNumberFn) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.Query(`SELECT satellite_id, serial_number, expiration FROM used_serial_`)
