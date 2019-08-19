@@ -81,7 +81,7 @@ type DB interface {
 // Config defines configuration for sending orders.
 type Config struct {
 	SenderInterval  time.Duration `help:"duration between sending" default:"1h0m0s"`
-	CleanupInterval time.Duration `help:"duration between archive cleanups. Each cleanup deletes all orders archived before the previous iteration, leaving the last period available for reference" default:"720h0m0s"`
+	CleanupInterval time.Duration `help:"duration between archive cleanups. Each cleanup deletes all orders archived before the previous iteration, leaving the last period available for reference" default:"744h0m0s"`
 	Timeout         time.Duration `help:"timeout for sending" default:"1h0m0s"`
 }
 
