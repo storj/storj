@@ -249,6 +249,14 @@ func (db *DB) Close() error {
 	)
 }
 
+func (db *DB) VersionsMigration() migrate.DB {
+	return db.versions
+}
+
+func (db *DB) Versions() SQLDB {
+	return db.versions
+}
+
 func (db *DB) V0PieceInfo() pieces.V0PieceInfoDB {
 	return db.v0PieceInfo
 }
