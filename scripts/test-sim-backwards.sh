@@ -21,7 +21,7 @@ latestReleaseTag=$(git describe --tags `git rev-list --tags --max-count=1`)
 latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")
 echo "Checking out latest release tag: $latestReleaseTag"
 git worktree add -f "$RELEASE_DIR" "$latestReleaseCommit"
-# to run with sqlite, we need to delete this release file that forces postgres
+# delete this file that forces production config settings
 rm "$RELEASE_DIR/internal/version/release.go"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
@@ -29,9 +29,14 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 make -C "$RELEASE_DIR" install-sim
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
+STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
 # setup the network
-storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
+if [ -z ${STORJ_SIM_POSTGRES} ]; then
+    storj-sim -x --host $STORJ_NETWORK_HOST4 network setup
+else
+    storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+fi
 
 # run upload part of backward compatibility tests from the lastest release branch
 storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
