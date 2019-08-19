@@ -239,9 +239,9 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	// if retain status is disabled, return immediately
 	if s.config.RetainStatus == Disabled {
 		return nil
-	} else {
-		defer mon.Task()(&ctx, req.SatelliteID, req.CreatedBefore, req.Filter.Size())(&err)
 	}
+
+	defer mon.Task()(&ctx, req.SatelliteID, req.CreatedBefore, req.Filter.Size())(&err)
 
 	numDeleted := 0
 	satelliteID := req.SatelliteID
