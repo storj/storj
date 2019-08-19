@@ -37,7 +37,9 @@ import (
 )
 
 var (
-	mon         = monkit.Package()
+	mon = monkit.Package()
+
+	// ErrDatabase represents errors from the databases.
 	ErrDatabase = errs.Class("ordersdb")
 )
 
@@ -249,26 +251,32 @@ func (db *DB) Close() error {
 	)
 }
 
+// VersionsMigration returns the instance of the versions database.
 func (db *DB) VersionsMigration() migrate.DB {
 	return db.versions
 }
 
+// Versions returns the instance of the versions database.
 func (db *DB) Versions() SQLDB {
 	return db.versions
 }
 
+// V0PieceInfo returns the instance of the V0PieceInfoDB database.
 func (db *DB) V0PieceInfo() pieces.V0PieceInfoDB {
 	return db.v0PieceInfo
 }
 
+// Bandwidth returns the instance of the Bandwidth database.
 func (db *DB) Bandwidth() bandwidth.DB {
 	return db.bandwidth
 }
 
+// Console returns the instance of the Console database.
 func (db *DB) Console() console.DB {
 	return db.console
 }
 
+// Orders returns the instance of the Orders database.
 func (db *DB) Orders() orders.DB {
 	return db.orders
 }
@@ -278,26 +286,32 @@ func (db *DB) Pieces() storage.Blobs {
 	return db.pieces
 }
 
+// PieceExpirationDB returns the instance of the PieceExpiration database.
 func (db *DB) PieceExpirationDB() pieces.PieceExpirationDB {
 	return db.pieceExpirationDB
 }
 
+// PieceSpaceUsedDB returns the instance of the PieceSpacedUsed database.
 func (db *DB) PieceSpaceUsedDB() pieces.PieceSpaceUsedDB {
 	return db.pieceSpaceUsedDB
 }
 
+// Reputation returns the instance of the Reputation database.
 func (db *DB) Reputation() reputation.DB {
 	return db.reputation
 }
 
+// StorageUsage returns the instance of the StorageUsage database.
 func (db *DB) StorageUsage() storageusage.DB {
 	return db.storageUsage
 }
 
+// UsedSerials returns the instance of the UsedSerials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials {
 	return db.usedserials
 }
 
+// Vouchers returns the instance of the Vouchers database.
 func (db *DB) Vouchers() vouchers.DB {
 	return db.vouchers
 }

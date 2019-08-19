@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// ErrPieceSpaceUsed represents errors from the piece spaced used database.
 var ErrPieceSpaceUsed = errs.Class("piece space used error")
 
 type pieceSpaceUsedDB struct {

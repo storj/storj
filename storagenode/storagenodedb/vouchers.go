@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// ErrVouchers represents errors from the vouchers database.
 var ErrVouchers = errs.Class("vouchers error")
 
 type vouchersdb struct {

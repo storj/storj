@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
+// ErrPieceExpiration represents errors from the piece expiration database.
 var ErrPieceExpiration = errs.Class("piece expiration error")
 
 type pieceExpirationDB struct {

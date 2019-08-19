@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/storagenode/reputation"
 )
 
+// ErrReputation represents errors from the reputation database.
 var ErrReputation = errs.Class("reputation error")
 
 // reputation works with node reputation DB
