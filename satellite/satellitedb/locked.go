@@ -774,7 +774,7 @@ func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj
 }
 
 // ProcessOrders takes a list of order requests and processes them in a batch
-func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*pb.SettlementResponse, err error) {
+func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ProcessOrders(ctx, requests)

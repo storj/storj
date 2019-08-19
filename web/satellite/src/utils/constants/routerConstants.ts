@@ -27,7 +27,7 @@ const ROUTES = {
         name: 'ProjectOverview'
     },
     TEAM: {
-        path: '/team',
+        path: '/projectMembers',
         name: 'Team'
     },
     API_KEYS: {

@@ -9,8 +9,7 @@
             :is="itemComponent"
             :itemData="item"
             @click.native="onItemClick(item)"
-            v-bind:class="[item.isSelected ? 'selected' : '']"
-            v-bind:key="item.id"/>
+            :class="{ selected: item.isSelected }"/>
     </div>
 </template>
 

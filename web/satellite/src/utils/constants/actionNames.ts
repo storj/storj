@@ -40,6 +40,7 @@ export const PM_ACTIONS = {
     CLEAR: 'clearProjectMembers',
     SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
     SET_SORT_BY: 'setProjectMembersSortingBy',
+    SET_SORT_DIRECTION: 'setProjectMembersSortingDirection',
     CLEAR_OFFSET: 'clearProjectMembersOffset'
 };
 
@@ -50,12 +51,6 @@ export const PROJETS_ACTIONS = {
     UPDATE: 'updateProject',
     DELETE: 'deleteProject',
     CLEAR: 'clearProjects',
-};
-
-export const USER_ACTIONS = {
-    UPDATE: 'updateUser',
-    GET: 'getUser',
-    CLEAR: 'clearUser',
 };
 
 export const API_KEYS_ACTIONS = {
@@ -86,8 +81,4 @@ export const PROJECT_PAYMENT_METHODS_ACTIONS = {
     CLEAR: 'clearProjectPaymentMethods',
     SET_DEFAULT: 'setDefaultPaymentMethod',
     DELETE: 'deletePaymentMethod'
-};
-
-export const CREDIT_USAGE_ACTIONS = {
-    FETCH: 'fetchCreditUsage',
 };
