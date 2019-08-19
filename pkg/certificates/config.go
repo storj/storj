@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage/boltdb"
@@ -38,13 +37,8 @@ type CertServerConfig struct {
 }
 
 // Sign submits a certificate signing request given the config
-func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) (_ [][]byte, err error) {
+func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string, revDB extensions.RevocationDB) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	revDB, err := revocation.NewDBFromCfg(c.TLS)
-	if err != nil {
-		return nil, err
-	}
 
 	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS, revDB)
 	if err != nil {

@@ -55,12 +55,12 @@ func NewDB(dbURL string) (*DB, error) {
 	var db *DB
 	switch driver {
 	case "bolt":
-		db, err = newRevocationDBBolt(source)
+		db, err = newDBBolt(source)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
 	case "redis":
-		db, err = newRevocationDBRedis(dbURL)
+		db, err = newDBRedis(dbURL)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
@@ -71,8 +71,8 @@ func NewDB(dbURL string) (*DB, error) {
 	return db, nil
 }
 
-// newRevocationDBBolt creates a bolt-backed DB
-func newRevocationDBBolt(path string) (*DB, error) {
+// newDBBolt creates a bolt-backed DB
+func newDBBolt(path string) (*DB, error) {
 	client, err := boltdb.New(path, extensions.RevocationBucket)
 	if err != nil {
 		return nil, err
@@ -82,8 +82,8 @@ func newRevocationDBBolt(path string) (*DB, error) {
 	}, nil
 }
 
-// newRevocationDBRedis creates a redis-backed DB.
-func newRevocationDBRedis(address string) (*DB, error) {
+// newDBRedis creates a redis-backed DB.
+func newDBRedis(address string) (*DB, error) {
 	client, err := redis.NewClientFrom(address)
 	if err != nil {
 		return nil, err
@@ -95,14 +95,14 @@ func newRevocationDBRedis(address string) (*DB, error) {
 
 // Get attempts to retrieve the most recent revocation for the given cert chain
 // (the  key used in the underlying database is the nodeID of the certificate chain).
-func (r DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.Revocation, err error) {
+func (db DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.Revocation, err error) {
 	defer mon.Task()(&ctx)(&err)
 	nodeID, err := identity.NodeIDFromCert(chain[peertls.CAIndex])
 	if err != nil {
 		return nil, extensions.ErrRevocation.Wrap(err)
 	}
 
-	revBytes, err := r.KVStore.Get(ctx, nodeID.Bytes())
+	revBytes, err := db.KVStore.Get(ctx, nodeID.Bytes())
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
@@ -120,7 +120,7 @@ func (r DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.R
 // Put stores the most recent revocation for the given cert chain IF the timestamp
 // is newer than the current value (the  key used in the underlying database is
 // the nodeID of the certificate chain).
-func (r DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Extension) (err error) {
+func (db DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Extension) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	ca := chain[peertls.CAIndex]
 	var rev extensions.Revocation
@@ -135,7 +135,7 @@ func (r DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Exte
 		return err
 	}
 
-	lastRev, err := r.Get(ctx, chain)
+	lastRev, err := db.Get(ctx, chain)
 	if err != nil {
 		return err
 	} else if lastRev != nil && lastRev.Timestamp >= rev.Timestamp {
@@ -146,21 +146,21 @@ func (r DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Exte
 	if err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
-	if err := r.KVStore.Put(ctx, nodeID.Bytes(), revExt.Value); err != nil {
+	if err := db.KVStore.Put(ctx, nodeID.Bytes(), revExt.Value); err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
 	return nil
 }
 
 // List lists all revocations in the store
-func (r DB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
+func (db DB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
 	defer mon.Task()(&ctx)(&err)
-	keys, err := r.KVStore.List(ctx, []byte{}, 0)
+	keys, err := db.KVStore.List(ctx, []byte{}, 0)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
 
-	marshaledRevs, err := r.KVStore.GetAll(ctx, keys)
+	marshaledRevs, err := db.KVStore.GetAll(ctx, keys)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
@@ -177,6 +177,6 @@ func (r DB) List(ctx context.Context) (revs []*extensions.Revocation, err error)
 }
 
 // Close closes the underlying store
-func (r DB) Close() error {
-	return r.KVStore.Close()
+func (db DB) Close() error {
+	return db.KVStore.Close()
 }

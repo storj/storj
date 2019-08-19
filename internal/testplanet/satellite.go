@@ -10,10 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/rollup"
@@ -213,7 +216,12 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 		verInfo := planet.NewVersionInfo()
 
-		peer, err := satellite.New(log, identity, db, &config, verInfo)
+		revDB, err := revocation.NewDBFromCfg(config.Server.Config)
+		if err != nil {
+			return xs, errs.New("Error creating revocation database: %+v", err)
+		}
+
+		peer, err := satellite.New(log, identity, db, revDB, &config, verInfo)
 		if err != nil {
 			return xs, err
 		}

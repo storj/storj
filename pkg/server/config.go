@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/revocation"
 )
 
 // Config holds server specific configuration parameters
@@ -24,12 +24,13 @@ type Config struct {
 }
 
 // Run will run the given responsibilities with the configured identity.
-func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
+func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity, revDB extensions.RevocationDB, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	revDB, err := revocation.NewDBFromCfg(sc.Config)
-	if err != nil {
-		return err
+	// Ensure revDB is not nil, since we call Close() below we do not want a
+	// panic
+	if revDB == nil {
+		return Error.New("revDB cannot be nil in call to Run")
 	}
 
 	opts, err := tlsopts.NewOptions(identity, sc.Config, revDB)
