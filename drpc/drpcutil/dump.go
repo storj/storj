@@ -41,14 +41,14 @@ func (d *Dumper) Write(p []byte) (n int, err error) {
 	}()
 
 	for {
-		advance, token, err := drpcwire.PacketScanner(d.buf, false)
+		advance, token, err := drpcwire.FrameScanner(d.buf, false)
 		if err != nil {
 			return len(p), err
 		} else if token == nil {
 			return len(p), nil
 		}
 
-		rem, pkt, ok, err := drpcwire.ParsePacket(token)
+		rem, pkt, ok, err := drpcwire.ParseFrame(token)
 		if !ok || err != nil || len(rem) > 0 {
 			return len(p), drpc.InternalError.New("invalid parse after scanner")
 		}

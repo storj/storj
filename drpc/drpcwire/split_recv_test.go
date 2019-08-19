@@ -52,10 +52,10 @@ func TestSplitRecv(t *testing.T) {
 	for i := 0; i < numPackets; i++ {
 		group.Go(func() error {
 			buf := drpcutil.NewBuffer(pw, 64*1024)
-			pkt := drpctest.RandCompletePacket()
+			pkt := drpctest.RandPacket()
 			chSent <- pkt
 
-			err := drpcwire.Split(pkt.Header.PayloadKind, pkt.Header.PacketID, pkt.Data, buf.Write)
+			err := drpcwire.Split(pkt, buf.Write)
 			if err != nil {
 				pw.CloseWithError(err)
 				return err
@@ -83,14 +83,14 @@ func TestSplitRecv(t *testing.T) {
 	// record what was sent and what was received in a way that makes it easy
 	// to compare the two and then ensure they are equal.
 	size := int64(0)
-	got := make(map[drpcwire.Header][]byte)
+	got := make(map[drpcwire.PacketID][]byte)
 	for pkt := range chRecv {
-		got[pkt.Header] = pkt.Data
+		got[pkt.PacketID] = pkt.Data
 		size += int64(len(pkt.Data))
 	}
-	exp := make(map[drpcwire.Header][]byte)
+	exp := make(map[drpcwire.PacketID][]byte)
 	for pkt := range chSent {
-		exp[pkt.Header] = pkt.Data
+		exp[pkt.PacketID] = pkt.Data
 		size += int64(len(pkt.Data))
 	}
 	t.Logf("rate: %s/s", memory.Size(float64(size)/stop.Sub(start).Seconds()))
@@ -98,19 +98,19 @@ func TestSplitRecv(t *testing.T) {
 	if len(got) != len(exp) {
 		t.Fatalf("got:%d exp:%d", len(got), len(exp))
 	}
-	for hdr, gdata := range got {
-		if edata, ok := exp[hdr]; !ok || string(gdata) != string(edata) {
+	for pid, gdata := range got {
+		if edata, ok := exp[pid]; !ok || string(gdata) != string(edata) {
 			t.Log("ok: ", ok)
-			t.Log("got:", &drpcwire.Packet{Header: hdr, Data: gdata})
-			t.Log("exp:", &drpcwire.Packet{Header: hdr, Data: edata})
+			t.Log("got:", &drpcwire.Packet{PacketID: pid, Data: gdata})
+			t.Log("exp:", &drpcwire.Packet{PacketID: pid, Data: edata})
 			t.FailNow()
 		}
 	}
-	for hdr, edata := range exp {
-		if gdata, ok := got[hdr]; !ok || string(edata) != string(gdata) {
+	for pid, edata := range exp {
+		if gdata, ok := got[pid]; !ok || string(edata) != string(gdata) {
 			t.Log("ok: ", ok)
-			t.Log("got:", &drpcwire.Packet{Header: hdr, Data: gdata})
-			t.Log("exp:", &drpcwire.Packet{Header: hdr, Data: edata})
+			t.Log("got:", &drpcwire.Packet{PacketID: pid, Data: gdata})
+			t.Log("exp:", &drpcwire.Packet{PacketID: pid, Data: edata})
 			t.FailNow()
 		}
 	}

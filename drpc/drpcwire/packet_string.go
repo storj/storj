@@ -12,14 +12,15 @@ func _() {
 	_ = x[PayloadKind_Invoke-1]
 	_ = x[PayloadKind_Message-2]
 	_ = x[PayloadKind_Error-3]
-	_ = x[PayloadKind_CloseSend-4]
-	_ = x[PayloadKind_Cancel-5]
-	_ = x[PayloadKind_Largest-6]
+	_ = x[PayloadKind_Cancel-4]
+	_ = x[PayloadKind_Close-5]
+	_ = x[PayloadKind_CloseSend-6]
+	_ = x[PayloadKind_Largest-7]
 }
 
-const _PayloadKind_name = "ReservedInvokeMessageErrorCloseSendCancelLargest"
+const _PayloadKind_name = "ReservedInvokeMessageErrorCancelCloseCloseSendLargest"
 
-var _PayloadKind_index = [...]uint8{0, 8, 14, 21, 26, 35, 41, 48}
+var _PayloadKind_index = [...]uint8{0, 8, 14, 21, 26, 32, 37, 46, 53}
 
 func (i PayloadKind) String() string {
 	if i >= PayloadKind(len(_PayloadKind_index)-1) {

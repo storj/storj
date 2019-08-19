@@ -29,14 +29,14 @@ func NewBuffer(w io.Writer, size int) *Buffer {
 	}
 }
 
-// Write appends the packet to the buffer and flushes when necessary. A call
+// Write appends the frame to the buffer and flushes when necessary. A call
 // to Flush must always eventually happen after a call to Write or your packet
 // may be buffered indefinitely.
-func (b *Buffer) Write(pkt drpcwire.Packet) error {
+func (b *Buffer) Write(fr drpcwire.Frame) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.tmp = drpcwire.AppendPacket(b.tmp[:0], pkt)
+	b.tmp = drpcwire.AppendFrame(b.tmp[:0], fr)
 
 	// n.b. we consider a full buffer as "not fitting" to decide when to flush.
 	// if it can't fit in the buffer without allocating, flush first.

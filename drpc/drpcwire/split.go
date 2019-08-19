@@ -3,38 +3,38 @@
 
 package drpcwire
 
-// Split takes some data and issues the callback with the sequence of packets that
+// Split takes some packet and issues the callback with the sequence of frames that
 // should be sent.
-func Split(kind PayloadKind, pid PacketID, data []byte, cb func(pkt Packet) error) error {
-	pkt := Packet{
+func Split(pkt Packet, cb func(fr Frame) error) error {
+	fr := Frame{
 		Header: Header{
+			PacketID: pkt.PacketID,
 			FrameInfo: FrameInfo{
 				Continuation: false,
 				Starting:     true,
-				PayloadKind:  kind,
+				PayloadKind:  pkt.PayloadKind,
 			},
-			PacketID: pid,
 		},
 	}
 
-	for len(data) > 1023 {
-		pkt.Header.Length = 1023
-		pkt.Header.Continuation = true
-		pkt.Data = data[:1023]
+	for len(pkt.Data) > 1023 {
+		fr.Header.Length = 1023
+		fr.Header.Continuation = true
+		fr.Data = pkt.Data[:1023]
 
-		if err := cb(pkt); err != nil {
+		if err := cb(fr); err != nil {
 			return err
 		}
 
-		pkt.Header.Starting = false
-		data = data[1023:]
+		fr.Header.Starting = false
+		pkt.Data = pkt.Data[1023:]
 	}
 
-	if len(data) > 0 || pkt.Header.Starting {
-		pkt.Header.Length = uint16(len(data))
-		pkt.Header.Continuation = false
-		pkt.Data = data
-		return cb(pkt)
+	if len(pkt.Data) > 0 || fr.Header.Starting {
+		fr.Header.Length = uint16(len(pkt.Data))
+		fr.Header.Continuation = false
+		fr.Data = pkt.Data
+		return cb(fr)
 	}
 	return nil
 }

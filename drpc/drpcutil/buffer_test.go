@@ -21,9 +21,9 @@ func TestBuffer(t *testing.T) {
 
 			buffer := NewBuffer(&got, size)
 			for i := 0; i < 1000; i++ {
-				pkt := drpctest.RandIncompletePacket()
-				exp = drpcwire.AppendPacket(exp, pkt)
-				require.NoError(t, buffer.Write(pkt))
+				fr := drpctest.RandFrame()
+				exp = drpcwire.AppendFrame(exp, fr)
+				require.NoError(t, buffer.Write(fr))
 			}
 			require.NoError(t, buffer.Flush())
 			require.Equal(t, exp, got.Bytes())

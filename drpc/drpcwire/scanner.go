@@ -10,8 +10,8 @@ import (
 	"storj.io/storj/drpc"
 )
 
-func PacketScanner(data []byte, atEOF bool) (int, []byte, error) {
-	rem, _, ok, err := ParsePacket(data)
+func FrameScanner(data []byte, atEOF bool) (int, []byte, error) {
+	rem, _, ok, err := ParseFrame(data)
 	switch advance := len(data) - len(rem); {
 	case err != nil, !ok:
 		return 0, nil, err
@@ -25,6 +25,6 @@ func PacketScanner(data []byte, atEOF bool) (int, []byte, error) {
 func NewScanner(r io.Reader) *bufio.Scanner {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 4*1024), MaxPacketSize)
-	scanner.Split(PacketScanner)
+	scanner.Split(FrameScanner)
 	return scanner
 }

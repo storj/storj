@@ -20,8 +20,9 @@ const (
 	PayloadKind_Invoke    // body is rpc name
 	PayloadKind_Message   // body is message data
 	PayloadKind_Error     // body is error data
-	PayloadKind_CloseSend // body must be empty
 	PayloadKind_Cancel    // body must be empty
+	PayloadKind_Close     // body must be empty
+	PayloadKind_CloseSend // body must be empty
 
 	PayloadKind_Largest
 )
@@ -160,58 +161,78 @@ func AppendHeader(buf []byte, hdr Header) []byte {
 }
 
 //
-// packet
+// frame
 //
 
-// Packet represents a possibly incomplete packet. External consumers of this library
-// should only ever deal with complete packets.
-type Packet struct {
+// Frame represents an incomplete packet.
+type Frame struct {
 	Header
 	Data []byte
 }
 
-// ParsePacket parses a packet out of buf. If there's not enough data for a full
+// ParseFrame parses a packet out of buf. If there's not enough data for a full
 // parse, ok will be false. If the parse fails then an error will be set. If the
 // parse is successful, rem contains the remaining unused bytes.
-func ParsePacket(buf []byte) (rem []byte, pkt Packet, ok bool, err error) {
+func ParseFrame(buf []byte) (rem []byte, fr Frame, ok bool, err error) {
 	var dataLen int
 	if len(buf) < 4 {
 		goto bad
 	}
 
-	rem, pkt.Header, ok, err = ParseHeader(buf)
+	rem, fr.Header, ok, err = ParseHeader(buf)
 	if !ok || err != nil {
 		goto bad
 	}
-	dataLen = int(pkt.Length)
+	dataLen = int(fr.Length)
 	if dataLen < 0 || len(rem) < dataLen {
 		// dataLen < 0 is statically impossible, but the compiler needs
 		// it to elide the bounds checks on rem. additionally, this
 		// branch is not an error: we just have an incomplete packet.
 		goto bad
 	}
-	pkt.Data = rem[:dataLen]
+	fr.Data = rem[:dataLen]
 
-	return rem[dataLen:], pkt, true, nil
+	return rem[dataLen:], fr, true, nil
 bad:
-	return buf, pkt, false, err
+	return buf, fr, false, err
 }
 
-// AppendPacket appends a byte form of the packet to buf.
-func AppendPacket(buf []byte, pkt Packet) []byte {
-	return append(AppendHeader(buf, pkt.Header), pkt.Data...)
+// AppendFrame appends a byte form of the frame to buf.
+func AppendFrame(buf []byte, fr Frame) []byte {
+	return append(AppendHeader(buf, fr.Header), fr.Data...)
 }
 
-func (p *Packet) String() string {
-	if p == nil {
+func (fr *Frame) String() string {
+	if fr == nil {
 		return "<nil>"
 	}
 	return fmt.Sprintf("pid:<%d,%d> kind:%v cont:%-5v start:%-5v len:%-4d data:%x",
-		p.StreamID, p.MessageID,
-		p.PayloadKind,
-		p.Continuation,
-		p.Starting,
-		p.Length,
-		p.Data,
+		fr.StreamID, fr.MessageID,
+		fr.PayloadKind,
+		fr.Continuation,
+		fr.Starting,
+		fr.Length,
+		fr.Data,
 	)
+}
+
+//
+// packet
+//
+
+// Packet represents a complete packet from the remote side.
+type Packet struct {
+	PacketID
+	PayloadKind PayloadKind
+	Data        []byte
+}
+
+func (pkt *Packet) String() string {
+	if pkt == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("pid:<%d,%d> kind:%v data:%x",
+		pkt.StreamID, pkt.MessageID,
+		pkt.PayloadKind,
+		pkt.Data)
 }

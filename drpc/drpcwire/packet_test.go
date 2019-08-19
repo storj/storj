@@ -43,10 +43,10 @@ func TestAppendParse(t *testing.T) {
 		}
 	})
 
-	t.Run("Packet_RoundTrip_Fuzz", func(t *testing.T) {
+	t.Run("Frame_RoundTrip_Fuzz", func(t *testing.T) {
 		for i := 0; i < 1000; i++ {
-			exp := drpctest.RandIncompletePacket()
-			requireGoodParse(t, exp)(drpcwire.ParsePacket(drpcwire.AppendPacket(nil, exp)))
+			exp := drpctest.RandFrame()
+			requireGoodParse(t, exp)(drpcwire.ParseFrame(drpcwire.AppendFrame(nil, exp)))
 		}
 	})
 }

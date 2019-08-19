@@ -56,6 +56,12 @@ func (m *Manager) Run(ctx context.Context) error {
 	for _, stream := range m.streams {
 		<-stream.Sig().Signal()
 	}
+
+	// we explicitly free these buffers to keep memory low
+	m.streams = nil
+	m.recv = nil
+	m.buf = nil
+
 	return m.sig.Err()
 }
 
@@ -88,10 +94,18 @@ func (m *Manager) monitorStream(stream *drpcstream.Stream) {
 	case <-m.sig.Signal():
 		stream.Sig().Set(m.sig.Err())
 	case <-stream.Sig().Signal():
+		m.cleanupStream(stream)
 	}
+}
 
+func (m *Manager) cleanupStream(stream *drpcstream.Stream) {
 	m.mu.Lock()
-	delete(m.streams, stream.StreamID())
+	if m.streams != nil {
+		delete(m.streams, stream.StreamID())
+	}
+	if m.recv != nil {
+		m.recv.FreeStreamID(stream.StreamID())
+	}
 	m.mu.Unlock()
 }
 
@@ -140,19 +154,28 @@ func (m *Manager) manageStreams(ctx context.Context) {
 			m.sig.Set(drpc.ProtocolError.New("invoke on an existing stream"))
 			return
 
-		// close send: signal to the stream that no more sends will happen
-		case p.PayloadKind == drpcwire.PayloadKind_CloseSend:
-			if stream.RecvSig().Set(drpc.Closed.New("remote sent CloseSend")) {
-				close(stream.Queue())
-			}
+		// error: signal to the stream what the error is
+		case p.PayloadKind == drpcwire.PayloadKind_Error:
+			stream.Sig().Set(errs.New("%s", p.Data))
 
 		// cancel: signal to the stream that the remote side canceled
 		case p.PayloadKind == drpcwire.PayloadKind_Cancel:
 			stream.Cancel()
 
-		// error: signal to the stream what the error is
-		case p.PayloadKind == drpcwire.PayloadKind_Error:
-			stream.Sig().Set(errs.New("%s", p.Data))
+		// close: stream fully closed with no responses expected
+		case p.PayloadKind == drpcwire.PayloadKind_Close:
+			if stream.RecvSig().Set(nil) {
+				close(stream.Queue())
+				m.cleanupStream(stream)
+			}
+			stream.SendSig().Set(io.EOF)
+
+		// close send: signal to the stream that no more sends will happen
+		case p.PayloadKind == drpcwire.PayloadKind_CloseSend:
+			if stream.RecvSig().Set(nil) {
+				close(stream.Queue())
+				m.cleanupStream(stream)
+			}
 
 		// send after close send: protocol error
 		case stream.RecvSig().IsSet():

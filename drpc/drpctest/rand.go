@@ -35,16 +35,18 @@ var payloadMaxSize = map[drpcwire.PayloadKind]func() int{
 	drpcwire.PayloadKind_Invoke:    func() int { return testrand.Intn(1023) + 1 },
 	drpcwire.PayloadKind_Message:   func() int { return testrand.Intn(1023) + 1 },
 	drpcwire.PayloadKind_Error:     func() int { return testrand.Intn(1023) + 1 },
-	drpcwire.PayloadKind_CloseSend: func() int { return 0 },
 	drpcwire.PayloadKind_Cancel:    func() int { return 0 },
+	drpcwire.PayloadKind_Close:     func() int { return 0 },
+	drpcwire.PayloadKind_CloseSend: func() int { return 0 },
 }
 
 var kindCanContinue = map[drpcwire.PayloadKind]bool{
 	drpcwire.PayloadKind_Invoke:    true,
 	drpcwire.PayloadKind_Message:   true,
 	drpcwire.PayloadKind_Error:     true,
-	drpcwire.PayloadKind_CloseSend: false,
 	drpcwire.PayloadKind_Cancel:    false,
+	drpcwire.PayloadKind_Close:     false,
+	drpcwire.PayloadKind_CloseSend: false,
 }
 
 func RandFrameInfo() drpcwire.FrameInfo {
@@ -64,19 +66,19 @@ func RandHeader() drpcwire.Header {
 	}
 }
 
-func RandIncompletePacket() drpcwire.Packet {
+func RandFrame() drpcwire.Frame {
 	hdr := RandHeader()
-	return drpcwire.Packet{
+	return drpcwire.Frame{
 		Header: hdr,
 		Data:   testrand.BytesInt(int(hdr.Length)),
 	}
 }
 
-func RandCompletePacket() drpcwire.Packet {
-	hdr := RandHeader()
-	hdr.FrameInfo = drpcwire.FrameInfo{PayloadKind: hdr.PayloadKind}
+func RandPacket() drpcwire.Packet {
+	kind := RandPayloadKind()
 	return drpcwire.Packet{
-		Header: hdr,
-		Data:   testrand.BytesInt(100 * payloadMaxSize[hdr.PayloadKind]()),
+		PacketID:    RandPacketID(),
+		PayloadKind: kind,
+		Data:        testrand.BytesInt(100 * payloadMaxSize[kind]()),
 	}
 }
