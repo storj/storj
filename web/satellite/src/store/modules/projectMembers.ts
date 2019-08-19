@@ -3,13 +3,11 @@
 
 import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
 import {
-    ProjectMember,
     ProjectMemberCursor,
     ProjectMemberOrderBy,
     ProjectMembersApi,
-    ProjectMembersPage
+    ProjectMembersPage,
 } from '@/types/projectMembers';
-import { RequestResponse } from '@/types/response';
 import { SortDirection } from '@/types/common';
 import { StoreModule } from '@/store';
 
@@ -28,9 +26,6 @@ class ProjectMembersState {
     public cursor: ProjectMemberCursor = new ProjectMemberCursor();
     public page: ProjectMembersPage = new ProjectMembersPage();
 }
-
-const PROJECT_MEMBERS_PAGE_LIMIT = 8;
-const FIRST_PAGE = 1;
 
 export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<ProjectMembersState> {
     return {
@@ -52,8 +47,8 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
                 state.cursor.orderDirection = direction;
             },
             clearProjectMembers(state: any) {
-                state.cursor = {limit: PROJECT_MEMBERS_PAGE_LIMIT, search: '', page: FIRST_PAGE} as ProjectMemberCursor;
-                state.page = {projectMembers: [] as ProjectMember[]} as ProjectMembersPage;
+                state.cursor = new ProjectMemberCursor();
+                state.page = new ProjectMembersPage();
             },
             toggleSelection(state: any, projectMemberId: string) {
                 state.page.projectMembers = state.page.projectMembers.map((projectMember: any) => {
@@ -78,7 +73,7 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
 
                 return await api.add(projectId, emails);
             },
-            deleteProjectMembers: async function ({commit, rootGetters}: any, projectMemberEmails: string[]): Promise<null> {
+            deleteProjectMembers: async function ({rootGetters}: any, projectMemberEmails: string[]): Promise<null> {
                 const projectId = rootGetters.selectedProject.id;
 
                 return await api.delete(projectId, projectMemberEmails);

@@ -19,9 +19,9 @@ const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'tes
 
 describe('ProjectMembersArea.vue', () => {
     const pmApi = new ProjectMembersApiGql();
-    const pmModule = makeProjectMembersModule(pmApi);
+    const projectMembersModule = makeProjectMembersModule(pmApi);
 
-    const store = new Vuex.Store(pmModule);
+    const store = new Vuex.Store({modules: { projectMembersModule }});
 
     it('renders correctly', () => {
         const wrapper = shallowMount(ProjectMembersArea, {
@@ -115,30 +115,5 @@ describe('ProjectMembersArea.vue', () => {
         store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
         expect(wrapper.vm.projectMembers[0].user.id).toBe(projectMember2.user.id);
-    });
-
-    it('project member deletion trigger list rerender', () => {
-        const testProjectMembersPage = new ProjectMembersPage();
-        testProjectMembersPage.projectMembers = [projectMember1];
-        testProjectMembersPage.totalCount = 1;
-        testProjectMembersPage.pageCount = 1;
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
-
-        const wrapper = mount(ProjectMembersArea, {
-            store,
-            localVue,
-            mocks: {
-                $route: {
-                    query: {}
-                }
-            }
-        });
-
-        expect(wrapper.vm.projectMembers.length).toBe(1);
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.DELETE, [projectMember1.user.email]);
-
-        expect(wrapper.vm.projectMembers.length).toBe(0);
     });
 });
