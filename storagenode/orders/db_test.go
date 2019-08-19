@@ -34,8 +34,6 @@ func TestDB(t *testing.T) {
 
 		piece := storj.NewPieceID()
 
-		serialNumber := testrand.SerialNumber()
-
 		// basic test
 		emptyUnsent, err := ordersdb.ListUnsent(ctx, 100)
 		require.NoError(t, err)
@@ -50,42 +48,57 @@ func TestDB(t *testing.T) {
 		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 		require.NoError(t, err)
 
-		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
-			SerialNumber:    serialNumber,
-			SatelliteId:     satellite0.ID,
-			UplinkPublicKey: piecePublicKey,
-			StorageNodeId:   storagenode.ID,
-			PieceId:         piece,
-			Limit:           100,
-			Action:          pb.PieceAction_GET,
-			OrderCreation:   now.AddDate(0, 0, -1),
-			PieceExpiration: now,
-			OrderExpiration: now,
-		})
-		require.NoError(t, err)
+		infos := make([]*orders.Info, 2)
+		for i := 0; i < len(infos); i++ {
 
-		order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
-			SerialNumber: serialNumber,
-			Amount:       50,
-		})
-		require.NoError(t, err)
+			serialNumber := testrand.SerialNumber()
+			limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
+				SerialNumber:    serialNumber,
+				SatelliteId:     satellite0.ID,
+				UplinkPublicKey: piecePublicKey,
+				StorageNodeId:   storagenode.ID,
+				PieceId:         piece,
+				Limit:           100,
+				Action:          pb.PieceAction_GET,
+				OrderCreation:   now.AddDate(0, 0, -1),
+				PieceExpiration: now,
+				OrderExpiration: now,
+			})
+			require.NoError(t, err)
 
-		info := &orders.Info{
-			Limit: limit,
-			Order: order,
+			order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
+				SerialNumber: serialNumber,
+				Amount:       50,
+			})
+			require.NoError(t, err)
+
+			infos[i] = &orders.Info{
+				Limit: limit,
+				Order: order,
+			}
 		}
 
 		// basic add
-		err = ordersdb.Enqueue(ctx, info)
+		err = ordersdb.Enqueue(ctx, infos[0])
 		require.NoError(t, err)
 
 		// duplicate add
-		err = ordersdb.Enqueue(ctx, info)
+		err = ordersdb.Enqueue(ctx, infos[0])
 		require.Error(t, err, "duplicate add")
 
 		unsent, err := ordersdb.ListUnsent(ctx, 100)
 		require.NoError(t, err)
-		require.Empty(t, cmp.Diff([]*orders.Info{info}, unsent, cmp.Comparer(pb.Equal)))
+		require.Empty(t, cmp.Diff([]*orders.Info{infos[0]}, unsent, cmp.Comparer(pb.Equal)))
+
+		// Another add
+		err = ordersdb.Enqueue(ctx, infos[1])
+		require.NoError(t, err)
+
+		unsent, err = ordersdb.ListUnsent(ctx, 100)
+		require.NoError(t, err)
+		require.Empty(t,
+			cmp.Diff([]*orders.Info{infos[0], infos[1]}, unsent, cmp.Comparer(pb.Equal)),
+		)
 
 		// list by group
 		unsentGrouped, err := ordersdb.ListUnsentBySatellite(ctx)
@@ -93,18 +106,47 @@ func TestDB(t *testing.T) {
 
 		expectedGrouped := map[storj.NodeID][]*orders.Info{
 			satellite0.ID: {
-				{Limit: limit, Order: order},
+				{Limit: infos[0].Limit, Order: infos[0].Order},
+				{Limit: infos[1].Limit, Order: infos[1].Order},
 			},
 		}
 		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
 
 		// test archival
-		err = ordersdb.Archive(ctx, orders.ArchiveRequest{satellite0.ID, serialNumber, orders.StatusAccepted})
+		err = ordersdb.Archive(ctx, orders.ArchiveRequest{
+			Satellite: satellite0.ID,
+			Serial:    infos[0].Limit.SerialNumber,
+			Status:    orders.StatusAccepted,
+		})
 		require.NoError(t, err)
 
 		// duplicate archive
-		err = ordersdb.Archive(ctx, orders.ArchiveRequest{satellite0.ID, serialNumber, orders.StatusRejected})
+		err = ordersdb.Archive(ctx, orders.ArchiveRequest{
+			Satellite: satellite0.ID,
+			Serial:    infos[0].Limit.SerialNumber,
+			Status:    orders.StatusRejected,
+		})
 		require.Error(t, err)
+		require.True(t,
+			orders.OrderNotFoundError.Has(err),
+			"expected orders.OrderNotFoundError class",
+		)
+
+		// one new archive and one duplicated
+		err = ordersdb.Archive(ctx, orders.ArchiveRequest{
+			Satellite: satellite0.ID,
+			Serial:    infos[0].Limit.SerialNumber,
+			Status:    orders.StatusRejected,
+		}, orders.ArchiveRequest{
+			Satellite: satellite0.ID,
+			Serial:    infos[1].Limit.SerialNumber,
+			Status:    orders.StatusRejected,
+		})
+		require.Error(t, err)
+		require.True(t,
+			orders.OrderNotFoundError.Has(err),
+			"expected ErrUnsentOrderNotFoundError class",
+		)
 
 		// shouldn't be in unsent list
 		unsent, err = ordersdb.ListUnsent(ctx, 100)
@@ -114,15 +156,22 @@ func TestDB(t *testing.T) {
 		// it should now be in the archive
 		archived, err := ordersdb.ListArchived(ctx, 100)
 		require.NoError(t, err)
-		require.Len(t, archived, 1)
+		require.Len(t, archived, 2)
 
 		require.Empty(t, cmp.Diff([]*orders.ArchivedInfo{
 			{
-				Limit: limit,
-				Order: order,
+				Limit: infos[0].Limit,
+				Order: infos[0].Order,
 
 				Status:     orders.StatusAccepted,
 				ArchivedAt: archived[0].ArchivedAt,
+			},
+			{
+				Limit: infos[1].Limit,
+				Order: infos[1].Order,
+
+				Status:     orders.StatusRejected,
+				ArchivedAt: archived[1].ArchivedAt,
 			},
 		}, archived, cmp.Comparer(pb.Equal)))
 
@@ -134,7 +183,7 @@ func TestDB(t *testing.T) {
 		// with 1 nanosecond ttl, archived order should be deleted
 		n, err = db.Orders().CleanArchive(ctx, time.Nanosecond)
 		require.NoError(t, err)
-		require.Equal(t, 1, n)
+		require.Equal(t, 2, n)
 	})
 }
 
