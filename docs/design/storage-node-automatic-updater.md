@@ -73,9 +73,10 @@ Possible problems:
 
 To update the binaries we can take two approaches. 
 
-1. Rename `storagenode.exe` into `storagenode.old.<release>.exe`
+1. Rename `storagenode.exe` into `storagenode.old.<release>.exe`.
 1. Rename `storagenode.<release>.exe` into `storagenode.exe`.
 1. Restart the service using Windows API.
+1. Delete `storagenode.old.<release>.exe` from previous updates. Keep the latest `storagenode.old.<release>.exe` to be able to roll back, if necessary.
 
 
 Alternatively this could be:
@@ -84,6 +85,7 @@ Alternatively this could be:
 1. Rename `storagenode.exe` into `storagenode.old.<release>.exe`
 1. Rename `storagenode.<release>.exe` into `storagenode.exe`.
 1. Start the service using Windows API.
+1. Delete `storagenode.old.<release>.exe` from previous updates. Keep the latest `storagenode.old.<release>.exe` to be able to roll back, if necessary.
 
 Usually automatic updaters prefer the first approach because it allows for inplace updating of the same binary that is doing the updating.
 
