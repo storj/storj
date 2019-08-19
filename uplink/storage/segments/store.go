@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -55,6 +56,8 @@ type segmentStore struct {
 	rs                      eestream.RedundancyStrategy
 	thresholdSize           int
 	maxEncryptedSegmentSize int64
+	rngMu                   sync.Mutex
+	rng                     *rand.Rand
 }
 
 // NewSegmentStore creates a new instance of segmentStore
@@ -65,6 +68,7 @@ func NewSegmentStore(metainfo *metainfo.Client, ec ecclient.Client, rs eestream.
 		rs:                      rs,
 		thresholdSize:           threshold,
 		maxEncryptedSegmentSize: maxEncryptedSegmentSize,
+		rng:                     rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -196,8 +200,11 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 	case pb.Pointer_REMOTE:
 		needed := CalcNeededNodes(pointer.GetRemote().GetRedundancy())
 		selected := make([]*pb.AddressedOrderLimit, len(limits))
+		s.rngMu.Lock()
+		perm := s.rng.Perm(len(limits))
+		s.rngMu.Unlock()
 
-		for _, i := range rand.Perm(len(limits)) {
+		for _, i := range perm {
 			limit := limits[i]
 			if limit == nil {
 				continue

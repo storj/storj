@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.12.8
+GO_VERSION ?= 1.12.9
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -136,46 +136,64 @@ images: bootstrap-image gateway-image satellite-image storagenode-image uplink-i
 	echo Built version: ${TAG}
 
 .PHONY: bootstrap-image
-bootstrap-image: bootstrap_linux_arm bootstrap_linux_amd64 ## Build bootstrap Docker image
+bootstrap-image: bootstrap_linux_arm bootstrap_linux_arm64 bootstrap_linux_amd64 ## Build bootstrap Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/bootstrap:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/bootstrap/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/bootstrap:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/bootstrap/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/bootstrap:${TAG}${CUSTOMTAG}-aarch64 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+		-f cmd/bootstrap/Dockerfile .
 .PHONY: gateway-image
-gateway-image: gateway_linux_arm gateway_linux_amd64 ## Build gateway Docker image
+gateway-image: gateway_linux_arm gateway_linux_arm64 gateway_linux_amd64 ## Build gateway Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/gateway/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/gateway/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-aarch64 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+		-f cmd/gateway/Dockerfile .
 .PHONY: satellite-image
-satellite-image: satellite_linux_arm satellite_linux_amd64 ## Build satellite Docker image
+satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64 ## Build satellite Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/satellite/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/satellite/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-aarch64 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+		-f cmd/satellite/Dockerfile .
 .PHONY: storagenode-image
-storagenode-image: storagenode_linux_arm storagenode_linux_amd64 ## Build storagenode Docker image
+storagenode-image: storagenode_linux_arm storagenode_linux_arm64 storagenode_linux_amd64 ## Build storagenode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/storagenode/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-aarch64 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+		-f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
-uplink-image: uplink_linux_arm uplink_linux_amd64 ## Build uplink Docker image
+uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build uplink Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/uplink/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-aarch64 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+		-f cmd/uplink/Dockerfile .
 .PHONY: versioncontrol-image
-versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_amd64 ## Build versioncontrol Docker image
+versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versioncontrol_linux_amd64 ## Build versioncontrol Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/versioncontrol/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/versioncontrol/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-aarch64 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
 		-f cmd/versioncontrol/Dockerfile .
 
 .PHONY: binary
@@ -242,7 +260,7 @@ linksharing_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=linksharing $(MAKE) binary
 
 COMPONENTLIST := bootstrap certificates gateway identity inspector linksharing satellite storagenode uplink versioncontrol
-OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
+OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)

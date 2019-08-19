@@ -241,6 +241,9 @@ kademlia.operator.wallet: ""
 # how long until an order expires
 # orders.expiration: 168h0m0s
 
+# how many orders to batch per transaction
+# orders.settlment-batch-size: 250
+
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100
 
