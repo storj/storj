@@ -101,6 +101,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			lastPieceCounts[id] = info.Count
 		}
 
+		// save piece counts to db for next satellite restart
+		err = service.overlay.UpdatePieceCounts(ctx, lastPieceCounts)
+
 		// monitor information
 		for _, info := range pieceTracker.retainInfos {
 			mon.IntVal("node_piece_count").Observe(int64(info.Count))
