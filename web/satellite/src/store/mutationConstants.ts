@@ -1,12 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-export const USER_MUTATIONS = {
-    SET_USER: 'setUser',
-    UPDATE_USER: 'updateUser',
-    CLEAR: 'clearUser',
-};
-
 export const PROJECTS_MUTATIONS = {
     CREATE: 'CREATE_PROJECT',
     DELETE: 'DELETE_PROJECT',
@@ -48,11 +42,6 @@ export const BUCKET_USAGE_MUTATIONS = {
     SET_SEARCH: 'SET_SEARCH_BUCKET_USAGE',
     SET_PAGE: 'SET_PAGE_BUCKET_USAGE',
     CLEAR: 'CLEAR_BUCKET_USAGES'
-};
-
-export const CREDIT_USAGE_MUTATIONS = {
-    SET: 'SET_CREDIT_USAGE',
-    CLEAR: 'CLEAR_CREDIT_USAGE',
 };
 
 export const NOTIFICATION_MUTATIONS = {

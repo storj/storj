@@ -22,7 +22,8 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { CREDIT_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { CREDIT_USAGE_ACTIONS } from '@/store/modules/credits';
     import { CreditUsage } from '@/types/credits';
 
     class CreditDescription {

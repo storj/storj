@@ -53,12 +53,6 @@ export const PROJETS_ACTIONS = {
     CLEAR: 'clearProjects',
 };
 
-export const USER_ACTIONS = {
-    UPDATE: 'updateUser',
-    GET: 'getUser',
-    CLEAR: 'clearUser',
-};
-
 export const API_KEYS_ACTIONS = {
     FETCH: 'setAPIKeys',
     CREATE: 'createAPIKey',
@@ -87,9 +81,4 @@ export const PROJECT_PAYMENT_METHODS_ACTIONS = {
     CLEAR: 'clearProjectPaymentMethods',
     SET_DEFAULT: 'setDefaultPaymentMethod',
     DELETE: 'deletePaymentMethod'
-};
-
-export const CREDIT_USAGE_ACTIONS = {
-    FETCH: 'fetchCreditUsage',
-    CLEAR: 'clearCreditUsage',
 };

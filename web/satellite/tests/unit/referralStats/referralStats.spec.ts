@@ -7,8 +7,7 @@ import ReferralStats from '@/components/referral/ReferralStats.vue';
 import { CreditsApi, CreditUsage } from '@/types/credits';
 import { UpdatedUser, User, UsersApi } from '@/types/users';
 import { makeCreditsModule } from '@/store/modules/credits';
-import { makeUsersModule } from '@/store/modules/users';
-import { USER_ACTIONS } from '@/utils/constants/actionNames';
+import { makeUsersModule, USER_ACTIONS } from '@/store/modules/users';
 
 const {
     GET,

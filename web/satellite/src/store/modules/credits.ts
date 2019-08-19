@@ -1,10 +1,18 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { CREDIT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 import { StoreModule } from '@/store';
-import { CREDIT_USAGE_MUTATIONS } from '@/store/mutationConstants';
 import { CreditsApi, CreditUsage } from '@/types/credits';
+
+export const CREDIT_USAGE_ACTIONS = {
+    FETCH: 'fetchCreditUsage',
+    CLEAR: 'clearCreditUsage',
+};
+
+export const CREDIT_USAGE_MUTATIONS = {
+    SET: 'SET_CREDIT_USAGE',
+    CLEAR: 'CLEAR_CREDIT_USAGE',
+};
 
 const { FETCH } = CREDIT_USAGE_ACTIONS;
 const { SET, CLEAR } = CREDIT_USAGE_MUTATIONS;
