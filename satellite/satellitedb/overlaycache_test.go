@@ -67,6 +67,49 @@ func TestOverlaycache_AllPieceCounts(t *testing.T) {
 	require.Equal(t, expectedPieceCounts, actualPieceCounts)
 }
 
+func TestOverlaycache_UpdatePieceCounts(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	// setup satellite db
+	db, err := NewInMemory(zaptest.NewLogger(t))
+	require.NoError(t, err)
+	require.NotNil(t, db)
+
+	err = db.CreateTables()
+	require.NoError(t, err)
+
+	// get overlay db
+	lockedOverlay, ok := db.OverlayCache().(*lockedOverlayCache)
+	require.True(t, ok)
+	require.NotNil(t, lockedOverlay)
+
+	overlay, ok := lockedOverlay.db.(*overlaycache)
+	require.True(t, ok)
+	require.NotNil(t, lockedOverlay)
+
+	// create test nodes in overlay db
+	testNodes := createTestNodes(10, t, ctx, overlay.db)
+
+	// set expected piece counts
+	expectedPieceCounts := make(map[storj.NodeID]int)
+	for i, node := range testNodes {
+		pieceCount := int(math.Pow10(i))
+
+		var nodeID storj.NodeID
+		copy(nodeID[:], node.Id)
+		expectedPieceCounts[nodeID] = pieceCount
+	}
+
+	// update piece count fields on test nodes; set exponentially
+	err = overlay.UpdatePieceCounts(ctx, expectedPieceCounts)
+	require.NoError(t, err)
+
+	// expected and actual piece count maps should match
+	actualPieceCounts, err := overlay.AllPieceCounts(ctx)
+	require.NoError(t, err)
+	require.Equal(t, expectedPieceCounts, actualPieceCounts)
+}
+
 func createTestNodes(count int, t *testing.T, ctx *testcontext.Context, db *dbx.DB) (nodes []*dbx.Node) {
 	for i := 0; i < count; i++ {
 		nodeID := storj.NodeID{byte(i + 1)}

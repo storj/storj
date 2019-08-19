@@ -69,6 +69,8 @@ type DB interface {
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
+	// UpdatePieceCounts sets the piece count field for the given node IDs.
+	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.

@@ -922,6 +922,27 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 	return pieceCounts, nil
 }
 
+func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
+	defer mon.Task()(&ctx, err)
+
+	var nodeIDs storj.NodeIDList
+	for nodeID := range pieceCounts {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+
+	var (
+		sqlQuery string
+		args     []interface{}
+	)
+	updateSql := "UPDATE nodes SET ( piece_count ) = ( %d ) WHERE id == ?;"
+	for nodeID, pieceCount := range pieceCounts {
+		sqlQuery = sqlQuery + fmt.Sprintf(updateSql+"\n", pieceCount)
+		args = append(args, nodeID)
+	}
+	_, err = cache.db.DB.ExecContext(ctx, cache.db.Rebind(sqlQuery), args...)
+	return Error.Wrap(err)
+}
+
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if info == nil {
