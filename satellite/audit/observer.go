@@ -30,7 +30,7 @@ func (pathCollector *PathCollector) RemoteSegment(ctx context.Context, path stor
 
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		if _, ok := pathCollector.Reservoirs[piece.NodeId]; !ok {
-			pathCollector.Reservoirs[piece.NodeId] = NewReservoir(int8(pathCollector.reservoirSlots))
+			pathCollector.Reservoirs[piece.NodeId] = NewReservoir(pathCollector.reservoirSlots)
 		}
 		pathCollector.Reservoirs[piece.NodeId].Sample(path)
 	}

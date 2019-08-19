@@ -9,17 +9,22 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+const maxReservoirSize = 2
+
 // Reservoir holds a certain number of segments to reflect a random sample
 type Reservoir struct {
-	Paths []storj.Path
-	Size  int8
+	Paths [maxReservoirSize]storj.Path
+	size  int8
 	index int64
 }
 
 // NewReservoir instantiates a Reservoir
-func NewReservoir(size int8) *Reservoir {
+func NewReservoir(size int) *Reservoir {
+	if size > maxReservoirSize {
+		size = maxReservoirSize
+	}
 	return &Reservoir{
-		Size:  size,
+		size:  int8(size),
 		index: 0,
 	}
 }
@@ -28,11 +33,11 @@ func NewReservoir(size int8) *Reservoir {
 // pick a random number r = rand(0..i), and if r < size, replace reservoir.Segments[r] with segment
 func (reservoir *Reservoir) Sample(path storj.Path) {
 	reservoir.index++
-	if reservoir.index <= int64(reservoir.Size) {
-		reservoir.Paths = append(reservoir.Paths, path)
+	if reservoir.index < int64(reservoir.size) {
+		reservoir.Paths[reservoir.index] = path
 	} else {
 		random := rand.Int63n(reservoir.index)
-		if random < int64(reservoir.Size) {
+		if random < int64(reservoir.size) {
 			reservoir.Paths[random] = path
 		}
 	}
