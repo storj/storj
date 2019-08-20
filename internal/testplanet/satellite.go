@@ -38,8 +38,8 @@ import (
 )
 
 // newSatellites initializes satellites
-func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
-	var xs []*satellite.Peer
+func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
+	var xs []*SatelliteSystem
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, closablePeer{peer: x})
@@ -225,9 +225,123 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		if err != nil {
 			return xs, err
 		}
-
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
-		xs = append(xs, peer)
+
+		system := SatelliteSystem{Peer: *peer}
+		system.RepairProcess, err = planet.newRepairProcess(i, storageDir)
+
+		xs = append(xs, &system)
 	}
 	return xs, nil
+}
+
+func (planet *Planet) newRepairProcess(count int, storageDir string) (*satellite.RepairProcess, error) {
+	prefix := "repairProcess" + strconv.Itoa(count)
+	log := planet.log.Named(prefix)
+
+	identity, err := planet.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+
+	var repairDB satellite.RepairProcessDB
+	repairDB, err = satellitedb.NewInMemory(log.Named("db"))
+	if err != nil {
+		return nil, err
+	}
+
+	err = repairDB.CreateTables()
+	if err != nil {
+		return nil, err
+	}
+	planet.databases = append(planet.databases, repairDB)
+
+	config := satellite.RepairProcessConfig{
+		Server: server.Config{
+			Address:        "127.0.0.1:0",
+			PrivateAddress: "127.0.0.1:0",
+
+			Config: tlsopts.Config{
+				RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
+				UsePeerCAWhitelist:  true,
+				PeerCAWhitelistPath: planet.whitelistPath,
+				PeerIDVersions:      "latest",
+				Extensions: extensions.Config{
+					Revocation:          false,
+					WhitelistSignedLeaf: false,
+				},
+			},
+		},
+		Overlay: overlay.Config{
+			Node: overlay.NodeSelectionConfig{
+				UptimeCount:       0,
+				AuditCount:        0,
+				NewNodePercentage: 0,
+				OnlineWindow:      0,
+				DistinctIP:        false,
+
+				AuditReputationRepairWeight:  1,
+				AuditReputationUplinkWeight:  1,
+				AuditReputationAlpha0:        1,
+				AuditReputationBeta0:         0,
+				AuditReputationLambda:        0.95,
+				AuditReputationWeight:        1,
+				AuditReputationDQ:            0.6,
+				UptimeReputationRepairWeight: 1,
+				UptimeReputationUplinkWeight: 1,
+				UptimeReputationAlpha0:       2,
+				UptimeReputationBeta0:        0,
+				UptimeReputationLambda:       0.99,
+				UptimeReputationWeight:       1,
+				UptimeReputationDQ:           0.6,
+			},
+			UpdateStatsBatchSize: 100,
+		},
+		Metainfo: metainfo.Config{
+			DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
+			MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
+			MaxInlineSegmentSize: 8000,
+			Overlay:              true,
+			RS: metainfo.RSConfig{
+				MaxSegmentSize:   64 * memory.MiB,
+				MaxBufferMem:     memory.Size(256),
+				ErasureShareSize: memory.Size(256),
+				MinThreshold:     (planet.config.StorageNodeCount * 1 / 5),
+				RepairThreshold:  (planet.config.StorageNodeCount * 2 / 5),
+				SuccessThreshold: (planet.config.StorageNodeCount * 3 / 5),
+				MaxThreshold:     (planet.config.StorageNodeCount * 4 / 5),
+				Validate:         false,
+			},
+			Loop: metainfo.LoopConfig{
+				CoalesceDuration: 5 * time.Second,
+			},
+		},
+		Orders: orders.Config{
+			Expiration: 7 * 24 * time.Hour,
+		},
+		Checker: checker.Config{
+			Interval:                  30 * time.Second,
+			IrreparableInterval:       15 * time.Second,
+			ReliabilityCacheStaleness: 5 * time.Minute,
+		},
+		Repairer: repairer.Config{
+			MaxRepair:                     10,
+			Interval:                      time.Hour,
+			Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
+			MaxBufferMem:                  4 * memory.MiB,
+			MaxExcessRateOptimalThreshold: 0.05,
+		},
+	}
+	revDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return &satellite.RepairProcess{}, errs.New("Error creating revocation database: %+v", err)
+	}
+
+	repairProcess, err := satellite.NewRepairProcess(log, identity,
+		repairDB, revDB, &config,
+	)
+	if err != nil {
+		return &satellite.RepairProcess{}, err
+	}
+	return repairProcess, nil
 }

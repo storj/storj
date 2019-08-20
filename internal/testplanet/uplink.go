@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/metainfo"
@@ -156,22 +155,22 @@ func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 }
 
 // Upload data to specific satellite
-func (client *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
+func (client *Uplink) Upload(ctx context.Context, satellite *SatelliteSystem, bucket string, path storj.Path, data []byte) error {
 	return client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpiration data to specific satellite and expiration time
-func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte, expiration time.Time) error {
+func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *SatelliteSystem, bucket string, path storj.Path, data []byte, expiration time.Time) error {
 	return client.UploadWithExpirationAndConfig(ctx, satellite, nil, bucket, path, data, expiration)
 }
 
 // UploadWithConfig uploads data to specific satellite with configured values
-func (client *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
+func (client *Uplink) UploadWithConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
 	return client.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
-func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
+func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *uplink.RSConfig, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
 	config := client.GetConfig(satellite)
 	if redundancy != nil {
 		if redundancy.MinThreshold > 0 {
@@ -211,7 +210,7 @@ func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 }
 
 // Download data from specific satellite
-func (client *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) ([]byte, error) {
+func (client *Uplink) Download(ctx context.Context, satellite *SatelliteSystem, bucketName string, path storj.Path) ([]byte, error) {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return nil, err
@@ -237,7 +236,7 @@ func (client *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 }
 
 // DownloadStream returns stream for downloading data
-func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) (_ io.ReadCloser, cleanup func() error, err error) {
+func (client *Uplink) DownloadStream(ctx context.Context, satellite *SatelliteSystem, bucketName string, path storj.Path) (_ io.ReadCloser, cleanup func() error, err error) {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return nil, nil, err
@@ -256,7 +255,7 @@ func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.P
 }
 
 // DownloadStreamRange returns stream for downloading data
-func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
+func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *SatelliteSystem, bucketName string, path storj.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return nil, nil, err
@@ -275,7 +274,7 @@ func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *satell
 }
 
 // Delete deletes an object at the path in a bucket
-func (client *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) error {
+func (client *Uplink) Delete(ctx context.Context, satellite *SatelliteSystem, bucketName string, path storj.Path) error {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return err
@@ -290,7 +289,7 @@ func (client *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, buc
 }
 
 // CreateBucket creates a new bucket
-func (client *Uplink) CreateBucket(ctx context.Context, satellite *satellite.Peer, bucketName string) error {
+func (client *Uplink) CreateBucket(ctx context.Context, satellite *SatelliteSystem, bucketName string) error {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
 		return err
@@ -312,7 +311,7 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *satellite.Pee
 }
 
 // GetConfig returns a default config for a given satellite.
-func (client *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
+func (client *Uplink) GetConfig(satellite *SatelliteSystem) uplink.Config {
 	config := getDefaultConfig()
 
 	apiKey, err := libuplink.ParseAPIKey(client.APIKey[satellite.ID()])
@@ -384,7 +383,7 @@ func (client *Uplink) NewLibuplink(ctx context.Context) (*libuplink.Uplink, erro
 }
 
 // GetProject returns a libuplink.Project which allows interactions with a specific project
-func (client *Uplink) GetProject(ctx context.Context, satellite *satellite.Peer) (*libuplink.Project, error) {
+func (client *Uplink) GetProject(ctx context.Context, satellite *SatelliteSystem) (*libuplink.Project, error) {
 	testLibuplink, err := client.NewLibuplink(ctx)
 	if err != nil {
 		return nil, err
@@ -404,7 +403,7 @@ func (client *Uplink) GetProject(ctx context.Context, satellite *satellite.Peer)
 }
 
 // GetProjectAndBucket returns a libuplink.Project and Bucket which allows interactions with a specific project and its buckets
-func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *satellite.Peer, bucketName string, clientCfg uplink.Config) (_ *libuplink.Project, _ *libuplink.Bucket, err error) {
+func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *SatelliteSystem, bucketName string, clientCfg uplink.Config) (_ *libuplink.Project, _ *libuplink.Bucket, err error) {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
 		return nil, nil, err

@@ -72,9 +72,15 @@ var (
 		Args:  cobra.MinimumNArgs(3),
 		RunE:  cmdValueAttribution,
 	}
+	runRepairCmd = &cobra.Command{
+		Use:   "repair",
+		Short: "Run the satellite repair process",
+		RunE:  cmdRunRepairProcess,
+	}
 
-	runCfg   Satellite
-	setupCfg Satellite
+	runCfg       Satellite
+	setupCfg     Satellite
+	runRepairCfg satellite.RepairProcessConfig
 
 	qdiagCfg struct {
 		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
@@ -104,7 +110,9 @@ func init() {
 	rootCmd.AddCommand(reportsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
+	runCmd.AddCommand(runRepairCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runRepairCmd, &runRepairCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -155,6 +163,48 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	err = db.CreateTables()
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
+	}
+
+	runError := peer.Run(ctx)
+	closeError := peer.Close()
+	return errs.Combine(runError, closeError)
+}
+
+func cmdRunRepairProcess(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
+	log := zap.L()
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.S().Fatal(err)
+	}
+
+	repairDB, err := satellitedb.New(log.Named("db"), runCfg.Database)
+	if err != nil {
+		return errs.New("Error starting master database on satellite for repair process: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, repairDB.Close())
+	}()
+	err = repairDB.CreateTables()
+	if err != nil {
+		return errs.New("Error creating tables for master database on satellite: %+v", err)
+	}
+
+	revDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+
+	peer, err := satellite.NewRepairProcess(log, identity, repairDB,
+		revDB, &runRepairCfg,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
 	runError := peer.Run(ctx)
