@@ -20,8 +20,9 @@ const (
 )
 
 var (
-	// AllHandlers holds all registered extension handlers
-	AllHandlers HandlerFactories
+	// DefaultHandlers is a slice of handlers that we use by default.
+	//   - IDVersionHandler
+	DefaultHandlers HandlerFactories
 
 	// CAWhitelistSignedLeafHandler verifies that the leaf cert of the remote peer's
 	// identity was signed by one of the CA certs in the whitelist.
@@ -100,13 +101,6 @@ type HandlerFunc func(pkix.Extension, [][]*x509.Certificate) error
 // asn1 object ID constant to store multiple `HandlerFunc`s for the same
 // underlying extension id value.
 type HandlerFuncMap map[*ExtensionID]HandlerFunc
-
-func init() {
-	// NB: register all handlers defined in this file.
-	AllHandlers.Register(
-		CAWhitelistSignedLeafHandler,
-	)
-}
 
 // NewHandlerFactory builds a `HandlerFactory` pointer from an `ExtensionID` and a `HandlerFactoryFunc`.
 func NewHandlerFactory(id *ExtensionID, handlerFactory HandlerFactoryFunc) *HandlerFactory {

@@ -282,11 +282,11 @@ func cleanup(cmd *cobra.Command) {
 
 		err = workErr
 		if err != nil {
-			logger.Sugar().Fatal(err)
-			_ = logger.Sync()
-			os.Exit(1)
+			// This function call os.Exit(1)
+			logger.Fatal("Unrecoverable error", zap.Error(err))
 		}
-		return err
+
+		return nil
 	}
 }
 

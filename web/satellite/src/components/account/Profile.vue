@@ -70,7 +70,8 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { USER_ACTIONS } from '@/store/modules/users';
     import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
     import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
     import EditProfilePopup from '@/components/account/EditProfilePopup.vue';

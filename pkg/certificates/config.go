@@ -37,9 +37,10 @@ type CertServerConfig struct {
 }
 
 // Sign submits a certificate signing request given the config
-func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) (_ [][]byte, err error) {
+func (c CertClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string, revDB extensions.RevocationDB) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS)
+
+	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS, revDB)
 	if err != nil {
 		return nil, err
 	}
