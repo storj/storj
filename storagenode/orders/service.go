@@ -74,8 +74,8 @@ type DB interface {
 	Archive(ctx context.Context, archivedAt time.Time, requests ...ArchiveRequest) error
 	// ListArchived returns orders that have been sent.
 	ListArchived(ctx context.Context, limit int) ([]*ArchivedInfo, error)
-	// CleanArchive deletes all entries older than interval
-	CleanArchive(ctx context.Context, interval time.Duration) (int, error)
+	// CleanArchive deletes all entries older than ttl
+	CleanArchive(ctx context.Context, ttl time.Duration) (int, error)
 }
 
 // Config defines configuration for sending orders.
