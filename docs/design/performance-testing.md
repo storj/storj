@@ -45,7 +45,7 @@ Ideally we would like visualizations for:
 * split by the file-size,
 * density distribution of the upload times.
 
-Jenkins supports plotting [benchmarking results](https://wiki.jenkins.io/display/JENKINS/Benchmark+Plugin), we should integrate, if possible.
+Jenkins supports plotting [benchmarking results](https://wiki.jenkins.io/display/JENKINS/Benchmark+Plugin). [Guide to using the plugin](https://github.com/jenkinsci/benchmark-plugin/blob/master/doc/HOW_TO_USE_THE_PLUGIN.md).
 
 There are alternate ways of visualizing:
 
