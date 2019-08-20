@@ -28,7 +28,7 @@ var (
 type Options struct {
 	Config            Config
 	Ident             *identity.FullIdentity
-	RevDB             *identity.RevocationDB
+	RevDB             extensions.RevocationDB
 	PeerCAWhitelist   []*x509.Certificate
 	VerificationFuncs *VerificationFuncs
 	Cert              *tls.Certificate
@@ -44,10 +44,13 @@ type VerificationFuncs struct {
 // ExtensionMap maps `pkix.Extension`s to their respective asn1 object ID string.
 type ExtensionMap map[string]pkix.Extension
 
-// NewOptions is a constructor for `tls options` given an identity and config.
-func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
+// NewOptions is a constructor for `tls options` given an identity, config, and
+// revocation DB. A caller may pass a nil revocation DB if the revocation
+// extension is disabled.
+func NewOptions(i *identity.FullIdentity, c Config, revDB extensions.RevocationDB) (*Options, error) {
 	opts := &Options{
 		Config:            c,
+		RevDB:             revDB,
 		Ident:             i,
 		VerificationFuncs: new(VerificationFuncs),
 	}
@@ -96,13 +99,6 @@ func (opts *Options) configure() (err error) {
 			return Error.Wrap(err)
 		}
 		opts.VerificationFuncs.ClientAdd(peertls.VerifyCAWhitelist(opts.PeerCAWhitelist))
-	}
-
-	if opts.Config.Extensions.Revocation {
-		opts.RevDB, err = identity.NewRevocationDB(opts.Config.RevocationDBURL)
-		if err != nil {
-			return err
-		}
 	}
 
 	opts.handleExtensions(extensions.AllHandlers)
