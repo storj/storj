@@ -2,8 +2,9 @@
 // See LICENSE for copying information.
 
 import { mount } from '@vue/test-utils';
-import { ProjectMember } from '@/types/projectMembers';
+
 import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
+import { ProjectMember } from '@/types/projectMembers';
 
 describe('', () => {
     it('should renders correctly', function () {

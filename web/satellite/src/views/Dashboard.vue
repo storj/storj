@@ -28,10 +28,10 @@
         NOTIFICATION_ACTIONS,
         PM_ACTIONS,
         PROJETS_ACTIONS,
-        USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
         BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
+    import { USER_ACTIONS } from '@/store/modules/users';
     import { AuthToken } from '@/utils/authToken';
     import DashboardHeader from '@/components/header/Header.vue';
     import NavigationArea from '@/components/navigation/NavigationArea.vue';
@@ -67,9 +67,10 @@
             await this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
 
             await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-            if (!projectMembersResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+            } catch (err) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
             }
 
             try {
