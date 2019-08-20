@@ -101,7 +101,21 @@ func (opts *Options) configure() (err error) {
 		opts.VerificationFuncs.ClientAdd(peertls.VerifyCAWhitelist(opts.PeerCAWhitelist))
 	}
 
-	opts.handleExtensions(extensions.AllHandlers)
+	handlers := make(extensions.HandlerFactories, len(extensions.DefaultHandlers))
+	copy(handlers, extensions.DefaultHandlers)
+
+	if opts.Config.Extensions.Revocation {
+			handlers.Register(
+				extensions.RevocationCheckHandler,
+				extensions.RevocationUpdateHandler,
+			)
+	}
+
+	if opts.Config.Extensions.WhitelistSignedLeaf {
+		handlers.Register(extensions.CAWhitelistSignedLeafHandler)
+	}
+
+	opts.handleExtensions(handlers)
 
 	opts.Cert, err = peertls.TLSCert(opts.Ident.RawChain(), opts.Ident.Leaf, opts.Ident.Key)
 	return err
