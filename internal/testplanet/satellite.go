@@ -220,6 +220,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		if err != nil {
 			return xs, errs.New("Error creating revocation database: %+v", err)
 		}
+		defer func() {
+			err = errs.Combine(err, revDB.Close())
+		}()
 
 		peer, err := satellite.New(log, identity, db, revDB, &config, verInfo)
 		if err != nil {

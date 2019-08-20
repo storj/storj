@@ -166,6 +166,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		if err != nil {
 			return nil, errs.New("Error creating revocation database: %+v", err)
 		}
+		defer func() {
+			err = errs.Combine(err, revDB.Close())
+		}()
 
 		peer, err := storagenode.New(log, identity, db, revDB, config, verInfo)
 		if err != nil {

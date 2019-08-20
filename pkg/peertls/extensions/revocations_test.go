@@ -24,7 +24,7 @@ import (
 var ctx = context.Background() // test context
 
 func TestRevocationCheckHandler(t *testing.T) {
-	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
@@ -66,7 +66,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 		}
 	})
 
-	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
 		t.Log("new revocation DB")
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
@@ -118,7 +118,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 }
 
 func TestRevocationUpdateHandler(t *testing.T) {
-	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 

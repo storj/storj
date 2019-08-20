@@ -215,8 +215,10 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 						WhitelistSignedLeaf: false,
 					},
 				}
+
 				revDB, err := revocation.NewDBFromCfg(tlscfg)
 				require.NoError(t, err)
+
 				options, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revDB)
 				require.NoError(t, err)
 
@@ -224,7 +226,11 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 				require.NoError(t, err)
 				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
 				go func() {
+					// TODO: get goroutine under control
 					err := server.Run(ctx)
+					require.NoError(t, err)
+
+					err = revDB.Close()
 					require.NoError(t, err)
 				}()
 				stopped = true

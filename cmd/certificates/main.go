@@ -66,6 +66,9 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, revDB.Close())
+	}()
 
 	return config.Server.Run(ctx, zap.L(), identity, revDB, nil, config.Signer)
 }

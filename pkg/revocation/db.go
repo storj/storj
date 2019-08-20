@@ -32,7 +32,7 @@ var (
 // (i.e. nodeID [CA certificate's public key hash] is the key, values is
 // the most recently seen revocation).
 type DB struct {
-	KVStore storage.KeyValueStore
+	store storage.KeyValueStore
 }
 
 // NewDBFromCfg is a convenience method to create a revocation DB
@@ -78,7 +78,7 @@ func newDBBolt(path string) (*DB, error) {
 		return nil, err
 	}
 	return &DB{
-		KVStore: client,
+		store: client,
 	}, nil
 }
 
@@ -89,7 +89,7 @@ func newDBRedis(address string) (*DB, error) {
 		return nil, err
 	}
 	return &DB{
-		KVStore: client,
+		store: client,
 	}, nil
 }
 
@@ -102,7 +102,7 @@ func (db DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.
 		return nil, extensions.ErrRevocation.Wrap(err)
 	}
 
-	revBytes, err := db.KVStore.Get(ctx, nodeID.Bytes())
+	revBytes, err := db.store.Get(ctx, nodeID.Bytes())
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
@@ -146,7 +146,7 @@ func (db DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Ext
 	if err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
-	if err := db.KVStore.Put(ctx, nodeID.Bytes(), revExt.Value); err != nil {
+	if err := db.store.Put(ctx, nodeID.Bytes(), revExt.Value); err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
 	return nil
@@ -155,12 +155,12 @@ func (db DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Ext
 // List lists all revocations in the store
 func (db DB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
 	defer mon.Task()(&ctx)(&err)
-	keys, err := db.KVStore.List(ctx, []byte{}, 0)
+	keys, err := db.store.List(ctx, []byte{}, 0)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
 
-	marshaledRevs, err := db.KVStore.GetAll(ctx, keys)
+	marshaledRevs, err := db.store.GetAll(ctx, keys)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
@@ -176,7 +176,12 @@ func (db DB) List(ctx context.Context) (revs []*extensions.Revocation, err error
 	return revs, nil
 }
 
+// TestInternalStore returns the internal store for testing.
+func (db DB) TestInternalStore() storage.KeyValueStore {
+	return db.store
+}
+
 // Close closes the underlying store
 func (db DB) Close() error {
-	return db.KVStore.Close()
+	return db.store.Close()
 }

@@ -104,6 +104,9 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	if err != nil {
 		return nil, errs.New("Error creating revocation database: %+v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, revDB.Close())
+	}()
 
 	peer, err = bootstrap.New(log, identity, db, revDB, config, verInfo)
 	if err != nil {

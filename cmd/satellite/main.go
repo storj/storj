@@ -135,6 +135,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, revDB.Close())
+	}()
 
 	peer, err := satellite.New(log, identity, db, revDB, &runCfg.Config, version.Build)
 	if err != nil {

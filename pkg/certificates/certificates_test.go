@@ -609,6 +609,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 				revDB, err := revocation.NewDBFromCfg(sc.Config)
 				require.NoError(t, err)
+				defer ctx.Check(revDB.Close)
 
 				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config, revDB)
 				require.NoError(t, err)

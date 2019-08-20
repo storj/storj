@@ -190,6 +190,9 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, revDB.Close())
+	}()
 
 	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken, revDB)
 	if err != nil {

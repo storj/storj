@@ -53,7 +53,6 @@ type RevocationDB interface {
 	Get(ctx context.Context, chain []*x509.Certificate) (*Revocation, error)
 	Put(ctx context.Context, chain []*x509.Certificate, ext pkix.Extension) error
 	List(ctx context.Context) ([]*Revocation, error)
-	Close() error
 }
 
 func init() {
