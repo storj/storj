@@ -27,6 +27,8 @@ import (
 )
 
 func TestRetainPieces(t *testing.T) {
+	const pollInterval = 30 * time.Millisecond
+
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -114,16 +116,21 @@ func TestRetainPieces(t *testing.T) {
 			Concurrency: 1,
 			MaxTimeSkew: 0,
 		})
+		defer ctx.Check(retainEnabled.Close)
+
 		retainDisabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
 			Status:      retain.Disabled,
 			Concurrency: 1,
 			MaxTimeSkew: 0,
 		})
+		defer ctx.Check(retainDisabled.Close)
+
 		retainDebug := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
 			Status:      retain.Debug,
 			Concurrency: 1,
 			MaxTimeSkew: 0,
 		})
+		defer ctx.Check(retainDebug.Close)
 
 		// start the retain services
 		var group errgroup.Group
@@ -146,11 +153,11 @@ func TestRetainPieces(t *testing.T) {
 		}
 		queued := retainDisabled.Queue(req)
 		require.True(t, queued)
-		retainDisabled.Wait(ctx2)
+		retainDisabled.TestWaitUntilEmpty(ctx2, pollInterval)
 
 		queued = retainDebug.Queue(req)
 		require.True(t, queued)
-		retainDebug.Wait(ctx2)
+		retainDebug.TestWaitUntilEmpty(ctx2, pollInterval)
 
 		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))
 		require.NoError(t, err)
@@ -163,7 +170,7 @@ func TestRetainPieces(t *testing.T) {
 		// expect that enabled endpoint deletes the correct pieces
 		queued = retainEnabled.Queue(req)
 		require.True(t, queued)
-		retainEnabled.Wait(ctx2)
+		retainEnabled.TestWaitUntilEmpty(ctx2, pollInterval)
 
 		// check we have deleted nothing for satellite1
 		satellite1Pieces, err = getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))

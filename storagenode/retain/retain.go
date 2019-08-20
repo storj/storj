@@ -196,25 +196,30 @@ func (s *Service) Run(parentCtx context.Context) error {
 					s.log.Error("retain pieces failed", zap.Error(err))
 				}
 			}
-
-			return nil
 		})
 	}
 
 	return group.Wait()
 }
 
-// Wait blocks until the context is canceled or until the queue is empty.
-func (s *Service) Wait(ctx context.Context) {
-	s.mu.Lock()
-	queueLength := len(s.queued)
-	s.mu.Unlock()
-	if queueLength == 0 {
-		return
-	}
-	select {
-	case <-s.emptyTrigger:
-	case <-ctx.Done():
+// TestWaitUntilEmpty blocks until the context is canceled or until the queue is empty.
+func (s *Service) TestWaitUntilEmpty(ctx context.Context, pollInterval time.Duration) {
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			s.cond.L.Lock()
+			count := len(s.queued)
+			s.cond.L.Unlock()
+
+			if count == 0 {
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
