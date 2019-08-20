@@ -123,7 +123,11 @@
         }
 
         public async onPageClick(index: number):Promise<void> {
-            await this.$store.dispatch(PM_ACTIONS.FETCH, index);
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, index);
+            } catch (err) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
+            }
         }
 
         public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
@@ -132,7 +136,7 @@
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
             }
 
             (this.$refs.pagination as Pagination).resetPageIndex();

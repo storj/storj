@@ -51,7 +51,7 @@
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
             }
 
             if (!keysResponse.isSuccess) {

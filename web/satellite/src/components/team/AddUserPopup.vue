@@ -141,7 +141,7 @@
             try {
                 await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
             } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding projectMembers members!');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding projectMembers members. ${err.message}`);
                 this.isLoading = false;
 
                 return;
@@ -153,7 +153,7 @@
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
             }
 
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
