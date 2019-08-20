@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
 import {
+    ProjectMember,
     ProjectMemberCursor,
     ProjectMemberOrderBy,
     ProjectMembersApi,
@@ -10,6 +10,17 @@ import {
 } from '@/types/projectMembers';
 import { SortDirection } from '@/types/common';
 import { StoreModule } from '@/store';
+
+export const PROJECT_MEMBER_MUTATIONS = {
+    FETCH: 'fetchProjectMembers',
+    TOGGLE_SELECTION: 'toggleSelection',
+    CLEAR_SELECTION: 'clearSelection',
+    CLEAR: 'clearProjectMembers',
+    CHANGE_SORT_ORDER: 'changeProjectMembersSortOrder',
+    CHANGE_SORT_ORDER_DIRECTION: 'changeProjectMembersSortOrderDirection',
+    SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
+    SET_PAGE: 'setProjectMembersPage',
+};
 
 const {
     FETCH,
@@ -31,27 +42,27 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
     return {
         state: new ProjectMembersState(),
         mutations: {
-            fetchProjectMembers(state: any, page: ProjectMembersPage) {
+            [FETCH](state: ProjectMembersState, page: ProjectMembersPage) {
                 state.page = page;
             },
-            setProjectMembersPage(state: any, page: number) {
+            [SET_PAGE](state: ProjectMembersState, page: number) {
                 state.cursor.page = page;
             },
-            setProjectMembersSearchQuery(state: any, search: string) {
+            [SET_SEARCH_QUERY](state: ProjectMembersState, search: string) {
                 state.cursor.search = search;
             },
-            changeProjectMembersSortOrder(state: any, order: ProjectMemberOrderBy) {
+            [CHANGE_SORT_ORDER](state: ProjectMembersState, order: ProjectMemberOrderBy) {
                 state.cursor.order = order;
             },
-            changeProjectMembersSortOrderDirection(state: any, direction: SortDirection) {
+            [CHANGE_SORT_ORDER_DIRECTION](state: ProjectMembersState, direction: SortDirection) {
                 state.cursor.orderDirection = direction;
             },
-            clearProjectMembers(state: any) {
+            [CLEAR](state: ProjectMembersState) {
                 state.cursor = new ProjectMemberCursor();
                 state.page = new ProjectMembersPage();
             },
-            toggleSelection(state: any, projectMemberId: string) {
-                state.page.projectMembers = state.page.projectMembers.map((projectMember: any) => {
+            [TOGGLE_SELECTION](state: ProjectMembersState, projectMemberId: string) {
+                state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
                     if (projectMember.user.id === projectMemberId) {
                         projectMember.isSelected = !projectMember.isSelected;
                     }
@@ -59,8 +70,8 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
                     return projectMember;
                 });
             },
-            clearSelection(state: any) {
-                state.page.projectMembers = state.page.projectMembers.map((projectMember: any) => {
+            [CLEAR](state: ProjectMembersState) {
+                state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
                     projectMember.isSelected = false;
 
                     return projectMember;
@@ -68,15 +79,15 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             },
         },
         actions: {
-            addProjectMembers: async function ({rootGetters}: any, emails: string[]): Promise<null> {
+            addProjectMembers: async function ({rootGetters}: any, emails: string[]): Promise<void> {
                 const projectId = rootGetters.selectedProject.id;
 
-                return await api.add(projectId, emails);
+                await api.add(projectId, emails);
             },
-            deleteProjectMembers: async function ({rootGetters}: any, projectMemberEmails: string[]): Promise<null> {
+            deleteProjectMembers: async function ({rootGetters}: any, projectMemberEmails: string[]): Promise<void> {
                 const projectId = rootGetters.selectedProject.id;
 
-                return await api.delete(projectId, projectMemberEmails);
+                await api.delete(projectId, projectMemberEmails);
             },
             fetchProjectMembers: async function ({commit, rootGetters, state}: any, page: number): Promise<ProjectMembersPage> {
                 const projectID = rootGetters.selectedProject.id;
@@ -110,7 +121,7 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             },
         },
         getters: {
-            selectedProjectMembers: (state: any) => state.page.projectMembers.filter((member: any) => member.isSelected),
+            selectedProjectMembers: (state: any) => state.page.projectMembers.filter((member: ProjectMember) => member.isSelected),
         }
     };
 }

@@ -5,16 +5,16 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 
 import { ApiKeysApiGql } from '@/api/apiKeys';
-import { appStateModule } from '@/store/modules/appState';
-import { bucketUsageModule, usageModule, creditUsageModule } from '@/store/modules/usage';
+import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { UsersApiGql } from '@/api/users';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { appStateModule } from '@/store/modules/appState';
+import { notificationsModule } from '@/store/modules/notifications';
+import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
+import { bucketUsageModule, usageModule } from '@/store/modules/usage';
 import { makeUsersModule } from '@/store/modules/users';
-import { notificationsModule } from '@/store/modules/notifications';
-import { ProjectMembersApiGql } from '@/api/projectMembers';
-import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
-import { UsersApiGql } from '@/api/users';
 
 Vue.use(Vuex);
 

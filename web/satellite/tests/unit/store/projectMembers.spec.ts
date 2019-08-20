@@ -4,14 +4,13 @@
 import { createLocalVue } from '@vue/test-utils';
 import Vuex from 'vuex';
 
-import { makeProjectMembersModule } from '@/store/modules/projectMembers';
-import { makeProjectsModule } from '@/store/modules/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { Project } from '@/types/projects';
-import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
-import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
+import { makeProjectsModule } from '@/store/modules/projects';
 import { SortDirection } from '@/types/common';
+import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
+import { Project } from '@/types/projects';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 const projectsModule = makeProjectsModule();
 const selectedProject = new Project();

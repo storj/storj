@@ -16,17 +16,6 @@ export const PROJECTS_MUTATIONS = {
     CLEAR: 'CLEAR_PROJECTS',
 };
 
-export const PROJECT_MEMBER_MUTATIONS = {
-    FETCH: 'fetchProjectMembers',
-    TOGGLE_SELECTION: 'toggleSelection',
-    CLEAR_SELECTION: 'clearSelection',
-    CLEAR: 'clearProjectMembers',
-    CHANGE_SORT_ORDER: 'changeProjectMembersSortOrder',
-    CHANGE_SORT_ORDER_DIRECTION: 'changeProjectMembersSortOrderDirection',
-    SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
-    SET_PAGE: 'setProjectMembersPage',
-};
-
 export const API_KEYS_MUTATIONS = {
     FETCH: 'setAPIKeys',
     ADD: 'addAPIKey',

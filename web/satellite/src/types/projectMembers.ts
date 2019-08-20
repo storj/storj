@@ -5,7 +5,7 @@
 import { User } from '@/types/users';
 import { SortDirection } from '@/types/common';
 
-export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<any>;
+export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<void>;
 
 export enum ProjectMemberOrderBy {
     NAME = 1,
@@ -13,6 +13,10 @@ export enum ProjectMemberOrderBy {
     CREATED_AT,
 }
 
+/**
+ * ProjectMembersApi is a graphql implementation of ProjectMembers API.
+ * Exposes all ProjectMembers-related functionality
+ */
 export interface ProjectMembersApi {
     /**
      * Add members to project by user emails.
@@ -22,7 +26,7 @@ export interface ProjectMembersApi {
      *
      * @throws Error
      */
-    add(projectId: string, emails: string[]): Promise<null>;
+    add(projectId: string, emails: string[]): Promise<void>;
 
     /**
      * Deletes ProjectMembers from project by project member emails
@@ -32,7 +36,7 @@ export interface ProjectMembersApi {
      *
      * @throws Error
      */
-    delete(projectId: string, emails: string[]): Promise<null>;
+    delete(projectId: string, emails: string[]): Promise<void>;
 
     /**
      * Fetch Project Members

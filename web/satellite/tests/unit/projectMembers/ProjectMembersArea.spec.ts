@@ -4,11 +4,10 @@
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 import Vuex from 'vuex';
 
-import { makeProjectMembersModule } from '@/store/modules/projectMembers';
-import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
-import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
-import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
+import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
+import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
 
 const localVue = createLocalVue();
 
