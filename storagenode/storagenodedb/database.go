@@ -40,7 +40,7 @@ var (
 	mon = monkit.Package()
 
 	// ErrDatabase represents errors from the databases.
-	ErrDatabase = errs.Class("ordersdb")
+	ErrDatabase = errs.Class("storage node database error")
 )
 
 var _ storagenode.DB = (*DB)(nil)
