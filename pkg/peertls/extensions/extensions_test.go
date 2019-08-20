@@ -63,13 +63,6 @@ func TestHandlers_Register(t *testing.T) {
 		err = handlers[i].NewHandlerFunc(opts[i])(exts[i], chains[i])
 		assert.Errorf(t, err, strconv.Itoa(i))
 	}
-
-	{ // test `extensions.AllHandlers`
-		for _, handler := range extensions.AllHandlers {
-			assert.NotNil(t, handler.ID())
-			assert.NotNil(t, handler.NewHandlerFunc(nil))
-		}
-	}
 }
 
 func TestHandlers_WithOptions(t *testing.T) {
@@ -121,17 +114,5 @@ func TestHandlers_WithOptions(t *testing.T) {
 		handleFunc, ok := handlerFuncMap[id]
 		assert.True(t, ok)
 		assert.NotNil(t, handleFunc)
-	}
-
-	{ // test `extensions.AllHandlers`
-		handlerFuncMap := extensions.AllHandlers.WithOptions(&extensions.Options{})
-		for _, handler := range extensions.AllHandlers {
-			id := handler.ID()
-			require.NotNil(t, id)
-
-			handleFunc, ok := handlerFuncMap[id]
-			assert.True(t, ok)
-			assert.NotNil(t, handleFunc)
-		}
 	}
 }

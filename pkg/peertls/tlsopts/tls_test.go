@@ -112,7 +112,7 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 			}
 
 			{
-				handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
+				handlerFuncMap := extensions.DefaultHandlers.WithOptions(opts)
 				for _, testcase := range testcases {
 					t.Log(testcase.name)
 					extensionsMap := tlsopts.NewExtensionsMap(testcase.chain...)
