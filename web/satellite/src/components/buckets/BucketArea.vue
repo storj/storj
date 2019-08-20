@@ -90,7 +90,7 @@
             try {
                 await this.$store.dispatch(FETCH, 1);
             } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
             }
         }
 
@@ -98,7 +98,7 @@
             try {
                 await this.$store.dispatch(FETCH, page);
             } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
             }
         }
     }

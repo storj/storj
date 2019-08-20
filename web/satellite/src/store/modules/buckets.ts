@@ -18,6 +18,9 @@ export const BUCKET_MUTATIONS = {
 };
 
 const {
+    FETCH
+} = BUCKET_ACTIONS;
+const {
     SET,
     SET_PAGE,
     SET_SEARCH,
@@ -56,7 +59,7 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
             }
         },
         actions: {
-            [BUCKET_ACTIONS.FETCH]: async function({commit, rootGetters, state}: any, page: number): Promise<BucketPage> {
+            [FETCH]: async function({commit, rootGetters, state}: any, page: number): Promise<BucketPage> {
                 const projectID = rootGetters.selectedProject.id;
                 const before = new Date();
                 state.cursor.page = page;
