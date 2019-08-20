@@ -148,7 +148,7 @@ func (s *Service) Run(ctx context.Context) error {
 	// Ensure Run is only ever called once. If not, there's many subtle
 	// bugs with concurrency.
 	if s.started {
-		return errs.New("service already started")
+		return Error.New("service already started")
 	}
 	s.started = true
 
@@ -156,7 +156,7 @@ func (s *Service) Run(ctx context.Context) error {
 	// workers.
 	select {
 	case <-s.closed:
-		return errs.New("service Closed")
+		return Error.New("service Closed")
 	default:
 	}
 
