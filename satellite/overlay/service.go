@@ -117,6 +117,7 @@ type NodeDossier struct {
 	Version      pb.NodeVersion
 	Contained    bool
 	Disqualified *time.Time
+	PieceCount   int64
 }
 
 // NodeStats contains statistics about a node.

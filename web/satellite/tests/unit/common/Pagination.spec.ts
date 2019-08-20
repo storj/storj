@@ -306,4 +306,64 @@ describe('Pagination.vue', () => {
         expect(wrapperData.middleBlockPages.length).toBe(0);
         expect(wrapperData.lastBlockPages.length).toBe(3);
     });
+
+    it('should reset current page index to 1', async () => {
+        const wrapper = shallowMount(Pagination, {
+            propsData: {
+                totalPageCount: 4,
+                onPageClickCallback: () => Promise.resolve({})
+            },
+            mocks: {
+                $route: {
+                    query: {
+                        pageNumber: null
+                    }
+                },
+                $router: {
+                    replace: () => false
+                }
+            }
+        });
+
+        await wrapper.vm.nextPage();
+
+        expect(wrapper.vm.$data.currentPageNumber).toBe(2);
+
+        wrapper.vm.resetPageIndex();
+
+        const wrapperData = wrapper.vm.$data;
+
+        expect(wrapperData.currentPageNumber).toBe(1);
+        expect(wrapperData.pagesArray.length).toBe(4);
+    });
+
+    it('should completely reinitialize Pagination on totalPageCount change', async () => {
+        const wrapper = shallowMount(Pagination, {
+            propsData: {
+                totalPageCount: 4,
+                onPageClickCallback: () => Promise.resolve({})
+            },
+            mocks: {
+                $route: {
+                    query: {
+                        pageNumber: null
+                    }
+                },
+                $router: {
+                    replace: () => false
+                }
+            }
+        });
+
+        await wrapper.vm.nextPage();
+
+        expect(wrapper.vm.$data.currentPageNumber).toBe(2);
+
+        wrapper.setProps({totalPageCount: 7});
+
+        const wrapperData = wrapper.vm.$data;
+
+        expect(wrapperData.currentPageNumber).toBe(1);
+        expect(wrapperData.pagesArray.length).toBe(7);
+    });
 });

@@ -16,7 +16,6 @@ export const appStateModule = {
             isAccountDropdownShown: false,
             isDeleteProjectPopupShown: false,
             isDeleteAccountPopupShown: false,
-            isNewAPIKeyPopupShown: false,
             isSortProjectMembersByPopupShown: false,
             isSuccessfulRegistrationPopupShown: false,
             isSuccessfulProjectCreationPopupShown: false,
@@ -27,7 +26,7 @@ export const appStateModule = {
         },
     },
     mutations: {
-        // Mutation changing add team members popup visibility
+        // Mutation changing add projectMembers members popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: any): void {
             state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
         },
@@ -58,10 +57,6 @@ export const appStateModule = {
         // Mutation changing 'sort project members by' popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN](state: any): void {
             state.appState.isSortProjectMembersByPopupShown = !state.appState.isSortProjectMembersByPopupShown;
-        },
-        // Mutation changing new api key popup visibility
-        [APP_STATE_MUTATIONS.TOGGLE_NEW_API_KEY_POPUP](state: any): void {
-            state.appState.isNewAPIKeyPopupShown = !state.appState.isNewAPIKeyPopupShown;
         },
         // Mutation changing 'successful registration' popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP](state: any): void {
@@ -146,13 +141,6 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY]: function ({commit, state}: any): void {
-            if (!state.appState.isNewAPIKeyPopupShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_NEW_API_KEY_POPUP);
         },
         [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP]: function ({commit, state}: any): void {
             if (!state.appState.isSuccessfullRegistrationPopupShown) {

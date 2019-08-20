@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BUCKET_USAGE_MUTATIONS, PROJECT_USAGE_MUTATIONS, CREDIT_USAGE_MUTATIONS } from '@/store/mutationConstants';
-import { BUCKET_USAGE_ACTIONS, PROJECT_USAGE_ACTIONS, CREDIT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
-import { fetchBucketUsages, fetchProjectUsage, fetchCreditUsage } from '@/api/usage';
+import { BUCKET_USAGE_MUTATIONS, PROJECT_USAGE_MUTATIONS } from '@/store/mutationConstants';
+import { BUCKET_USAGE_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
+import { fetchBucketUsages, fetchProjectUsage } from '@/api/usage';
 import { RequestResponse } from '@/types/response';
 
 export const usageModule = {
@@ -77,7 +77,7 @@ export const usageModule = {
     }
 };
 
-const bucketPageLimit = 6;
+const bucketPageLimit = 8;
 const firstPage = 1;
 
 export const bucketUsageModule = {
@@ -127,27 +127,5 @@ export const bucketUsageModule = {
         [BUCKET_USAGE_ACTIONS.CLEAR]: function({commit}) {
             commit(BUCKET_USAGE_MUTATIONS.CLEAR);
         }
-    }
-};
-
-export const creditUsageModule = {
-    state: {
-        creditUsage: { referred: 0, usedCredits: 0, availableCredits: 0 } as CreditUsage
-    },
-    mutations: {
-        [CREDIT_USAGE_ACTIONS.FETCH](state: any, creditUsage: CreditUsage) {
-            state.creditUsage = creditUsage;
-        }
-    },
-    actions: {
-        [CREDIT_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters}: any): Promise<RequestResponse<CreditUsage>> {
-            let result = await fetchCreditUsage();
-
-            if (result.isSuccess) {
-                commit(CREDIT_USAGE_MUTATIONS.FETCH, result.data);
-            }
-
-            return result;
-        },
     }
 };
