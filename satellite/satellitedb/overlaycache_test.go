@@ -105,7 +105,14 @@ func TestOverlaycache_UpdatePieceCounts(t *testing.T) {
 	require.NoError(t, err)
 
 	// expected and actual piece count maps should match
-	actualPieceCounts, err := overlay.AllPieceCounts(ctx)
+	actualPieceCounts := make(map[storj.NodeID]int)
+	rows, err := overlay.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
+	for _, row := range rows {
+		var nodeID storj.NodeID
+		copy(nodeID[:], row.Id)
+
+		actualPieceCounts[nodeID] = int(row.PieceCount)
+	}
 	require.NoError(t, err)
 	require.Equal(t, expectedPieceCounts, actualPieceCounts)
 }
