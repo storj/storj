@@ -248,20 +248,6 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 
 	var group errgroup.Group
 
-	// TODO: instead of pinging try to use Lookups or natural discovery to ensure
-	// everyone finds everyone else
-
-	for _, storageNode := range planet.StorageNodes {
-		storageNode := storageNode
-		group.Go(func() error {
-			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local().Node)
-			if err != nil {
-				log.Error("storage node did not find bootstrap", zap.Error(err))
-			}
-			return nil
-		})
-	}
-
 	for _, satellite := range planet.Satellites {
 		satellite := satellite
 		group.Go(func() error {
