@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { PROJECT_USAGE_MUTATIONS, CREDIT_USAGE_MUTATIONS } from '@/store/mutationConstants';
-import { PROJECT_USAGE_ACTIONS, CREDIT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
-import { fetchProjectUsage, fetchCreditUsage } from '@/api/usage';
+import { PROJECT_USAGE_MUTATIONS } from '@/store/mutationConstants';
+import { PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
+import { fetchProjectUsage } from '@/api/usage';
 import { RequestResponse } from '@/types/response';
 
 export const usageModule = {
@@ -74,27 +74,5 @@ export const usageModule = {
         [PROJECT_USAGE_ACTIONS.CLEAR]: function({commit}): void {
             commit(PROJECT_USAGE_MUTATIONS.CLEAR);
         }
-    }
-};
-
-export const creditUsageModule = {
-    state: {
-        creditUsage: { referred: 0, usedCredits: 0, availableCredits: 0 } as CreditUsage
-    },
-    mutations: {
-        [CREDIT_USAGE_ACTIONS.FETCH](state: any, creditUsage: CreditUsage) {
-            state.creditUsage = creditUsage;
-        }
-    },
-    actions: {
-        [CREDIT_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters}: any): Promise<RequestResponse<CreditUsage>> {
-            let result = await fetchCreditUsage();
-
-            if (result.isSuccess) {
-                commit(CREDIT_USAGE_MUTATIONS.FETCH, result.data);
-            }
-
-            return result;
-        },
     }
 };

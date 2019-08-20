@@ -30,14 +30,14 @@
         NOTIFICATION_ACTIONS,
         PM_ACTIONS,
         PROJETS_ACTIONS,
-        USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
         PROJECT_PAYMENT_METHODS_ACTIONS,
     } from '@/utils/constants/actionNames';
+    import { USER_ACTIONS } from '@/store/modules/users';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { AppState } from '@/utils/constants/appStateEnum';
     import { AuthToken } from '@/utils/authToken';
     import ROUTES from '@/utils/constants/routerConstants';
-    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { Project } from '@/types/projects';
     import { RequestResponse } from '@/types/response';
     import { User } from '@/types/users';

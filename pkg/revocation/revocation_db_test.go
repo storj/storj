@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package identity_test
+package revocation_test
 
 import (
 	"bytes"
@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testpeertls"
+	"storj.io/storj/internal/testrevocation"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -26,7 +26,7 @@ func TestRevocationDB_Get(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
@@ -64,7 +64,7 @@ func TestRevocationDB_Put_success(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
@@ -114,7 +114,7 @@ func TestRevocationDB_Put_error(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 

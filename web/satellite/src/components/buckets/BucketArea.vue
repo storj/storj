@@ -79,7 +79,7 @@
         public get buckets(): Bucket[] {
             return this.$store.getters.page.bucketUsages;
         }
-        
+
         public get search(): string {
             return this.$store.getters.cursor.search;
         }

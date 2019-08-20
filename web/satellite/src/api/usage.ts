@@ -43,32 +43,3 @@ export async function fetchProjectUsage(projectId: string, since: Date, before: 
 
     return result;
 }
-
-export async function fetchCreditUsage(): Promise<RequestResponse<CreditUsage>> {
-    let result: RequestResponse<CreditUsage> = new RequestResponse<CreditUsage>();
-
-    let response: any = await apollo.query(
-        {
-            query: gql(`
-                query {
-                    creditUsage {
-                        referred,
-                        usedCredit,
-                        availableCredit,
-                    }
-                }`
-            ),
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
-        }
-    );
-
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
-        result.data = response.data.creditUsage;
-    }
-
-    return result;
-}

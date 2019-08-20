@@ -34,10 +34,10 @@
         APP_STATE_ACTIONS,
         PROJETS_ACTIONS,
         PM_ACTIONS,
-        USER_ACTIONS,
         API_KEYS_ACTIONS,
         NOTIFICATION_ACTIONS,
     } from '@/utils/constants/actionNames';
+    import { USER_ACTIONS } from '@/store/modules/users';
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 
     @Component

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package testidentity
+package testrevocation
 
 import (
 	"testing"
@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/storage"
 )
 
@@ -29,11 +29,11 @@ func RevocationDBsTest(t *testing.T, test func(*testing.T, extensions.Revocation
 		{
 			// Test using redis-backed revocation DB
 			dbURL := "redis://" + redisServer.Addr() + "?db=0"
-			redisRevDB, err := identity.NewRevocationDB(dbURL)
+			redisRevDB, err := revocation.NewDB(dbURL)
 			require.NoError(t, err)
 			defer ctx.Check(redisRevDB.Close)
 
-			test(t, redisRevDB, redisRevDB.DB)
+			test(t, redisRevDB, redisRevDB.KVStore)
 		}
 
 	})
@@ -47,11 +47,11 @@ func RevocationDBsTest(t *testing.T, test func(*testing.T, extensions.Revocation
 			revocationDBPath := ctx.File("revocations.db")
 
 			dbURL := "bolt://" + revocationDBPath
-			boltRevDB, err := identity.NewRevocationDB(dbURL)
+			boltRevDB, err := revocation.NewDB(dbURL)
 			require.NoError(t, err)
 			defer ctx.Check(boltRevDB.Close)
 
-			test(t, boltRevDB, boltRevDB.DB)
+			test(t, boltRevDB, boltRevDB.KVStore)
 		}
 	})
 }

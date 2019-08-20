@@ -9,9 +9,3 @@ declare type ProjectUsage = {
     since: Date,
     before: Date,
 };
-
-declare type CreditUsage = {
-    referred: number,
-    usedCredits: number,
-    availableCredits: number,
-};
