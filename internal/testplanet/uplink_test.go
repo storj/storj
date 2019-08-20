@@ -216,10 +216,10 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 					},
 				}
 
-				revDB, err := revocation.NewDBFromCfg(tlscfg)
+				revocationDB, err := revocation.NewDBFromCfg(tlscfg)
 				require.NoError(t, err)
 
-				options, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revDB)
+				options, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
 				require.NoError(t, err)
 
 				server, err := server.New(storageNode.Log.Named("mock-server"), options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
@@ -230,7 +230,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 					err := server.Run(ctx)
 					require.NoError(t, err)
 
-					err = revDB.Close()
+					err = revocationDB.Close()
 					require.NoError(t, err)
 				}()
 				stopped = true

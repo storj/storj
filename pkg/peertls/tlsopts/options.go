@@ -47,10 +47,10 @@ type ExtensionMap map[string]pkix.Extension
 // NewOptions is a constructor for `tls options` given an identity, config, and
 // revocation DB. A caller may pass a nil revocation DB if the revocation
 // extension is disabled.
-func NewOptions(i *identity.FullIdentity, c Config, revDB extensions.RevocationDB) (*Options, error) {
+func NewOptions(i *identity.FullIdentity, c Config, revocationDB extensions.RevocationDB) (*Options, error) {
 	opts := &Options{
 		Config:            c,
-		RevDB:             revDB,
+		RevDB:             revocationDB,
 		Ident:             i,
 		VerificationFuncs: new(VerificationFuncs),
 	}
