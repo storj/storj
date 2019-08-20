@@ -97,7 +97,7 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 
 		testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 			opts := &extensions.Options{
-				RevDB:          revDB,
+				RevocationDB:   revDB,
 				PeerIDVersions: "*",
 			}
 
@@ -143,7 +143,7 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 		err = revDB.Put(ctx, chain, newRevocation)
 		assert.NoError(t, err)
 
-		opts := &extensions.Options{RevDB: revDB}
+		opts := &extensions.Options{RevocationDB: revDB}
 		handlerFuncMap := extensions.HandlerFactories{
 			extensions.RevocationUpdateHandler,
 		}.WithOptions(opts)

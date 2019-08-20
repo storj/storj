@@ -28,7 +28,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
-		opts := &extensions.Options{RevDB: revDB}
+		opts := &extensions.Options{RevocationDB: revDB}
 		revocationChecker := extensions.RevocationCheckHandler.NewHandlerFunc(opts)
 
 		revokingChain, leafRevocationExt, err := testpeertls.RevokeLeaf(keys[peertls.CAIndex], chain)
@@ -71,7 +71,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		assert.NoError(t, err)
 
-		opts := &extensions.Options{RevDB: revDB}
+		opts := &extensions.Options{RevocationDB: revDB}
 		revocationChecker := extensions.RevocationCheckHandler.NewHandlerFunc(opts)
 		revokingChain, caRevocationExt, err := testpeertls.RevokeCA(keys[peertls.CAIndex], chain)
 		require.NoError(t, err)
@@ -133,7 +133,7 @@ func TestRevocationUpdateHandler(t *testing.T) {
 		newestRevokedChain, newestRevocation, err := testpeertls.RevokeLeaf(keys[peertls.CAIndex], revokedLeafChain)
 		require.NoError(t, err)
 
-		opts := &extensions.Options{RevDB: revDB}
+		opts := &extensions.Options{RevocationDB: revDB}
 		revocationChecker := extensions.RevocationUpdateHandler.NewHandlerFunc(opts)
 
 		{

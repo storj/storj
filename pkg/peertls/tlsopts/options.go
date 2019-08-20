@@ -78,7 +78,7 @@ func NewExtensionsMap(chain ...*x509.Certificate) ExtensionMap {
 func (opts *Options) ExtensionOptions() *extensions.Options {
 	return &extensions.Options{
 		PeerCAWhitelist: opts.PeerCAWhitelist,
-		RevDB:           opts.RevDB,
+		RevocationDB:    opts.RevDB,
 		PeerIDVersions:  opts.Config.PeerIDVersions,
 	}
 }
