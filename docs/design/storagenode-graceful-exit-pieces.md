@@ -26,7 +26,9 @@ Once metainfo loop has completed successfully it updates node to be ready for tr
 
 We could store the queue in-memory, however there is a danger that it might get too big. We can simplify the queue, by not having batching, however this would significantly increase the database load.
 
-We coudl keep keep a live summary of the pieces in the queue, however, we can always query the database, which is easier to implement and change.
+We could keep keep a live summary of the pieces in the queue, however, we can always query the database, which is easier to implement and change.
+
+The metainfo loop `Join` guarantees the observer will only receive events at the beginning of the next loop. Hence, one complete metainfo loop is sufficient to collect all the pieces for a given node. 
 
 ## Implementation
 
@@ -34,7 +36,22 @@ We coudl keep keep a live summary of the pieces in the queue, however, we can al
 2. Implement queue for pieces.
 3. Implement gexit.Service.
 
-TODO: exact queue schema
+Create `graceful_exit_transfer_queue`
+```
+model graceful_exit_transfer_queue (
+    key node_id path
+
+    field node_id             blob
+    field path                blob
+    field piece_num           int
+    field durability_ratio    float64
+    field queued_at           timestamp ( autoinsert ) // when the the piece info was queued
+    field requested_at        timestamp ( updateable ) // when the piece info and orderlimits were requested by the storagenode
+    field failed_at           timestamp ( updateable ) // when/if it failed
+    field failed_status_code  int
+    field completed_at        timestamp ( updateable )
+)
+```
 
 ## Open issues (if applicable)
 
