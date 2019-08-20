@@ -5052,6 +5052,16 @@
                 "id": 1,
                 "name": "chunk",
                 "type": "Chunk"
+              },
+              {
+                "id": 2,
+                "name": "hash",
+                "type": "orders.PieceHash"
+              },
+              {
+                "id": 3,
+                "name": "limit",
+                "type": "orders.OrderLimit"
               }
             ],
             "messages": [
