@@ -80,9 +80,9 @@ type DB interface {
 
 // Config defines configuration for sending orders.
 type Config struct {
-	SenderInterval  time.Duration `help:"duration between sending" default:"1h0m0s"`
-	CleanupInterval time.Duration `help:"duration between archive cleanups. Each cleanup deletes all orders archived before the previous iteration, leaving the last period available for reference" default:"744h0m0s"`
-	Timeout         time.Duration `help:"timeout for sending" default:"1h0m0s"`
+	SenderInterval time.Duration `help:"duration between sending" default:"1h0m0s"`
+	ArchiveTTL     time.Duration `help:"length of time to archive orders before deletion" default:"1080h0m0s"` // 45 days
+	Timeout        time.Duration `help:"timeout for sending" default:"1h0m0s"`
 }
 
 // Service sends every interval unsent orders to the satellite.
@@ -108,7 +108,7 @@ func NewService(log *zap.Logger, transport transport.Client, orders DB, trust *t
 		trust:     trust,
 
 		Sender:  *sync2.NewCycle(config.SenderInterval),
-		Cleanup: *sync2.NewCycle(config.CleanupInterval),
+		Cleanup: *sync2.NewCycle(24 * time.Hour),
 	}
 }
 
@@ -138,7 +138,7 @@ func (service *Service) cleanArchive(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Debug("cleaning")
 
-	deleted, err := service.orders.CleanArchive(ctx, service.config.CleanupInterval)
+	deleted, err := service.orders.CleanArchive(ctx, service.config.ArchiveTTL)
 	if err != nil {
 		return OrderError.Wrap(err)
 	}

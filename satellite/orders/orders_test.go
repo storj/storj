@@ -31,7 +31,7 @@ func TestCleanArchive(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNode: func(index int, config *storagenode.Config) {
-				config.Storage2.Orders.CleanupInterval = 100 * time.Millisecond
+				config.Storage2.Orders.ArchiveTTL = 100 * time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
