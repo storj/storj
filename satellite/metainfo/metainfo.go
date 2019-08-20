@@ -276,7 +276,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
-		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
+		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %q: %v", keyInfo.ProjectID, err)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
@@ -441,7 +441,7 @@ func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegme
 
 	items, more, err := endpoint.metainfo.List(ctx, prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "ListV2: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	segmentItems := make([]*pb.ListSegmentsResponseOld_Item, len(items))
@@ -767,15 +767,15 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		return macaroon.AllowedBuckets{}, status.Error(codes.Unauthenticated, "Invalid API credential GetAPIKey: %v", err)
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Unauthenticated, "Missing API credentials: %v", err)
 	}
 	key, err := macaroon.ParseAPIKey(string(keyData))
 	if err != nil {
-		return macaroon.AllowedBuckets{}, status.Error(codes.Unauthenticated, "Invalid API credential ParseAPIKey: %v", err)
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.InvalidArgument, "Invalid API credentials: %v", err)
 	}
 	allowedBuckets, err := key.GetAllowedBuckets(ctx, action)
 	if err != nil {
-		return macaroon.AllowedBuckets{}, status.Error(codes.Internal, "GetAllowedBuckets: %v", err)
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Internal, "GetAllowedBuckets: %v", err)
 	}
 	return allowedBuckets, err
 }
@@ -802,7 +802,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, bucketName [
 
 	partnerID, err := bytesToUUID(parterID)
 	if err != nil {
-		return status.Error(codes.InvalidArgument, "unable to parse partner ID: %v", err.Error())
+		return status.Errorf(codes.InvalidArgument, "unable to parse partner ID: %v", err)
 	}
 
 	// check if attribution is set for given bucket
@@ -830,7 +830,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, bucketName [
 	}
 
 	if len(items) > 0 {
-		return status.Error(codes.AlreadyExists, "Bucket(%q) is not empty, PartnerID(%s) cannot be attributed", bucketName, partnerID)
+		return status.Errorf(codes.AlreadyExists, "Bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
 	}
 
 	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
@@ -1022,7 +1022,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	for {
 		path, err := CreatePath(ctx, keyInfo.ProjectID, segmentIndex, streamID.Bucket, streamID.EncryptedPath)
 		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, "unable to create segment path: %v", err.Error())
+			return nil, status.Errorf(codes.InvalidArgument, "unable to create segment path: %v", err)
 		}
 
 		pointer, err := endpoint.metainfo.Get(ctx, path)
@@ -1030,7 +1030,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			if storage.ErrKeyNotFound.Has(err) {
 				break
 			}
-			return nil, status.Error(codes.Internal, "unable to create get segment: %v", err.Error())
+			return nil, status.Errorf(codes.Internal, "unable to create get segment: %v", err)
 		}
 
 		lastSegmentPointer = pointer
@@ -1038,7 +1038,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		segmentIndex++
 	}
 	if lastSegmentPointer == nil {
-		return nil, status.Error(codes.NotFound, "unable to find object: %s/%s", streamID.Bucket, streamID.EncryptedPath)
+		return nil, status.Errorf(codes.NotFound, "unable to find object: %q/%q", streamID.Bucket, streamID.EncryptedPath)
 	}
 
 	lastSegmentPointer.Metadata = req.EncryptedMetadata
