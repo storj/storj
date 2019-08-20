@@ -279,8 +279,9 @@ func (s *Service) Close() error {
 	return nil
 }
 
-// Wait blocks until the queue and working is empty. When Run exits, it empties the queue.
-func (s *Service) Wait() {
+// TestWaitUntilEmpty blocks until the queue and working is empty.
+// When Run exits, it empties the queue.
+func (s *Service) TestWaitUntilEmpty() {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 

@@ -152,11 +152,11 @@ func TestRetainPieces(t *testing.T) {
 		}
 		queued := retainDisabled.Queue(req)
 		require.True(t, queued)
-		retainDisabled.Wait()
+		retainDisabled.TestWaitUntilEmpty()
 
 		queued = retainDebug.Queue(req)
 		require.True(t, queued)
-		retainDebug.Wait()
+		retainDebug.TestWaitUntilEmpty()
 
 		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(5*time.Second))
 		require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestRetainPieces(t *testing.T) {
 		// expect that enabled endpoint deletes the correct pieces
 		queued = retainEnabled.Queue(req)
 		require.True(t, queued)
-		retainEnabled.Wait()
+		retainEnabled.TestWaitUntilEmpty()
 
 		// check we have deleted nothing for satellite1
 		satellite1Pieces, err = getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(5*time.Second))
