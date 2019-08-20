@@ -89,11 +89,12 @@ type Service struct {
 	log    *zap.Logger
 	config Config
 
-	cancel context.CancelFunc
-	cond   sync.Cond
-	queued map[storj.NodeID]Request
-	closed bool
-	exited chan struct{}
+	cancel  context.CancelFunc
+	cond    sync.Cond
+	queued  map[storj.NodeID]Request
+	working map[storj.NodeID]struct{}
+	closed  bool
+	exited  chan struct{}
 
 	store *pieces.Store
 }
@@ -104,8 +105,10 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 		log:    log,
 		config: config,
 
-		cond:   *sync.NewCond(&sync.Mutex{}),
-		exited: make(chan struct{}),
+		cond:    *sync.NewCond(&sync.Mutex{}),
+		exited:  make(chan struct{}),
+		queued:  make(map[storj.NodeID]Request),
+		working: make(map[storj.NodeID]struct{}),
 
 		store: store,
 	}
@@ -129,15 +132,6 @@ func (s *Service) Queue(req Request) bool {
 	s.cond.Signal()
 
 	return true
-}
-
-// next returns next item from queue, requires mutex to be held
-func (s *Service) next() (Request, bool) {
-	for id, request := range s.queued {
-		delete(s.queued, id)
-		return request, true
-	}
-	return Request{}, false
 }
 
 // Run listens for queued retain requests and processes them as they come in.
@@ -195,11 +189,37 @@ func (s *Service) Run(parentCtx context.Context) error {
 				if err != nil {
 					s.log.Error("retain pieces failed", zap.Error(err))
 				}
+
+				// Mark the request as finished.
+				s.cond.L.Lock()
+				s.finish(request)
+				s.cond.L.Unlock()
 			}
 		})
 	}
 
 	return group.Wait()
+}
+
+// next returns next item from queue, requires mutex to be held
+func (s *Service) next() (Request, bool) {
+	for id, request := range s.queued {
+		// Check whether a worker is retaining this satellite,
+		// if, yes, then try to get something else from the queue.
+		if _, ok := s.working[request.SatelliteID]; ok {
+			continue
+		}
+		delete(s.queued, id)
+		// Mark this satellite as being worked on.
+		s.working[request.SatelliteID] = struct{}{}
+		return request, true
+	}
+	return Request{}, false
+}
+
+// finish marks the request as finished, requires mutex to be held
+func (s *Service) finish(request Request) {
+	delete(s.working, request.SatelliteID)
 }
 
 // TestWaitUntilEmpty blocks until the context is canceled or until the queue is empty.
