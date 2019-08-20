@@ -144,6 +144,8 @@ func (s *Service) Run(parentCtx context.Context) error {
 
 	// Derive child context so we can cancel from Close.
 	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+
 	s.cancel = cancel
 
 	var group errgroup.Group
@@ -163,35 +165,40 @@ func (s *Service) Run(parentCtx context.Context) error {
 		return nil
 	})
 
-	for {
-		// Grab lock to check things.
-		s.cond.L.Lock()
-		// If we have closed, exit.
-		if s.closed {
-			s.cond.L.Unlock()
-			break
-		}
+	for i := 0; i < s.config.Concurrency; i++ {
+		group.Go(func() error {
+			for {
+				// Grab lock to check things.
+				s.cond.L.Lock()
+				// If we have closed, exit.
+				if s.closed {
+					s.cond.L.Unlock()
+					return nil
+				}
 
-		// Grab next item from queue.
-		request, ok := s.next()
-		if !ok {
-			// Nothing in queue, go to sleep and wait for
-			// things shutting down or next item.
-			s.cond.Wait()
-			continue
-		}
+				// Grab next item from queue.
+				request, ok := s.next()
+				if !ok {
+					// Nothing in queue, go to sleep and wait for
+					// things shutting down or next item.
+					s.cond.Wait()
+					continue
+				}
 
-		// Unlock so others can continue.
-		s.cond.L.Unlock()
+				// Unlock so others can continue.
+				s.cond.L.Unlock()
 
-		// Run retaining process.
-		err := s.retainPieces(ctx, request)
-		if err != nil {
-			s.log.Error("retain pieces failed", zap.Error(err))
-		}
+				// Run retaining process.
+				err := s.retainPieces(ctx, request)
+				if err != nil {
+					s.log.Error("retain pieces failed", zap.Error(err))
+				}
+			}
+
+			return nil
+		})
 	}
 
-	s.cancel()
 	return group.Wait()
 }
 
