@@ -5,12 +5,48 @@
 import { User } from '@/types/users';
 import { SortDirection } from '@/types/common';
 
-export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<any>;
+export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<void>;
 
 export enum ProjectMemberOrderBy {
     NAME = 1,
     EMAIL,
     CREATED_AT,
+}
+
+/**
+ * ProjectMembersApi is a graphql implementation of ProjectMembers API.
+ * Exposes all ProjectMembers-related functionality
+ */
+export interface ProjectMembersApi {
+    /**
+     * Add members to project by user emails.
+     *
+     * @param projectId
+     * @param emails list of project members email to add
+     *
+     * @throws Error
+     */
+    add(projectId: string, emails: string[]): Promise<void>;
+
+    /**
+     * Deletes ProjectMembers from project by project member emails
+     *
+     * @param projectId
+     * @param emails
+     *
+     * @throws Error
+     */
+    delete(projectId: string, emails: string[]): Promise<void>;
+
+    /**
+     * Fetch Project Members
+     *
+     * @param projectId
+     * @param cursor
+     *
+     * @throws Error
+     */
+    get(projectId: string, cursor: ProjectMemberCursor): Promise<ProjectMembersPage>;
 }
 
 // ProjectMemberCursor is a type, used for paged project members request
@@ -48,6 +84,7 @@ export class ProjectMember {
     public constructor(fullName: string, shortName: string, email: string, joinedAt: string, id?: string) {
         this.user = new User(id || '', fullName, shortName, email);
         this.joinedAt = joinedAt;
+        this.isSelected = false;
     }
 
     public formattedFullName(): string {
