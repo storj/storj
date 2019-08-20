@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
@@ -105,10 +105,10 @@ func (opts *Options) configure() (err error) {
 	copy(handlers, extensions.DefaultHandlers)
 
 	if opts.Config.Extensions.Revocation {
-			handlers.Register(
-				extensions.RevocationCheckHandler,
-				extensions.RevocationUpdateHandler,
-			)
+		handlers.Register(
+			extensions.RevocationCheckHandler,
+			extensions.RevocationUpdateHandler,
+		)
 	}
 
 	if opts.Config.Extensions.WhitelistSignedLeaf {
