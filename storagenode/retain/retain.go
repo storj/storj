@@ -89,12 +89,14 @@ type Service struct {
 	log    *zap.Logger
 	config Config
 
-	cancel  context.CancelFunc
 	cond    sync.Cond
 	queued  map[storj.NodeID]Request
 	working map[storj.NodeID]struct{}
-	closed  bool
-	exited  chan struct{}
+	group   errgroup.Group
+
+	closedOnce sync.Once
+	closed     chan struct{}
+	started    bool
 
 	store *pieces.Store
 }
@@ -106,9 +108,9 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 		config: config,
 
 		cond:    *sync.NewCond(&sync.Mutex{}),
-		exited:  make(chan struct{}),
 		queued:  make(map[storj.NodeID]Request),
 		working: make(map[storj.NodeID]struct{}),
+		closed:  make(chan struct{}),
 
 		store: store,
 	}
@@ -121,55 +123,81 @@ func (s *Service) Queue(req Request) bool {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
-	if s.closed {
+	select {
+	case <-s.closed:
 		return false
+	default:
 	}
 
 	// subtract some time to leave room for clock difference between the satellite and storage node
 	req.CreatedBefore = req.CreatedBefore.Add(-s.config.MaxTimeSkew)
 
 	s.queued[req.SatelliteID] = req
-	s.cond.Signal()
+	s.cond.Broadcast()
 
 	return true
 }
 
 // Run listens for queued retain requests and processes them as they come in.
-func (s *Service) Run(parentCtx context.Context) error {
-	defer close(s.exited)
+func (s *Service) Run(ctx context.Context) error {
+	// Hold the lock while we spawn the workers because a concurrent Close call
+	// can race and wait for them.
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
 
-	// Derive child context so we can cancel from Close.
-	ctx, cancel := context.WithCancel(parentCtx)
+	// Ensure Run is only ever called once. If not, there's many subtle
+	// bugs with concurrency.
+	if s.started {
+		return errs.New("service already started")
+	}
+	s.started = true
+
+	// Ensure Run doesn't start after it's closed. Then we may leak some
+	// workers.
+	select {
+	case <-s.closed:
+		return errs.New("service Closed")
+	default:
+	}
+
+	// Create a sub-context that we can cancel.
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	s.cancel = cancel
+	// Start a goroutine that does most of the work of Close in the case the
+	// context is canceled and broadcasts to anyone waiting on the condition
+	// variable to check the state.
+	s.group.Go(func() error {
+		defer s.cond.Broadcast()
+		defer cancel()
 
-	var group errgroup.Group
-	group.Go(func() error {
-		// In case of context cancellation
-		// either from Close or the parent context.
 		select {
+		case <-s.closed:
+			return nil
+
 		case <-ctx.Done():
-			// close running
 			s.cond.L.Lock()
-			s.closed = true
+			s.closedOnce.Do(func() { close(s.closed) })
 			s.cond.L.Unlock()
 
-			// and wake up workers
-			s.cond.Broadcast()
+			return ctx.Err()
 		}
-		return nil
 	})
 
 	for i := 0; i < s.config.Concurrency; i++ {
-		group.Go(func() error {
+		s.group.Go(func() error {
+			// Grab lock to check things.
+			s.cond.L.Lock()
+			defer s.cond.L.Unlock()
+
 			for {
-				// Grab lock to check things.
-				s.cond.L.Lock()
 				// If we have closed, exit.
-				if s.closed {
-					s.cond.L.Unlock()
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-s.closed:
 					return nil
+				default:
 				}
 
 				// Grab next item from queue.
@@ -181,8 +209,12 @@ func (s *Service) Run(parentCtx context.Context) error {
 					continue
 				}
 
-				// Unlock so others can continue.
+				// Temporarily Unlock so others can work on the queue while
+				// we're working on the retain request.
 				s.cond.L.Unlock()
+
+				// Signal to anyone waiting that the queue state changed.
+				s.cond.Broadcast()
 
 				// Run retaining process.
 				err := s.retainPieces(ctx, request)
@@ -190,15 +222,27 @@ func (s *Service) Run(parentCtx context.Context) error {
 					s.log.Error("retain pieces failed", zap.Error(err))
 				}
 
-				// Mark the request as finished.
+				// Mark the request as finished. Relock to maintain that
+				// at the top of the for loop the lock is held.
 				s.cond.L.Lock()
 				s.finish(request)
-				s.cond.L.Unlock()
+				s.cond.Broadcast()
 			}
 		})
 	}
 
-	return group.Wait()
+	// Unlock while we wait for the workers to exit.
+	s.cond.L.Unlock()
+	err := s.group.Wait()
+
+	// Clear the queue after Wait has exited. We're sure no more entries
+	// can be added after we acquire the mutex because wait spawned a
+	// worker that ensures the closed channel is closed before it exits.
+	s.cond.L.Lock()
+	s.queued = nil
+	s.cond.Broadcast()
+
+	return err
 }
 
 // next returns next item from queue, requires mutex to be held
@@ -222,35 +266,25 @@ func (s *Service) finish(request Request) {
 	delete(s.working, request.SatelliteID)
 }
 
-// TestWaitUntilEmpty blocks until the context is canceled or until the queue is empty.
-func (s *Service) TestWaitUntilEmpty(ctx context.Context, pollInterval time.Duration) {
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
+// Close causes any pending Run to exit and waits for any retain requests to
+// clean up.
+func (s *Service) Close() error {
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
 
-	for {
-		select {
-		case <-ticker.C:
-			s.cond.L.Lock()
-			count := len(s.queued)
-			s.cond.L.Unlock()
-
-			if count == 0 {
-				return
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
+	s.closedOnce.Do(func() { close(s.closed) })
+	_ = s.group.Wait()
+	return nil
 }
 
-// Close waits for workers to complete.
-func (s *Service) Close() error {
-	// s.cancel will cancel Run inner ctx,
-	// which will stop the workers.
-	s.cancel()
-	// Wait for Run to exit.
-	<-s.exited
-	return nil
+// Wait blocks until the queue and working is empty. When Run exits, it empties the queue.
+func (s *Service) Wait() {
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
+
+	for len(s.queued) > 0 || len(s.working) > 0 {
+		s.cond.Wait()
+	}
 }
 
 // Status returns the retain status.
