@@ -21,7 +21,7 @@
     import EmptyState from '@/components/common/EmptyStateArea.vue';
     import TabNavigation from '@/components/navigation/TabNavigation.vue';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
+    import { NavigationLink } from '@/types/navigation';
 
     @Component({
         components: {
@@ -31,10 +31,15 @@
     })
     export default class ProjectDetailsArea extends Vue {
         // TODO: make type for project routes
-        public navigation: any = PROJECT_ROUTES;
+        public navigation: NavigationLink[] = [
+            new NavigationLink('/project-overview/details', 'Details'),
+            new NavigationLink('/project-overview/payment-methods', 'Payment Methods'),
+            new NavigationLink('/project-overview/billing-history', 'Billing History'),
+            new NavigationLink('/project-overview/usage-report', 'Report'),
+        ];
 
         public mounted(): void {
-            this.$router.push(PROJECT_ROUTES.DETAILS.path);
+            this.$router.push(this.navigation[0].path);
         }
 
         public get isProjectSelected(): boolean {
