@@ -77,8 +77,9 @@ Several tardigrade-level satellites are included by default.
 - Do we need the node dossier any longer?
 
 ### Retiring the Transport Observer
-- If the routing table and the overlay cache are the only features that use the transport observer, and we move to directly 
-update the overlay cache, we can remove the transport observer. This would simplify uptime checks.
+- Since the routing table and the overlay cache are two of the main features that use the transport observer, and we move to directly 
+update the overlay cache, we can remove the transport observer and remaining dependent services.
+- This would simplify uptime checks, and the node uptime column would be updated less frequently.
 
 ### Node -> satellite communication initiation
 - To save resources and improve performance, satellites can have a “tip box” to receive UDP messages about new nodes
@@ -86,11 +87,3 @@ update the overlay cache, we can remove the transport observer. This would simpl
 the node, and a signature of the above things with the leaf private key of that certificate chain.
 - Messages will ultimately be ignored if the difficulty of the computed ID isn't high enough or the node you end up talking 
 to doesn't have the same node id as the one computed from the tipster certificate chain.
-
-### Uptime checking
-- Re-evaluate whether the data structures for keeping track of uptime are the right ones anymore
-- Should satellites determine how often nodes are supposed to check in for uptime checks. Perhaps there is an 
-"introduction ping" that occurs the first time the node comes online, and when the satellite responds, it includes how 
-often nodes are expected to check back in to maintain good reputation
-- [Uptime Disqualification Design Doc](https://github.com/storj/storj/pull/2733)
-
