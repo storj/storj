@@ -20,7 +20,9 @@ type Reservoir struct {
 
 // NewReservoir instantiates a Reservoir
 func NewReservoir(size int) *Reservoir {
-	if size > maxReservoirSize {
+	if size < 1 {
+		size = 1
+	} else if size > maxReservoirSize {
 		size = maxReservoirSize
 	}
 	return &Reservoir{
