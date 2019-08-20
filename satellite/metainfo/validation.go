@@ -125,26 +125,26 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		return nil, status.Error(codes.Unauthenticated, "Invalid API credential")
 	}
 
 	key, err := macaroon.ParseAPIKey(string(keyData))
 	if err != nil {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		return nil, status.Error(codes.Unauthenticated, "Invalid API credential")
 	}
 
 	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		return nil, status.Error(codes.Unauthenticated, "Invalid API credential")
 	}
 
 	// Revocations are currently handled by just deleting the key.
 	err = key.Check(ctx, keyInfo.Secret, action, nil)
 	if err != nil {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		return nil, status.Error(codes.Unauthenticated, "Invalid API credential")
 	}
 
 	return keyInfo, nil
