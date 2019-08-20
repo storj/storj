@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import apollo from '@/utils/apolloManager';
+import apollo from '@/utils/apollo';
 import gql from 'graphql-tag';
 import { RequestResponse } from '@/types/response';
 
