@@ -32,7 +32,7 @@ import (
 //
 // Then for every node in testplanet:
 //    - expect that there is a reservoir for that node on the audit observer
-//    - that the reservoir size is <= 3
+//    - that the reservoir size is <= 2 (the maxReservoirSize)
 //    - that every item in the reservoir is unique
 //    - that looking up each pieceID in allPieces results in the same node ID
 func TestAuditPathCollector(t *testing.T) {
