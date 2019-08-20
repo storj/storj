@@ -8,6 +8,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
@@ -17,8 +19,8 @@ import (
 )
 
 var (
-	// NodeStatsEndpointErr is endpoint error class
-	NodeStatsEndpointErr = errs.Class("node stats endpoint error")
+	// Error is endpoint error class
+	Error = errs.Class("nodestats endpoint error")
 
 	mon = monkit.Package()
 )
@@ -45,12 +47,11 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
-
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
 	uptimeScore := calculateReputationScore(
@@ -85,17 +86,16 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
-
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
 	nodeSpaceUsages, err := e.accounting.QueryStorageNodeUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &pb.DailyStorageUsageResponse{
