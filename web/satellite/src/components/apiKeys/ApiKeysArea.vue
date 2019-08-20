@@ -62,9 +62,9 @@
     import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
     import Button from '@/components/common/Button.vue';
     import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import List from "@/components/common/List.vue";
+    import List from '@/components/common/List.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import SortingHeader from "@/components/apiKeys/SortingHeader.vue";
+    import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
     import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { ApiKey } from '@/types/apiKeys';
@@ -107,8 +107,8 @@
             this.$store.dispatch(FETCH);
         }
 
-        public toggleSelection(id: string): void {
-            this.$store.dispatch(TOGGLE_SELECTION, id);
+        public toggleSelection(apiKey: ApiKey): void {
+            this.$store.dispatch(TOGGLE_SELECTION, apiKey.id);
         }
 
         public onCreateApiKeyClick(): void {
