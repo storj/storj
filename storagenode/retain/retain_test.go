@@ -110,19 +110,19 @@ func TestRetainPieces(t *testing.T) {
 		}
 
 		retainEnabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
-			RetainStatus:        retain.Enabled,
-			MaxConcurrentRetain: 1,
-			RetainTimeBuffer:    0,
+			Status:      retain.Enabled,
+			Concurrency: 1,
+			MaxTimeSkew: 0,
 		})
 		retainDisabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
-			RetainStatus:        retain.Disabled,
-			MaxConcurrentRetain: 1,
-			RetainTimeBuffer:    0,
+			Status:      retain.Disabled,
+			Concurrency: 1,
+			MaxTimeSkew: 0,
 		})
 		retainDebug := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
-			RetainStatus:        retain.Debug,
-			MaxConcurrentRetain: 1,
-			RetainTimeBuffer:    0,
+			Status:      retain.Debug,
+			Concurrency: 1,
+			MaxTimeSkew: 0,
 		})
 
 		// start the retain services

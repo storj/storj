@@ -27,9 +27,9 @@ var (
 
 // Config defines parameters for the retain service.
 type Config struct {
-	RetainTimeBuffer    time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
-	RetainStatus        Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
-	MaxConcurrentRetain int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
+	MaxTimeSkew time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
+	Status      Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
+	Concurrency int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
 }
 
 // Request contains all the info necessary to process a retain request.
@@ -61,13 +61,13 @@ func (v *Status) Set(s string) error {
 	case "debug":
 		*v = Debug
 	default:
-		return Error.New("invalid RetainStatus %q", s)
+		return Error.New("invalid status %q", s)
 	}
 	return nil
 }
 
 // Type implements pflag.Value.
-func (*Status) Type() string { return "storj.RetainStatus" }
+func (*Status) Type() string { return "storj.Status" }
 
 // String implements pflag.Value.
 func (v *Status) String() string {
@@ -105,7 +105,7 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 		config:       config,
 		queued:       make(map[storj.NodeID]Request),
 		reqChan:      make(chan Request),
-		semaphore:    make(chan struct{}, config.MaxConcurrentRetain),
+		semaphore:    make(chan struct{}, config.Concurrency),
 		emptyTrigger: make(chan struct{}),
 		store:        store,
 	}
@@ -119,7 +119,7 @@ func (s *Service) Queue(req Request) bool {
 	defer s.mu.Unlock()
 
 	// subtract some time to leave room for clock difference between the satellite and storage node
-	req.CreatedBefore = req.CreatedBefore.Add(-s.config.RetainTimeBuffer)
+	req.CreatedBefore = req.CreatedBefore.Add(-s.config.MaxTimeSkew)
 
 	// only queue retain request if we do not already have one for this satellite
 	if _, ok := s.queued[req.SatelliteID]; !ok {
@@ -186,7 +186,7 @@ func (s *Service) Wait(ctx context.Context) {
 
 // Status returns the retain status.
 func (s *Service) Status() Status {
-	return s.config.RetainStatus
+	return s.config.Status
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -205,13 +205,13 @@ func (s *Service) Status() Status {
 // written to the filesystem _after_ the CreationTime. We make the assumption already that storage
 // nodes and satellites and uplinks have system clocks that are very roughly in sync (that is, they
 // are out of sync with each other by less than an hour of real time, or whatever is configured as
-// RetainTimeBuffer). So if an uplink is not lying about CreationTime and it uploads a piece that
+// MaxTimeSkew). So if an uplink is not lying about CreationTime and it uploads a piece that
 // makes it to a storagenode's disk as quickly as possible, even in the worst-synchronized-clocks
-// case we can assume that `ModTime > (CreationTime - RetainTimeBuffer)`. We also allow for storage
+// case we can assume that `ModTime > (CreationTime - MaxTimeSkew)`. We also allow for storage
 // node operators doing file system manipulations after a piece has been written. If piece files
 // are copied between volumes and their attributes are not preserved, it will be possible for their
 // modification times to be changed to something later in time. This still preserves the inequality
-// relationship mentioned above, `ModTime > (CreationTime - RetainTimeBuffer)`. We only stipulate
+// relationship mentioned above, `ModTime > (CreationTime - MaxTimeSkew)`. We only stipulate
 // that storage node operators must not artificially change blob file modification times to be in
 // the past.
 //
@@ -224,9 +224,9 @@ func (s *Service) Status() Status {
 // for that new piece to be garbage collected incorrectly, because it does not show up in the
 // bloom filter and the node incorrectly thinks that it was created before the bloom filter.
 // But if the uplink is not lying about CreationTime and its clock drift versus the storage node
-// is less than `RetainTimeBuffer`, and the ModTime on a blob file is correctly set from the
+// is less than `MaxTimeSkew`, and the ModTime on a blob file is correctly set from the
 // storage node system time, then it is still true that `ModTime > (CreationTime -
-// RetainTimeBuffer)`.
+// MaxTimeSkew)`.
 //
 // The rule that storage node operators need to be aware of is only this: do not artificially set
 // mtimes on blob files to be in the past. Let the filesystem manage mtimes. If blob files need to
@@ -237,7 +237,7 @@ func (s *Service) Status() Status {
 // data).
 func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	// if retain status is disabled, return immediately
-	if s.config.RetainStatus == Disabled {
+	if s.config.Status == Disabled {
 		return nil
 	}
 
@@ -273,10 +273,10 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 			s.log.Debug("About to delete piece id",
 				zap.String("satellite", satelliteID.String()),
 				zap.String("pieceID", pieceID.String()),
-				zap.String("status", s.config.RetainStatus.String()))
+				zap.String("status", s.config.Status.String()))
 
 			// if retain status is enabled, delete pieceid
-			if s.config.RetainStatus == Enabled {
+			if s.config.Status == Enabled {
 				if err = s.store.Delete(ctx, satelliteID, pieceID); err != nil {
 					s.log.Warn("failed to delete piece",
 						zap.String("satellite", satelliteID.String()),
@@ -300,7 +300,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		return Error.Wrap(err)
 	}
 	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
-	s.log.Debug("Deleted pieces during retain", zap.Int("num deleted", numDeleted), zap.String("retain status", s.config.RetainStatus.String()))
+	s.log.Debug("Deleted pieces during retain", zap.Int("num deleted", numDeleted), zap.String("retain status", s.config.Status.String()))
 
 	return nil
 }
