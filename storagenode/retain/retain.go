@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/bloomfilter"
@@ -88,12 +89,12 @@ type Service struct {
 	log    *zap.Logger
 	config Config
 
-	mu     sync.Mutex
+	cancel context.CancelFunc
+	cond   sync.Cond
 	queued map[storj.NodeID]Request
 
-	reqChan      chan Request
-	semaphore    chan struct{}
-	emptyTrigger chan struct{}
+	closed bool
+	exited chan struct{}
 
 	store *pieces.Store
 }
@@ -101,13 +102,10 @@ type Service struct {
 // NewService creates a new retain service.
 func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 	return &Service{
-		log:          log,
-		config:       config,
-		queued:       make(map[storj.NodeID]Request),
-		reqChan:      make(chan Request),
-		semaphore:    make(chan struct{}, config.Concurrency),
-		emptyTrigger: make(chan struct{}),
-		store:        store,
+		log:    log,
+		config: config,
+		store:  store,
+		cond:   *sync.NewCond(&sync.Mutex{}),
 	}
 }
 
@@ -115,59 +113,86 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 // It discards a request for a satellite that already has a queued request.
 // true is returned if the request is queued and false is returned if it is discarded
 func (s *Service) Queue(req Request) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
+
+	if s.closed {
+		return false
+	}
 
 	// subtract some time to leave room for clock difference between the satellite and storage node
 	req.CreatedBefore = req.CreatedBefore.Add(-s.config.MaxTimeSkew)
 
-	// only queue retain request if we do not already have one for this satellite
-	if _, ok := s.queued[req.SatelliteID]; !ok {
-		s.queued[req.SatelliteID] = req
-		go func() { s.reqChan <- req }()
+	s.queued[req.SatelliteID] = req
+	s.cond.Signal()
 
-		return true
+	return true
+}
+
+// next returns next item from queue, requires mutex to be held
+func (s *Service) next() (Request, bool) {
+	for id, request := range s.queued {
+		delete(s.queued, id)
+		return request, true
 	}
-
-	return false
+	return Request{}, false
 }
 
 // Run listens for queued retain requests and processes them as they come in.
-func (s *Service) Run(ctx context.Context) error {
+func (s *Service) Run(parentCtx context.Context) error {
+	defer close(s.exited)
+
+	// Derive child context so we can cancel from Close.
+	ctx, cancel := context.WithCancel(parentCtx)
+	s.cancel = cancel
+
+	var group errgroup.Group
+	group.Go(func() error {
+		// In case of context cancellation
+		// either from Close or the parent context.
+		select {
+		case <-ctx.Done():
+			// close running
+			s.cond.L.Lock()
+			s.closed = true
+			s.cond.L.Unlock()
+
+			// and wake up workers
+			s.cond.Broadcast()
+		}
+		return nil
+	})
+
 	for {
-		// exit if context has been canceled. Otherwise, block until an item can be added to the semaphore
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case s.semaphore <- struct{}{}:
+		// Grab lock to check things.
+		s.cond.L.Lock()
+		// If we have closed, exit.
+		if s.closed {
+			s.cond.L.Unlock()
+			break
 		}
 
-		// get the next request
-		var req Request
-		select {
-		case req = <-s.reqChan:
-		case <-ctx.Done():
-			return ctx.Err()
+		// Grab next item from queue.
+		request, ok := s.next()
+		if !ok {
+			// Nothing in queue, go to sleep and wait for
+			// things shutting down or next item.
+			s.cond.Wait()
+			continue
 		}
 
-		go func(ctx context.Context, req Request) {
-			err := s.retainPieces(ctx, req)
-			if err != nil {
-				s.log.Error("retain error", zap.Error(err))
-			}
-			s.mu.Lock()
-			delete(s.queued, req.SatelliteID)
-			queueLength := len(s.queued)
-			s.mu.Unlock()
+		// Unlock so others can continue.
+		s.cond.L.Unlock()
 
-			if queueLength == 0 {
-				s.emptyTrigger <- struct{}{}
-			}
-
-			// remove item from semaphore and free up process for another retain job
-			<-s.semaphore
-		}(ctx, req)
+		// Run retaining process.
+		err := s.retainPieces(ctx, request)
+		if err != nil {
+			s.log.Error("retain pieces failed", zap.Error(err))
+		}
 	}
+
+	s.cancel()
+	return group.Wait()
 }
 
 // Wait blocks until the context is canceled or until the queue is empty.
@@ -182,6 +207,16 @@ func (s *Service) Wait(ctx context.Context) {
 	case <-s.emptyTrigger:
 	case <-ctx.Done():
 	}
+}
+
+// Close waits for workers to complete.
+func (s *Service) Close() error {
+	// s.cancel will cancel Run inner ctx,
+	// which will stop the workers.
+	s.cancel()
+	// Wait for Run to exit.
+	<-s.exited
+	return nil
 }
 
 // Status returns the retain status.
