@@ -51,7 +51,10 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 	}
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		if overlay.ErrNodeNotFound.Has(err) {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	uptimeScore := calculateReputationScore(
@@ -90,7 +93,10 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 	}
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		if overlay.ErrNodeNotFound.Has(err) {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	nodeSpaceUsages, err := e.accounting.QueryStorageNodeUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
