@@ -229,7 +229,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -251,7 +251,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 		log.Debug("Starting listener and server")
 		sc := config.Server
 
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revDB)
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
