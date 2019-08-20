@@ -822,7 +822,7 @@ func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.S
 	return m.db.UseSerialNumber(ctx, serialNumber, storageNodeID)
 }
 
-func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*pb.SettlementResponse, err error) {
+func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ProcessOrders(ctx, requests)

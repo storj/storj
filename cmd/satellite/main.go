@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -130,7 +131,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	peer, err := satellite.New(log, identity, db, &runCfg.Config, version.Build)
+	revDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+
+	peer, err := satellite.New(log, identity, db, revDB, &runCfg.Config, version.Build)
 	if err != nil {
 		return err
 	}
