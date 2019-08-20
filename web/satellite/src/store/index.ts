@@ -10,10 +10,12 @@ import { projectMembersModule } from '@/store/modules/projectMembers';
 import { notificationsModule } from '@/store/modules/notifications';
 import { appStateModule } from '@/store/modules/appState';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
-import { bucketUsageModule, usageModule, creditUsageModule } from '@/store/modules/usage';
+import { usageModule, creditUsageModule } from '@/store/modules/usage';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 import { UsersApiGql } from '@/api/users';
 import { ApiKeysApiGql } from '@/api/apiKeys';
+import { makeBucketsModule } from '@/store/modules/buckets';
+import { BucketsApiGql } from '@/api/buckets';
 
 Vue.use(Vuex);
 
@@ -26,6 +28,7 @@ export class StoreModule<S> {
 
 const usersApi = new UsersApiGql();
 const apiKeysApi = new ApiKeysApiGql();
+const bucketsApi = new BucketsApiGql();
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
@@ -37,7 +40,7 @@ const store = new Vuex.Store({
         appStateModule,
         apiKeysModule: makeApiKeysModule(apiKeysApi),
         usageModule,
-        bucketUsageModule,
+        bucketUsageModule: makeBucketsModule(bucketsApi),
         projectPaymentsMethodsModule,
         creditUsageModule
     }

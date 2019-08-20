@@ -21,7 +21,9 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { AppState } from '@/utils/constants/appStateEnum';
+    import DashboardHeader from '@/components/header/Header.vue';
+    import NavigationArea from '@/components/navigation/NavigationArea.vue';
+    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
     import {
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
@@ -30,15 +32,14 @@
         PROJETS_ACTIONS,
         USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
-        BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
+        PROJECT_PAYMENT_METHODS_ACTIONS,
     } from '@/utils/constants/actionNames';
+    import { AppState } from '@/utils/constants/appStateEnum';
     import { AuthToken } from '@/utils/authToken';
-    import DashboardHeader from '@/components/header/Header.vue';
-    import NavigationArea from '@/components/navigation/NavigationArea.vue';
-    import { Project } from '@/types/projects';
-    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
-    import { RequestResponse } from '@/types/response';
     import ROUTES from '@/utils/constants/routerConstants';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+    import { Project } from '@/types/projects';
+    import { RequestResponse } from '@/types/response';
     import { User } from '@/types/users';
 
     @Component({
@@ -83,9 +84,10 @@
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
             }
 
-            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
-            if (!bucketsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+            try {
+                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
             }
 
             const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);

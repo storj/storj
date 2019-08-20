@@ -27,9 +27,9 @@
     PM_ACTIONS,
     API_KEYS_ACTIONS,
     PROJECT_USAGE_ACTIONS,
-    BUCKET_USAGE_ACTIONS,
-    PROJECT_PAYMENT_METHODS_ACTIONS
+    PROJECT_PAYMENT_METHODS_ACTIONS,
     } from '@/utils/constants/actionNames';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { Project } from '@/types/projects';
 
     @Component
@@ -43,16 +43,16 @@
 
             // TODO: add types
             const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
             const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
             const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
 
             if (!pmResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
 
-            if (!keysResponse.isSuccess) {
+            try {
+                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            } catch {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
@@ -60,8 +60,10 @@
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
             }
 
-            if (!bucketsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+            try {
+                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
             }
 
             if (!paymentMethodsResponse.isSuccess) {

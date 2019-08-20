@@ -3,15 +3,15 @@
 
 <template>
     <div>
-        <NoBucketArea v-if="!totalCountOfBuckets && !search" />
+        <NoBucketArea v-if="!totalCount && !search" />
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p>Buckets</p>
-                <HeaderComponent class="buckets-header-component" placeholder="Buckets" :search="fetch"/>
+                <HeaderComponent class="buckets-header-component" placeHolder="Buckets" :search="fetch"/>
             </div>
             <div v-if="buckets.length" class="buckets-container">
                 <SortingHeader />
-                <List :dataSet="buckets" :itemComponent="itemComponent"/>
+                <List :dataSet="buckets" :itemComponent="itemComponent" :onItemClick="doNothing"/>
                 <Pagination :totalPageCount="totalPageCount" :onPageClickCallback="onPageClick" />
             </div>
             <EmptyState
@@ -33,7 +33,14 @@
     import Pagination from '@/components/common/Pagination.vue';
     import List from '@/components/common/List.vue';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { BUCKET_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+    import { Bucket } from '@/types/buckets';
+
+    const {
+        FETCH,
+        SET_SEARCH,
+    } = BUCKET_ACTIONS;
 
     @Component({
         components: {
@@ -50,44 +57,50 @@
         public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
 
         public mounted(): void {
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+            this.$store.dispatch(FETCH, 1);
+        }
+
+        public doNothing(): void {
+            // this method is used to mock prop function of common List
         }
 
         public get totalPageCount(): number {
-            return this.$store.state.bucketUsageModule.page.pageCount;
+            return this.$store.getters.page.pageCount;
         }
 
-        public get totalCountOfBuckets(): number {
-            return this.$store.state.bucketUsageModule.totalCount;
+        public get totalCount(): number {
+            return this.$store.getters.page.totalCount;
         }
 
         public get itemComponent() {
             return BucketItem;
         }
 
-        public get buckets(): BucketUsage[] {
-            return this.$store.state.bucketUsageModule.page.bucketUsages;
+        public get buckets(): Bucket[] {
+            return this.$store.getters.page.bucketUsages;
         }
         
         public get search(): string {
-            return this.$store.state.bucketUsageModule.cursor.search;
+            return this.$store.getters.cursor.search;
         }
 
         public async fetch(searchQuery: string): Promise<void> {
-            await this.$store.dispatch(BUCKET_USAGE_ACTIONS.SET_SEARCH, searchQuery);
-            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+            await this.$store.dispatch(SET_SEARCH, searchQuery);
 
-            if (!bucketsResponse.isSuccess) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+            try {
+                await this.$store.dispatch(FETCH, 1);
+            } catch (error) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
             }
         }
+
         public async onPageClick(page: number): Promise<void> {
-            const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, page);
-            if (!response.isSuccess) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
+            try {
+                await this.$store.dispatch(FETCH, page);
+            } catch (error) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
             }
         }
-
     }
 </script>
 

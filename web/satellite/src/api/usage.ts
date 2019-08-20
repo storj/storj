@@ -44,58 +44,6 @@ export async function fetchProjectUsage(projectId: string, since: Date, before: 
     return result;
 }
 
-// fetchBucketUsages retrieves bucket usage totals for a particular project
-export async function fetchBucketUsages(projectId: string, before: Date, cursor: BucketUsageCursor): Promise<RequestResponse<BucketUsagePage>> {
-    let result: RequestResponse<BucketUsagePage> = new RequestResponse<BucketUsagePage>();
-
-    let response: any = await apollo.query(
-        {
-            query: gql(`
-                query($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
-                    project(id: $projectId) {
-                        bucketUsages(before: $before, cursor: {
-                                limit: $limit, search: $search, page: $page
-                            }) {
-                                bucketUsages{
-                                    bucketName,
-                                    storage,
-                                    egress,
-                                    objectCount,
-                                    since,
-                                    before
-                                },
-                                search,
-                                limit,
-                                offset,
-                                pageCount,
-                                currentPage,
-                                totalCount 
-                        }
-                    }
-                }`
-            ),
-            variables: {
-                projectId: projectId,
-                before: before.toISOString(),
-                limit: cursor.limit,
-                search: cursor.search,
-                page: cursor.page
-            },
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all'
-        }
-    );
-
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
-        result.data = response.data.project.bucketUsages;
-    }
-
-    return result;
-}
-
 export async function fetchCreditUsage(): Promise<RequestResponse<CreditUsage>> {
     let result: RequestResponse<CreditUsage> = new RequestResponse<CreditUsage>();
 
