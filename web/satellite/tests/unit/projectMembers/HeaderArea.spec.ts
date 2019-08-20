@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import sinon from 'sinon';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
-import * as sinon from 'sinon';
 import Vuex from 'vuex';
+
 import HeaderArea from '@/components/team/HeaderArea.vue';
 import { ProjectMember } from '@/types/projectMembers';
 
