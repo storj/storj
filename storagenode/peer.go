@@ -460,6 +460,9 @@ func (peer *Peer) Close() error {
 	if peer.Vouchers != nil {
 		errlist.Add(peer.Vouchers.Close())
 	}
+	if peer.Storage2.RetainService != nil {
+		errlist.Add(peer.RetainService.Close())
+	})
 	if peer.Storage2.Monitor != nil {
 		errlist.Add(peer.Storage2.Monitor.Close())
 	}
