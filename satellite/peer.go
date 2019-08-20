@@ -182,8 +182,6 @@ type Peer struct {
 	}
 
 	Repair struct {
-		Checker   *checker.Checker
-		Repairer  *repairer.Service
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
@@ -433,30 +431,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 	}
 
-	{ // setup datarepair
-		log.Debug("Setting up datarepair")
-		// TODO: simplify argument list somehow
-		peer.Repair.Checker = checker.NewChecker(
-			peer.Log.Named("checker"),
-			peer.DB.RepairQueue(),
-			peer.DB.Irreparable(),
-			peer.Metainfo.Service,
-			peer.Metainfo.Loop,
-			peer.Overlay.Service,
-			config.Checker)
-
-		peer.Repair.Repairer = repairer.NewService(
-			peer.Log.Named("repairer"),
-			peer.DB.RepairQueue(),
-			&config.Repairer,
-			config.Repairer.Interval,
-			config.Repairer.MaxRepair,
-			peer.Transport,
-			peer.Metainfo.Service,
-			peer.Orders.Service,
-			peer.Overlay.Service,
-		)
-
+	{ // setup datarepair inspector
+		log.Debug("Setting up datarepair inspector")
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
 		pb.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
 	}
@@ -672,13 +648,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
-	})
-	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
@@ -738,13 +708,6 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
-	if peer.Repair.Repairer != nil {
-		errlist.Add(peer.Repair.Repairer.Close())
-	}
-	if peer.Repair.Checker != nil {
-		errlist.Add(peer.Repair.Checker.Close())
-	}
-
 	if peer.Metainfo.Database != nil {
 		errlist.Add(peer.Metainfo.Database.Close())
 	}

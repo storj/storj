@@ -27,6 +27,8 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
@@ -82,7 +84,10 @@ type Planet struct {
 // SatelliteSystem contains all the processes needed to run a full Satellite setup
 type SatelliteSystem struct {
 	satellite.Peer
-	RepairProcess *satellite.RepairProcess
+	Repair struct {
+		Checker  *checker.Checker
+		Repairer *repairer.Service
+	}
 }
 
 type closablePeer struct {

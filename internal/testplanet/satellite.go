@@ -228,7 +228,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 
 		system := SatelliteSystem{Peer: *peer}
-		system.RepairProcess, err = planet.newRepairProcess(i, storageDir)
+		repairProcess, err := planet.newRepairProcess(i, storageDir)
+		system.Repair.Checker = repairProcess.Repair.Checker
+		system.Repair.Repairer = repairProcess.Repair.Repairer
 
 		xs = append(xs, &system)
 	}

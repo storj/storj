@@ -91,9 +91,8 @@ type RepairProcess struct {
 	}
 
 	Repair struct {
-		Checker   *checker.Checker
-		Repairer  *repairer.Service
-		Inspector *irreparable.Inspector
+		Checker  *checker.Checker
+		Repairer *repairer.Service
 	}
 }
 
@@ -175,7 +174,6 @@ func NewRepairProcess(log *zap.Logger, full *identity.FullIdentity, db RepairPro
 			peer.Orders.Service,
 			peer.Overlay.Service,
 		)
-		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
 	}
 
 	return peer, nil
