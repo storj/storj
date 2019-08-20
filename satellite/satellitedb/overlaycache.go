@@ -932,16 +932,18 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 		nodeIDs = append(nodeIDs, nodeID)
 	}
 
-	var (
-		sqlQuery string
-		args     []interface{}
-	)
-	// TODO: optimize this
-	updateSQL := "UPDATE nodes SET ( piece_count ) = ( %d ) WHERE id == ?;"
-	for nodeID, pieceCount := range pieceCounts {
-		sqlQuery += fmt.Sprintf(updateSQL+"\n", pieceCount)
-		args = append(args, nodeID)
+	if len(pieceCounts) == 0 {
+		return nil
 	}
+	sqlQuery := `UPDATE nodes SET piece_count = newvals.piece_count FROM ( VALUES `
+	args := make([]interface{}, 0, len(pieceCounts) * 2)
+	for nodeID, pieceCount := range pieceCounts {
+		sqlQuery += `(?::BYTEA, ?::BIGINT), `
+		args = append(args, nodeID, pieceCount)
+	}
+	sqlQuery = sqlQuery[:len(sqlQuery)-2] // trim off the last comma+space
+	sqlQuery += `) newvals(nodeid, piece_count) WHERE nodes.id = newvals.nodeid`
+
 	_, err = cache.db.DB.ExecContext(ctx, cache.db.Rebind(sqlQuery), args...)
 	return Error.Wrap(err)
 }
