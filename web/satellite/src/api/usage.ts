@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import apollo from '@/utils/apolloManager';
+import apollo from '@/utils/apollo';
 import gql from 'graphql-tag';
 import { RequestResponse } from '@/types/response';
 
@@ -91,35 +91,6 @@ export async function fetchBucketUsages(projectId: string, before: Date, cursor:
     } else {
         result.isSuccess = true;
         result.data = response.data.project.bucketUsages;
-    }
-
-    return result;
-}
-
-export async function fetchCreditUsage(): Promise<RequestResponse<CreditUsage>> {
-    let result: RequestResponse<CreditUsage> = new RequestResponse<CreditUsage>();
-
-    let response: any = await apollo.query(
-        {
-            query: gql(`
-                query {
-                    creditUsage {
-                        referred,
-                        usedCredit,
-                        availableCredit,
-                    }
-                }`
-            ),
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
-        }
-    );
-
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
-        result.data = response.data.creditUsage;
     }
 
     return result;
