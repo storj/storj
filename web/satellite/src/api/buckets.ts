@@ -50,6 +50,10 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
 
         const response = await this.query(query, variables);
 
-        return response.data.project.bucketUsages;
+        return this.fromJson(response.data.project.bucketUsages);
+    }
+
+    private fromJson(bucketPage): BucketPage {
+        return new BucketPage(bucketPage.bucketUsages, bucketPage.search, bucketPage.limit, bucketPage.offset, bucketPage.pageCount, bucketPage.currentPage, bucketPage.totalCount);
     }
 }

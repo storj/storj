@@ -77,7 +77,7 @@
         }
 
         public get buckets(): Bucket[] {
-            return this.$store.getters.page.bucketUsages;
+            return this.$store.getters.page.buckets;
         }
 
         public get search(): string {
