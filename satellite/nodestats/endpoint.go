@@ -6,7 +6,6 @@ package nodestats
 import (
 	"context"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,9 +18,6 @@ import (
 )
 
 var (
-	// Error is endpoint error class
-	Error = errs.Class("nodestats endpoint error")
-
 	mon = monkit.Package()
 )
 
