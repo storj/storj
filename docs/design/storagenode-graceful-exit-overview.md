@@ -24,7 +24,17 @@ There are scenarios that this design document does not handle:
 
 The design is divided into four parts:
 
-- [Process for finding pieces that need to be transferred.](storagenode-graceful-exit-pieces.md)
+- [Process for gathering pieces that need to be transferred.](storagenode-graceful-exit-pieces.md)
 - [Protocol for transferring pieces from one Storage Node to another.](storagenode-graceful-exit-protocol.md)
 - [Reporting for graceful exit process.](storagenode-graceful-exit-reporting.md)
 - [User Interface for interacting with graceful exit.](storagenode-graceful-exit-user-ui.md)
+
+TODO: Constraints on how graceful exit happens.
+
+TODO: Overview of the whole process.
+
+
+## Open issues (if applicable)
+
+- Ungraceful exit.
+- Slow exit.
