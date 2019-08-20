@@ -141,7 +141,8 @@ func (s *Service) Queue(req Request) bool {
 // Run listens for queued retain requests and processes them as they come in.
 func (s *Service) Run(ctx context.Context) error {
 	// Hold the lock while we spawn the workers because a concurrent Close call
-	// can race and wait for them.
+	// can race and wait for them. We later temporarily drop the lock while we
+	// wait for the workers to exit.
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
@@ -234,11 +235,11 @@ func (s *Service) Run(ctx context.Context) error {
 	// Unlock while we wait for the workers to exit.
 	s.cond.L.Unlock()
 	err := s.group.Wait()
+	s.cond.L.Lock()
 
 	// Clear the queue after Wait has exited. We're sure no more entries
 	// can be added after we acquire the mutex because wait spawned a
 	// worker that ensures the closed channel is closed before it exits.
-	s.cond.L.Lock()
 	s.queued = nil
 	s.cond.Broadcast()
 
@@ -270,9 +271,10 @@ func (s *Service) finish(request Request) {
 // clean up.
 func (s *Service) Close() error {
 	s.cond.L.Lock()
-	defer s.cond.L.Unlock()
-
 	s.closedOnce.Do(func() { close(s.closed) })
+	s.cond.L.Unlock()
+
+	s.cond.Broadcast()
 	_ = s.group.Wait()
 	return nil
 }
