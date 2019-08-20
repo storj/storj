@@ -92,7 +92,8 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		return nil, err
 	}
 
-	// note: offlineNodes here will include disqualified nodes
+	// NOTE offlineNodes will include disqualified nodes because they aren't in
+	// the skip list
 	offlineNodes = getOfflineNodes(stripe.Segment, orderLimits, skip)
 	if len(offlineNodes) > 0 {
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)", zap.Strings("Node IDs", offlineNodes.Strings()))
@@ -592,7 +593,8 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 	return copies, nil
 }
 
-// getOfflines nodes returns these storage nodes from pointer which have no order limit
+// getOfflines nodes returns these storage nodes from pointer which have no
+// order limit nor are skipped.
 func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, skip map[storj.NodeID]bool) storj.NodeIDList {
 	var offlines storj.NodeIDList
 

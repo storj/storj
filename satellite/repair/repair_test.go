@@ -32,7 +32,7 @@ import (
 // - Downloads the data from those left nodes and check that it's the same than
 //   the uploaded one
 func TestDataRepair(t *testing.T) {
-	var repairMaxExcessRateOptimalThreshold float64
+	const RepairMaxExcessRateOptimalThreshold = 0.05
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -41,7 +41,7 @@ func TestDataRepair(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.OnlineWindow = 0
-				repairMaxExcessRateOptimalThreshold = config.Repairer.MaxExcessRateOptimalThreshold
+				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -83,7 +83,7 @@ func TestDataRepair(t *testing.T) {
 		require.True(t, toKill >= 1)
 		maxNumRepairedPieces := int(
 			math.Ceil(
-				float64(successThreshold) * (1 + repairMaxExcessRateOptimalThreshold),
+				float64(successThreshold) * (1 + RepairMaxExcessRateOptimalThreshold),
 			),
 		)
 		numStorageNodes := len(planet.StorageNodes)
@@ -365,7 +365,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 // - Verify that the number of pieces which repaired has uploaded don't overpass
 //	 the established limit (success threshold + % of excess)
 func TestDataRepairUploadLimit(t *testing.T) {
-	var repairMaxExcessRateOptimalThreshold float64
+	const RepairMaxExcessRateOptimalThreshold = 0.05
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -373,7 +373,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				repairMaxExcessRateOptimalThreshold = config.Repairer.MaxExcessRateOptimalThreshold
+				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -394,7 +394,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 		var (
 			maxRepairUploadThreshold = int(
 				math.Ceil(
-					float64(successThreshold) * (1 + repairMaxExcessRateOptimalThreshold),
+					float64(successThreshold) * (1 + RepairMaxExcessRateOptimalThreshold),
 				),
 			)
 			ul       = planet.Uplinks[0]

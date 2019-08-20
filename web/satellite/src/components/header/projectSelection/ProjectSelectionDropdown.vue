@@ -20,6 +20,7 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
+
     import {
     APP_STATE_ACTIONS,
     PROJETS_ACTIONS,
@@ -27,7 +28,7 @@
     PM_ACTIONS,
     API_KEYS_ACTIONS,
     PROJECT_USAGE_ACTIONS,
-    PROJECT_PAYMENT_METHODS_ACTIONS,
+    PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { Project } from '@/types/projects';
@@ -42,12 +43,13 @@
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
             // TODO: add types
-            const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
             const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
             const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
 
-            if (!pmResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (err) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
             }
 
             try {

@@ -26,7 +26,7 @@ func TestRevocationDB_Get(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
@@ -64,7 +64,7 @@ func TestRevocationDB_Put_success(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 
@@ -114,7 +114,7 @@ func TestRevocationDB_Put_error(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		keys, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 		require.NoError(t, err)
 

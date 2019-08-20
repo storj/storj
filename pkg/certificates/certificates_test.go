@@ -607,10 +607,11 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 					PrivateAddress: "127.0.0.1:0",
 				}
 
-				revDB, err := revocation.NewDBFromCfg(sc.Config)
+				revocationDB, err := revocation.NewDBFromCfg(sc.Config)
 				require.NoError(t, err)
+				defer ctx.Check(revocationDB.Close)
 
-				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config, revDB)
+				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config, revocationDB)
 				require.NoError(t, err)
 				require.NotNil(t, serverOpts)
 

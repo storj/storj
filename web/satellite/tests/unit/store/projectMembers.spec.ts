@@ -1,288 +1,270 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { projectMembersModule } from '@/store/modules/projectMembers';
 import { createLocalVue } from '@vue/test-utils';
-import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
 import Vuex from 'vuex';
-import { ProjectMember, ProjectMemberCursor, ProjectMembersPage } from '@/types/projectMembers';
 
-const mutations = projectMembersModule.mutations;
+import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
+import { makeProjectsModule } from '@/store/modules/projects';
+import { SortDirection } from '@/types/common';
+import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
+import { Project } from '@/types/projects';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
+
+const projectsModule = makeProjectsModule();
+const selectedProject = new Project();
+selectedProject.id = '1';
+projectsModule.state.selectedProject = selectedProject;
+
+const FIRST_PAGE = 1;
+const TEST_ERROR = 'testError';
+const UNREACHABLE_ERROR = 'should be unreachable';
+
+const Vue = createLocalVue();
+const pmApi = new ProjectMembersApiGql();
+const projectMembersModule = makeProjectMembersModule(pmApi);
+
+Vue.use(Vuex);
+
+const store = new Vuex.Store({modules: {projectsModule, projectMembersModule}});
+const state = (store.state as any).projectMembersModule;
+
+const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
 
 describe('mutations', () => {
     beforeEach(() => {
         createLocalVue().use(Vuex);
     });
 
-    it('success delete project members', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: {
-                projectMembers: [{user: {email: '1'}}, {user: {email: '2'}}]
-            } as ProjectMembersPage,
-        };
-        const store = new Vuex.Store({state, mutations});
+    it('fetch project members', function () {
+        const testProjectMembersPage = new ProjectMembersPage();
+        testProjectMembersPage.projectMembers = [projectMember1];
+        testProjectMembersPage.totalCount = 1;
+        testProjectMembersPage.pageCount = 1;
 
-        const membersToDelete = ['1', '2'];
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.DELETE, membersToDelete);
-
-        expect(state.page.projectMembers.length).toBe(0);
-    });
-
-    it('error delete project members', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: {
-                projectMembers: [{user: {email: '1'}}, {user: {email: '2'}}]
-            } as ProjectMembersPage,
-        };
-        const store = new Vuex.Store({state, mutations});
-
-        const membersToDelete = ['3', '4'];
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.DELETE, membersToDelete);
-
-        expect(state.page.projectMembers.length).toBe(2);
-    });
-
-    it('toggle selection', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: {
-                projectMembers: [{
-                    user: {id: '1'},
-                    isSelected: false
-                }, {
-                    user: {id: '2'},
-                    isSelected: false
-                }]
-            } as ProjectMembersPage,
-        };
-        const store = new Vuex.Store({state, mutations});
-
-        const memberId = '1';
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, memberId);
-
-        expect(state.page.projectMembers[0].isSelected).toBeTruthy();
-        expect(state.page.projectMembers[1].isSelected).toBeFalsy();
-    });
-
-    it('clear selection', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: {
-                projectMembers: [{
-                    user: {id: '1'},
-                    isSelected: true
-                }, {
-                    user: {id: '2'},
-                    isSelected: true
-                }]
-            } as ProjectMembersPage,
-        };
-        const store = new Vuex.Store({state, mutations});
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
-
-        expect(state.page.projectMembers[0].isSelected).toBeFalsy();
-        expect(state.page.projectMembers[1].isSelected).toBeFalsy();
-    });
-
-    it('fetch projectMembers members', () => {
-        const state = {
-            cursor: new ProjectMemberCursor(),
-            page: new ProjectMembersPage(),
-        };
-        const store = new Vuex.Store({state, mutations});
-
-        const teamMembers = new ProjectMembersPage();
-        teamMembers.projectMembers = [
-            new ProjectMember('', '', '', '', '1'),
-        ];
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, teamMembers);
+        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
         expect(state.page.projectMembers.length).toBe(1);
+        expect(state.page.search).toBe('');
+        expect(state.page.order).toBe(ProjectMemberOrderBy.NAME);
+        expect(state.page.orderDirection).toBe(SortDirection.ASCENDING);
+        expect(state.page.limit).toBe(6);
+        expect(state.page.pageCount).toBe(1);
+        expect(state.page.currentPage).toBe(1);
+        expect(state.page.totalCount).toBe(1);
+    });
+
+    it('set project members page', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.SET_PAGE, 2);
+
+        expect(state.cursor.page).toBe(2);
+    });
+
+    it('set search query', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY, 'testSearchQuery');
+
+        expect(state.cursor.search).toBe('testSearchQuery');
+    });
+
+    it('set sort order', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER, ProjectMemberOrderBy.EMAIL);
+
+        expect(state.cursor.order).toBe(ProjectMemberOrderBy.EMAIL);
+    });
+
+    it('set sort direction', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION, SortDirection.DESCENDING);
+
+        expect(state.cursor.orderDirection).toBe(SortDirection.DESCENDING);
+    });
+
+    it('toggle selection', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMember1.user.id);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(true);
+    });
+
+    it('clear selection', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(false);
+    });
+
+    it('clear store', function () {
+        store.commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
+
+        expect(state.cursor.page).toBe(1);
+        expect(state.cursor.search).toBe('');
+        expect(state.cursor.order).toBe(ProjectMemberOrderBy.NAME);
+        expect(state.cursor.orderDirection).toBe(SortDirection.ASCENDING);
+        expect(state.page.projectMembers.length).toBe(0);
     });
 });
 
-// describe('actions', () => {
-//     beforeEach(() => {
-//         jest.resetAllMocks();
-//     });
-//
-//     it('success add project members', async function () {
-//         const rootGetters = {
-//             selectedProject: {
-//                 id: '1'
-//             },
-//             searchParameters: {},
-//             pagination: {limit: 20, offset: 0}
-//         };
-//         jest.spyOn(api, 'addProjectMembersRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: true}));
-//
-//         const emails = ['1', '2'];
-//
-//         const dispatchResponse = await projectMembersModule.actions.addProjectMembers({rootGetters}, emails);
-//
-//         expect(dispatchResponse.isSuccess).toBeTruthy();
-//     });
-//
-//     it('error add project members', async function () {
-//         const rootGetters = {
-//             selectedProject: {
-//                 id: '1'
-//             }
-//         };
-//         jest.spyOn(api, 'addProjectMembersRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: false}));
-//
-//         const emails = ['1', '2'];
-//
-//         const dispatchResponse = await projectMembersModule.actions.addProjectMembers({rootGetters}, emails);
-//
-//         expect(dispatchResponse.isSuccess).toBeFalsy();
-//     });
-//
-//     it('success delete project members', async () => {
-//         const rootGetters = {
-//             selectedProject: {
-//                 id: '1'
-//             }
-//         };
-//         jest.spyOn(api, 'deleteProjectMembersRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: true}));
-//
-//         const commit = jest.fn();
-//         const emails = ['1', '2'];
-//
-//         const dispatchResponse = await projectMembersModule.actions.deleteProjectMembers({commit, rootGetters}, emails);
-//
-//         expect(dispatchResponse.isSuccess).toBeTruthy();
-//         expect(commit).toHaveBeenCalledWith(PROJECT_MEMBER_MUTATIONS.DELETE, emails);
-//     });
-//
-//     it('error delete project members', async () => {
-//         const rootGetters = {
-//             selectedProject: {
-//                 id: '1'
-//             }
-//         };
-//         jest.spyOn(api, 'deleteProjectMembersRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: false}));
-//
-//         const commit = jest.fn();
-//         const emails = ['1', '2'];
-//
-//         const dispatchResponse = await projectMembersModule.actions.deleteProjectMembers({commit, rootGetters}, emails);
-//
-//         expect(dispatchResponse.isSuccess).toBeFalsy();
-//         expect(commit).toHaveBeenCalledTimes(0);
-//     });
-//
-//     it('toggle selection', function () {
-//         const commit = jest.fn();
-//         const projectMemberId = '1';
-//
-//         projectMembersModule.actions.toggleProjectMemberSelection({commit}, projectMemberId);
-//
-//         expect(commit).toHaveBeenCalledWith(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMemberId);
-//     });
-//
-//     it('clear selection', function () {
-//         const commit = jest.fn();
-//
-//         projectMembersModule.actions.clearProjectMemberSelection({commit});
-//
-//         expect(commit).toHaveBeenCalledTimes(1);
-//     });
-//
-//     it('success fetch project members', async function () {
-//         const rootGetters = {
-//             selectedProject: {
-//                 id: '1'
-//             }
-//         };
-//         const state = {
-//             pagination: {
-//                 limit: 20,
-//                 offset: 0
-//             },
-//             searchParameters: {
-//                 searchQuery: ''
-//             }
-//         };
-//         const commit = jest.fn();
-//         const projectMemberMockModel: ProjectMember = new ProjectMember('1', '1', '1', '1', '1');
-//         jest.spyOn(api, 'fetchProjectMembersRequest').mockReturnValue(
-//             Promise.resolve(<RequestResponse<ProjectMember[]>>{
-//                 isSuccess: true,
-//                 data: [projectMemberMockModel]
-//             }));
-//
-//         const dispatchResponse = await projectMembersModule.actions.fetchProjectMembers({
-//             state,
-//             commit,
-//             rootGetters
-//         });
-//
-//         expect(dispatchResponse.isSuccess).toBeTruthy();
-//         expect(commit).toHaveBeenCalledWith(PROJECT_MEMBER_MUTATIONS.FETCH, [projectMemberMockModel]);
-//     });
-//
-//     it('error fetch project members', async function () {
-//         const rootGetters = {
-//             selectedProject: {
-//                 id: '1'
-//             }
-//         };
-//         const state = {
-//             pagination: {
-//                 limit: 20,
-//                 offset: 0
-//             },
-//             searchParameters: {
-//                 searchQuery: ''
-//             }
-//         };
-//         const commit = jest.fn();
-//         jest.spyOn(api, 'fetchProjectMembersRequest').mockReturnValue(
-//             Promise.resolve(<RequestResponse<ProjectMember[]>>{
-//                 isSuccess: false,
-//             })
-//         );
-//
-//         const dispatchResponse = await projectMembersModule.actions.fetchProjectMembers({
-//             state,
-//             commit,
-//             rootGetters
-//         });
-//
-//         expect(dispatchResponse.isSuccess).toBeFalsy();
-//         expect(commit).toHaveBeenCalledTimes(0);
-//     });
-// });
+describe('actions', async () => {
+    beforeEach(() => {
+        jest.resetAllMocks();
+    });
 
-// describe('getters', () => {
-//     it('project members', function () {
-//         const state = {
-//             projectMembers: [{user: {email: '1'}}]
-//         };
-//         const retrievedProjectMembers = projectMembersModule.getters.projectMembers(state);
-//
-//         expect(retrievedProjectMembers.length).toBe(1);
-//     });
-//
-//     it('selected project members', function () {
-//         const state = {
-//             projectMembers: [
-//                 {isSelected: false},
-//                 {isSelected: true},
-//                 {isSelected: true},
-//                 {isSelected: true},
-//                 {isSelected: false},
-//             ]
-//         };
-//         const retrievedSelectedProjectMembers = projectMembersModule.getters.selectedProjectMembers(state);
-//         expect(retrievedSelectedProjectMembers.length).toBe(3);
-//     });
-// });
+    it('add project members', async function () {
+        jest.spyOn(pmApi, 'add').mockReturnValue(Promise.resolve());
+
+        try {
+            await store.dispatch(PM_ACTIONS.ADD, [projectMember1.user.email]);
+            throw new Error(TEST_ERROR);
+        } catch (err) {
+            expect(err.message).toBe(TEST_ERROR);
+        }
+    });
+
+    it('add project member throws error when api call fails', async function () {
+        jest.spyOn(pmApi, 'add').mockImplementation(() => {
+            throw new Error(TEST_ERROR);
+        });
+
+        const stateDump = state;
+
+        try {
+            await store.dispatch(PM_ACTIONS.ADD, [projectMember1.user.email]);
+        } catch (err) {
+            expect(err.message).toBe(TEST_ERROR);
+            expect(state).toBe(stateDump);
+
+            return;
+        }
+
+        fail(UNREACHABLE_ERROR);
+    });
+
+    it('delete project members', async function () {
+        jest.spyOn(pmApi, 'delete').mockReturnValue(Promise.resolve());
+
+        try {
+            await store.dispatch(PM_ACTIONS.DELETE, [projectMember1.user.email]);
+            throw new Error(TEST_ERROR);
+        } catch (err) {
+            expect(err.message).toBe(TEST_ERROR);
+        }
+    });
+
+    it('delete project member throws error when api call fails', async function () {
+        jest.spyOn(pmApi, 'delete').mockImplementation(() => {
+            throw new Error(TEST_ERROR);
+        });
+
+        const stateDump = state;
+
+        try {
+            await store.dispatch(PM_ACTIONS.DELETE, [projectMember1.user.email]);
+        } catch (err) {
+            expect(err.message).toBe(TEST_ERROR);
+            expect(state).toBe(stateDump);
+
+            return;
+        }
+
+        fail(UNREACHABLE_ERROR);
+    });
+
+    it('fetch project members', async function () {
+        jest.spyOn(pmApi, 'get').mockReturnValue(
+            Promise.resolve(new ProjectMembersPage(
+                [projectMember1],
+                '',
+                ProjectMemberOrderBy.NAME,
+                SortDirection.ASCENDING,
+                6,
+                1,
+                1,
+                1))
+        );
+
+        await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(false);
+        expect(state.page.projectMembers[0].joinedAt).toBe(projectMember1.joinedAt);
+        expect(state.page.projectMembers[0].user.email).toBe(projectMember1.user.email);
+        expect(state.page.projectMembers[0].user.id).toBe(projectMember1.user.id);
+        expect(state.page.projectMembers[0].user.partnerId).toBe(projectMember1.user.partnerId);
+        expect(state.page.projectMembers[0].user.fullName).toBe(projectMember1.user.fullName);
+        expect(state.page.projectMembers[0].user.shortName).toBe(projectMember1.user.shortName);
+    });
+
+    it('fetch project members throws error when api call fails', async function () {
+        jest.spyOn(pmApi, 'get').mockImplementation(() => {
+            throw new Error(TEST_ERROR);
+        });
+
+        const stateDump = state;
+
+        try {
+            await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+        } catch (err) {
+            expect(err.message).toBe(TEST_ERROR);
+            expect(state).toBe(stateDump);
+
+            return;
+        }
+
+        fail(UNREACHABLE_ERROR);
+    });
+
+    it('set project members search query', async function () {
+        store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, 'search');
+
+        expect(state.cursor.search).toBe('search');
+    });
+
+    it('set project members sort by', async function () {
+        store.dispatch(PM_ACTIONS.SET_SORT_BY, ProjectMemberOrderBy.CREATED_AT);
+
+        expect(state.cursor.order).toBe(ProjectMemberOrderBy.CREATED_AT);
+    });
+
+    it('set sort direction', async function () {
+        store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, SortDirection.DESCENDING);
+
+        expect(state.cursor.orderDirection).toBe(SortDirection.DESCENDING);
+    });
+
+    it('toggle selection', function () {
+        store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, projectMember1.user.id);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(true);
+    });
+
+    it('clear selection', function () {
+        store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
+
+        expect(state.page.projectMembers[0].isSelected).toBe(false);
+    });
+
+    it('clear store', function () {
+        store.commit(PM_ACTIONS.CLEAR);
+
+        expect(state.cursor.page).toBe(1);
+        expect(state.cursor.search).toBe('');
+        expect(state.cursor.order).toBe(ProjectMemberOrderBy.NAME);
+        expect(state.cursor.orderDirection).toBe(SortDirection.ASCENDING);
+        expect(state.page.projectMembers.length).toBe(0);
+    });
+});
+
+describe('getters', () => {
+    const selectedProjectMember = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
+    selectedProjectMember.isSelected = true;
+
+    it('selected project members', function () {
+        const testProjectMembersPage = new ProjectMembersPage();
+        testProjectMembersPage.projectMembers = [selectedProjectMember];
+        testProjectMembersPage.totalCount = 1;
+        testProjectMembersPage.pageCount = 1;
+
+        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
+
+        const retrievedProjectMembers = store.getters.selectedProjectMembers;
+
+        expect(retrievedProjectMembers[0].user.id).toBe(selectedProjectMember.user.id);
+    });
+});

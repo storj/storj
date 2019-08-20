@@ -70,13 +70,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			return nil, err
 		}
 
-		err = db.CreateTables()
-		if err != nil {
-			return nil, err
-		}
-
-		planet.databases = append(planet.databases, db)
-
 		config := satellite.Config{
 			Server: server.Config{
 				Address:        "127.0.0.1:0",
@@ -216,15 +209,22 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 		verInfo := planet.NewVersionInfo()
 
-		revDB, err := revocation.NewDBFromCfg(config.Server.Config)
+		revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
 		if err != nil {
-			return xs, errs.New("Error creating revocation database: %+v", err)
+			return xs, errs.Wrap(err)
 		}
+		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := satellite.New(log, identity, db, revDB, &config, verInfo)
+		peer, err := satellite.New(log, identity, db, revocationDB, &config, verInfo)
 		if err != nil {
 			return xs, err
 		}
+
+		err = db.CreateTables()
+		if err != nil {
+			return nil, err
+		}
+		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 		xs = append(xs, peer)
