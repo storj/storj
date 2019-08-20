@@ -76,7 +76,8 @@ type ReservoirService struct {
 }
 
 // NewReservoirService instantiates Service2
-func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, r *rand.Rand, config Config) (*ReservoirService, error) {
+func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config) (*ReservoirService, error) {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
 	return &ReservoirService{
 		log: log,
 

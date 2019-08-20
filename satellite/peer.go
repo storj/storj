@@ -6,18 +6,16 @@ package satellite
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/mail"
 	"net/smtp"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -479,10 +477,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 
 		// setup audit 2.0
-		r := rand.New(rand.NewSource(time.Now().Unix()))
 		peer.Audit.ReservoirService, err = audit.NewReservoirService(peer.Log.Named("reservoir service"),
 			peer.Metainfo.Loop,
-			r,
 			config,
 		)
 		if err != nil {
