@@ -4,23 +4,20 @@
 package drpcwire_test
 
 import (
-	"fmt"
 	"io"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"storj.io/storj/drpc/drpctest"
 	"storj.io/storj/drpc/drpcutil"
 	"storj.io/storj/drpc/drpcwire"
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
 )
 
 func TestSplitRecv(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
+	var mainGroup errgroup.Group
 	start := time.Now()
 	const numPackets = 100
 
@@ -30,15 +27,13 @@ func TestSplitRecv(t *testing.T) {
 	chSent := make(chan drpcwire.Packet, numPackets)
 
 	// launch a goroutine to receive packets and send them down a channel
-	ctx.Go(func() error {
-		defer close(chRecv)
+	mainGroup.Go(func() error {
 		defer pr.Close()
 
 		recv := drpcwire.NewReceiver(pr)
 		for {
 			pkt, err := recv.ReadPacket()
 			if err != nil {
-				fmt.Println(err)
 				return err
 			} else if pkt == nil {
 				return nil
@@ -48,9 +43,9 @@ func TestSplitRecv(t *testing.T) {
 	})
 
 	// launch a group of goroutines to send a packet to the receiver
-	var group errgroup.Group
+	var sendGroup errgroup.Group
 	for i := 0; i < numPackets; i++ {
-		group.Go(func() error {
+		sendGroup.Go(func() error {
 			buf := drpcutil.NewBuffer(pw, 64*1024)
 			pkt := drpctest.RandPacket()
 			chSent <- pkt
@@ -68,31 +63,30 @@ func TestSplitRecv(t *testing.T) {
 		})
 	}
 
-	// launch a goroutine to wait on the senders to complete to signal that
-	// no more sends will happen to the reader.
-	ctx.Go(func() error {
-		defer close(chSent)
-		defer pw.Close()
-		return group.Wait()
-	})
-
 	// wait for everything to happen
-	ctx.Wait()
+	require.NoError(t, sendGroup.Wait())
+	pw.Close()
+	require.NoError(t, mainGroup.Wait())
 	stop := time.Now()
 
 	// record what was sent and what was received in a way that makes it easy
 	// to compare the two and then ensure they are equal.
 	size := int64(0)
+
 	got := make(map[drpcwire.PacketID][]byte)
+	close(chRecv)
 	for pkt := range chRecv {
 		got[pkt.PacketID] = pkt.Data
 		size += int64(len(pkt.Data))
 	}
+
 	exp := make(map[drpcwire.PacketID][]byte)
+	close(chSent)
 	for pkt := range chSent {
 		exp[pkt.PacketID] = pkt.Data
 		size += int64(len(pkt.Data))
 	}
+
 	t.Logf("rate: %s/s", memory.Size(float64(size)/stop.Sub(start).Seconds()))
 
 	if len(got) != len(exp) {
