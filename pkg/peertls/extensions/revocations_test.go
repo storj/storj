@@ -159,7 +159,7 @@ func TestWithOptions_NilRevocationDB(t *testing.T) {
 	_, chain, err := testpeertls.NewCertChain(2, storj.LatestIDVersion().Number)
 	require.NoError(t, err)
 
-	opts := &extensions.Options{RevDB: nil}
+	opts := &extensions.Options{RevocationDB: nil}
 	handlerFuncMap := extensions.DefaultHandlers.WithOptions(opts)
 
 	extMap := tlsopts.NewExtensionsMap(chain[peertls.LeafIndex])
