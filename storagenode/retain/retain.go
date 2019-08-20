@@ -92,7 +92,6 @@ type Service struct {
 	cancel context.CancelFunc
 	cond   sync.Cond
 	queued map[storj.NodeID]Request
-
 	closed bool
 	exited chan struct{}
 
@@ -104,8 +103,11 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 	return &Service{
 		log:    log,
 		config: config,
-		store:  store,
+
 		cond:   *sync.NewCond(&sync.Mutex{}),
+		exited: make(chan struct{}),
+
+		store: store,
 	}
 }
 
