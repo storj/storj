@@ -25,8 +25,6 @@ const (
 )
 
 func TestLimiter(t *testing.T) {
-	ctx := testcontext.New(t)
-
 	var limiter = NewLimiter(maxAttempts, attemptsPeriod, banDuration, clearPeriod)
 
 	t.Run("Testing constructor", func(t *testing.T) {
@@ -56,29 +54,7 @@ func TestLimiter(t *testing.T) {
 		assert.Equal(t, result, false)
 	})
 
-	t.Run("clear works fine", func(t *testing.T) {
-		for i := 0; i <= maxAttempts; i++ {
-			limiter.Limit(key1)
-			limiter.Limit(key2)
-		}
-
-		var err error
-
-		go func() {
-			err = limiter.Run(ctx)
-			assert.NoError(t, err)
-		}()
-
-		ticker := time.NewTicker(clearPeriod + time.Second)
-
-		for range ticker.C {
-			assert.Equal(t, 0, len(limiter.attackers))
-			ticker.Stop()
-			break
-		}
-
-		limiter.Close()
-	})
+	limiter.Close()
 }
 
 func TestLimiterConcurrent(t *testing.T) {
@@ -88,7 +64,8 @@ func TestLimiterConcurrent(t *testing.T) {
 
 	go func() {
 		err := limiter.Run(ctx)
-		assert.NoError(t, err)
+		assert.Error(t, err)
+		return
 	}()
 
 	wg.Add(1)
