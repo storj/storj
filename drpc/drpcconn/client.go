@@ -15,30 +15,25 @@ import (
 )
 
 type Conn struct {
-	ctx    context.Context
-	cancel func()
-	tr     drpc.Transport
-	sig    *drpcutil.Signal
-	man    *drpcmanager.Manager
+	tr  drpc.Transport
+	sig *drpcutil.Signal
+	man *drpcmanager.Manager
 }
 
 var _ drpc.Conn = (*Conn)(nil)
 
-func New(ctx context.Context, tr drpc.Transport) *Conn {
-	ctx, cancel := context.WithCancel(ctx)
+func New(tr drpc.Transport) *Conn {
 	c := &Conn{
-		ctx:    ctx,
-		cancel: cancel,
-		tr:     tr,
-		sig:    drpcutil.NewSignal(),
-		man:    drpcmanager.New(tr, nil),
+		tr:  tr,
+		sig: drpcutil.NewSignal(),
+		man: drpcmanager.New(tr, nil),
 	}
-	go c.monitor()
+	go c.monitorManager()
 	return c
 }
 
-func (c *Conn) monitor() {
-
+func (c *Conn) monitorManager() {
+	c.sig.Set(c.man.Run(context.Background()))
 }
 
 func (c *Conn) Transport() drpc.Transport {
@@ -46,7 +41,7 @@ func (c *Conn) Transport() drpc.Transport {
 }
 
 func (c *Conn) Close() error {
-	c.man.Sig().Set(drpc.Error.New("conn closed"))
+	c.man.Sig().Set(drpc.Error.New("transport closed"))
 	<-c.sig.Signal()
 	return c.tr.Close()
 }

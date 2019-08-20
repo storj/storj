@@ -80,6 +80,10 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 	}, nil
 }
 
+func (e *Endpoint) DRPCGetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb.GetStatsResponse, err error) {
+	return e.GetStats(ctx, req)
+}
+
 // DailyStorageUsage returns slice of daily storage usage for given period of time sorted in ASC order by date
 func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUsageRequest) (_ *pb.DailyStorageUsageResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -107,6 +111,10 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 		NodeId:            node.Id,
 		DailyStorageUsage: toProtoDailyStorageUsage(nodeSpaceUsages),
 	}, nil
+}
+
+func (e *Endpoint) DRPCDailyStorageUsage(ctx context.Context, req *pb.DailyStorageUsageRequest) (_ *pb.DailyStorageUsageResponse, err error) {
+	return e.DailyStorageUsage(ctx, req)
 }
 
 // toProtoDailyStorageUsage converts StorageNodeUsage to PB DailyStorageUsageResponse_StorageUsage

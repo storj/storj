@@ -88,8 +88,7 @@ func (s *Stream) newPacket(kind drpcwire.PayloadKind, data []byte) drpcwire.Pack
 
 func (s *Stream) monitor() {
 	select {
-	case <-s.sig.Signal():
-		s.SendError(s.sig.Err())
+	case <-s.termSig.Signal():
 	case <-s.ctx.Done():
 		s.SendCancel()
 	}
@@ -129,7 +128,7 @@ func (s *Stream) RawSend(kind drpcwire.PayloadKind, data []byte) error {
 		return s.buf.Write(fr)
 	})
 	if err != nil {
-		s.sig.Set(err)
+		s.SendError(err)
 		return err
 	}
 	return nil
@@ -157,7 +156,7 @@ func (s *Stream) RawFlush() error {
 		return err
 	}
 	if err := s.buf.Flush(); err != nil {
-		s.sig.Set(err)
+		s.SendError(err)
 		return err
 	}
 	return nil
@@ -197,6 +196,7 @@ func (s *Stream) SendError(err error) {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
 	defer s.termSig.Set(drpc.Error.New("stream terminated"))
+	defer s.sig.Set(err)
 
 	if _, ok := s.termSig.Get(); !ok {
 		_ = s.sendAndFlush(drpcwire.PayloadKind_Error, []byte(err.Error()))

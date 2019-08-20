@@ -90,12 +90,18 @@ func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, settlem
 	}
 }
 
-func monitoredSettlementStreamReceive(ctx context.Context, stream pb.Orders_SettlementServer) (_ *pb.SettlementRequest, err error) {
+type rpcStream interface {
+	Context() context.Context
+	Recv() (*pb.SettlementRequest, error)
+	Send(*pb.SettlementResponse) error
+}
+
+func monitoredSettlementStreamReceive(ctx context.Context, stream rpcStream) (_ *pb.SettlementRequest, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return stream.Recv()
 }
 
-func monitoredSettlementStreamSend(ctx context.Context, stream pb.Orders_SettlementServer, resp *pb.SettlementResponse) (err error) {
+func monitoredSettlementStreamSend(ctx context.Context, stream rpcStream, resp *pb.SettlementResponse) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	switch resp.Status {
 	case pb.SettlementResponse_ACCEPTED:
@@ -110,6 +116,15 @@ func monitoredSettlementStreamSend(ctx context.Context, stream pb.Orders_Settlem
 
 // Settlement receives orders and handles them in batches
 func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err error) {
+	return endpoint.settlement(stream)
+}
+
+func (endpoint *Endpoint) DRPCSettlement(stream pb.DRPCOrders_SettlementStream) (err error) {
+	return endpoint.settlement(stream)
+}
+
+// Settlement receives and handles orders.
+func (endpoint *Endpoint) settlement(stream rpcStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 

@@ -107,8 +107,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node) (c drpc
 	}
 	transport.AlertSuccess(ctx, node)
 
-	// TODO(jeff): should this be a different context?
-	return drpcconn.New(context.Background(), conn), nil
+	return drpcconn.New(conn), nil
 }
 
 // DialAddress returns a grpc connection with tls to an IP address.
@@ -129,8 +128,7 @@ func (transport *Transport) DialAddress(ctx context.Context, address string) (c 
 		return nil, Error.Wrap(err)
 	}
 
-	// TODO(jeff): should this be a different context?
-	return drpcconn.New(context.Background(), conn), nil
+	return drpcconn.New(conn), nil
 }
 
 // FetchPeerIdentity dials the node and fetches the identity

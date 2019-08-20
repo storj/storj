@@ -3,6 +3,8 @@
 
 package check
 
+//go:generate go run ../../scripts/protobuf.go -drpc generate
+
 import (
 	"context"
 	"fmt"
@@ -12,13 +14,13 @@ import (
 
 	"storj.io/storj/drpc/drpcconn"
 	"storj.io/storj/drpc/drpcserver"
-	"storj.io/storj/pkg/pb"
 )
 
 func TestSimple(t *testing.T) {
 	type rw struct {
 		io.Reader
 		io.Writer
+		io.Closer
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -30,16 +32,16 @@ func TestSimple(t *testing.T) {
 	defer pr2.Close()
 
 	srv := drpcserver.New()
-	srv.Register(new(impl), new(pb.DRPCServiceDescription))
-	go srv.Manage(ctx, rw{pr2, pw1})
+	srv.Register(new(impl), new(DRPCServiceDescription))
+	go srv.Manage(ctx, rw{pr2, pw1, pr2})
 
-	conn := drpcconn.New(ctx, rw{pr1, pw2})
-	cli := pb.NewDRPCServiceClient(conn)
+	conn := drpcconn.New(rw{pr1, pw2, pr1})
 	defer conn.Close()
+	cli := NewDRPCServiceClient(conn)
 
 	{
 		fmt.Println("=== 1")
-		out, err := cli.Method1(ctx, &pb.In{In: 1})
+		out, err := cli.Method1(ctx, &In{In: 1})
 		fmt.Println("CLI 0 =>", err, out)
 	}
 
@@ -49,8 +51,8 @@ func TestSimple(t *testing.T) {
 		fmt.Println("=== 2")
 		stream2, err := cli.Method2(ctx)
 		fmt.Println("CLI 0 =>", err)
-		fmt.Println("CLI 1 =>", stream2.Send(&pb.In{In: 2}))
-		fmt.Println("CLI 2 =>", stream2.Send(&pb.In{In: 2}))
+		fmt.Println("CLI 1 =>", stream2.Send(&In{In: 2}))
+		fmt.Println("CLI 2 =>", stream2.Send(&In{In: 2}))
 		out, err := stream2.CloseAndRecv()
 		fmt.Println("CLI 3 =>", err, out)
 		fmt.Println("CLI 4 =>", stream2.Close())
@@ -60,7 +62,7 @@ func TestSimple(t *testing.T) {
 
 	{
 		fmt.Println("=== 3")
-		stream3, err := cli.Method3(ctx, &pb.In{In: 3})
+		stream3, err := cli.Method3(ctx, &In{In: 3})
 		fmt.Println("CLI 0 =>", err)
 		for {
 			out, err := stream3.Recv()
@@ -78,10 +80,10 @@ func TestSimple(t *testing.T) {
 		fmt.Println("=== 4")
 		stream4, err := cli.Method4(ctx)
 		fmt.Println("CLI 0 =>", err)
-		fmt.Println("CLI 1 =>", stream4.Send(&pb.In{In: 4}))
-		fmt.Println("CLI 2 =>", stream4.Send(&pb.In{In: 4}))
-		fmt.Println("CLI 3 =>", stream4.Send(&pb.In{In: 4}))
-		fmt.Println("CLI 4 =>", stream4.Send(&pb.In{In: 5}))
+		fmt.Println("CLI 1 =>", stream4.Send(&In{In: 4}))
+		fmt.Println("CLI 2 =>", stream4.Send(&In{In: 4}))
+		fmt.Println("CLI 3 =>", stream4.Send(&In{In: 4}))
+		fmt.Println("CLI 4 =>", stream4.Send(&In{In: 5}))
 		fmt.Println("CLI 5 =>", stream4.CloseSend())
 		for {
 			out, err := stream4.Recv()
@@ -96,12 +98,12 @@ func TestSimple(t *testing.T) {
 
 type impl struct{}
 
-func (impl) DRPCMethod1(ctx context.Context, in *pb.In) (*pb.Out, error) {
+func (impl) DRPCMethod1(ctx context.Context, in *In) (*Out, error) {
 	fmt.Println("SRV 0 <=", in)
-	return &pb.Out{Out: 1}, nil
+	return &Out{Out: 1}, nil
 }
 
-func (impl) DRPCMethod2(stream pb.DRPCService_Method2Stream) error {
+func (impl) DRPCMethod2(stream DRPCService_Method2Stream) error {
 	for {
 		in, err := stream.Recv()
 		fmt.Println("SRV 0 <=", err, in)
@@ -109,20 +111,20 @@ func (impl) DRPCMethod2(stream pb.DRPCService_Method2Stream) error {
 			break
 		}
 	}
-	err := stream.SendAndClose(&pb.Out{Out: 2})
+	err := stream.SendAndClose(&Out{Out: 2})
 	fmt.Println("SRV 1 <=", err)
 	return err
 }
 
-func (impl) DRPCMethod3(in *pb.In, stream pb.DRPCService_Method3Stream) error {
+func (impl) DRPCMethod3(in *In, stream DRPCService_Method3Stream) error {
 	fmt.Println("SRV 0 <=", in)
-	fmt.Println("SRV 1 <=", stream.Send(&pb.Out{Out: 3}))
-	fmt.Println("SRV 2 <=", stream.Send(&pb.Out{Out: 3}))
-	fmt.Println("SRV 3 <=", stream.Send(&pb.Out{Out: 3}))
+	fmt.Println("SRV 1 <=", stream.Send(&Out{Out: 3}))
+	fmt.Println("SRV 2 <=", stream.Send(&Out{Out: 3}))
+	fmt.Println("SRV 3 <=", stream.Send(&Out{Out: 3}))
 	return nil
 }
 
-func (impl) DRPCMethod4(stream pb.DRPCService_Method4Stream) error {
+func (impl) DRPCMethod4(stream DRPCService_Method4Stream) error {
 	for {
 		in, err := stream.Recv()
 		fmt.Println("SRV 0 <=", err, in)
@@ -130,9 +132,9 @@ func (impl) DRPCMethod4(stream pb.DRPCService_Method4Stream) error {
 			break
 		}
 	}
-	fmt.Println("SRV 1 <=", stream.Send(&pb.Out{Out: 4}))
-	fmt.Println("SRV 2 <=", stream.Send(&pb.Out{Out: 4}))
-	fmt.Println("SRV 3 <=", stream.Send(&pb.Out{Out: 4}))
-	fmt.Println("SRV 4 <=", stream.Send(&pb.Out{Out: 4}))
+	fmt.Println("SRV 1 <=", stream.Send(&Out{Out: 4}))
+	fmt.Println("SRV 2 <=", stream.Send(&Out{Out: 4}))
+	fmt.Println("SRV 3 <=", stream.Send(&Out{Out: 4}))
+	fmt.Println("SRV 4 <=", stream.Send(&Out{Out: 4}))
 	return nil
 }

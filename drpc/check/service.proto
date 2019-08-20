@@ -1,0 +1,22 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "check";
+
+package service;
+
+service Service {
+    rpc Method1(In) returns (Out);
+    rpc Method2(stream In) returns (Out);
+    rpc Method3(In) returns (stream Out);
+    rpc Method4(stream In) returns (stream Out);
+}
+
+message In {
+    int64 in = 1;
+}
+
+message Out {
+    int64 out = 1;
+}

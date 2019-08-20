@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
-	"storj.io/storj/drpc/drpcstream"
+	"storj.io/storj/drpc"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
@@ -227,8 +227,8 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	if ok {
 		return PeerIdentityFromPeer(p)
 	}
-	if s := drpcstream.FromContext(ctx); s != nil {
-		conn, ok := s.Transport().(*tls.Conn)
+	if tr, ok := drpc.TransportFromContext(ctx); ok {
+		conn, ok := tr.(*tls.Conn)
 		if ok {
 			return PeerIdentityFromChain(conn.ConnectionState().PeerCertificates)
 		}

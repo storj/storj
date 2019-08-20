@@ -34,8 +34,16 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 	}, nil
 }
 
+func (srv *Inspector) DRPCCountNodes(ctx context.Context, req *pb.CountNodesRequest) (_ *pb.CountNodesResponse, err error) {
+	return srv.CountNodes(ctx, req)
+}
+
 // DumpNodes returns all of the nodes in the overlay.
 func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (_ *pb.DumpNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return &pb.DumpNodesResponse{}, errs.New("Not Implemented")
+}
+
+func (srv *Inspector) DRPCDumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (_ *pb.DumpNodesResponse, err error) {
+	return srv.DumpNodes(ctx, req)
 }

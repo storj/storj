@@ -125,6 +125,10 @@ func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInf
 	return &pb.SegmentInfoResponseOld{Pointer: pointer}, nil
 }
 
+func (endpoint *Endpoint) DRPCSegmentInfoOld(ctx context.Context, req *pb.SegmentInfoRequestOld) (resp *pb.SegmentInfoResponseOld, err error) {
+	return endpoint.SegmentInfoOld(ctx, req)
+}
+
 // CreateSegmentOld will generate requested number of OrderLimit with coresponding node addresses for them
 func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -195,6 +199,10 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 	}
 
 	return &pb.SegmentWriteResponseOld{AddressedLimits: addressedLimits, RootPieceId: rootPieceID, PrivateKey: piecePrivateKey}, nil
+}
+
+func (endpoint *Endpoint) DRPCCreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
+	return endpoint.CreateSegmentOld(ctx, req)
 }
 
 func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
@@ -306,6 +314,10 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 	return &pb.SegmentCommitResponseOld{Pointer: pointer}, nil
 }
 
+func (endpoint *Endpoint) DRPCCommitSegmentOld(ctx context.Context, req *pb.SegmentCommitRequestOld) (resp *pb.SegmentCommitResponseOld, err error) {
+	return endpoint.CommitSegmentOld(ctx, req)
+}
+
 // DownloadSegmentOld gets Pointer incase of INLINE data or list of OrderLimit necessary to download remote data
 func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.SegmentDownloadRequestOld) (resp *pb.SegmentDownloadResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -359,6 +371,10 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 	}
 
 	return &pb.SegmentDownloadResponseOld{}, nil
+}
+
+func (endpoint *Endpoint) DRPCDownloadSegmentOld(ctx context.Context, req *pb.SegmentDownloadRequestOld) (resp *pb.SegmentDownloadResponseOld, err error) {
+	return endpoint.DownloadSegmentOld(ctx, req)
 }
 
 // DeleteSegmentOld deletes segment metadata from satellite and returns OrderLimit array to remove them from storage node
@@ -420,6 +436,10 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 	return &pb.SegmentDeleteResponseOld{}, nil
 }
 
+func (endpoint *Endpoint) DRPCDeleteSegmentOld(ctx context.Context, req *pb.SegmentDeleteRequestOld) (resp *pb.SegmentDeleteResponseOld, err error) {
+	return endpoint.DeleteSegmentOld(ctx, req)
+}
+
 // ListSegmentsOld returns all Path keys in the Pointers bucket
 func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegmentsRequestOld) (resp *pb.ListSegmentsResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -454,6 +474,10 @@ func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegme
 	}
 
 	return &pb.ListSegmentsResponseOld{Items: segmentItems, More: more}, nil
+}
+
+func (endpoint *Endpoint) DRPCListSegmentsOld(ctx context.Context, req *pb.ListSegmentsRequestOld) (resp *pb.ListSegmentsResponseOld, err error) {
+	return endpoint.ListSegmentsOld(ctx, req)
 }
 
 func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
@@ -558,6 +582,10 @@ func (endpoint *Endpoint) SetAttributionOld(ctx context.Context, req *pb.SetAttr
 	return &pb.SetAttributionResponseOld{}, err
 }
 
+func (endpoint *Endpoint) DRPCSetAttributionOld(ctx context.Context, req *pb.SetAttributionRequestOld) (_ *pb.SetAttributionResponseOld, err error) {
+	return endpoint.SetAttributionOld(ctx, req)
+}
+
 // bytesToUUID is used to convert []byte to UUID
 func bytesToUUID(data []byte) (uuid.UUID, error) {
 	var id uuid.UUID
@@ -589,6 +617,10 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	}, nil
 }
 
+func (endpoint *Endpoint) DRPCProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
+	return endpoint.ProjectInfo(ctx, req)
+}
+
 // GetBucket returns a bucket
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -618,6 +650,10 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	return &pb.BucketGetResponse{
 		Bucket: convBucket,
 	}, nil
+}
+
+func (endpoint *Endpoint) DRPCGetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
+	return endpoint.GetBucket(ctx, req)
 }
 
 // CreateBucket creates a new bucket
@@ -697,6 +733,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	return nil, Error.Wrap(err)
 }
 
+func (endpoint *Endpoint) DRPCCreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
+	return endpoint.CreateBucket(ctx, req)
+}
+
 // DeleteBucket deletes a bucket
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -721,6 +761,10 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	}
 
 	return &pb.BucketDeleteResponse{}, nil
+}
+
+func (endpoint *Endpoint) DRPCDeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
+	return endpoint.DeleteBucket(ctx, req)
 }
 
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor
@@ -764,6 +808,10 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}, nil
 }
 
+func (endpoint *Endpoint) DRPCListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
+	return endpoint.ListBuckets(ctx, req)
+}
+
 func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
@@ -787,6 +835,10 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 	err = endpoint.setBucketAttribution(ctx, req.Name, req.PartnerId)
 
 	return &pb.BucketSetAttributionResponse{}, err
+}
+
+func (endpoint *Endpoint) DRPCSetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
+	return endpoint.SetBucketAttribution(ctx, req)
 }
 
 func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, bucketName []byte, parterID []byte) error {
@@ -987,6 +1039,10 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}, nil
 }
 
+func (endpoint *Endpoint) DRPCBeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
+	return endpoint.BeginObject(ctx, req)
+}
+
 // CommitObject commits object when all segments are also committed
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1061,6 +1117,10 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	return &pb.ObjectCommitResponse{}, nil
 }
 
+func (endpoint *Endpoint) DRPCCommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
+	return endpoint.CommitObject(ctx, req)
+}
+
 // GetObject gets single object
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1124,6 +1184,10 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}, nil
 }
 
+func (endpoint *Endpoint) DRPCGetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
+	return endpoint.GetObject(ctx, req)
+}
+
 // ListObjects list objects according to specific parameters
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1172,6 +1236,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		Items: items,
 		More:  more,
 	}, nil
+}
+
+func (endpoint *Endpoint) DRPCListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
+	return endpoint.ListObjects(ctx, req)
 }
 
 // BeginDeleteObject begins object deletion process
@@ -1225,6 +1293,10 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	}, nil
 }
 
+func (endpoint *Endpoint) DRPCBeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
+	return endpoint.BeginDeleteObject(ctx, req)
+}
+
 // FinishDeleteObject finishes object deletion
 func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.ObjectFinishDeleteRequest) (resp *pb.ObjectFinishDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1257,6 +1329,10 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 	// we don't need to do anything for shim implementation
 
 	return &pb.ObjectFinishDeleteResponse{}, nil
+}
+
+func (endpoint *Endpoint) DRPCFinishDeleteObject(ctx context.Context, req *pb.ObjectFinishDeleteRequest) (resp *pb.ObjectFinishDeleteResponse, err error) {
+	return endpoint.FinishDeleteObject(ctx, req)
 }
 
 // BeginSegment begins segment uploading
@@ -1331,6 +1407,10 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		AddressedLimits: addressedLimits,
 		PrivateKey:      piecePrivateKey,
 	}, nil
+}
+
+func (endpoint *Endpoint) DRPCBeginSegment(ctx context.Context, req *pb.SegmentBeginRequest) (resp *pb.SegmentBeginResponse, err error) {
+	return endpoint.BeginSegment(ctx, req)
 }
 
 // CommitSegment commits segment after uploading
@@ -1449,6 +1529,10 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	return &pb.SegmentCommitResponse{}, nil
 }
 
+func (endpoint *Endpoint) DRPCCommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
+	return endpoint.CommitSegment(ctx, req)
+}
+
 // MakeInlineSegment makes inline segment on satellite
 func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest) (resp *pb.SegmentMakeInlineResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1517,6 +1601,10 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	return &pb.SegmentMakeInlineResponse{}, nil
 }
 
+func (endpoint *Endpoint) DRPCMakeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest) (resp *pb.SegmentMakeInlineResponse, err error) {
+	return endpoint.MakeInlineSegment(ctx, req)
+}
+
 // BeginDeleteSegment begins segment deletion process
 func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.SegmentBeginDeleteRequest) (resp *pb.SegmentBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1565,6 +1653,10 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 	}, nil
 }
 
+func (endpoint *Endpoint) DRPCBeginDeleteSegment(ctx context.Context, req *pb.SegmentBeginDeleteRequest) (resp *pb.SegmentBeginDeleteResponse, err error) {
+	return endpoint.BeginDeleteSegment(ctx, req)
+}
+
 // FinishDeleteSegment finishes segment deletion process
 func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.SegmentFinishDeleteRequest) (resp *pb.SegmentFinishDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1604,6 +1696,10 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 	}
 
 	return &pb.SegmentFinishDeleteResponse{}, nil
+}
+
+func (endpoint *Endpoint) DRPCFinishDeleteSegment(ctx context.Context, req *pb.SegmentFinishDeleteRequest) (resp *pb.SegmentFinishDeleteResponse, err error) {
+	return endpoint.FinishDeleteSegment(ctx, req)
 }
 
 // ListSegments list object segments
@@ -1671,6 +1767,10 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		Items: segmentItems,
 		More:  more,
 	}, nil
+}
+
+func (endpoint *Endpoint) DRPCListSegments(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
+	return endpoint.ListSegments(ctx, req)
 }
 
 // DownloadSegment returns data necessary to download segment
@@ -1779,6 +1879,10 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	return &pb.SegmentDownloadResponse{}, status.Error(codes.Internal, "invalid type of pointer")
+}
+
+func (endpoint *Endpoint) DRPCDownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
+	return endpoint.DownloadSegment(ctx, req)
 }
 
 func (endpoint *Endpoint) getPointer(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte) (*pb.Pointer, string, error) {

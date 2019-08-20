@@ -277,6 +277,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
+		peer.Server.DRPC().Register(peer.Overlay.Inspector, pb.DRPCOverlayInspectorDescription{})
 	}
 
 	{ // setup kademlia
@@ -403,6 +404,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Repairer.MaxExcessRateOptimalThreshold,
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
+		peer.Server.DRPC().Register(peer.Orders.Endpoint, pb.DRPCOrdersDescription{})
 	}
 
 	{ // setup metainfo
@@ -433,6 +435,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
+		peer.Server.DRPC().Register(peer.Metainfo.Endpoint2, pb.DRPCMetainfoDescription{})
 	}
 
 	{ // setup datarepair
@@ -650,6 +653,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.StoragenodeAccounting())
 
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
+		peer.Server.DRPC().Register(peer.NodeStats.Endpoint, pb.DRPCNodeStatsDescription{})
 	}
 
 	return peer, nil

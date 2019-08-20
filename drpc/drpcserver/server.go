@@ -109,17 +109,20 @@ func (s *Server) Serve(ctx context.Context, lis net.Listener) error {
 }
 
 func (s *Server) Handle(stream *drpcstream.Stream, rpc string) error {
-	err := s.doHandle(stream, rpc)
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	err := s.doHandle(ctx, stream, rpc)
 	if err != nil {
 		stream.SendError(err)
-		return nil
 	}
 	return stream.Close()
 }
 
-func (s *Server) doHandle(stream *drpcstream.Stream, rpc string) error {
+func (s *Server) doHandle(ctx context.Context, stream *drpcstream.Stream, rpc string) error {
 	data, ok := s.rpcs[rpc]
 	if !ok {
+		// fmt.Printf("missing rpc:%q rpcs:%v\n", rpc, s.rpcs)
 		return drpc.ProtocolError.New("unknown rpc: %q", rpc)
 	}
 
@@ -131,9 +134,6 @@ func (s *Server) doHandle(stream *drpcstream.Stream, rpc string) error {
 		}
 		in = msg
 	}
-
-	ctx, cancel := context.WithCancel(stream.Context())
-	defer cancel()
 
 	out, err := data.handler(data.srv, ctx, in, stream)
 	switch {

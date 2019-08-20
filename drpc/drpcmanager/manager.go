@@ -95,6 +95,7 @@ func (m *Manager) NewStream(ctx context.Context, streamID uint64) (*drpcstream.S
 func (m *Manager) monitorStream(stream *drpcstream.Stream) {
 	select {
 	case <-m.sig.Signal():
+		stream.SendError(m.sig.Err())
 		stream.Sig().Set(m.sig.Err())
 	case <-stream.Sig().Signal():
 		m.cleanupStream(stream)
@@ -121,8 +122,16 @@ func (m *Manager) manageStreams(ctx context.Context) {
 		case err != nil:
 			m.sig.Set(err)
 			return
+
 		case p == nil:
-			m.sig.Set(io.EOF)
+			m.mu.Lock()
+			if len(m.streams) > 0 {
+				m.sig.Set(io.ErrUnexpectedEOF)
+			} else {
+				m.sig.Set(io.EOF)
+			}
+			m.mu.Unlock()
+
 			return
 		}
 
@@ -142,7 +151,7 @@ func (m *Manager) manageStreams(ctx context.Context) {
 
 		// invoke with a fresh stream: start up a handler
 		case p.PayloadKind == drpcwire.PayloadKind_Invoke && stream == nil:
-			stream, err := m.NewStream(ctx, p.StreamID)
+			stream, err := m.NewStream(drpc.WithTransport(ctx, m.tr), p.StreamID)
 			if err != nil {
 				m.sig.Set(err)
 				return
@@ -160,32 +169,36 @@ func (m *Manager) manageStreams(ctx context.Context) {
 		// error: signal to the stream what the error is
 		case p.PayloadKind == drpcwire.PayloadKind_Error:
 			stream.Sig().Set(errs.New("%s", p.Data))
+			m.cleanupStream(stream)
 
 		// cancel: signal to the stream that the remote side canceled
 		case p.PayloadKind == drpcwire.PayloadKind_Cancel:
 			stream.Cancel()
+			m.cleanupStream(stream)
 
-		// close: stream fully closed with no responses expected
+		// close: stream fully closed with no responses expected so make sends error
 		case p.PayloadKind == drpcwire.PayloadKind_Close:
 			if stream.RecvSig().Set(nil) {
 				close(stream.Queue())
-				m.cleanupStream(stream)
 			}
 			stream.SendSig().Set(io.ErrClosedPipe)
+			m.cleanupStream(stream)
 
 		// close send: signal to the stream that no more sends will happen
 		case p.PayloadKind == drpcwire.PayloadKind_CloseSend:
 			if stream.RecvSig().Set(nil) {
 				close(stream.Queue())
-				m.cleanupStream(stream)
 			}
+			m.cleanupStream(stream)
 
-		// send after close send: protocol error
-		case stream.RecvSig().IsSet():
-			m.sig.Set(drpc.ProtocolError.New("remote sent message after CloseSend"))
+		// send after a remote terminal state: protocol error
+		case stream.TermSig().IsSet(),
+			stream.RecvSig().IsSet():
+
+			m.sig.Set(drpc.ProtocolError.New("remote sent message after terminated"))
 			return
 
-		// stream error: drop the message
+		// stream in local error state: drop the message
 		case stream.Sig().IsSet():
 
 		default:
@@ -194,12 +207,15 @@ func (m *Manager) manageStreams(ctx context.Context) {
 			case <-m.sig.Signal():
 				return
 
-			// send after close send: protocol error
+			// send after some remote terminal state: protocol error
+			case <-stream.TermSig().Signal():
+				m.sig.Set(drpc.ProtocolError.New("remote sent message after terminated"))
+				return
 			case <-stream.RecvSig().Signal():
-				m.sig.Set(drpc.ProtocolError.New("remote sent message after CloseSend"))
+				m.sig.Set(drpc.ProtocolError.New("remote sent message after terminated"))
 				return
 
-			// stream error: drop the message
+			// local stream error: drop the message
 			case <-stream.Sig().Signal():
 
 			// attempt to place it into the queue

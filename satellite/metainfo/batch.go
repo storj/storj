@@ -213,3 +213,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 
 	return resp, nil
 }
+
+func (endpoint *Endpoint) DRPCBatch(ctx context.Context, req *pb.BatchRequest) (resp *pb.BatchResponse, err error) {
+	return endpoint.Batch(ctx, req)
+}
