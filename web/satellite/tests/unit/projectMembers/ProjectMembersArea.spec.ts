@@ -3,9 +3,10 @@
 
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 import Vuex from 'vuex';
+
+import { ProjectMembersApiGql } from '@/api/projectMembers';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
-import { projectMembersModule } from '@/store/modules/projectMembers';
-import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
+import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
 
 const localVue = createLocalVue();
@@ -16,22 +17,10 @@ const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'tes
 const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
 
 describe('ProjectMembersArea.vue', () => {
-    const state = projectMembersModule.state;
-    const mutations = projectMembersModule.mutations;
-    const actions = projectMembersModule.actions;
-    const getters = projectMembersModule.getters;
+    const pmApi = new ProjectMembersApiGql();
+    const projectMembersModule = makeProjectMembersModule(pmApi);
 
-    const store = new Vuex.Store({
-        modules: {
-            projectMembersModule: {
-                state,
-                mutations,
-                actions,
-                getters,
-            }
-        }
-    });
-
+    const store = new Vuex.Store({modules: { projectMembersModule }});
 
     it('renders correctly', () => {
         const wrapper = shallowMount(ProjectMembersArea, {
@@ -125,30 +114,5 @@ describe('ProjectMembersArea.vue', () => {
         store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
         expect(wrapper.vm.projectMembers[0].user.id).toBe(projectMember2.user.id);
-    });
-
-    it('project member deletion trigger list rerender', () => {
-        const testProjectMembersPage = new ProjectMembersPage();
-        testProjectMembersPage.projectMembers = [projectMember1];
-        testProjectMembersPage.totalCount = 1;
-        testProjectMembersPage.pageCount = 1;
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
-
-        const wrapper = mount(ProjectMembersArea, {
-            store,
-            localVue,
-            mocks: {
-                $route: {
-                    query: {}
-                }
-            }
-        });
-
-        expect(wrapper.vm.projectMembers.length).toBe(1);
-
-        store.commit(PROJECT_MEMBER_MUTATIONS.DELETE, [projectMember1.user.email]);
-
-        expect(wrapper.vm.projectMembers.length).toBe(0);
     });
 });

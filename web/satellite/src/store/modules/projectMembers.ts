@@ -1,123 +1,127 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { PROJECT_MEMBER_MUTATIONS } from '../mutationConstants';
 import {
-    addProjectMembersRequest,
-    deleteProjectMembersRequest,
-    fetchProjectMembersRequest
-} from '@/api/projectMembers';
-import { ProjectMember, ProjectMemberCursor, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
-import { RequestResponse } from '@/types/response';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
+    ProjectMember,
+    ProjectMemberCursor,
+    ProjectMemberOrderBy,
+    ProjectMembersApi,
+    ProjectMembersPage,
+} from '@/types/projectMembers';
 import { SortDirection } from '@/types/common';
+import { StoreModule } from '@/store';
 
-const PROJECT_MEMBERS_PAGE_LIMIT = 8;
-const FIRST_PAGE = 1;
-
-export const projectMembersModule = {
-    state: {
-        cursor: new ProjectMemberCursor(),
-        page: new ProjectMembersPage(),
-    },
-    mutations: {
-        [PROJECT_MEMBER_MUTATIONS.DELETE](state: any, projectMemberEmails: string[]) {
-            const emailsCount = projectMemberEmails.length;
-
-            for (let j = 0; j < emailsCount; j++) {
-                state.page.projectMembers = state.page.projectMembers.filter((element: any) => {
-                    return element.user.email !== projectMemberEmails[j];
-                });
-            }
-        },
-        [PROJECT_MEMBER_MUTATIONS.FETCH](state: any, page: ProjectMembersPage) {
-            // todo expand this assignment
-            state.page = page;
-        },
-        [PROJECT_MEMBER_MUTATIONS.SET_PAGE](state: any, page: number) {
-            state.cursor.page = page;
-        },
-        [PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY](state: any, search: string) {
-            state.cursor.search = search;
-        },
-        [PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER](state: any, order: ProjectMemberOrderBy) {
-            state.cursor.order = order;
-        },
-        [PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION](state: any, direction: SortDirection) {
-            state.cursor.orderDirection = direction;
-        },
-        [PROJECT_MEMBER_MUTATIONS.CLEAR](state: any) {
-            state.cursor = {limit: PROJECT_MEMBERS_PAGE_LIMIT, search: '', page: FIRST_PAGE} as ProjectMemberCursor;
-            state.page = {projectMembers: [] as ProjectMember[]} as ProjectMembersPage;
-        },
-        [PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION](state: any, projectMemberId: string) {
-            state.page.projectMembers = state.page.projectMembers.map((projectMember: any) => {
-                if (projectMember.user.id === projectMemberId) {
-                    projectMember.isSelected = !projectMember.isSelected;
-                }
-
-                return projectMember;
-            });
-        },
-        [PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION](state: any) {
-            state.page.projectMembers = state.page.projectMembers.map((projectMember: any) => {
-                projectMember.isSelected = false;
-
-                return projectMember;
-            });
-        },
-    },
-    actions: {
-        [PM_ACTIONS.ADD]: async function ({rootGetters}: any, emails: string[]): Promise<RequestResponse<null>> {
-            const projectId = rootGetters.selectedProject.id;
-
-            return await addProjectMembersRequest(projectId, emails);
-        },
-        [PM_ACTIONS.DELETE]: async function ({commit, rootGetters}: any, projectMemberEmails: string[]): Promise<RequestResponse<null>> {
-            const projectId = rootGetters.selectedProject.id;
-
-            const response = await deleteProjectMembersRequest(projectId, projectMemberEmails);
-
-            if (response.isSuccess) {
-                commit(PROJECT_MEMBER_MUTATIONS.DELETE, projectMemberEmails);
-            }
-
-            return response;
-        },
-        [PM_ACTIONS.FETCH]: async function ({commit, rootGetters, state}: any, page: number): Promise<RequestResponse<ProjectMembersPage>> {
-            const projectID = rootGetters.selectedProject.id;
-            state.cursor.page = page;
-
-            commit(PROJECT_MEMBER_MUTATIONS.SET_PAGE, page);
-
-            let result = await fetchProjectMembersRequest(projectID, state.cursor);
-            if (result.isSuccess) {
-                commit(PROJECT_MEMBER_MUTATIONS.FETCH, result.data);
-            }
-
-            return result;
-        },
-
-        [PM_ACTIONS.SET_SEARCH_QUERY]: function ({commit}, search: string) {
-            commit(PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY, search);
-        },
-        [PM_ACTIONS.SET_SORT_BY]: function ({commit}, order: ProjectMemberOrderBy) {
-            commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER, order);
-        },
-        [PM_ACTIONS.SET_SORT_DIRECTION]: function ({commit}, direction: SortDirection) {
-            commit(PROJECT_MEMBER_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION, direction);
-        },
-        [PM_ACTIONS.CLEAR]: function ({commit}) {
-            commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
-        },
-        [PM_ACTIONS.TOGGLE_SELECTION]: function ({commit}: any, projectMemberId: string) {
-            commit(PROJECT_MEMBER_MUTATIONS.TOGGLE_SELECTION, projectMemberId);
-        },
-        [PM_ACTIONS.CLEAR_SELECTION]: function ({commit}: any) {
-            commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
-        },
-    },
-    getters: {
-        selectedProjectMembers: (state: any) => state.page.projectMembers.filter((member: any) => member.isSelected),
-    }
+export const PROJECT_MEMBER_MUTATIONS = {
+    FETCH: 'fetchProjectMembers',
+    TOGGLE_SELECTION: 'toggleSelection',
+    CLEAR_SELECTION: 'clearSelection',
+    CLEAR: 'clearProjectMembers',
+    CHANGE_SORT_ORDER: 'changeProjectMembersSortOrder',
+    CHANGE_SORT_ORDER_DIRECTION: 'changeProjectMembersSortOrderDirection',
+    SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
+    SET_PAGE: 'setProjectMembersPage',
 };
+
+const {
+    FETCH,
+    TOGGLE_SELECTION,
+    CLEAR_SELECTION,
+    CLEAR,
+    CHANGE_SORT_ORDER,
+    CHANGE_SORT_ORDER_DIRECTION,
+    SET_SEARCH_QUERY,
+    SET_PAGE,
+} = PROJECT_MEMBER_MUTATIONS;
+
+class ProjectMembersState {
+    public cursor: ProjectMemberCursor = new ProjectMemberCursor();
+    public page: ProjectMembersPage = new ProjectMembersPage();
+}
+
+export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<ProjectMembersState> {
+    return {
+        state: new ProjectMembersState(),
+        mutations: {
+            [FETCH](state: ProjectMembersState, page: ProjectMembersPage) {
+                state.page = page;
+            },
+            [SET_PAGE](state: ProjectMembersState, page: number) {
+                state.cursor.page = page;
+            },
+            [SET_SEARCH_QUERY](state: ProjectMembersState, search: string) {
+                state.cursor.search = search;
+            },
+            [CHANGE_SORT_ORDER](state: ProjectMembersState, order: ProjectMemberOrderBy) {
+                state.cursor.order = order;
+            },
+            [CHANGE_SORT_ORDER_DIRECTION](state: ProjectMembersState, direction: SortDirection) {
+                state.cursor.orderDirection = direction;
+            },
+            [CLEAR](state: ProjectMembersState) {
+                state.cursor = new ProjectMemberCursor();
+                state.page = new ProjectMembersPage();
+            },
+            [TOGGLE_SELECTION](state: ProjectMembersState, projectMemberId: string) {
+                state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
+                    if (projectMember.user.id === projectMemberId) {
+                        projectMember.isSelected = !projectMember.isSelected;
+                    }
+
+                    return projectMember;
+                });
+            },
+            [CLEAR](state: ProjectMembersState) {
+                state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
+                    projectMember.isSelected = false;
+
+                    return projectMember;
+                });
+            },
+        },
+        actions: {
+            addProjectMembers: async function ({rootGetters}: any, emails: string[]): Promise<void> {
+                const projectId = rootGetters.selectedProject.id;
+
+                await api.add(projectId, emails);
+            },
+            deleteProjectMembers: async function ({rootGetters}: any, projectMemberEmails: string[]): Promise<void> {
+                const projectId = rootGetters.selectedProject.id;
+
+                await api.delete(projectId, projectMemberEmails);
+            },
+            fetchProjectMembers: async function ({commit, rootGetters, state}: any, page: number): Promise<ProjectMembersPage> {
+                const projectID = rootGetters.selectedProject.id;
+                state.cursor.page = page;
+
+                commit(SET_PAGE, page);
+
+                const projectMembersPage: ProjectMembersPage = await api.get(projectID, state.cursor);
+
+                commit(FETCH, projectMembersPage);
+
+                return projectMembersPage;
+            },
+            setProjectMembersSearchQuery: function ({commit}, search: string) {
+                commit(SET_SEARCH_QUERY, search);
+            },
+            setProjectMembersSortingBy: function ({commit}, order: ProjectMemberOrderBy) {
+                commit(CHANGE_SORT_ORDER, order);
+            },
+            setProjectMembersSortingDirection: function ({commit}, direction: SortDirection) {
+                commit(CHANGE_SORT_ORDER_DIRECTION, direction);
+            },
+            clearProjectMembers: function ({commit}) {
+                commit(CLEAR);
+            },
+            toggleProjectMemberSelection: function ({commit}: any, projectMemberId: string) {
+                commit(TOGGLE_SELECTION, projectMemberId);
+            },
+            clearProjectMemberSelection: function ({commit}: any) {
+                commit(CLEAR_SELECTION);
+            },
+        },
+        getters: {
+            selectedProjectMembers: (state: any) => state.page.projectMembers.filter((member: ProjectMember) => member.isSelected),
+        }
+    };
+}

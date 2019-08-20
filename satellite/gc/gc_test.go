@@ -43,6 +43,7 @@ func TestGarbageCollection(t *testing.T) {
 		upl := planet.Uplinks[0]
 		targetNode := planet.StorageNodes[0]
 		gcService := satellite.GarbageCollection.Service
+		gcService.Loop.Pause()
 
 		// Upload two objects
 		testData1 := testrand.Bytes(8 * memory.KiB)
@@ -92,7 +93,11 @@ func TestGarbageCollection(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		// Wait for next iteration of garbage collection to finish
+		gcService.Loop.Restart()
 		gcService.Loop.TriggerWait()
+
+		// Wait for the storagenode's RetainService queue to be empty
+		targetNode.Storage2.RetainService.Wait(ctx)
 
 		// Check that piece of the deleted object is not on the storagenode
 		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{

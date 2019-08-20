@@ -11,12 +11,12 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
+    import { NavigationLink } from '@/types/navigation';
 
     @Component({})
     export default class TabNavigation extends Vue {
-        // TODO: add types for navigation
-        @Prop({default: {}})
-        private navigation: any;
+        @Prop({default: new Array(NavigationLink)})
+        private navigation: NavigationLink[];
     }
 </script>
 

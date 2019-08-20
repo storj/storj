@@ -10,10 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/rollup"
@@ -66,13 +69,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		err = db.CreateTables()
-		if err != nil {
-			return nil, err
-		}
-
-		planet.databases = append(planet.databases, db)
 
 		config := satellite.Config{
 			Server: server.Config{
@@ -213,10 +209,22 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 		verInfo := planet.NewVersionInfo()
 
-		peer, err := satellite.New(log, identity, db, &config, verInfo)
+		revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+		if err != nil {
+			return xs, errs.Wrap(err)
+		}
+		planet.databases = append(planet.databases, revocationDB)
+
+		peer, err := satellite.New(log, identity, db, revocationDB, &config, verInfo)
 		if err != nil {
 			return xs, err
 		}
+
+		err = db.CreateTables()
+		if err != nil {
+			return nil, err
+		}
+		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 		xs = append(xs, peer)
