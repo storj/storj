@@ -116,7 +116,7 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 
 		err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
 		if err != nil {
-			return nil, status.Error(codes.PermissionDenied, "untrusted peer")
+			return nil, status.Errorf(codes.PermissionDenied, "untrusted peer %v", peer.ID)
 		}
 	}
 
