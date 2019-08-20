@@ -55,14 +55,6 @@ type RevocationDB interface {
 	List(ctx context.Context) ([]*Revocation, error)
 }
 
-func init() {
-	// NB: register all handlers defined in this file.
-	AllHandlers.Register(
-		RevocationCheckHandler,
-		RevocationUpdateHandler,
-	)
-}
-
 // NewRevocationExt generates a revocation extension for a certificate.
 func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pkix.Extension, error) {
 	nowUnix := time.Now().Unix()
