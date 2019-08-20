@@ -523,9 +523,12 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			// TODO: add timeout here
 			message, err = stream.Recv()
 			if err != nil {
-				// err is io.EOF or canceled when uplink closed the connection, no need to return error
-				err = errs2.IgnoreCanceled(ignoreEOF(err))
-				return ErrProtocol.Wrap(err)
+				if !errs2.IsCanceled(err) {
+					// err is io.EOF or canceled when uplink closed the connection, no need to return error
+					return ErrProtocol.Wrap(ignoreEOF(err))
+				}
+				endpoint.log.Debug("uplink canceled connection")
+				return nil
 			}
 
 			if message == nil || message.Order == nil {
