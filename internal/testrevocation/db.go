@@ -31,7 +31,7 @@ func RunDBs(t *testing.T, test func(*testing.T, extensions.RevocationDB, storage
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 
-		test(t, db, db.TestInternalStore())
+		test(t, db, db.TestGetStore())
 	})
 
 	t.Run("Bolt", func(t *testing.T) {
@@ -43,6 +43,6 @@ func RunDBs(t *testing.T, test func(*testing.T, extensions.RevocationDB, storage
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 
-		test(t, db, db.TestInternalStore())
+		test(t, db, db.TestGetStore())
 	})
 }

@@ -16,7 +16,7 @@ import (
 // returns a nil db with no error.
 func NewDBFromCfg(cfg tlsopts.Config) (*DB, error) {
 	if !cfg.Extensions.Revocation {
-		return nil, nil
+		return &DB{}, nil
 	}
 	return NewDB(cfg.RevocationDBURL)
 }

@@ -33,8 +33,13 @@ type DB struct {
 
 // Get attempts to retrieve the most recent revocation for the given cert chain
 // (the  key used in the underlying database is the nodeID of the certificate chain).
-func (db DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.Revocation, err error) {
+func (db *DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.Revocation, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if db.store == nil {
+		return nil, nil
+	}
+
 	nodeID, err := identity.NodeIDFromCert(chain[peertls.CAIndex])
 	if err != nil {
 		return nil, extensions.ErrRevocation.Wrap(err)
@@ -58,8 +63,13 @@ func (db DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.
 // Put stores the most recent revocation for the given cert chain IF the timestamp
 // is newer than the current value (the  key used in the underlying database is
 // the nodeID of the certificate chain).
-func (db DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Extension) (err error) {
+func (db *DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Extension) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if db.store == nil {
+		return extensions.ErrRevocationDB.New("not supported")
+	}
+
 	ca := chain[peertls.CAIndex]
 	var rev extensions.Revocation
 	if err := rev.Unmarshal(revExt.Value); err != nil {
@@ -91,8 +101,13 @@ func (db DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Ext
 }
 
 // List lists all revocations in the store
-func (db DB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
+func (db *DB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if db.store == nil {
+		return nil, nil
+	}
+
 	keys, err := db.store.List(ctx, []byte{}, 0)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
@@ -114,12 +129,15 @@ func (db DB) List(ctx context.Context) (revs []*extensions.Revocation, err error
 	return revs, nil
 }
 
-// TestInternalStore returns the internal store for testing.
-func (db DB) TestInternalStore() storage.KeyValueStore {
+// TestGetStore returns the internal store for testing.
+func (db *DB) TestGetStore() storage.KeyValueStore {
 	return db.store
 }
 
 // Close closes the underlying store
-func (db DB) Close() error {
+func (db *DB) Close() error {
+	if db.store == nil {
+		return nil
+	}
 	return db.store.Close()
 }
