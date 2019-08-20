@@ -105,6 +105,8 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 			service.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
+		// We iterate over path collector reservoirs to deep copy them because map is a reference type.
+		service.Reservoirs = make(map[storj.NodeID]*Reservoir, len(pathCollector.Reservoirs))
 		for nodeID, res := range pathCollector.Reservoirs {
 			service.Reservoirs[nodeID] = res
 		}
