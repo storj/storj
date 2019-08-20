@@ -41,17 +41,17 @@ The design document uses `TEMPLATE.md` as a guide. However, it can be modified w
 
 The template has the following sections:
 
-**Abstract** gives an overview of the design document and what it accomplishes. It does not go into details about the problem.
+* **Abstract** gives an overview of the design document and what it accomplishes. It does not go into details about the problem.
 
-**Background** gives an overview of the background why this design document exists. It describes the problems the design document tries to solve. It describes the goals of the design.
+* **Background** gives an overview of the background why this design document exists. It describes the problems the design document tries to solve. It describes the goals of the design.
 
-**Design** contains the solution and its parts. The level of detail should correspond to the level of risk. The more problems a wrong solution would cause, the more detailed should be the description. The design should describe the solution to the degree it is usable by the end-user.
+* **Design** contains the solution and its parts. The level of detail should correspond to the level of risk. The more problems a wrong solution would cause, the more detailed should be the description. The design should describe the solution to the degree it is usable by the end-user.
 
-**Rationale** section describes the alternate approaches and trade-offs. It should be clear why the proposed design was chosen among the alternate solutions.
+* **Rationale** section describes the alternate approaches and trade-offs. It should be clear why the proposed design was chosen among the alternate solutions.
 
-**Implementation** describes the steps to complete this design document. It should contain a rough outline of tasks. If necessary, there can be additional details about the changes to the codebase and process.
+* **Implementation** describes the steps to complete this design document. It should contain a rough outline of tasks. If necessary, there can be additional details about the changes to the codebase and process.
 
-**Open Issues** contains open questions that the author did not know how to solve.
+* **Open Issues** contains open questions that the author did not know how to solve.
 
 ## Format
 
