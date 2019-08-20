@@ -68,7 +68,7 @@
         public get buckets(): BucketUsage[] {
             return this.$store.state.bucketUsageModule.page.bucketUsages;
         }
-        
+
         public get search(): string {
             return this.$store.state.bucketUsageModule.cursor.search;
         }

@@ -13,8 +13,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 )
 
 var (
@@ -43,7 +43,7 @@ func cmdRevocations(cmd *cobra.Command, args []string) error {
 		revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
 	}
 
-	revDB, err := identity.NewRevocationDB(revCfg.RevocationDBURL)
+	revDB, err := revocation.NewDB(revCfg.RevocationDBURL)
 	if err != nil {
 		return err
 	}

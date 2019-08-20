@@ -106,7 +106,7 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 
 	if self.Type == pb.NodeType_STORAGE {
 		if endpoint.trust == nil {
-			return nil, status.Error(codes.Internal, "missing trust verifier")
+			return nil, status.Error(codes.Internal, "missing trust")
 		}
 
 		peer, err := identity.PeerIdentityFromContext(ctx)
@@ -116,7 +116,7 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 
 		err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
 		if err != nil {
-			return nil, status.Error(codes.PermissionDenied, "info requested from untrusted peer")
+			return nil, status.Errorf(codes.PermissionDenied, "untrusted peer %v", peer.ID)
 		}
 	}
 
