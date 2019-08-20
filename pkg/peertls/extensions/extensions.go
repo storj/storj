@@ -73,7 +73,7 @@ type Config struct {
 // Options holds common options for use in handling extensions.
 type Options struct {
 	PeerCAWhitelist []*x509.Certificate
-	RevDB           RevocationDB
+	RevocationDB    RevocationDB
 	PeerIDVersions  string
 }
 

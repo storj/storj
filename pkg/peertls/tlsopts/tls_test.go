@@ -95,9 +95,9 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 		err = rev.Verify(newRevokedLeafChain[peertls.CAIndex])
 		require.NoError(t, err)
 
-		testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+		testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 			opts := &extensions.Options{
-				RevDB:          revDB,
+				RevocationDB:   revDB,
 				PeerIDVersions: "*",
 			}
 
@@ -128,7 +128,7 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testrevocation.RunDBs(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		keys, chain, oldRevocation, err := testpeertls.NewRevokedLeafChain()
 		assert.NoError(t, err)
 
@@ -143,7 +143,7 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 		err = revDB.Put(ctx, chain, newRevocation)
 		assert.NoError(t, err)
 
-		opts := &extensions.Options{RevDB: revDB}
+		opts := &extensions.Options{RevocationDB: revDB}
 		handlerFuncMap := extensions.HandlerFactories{
 			extensions.RevocationUpdateHandler,
 		}.WithOptions(opts)
