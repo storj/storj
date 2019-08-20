@@ -162,12 +162,13 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			}
 		}
 
-		revDB, err := revocation.NewDBFromCfg(config.Server.Config)
+		revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
 		if err != nil {
-			return nil, errs.New("Error creating revocation database: %+v", err)
+			return xs, errs.Wrap(err)
 		}
+		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := storagenode.New(log, identity, db, revDB, config, verInfo)
+		peer, err := storagenode.New(log, identity, db, revocationDB, config, verInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -176,7 +177,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		if err != nil {
 			return nil, err
 		}
-
 		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
