@@ -22,55 +22,8 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storagenode"
 	"storj.io/storj/uplink"
 )
-
-func TestCleanArchive(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			StorageNode: func(index int, config *storagenode.Config) {
-				config.Storage2.Orders.ArchiveTTL = 100 * time.Millisecond
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Service.Loop.Stop()
-		node := planet.StorageNodes[0]
-		service := node.Storage2.Orders
-		service.Sender.Pause()
-		service.Cleanup.Pause()
-
-		expectedData := testrand.Bytes(50 * memory.KiB)
-
-		redundancy := noLongTailRedundancy(planet)
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
-		require.NoError(t, err)
-
-		service.Sender.TriggerWait()
-
-		// let archived order age for 100 milliseconds
-		time.Sleep(100 * time.Millisecond)
-
-		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
-		require.NoError(t, err)
-
-		service.Sender.TriggerWait()
-
-		oldOrder, err := node.DB.Orders().ListArchived(ctx, 1000)
-		require.NoError(t, err)
-		require.Len(t, oldOrder, 2)
-
-		// trigger cleanup to delete archived orders older than 100 milliseconds
-		service.Cleanup.TriggerWait()
-
-		// assert old order was deleted and new order remains
-		newOrder, err := node.DB.Orders().ListArchived(ctx, 1000)
-		require.NoError(t, err)
-		require.Len(t, newOrder, 1)
-		require.True(t, newOrder[0].ArchivedAt.After(oldOrder[0].ArchivedAt))
-	})
-}
 
 func TestSendingReceivingOrders(t *testing.T) {
 	// test happy path
