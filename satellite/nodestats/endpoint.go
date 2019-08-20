@@ -54,7 +54,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		if overlay.ErrNodeNotFound.Has(err) {
 			return nil, status.Error(codes.PermissionDenied, err.Error())
 		}
-		e.log.Error("overlay.Get failed: %v", zap.Error(err))
+		e.log.Error("overlay.Get failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -97,13 +97,13 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 		if overlay.ErrNodeNotFound.Has(err) {
 			return nil, status.Error(codes.PermissionDenied, err.Error())
 		}
-		e.log.Error("overlay.Get failed: %v", zap.Error(err))
+		e.log.Error("overlay.Get failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	nodeSpaceUsages, err := e.accounting.QueryStorageNodeUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
 	if err != nil {
-		e.log.Error("accounting.QueryStorageNodeUsage failed: %v", zap.Error(err))
+		e.log.Error("accounting.QueryStorageNodeUsage failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
