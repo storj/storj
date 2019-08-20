@@ -51,9 +51,9 @@ n004 + + + + + + +
 
 Unvetted nodes should get 25,000 pieces per month. On a good day, there will be 1000 pieces added to an unvetted node, which should quickly fill the reservoir sample.
 
-• We have a reservoir of k items and a stream of n items, where n is an unknown number.
-• Fill the reservoir from [0...k-1] with the first k items in the stream
-• For every item in the stream from index i=k..n-1, pick a random number j=rand(0..i), and if j<k, replace reservoir[j] with stream[i]
++ We have a reservoir of k items and a stream of n items, where n is an unknown number.
++ Fill the reservoir from [0...k-1] with the first k items in the stream
++ For every item in the stream from index i=k..n-1, pick a random number j=rand(0..i), and if j<k, replace reservoir[j] with stream[i]
 
 ## Rationale: Discussion of Alternate Approaches, Advantages, Disadvantages
 

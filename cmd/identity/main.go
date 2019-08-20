@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 )
 
 const (
@@ -185,7 +186,12 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	// Ensure we dont enforce a signed Peer Identity
 	config.Signer.TLS.UsePeerCAWhitelist = false
 
-	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
+	revDB, err := revocation.NewDBFromCfg(config.Signer.TLS)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+
+	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken, revDB)
 	if err != nil {
 		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
 	}

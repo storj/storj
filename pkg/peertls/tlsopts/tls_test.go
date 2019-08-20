@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testpeertls"
+	"storj.io/storj/internal/testrevocation"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -94,7 +95,7 @@ func TestExtensionMap_HandleExtensions(t *testing.T) {
 		err = rev.Verify(newRevokedLeafChain[peertls.CAIndex])
 		require.NoError(t, err)
 
-		testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+		testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 			opts := &extensions.Options{
 				RevDB:          revDB,
 				PeerIDVersions: "*",
@@ -127,7 +128,7 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
+	testrevocation.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, db storage.KeyValueStore) {
 		keys, chain, oldRevocation, err := testpeertls.NewRevokedLeafChain()
 		assert.NoError(t, err)
 
