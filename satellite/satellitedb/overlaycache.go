@@ -906,6 +906,8 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.NodeID]int, err error) {
 	defer mon.Task()(&ctx, err)
 
+	// NB: `All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number` selects node
+	// ID and piece count from the nodes table where piece count is not zero.
 	rows, err := cache.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
