@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import gql from 'graphql-tag';
-import apolloManager from '@/utils/apolloManager';
+import apolloManager from '@/utils/apollo';
 
 /**
  * BaseGql is a graphql utility which allows to perform queries and mutations
