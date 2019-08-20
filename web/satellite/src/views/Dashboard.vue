@@ -21,33 +21,36 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import DashboardHeader from '@/components/header/Header.vue';
-    import NavigationArea from '@/components/navigation/NavigationArea.vue';
-    import { AuthToken } from '@/utils/authToken';
+    import { AppState } from '@/utils/constants/appStateEnum';
     import {
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
         NOTIFICATION_ACTIONS,
         PM_ACTIONS,
         PROJETS_ACTIONS,
-        USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
         BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
-    import ROUTES from '@/utils/constants/routerConstants';
-    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
-    import { AppState } from '../utils/constants/appStateEnum';
-    import { RequestResponse } from '../types/response';
-    import { User } from '../types/users';
+    import { USER_ACTIONS } from '@/store/modules/users';
+    import { AuthToken } from '@/utils/authToken';
+    import DashboardHeader from '@/components/header/Header.vue';
+    import NavigationArea from '@/components/navigation/NavigationArea.vue';
     import { Project } from '@/types/projects';
+    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
+    import { RequestResponse } from '@/types/response';
+    import ROUTES from '@/utils/constants/routerConstants';
+    import { User } from '@/types/users';
 
     @Component({
     mounted: async function() {
         setTimeout(async () => {
-            let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
-            if (!response.isSuccess) {
+            let user: User;
+
+            try {
+                user = await this.$store.dispatch(USER_ACTIONS.GET);
+            } catch (error) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
                 this.$router.push(ROUTES.LOGIN);
                 AuthToken.remove();
 
@@ -64,13 +67,15 @@
             await this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
 
             await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
-            if (!projectMembersResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+            } catch (err) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
             }
 
-            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            if (!keysResponse.isSuccess) {
+            try {
+                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            } catch {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 

@@ -4,31 +4,48 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
-
-import { usersModule } from '@/store/modules/users';
-import { projectsModule } from '@/store/modules/projects';
-import { projectMembersModule } from '@/store/modules/projectMembers';
-import { notificationsModule } from '@/store/modules/notifications';
+import { ApiKeysApiGql } from '@/api/apiKeys';
+import { CreditsApiGql } from '@/api/credits';
+import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { UsersApiGql } from '@/api/users';
 import { appStateModule } from '@/store/modules/appState';
-import { apiKeysModule } from '@/store/modules/apiKeys';
-import { bucketUsageModule, usageModule, creditUsageModule } from '@/store/modules/usage';
+import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { makeCreditsModule } from '@/store/modules/credits';
+import { notificationsModule } from '@/store/modules/notifications';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
+import { makeProjectMembersModule } from '@/store/modules/projectMembers';
+import { makeProjectsModule } from '@/store/modules/projects';
+import { bucketUsageModule, usageModule } from '@/store/modules/usage';
+import { makeUsersModule } from '@/store/modules/users';
 
 Vue.use(Vuex);
+
+export class StoreModule<S> {
+    public state: S;
+    public mutations: any;
+    public actions: any;
+    public getters?: any;
+}
+
+// TODO: remove it after we will use modules as classes and use some DI framework
+const usersApi = new UsersApiGql();
+const apiKeysApi = new ApiKeysApiGql();
+const creditsApi = new CreditsApiGql();
+const projectMembersApi = new ProjectMembersApiGql();
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
     modules: {
-        usersModule,
-        projectsModule,
-        projectMembersModule,
-        notificationsModule,
+        apiKeysModule: makeApiKeysModule(apiKeysApi),
         appStateModule,
-        apiKeysModule,
-        usageModule,
         bucketUsageModule,
+        creditsModule: makeCreditsModule(creditsApi),
+        notificationsModule,
+        projectMembersModule: makeProjectMembersModule(projectMembersApi),
         projectPaymentsMethodsModule,
-        creditUsageModule
+        projectsModule: makeProjectsModule(),
+        usageModule,
+        usersModule: makeUsersModule(usersApi),
     }
 });
 

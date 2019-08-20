@@ -22,8 +22,9 @@ random_bytes_file () {
     dd if=/dev/urandom of="$output" count=1 bs="$size" >/dev/null 2>&1
 }
 
-random_bytes_file 2x1024      "$SRC_DIR/small-upload-testfile" # create 2kb file of random bytes (inline)
-random_bytes_file 5x1024x1024 "$SRC_DIR/big-upload-testfile"   # create 5mb file of random bytes (remote)
+random_bytes_file 2x1024      "$SRC_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
+random_bytes_file 5x1024x1024 "$SRC_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
+random_bytes_file 5x1024x1024 "$SRC_DIR/multisegment-upload-testfile"   # create 5mb file of random bytes (remote)
 
 UPLINK_DEBUG_ADDR=""
 
@@ -31,12 +32,16 @@ uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" mb "sj://
 
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" --client.segment-size "1MiB" cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/"
 
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR"
+
 
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/small-upload-testfile"
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/big-upload-testfile"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/multisegment-upload-testfile"
 
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" ls "sj://$BUCKET"
 
@@ -55,6 +60,14 @@ then
     echo "big upload testfile matches uploaded file"
 else
     echo "big upload testfile does not match uploaded file"
+    exit 1
+fi
+
+if cmp "$SRC_DIR/multisegment-upload-testfile" "$DST_DIR/multisegment-upload-testfile"
+then
+    echo "multisegment upload testfile matches uploaded file"
+else
+    echo "multisegment upload testfile does not match uploaded file"
     exit 1
 fi
 

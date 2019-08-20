@@ -945,6 +945,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		},
 		Contained:    info.Contained,
 		Disqualified: info.Disqualified,
+		PieceCount:   info.PieceCount,
 	}
 
 	return node, nil
@@ -974,7 +975,9 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
 		Latency90:             dbNode.Latency90,
 		AuditCount:            dbNode.TotalAuditCount,
+		AuditSuccessCount:     dbNode.AuditSuccessCount,
 		UptimeCount:           dbNode.TotalUptimeCount,
+		UptimeSuccessCount:    dbNode.UptimeSuccessCount,
 		LastContactSuccess:    dbNode.LastContactSuccess,
 		LastContactFailure:    dbNode.LastContactFailure,
 		AuditReputationAlpha:  dbNode.AuditReputationAlpha,

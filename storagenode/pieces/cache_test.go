@@ -32,10 +32,6 @@ func TestDBInit(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, total, int64(0))
 
-		// Try to update the total record before we initialize
-		err = spaceUsedDB.UpdateTotal(ctx, int64(100))
-		require.NoError(t, err)
-
 		// Expect that no total record exists since we haven't
 		// initialized yet
 		total, err = spaceUsedDB.GetTotal(ctx)
@@ -304,6 +300,7 @@ func TestCacheCreateDelete(t *testing.T) {
 }
 
 func TestCacheCreateMultipleSatellites(t *testing.T) {
+	t.Skip("flaky: V3-2416")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 2, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -64,11 +64,12 @@
 
 <script lang='ts'>
     import { Component, Vue } from 'vue-property-decorator';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import { AuthApi } from '@/api/auth';
     import Button from '@/components/common/Button.vue';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { AuthToken } from '@/utils/authToken';
-    import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { RequestResponse } from '@/types/response';
+    import ROUTES from '@/utils/constants/routerConstants';
 
     @Component({
         components: {
@@ -81,6 +82,8 @@
         private password: string = '';
         private isLoading: boolean = false;
 
+        private readonly auth: AuthApi = new AuthApi();
+
         public setPassword(value: string): void {
             this.password = value;
         }
@@ -92,20 +95,18 @@
 
             this.isLoading = true;
 
-            let response: RequestResponse<object> = await this.$store.dispatch(USER_ACTIONS.DELETE, this.password);
+            try {
+                await this.auth.delete(this.password);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
 
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                AuthToken.remove();
+
                 this.isLoading = false;
-
-                return;
+                this.$router.push(ROUTES.LOGIN.path);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+                this.isLoading = false;
             }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
-            AuthToken.remove();
-
-            this.isLoading = false;
-            this.$router.push('/login');
         }
 
         public onCloseClick(): void {
