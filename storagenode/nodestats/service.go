@@ -5,13 +5,14 @@ package nodestats
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/drpc"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -29,13 +30,14 @@ var (
 
 // Client encapsulates NodeStatsClient with underlying connection
 type Client struct {
-	conn *grpc.ClientConn
-	pb.NodeStatsClient
+	conn drpc.Conn
+	pb.DRPCNodeStatsClient
 }
 
 // Close closes underlying client connection
 func (c *Client) Close() error {
-	return c.conn.Close()
+	// TODO(jeff): dear god help me
+	return c.conn.Transport().(io.Closer).Close()
 }
 
 // Service retrieves info from satellites using GRPC client
@@ -144,8 +146,8 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 	}
 
 	return &Client{
-		conn:            conn,
-		NodeStatsClient: pb.NewNodeStatsClient(conn),
+		conn:                conn,
+		DRPCNodeStatsClient: pb.NewDRPCNodeStatsClient(conn),
 	}, nil
 }
 

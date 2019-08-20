@@ -23,7 +23,7 @@ type drpc struct {
 
 	contextPkg  string
 	drpcPkg     string
-	drpcClient  string
+	drpcConn    string
 	drpcStream  string
 	drpcHandler string
 	drpcMessage string
@@ -51,7 +51,7 @@ func (d *drpc) Generate(file *generator.FileDescriptor) {
 	}
 
 	d.drpcPkg = string(d.AddImport("storj.io/storj/drpc"))
-	d.drpcClient = d.drpcPkg + ".Client"
+	d.drpcConn = d.drpcPkg + ".Conn"
 	d.drpcStream = d.drpcPkg + ".Stream"
 	d.drpcHandler = d.drpcPkg + ".Handler"
 	d.drpcMessage = d.drpcPkg + ".Message"
@@ -90,7 +90,7 @@ func (d *drpc) generateService(file *generator.FileDescriptor, service *pb.Servi
 
 	// Client interface
 	d.P("type ", servName, "Client interface {")
-	d.P("DRPCClient() ", d.drpcClient)
+	d.P("DRPCConn() ", d.drpcConn)
 	d.P()
 	for i, method := range service.Method {
 		d.PrintComments(fmt.Sprintf("%s,2,%d", path, i))
@@ -101,18 +101,18 @@ func (d *drpc) generateService(file *generator.FileDescriptor, service *pb.Servi
 
 	// Client implementation
 	d.P("type ", unexport(servName), "Client struct {")
-	d.P("cc ", d.drpcClient)
+	d.P("cc ", d.drpcConn)
 	d.P("}")
 	d.P()
 
 	// Client constructor
-	d.P("func New", servName, "Client(cc ", d.drpcClient, ") ", servName, "Client {")
+	d.P("func New", servName, "Client(cc ", d.drpcConn, ") ", servName, "Client {")
 	d.P("return &", unexport(servName), "Client{cc}")
 	d.P("}")
 	d.P()
 
 	// Client method implementations
-	d.P("func (c *", unexport(servName), "Client) DRPCClient() ", d.drpcClient, "{ return c.cc }")
+	d.P("func (c *", unexport(servName), "Client) DRPCConn() ", d.drpcConn, "{ return c.cc }")
 	d.P()
 	for _, method := range service.Method {
 		d.generateClientMethod(servName, fullServName, method)
@@ -205,7 +205,7 @@ func (d *drpc) generateClientMethod(servName, fullServName string, method *pb.Me
 
 	// Stream auxiliary types and methods.
 	d.P("type ", servName, "_", methName, "Client interface {")
-	d.P("drpc.Stream")
+	d.P(d.drpcStream)
 	if genSend {
 		d.P("Send(*", inType, ") error")
 	}
@@ -309,7 +309,7 @@ func (d *drpc) generateServerMethod(servName, fullServName string, method *pb.Me
 
 	// Stream auxiliary types and methods.
 	d.P("type ", servName, "_", methName, "Stream interface {")
-	d.P("drpc.Stream")
+	d.P(d.drpcStream)
 	if genSend {
 		d.P("Send(*", outType, ") error")
 	}

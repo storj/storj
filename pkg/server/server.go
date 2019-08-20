@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 
 	"github.com/zeebo/errs"
@@ -12,6 +13,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/storj/drpc/drpcmux"
+	"storj.io/storj/drpc/drpcserver"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/tlsopts"
 )
@@ -24,13 +27,15 @@ type Service interface {
 }
 
 type public struct {
-	listener net.Listener
-	grpc     *grpc.Server
+	mux  *drpcmux.Mux
+	grpc *grpc.Server
+	drpc *drpcserver.Server
 }
 
 type private struct {
-	listener net.Listener
-	grpc     *grpc.Server
+	mux  *drpcmux.Mux
+	grpc *grpc.Server
+	drpc *drpcserver.Server
 }
 
 // Server represents a bundle of services defined by a specific ID.
@@ -41,6 +46,7 @@ type Server struct {
 	private  private
 	next     []Service
 	identity *identity.FullIdentity
+	opts     *tlsopts.Options
 }
 
 // New creates a Server out of an Identity, a net.Listener,
@@ -50,6 +56,7 @@ func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string,
 		log:      log,
 		next:     services,
 		identity: opts.Ident,
+		opts:     opts,
 	}
 
 	unaryInterceptor := server.logOnErrorUnaryInterceptor
@@ -62,12 +69,13 @@ func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string,
 		return nil, err
 	}
 	server.public = public{
-		listener: publicListener,
+		mux: drpcmux.New(publicListener, 8),
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
 			opts.ServerOption(),
 		),
+		drpc: drpcserver.New(),
 	}
 
 	privateListener, err := net.Listen("tcp", privateAddr)
@@ -75,8 +83,9 @@ func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string,
 		return nil, errs.Combine(err, publicListener.Close())
 	}
 	server.private = private{
-		listener: privateListener,
-		grpc:     grpc.NewServer(),
+		mux:  drpcmux.New(privateListener, 8),
+		grpc: grpc.NewServer(),
+		drpc: drpcserver.New(),
 	}
 
 	return server, nil
@@ -86,16 +95,20 @@ func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string,
 func (p *Server) Identity() *identity.FullIdentity { return p.identity }
 
 // Addr returns the server's public listener address
-func (p *Server) Addr() net.Addr { return p.public.listener.Addr() }
+func (p *Server) Addr() net.Addr { return p.public.mux.Default().Addr() }
 
 // PrivateAddr returns the server's private listener address
-func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
+func (p *Server) PrivateAddr() net.Addr { return p.private.mux.Default().Addr() }
 
 // GRPC returns the server's gRPC handle for registration purposes
 func (p *Server) GRPC() *grpc.Server { return p.public.grpc }
 
+func (p *Server) DRPC() *drpcserver.Server { return p.public.drpc }
+
 // PrivateGRPC returns the server's gRPC handle for registration purposes
 func (p *Server) PrivateGRPC() *grpc.Server { return p.private.grpc }
+
+func (p *Server) PrivateDRPC() *drpcserver.Server { return p.private.drpc }
 
 // Close shuts down the server
 func (p *Server) Close() error {
@@ -117,6 +130,11 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	drpcPublic := tls.NewListener(p.public.mux.Route("drpc!!!1"), p.opts.ServerTLSConfig())
+	drpcPrivate := p.private.mux.Route("drpc!!!1")
+
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
@@ -124,12 +142,27 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return p.public.grpc.Serve(p.public.listener)
+		return p.public.grpc.Serve(p.public.mux.Default())
 	})
 	group.Go(func() error {
 		defer cancel()
-		return p.private.grpc.Serve(p.private.listener)
+		return p.public.drpc.Serve(ctx, drpcPublic)
 	})
-
+	group.Go(func() error {
+		defer cancel()
+		return p.private.grpc.Serve(p.private.mux.Default())
+	})
+	group.Go(func() error {
+		defer cancel()
+		return p.private.drpc.Serve(ctx, drpcPrivate)
+	})
+	group.Go(func() error {
+		defer cancel()
+		return p.public.mux.Run(ctx)
+	})
+	group.Go(func() error {
+		defer cancel()
+		return p.private.mux.Run(ctx)
+	})
 	return group.Wait()
 }

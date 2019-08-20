@@ -106,11 +106,6 @@ func (r *Receiver) ReadPacket() (pkt *Packet, err error) {
 			return nil, drpc.InternalError.New("invalid parse after scanner")
 		case len(rem) != 0:
 			return nil, drpc.ProtocolError.New("remaining bytes from parsing packet")
-		case fr.Length == 0 &&
-			fr.PayloadKind != PayloadKind_Cancel &&
-			fr.PayloadKind != PayloadKind_Close &&
-			fr.PayloadKind != PayloadKind_CloseSend:
-			return nil, drpc.ProtocolError.New("invalid zero data length packet sent")
 		case len(fr.Data) != int(fr.Length):
 			return nil, drpc.ProtocolError.New("invalid length of data and header length")
 		case fr.Length == 0 && fr.Continuation:

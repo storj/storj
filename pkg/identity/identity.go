@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -21,6 +22,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
+	"storj.io/storj/drpc/drpcstream"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
@@ -222,11 +224,16 @@ func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 // PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials.
 func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, Error.New("unable to get grpc peer from contex")
+	if ok {
+		return PeerIdentityFromPeer(p)
 	}
-
-	return PeerIdentityFromPeer(p)
+	if s := drpcstream.FromContext(ctx); s != nil {
+		conn, ok := s.Transport().(*tls.Conn)
+		if ok {
+			return PeerIdentityFromChain(conn.ConnectionState().PeerCertificates)
+		}
+	}
+	return nil, Error.New("unable to get grpc peer from contex")
 }
 
 // NodeIDFromCertPath loads a node ID from a certificate file path.

@@ -1,11 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package drpcclient
+package drpcconn
 
 import (
 	"context"
-	"io"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -15,31 +14,44 @@ import (
 	"storj.io/storj/drpc/drpcwire"
 )
 
-type Client struct {
-	sig *drpcutil.Signal
-	man *drpcmanager.Manager
+type Conn struct {
+	ctx    context.Context
+	cancel func()
+	tr     drpc.Transport
+	sig    *drpcutil.Signal
+	man    *drpcmanager.Manager
 }
 
-var _ drpc.Client = (*Client)(nil)
+var _ drpc.Conn = (*Conn)(nil)
 
-func New(ctx context.Context, rw io.ReadWriter) *Client {
-	sig := drpcutil.NewSignal()
-	man := drpcmanager.New(rw, nil)
-	go func() { sig.Set(man.Run(ctx)) }()
-
-	return &Client{
-		sig: sig,
-		man: man,
+func New(ctx context.Context, tr drpc.Transport) *Conn {
+	ctx, cancel := context.WithCancel(ctx)
+	c := &Conn{
+		ctx:    ctx,
+		cancel: cancel,
+		tr:     tr,
+		sig:    drpcutil.NewSignal(),
+		man:    drpcmanager.New(tr, nil),
 	}
+	go c.monitor()
+	return c
 }
 
-func (c *Client) Close() error {
-	c.man.Sig().Set(drpc.Error.New("client closed"))
+func (c *Conn) monitor() {
+
+}
+
+func (c *Conn) Transport() drpc.Transport {
+	return c.tr
+}
+
+func (c *Conn) Close() error {
+	c.man.Sig().Set(drpc.Error.New("conn closed"))
 	<-c.sig.Signal()
-	return nil
+	return c.tr.Close()
 }
 
-func (c *Client) Invoke(ctx context.Context, rpc string, in, out drpc.Message) (err error) {
+func (c *Conn) Invoke(ctx context.Context, rpc string, in, out drpc.Message) (err error) {
 	data, err := proto.Marshal(in)
 	if err != nil {
 		return err
@@ -63,7 +75,7 @@ func (c *Client) Invoke(ctx context.Context, rpc string, in, out drpc.Message) (
 	return stream.MsgRecv(out)
 }
 
-func (c *Client) NewStream(ctx context.Context, rpc string) (_ drpc.Stream, err error) {
+func (c *Conn) NewStream(ctx context.Context, rpc string) (_ drpc.Stream, err error) {
 	stream, err := c.man.NewStream(ctx, 0)
 	if err != nil {
 		return nil, err

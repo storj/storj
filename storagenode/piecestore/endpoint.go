@@ -137,8 +137,24 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	return &pb.PieceDeleteResponse{}, nil
 }
 
-// Upload handles uploading a piece on piece store.
+func (endpoint *Endpoint) DRPCDelete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
+	return endpoint.Delete(ctx, delete)
+}
+
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
+	return endpoint.upload(stream)
+}
+
+func (endpoint *Endpoint) DRPCUpload(stream pb.DRPCPiecestore_UploadStream) (err error) {
+	return endpoint.upload(stream)
+}
+
+// Upload handles uploading a piece on piece store.
+func (endpoint *Endpoint) upload(stream interface {
+	Context() context.Context
+	Recv() (*pb.PieceUploadRequest, error)
+	SendAndClose(*pb.PieceUploadResponse) error
+}) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -327,6 +343,18 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 // Download implements downloading a piece from piece store.
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
+	return endpoint.download(stream)
+}
+
+func (endpoint *Endpoint) DRPCDownload(stream pb.DRPCPiecestore_DownloadStream) (err error) {
+	return endpoint.download(stream)
+}
+
+func (endpoint *Endpoint) download(stream interface {
+	Context() context.Context
+	Recv() (*pb.PieceDownloadRequest, error)
+	Send(*pb.PieceDownloadResponse) error
+}) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -569,6 +597,10 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	}
 
 	return &pb.RetainResponse{}, nil
+}
+
+func (endpoint *Endpoint) DRPCRetain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
+	return endpoint.Retain(ctx, retainReq)
 }
 
 // min finds the min of two values

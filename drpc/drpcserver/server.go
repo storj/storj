@@ -6,10 +6,9 @@ package drpcserver
 import (
 	"context"
 	"fmt"
-	"io"
+	"net"
 	"reflect"
 
-	"github.com/zeebo/errs"
 	"storj.io/storj/drpc"
 	"storj.io/storj/drpc/drpcmanager"
 	"storj.io/storj/drpc/drpcstream"
@@ -86,16 +85,36 @@ func (s *Server) registerOne(srv interface{}, rpc string, handler drpc.Handler, 
 	s.rpcs[rpc] = data
 }
 
-func (s *Server) Manage(ctx context.Context, rw io.ReadWriter) error {
-	return drpcmanager.New(rw, s).Run(ctx)
+func (s *Server) Manage(ctx context.Context, tr drpc.Transport) error {
+	return drpcmanager.New(tr, s).Run(ctx)
+}
+
+func (s *Server) Serve(ctx context.Context, lis net.Listener) error {
+	// TODO(jeff): is this necessary?
+	go func() {
+		<-ctx.Done()
+		_ = lis.Close()
+	}()
+
+	for {
+		conn, err := lis.Accept()
+		if err != nil {
+			// TODO(jeff): temporary errors?
+			return err
+		}
+
+		// TODO(jeff): connection limits?
+		go s.Manage(ctx, conn)
+	}
 }
 
 func (s *Server) Handle(stream *drpcstream.Stream, rpc string) error {
 	err := s.doHandle(stream, rpc)
 	if err != nil {
-		stream.Sig().Set(err)
+		stream.SendError(err)
+		return nil
 	}
-	return errs.Combine(err, stream.Close())
+	return stream.Close()
 }
 
 func (s *Server) doHandle(stream *drpcstream.Stream, rpc string) error {

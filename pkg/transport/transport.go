@@ -5,13 +5,16 @@ package transport
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"time"
 
-	"google.golang.org/grpc"
-
+	"github.com/zeebo/errs"
+	"storj.io/storj/drpc"
+	"storj.io/storj/drpc/drpcconn"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
@@ -24,9 +27,9 @@ type Observer interface {
 
 // Client defines the interface to an transport client.
 type Client interface {
-	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
-	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
-	FetchPeerIdentity(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*identity.PeerIdentity, error)
+	DialNode(ctx context.Context, node *pb.Node) (drpc.Conn, error)
+	DialAddress(ctx context.Context, address string) (drpc.Conn, error)
+	FetchPeerIdentity(ctx context.Context, node *pb.Node) (*identity.PeerIdentity, error)
 	Identity() *identity.FullIdentity
 	WithObservers(obs ...Observer) Client
 	AlertSuccess(ctx context.Context, node *pb.Node)
@@ -67,50 +70,45 @@ func NewClientWithTimeouts(tlsOpts *tlsopts.Options, timeouts Timeouts, obs ...O
 	}
 }
 
+func drpcDial(ctx context.Context, network, address string, config *tls.Config) (*tls.Conn, error) {
+	conn, err := new(net.Dialer).DialContext(ctx, network, address)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := conn.Write([]byte("drpc!!!1")); err != nil {
+		err = errs.Combine(conn.Close())
+		return nil, err
+	}
+	tc := tls.Client(conn, config)
+	if err := tc.Handshake(); err != nil {
+		err = errs.Combine(conn.Close())
+		return nil, err
+	}
+	return tc, nil
+}
+
 // DialNode returns a grpc connection with tls to a node.
 //
 // Use this method for communicating with nodes as it is more secure than
 // DialAddress. The connection will be established successfully only if the
 // target node has the private key for the requested node ID.
-func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+func (transport *Transport) DialNode(ctx context.Context, node *pb.Node) (c drpc.Conn, err error) {
 	defer mon.Task()(&ctx, "node: "+node.Id.String()[0:8])(&err)
 
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
 	}
-	dialOption, err := transport.tlsOpts.DialOption(node.Id)
+
+	// TODO(jeff): lol what about all the options? I DON'T CARE! maybe i do.
+	conn, err := drpcDial(ctx, "tcp", node.Address.Address, transport.tlsOpts.ClientTLSConfig(node.Id))
 	if err != nil {
-		return nil, err
-	}
-
-	options := append([]grpc.DialOption{
-		dialOption,
-		grpc.WithBlock(),
-		grpc.FailOnNonTempDialError(true),
-		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
-			if err != nil {
-				return nil, err
-			}
-			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
-		}),
-	}, opts...)
-
-	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
-	defer cancel()
-
-	conn, err = grpc.DialContext(timedCtx, node.GetAddress().Address, options...)
-	if err != nil {
-		if err == context.Canceled {
-			return nil, err
-		}
-		transport.AlertFail(timedCtx, node, err)
+		transport.AlertFail(ctx, node, err)
 		return nil, Error.Wrap(err)
 	}
+	transport.AlertSuccess(ctx, node)
 
-	transport.AlertSuccess(timedCtx, node)
-
-	return conn, nil
+	// TODO(jeff): should this be a different context?
+	return drpcconn.New(context.Background(), conn), nil
 }
 
 // DialAddress returns a grpc connection with tls to an IP address.
@@ -118,32 +116,50 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 // Do not use this method unless having a good reason. In most cases DialNode
 // should be used for communicating with nodes as it is more secure than
 // DialAddress.
-func (transport *Transport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+func (transport *Transport) DialAddress(ctx context.Context, address string) (c drpc.Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	options := append([]grpc.DialOption{
-		transport.tlsOpts.DialUnverifiedIDOption(),
-		grpc.WithBlock(),
-		grpc.FailOnNonTempDialError(true),
-		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
-			if err != nil {
-				return nil, err
-			}
-			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
-		}),
-	}, opts...)
-
-	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
-	defer cancel()
-
+	// TODO(jeff): the following todo is definitely possible now
 	// TODO: this should also call alertFail or alertSuccess with the node id. We should be able
 	// to get gRPC to give us the node id after dialing?
-	conn, err = grpc.DialContext(timedCtx, address, options...)
-	if err == context.Canceled {
+
+	// TODO(jeff): lol what about all the options? I DON'T CARE! maybe i do.
+	conn, err := drpcDial(ctx, "tcp", address, transport.tlsOpts.UnverifiedClientTLSConfig())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// TODO(jeff): should this be a different context?
+	return drpcconn.New(context.Background(), conn), nil
+}
+
+// FetchPeerIdentity dials the node and fetches the identity
+func (transport *Transport) FetchPeerIdentity(ctx context.Context, node *pb.Node) (_ *identity.PeerIdentity, err error) {
+	defer mon.Task()(&ctx, "node: "+node.Id.String()[0:8])(&err)
+
+	if node.Address == nil || node.Address.Address == "" {
+		return nil, Error.New("no address")
+	}
+
+	// TODO(jeff): lol what about all the options? I DON'T CARE! maybe i do.
+	conn, err := drpcDial(ctx, "tcp", node.Address.Address, transport.tlsOpts.ClientTLSConfig(node.Id))
+	if err != nil {
+		transport.AlertFail(ctx, node, err)
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, conn.Close()) }()
+
+	chain := conn.ConnectionState().PeerCertificates
+	if len(chain)-1 < peertls.CAIndex {
+		return nil, Error.New("invalid certificate chain")
+	}
+
+	pi, err := identity.PeerIdentityFromChain(chain)
+	if err != nil {
 		return nil, err
 	}
-	return conn, Error.Wrap(err)
+
+	return pi, nil
 }
 
 // Identity is a getter for the transport's identity

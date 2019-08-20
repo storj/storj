@@ -222,12 +222,13 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 		return OrderError.New("unable to connect to the satellite: %v", err)
 	}
 	defer func() {
-		if cerr := conn.Close(); cerr != nil {
+		// TODO(jeff): drpc.Conn really should just be a closer
+		if cerr := conn.Transport().(io.Closer).Close(); cerr != nil {
 			err = errs.Combine(err, OrderError.New("failed to close connection: %v", cerr))
 		}
 	}()
 
-	client, err := pb.NewOrdersClient(conn).Settlement(ctx)
+	client, err := pb.NewDRPCOrdersClient(conn).Settlement(ctx)
 	if err != nil {
 		return OrderError.New("failed to start settlement: %v", err)
 	}

@@ -66,6 +66,10 @@ func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *p
 	return &pb.QueryResponse{Sender: req.Sender, Response: nodes}, nil
 }
 
+func (endpoint *Endpoint) DRPCQuery(ctx context.Context, req *pb.QueryRequest) (_ *pb.QueryResponse, err error) {
+	return endpoint.Query(ctx, req)
+}
+
 // pingback implements pingback for queries
 func (endpoint *Endpoint) pingback(ctx context.Context, target *pb.Node) {
 	var err error
@@ -99,6 +103,10 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.
 	return &pb.PingResponse{}, nil
 }
 
+func (endpoint *Endpoint) DRPCPing(ctx context.Context, req *pb.PingRequest) (_ *pb.PingResponse, err error) {
+	return endpoint.Ping(ctx, req)
+}
+
 // RequestInfo returns the node info
 func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) (_ *pb.InfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -126,4 +134,8 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 		Capacity: &self.Capacity,
 		Version:  &self.Version,
 	}, nil
+}
+
+func (endpoint *Endpoint) DRPCRequestInfo(ctx context.Context, req *pb.InfoRequest) (_ *pb.InfoResponse, err error) {
+	return endpoint.RequestInfo(ctx, req)
 }

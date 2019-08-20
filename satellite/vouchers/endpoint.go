@@ -83,3 +83,7 @@ func (endpoint *Endpoint) Request(ctx context.Context, req *pb.VoucherRequest) (
 		Status:  pb.VoucherResponse_ACCEPTED,
 	}, nil
 }
+
+func (endpoint *Endpoint) DRPCRequest(ctx context.Context, req *pb.VoucherRequest) (_ *pb.VoucherResponse, err error) {
+	return endpoint.Request(ctx, req)
+}

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/drpc/drpcclient"
+	"storj.io/storj/drpc/drpcconn"
 	"storj.io/storj/drpc/drpcserver"
 	"storj.io/storj/pkg/pb"
 )
@@ -33,9 +33,9 @@ func TestSimple(t *testing.T) {
 	srv.Register(new(impl), new(pb.DRPCServiceDescription))
 	go srv.Manage(ctx, rw{pr2, pw1})
 
-	dcli := drpcclient.New(ctx, rw{pr1, pw2})
-	cli := pb.NewDRPCServiceClient(dcli)
-	defer dcli.Close()
+	conn := drpcconn.New(ctx, rw{pr1, pw2})
+	cli := pb.NewDRPCServiceClient(conn)
+	defer conn.Close()
 
 	{
 		fmt.Println("=== 1")

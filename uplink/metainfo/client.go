@@ -6,16 +6,16 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"io"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/drpc"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -31,8 +31,8 @@ var (
 
 // Client creates a grpcClient
 type Client struct {
-	client pb.MetainfoClient
-	conn   *grpc.ClientConn
+	client pb.DRPCMetainfoClient
+	conn   drpc.Conn
 }
 
 // ListItem is a single item in a listing
@@ -43,7 +43,7 @@ type ListItem struct {
 }
 
 // New used as a public function
-func New(client pb.MetainfoClient) *Client {
+func New(client pb.DRPCMetainfoClient) *Client {
 	return &Client{
 		client: client,
 	}
@@ -51,17 +51,15 @@ func New(client pb.MetainfoClient) *Client {
 
 // Dial dials to metainfo endpoint with the specified api key.
 func Dial(ctx context.Context, tc transport.Client, address string, apikey string) (*Client, error) {
-	conn, err := tc.DialAddress(
-		ctx,
-		address,
-		grpc.WithPerRPCCredentials(grpcauth.NewAPIKeyCredentials(apikey)),
-	)
+	// TODO(jeff): drpc needs to add a way to send over the api key :(
+
+	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return &Client{
-		client: pb.NewMetainfoClient(conn),
+		client: pb.NewDRPCMetainfoClient(conn),
 		conn:   conn,
 	}, nil
 }
@@ -69,7 +67,8 @@ func Dial(ctx context.Context, tc transport.Client, address string, apikey strin
 // Close closes the dialed connection.
 func (client *Client) Close() error {
 	if client.conn != nil {
-		return Error.Wrap(client.conn.Close())
+		// TODO(jeff): closing is bad
+		return Error.Wrap(client.conn.Transport().(io.Closer).Close())
 	}
 	return nil
 }

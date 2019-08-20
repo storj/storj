@@ -29,6 +29,9 @@ type Stream struct {
 	sendMu    sync.Mutex
 }
 
+// TODO(jeff): consider exporting a channel of frames to send rather than receiving
+// a buffer. it also has to signal flushes (maybe a nil frame? allocation heavy.)
+
 func New(ctx context.Context, streamID uint64, buf *drpcutil.Buffer) *Stream {
 	ctx, cancel := context.WithCancel(ctx)
 	s := &Stream{

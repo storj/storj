@@ -21,6 +21,7 @@ type Handler interface {
 
 type Manager struct {
 	mu       sync.Mutex
+	tr       drpc.Transport
 	streamID uint64
 	handler  Handler
 	sig      *drpcutil.Signal
@@ -29,13 +30,14 @@ type Manager struct {
 	buf      *drpcutil.Buffer
 }
 
-func New(rw io.ReadWriter, handler Handler) *Manager {
+func New(tr drpc.Transport, handler Handler) *Manager {
 	return &Manager{
+		tr:      tr,
 		handler: handler,
 		sig:     drpcutil.NewSignal(),
 		streams: make(map[uint64]*drpcstream.Stream),
-		recv:    drpcwire.NewReceiver(rw),
-		buf:     drpcutil.NewBuffer(rw, drpcwire.MaxPacketSize),
+		recv:    drpcwire.NewReceiver(tr),
+		buf:     drpcutil.NewBuffer(tr, drpcwire.MaxPacketSize),
 	}
 }
 
@@ -62,7 +64,7 @@ func (m *Manager) Run(ctx context.Context) error {
 	m.recv = nil
 	m.buf = nil
 
-	return m.sig.Err()
+	return errs.Combine(m.sig.Err(), m.tr.Close())
 }
 
 func (m *Manager) monitorContext(ctx context.Context) {
@@ -86,6 +88,7 @@ func (m *Manager) NewStream(ctx context.Context, streamID uint64) (*drpcstream.S
 	stream := drpcstream.New(ctx, streamID, m.buf)
 	m.streams[streamID] = stream
 	go m.monitorStream(stream)
+
 	return stream, nil
 }
 
@@ -168,7 +171,7 @@ func (m *Manager) manageStreams(ctx context.Context) {
 				close(stream.Queue())
 				m.cleanupStream(stream)
 			}
-			stream.SendSig().Set(io.EOF)
+			stream.SendSig().Set(io.ErrClosedPipe)
 
 		// close send: signal to the stream that no more sends will happen
 		case p.PayloadKind == drpcwire.PayloadKind_CloseSend:

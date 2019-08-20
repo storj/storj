@@ -12,6 +12,7 @@ import (
 	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -19,10 +20,10 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/drpc"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
@@ -103,8 +104,8 @@ type Claim struct {
 
 // Client implements pb.CertificateClient
 type Client struct {
-	conn   *grpc.ClientConn
-	client pb.CertificatesClient
+	conn   drpc.Conn
+	client pb.DRPCCertificatesClient
 }
 
 func init() {
@@ -132,13 +133,13 @@ func NewClient(ctx context.Context, tc transport.Client, address string) (*Clien
 
 	return &Client{
 		conn:   conn,
-		client: pb.NewCertificatesClient(conn),
+		client: pb.NewDRPCCertificatesClient(conn),
 	}, nil
 }
 
 // NewClientFrom creates a new certificate signing grpc client from an existing
 // grpc cert signing client
-func NewClientFrom(client pb.CertificatesClient) (*Client, error) {
+func NewClientFrom(client pb.DRPCCertificatesClient) (*Client, error) {
 	return &Client{
 		client: client,
 	}, nil
@@ -188,7 +189,7 @@ func ParseToken(tokenString string) (*Token, error) {
 // Close closes the client
 func (c *Client) Close() error {
 	if c.conn != nil {
-		return c.conn.Close()
+		return c.conn.Transport().(io.Closer).Close()
 	}
 	return nil
 }

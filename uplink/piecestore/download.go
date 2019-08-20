@@ -30,7 +30,7 @@ type Download struct {
 	limit      *pb.OrderLimit
 	privateKey storj.PiecePrivateKey
 	peer       *identity.PeerIdentity
-	stream     pb.Piecestore_DownloadClient
+	stream     pb.DRPCPiecestore_DownloadClient
 	ctx        context.Context
 
 	read         int64 // how much data we have read so far

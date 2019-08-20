@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
+	"storj.io/storj/drpc"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -41,8 +41,8 @@ var DefaultConfig = Config{
 // Client implements uploading, downloading and deleting content from a piecestore.
 type Client struct {
 	log    *zap.Logger
-	client pb.PiecestoreClient
-	conn   *grpc.ClientConn
+	client pb.DRPCPiecestoreClient
+	conn   drpc.Conn
 	config Config
 }
 
@@ -55,7 +55,7 @@ func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log 
 
 	return &Client{
 		log:    log,
-		client: pb.NewPiecestoreClient(conn),
+		client: pb.NewDRPCPiecestoreClient(conn),
 		conn:   conn,
 		config: config,
 	}, nil
@@ -79,7 +79,7 @@ func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err er
 
 // Close closes the underlying connection.
 func (client *Client) Close() error {
-	return client.conn.Close()
+	return client.conn.Transport().(io.Closer).Close()
 }
 
 // next allocation step find the next trusted step.

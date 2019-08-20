@@ -240,6 +240,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, peer.Storage2.Trust)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
+		peer.Server.DRPC().Register(peer.Kademlia.Endpoint, pb.DRPCNodesDescription{})
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
@@ -296,6 +297,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
+		peer.Server.DRPC().Register(peer.Storage2.Endpoint, pb.DRPCPiecestoreDescription{})
 
 		peer.Storage2.Sender = orders.NewSender(
 			log.Named("piecestore:orderssender"),

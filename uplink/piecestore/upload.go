@@ -36,7 +36,7 @@ type Upload struct {
 	limit      *pb.OrderLimit
 	privateKey storj.PiecePrivateKey
 	peer       *identity.PeerIdentity
-	stream     pb.Piecestore_UploadClient
+	stream     pb.DRPCPiecestore_UploadClient
 	ctx        context.Context
 
 	hash           hash.Hash // TODO: use concrete implementation

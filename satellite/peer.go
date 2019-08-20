@@ -338,6 +338,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, nil)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
+		peer.Server.DRPC().Register(peer.Kademlia.Endpoint, pb.DRPCNodesDescription{})
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
@@ -358,6 +359,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Vouchers.Expiration,
 		)
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
+		peer.Server.DRPC().Register(peer.Vouchers.Endpoint, pb.DRPCVouchersDescription{})
 	}
 
 	{ // setup live accounting
