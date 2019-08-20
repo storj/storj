@@ -71,7 +71,7 @@ type DB interface {
 	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*Info, error)
 
 	// Archive marks order as being handled.
-	Archive(ctx context.Context, requests ...ArchiveRequest) error
+	Archive(ctx context.Context, archivedAt time.Time, requests ...ArchiveRequest) error
 	// ListArchived returns orders that have been sent.
 	ListArchived(ctx context.Context, limit int) ([]*ArchivedInfo, error)
 	// CleanArchive deletes all entries older than interval
@@ -216,7 +216,7 @@ func (service *Service) handleBatches(ctx context.Context, requests chan Archive
 			continue
 		}
 
-		if err := service.orders.Archive(ctx, buffer...); err != nil {
+		if err := service.orders.Archive(ctx, time.Now().UTC(), buffer...); err != nil {
 			if !OrderNotFoundError.Has(err) {
 				return err
 			}
@@ -227,7 +227,7 @@ func (service *Service) handleBatches(ctx context.Context, requests chan Archive
 	}
 
 	if len(buffer) > 0 {
-		return service.orders.Archive(ctx, buffer...)
+		return service.orders.Archive(ctx, time.Now().UTC(), buffer...)
 	}
 	return nil
 }
