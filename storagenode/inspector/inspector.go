@@ -6,7 +6,6 @@ package inspector
 import (
 	"context"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -14,7 +13,6 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
@@ -33,7 +31,6 @@ var (
 type Endpoint struct {
 	log        *zap.Logger
 	pieceStore *pieces.Store
-	kademlia   *kademlia.Kademlia
 	usageDB    bandwidth.DB
 
 	startTime        time.Time
@@ -45,7 +42,6 @@ type Endpoint struct {
 func NewEndpoint(
 	log *zap.Logger,
 	pieceStore *pieces.Store,
-	kademlia *kademlia.Kademlia,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
 	dashbaordAddress net.Addr) *Endpoint {
@@ -53,7 +49,6 @@ func NewEndpoint(
 	return &Endpoint{
 		log:              log,
 		pieceStore:       pieceStore,
-		kademlia:         kademlia,
 		usageDB:          usageDB,
 		pieceStoreConfig: pieceStoreConfig,
 		dashboardAddress: dashbaordAddress,
@@ -113,25 +108,18 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 	}
 
 	// TODO: querying all nodes is slow, find a more performant way to do this.
-	nodes, err := inspector.kademlia.FindNear(ctx, storj.NodeID{}, 10000000)
+	nodes, err := inspector.kademlia.FindNear(ctx, storj.NodeID{}, 10000000) // TODO KAD UPDATE
 	if err != nil {
 		return &pb.DashboardResponse{}, Error.Wrap(err)
 	}
 
-	bootstrapNodes := inspector.kademlia.GetBootstrapNodes()
-	bsNodes := make([]string, len(bootstrapNodes))
-	for i, node := range bootstrapNodes {
-		bsNodes[i] = node.Address.Address
-	}
-
 	return &pb.DashboardResponse{
-		NodeId:           inspector.kademlia.Local().Id,
+		NodeId:           inspector.kademlia.Local().Id, // TODO KAD UPDATE
 		NodeConnections:  int64(len(nodes)),
-		BootstrapAddress: strings.Join(bsNodes, ", "),
 		InternalAddress:  "",
-		ExternalAddress:  inspector.kademlia.Local().Address.Address,
-		LastPinged:       inspector.kademlia.LastPinged(),
-		LastQueried:      inspector.kademlia.LastQueried(),
+		ExternalAddress:  inspector.kademlia.Local().Address.Address, // TODO KAD UPDATE
+		LastPinged:       inspector.kademlia.LastPinged(),            // TODO KAD UPDATE
+		LastQueried:      inspector.kademlia.LastQueried(),           // TODO KAD UPDATE
 		DashboardAddress: inspector.dashboardAddress.String(),
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
