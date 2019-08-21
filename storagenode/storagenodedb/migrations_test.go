@@ -5,26 +5,26 @@ package storagenodedb_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/dbutil/dbschema"
 	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/storagenodedb/testdata"
 )
 
-// loadSnapshots loads all the dbschemas from testdata/db.* caching the result
+// loadSnapshots loads the coded snapshots defined in testdata/snapshot_vX.go
+// These snapshots were converted from SQL scripts into a Snapshot struct
+// because we needed a way to distinguish what SQL executes against which database connection.
 func loadSnapshots() (*dbschema.Snapshots, error) {
 	snapshots := &dbschema.Snapshots{}
 
+	// TODO: Do we need this? Or maybe I should integrate the Snapshot struct I created with this?
 	// snapshot represents clean DB state
 	snapshots.Add(&dbschema.Snapshot{
 		Version: -1,
@@ -32,35 +32,20 @@ func loadSnapshots() (*dbschema.Snapshots, error) {
 		Script:  "",
 	})
 
-	// find all sql files
-	matches, err := filepath.Glob("testdata/sqlite.*")
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	for _, match := range matches {
-		versionStr := match[17 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
-		version, err := strconv.Atoi(versionStr)
-		if err != nil {
-			return nil, errs.Wrap(err)
+	// TODO: Like above, I don't like that there's 2 concepts of a Snapshot but maybe it's needed, maybe not?
+	for _, snapshot := range testdata.GetSnapshots() {
+		// TODO: Do we need to create a dbschema.Snapshot per Snapshot step?
+		snap := &dbschema.Snapshot{
+			Version: snapshot.Version,
+			Schema:  nil,                          // TODO: Do we need to fill this?
+			Script:  snapshot.Steps[0].Statements, // TODO: Is this correct? Like above, do we need a dbschema.Snapshot per step?
 		}
+		snap.Version = snapshot.Version
 
-		scriptData, err := ioutil.ReadFile(match)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-
-		snapshot, err := sqliteutil.LoadSnapshotFromSQL(string(scriptData))
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		snapshot.Version = version
-
-		snapshots.Add(snapshot)
+		snapshots.Add(snap)
 	}
 
 	snapshots.Sort()
-
 	return snapshots, nil
 }
 
