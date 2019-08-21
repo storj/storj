@@ -29,8 +29,6 @@ func NewPathCollector(reservoirSlots int, r *rand.Rand) *PathCollector {
 
 // RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already
 func (collector *PathCollector) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx, path)(&err)
-
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		if _, ok := collector.Reservoirs[piece.NodeId]; !ok {
 			collector.Reservoirs[piece.NodeId] = NewReservoir(collector.slotCount)
