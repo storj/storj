@@ -6,7 +6,7 @@ import { CreateProjectModel, Project, ProjectsApi } from '@/types/projects';
 
 export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     /**
-     * Updates users full name and short name
+     * Creates project
      *
      * @param createProjectModel - contains project information
      * @throws Error
@@ -54,7 +54,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     }
 
     /**
-     * Update user
+     * Update project description
      *
      * @param projectId - project ID
      * @param description - project description
