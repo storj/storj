@@ -12,12 +12,13 @@
 
 <script lang="ts">
     import { Component, Vue, Prop } from 'vue-property-decorator';
+    import { Bucket } from '@/types/buckets';
 
     // TODO: should it be functional?
     @Component
     export default class BucketItem extends Vue {
         @Prop()
-        private readonly itemData: BucketUsage;
+        private readonly itemData: Bucket;
     
         public get storage(): string {
             return this.itemData.storage.toFixed(4);
