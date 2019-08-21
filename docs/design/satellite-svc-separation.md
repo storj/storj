@@ -8,7 +8,7 @@ The goal of the design doc is to describe the work necessary to make the Satelli
 
 Currently all Satellite services run in a single binary in a single container. While this is great for development, this is bad for scaling.
 
-The Satellite is made of up the following services:
+Currently the Satellite is a single binary made of up the following services:
 - version
 - overlay
 - metainfo
@@ -43,36 +43,21 @@ The current items that prevent Satellite horizontal scaling include:
 
 ## Design
 
-Break Satellite into many processes that can run independently in their own isolated environment (i.e. VM or container).  These isolated services should all be able to run replicas and load balance between them. So this means they need to share access to any persistent data.
+The plan here is to break the Satellite into many processes that can run independently in their own isolated environment (i.e. VM or container).  These isolated services should all be able to run replicas and load balance between them. So this means they need to share access to any persistent data.
 
 Currently there is only one Satellite binary. We propose to add the following binaries:
 
-1. api binary which includes the following:
-  - all public grpc endpoints, overlay, metainfo, nodestats
+1. api binary which includes the following: all public grpc endpoints, overlay, metainfo, nodestats
+2. private api binary which includes: all private grpc endpoints, inspectors
+3. console binary which includes: mail, console, overlay, metainfo
+4. repair binary which includes: overlay, metainfo, orders
+5. audit binary which includes: overlay, metainfo
+6. accounting binary which includes: tally and rollup, overlay, metainfo
+7. garbage collection binary which includes: overlay, metainfo
+8. uptime binary which inludes: overlay (
+  - note: there is an ongoing discussion about the uptime service so this might change
 
-2. private api binary which includes:
-  - all private grpc endpoints, inspectors
-
-3. console binary which includes:
-  - mail, console, overlay, metainfo
-
-4. repair binary which includes:
-  - overlay, metainfo, orders
-
-5. audit binary which includes:
-  - overlay, metainfo
-
-6. accounting binary which includes:
-  - tally and rollup, overlay, metainfo
-
-7. garbage collection binary which includes:
-  - overlay, metainfo
-
-8. uptime binary which inludes:
-  - overlay
-  - (note: there is an ongoing discussion about the uptime service so this might change)
-
-The following diagram shows the above binaries:
+The following diagram shows the above propsed design:
 
 ![Diagram of the above listed binaries](sa-separation-design.png)
 
