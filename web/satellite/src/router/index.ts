@@ -20,122 +20,125 @@ import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import ProjectPaymentMethods from '@/components/project/ProjectPaymentMethods.vue';
 import Register from '@/views/register/Register.vue';
 import Router from 'vue-router';
-import ROUTES from '@/utils/constants/routerConstants';
 import store from '@/store';
 import UsageReport from '@/components/project/UsageReport.vue';
+import { NavigationLink } from '@/types/navigation';
 
 Vue.use(Router);
+
+export abstract class RouteConfig {
+    // root paths
+    public static Root = new NavigationLink('/', 'Root');
+    public static Login = new NavigationLink('/login', 'Login');
+    public static Register = new NavigationLink('/register', 'Register');
+    public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
+    public static AccountSettings = new NavigationLink('/account', 'Account');
+    public static ProjectOverview = new NavigationLink('/project-overview', 'Overview');
+    public static Team = new NavigationLink('/project-members', 'Team');
+    public static ApiKeys = new NavigationLink('/api-keys', 'ApiKeys');
+    public static Buckets = new NavigationLink('/buckets', 'Buckets');
+
+    // child paths
+    public static ProjectDetails = new NavigationLink('/details', 'Project Details');
+    public static BillingHistory = new NavigationLink('/billing-history', 'Billing History');
+    public static UsageReport = new NavigationLink('/usage-report', 'Usage Report');
+    public static PaymentMethods = new NavigationLink('/payment-methods', 'Payment Methods');
+    public static Profile = new NavigationLink('/profile', 'Profile');
+
+    // not in project yet
+    // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
+    
+}
 
 let router = new Router({
     mode: 'history',
     routes: [
         {
-            path: ROUTES.LOGIN.path,
-            name: ROUTES.LOGIN.name,
+            path: RouteConfig.Login.path,
+            name: RouteConfig.Login.name,
             component: Login
         },
         {
-            path: ROUTES.REGISTER.path,
-            name: ROUTES.REGISTER.name,
+            path: RouteConfig.Register.path,
+            name: RouteConfig.Register.name,
             component: Register
         },
         {
-            path: ROUTES.REFERRAL.path,
-            name: ROUTES.REFERRAL.name,
-            component: Register
-        },
-        {
-            path: ROUTES.FORGOT_PASSWORD.path,
-            name: ROUTES.FORGOT_PASSWORD.name,
+            path: RouteConfig.ForgotPassword.path,
+            name: RouteConfig.ForgotPassword.name,
             component: ForgotPassword
         },
         {
-            path: ROUTES.DASHBOARD.path,
+            path: RouteConfig.Root.path,
             meta: {
                 requiresAuth: true
             },
             component: Dashboard,
             children: [
                 {
-                    path: ROUTES.ACCOUNT_SETTINGS.path,
-                    name: ROUTES.ACCOUNT_SETTINGS.name,
+                    path: RouteConfig.AccountSettings.path,
+                    name: RouteConfig.AccountSettings.name,
                     component: AccountArea,
                     children: [
                         {
-                            path: ROUTES.PROFILE.path,
-                            name: ROUTES.PROFILE.name,
+                            path: RouteConfig.Profile.path,
+                            name: RouteConfig.Profile.name,
                             component: Profile,
                         },
                         {
-                            path: ROUTES.PAYMENT_METHODS.path,
-                            name: ROUTES.PAYMENT_METHODS.name,
+                            path: RouteConfig.PaymentMethods.path,
+                            name: RouteConfig.PaymentMethods.name,
                             component: AccountPaymentMethods,
                         },
                         {
-                            path: ROUTES.BILLING_HISTORY.path,
-                            name: ROUTES.BILLING_HISTORY.name,
+                            path: RouteConfig.BillingHistory.path,
+                            name: RouteConfig.BillingHistory.name,
                             component: AccountBillingHistory,
                         },
                     ]
                 },
                 {
-                    path: ROUTES.PROJECT_OVERVIEW.path,
-                    name: ROUTES.PROJECT_OVERVIEW.name,
+                    path: RouteConfig.ProjectOverview.path,
+                    name: RouteConfig.ProjectOverview.name,
                     component: ProjectOverviewArea,
                     children: [
                         {
-                            path: ROUTES.USAGE_REPORT.path,
-                            name: ROUTES.USAGE_REPORT.name,
+                            path: RouteConfig.UsageReport.path,
+                            name: RouteConfig.UsageReport.name,
                             component: UsageReport,
                         },
                         {
-                            path: ROUTES.PROJECT_DETAILS.path,
-                            name: ROUTES.PROJECT_DETAILS.name,
+                            path: RouteConfig.ProjectDetails.path,
+                            name: RouteConfig.ProjectDetails.name,
                             component: ProjectDetails
                         },
                         {
-                            path: ROUTES.BILLING_HISTORY.path,
-                            name: ROUTES.BILLING_HISTORY.name,
+                            path: RouteConfig.BillingHistory.path,
+                            name: RouteConfig.BillingHistory.name,
                             component: ProjectBillingHistory
                         },
                         {
-                            path: ROUTES.PAYMENT_METHODS.path,
-                            name: ROUTES.PAYMENT_METHODS.name,
+                            path: RouteConfig.PaymentMethods.path,
+                            name: RouteConfig.PaymentMethods.name,
                             component: ProjectPaymentMethods
                         },
                     ]
                 },
-                // Remove when dashboard will be created
                 {
-                    path: '/',
-                    name: 'default',
-                    component: ProjectOverviewArea
-                },
-                {
-                    path: ROUTES.TEAM.path,
-                    name: ROUTES.TEAM.name,
+                    path: RouteConfig.Team.path,
+                    name: RouteConfig.Team.name,
                     component: ProjectMembersArea
                 },
                 {
-                    path: ROUTES.API_KEYS.path,
-                    name: ROUTES.API_KEYS.name,
+                    path: RouteConfig.ApiKeys.path,
+                    name: RouteConfig.ApiKeys.name,
                     component: ApiKeysArea
                 },
                 {
-                    path: ROUTES.BUCKETS.path,
-                    name: ROUTES.BUCKETS.name,
+                    path: RouteConfig.Buckets.path,
+                    name: RouteConfig.Buckets.name,
                     component: BucketArea
                 },
-                // {
-                //     path: ROUTES.BUCKETS.path,
-                //     name: ROUTES.BUCKETS.name,
-                //     component: BucketArea
-                // },
-                // {
-                //     path: '/',
-                //     name: 'dashboardArea',
-                //     component: DashboardArea
-                // },
             ]
         },
         {
