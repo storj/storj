@@ -153,7 +153,6 @@ func (m *Mux) routeConn(conn net.Conn) {
 	if !ok {
 		lis = m.def
 		conn = newPrefixConn(buf, conn)
-		fmt.Printf("connection with route %q went to default\n", string(buf))
 	}
 	m.mu.Unlock()
 

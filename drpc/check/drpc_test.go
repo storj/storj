@@ -42,7 +42,7 @@ func TestSimple(t *testing.T) {
 	{
 		fmt.Println("=== 1")
 		out, err := cli.Method1(ctx, &In{In: 1})
-		fmt.Println("CLI 0 =>", err, out)
+		fmt.Println("CLI 0 =>", fmt.Sprintf("%+v", err), out)
 	}
 
 	time.Sleep(time.Second)
@@ -83,7 +83,7 @@ func TestSimple(t *testing.T) {
 		fmt.Println("CLI 1 =>", stream4.Send(&In{In: 4}))
 		fmt.Println("CLI 2 =>", stream4.Send(&In{In: 4}))
 		fmt.Println("CLI 3 =>", stream4.Send(&In{In: 4}))
-		fmt.Println("CLI 4 =>", stream4.Send(&In{In: 5}))
+		fmt.Println("CLI 4 =>", stream4.Send(&In{In: 4}))
 		fmt.Println("CLI 5 =>", stream4.CloseSend())
 		for {
 			out, err := stream4.Recv()

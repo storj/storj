@@ -44,8 +44,8 @@ func (c *Conn) Transport() drpc.Transport {
 
 func (c *Conn) Close() (err error) {
 	c.man.Sig().Set(drpc.Error.New("transport closed"))
-	<-c.sig.Signal()
 	c.once.Do(func() { err = c.tr.Close() })
+	<-c.sig.Signal()
 	return err
 }
 

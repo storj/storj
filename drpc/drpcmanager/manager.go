@@ -99,7 +99,6 @@ func (m *Manager) monitorStream(stream *drpcstream.Stream) {
 	select {
 	case <-m.sig.Signal():
 		stream.SendError(m.sig.Err())
-		stream.Sig().Set(m.sig.Err())
 	case <-stream.Sig().Signal():
 		m.cleanupStream(stream)
 	}

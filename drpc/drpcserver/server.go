@@ -9,9 +9,11 @@ import (
 	"net"
 	"reflect"
 
+	"github.com/gogo/protobuf/proto"
 	"storj.io/storj/drpc"
 	"storj.io/storj/drpc/drpcmanager"
 	"storj.io/storj/drpc/drpcstream"
+	"storj.io/storj/drpc/drpcwire"
 )
 
 type Server struct {
@@ -115,6 +117,7 @@ func (s *Server) Handle(stream *drpcstream.Stream, rpc string) error {
 	err := s.doHandle(ctx, stream, rpc)
 	if err != nil {
 		stream.SendError(err)
+		return err
 	}
 	return stream.Close()
 }
@@ -122,7 +125,6 @@ func (s *Server) Handle(stream *drpcstream.Stream, rpc string) error {
 func (s *Server) doHandle(ctx context.Context, stream *drpcstream.Stream, rpc string) error {
 	data, ok := s.rpcs[rpc]
 	if !ok {
-		// fmt.Printf("missing rpc:%q rpcs:%v\n", rpc, s.rpcs)
 		return drpc.ProtocolError.New("unknown rpc: %q", rpc)
 	}
 
@@ -140,7 +142,11 @@ func (s *Server) doHandle(ctx context.Context, stream *drpcstream.Stream, rpc st
 	case err != nil:
 		return err
 	case out != nil:
-		return stream.MsgSend(out)
+		data, err := proto.Marshal(out)
+		if err != nil {
+			return err
+		}
+		return stream.RawSend(drpcwire.PayloadKind_Message, data)
 	default:
 		return nil
 	}

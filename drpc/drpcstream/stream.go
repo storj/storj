@@ -21,6 +21,7 @@ type Stream struct {
 	cancel    func()
 	streamID  uint64
 	buf       *drpcutil.Buffer
+	bufWrite  func(drpcwire.Frame) error
 	sig       *drpcutil.Signal
 	sendSig   *drpcutil.Signal
 	recvSig   *drpcutil.Signal
@@ -39,6 +40,7 @@ func New(ctx context.Context, streamID uint64, buf *drpcutil.Buffer) *Stream {
 		cancel:   cancel,
 		streamID: streamID,
 		buf:      buf,
+		bufWrite: buf.Write,
 		sig:      drpcutil.NewSignal(),
 		sendSig:  drpcutil.NewSignal(),
 		recvSig:  drpcutil.NewSignal(),
@@ -108,7 +110,7 @@ func (s *Stream) pollSend() (error, bool) {
 }
 
 func (s *Stream) sendAndFlush(kind drpcwire.PayloadKind, data []byte) error {
-	if err := drpcwire.Split(s.newPacket(kind, data), s.buf.Write); err != nil {
+	if err := drpcwire.Split(s.newPacket(kind, data), s.bufWrite); err != nil {
 		return err
 	}
 	return s.buf.Flush()
@@ -125,7 +127,7 @@ func (s *Stream) RawSend(kind drpcwire.PayloadKind, data []byte) error {
 		if err, _ := s.pollSend(); err != nil {
 			return err
 		}
-		return s.buf.Write(fr)
+		return s.bufWrite(fr)
 	})
 	if err != nil {
 		s.SendError(err)
