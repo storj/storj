@@ -14,5 +14,5 @@ func TestCacheSleep32bitBug(t *testing.T) {
 	defer cancel()
 
 	// Ensure that a large maxSleep doesn't roll over to negative values on 32 bit systems.
-	(&Cache{maxSleep: 1 << 32}).sleep(ctx)
+	_ = (&Cache{maxSleep: 1 << 32}).sleep(ctx)
 }
