@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"strings"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -15,13 +16,130 @@ import (
 
 // apikeys is an implementation of satellite.APIKeys
 type apikeys struct {
-	db dbx.Methods
+	methods dbx.Methods
+	db      *dbx.DB
+}
+
+func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor) (akp *console.APIKeyPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	search := "%" + strings.Replace(cursor.Search, " ", "%", -1) + "%"
+
+	if cursor.Limit > 50 {
+		cursor.Limit = 50
+	}
+
+	if cursor.Page == 0 {
+		return nil, errs.New("page cannot be 0")
+	}
+
+	page := &console.APIKeyPage{
+		Search:         cursor.Search,
+		Limit:          cursor.Limit,
+		Offset:         uint64((cursor.Page - 1) * cursor.Limit),
+		Order:          cursor.Order,
+		OrderDirection: cursor.OrderDirection,
+	}
+
+	countQuery := keys.db.Rebind(`
+		SELECT COUNT(*)
+		FROM api_keys ak
+		WHERE ak.project_id = ?
+		AND ak.name LIKE ?
+	`)
+
+	countRow := keys.db.QueryRowContext(ctx,
+		countQuery,
+		projectID[:],
+		search)
+
+	err = countRow.Scan(&page.TotalCount)
+	if err != nil {
+		return nil, err
+	}
+	if page.TotalCount == 0 {
+		return page, nil
+	}
+	if page.Offset > page.TotalCount-1 {
+		return nil, errs.New("page is out of range")
+	}
+
+	repoundQuery := keys.db.Rebind(`
+		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.created_at 
+		FROM api_keys ak
+		WHERE ak.project_id = ?
+		AND ak.name LIKE ?
+		ORDER BY ` + sanitizedAPIKeyOrderColumnName(cursor.Order) + `
+		` + sanitizeOrderDirectionName(page.OrderDirection) + `
+		LIMIT ? OFFSET ?`)
+
+	rows, err := keys.db.QueryContext(ctx,
+		repoundQuery,
+		projectID[:],
+		search,
+		page.Limit,
+		page.Offset)
+
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var apiKeys []console.APIKeyInfo
+	for rows.Next() {
+		ak := console.APIKeyInfo{}
+		var keyIDBytes, projectIDBytes, partnerIDBytes []uint8
+		var keyID, projectID, partnerID uuid.UUID
+
+		err = rows.Scan(&keyIDBytes, &projectIDBytes, &ak.Name, &partnerIDBytes, &ak.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		keyID, err = bytesToUUID(keyIDBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		projectID, err = bytesToUUID(projectIDBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		if partnerIDBytes != nil {
+			partnerID, err = bytesToUUID(partnerIDBytes)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		ak.ID = keyID
+		ak.ProjectID = projectID
+		ak.PartnerID = partnerID
+
+		apiKeys = append(apiKeys, ak)
+	}
+
+	page.APIKeys = apiKeys
+	page.Order = cursor.Order
+
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
+
+	page.CurrentPage = cursor.Page
+
+	return page, err
 }
 
 // GetByProjectID implements satellite.APIKeys ordered by name
 func (keys *apikeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) (_ []console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbKeys, err := keys.db.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, dbx.ApiKey_ProjectId(projectID[:]))
+	dbKeys, err := keys.methods.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, dbx.ApiKey_ProjectId(projectID[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +167,7 @@ func (keys *apikeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) (_
 // Get implements satellite.APIKeys
 func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbKey, err := keys.db.Get_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
+	dbKey, err := keys.methods.Get_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +178,7 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyIn
 // GetByHead implements satellite.APIKeys
 func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbKey, err := keys.db.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
+	dbKey, err := keys.methods.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +199,7 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		optional.PartnerId = dbx.ApiKey_PartnerId(info.PartnerID[:])
 	}
 
-	dbKey, err := keys.db.Create_ApiKey(
+	dbKey, err := keys.methods.Create_ApiKey(
 		ctx,
 		dbx.ApiKey_Id(id[:]),
 		dbx.ApiKey_ProjectId(info.ProjectID[:]),
@@ -101,7 +219,7 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 // Update implements satellite.APIKeys
 func (keys *apikeys) Update(ctx context.Context, key console.APIKeyInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = keys.db.Update_ApiKey_By_Id(
+	_, err = keys.methods.Update_ApiKey_By_Id(
 		ctx,
 		dbx.ApiKey_Id(key.ID[:]),
 		dbx.ApiKey_Update_Fields{
@@ -115,7 +233,7 @@ func (keys *apikeys) Update(ctx context.Context, key console.APIKeyInfo) (err er
 // Delete implements satellite.APIKeys
 func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = keys.db.Delete_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
+	_, err = keys.methods.Delete_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
 	return err
 }
 
@@ -148,4 +266,13 @@ func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo,
 	}
 
 	return result, nil
+}
+
+// sanitizedAPIKeyOrderColumnName return valid order by column
+func sanitizedAPIKeyOrderColumnName(pmo console.APIKeyOrder) string {
+	if pmo == 2 {
+		return "ak.created_at"
+	}
+
+	return "ak.name"
 }

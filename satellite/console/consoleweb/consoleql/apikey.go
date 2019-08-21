@@ -58,8 +58,80 @@ func graphqlCreateAPIKey(types *TypeCreator) *graphql.Object {
 	})
 }
 
+func graphqlAPIKeysCursor() *graphql.InputObject {
+	return graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: APIKeysCursorInputType,
+		Fields: graphql.InputObjectConfigFieldMap{
+			SearchArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.String),
+			},
+			LimitArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+			PageArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+			OrderArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+			OrderDirectionArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+		},
+	})
+}
+
+func graphqlAPIKeysPage(types *TypeCreator) *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: APIKeysPageType,
+		Fields: graphql.Fields{
+			FieldAPIKeys: &graphql.Field{
+				Type: graphql.NewList(types.apiKeyInfo),
+			},
+			SearchArg: &graphql.Field{
+				Type: graphql.String,
+			},
+			LimitArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OrderArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OrderDirectionArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OffsetArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldPageCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldCurrentPage: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldTotalCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+		},
+	})
+}
+
 // createAPIKey holds macaroon.APIKey and console.APIKeyInfo
 type createAPIKey struct {
 	Key     string
 	KeyInfo *console.APIKeyInfo
+}
+
+type apiKeysPage struct {
+	APIKeys []console.APIKeyInfo
+
+	Search         string
+	Limit          uint
+	Order          int
+	OrderDirection int
+	Offset         uint64
+
+	PageCount   uint
+	CurrentPage uint
+	TotalCount  uint64
 }

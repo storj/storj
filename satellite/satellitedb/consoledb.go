@@ -38,7 +38,7 @@ func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 
 // APIKeys is a getter for APIKeys repository
 func (db *ConsoleDB) APIKeys() console.APIKeys {
-	return &apikeys{db.methods}
+	return &apikeys{db.methods, db.db}
 }
 
 // BucketUsage is a getter for accounting.BucketUsage repository

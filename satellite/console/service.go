@@ -1049,6 +1049,32 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	return nil
 }
 
+// GetAPIKeys returns paged api key list for given Project
+func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (akp *APIKeyPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
+	}
+
+	akp, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+
+	return
+}
+
 // GetAPIKeysInfoByProjectID retrieves all api keys for a given project
 func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.UUID) (info []APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)

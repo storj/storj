@@ -190,6 +190,13 @@ func (m *lockedAPIKeys) GetByProjectID(ctx context.Context, projectID uuid.UUID)
 	return m.db.GetByProjectID(ctx, projectID)
 }
 
+// GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor
+func (m *lockedAPIKeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor) (akp *console.APIKeyPage, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetPagedByProjectID(ctx, projectID, cursor)
+}
+
 // Update updates APIKeyInfo in store
 func (m *lockedAPIKeys) Update(ctx context.Context, key console.APIKeyInfo) error {
 	m.Lock()
@@ -773,6 +780,13 @@ func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj
 	return m.db.GetStorageNodeBandwidth(ctx, nodeID, from, to)
 }
 
+// ProcessOrders takes a list of order requests and processes them in a batch
+func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ProcessOrders(ctx, requests)
+}
+
 // UnuseSerialNumber removes pair serial number -> storage node id from database
 func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error {
 	m.Lock()
@@ -820,12 +834,6 @@ func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.S
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UseSerialNumber(ctx, serialNumber, storageNodeID)
-}
-
-func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ProcessOrders(ctx, requests)
 }
 
 // OverlayCache returns database for caching overlay information
