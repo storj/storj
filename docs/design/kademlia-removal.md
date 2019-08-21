@@ -2,9 +2,8 @@
 
 ## Abstract
 
-This design document outlines the communication protocol between satellites and
-storage nodes, network refreshes, and kademlia removal given the satellite opt-in
-capability for storage nodes.
+This design document outlines communication protocol between satellites and
+storage nodes, network refreshes, and kademlia removal.
 
 ## Background
 
