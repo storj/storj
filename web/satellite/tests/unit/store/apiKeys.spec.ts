@@ -70,7 +70,6 @@ describe('actions', () => {
 
         try {
             await store.dispatch(FETCH);
-            expect(true).toBe(false);
         } catch (error) {
             expect(state.apiKeys).toBe(apikeys);
         }
@@ -94,7 +93,6 @@ describe('actions', () => {
 
         try {
             await store.dispatch(CREATE, 'testName');
-            expect(true).toBe(false);
         } catch (error) {
             expect(state.apiKeys).toEqual([apiKey, apiKey]);
         }
@@ -117,7 +115,6 @@ describe('actions', () => {
 
         try {
             await store.dispatch(DELETE, 'testId');
-            expect(true).toBe(false);
         } catch (error) {
             expect(state.apiKeys).toEqual([apiKey]);
         }

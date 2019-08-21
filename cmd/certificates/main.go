@@ -62,12 +62,15 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		zap.S().Fatal(err)
 	}
 
-	revDB, err := revocation.NewDBFromCfg(config.Server.Config.Config)
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
 
-	return config.Server.Run(ctx, zap.L(), identity, revDB, nil, config.Signer)
+	return config.Server.Run(ctx, zap.L(), identity, revocationDB, nil, config.Signer)
 }
 
 func main() {

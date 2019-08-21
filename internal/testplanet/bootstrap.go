@@ -100,12 +100,15 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 	var verInfo version.Info
 	verInfo = planet.NewVersionInfo()
 
-	revDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
 	if err != nil {
 		return nil, errs.New("Error creating revocation database: %+v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
 
-	peer, err = bootstrap.New(log, identity, db, revDB, config, verInfo)
+	peer, err = bootstrap.New(log, identity, db, revocationDB, config, verInfo)
 	if err != nil {
 		return nil, err
 	}
