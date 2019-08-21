@@ -70,12 +70,6 @@ export const PROJECT_USAGE_ACTIONS = {
     CLEAR: 'clearProjectUsage',
 };
 
-export const BUCKET_USAGE_ACTIONS = {
-    FETCH: 'fetchBucketUsages',
-    SET_SEARCH: 'setSearchBucketUsage',
-    CLEAR: 'clearBucketUsages'
-};
-
 export const PROJECT_PAYMENT_METHODS_ACTIONS = {
     ADD: 'addProjectPaymentMethod',
     FETCH: 'fetchProjectPaymentMethods',
