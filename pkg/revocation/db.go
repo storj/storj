@@ -11,14 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
 )
 
 var (
@@ -32,77 +28,24 @@ var (
 // (i.e. nodeID [CA certificate's public key hash] is the key, values is
 // the most recently seen revocation).
 type DB struct {
-	KVStore storage.KeyValueStore
-}
-
-// NewDBFromCfg is a convenience method to create a revocation DB
-// directly from a config. If the revocation extension option is not set, it
-// returns a nil db with no error.
-func NewDBFromCfg(cfg tlsopts.Config) (*DB, error) {
-	if !cfg.Extensions.Revocation {
-		return nil, nil
-	}
-	return NewDB(cfg.RevocationDBURL)
-}
-
-// NewDB returns a new revocation database given the URL
-func NewDB(dbURL string) (*DB, error) {
-	driver, source, err := dbutil.SplitConnstr(dbURL)
-	if err != nil {
-		return nil, extensions.ErrRevocationDB.Wrap(err)
-	}
-
-	var db *DB
-	switch driver {
-	case "bolt":
-		db, err = newDBBolt(source)
-		if err != nil {
-			return nil, extensions.ErrRevocationDB.Wrap(err)
-		}
-	case "redis":
-		db, err = newDBRedis(dbURL)
-		if err != nil {
-			return nil, extensions.ErrRevocationDB.Wrap(err)
-		}
-	default:
-		return nil, extensions.ErrRevocationDB.New("database scheme not supported: %s", driver)
-	}
-
-	return db, nil
-}
-
-// newDBBolt creates a bolt-backed DB
-func newDBBolt(path string) (*DB, error) {
-	client, err := boltdb.New(path, extensions.RevocationBucket)
-	if err != nil {
-		return nil, err
-	}
-	return &DB{
-		KVStore: client,
-	}, nil
-}
-
-// newDBRedis creates a redis-backed DB.
-func newDBRedis(address string) (*DB, error) {
-	client, err := redis.NewClientFrom(address)
-	if err != nil {
-		return nil, err
-	}
-	return &DB{
-		KVStore: client,
-	}, nil
+	store storage.KeyValueStore
 }
 
 // Get attempts to retrieve the most recent revocation for the given cert chain
 // (the  key used in the underlying database is the nodeID of the certificate chain).
-func (db DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.Revocation, err error) {
+func (db *DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.Revocation, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if db.store == nil {
+		return nil, nil
+	}
+
 	nodeID, err := identity.NodeIDFromCert(chain[peertls.CAIndex])
 	if err != nil {
 		return nil, extensions.ErrRevocation.Wrap(err)
 	}
 
-	revBytes, err := db.KVStore.Get(ctx, nodeID.Bytes())
+	revBytes, err := db.store.Get(ctx, nodeID.Bytes())
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
@@ -120,8 +63,13 @@ func (db DB) Get(ctx context.Context, chain []*x509.Certificate) (_ *extensions.
 // Put stores the most recent revocation for the given cert chain IF the timestamp
 // is newer than the current value (the  key used in the underlying database is
 // the nodeID of the certificate chain).
-func (db DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Extension) (err error) {
+func (db *DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Extension) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if db.store == nil {
+		return extensions.ErrRevocationDB.New("not supported")
+	}
+
 	ca := chain[peertls.CAIndex]
 	var rev extensions.Revocation
 	if err := rev.Unmarshal(revExt.Value); err != nil {
@@ -146,21 +94,26 @@ func (db DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Ext
 	if err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
-	if err := db.KVStore.Put(ctx, nodeID.Bytes(), revExt.Value); err != nil {
+	if err := db.store.Put(ctx, nodeID.Bytes(), revExt.Value); err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
 	return nil
 }
 
 // List lists all revocations in the store
-func (db DB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
+func (db *DB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
 	defer mon.Task()(&ctx)(&err)
-	keys, err := db.KVStore.List(ctx, []byte{}, 0)
+
+	if db.store == nil {
+		return nil, nil
+	}
+
+	keys, err := db.store.List(ctx, []byte{}, 0)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
 
-	marshaledRevs, err := db.KVStore.GetAll(ctx, keys)
+	marshaledRevs, err := db.store.GetAll(ctx, keys)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
@@ -176,7 +129,15 @@ func (db DB) List(ctx context.Context) (revs []*extensions.Revocation, err error
 	return revs, nil
 }
 
+// TestGetStore returns the internal store for testing.
+func (db *DB) TestGetStore() storage.KeyValueStore {
+	return db.store
+}
+
 // Close closes the underlying store
-func (db DB) Close() error {
-	return db.KVStore.Close()
+func (db *DB) Close() error {
+	if db.store == nil {
+		return nil
+	}
+	return db.store.Close()
 }

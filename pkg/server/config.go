@@ -6,7 +6,6 @@ package server
 import (
 	"context"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -37,7 +36,6 @@ func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.Fu
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, opts.RevDB.Close()) }()
 
 	server, err := New(log.Named("server"), opts, sc.Address, sc.PrivateAddress, interceptor, services...)
 	if err != nil {
