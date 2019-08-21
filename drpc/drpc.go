@@ -30,6 +30,7 @@ type Message interface {
 }
 
 type Conn interface {
+	Close() error
 	Transport() Transport
 
 	Invoke(ctx context.Context, rpc string, in, out Message) error

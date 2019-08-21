@@ -12,7 +12,6 @@ import (
 	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -189,7 +188,7 @@ func ParseToken(tokenString string) (*Token, error) {
 // Close closes the client
 func (c *Client) Close() error {
 	if c.conn != nil {
-		return c.conn.Transport().(io.Closer).Close()
+		return c.conn.Close()
 	}
 	return nil
 }

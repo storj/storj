@@ -5,7 +5,6 @@ package vouchers
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -135,8 +134,7 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 		return VoucherError.New("unable to connect to the satellite: %v", err)
 	}
 	defer func() {
-		// TODO(jeff): yep annother one
-		if cerr := conn.Transport().(io.Closer).Close(); cerr != nil {
+		if cerr := conn.Close(); cerr != nil {
 			err = errs.Combine(err, VoucherError.New("failed to close connection: %v", err))
 		}
 	}()

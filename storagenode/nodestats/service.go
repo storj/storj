@@ -5,7 +5,6 @@ package nodestats
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -36,8 +35,7 @@ type Client struct {
 
 // Close closes underlying client connection
 func (c *Client) Close() error {
-	// TODO(jeff): dear god help me
-	return c.conn.Transport().(io.Closer).Close()
+	return c.conn.Close()
 }
 
 // Service retrieves info from satellites using GRPC client

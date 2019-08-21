@@ -20,24 +20,26 @@ type Handler interface {
 }
 
 type Manager struct {
-	mu       sync.Mutex
-	tr       drpc.Transport
-	streamID uint64
-	handler  Handler
-	sig      *drpcutil.Signal
-	streams  map[uint64]*drpcstream.Stream
-	recv     *drpcwire.Receiver
-	buf      *drpcutil.Buffer
+	mu        sync.Mutex
+	tr        drpc.Transport
+	streamID  uint64
+	handler   Handler
+	sig       *drpcutil.Signal
+	streamSig *drpcutil.Signal
+	streams   map[uint64]*drpcstream.Stream
+	recv      *drpcwire.Receiver
+	buf       *drpcutil.Buffer
 }
 
 func New(tr drpc.Transport, handler Handler) *Manager {
 	return &Manager{
-		tr:      tr,
-		handler: handler,
-		sig:     drpcutil.NewSignal(),
-		streams: make(map[uint64]*drpcstream.Stream),
-		recv:    drpcwire.NewReceiver(tr),
-		buf:     drpcutil.NewBuffer(tr, drpcwire.MaxPacketSize),
+		tr:        tr,
+		handler:   handler,
+		sig:       drpcutil.NewSignal(),
+		streamSig: drpcutil.NewSignal(),
+		streams:   make(map[uint64]*drpcstream.Stream),
+		recv:      drpcwire.NewReceiver(tr),
+		buf:       drpcutil.NewBuffer(tr, drpcwire.MaxPacketSize),
 	}
 }
 
@@ -51,6 +53,7 @@ func (m *Manager) Run(ctx context.Context) error {
 	go m.manageStreams(ctx)
 
 	<-m.sig.Signal()
+	<-m.streamSig.Signal()
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -64,7 +67,7 @@ func (m *Manager) Run(ctx context.Context) error {
 	m.recv = nil
 	m.buf = nil
 
-	return errs.Combine(m.sig.Err(), m.tr.Close())
+	return m.sig.Err()
 }
 
 func (m *Manager) monitorContext(ctx context.Context) {
@@ -115,6 +118,7 @@ func (m *Manager) cleanupStream(stream *drpcstream.Stream) {
 
 func (m *Manager) manageStreams(ctx context.Context) {
 	defer m.sig.Set(drpc.InternalError.New("manager exited with no signal"))
+	defer m.streamSig.Set(nil)
 
 	for {
 		p, err := m.recv.ReadPacket()

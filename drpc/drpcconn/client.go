@@ -5,6 +5,7 @@ package drpcconn
 
 import (
 	"context"
+	"sync"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -15,9 +16,10 @@ import (
 )
 
 type Conn struct {
-	tr  drpc.Transport
-	sig *drpcutil.Signal
-	man *drpcmanager.Manager
+	once sync.Once
+	tr   drpc.Transport
+	sig  *drpcutil.Signal
+	man  *drpcmanager.Manager
 }
 
 var _ drpc.Conn = (*Conn)(nil)
@@ -40,10 +42,11 @@ func (c *Conn) Transport() drpc.Transport {
 	return c.tr
 }
 
-func (c *Conn) Close() error {
+func (c *Conn) Close() (err error) {
 	c.man.Sig().Set(drpc.Error.New("transport closed"))
 	<-c.sig.Signal()
-	return c.tr.Close()
+	c.once.Do(func() { err = c.tr.Close() })
+	return err
 }
 
 func (c *Conn) Invoke(ctx context.Context, rpc string, in, out drpc.Message) (err error) {

@@ -79,7 +79,7 @@ func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err er
 
 // Close closes the underlying connection.
 func (client *Client) Close() error {
-	return client.conn.Transport().(io.Closer).Close()
+	return client.conn.Close()
 }
 
 // next allocation step find the next trusted step.

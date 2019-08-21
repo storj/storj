@@ -9,7 +9,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/drpc"
@@ -119,7 +118,7 @@ func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (_ 
 }
 
 // FetchPeerIdentityUnverified connects to an address and returns its peer identity (no node ID verification).
-func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address string, opts ...grpc.CallOption) (_ *identity.PeerIdentity, err error) {
+func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address string) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
@@ -191,5 +190,5 @@ func (dialer *Dialer) dialAddress(ctx context.Context, address string) (_ *Conn,
 
 // Close disconnects this connection.
 func (conn *Conn) Close() error {
-	return conn.raw.Close()
+	return conn.conn.Close()
 }

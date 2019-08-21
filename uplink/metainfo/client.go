@@ -6,7 +6,6 @@ package metainfo
 import (
 	"bytes"
 	"context"
-	"io"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -67,8 +66,7 @@ func Dial(ctx context.Context, tc transport.Client, address string, apiKey strin
 // Close closes the dialed connection.
 func (client *Client) Close() error {
 	if client.conn != nil {
-		// TODO(jeff): closing is bad
-		return Error.Wrap(client.conn.Transport().(io.Closer).Close())
+		return Error.Wrap(client.conn.Close())
 	}
 	return nil
 }
