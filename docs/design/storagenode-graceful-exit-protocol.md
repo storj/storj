@@ -1,19 +1,20 @@
-# Storage Node Graceful Exit - Protocol
+# Storage Node Graceful Exit - Transferring Pieces
 
 ## Abstract
 
-This document describes the Graceful Exit protocal for Storage Node to Satellite communications.
+This document describes how Storage Node transfers its pieces during Graceful Exit.
 
 ## Background
 
-For a Storage Node to complete a Graceful Exit, we need a way for Storage Nodes to:
-- Initiate a Graceful Exit
-- Request order limits for pieces that need to be transferred
-- Transfer pieces to new nodes
-- Send successful transfers to the Satellite for verification and segment updates
-- Send failed transfers for potential reprocessing
-- Recover from interrupted transfers
-- Receive confirmation when the Graceful Exit is completed
+During Graceful Exit storage node needs to transfer pieces to other nodes. During transfering the storage node or satellite may crash, hence it needs to be able to continue after a restart. 
+
+Satellite gathers transferred pieces list asynchronously, which is described in [Gathering Pieces Document](#TODO). This may significant amount of time.
+
+Transferring a piece to another node may fail, hence we need to ensure that critical pieces get transferred. Storage Nodes can be malicious and try to misreport transfer as "failed" or "completed". Storage Node may also try to send wrong data. Which means we need proof that the correct piece was transferred.
+
+After all pieces have been transferred the Storage Node needs a receipt for completing the transfer.
+
+Both storage node and satellite operators need insight into graceful exit progress.
 
 ## Design
 
