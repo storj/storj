@@ -36,9 +36,9 @@
         PM_ACTIONS,
         API_KEYS_ACTIONS,
         NOTIFICATION_ACTIONS,
-        BUCKET_USAGE_ACTIONS,
     } from '@/utils/constants/actionNames';
     import { USER_ACTIONS } from '@/store/modules/users';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 
     @Component
     export default class ProjectSelectionDropdown extends Vue {
@@ -60,7 +60,7 @@
             this.$store.dispatch(USER_ACTIONS.CLEAR);
             this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
             this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.CLEAR);
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         }
     }
 </script>

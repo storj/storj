@@ -15,24 +15,25 @@ import (
 	"storj.io/storj/storagenode/console"
 )
 
-type consoledb struct {
-	*InfoDB
+type consoleDB struct {
+	SQLDB
 }
 
-// Console returns console.DB
-func (db *InfoDB) Console() console.DB { return &consoledb{db} }
-
-// Console returns console.DB
-func (db *DB) Console() console.DB { return db.info.Console() }
-
 // Bandwidth returns consoledb as console.Bandwidth
-func (db *consoledb) Bandwidth() console.Bandwidth {
+func (db *consoleDB) Bandwidth() console.Bandwidth {
 	return db
+}
+
+// newConsoleDB returns a new instance of consoledb initialized with the specified database.
+func newConsoleDB(db SQLDB) *consoleDB {
+	return &consoleDB{
+		SQLDB: db,
+	}
 }
 
 // GetDaily returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order for particular satellite
-func (db *consoledb) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.BandwidthUsed, err error) {
+func (db *consoleDB) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	since, _ := date.DayBoundary(from.UTC())
@@ -45,7 +46,7 @@ func (db *consoledb) GetDaily(ctx context.Context, satelliteID storj.NodeID, fro
 
 // GetDaily returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order
-func (db *consoledb) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
+func (db *consoleDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	since, _ := date.DayBoundary(from.UTC())
@@ -58,7 +59,7 @@ func (db *consoledb) GetDailyTotal(ctx context.Context, from, to time.Time) (_ [
 
 // getDailyBandwidthUsed returns slice of grouped by date bandwidth usage
 // sorted in ascending order and applied condition if any
-func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, args ...interface{}) (_ []console.BandwidthUsed, err error) {
+func (db *consoleDB) getDailyBandwidthUsed(ctx context.Context, cond string, args ...interface{}) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT action, SUM(amount), created_at
@@ -67,7 +68,7 @@ func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 				GROUP BY DATE(created_at), action
 				ORDER BY created_at ASC`
 
-	rows, err := db.db.QueryContext(ctx, query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
