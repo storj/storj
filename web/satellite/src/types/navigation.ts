@@ -23,21 +23,19 @@ export class NavigationLink {
     }
 
     public isChild(): boolean {
-        return this._path[0] === '/';
+        return this._path[0] !== '/';
     }
 
-    public with(child: NavigationLink): NavigationLink;
-    public with(child: NavigationLink, name: string): NavigationLink;
-    public with(child: NavigationLink, icon: string): NavigationLink;
-    public with(child: NavigationLink, name: string, icon: string): NavigationLink {
+    public withIcon(icon: string): NavigationLink {
+        return new NavigationLink(this._path, this._name, icon);
+    }
+
+    public with(child: NavigationLink): NavigationLink {
         if (!child.isChild()) {
             // TODO: better error message
             throw new Error('child root is not child');
         }
 
-        let newName = name || child.name;
-        let newIcon = icon || '';
-
-        return new NavigationLink(`${this.path}/${child.path}`, newName, newIcon);
+        return new NavigationLink(`${this.path}/${child.path}`, child.name);
     }
 }

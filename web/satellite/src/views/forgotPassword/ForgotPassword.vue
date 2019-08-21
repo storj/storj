@@ -8,7 +8,7 @@
     import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
     import { LOADING_CLASSES } from '@/utils/constants/classConstants';
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import ROUTES from '@/utils/constants/routerConstants';
+    import { RouteConfig } from '@/router';
     import { validateEmail } from '@/utils/validation';
     import EVENTS from '@/utils/constants/analyticsEventNames';
     import { AuthApi } from '@/api/auth';
@@ -47,7 +47,7 @@
 
         public onBackToLoginClick(): void {
             this.$segment.track(EVENTS.CLICKED_BACK_TO_LOGIN);
-            this.$router.push(ROUTES.LOGIN.path);
+            this.$router.push(RouteConfig.Login);
         }
 
         public onLogoClick(): void {

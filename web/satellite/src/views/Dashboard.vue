@@ -38,7 +38,7 @@
     import { Project } from '@/types/projects';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
     import { RequestResponse } from '@/types/response';
-    import ROUTES from '@/utils/constants/routerConstants';
+    import router, { RouteConfig } from '@/router';
     import { User } from '@/types/users';
 
     @Component({
@@ -51,7 +51,7 @@
             } catch (error) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                this.$router.push(ROUTES.LOGIN);
+                this.$router.push(RouteConfig.Login);
                 AuthToken.remove();
 
                 return;
@@ -60,6 +60,7 @@
             let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
             if (!getProjectsResponse.isSuccess || getProjectsResponse.data.length < 1) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+                this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
 
                 return;
             }

@@ -13,14 +13,11 @@ import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
 import Login from '@/views/login/Login.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import Profile from '@/components/account/Profile.vue';
-import ProjectBillingHistory from '@/components/project/billing/BillingArea.vue';
 import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
-import ProjectPaymentMethods from '@/components/project/ProjectPaymentMethods.vue';
 import Register from '@/views/register/Register.vue';
-import Router from 'vue-router';
-import store from '@/store';
+import Router, { RouteRecord } from 'vue-router';
 import UsageReport from '@/components/project/UsageReport.vue';
 import { NavigationLink } from '@/types/navigation';
 
@@ -32,25 +29,24 @@ export abstract class RouteConfig {
     public static Login = new NavigationLink('/login', 'Login');
     public static Register = new NavigationLink('/register', 'Register');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
-    public static AccountSettings = new NavigationLink('/account', 'Account');
+    public static Account = new NavigationLink('/account', 'Account');
     public static ProjectOverview = new NavigationLink('/project-overview', 'Overview');
     public static Team = new NavigationLink('/project-members', 'Team');
-    public static ApiKeys = new NavigationLink('/api-keys', 'ApiKeys');
+    public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static Buckets = new NavigationLink('/buckets', 'Buckets');
 
     // child paths
-    public static ProjectDetails = new NavigationLink('/details', 'Project Details');
-    public static BillingHistory = new NavigationLink('/billing-history', 'Billing History');
-    public static UsageReport = new NavigationLink('/usage-report', 'Usage Report');
-    public static PaymentMethods = new NavigationLink('/payment-methods', 'Payment Methods');
-    public static Profile = new NavigationLink('/profile', 'Profile');
+    public static ProjectDetails = new NavigationLink('details', 'Project Details');
+    public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    public static UsageReport = new NavigationLink('usage-report', 'Usage Report');
+    public static PaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
+    public static Profile = new NavigationLink('profile', 'Profile');
 
     // not in project yet
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
-    
 }
 
-let router = new Router({
+const router = new Router({
     mode: 'history',
     routes: [
         {
@@ -76,8 +72,8 @@ let router = new Router({
             component: Dashboard,
             children: [
                 {
-                    path: RouteConfig.AccountSettings.path,
-                    name: RouteConfig.AccountSettings.name,
+                    path: RouteConfig.Account.path,
+                    name: RouteConfig.Account.name,
                     component: AccountArea,
                     children: [
                         {
@@ -112,17 +108,12 @@ let router = new Router({
                             name: RouteConfig.ProjectDetails.name,
                             component: ProjectDetails
                         },
-                        {
-                            path: RouteConfig.BillingHistory.path,
-                            name: RouteConfig.BillingHistory.name,
-                            component: ProjectBillingHistory
-                        },
-                        {
-                            path: RouteConfig.PaymentMethods.path,
-                            name: RouteConfig.PaymentMethods.name,
-                            component: ProjectPaymentMethods
-                        },
                     ]
+                },
+                {
+                    path: RouteConfig.Root.path,
+                    name: 'default',
+                    component: ProjectOverviewArea
                 },
                 {
                     path: RouteConfig.Team.path,
@@ -149,34 +140,40 @@ let router = new Router({
     ]
 });
 
-// Makes check that Token exist at session storage before any route except Login and Register
-// and if we are able to navigate to page without existing project
 router.beforeEach((to, from, next) => {
-    if (isUnavailablePageWithoutProject(to.name as string)) {
-        next(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
-
-        return;
-    }
-
     if (to.matched.some(route => route.meta.requiresAuth)) {
         if (!AuthToken.get()) {
-            next(ROUTES.LOGIN);
+            next(RouteConfig.Login.path);
 
             return;
         }
     }
 
+    if (navigateToFirstSubTab(to.matched, RouteConfig.Account, RouteConfig.Profile)) {
+        next(RouteConfig.Account.with(RouteConfig.Profile).path);
+
+        return;
+    }
+
+    if (navigateToFirstSubTab(to.matched, RouteConfig.ProjectOverview, RouteConfig.ProjectDetails)) {
+        next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+
+        return;
+    }
+
     next();
 });
 
-// isUnavailablePageWithoutProject checks if we are able to navigate to page without existing project
-function isUnavailablePageWithoutProject(pageName: string): boolean {
-    let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name, ROUTES.BUCKETS.name];
-    const state = store.state as any;
-
-    let isProjectSelected = state.projectsModule.selectedProject.id !== '';
-
-    return unavailablePages.includes(pageName) && !isProjectSelected;
+/**
+ * if our route is a tab and has no sub tab route - we will navigate to default subtab.
+ * F.E. /account/ -> /account/profile/; /project-overview/ -> /project-overview/details/
+ * @param routes - array of RouteRecord from vue-router
+ * @param next - callback to process next route
+ * @param tabRoute - tabNavigator route
+ * @param subTabRoute - default sub route of the tabNavigator
+ */
+function navigateToFirstSubTab(routes: RouteRecord[], tabRoute: NavigationLink, subTabRoute: NavigationLink): boolean {
+    return routes.length == 2 && (routes[1].name as string) === tabRoute.name;
 }
 
 export default router;
