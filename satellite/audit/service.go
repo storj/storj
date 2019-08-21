@@ -80,7 +80,6 @@ func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config
 		log: log,
 
 		reservoirSlots: config.Slots,
-		Reservoirs:     nil,
 		rand:           rand.New(rand.NewSource(time.Now().Unix())),
 
 		MetainfoLoop: metaLoop,
