@@ -6,16 +6,18 @@ import Vuex from 'vuex';
 
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { ApiKeysApiGql } from '@/api/apiKeys';
+import { BucketsApiGql } from '@/api/buckets';
 import { CreditsApiGql } from '@/api/credits';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { UsersApiGql } from '@/api/users';
 import { appStateModule } from '@/store/modules/appState';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeCreditsModule } from '@/store/modules/credits';
+import { makeBucketsModule } from '@/store/modules/buckets';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
-import { bucketUsageModule, usageModule } from '@/store/modules/usage';
+import { usageModule } from '@/store/modules/usage';
 import { makeUsersModule } from '@/store/modules/users';
 
 Vue.use(Vuex);
@@ -31,6 +33,7 @@ export class StoreModule<S> {
 const usersApi = new UsersApiGql();
 const apiKeysApi = new ApiKeysApiGql();
 const creditsApi = new CreditsApiGql();
+const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
 
 // Satellite store (vuex)
@@ -39,13 +42,13 @@ const store = new Vuex.Store({
         notificationsModule: makeNotificationsModule(),
         apiKeysModule: makeApiKeysModule(apiKeysApi),
         appStateModule,
-        bucketUsageModule,
         creditsModule: makeCreditsModule(creditsApi),
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
         projectPaymentsMethodsModule,
+        usersModule: makeUsersModule(usersApi),
         projectsModule: makeProjectsModule(),
         usageModule,
-        usersModule: makeUsersModule(usersApi),
+        bucketUsageModule: makeBucketsModule(bucketsApi),
     }
 });
 
