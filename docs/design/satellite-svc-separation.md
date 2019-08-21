@@ -54,7 +54,7 @@ Currently there is only one Satellite binary. We propose to add the following bi
 5. audit binary which includes: overlay, metainfo
 6. accounting binary which includes: tally and rollup, overlay, metainfo
 7. garbage collection binary which includes: overlay, metainfo
-8. uptime binary which inludes: overlay (
+8. uptime binary which inludes: overlay
   - note: there is an ongoing discussion about the uptime service so this might change
 
 The following diagram shows the above propsed design:
@@ -89,6 +89,5 @@ Other work:
 - how does this affect testing and storj-sim
 - how does this affect deployments? 
 - how to handle version of different services?
-- what is the best order to do this work? in parallel maybe, but should we do certain services first?
-- how does all this change with different dbs (i.e. spanner, etc)?
+- does any of this change with different dbs (i.e. spanner, etc)?
 - is overlay cache cache happening?
