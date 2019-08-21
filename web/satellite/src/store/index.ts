@@ -12,7 +12,6 @@ import { UsersApiGql } from '@/api/users';
 import { appStateModule } from '@/store/modules/appState';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeCreditsModule } from '@/store/modules/credits';
-import { notificationsModule } from '@/store/modules/notifications';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
