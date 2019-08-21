@@ -2,34 +2,53 @@
 
 ## Abstract
 
-A Storage Node operator needs the ability to request a Graceful Exit on a per Satellite basis.
+A Storage Node operator needs the ability to request a Graceful Exit per Satellite basis.
+This document describes how the graceful exit interfaces with the operator.
 
 ## Background
 
-The Storage Node operator needs a way to initiate a Graceful Exit without assistance from the Satellite operator. 
+The Storage Node operator needs:
+- a way to initiate graceful exit,
+- a way to monitor graceful exit progress, and
+- terminate graceful exit without escrow.
 
 ## Design
 
-Provide storagenode CLI command to initiate a Graceful Exit. The command should present a list of Satellites to exit and a way to select an individual Satellite. On selection, the command should ask for confirmation before initiating the exit.
+Add a command `storagenode exit-satellite` to initiate a Graceful Exit.
 
-Once the exit is initiated, the exit process cannot be cancelled.
+The command should present a list of satellites to exit. The user needs to type the satellite domain name to start exiting. Note, remember to only list satellites that we haven't exited.
+
+The satellite list should contain:
+- domain name,
+- node ID, and
+- how much data is being stored.
+
+Once the exit is initiated the command returns. The graceful exit process cannot be cancelled.
+
+Initiating an graceful exit adds an entry with `satellite_id`, `initiated_at`, and `starting_disk_usage` to 
+`graceful_exit_status` table. `starting_disk_usage` is loaded from `pieces.Service`. The graceful exit service starts a new worker for exiting, if one doesn't already exist.
+
+TODO: how to show exit progress
+
+TODO: how to terminate graceful exit?
 
 ## Rationale
 
-[A discussion of alternate approaches and the trade offs, advantages, and disadvantages of the specified approach.]
+We could use a design based on writing a number and then asking for confirmation. However, by requesting to type the domain name, it acts as a confirmation.
+
+For `exit-satellite` command it could stay up and show exiting progress. However, exit could take several days and the storage node may even restart during the process.
 
 ## Implementation
-- Add `gexit.exit_status` table
-- Add `gracefulexit initiate` command to storagenode CLI
-  - When executed, the user should be prompted with a numbered list of satellite IDs of whitelisted Satellites that have not been exited
-  - After selecting a satellite, the user should be prompted for a confirmation
-  - Once confirmed, the command should call the corresponding satellites `GracefulExit.Initiate` endpoint. See [Protocol for transferring pieces](storagenode-graceful-exit-protocol.md)
-  - Creates new `gexit.exit_status` entry with `satellite_id`, `initiated_at`, and `starting_disk_usage` (based on a SUM of `pieceinfo_.piece_size` for the satellite being exited)
-- Once initiated, the Graceful Exit Transfer service should start processing piece transfers. TODO: Details in new doc, or the protocol doc.
 
-Create `exit_status`
+- Add `graceful_exit_status` table and interfaces.
+- Add `storagenode exit-satellite` command to storagenode CLI, which calls `gexit.Service.InitiateExit`.
+	- Once initiated [protocol for transferring pieces](storagenode-graceful-exit-protocol.md) should start.
+- TODO: monitoring exit progress
+- TODO: terminating graceful exit?
+
+Create `graceful_exit_status`
 ```
-	model exit_status (
+	model graceful_exit_status (
 		key satellite_id
 
 		field satellite_id              blob not null
@@ -37,11 +56,11 @@ Create `exit_status`
 		field completed_at              timestamp ( updateable )
 		field starting_disk_usage       int64 not null
 		field bytes_deleted             int64
-		field completed_exit_signature  blob
+
+		field completion_receipt  blob
 	)
 ```
 
 ## Open issues (if applicable)
 
-[A discussion of issues relating to this proposal for which the author does not
-know the solution. This section may be omitted if there are none.]
+- Should we be able to terminate graceful exit? If we do not provide the feature, storage node operator might try to do this manually, breaking the whole node.
