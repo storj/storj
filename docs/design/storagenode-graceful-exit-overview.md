@@ -55,4 +55,4 @@ Ungraceful exit can happen when:
 
 ## Open issues (if applicable)
 
-TODO:
+- Should we have an `satellites` table in storage node to store trusted satellites and graceful exit information?
