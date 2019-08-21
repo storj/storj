@@ -340,5 +340,6 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 // Close stops the sending service.
 func (service *Service) Close() error {
 	service.Sender.Close()
+	service.Cleanup.Close()
 	return nil
 }
