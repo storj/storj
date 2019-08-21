@@ -13,8 +13,10 @@ import (
 
 // IsRPC checks if err contains an RPC error with the given status code.
 func IsRPC(err error, code codes.Code) bool {
-	search := "code = " + code.String()
+	if err != nil && strings.Contains(err.Error(), "code = "+code.String()) {
+		return true
+	}
 	return errs.IsFunc(err, func(err error) bool {
-		return status.Code(err) == code || strings.Contains(err.Error(), search)
+		return status.Code(err) == code
 	})
 }

@@ -222,7 +222,7 @@ func (endpoint *Endpoint) settlement(stream rpcStream) (err error) {
 	}
 }
 
-func (endpoint *Endpoint) processOrders(ctx context.Context, stream pb.Orders_SettlementServer, requests []*ProcessOrderRequest) (err error) {
+func (endpoint *Endpoint) processOrders(ctx context.Context, stream rpcStream, requests []*ProcessOrderRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
