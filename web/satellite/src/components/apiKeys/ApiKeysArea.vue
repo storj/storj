@@ -3,7 +3,7 @@
 
 <template>
     <div class="api-keys-area">
-        <h1>Api Key</h1>
+        <h1>API Keys</h1>
         <div class="api-keys-area__container">
             <ApiKeysCreationPopup
                 @closePopup="closeNewApiKeyPopup"
@@ -30,15 +30,17 @@
                         </div>
                     </div>
                 </HeaderComponent>
+                <div class="blur-content" v-if="isDeleteClicked"></div>
             </div>
             <div v-if="!isEmpty" class="api-keys-items">
+                <SortingHeader/>
                 <div class="api-keys-items__content">
-                    <div v-for="apiKey in apiKeyList" v-on:click="toggleSelection(apiKey.id)">
-                        <ApiKeysItem
-                            :class="{selected: apiKey.isSelected}"
-                            :apiKey="apiKey" />
-                    </div>
+                    <List
+                        :dataSet="apiKeyList"
+                        :itemComponent="itemComponent"
+                        :onItemClick="toggleSelection"/>
                 </div>
+                <p>Want to give limited access? <b>Use API Keys.</b></p>
             </div>
             <EmptyState
                 :onButtonClick="onCreateApiKeyClick"
@@ -60,7 +62,9 @@
     import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
     import Button from '@/components/common/Button.vue';
     import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import List from '@/components/common/List.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
+    import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
     import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { ApiKey } from '@/types/apiKeys';
@@ -82,12 +86,14 @@
 
     @Component({
         components: {
+            List,
             EmptyState,
             HeaderComponent,
             ApiKeysItem,
             Button,
             ApiKeysCreationPopup,
             ApiKeysCopyPopup,
+            SortingHeader,
         },
     })
     export default class ApiKeysArea extends Vue {
@@ -101,8 +107,8 @@
             this.$store.dispatch(FETCH);
         }
 
-        public toggleSelection(id: string): void {
-            this.$store.dispatch(TOGGLE_SELECTION, id);
+        public toggleSelection(apiKey: ApiKey): void {
+            this.$store.dispatch(TOGGLE_SELECTION, apiKey.id);
         }
 
         public onCreateApiKeyClick(): void {
@@ -143,6 +149,10 @@
             }
 
             this.isDeleteClicked = false;
+        }
+
+        public get itemComponent() {
+            return ApiKeysItem;
         }
 
         public get apiKeyList(): ApiKey[] {
@@ -195,23 +205,37 @@
 
         .api-keys-header {
             width: 100%;
+            position: relative;
+
+            .blur-content {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                background-color: #F5F6FA;
+                width: 100%;
+                height: 70vh;
+                z-index: 100;
+                opacity: 0.3;
+            }
         }
 
         .api-keys-items {
             position: relative;
-            overflow-y: scroll;
-            overflow-x: hidden;
-            height: 82vh;
 
             &__content {
-                display: grid;
-                grid-template-columns: 190px 190px 190px 190px 190px 190px 190px;
+                display: flex;
+                flex-direction: column;
                 width: 100%;
-                grid-row-gap: 20px;
-                grid-column-gap: 20px;
-                justify-content: space-between;
-                margin-top: 20px;
-                margin-bottom: 100px;
+                justify-content: flex-start;
+                overflow-y: scroll;
+                overflow-x: hidden;
+                height: 49.4vh;
+            }
+
+            p {
+                font-family: 'font_regular';
+                font-size: 16px;
+                color: #AFB7C1;
             }
         }
     }
@@ -294,103 +318,12 @@
         width: 0;
     }
 
-    @media screen and (max-width: 1840px) {
-        .api-keys-area {
+    @media screen and (max-height: 800px) {
+        .api-keys-items {
 
-            .api-keys-items__content {
-                grid-template-columns: 200px 200px 200px 200px 200px 200px;
+            &__content {
+                height: 41.5vh !important;
             }
-        }
-    }
-
-    @media screen and (max-width: 1695px) {
-        .api-keys-area {
-
-            .api-keys-items__content  {
-                grid-template-columns: 180px 180px 180px 180px 180px 180px;
-            }
-        }
-
-        .apikey-item-container {
-            height: 180px;
-        }
-    }
-
-    @media screen and (max-width: 1575px) {
-        .api-keys-area {
-
-            .api-keys-items__content  {
-                grid-template-columns: 200px 200px 200px 200px 200px;
-            }
-        }
-
-        .apikey-item-container {
-            height: 200px;
-        }
-    }
-
-    @media screen and (max-width: 1475px) {
-        .api-keys-area {
-
-            .api-keys-items__content  {
-                grid-template-columns: 180px 180px 180px 180px 180px;
-            }
-        }
-
-        .apikey-item-container {
-            height: 180px;
-        }
-    }
-
-    @media screen and (max-width: 1375px) {
-        .api-keys-area {
-
-            .api-keys-items__content  {
-                grid-template-columns: 200px 200px 200px 200px;
-            }
-        }
-
-        .apikey-item-container {
-            height: 200px;
-        }
-    }
-
-    @media screen and (max-width: 1250px) {
-        .api-keys-area {
-
-            .api-keys-items__content  {
-                grid-template-columns: 180px 180px 180px 180px;
-            }
-        }
-
-        .apikey-item-container {
-            height: 180px;
-        }
-    }
-
-    @media screen and (max-width: 1160px) {
-        .api-keys-area {
-
-            .api-keys-items__content  {
-                grid-template-columns: 205px 205px 205px;
-            }
-        }
-
-        .apikey-item-container {
-            height: 205px;
-        }
-    }
-
-    @media screen and (max-width: 840px) {
-        .api-keys-area {
-
-            .api-keys-items__content  {
-                grid-template-columns: 180px 180px 180px;
-            }
-        }
-
-        .apikey-item-container {
-            height: 180px;
         }
     }
 </style>
