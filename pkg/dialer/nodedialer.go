@@ -19,7 +19,7 @@ import (
 )
 
 type Config struct {
-	Limit int `help:"Semaphore size" Default:"32"`
+	DialerLimit int `help:"Semaphore size" Default:"32"`
 }
 
 var mon = monkit.Package()
@@ -43,7 +43,7 @@ func NewNodeDialer(log *zap.Logger, config Config, transport transport.Client) *
 		log:       log,
 		transport: transport,
 	}
-	dialer.limit.Init(config.Limit)
+	dialer.limit.Init(config.DialerLimit)
 	return dialer
 }
 
