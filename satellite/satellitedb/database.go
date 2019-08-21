@@ -51,7 +51,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 		return nil, Error.New("failed opening database %q, %q: %v",
 			driver, source, err)
 	}
-	log.Debug("Connected to:", zap.String("methods source", source))
+	log.Debug("Connected to:", zap.String("db source", source))
 
 	dbutil.Configure(db.DB, mon)
 
@@ -67,7 +67,7 @@ func NewInMemory(log *zap.Logger) (satellite.DB, error) {
 	return New(log, "sqlite3://file::memory:?mode=memory")
 }
 
-// Close is used to close methods connection
+// Close is used to close db connection
 func (db *DB) Close() error {
 	return db.db.Close()
 }
