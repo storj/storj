@@ -10,7 +10,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
@@ -95,9 +94,7 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("audit 2.0 is starting up")
 
-	group, ctx := errgroup.WithContext(ctx)
-
-	service.ReservoirLoop.Start(ctx, group, func(ctx context.Context) (err error) {
+	return service.ReservoirLoop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 		pathCollector := NewPathCollector(service.reservoirSlots, service.rand)
 		err = service.MetainfoLoop.Join(ctx, pathCollector)
@@ -112,18 +109,14 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 		}
 		return nil
 	})
-
-	return group.Wait()
 }
 
 // Run runs auditing service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	service.log.Info("Audit cron is starting up")
+	service.log.Info("audit 1.0 is starting up")
 
-	group, ctx := errgroup.WithContext(ctx)
-
-	service.Loop.Start(ctx, group, func(ctx context.Context) (err error) {
+	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 		err = service.process(ctx)
 		if err != nil {
@@ -131,8 +124,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		}
 		return nil
 	})
-
-	return group.Wait()
 }
 
 // Close halts the audit loop
