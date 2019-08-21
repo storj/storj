@@ -298,7 +298,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
 		peer.Storage2.Orders = orders.NewService(
-			log.Named("piecestore:orders"),
+			log.Named("orders"),
 			peer.Transport,
 			peer.DB.Orders(),
 			peer.Storage2.Trust,
