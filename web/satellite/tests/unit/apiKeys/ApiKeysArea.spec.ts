@@ -48,7 +48,7 @@ describe('ApiKeysArea', () => {
             localVue
         });
 
-        wrapper.vm.toggleSelection(apiKey1.id);
+        wrapper.vm.toggleSelection(apiKey1);
 
         expect(store.getters.selectedAPIKeys.length).toBe(1);
     });

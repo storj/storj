@@ -24,7 +24,7 @@
 
     @Component({})
     export default class Notification extends Vue {
-        @Prop({default: () => new DelayedNotification(() => {}, '', '')})
+        @Prop({default: () => new DelayedNotification(new Function(), '', '')})
         private notification: DelayedNotification;
 
         public isClassActive = false;
@@ -47,7 +47,7 @@
         public mounted() {
             setTimeout(() => {
                 this.isClassActive = true;
-            }, 100)
+            }, 100);
         }
     }
 </script>
