@@ -52,7 +52,7 @@ func (c *Conn) Invoke(ctx context.Context, rpc string, in, out drpc.Message) (er
 		return err
 	}
 
-	stream, err := c.man.NewStream(ctx, 0)
+	stream, err := c.man.NewStream(drpc.WithTransport(ctx, c.tr), 0)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (c *Conn) Invoke(ctx context.Context, rpc string, in, out drpc.Message) (er
 }
 
 func (c *Conn) NewStream(ctx context.Context, rpc string) (_ drpc.Stream, err error) {
-	stream, err := c.man.NewStream(ctx, 0)
+	stream, err := c.man.NewStream(drpc.WithTransport(ctx, c.tr), 0)
 	if err != nil {
 		return nil, err
 	}

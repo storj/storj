@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -124,6 +125,8 @@ func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
+			return nil, storage.ErrKeyNotFound.Wrap(err)
+		} else if strings.Contains(err.Error(), "code = NotFound") {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
 		}
 		return nil, Error.Wrap(err)

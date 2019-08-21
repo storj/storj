@@ -232,6 +232,7 @@ func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
 		if ok {
 			return PeerIdentityFromChain(conn.ConnectionState().PeerCertificates)
 		}
+		return nil, Error.New("%T", conn)
 	}
 	return nil, Error.New("unable to get grpc peer from contex")
 }

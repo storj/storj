@@ -122,6 +122,7 @@ func (requests *createRequests) cleanup() {
 
 func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
 		endpoint.log.Debug("unauthorized request")

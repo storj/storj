@@ -13,6 +13,9 @@ type apikey struct{}
 
 // WithAPIKey creates context with api key
 func WithAPIKey(ctx context.Context, key []byte) context.Context {
+	if len(key) == 0 {
+		return ctx
+	}
 	return context.WithValue(ctx, apikey{}, key)
 }
 

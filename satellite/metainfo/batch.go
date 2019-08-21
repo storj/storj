@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -22,6 +23,8 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 	// TODO find a way to pass some parameters between request -> response > request
 	// TODO maybe use reflection to shrink code
 	for _, request := range req.Requests {
+		ctx := auth.WithAPIKey(ctx, request.Request.(interface{ GetApiKey() []byte }).GetApiKey())
+
 		switch singleRequest := request.Request.(type) {
 		// BUCKET
 		case *pb.BatchRequestItem_BucketCreate:
