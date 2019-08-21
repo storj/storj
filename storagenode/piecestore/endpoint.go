@@ -413,8 +413,11 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
 		var orderLimit pb.OrderLimit
 		var pieceHash pb.PieceHash
-		//GetPieceHeader return BadFormatVersion err if v0
-		if header, err := pieceReader.GetPieceHeader(); err == nil {
+
+		//GetPieceHeader returns BadFormatVersion err if v0
+		header, err := pieceReader.GetPieceHeader()
+		switch {
+		case err == nil:
 			//v1+ stores this information in the file
 			orderLimit = header.OrderLimit
 			pieceHash = pb.PieceHash{
@@ -424,7 +427,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				Timestamp: header.GetCreationTime(),
 				Signature: header.GetSignature(),
 			}
-		} else if pieces.BadFormatVersion.Has(err) {
+		case pieces.BadFormatVersion.Has(err):
 			//v0 stores this information in SQL
 			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
 			if err != nil {
@@ -432,9 +435,10 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			}
 			orderLimit = *info.OrderLimit
 			pieceHash = *info.UplinkPieceHash
-		} else {
+		default:
 			return status.Error(codes.Internal, err.Error())
 		}
+
 		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
 		if err != nil {
 			return ErrInternal.Wrap(err)
