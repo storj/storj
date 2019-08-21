@@ -52,9 +52,10 @@
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import Checkbox from '@/components/common/Checkbox.vue';
     import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import { PROJETS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
     @Component({
         components: {
@@ -69,8 +70,12 @@
         private isEditing: boolean = false;
         private newDescription: string = '';
 
-        public mounted(): void {
-            this.$store.dispatch(PROJETS_ACTIONS.FETCH);
+        public async mounted(): Promise<void> {
+            try {
+                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            }
         }
 
         public get name(): string {
@@ -91,22 +96,20 @@
             this.newDescription = value;
         }
 
-        public async onSaveButtonClick(): Promise<any> {
-            let response = await this.$store.dispatch(
-                PROJETS_ACTIONS.UPDATE, {
-                    id: this.$store.getters.selectedProject.id,
-                    description: this.newDescription
-                }
-            );
-
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-
-                return;
+        public async onSaveButtonClick(): Promise<void> {
+            try {
+                await this.$store.dispatch(
+                    PROJECTS_ACTIONS.UPDATE, {
+                        id: this.$store.getters.selectedProject.id,
+                        description: this.newDescription
+                    }
+                );
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
             }
 
             this.toggleEditing();
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
         }
 
         public toggleDeleteDialog(): void {

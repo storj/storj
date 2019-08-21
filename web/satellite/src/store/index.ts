@@ -19,6 +19,7 @@ import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { usageModule } from '@/store/modules/usage';
 import { makeUsersModule } from '@/store/modules/users';
+import { ProjectsApiGql } from '@/api/projects';
 
 Vue.use(Vuex);
 
@@ -35,6 +36,7 @@ const apiKeysApi = new ApiKeysApiGql();
 const creditsApi = new CreditsApiGql();
 const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
+const projectsApi = new ProjectsApiGql();
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
@@ -46,7 +48,7 @@ const store = new Vuex.Store({
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
         projectPaymentsMethodsModule,
         usersModule: makeUsersModule(usersApi),
-        projectsModule: makeProjectsModule(),
+        projectsModule: makeProjectsModule(projectsApi),
         usageModule,
         bucketUsageModule: makeBucketsModule(bucketsApi),
     }

@@ -72,7 +72,7 @@
         public startTime: any = {
             time: '',
         };
-        private dateRange: any;
+        private readonly dateRange: any;
 
         public constructor() {
             super();
