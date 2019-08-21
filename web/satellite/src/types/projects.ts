@@ -47,7 +47,7 @@ export class Project {
 
     public isSelected: boolean;
 
-    public constructor(id: string = '', name: string = '', description: string = '', createdAt: string = '', isSelected:boolean = false) {
+    public constructor(id: string = '', name: string = '', description: string = '', createdAt: string = '', isSelected: boolean = false) {
         this.id = id;
         this.name = name;
         this.description = description;

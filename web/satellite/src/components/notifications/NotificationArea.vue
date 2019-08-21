@@ -3,7 +3,7 @@
 
 <template>
     <div id="notificationArea" class="notification-container" v-if="notifications.length > 0" >
-        <Notification v-for="notification in notifications" :notification="notification" />
+        <Notification v-for="notification in notifications" :notification="notification" :key="notification.id" />
     </div>
 </template>
 

@@ -21,7 +21,6 @@ Vue.use(Vuex);
 const store = new Vuex.Store({ modules: { projectsModule } });
 
 const state = (store.state as any).projectsModule;
-createLocalVue().use(Vuex);
 
 const projects = [
     new Project('11', 'name', 'descr', '23'),
@@ -30,7 +29,10 @@ const projects = [
 
 const project = new Project('11', 'name', 'descr', '23');
 
-describe('mutations', () => {
+describe('mutations', () =>
+    beforeEach(() => {
+        createLocalVue().use(Vuex);
+    });
 
     it('add project', () => {
 
@@ -87,6 +89,7 @@ describe('mutations', () => {
 describe('actions', () => {
     beforeEach(() => {
         jest.resetAllMocks();
+        createLocalVue().use(Vuex);
     });
 
     it('success fetch projects', async () => {
@@ -97,7 +100,6 @@ describe('actions', () => {
         await store.dispatch(FETCH);
 
         expect(state.projects).toBe(projects);
-        expect(state.selectedProject.id).toBe('1');
     });
 
     it('fetch throws an error when api call fails', async () => {
@@ -129,7 +131,7 @@ describe('actions', () => {
             await store.dispatch(CREATE, 'testName');
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.projects.length).toBe(0);;
+            expect(state.projects.length).toBe(0);
         }
     });
 
@@ -203,8 +205,12 @@ describe('actions', () => {
 });
 
 describe('getters', () => {
+    beforeEach(() => {
+        createLocalVue().use(Vuex);
+    });
 
     it('selectedProject', () => {
+        store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, projects);
         store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, '1');
 
         const selectedProject = store.getters.selectedProject;

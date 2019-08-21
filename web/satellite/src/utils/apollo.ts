@@ -9,7 +9,7 @@ import { AuthToken } from '@/utils/authToken';
 
 // Satellite url
 const satelliteUrl = new HttpLink({
-    uri: process.env.VUE_APP_ENDPOINT_URL,
+    uri: 'http://localhost:10002' + process.env.VUE_APP_ENDPOINT_URL,
 });
 
 // Adding auth headers
