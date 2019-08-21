@@ -759,6 +759,13 @@ func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.
 	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
 }
 
+// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table
+func (m *lockedOrders) DeleteExpiredSerials(ctx context.Context) (_ int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteExpiredSerials(ctx)
+}
+
 // GetBucketBandwidth gets total bucket bandwidth from period of time
 func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
@@ -771,6 +778,13 @@ func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetStorageNodeBandwidth(ctx, nodeID, from, to)
+}
+
+// ProcessOrders takes a list of order requests and processes them in a batch
+func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ProcessOrders(ctx, requests)
 }
 
 // UnuseSerialNumber removes pair serial number -> storage node id from database
@@ -820,12 +834,6 @@ func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.S
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UseSerialNumber(ctx, serialNumber, storageNodeID)
-}
-
-func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ProcessOrders(ctx, requests)
 }
 
 // OverlayCache returns database for caching overlay information
