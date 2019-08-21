@@ -81,8 +81,8 @@ type DB interface {
 // Config defines configuration for sending orders.
 type Config struct {
 	SenderInterval time.Duration `help:"duration between sending" default:"1h0m0s"`
+	SenderTimeout  time.Duration `help:"timeout for sending" default:"1h0m0s"`
 	ArchiveTTL     time.Duration `help:"length of time to archive orders before deletion" default:"1080h0m0s"` // 45 days
-	Timeout        time.Duration `help:"timeout for sending" default:"1h0m0s"`
 }
 
 // Service sends every interval unsent orders to the satellite.
@@ -170,7 +170,7 @@ func (service *Service) sendOrders(ctx context.Context) (err error) {
 
 	if len(ordersBySatellite) > 0 {
 		var group errgroup.Group
-		ctx, cancel := context.WithTimeout(ctx, service.config.Timeout)
+		ctx, cancel := context.WithTimeout(ctx, service.config.SenderTimeout)
 		defer cancel()
 
 		for satelliteID, orders := range ordersBySatellite {
