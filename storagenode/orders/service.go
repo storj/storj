@@ -117,20 +117,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
-	service.Sender.Start(ctx, &group, func(ctx context.Context) error {
-		err := service.sendOrders(ctx)
-		if err != nil {
-			service.log.Error("error sending orders: ", zap.Error(err))
-		}
-		return nil
-	})
-	service.Cleanup.Start(ctx, &group, func(ctx context.Context) error {
-		err := service.cleanArchive(ctx)
-		if err != nil {
-			service.log.Error("error cleaning archive: ", zap.Error(err))
-		}
-		return nil
-	})
+	service.Sender.Start(ctx, &group, service.sendOrders)
+	service.Cleanup.Start(ctx, &group, service.cleanArchive)
+
 	return group.Wait()
 }
 
@@ -140,7 +129,8 @@ func (service *Service) cleanArchive(ctx context.Context) (err error) {
 
 	deleted, err := service.orders.CleanArchive(ctx, service.config.ArchiveTTL)
 	if err != nil {
-		return OrderError.Wrap(err)
+		service.log.Error("cleaning archive", zap.Error(err))
+		return nil
 	}
 
 	service.log.Debug("cleanup finished", zap.Int("items deleted", deleted))
