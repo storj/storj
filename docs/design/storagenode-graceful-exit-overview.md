@@ -26,8 +26,8 @@ The design is divided into four parts:
 
 - [Process for gathering pieces that need to be transferred.](storagenode-graceful-exit-pieces.md)
 - [Protocol for transferring pieces from one Storage Node to another.](storagenode-graceful-exit-protocol.md)
-- [Reporting for graceful exit process.](storagenode-graceful-exit-reporting.md)
-- [User Interface for interacting with graceful exit.](storagenode-graceful-exit-user-ui.md)
+- [Reporting for graceful exit process.](storagenode-graceful-exit-reports.md)
+- [User Interface for interacting with graceful exit.](storagenode-graceful-exit-ui.md)
 
 Overall a good graceful exit process looks like:
 
