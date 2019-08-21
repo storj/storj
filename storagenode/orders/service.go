@@ -152,7 +152,6 @@ func (service *Service) sendOrders(ctx context.Context) (err error) {
 		}
 
 		service.log.Warn("DB contains invalid marshalled orders", zap.Error(err))
-		return nil
 	}
 
 	requests := make(chan ArchiveRequest, batchSize)
