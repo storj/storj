@@ -542,13 +542,13 @@ func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath
 	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return nil, ErrSegmentDeleted.New(segmentPath)
+			return nil, ErrSegmentDeleted.New("%q", segmentPath)
 		}
 		return nil, err
 	}
 
 	if oldPointer != nil && oldPointer.CreationDate != newPointer.CreationDate {
-		return nil, ErrSegmentDeleted.New(segmentPath)
+		return nil, ErrSegmentDeleted.New("%q", segmentPath)
 	}
 	return newPointer, nil
 }

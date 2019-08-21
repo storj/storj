@@ -14,15 +14,18 @@ import (
 	"storj.io/storj/storagenode/storageusage"
 )
 
-// StorageUsage returns storageusage.DB
-func (db *InfoDB) StorageUsage() storageusage.DB { return &storageusageDB{db} }
-
-// StorageUsage returns storageusage.DB
-func (db *DB) StorageUsage() storageusage.DB { return db.info.StorageUsage() }
-
 // storageusageDB storage usage DB
 type storageusageDB struct {
-	*InfoDB
+	location string
+	SQLDB
+}
+
+// newStorageusageDB returns a new instance of storageusageDB initialized with the specified database.
+func newStorageusageDB(db SQLDB, location string) *storageusageDB {
+	return &storageusageDB{
+		location: location,
+		SQLDB:    db,
+	}
 }
 
 // Store stores storage usage stamps to db replacing conflicting entries
@@ -38,7 +41,7 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 
 	return db.withTx(ctx, func(tx *sql.Tx) error {
 		for _, stamp := range stamps {
-			_, err = db.db.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
+			_, err = db.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
 
 			if err != nil {
 				return err
@@ -64,7 +67,7 @@ func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 					GROUP BY DATE(timestamp)
 				)`
 
-	rows, err := db.db.QueryContext(ctx, query, satelliteID, from.UTC(), to.UTC())
+	rows, err := db.QueryContext(ctx, query, satelliteID, from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +111,7 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 					GROUP BY DATE(timestamp), satellite_id
 				) GROUP BY DATE(timestamp)`
 
-	rows, err := db.db.QueryContext(ctx, query, from.UTC(), to.UTC())
+	rows, err := db.QueryContext(ctx, query, from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -134,4 +137,23 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	}
 
 	return stamps, nil
+}
+
+// withTx is a helper method which executes callback in transaction scope
+func (db *storageusageDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
 }

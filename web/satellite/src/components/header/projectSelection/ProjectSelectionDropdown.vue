@@ -22,15 +22,15 @@
     import { Component, Vue } from 'vue-property-decorator';
 
     import {
-        API_KEYS_ACTIONS,
-        APP_STATE_ACTIONS,
-        BUCKET_USAGE_ACTIONS,
-        NOTIFICATION_ACTIONS,
-        PM_ACTIONS,
-        PROJECT_PAYMENT_METHODS_ACTIONS,
-        PROJECT_USAGE_ACTIONS,
-        PROJETS_ACTIONS
+    APP_STATE_ACTIONS,
+    PROJETS_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PM_ACTIONS,
+    API_KEYS_ACTIONS,
+    PROJECT_USAGE_ACTIONS,
+    PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { Project } from '@/types/projects';
 
     @Component
@@ -43,9 +43,7 @@
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
             // TODO: add types
-            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
             const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
             const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
 
             try {
@@ -54,7 +52,9 @@
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
             }
 
-            if (!keysResponse.isSuccess) {
+            try {
+                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            } catch {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
@@ -62,8 +62,10 @@
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
             }
 
-            if (!bucketsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+            try {
+                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
             }
 
             if (!paymentMethodsResponse.isSuccess) {
