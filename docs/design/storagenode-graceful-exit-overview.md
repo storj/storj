@@ -29,11 +29,30 @@ The design is divided into four parts:
 - [Reporting for graceful exit process.](storagenode-graceful-exit-reporting.md)
 - [User Interface for interacting with graceful exit.](storagenode-graceful-exit-user-ui.md)
 
-TODO: Constraints on how graceful exit happens.
+Overall a good graceful exit process looks like:
 
-TODO: Overview of the whole process.
+1. Storage Node Operator initiaties the graceful exit process, which:
+    - notifies the satellite about the graceful exit, and
+    - adds entry about exiting to storagenode database.
+2. Satellite receives graceful exit request, which:
+    - adds entry about exiting to satellite database, and
+    - starts gathering of pieces that need to be transferred.
+3. Satellite finishes gathering pieces that need to be transferred.
+4. Storage Node keeps polling Satellite for pieces to transfer.
+5. When the Satellite doesn't have any more pieces to transfer, it will respond with a completion receipt.
+6. Storage Node stores completion information in the database.
+7. Satellite Operator creates a reports about exited storage nodes to release escrow.
+
+For all of these steps we need to ensure that we have sufficient monitoring.
+
+When a Graceful Exit has been started, it must either run to completion, to release the escrow, or fail, without releasing the escrow. We'll call the failure scenario an ungraceful exit.
+
+Ungraceful exit can happen when:
+
+- Storage Node doesn't transfer pieces,
+- Storage Node is too slow to transfer pieces,
+- Storage Node decided to terminate the process.
 
 ## Open issues (if applicable)
 
-- Ungraceful exit.
-- Slow exit.
+TODO:
