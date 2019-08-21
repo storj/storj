@@ -6,7 +6,7 @@
  */
 export interface ProjectsApi {
     /**
-     * Updates users full name and short name
+     * Creates project
      *
      * @param createProjectModel - contains project information
      * @throws Error
@@ -20,7 +20,7 @@ export interface ProjectsApi {
      */
     get(): Promise<Project[]>;
     /**
-     * Update user
+     * Update project
      *
      * @param projectId - project ID
      * @param description - project description
