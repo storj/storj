@@ -34,7 +34,6 @@ import (
 //    - expect that there is a reservoir for that node on the audit observer
 //    - that the reservoir size is <= 2 (the maxReservoirSize)
 //    - that every item in the reservoir is unique
-//    - that looking up each pieceID in allPieces results in the same node ID
 func TestAuditPathCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
@@ -59,8 +58,6 @@ func TestAuditPathCollector(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		allPieces := make(map[storj.PieceID]storj.NodeID)
-
 		err = satellite.Metainfo.Service.Iterate(ctx, "", "", true, false,
 			func(ctx context.Context, it storage.Iterator) error {
 				var item storage.ListItem
@@ -71,12 +68,6 @@ func TestAuditPathCollector(t *testing.T) {
 
 					err = proto.Unmarshal(item.Value, pointer)
 					require.NoError(t, err)
-
-					remote := pointer.GetRemote()
-					for _, piece := range remote.GetRemotePieces() {
-						pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-						allPieces[pieceID] = piece.NodeId
-					}
 
 					// if context has been canceled exit. Otherwise, continue
 					select {
@@ -102,6 +93,7 @@ func TestAuditPathCollector(t *testing.T) {
 			// Require that len paths are <= 2 even though the PathCollector was instantiated with 3
 			// because the maxReservoirSize is currently 2.
 			require.True(t, len(observer.Reservoirs[node.ID()].Paths) <= 2)
+
 			repeats := make(map[storj.Path]bool)
 			for _, path := range observer.Reservoirs[node.ID()].Paths {
 				assert.False(t, repeats[path], "expected every item in reservoir to be unique")
