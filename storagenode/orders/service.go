@@ -80,9 +80,10 @@ type DB interface {
 
 // Config defines configuration for sending orders.
 type Config struct {
-	SenderInterval time.Duration `help:"duration between sending" default:"1h0m0s"`
-	SenderTimeout  time.Duration `help:"timeout for sending" default:"1h0m0s"`
-	ArchiveTTL     time.Duration `help:"length of time to archive orders before deletion" default:"1080h0m0s"` // 45 days
+	SenderInterval  time.Duration `help:"duration between sending" default:"1h0m0s"`
+	SenderTimeout   time.Duration `help:"timeout for sending" default:"1h0m0s"`
+	CleanupInterval time.Duration `help:"duration between archive cleanups" default:"24h0m0s"`
+	ArchiveTTL      time.Duration `help:"length of time to archive orders before deletion" default:"1080h0m0s"` // 45 days
 }
 
 // Service sends every interval unsent orders to the satellite.
@@ -108,7 +109,7 @@ func NewService(log *zap.Logger, transport transport.Client, orders DB, trust *t
 		trust:     trust,
 
 		Sender:  *sync2.NewCycle(config.SenderInterval),
-		Cleanup: *sync2.NewCycle(24 * time.Hour),
+		Cleanup: *sync2.NewCycle(config.CleanupInterval),
 	}
 }
 
