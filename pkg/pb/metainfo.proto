@@ -46,7 +46,7 @@ service Metainfo {
     rpc DeleteSegmentOld(SegmentDeleteRequestOld) returns (SegmentDeleteResponseOld);
     rpc ListSegmentsOld(ListSegmentsRequestOld) returns (ListSegmentsResponseOld);
     rpc SetAttributionOld(SetAttributionRequestOld) returns (SetAttributionResponseOld);
-    
+
     rpc ProjectInfo(ProjectInfoRequest) returns (ProjectInfoResponse);
 }
 
@@ -69,6 +69,8 @@ message BucketListItem {
 }
 
 message BucketCreateRequest {
+    bytes api_key = 420;
+
     bytes                  name = 1;
     encryption.CipherSuite path_cipher = 2;
 
@@ -83,6 +85,8 @@ message BucketCreateResponse {
 }
 
 message BucketGetRequest {
+    bytes api_key = 420;
+
     bytes name = 1;
 }
 
@@ -91,6 +95,8 @@ message BucketGetResponse {
 }
 
 message BucketDeleteRequest {
+    bytes api_key = 420;
+
     bytes name = 1;
 }
 
@@ -98,6 +104,8 @@ message BucketDeleteResponse {
 }
 
 message BucketListRequest {
+    bytes api_key = 420;
+
     bytes cursor = 1;
     int32 limit = 2;
     int32 direction = 3;
@@ -109,6 +117,8 @@ message BucketListResponse {
 }
 
 message BucketSetAttributionRequest {
+    bytes api_key = 420;
+
     bytes name = 1;
     bytes partner_id = 2;
 }
@@ -122,6 +132,8 @@ message AddressedOrderLimit {
 }
 
 message SegmentWriteRequestOld {
+    bytes api_key = 420;
+
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
@@ -137,6 +149,8 @@ message SegmentWriteResponseOld {
 }
 
 message SegmentCommitRequestOld {
+    bytes api_key = 420;
+
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
@@ -149,6 +163,8 @@ message SegmentCommitResponseOld {
 }
 
 message SegmentDownloadRequestOld {
+    bytes api_key = 420;
+
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
@@ -161,6 +177,8 @@ message SegmentDownloadResponseOld {
 }
 
 message SegmentInfoRequestOld {
+    bytes api_key = 420;
+
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
@@ -171,6 +189,8 @@ message SegmentInfoResponseOld {
 }
 
 message SegmentDeleteRequestOld {
+    bytes api_key = 420;
+
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
@@ -182,6 +202,8 @@ message SegmentDeleteResponseOld {
 }
 
 message ListSegmentsRequestOld {
+    bytes api_key = 420;
+
     bytes bucket = 1;
     bytes prefix = 2;
     bytes start_after = 3;
@@ -203,6 +225,8 @@ message ListSegmentsResponseOld {
 }
 
 message SetAttributionRequestOld {
+    bytes api_key = 420;
+
     bytes bucket_name = 1;
     bytes partner_id = 2 ;
 }
@@ -211,6 +235,7 @@ message SetAttributionResponseOld {
 }
 
 message ProjectInfoRequest {
+    bytes api_key = 420;
 }
 
 message ProjectInfoResponse {
@@ -254,6 +279,8 @@ message Object {
 }
 
 message ObjectBeginRequest {
+    bytes api_key = 420;
+
     bytes  bucket = 1;
     bytes  encrypted_path = 2;
     int32  version = 3;
@@ -276,6 +303,8 @@ message ObjectBeginResponse {
 }
 
 message ObjectCommitRequest {
+    bytes api_key = 420;
+
     bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
 
     bytes  encrypted_metadata_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
@@ -286,6 +315,8 @@ message ObjectCommitResponse {
 }
 
 message ObjectGetRequest {
+    bytes api_key = 420;
+
     bytes  bucket = 1;
     bytes  encrypted_path = 2;
     int32  version = 3;
@@ -296,6 +327,8 @@ message ObjectGetResponse {
 }
 
 message ObjectListRequest {
+    bytes api_key = 420;
+
     bytes     bucket = 1;
     bytes     encrypted_prefix = 2;
     bytes     encrypted_cursor = 3;
@@ -330,6 +363,8 @@ message ObjectListItemIncludes {
 }
 
 message ObjectBeginDeleteRequest {
+    bytes api_key = 420;
+
     bytes  bucket = 1;
     bytes  encrypted_path = 2;
     int32  version = 3;
@@ -340,6 +375,8 @@ message ObjectBeginDeleteResponse {
 }
 
 message ObjectFinishDeleteRequest {
+    bytes api_key = 420;
+
     bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
 }
 
@@ -388,6 +425,8 @@ message SegmentPosition {
 }
 
 message SegmentBeginRequest {
+    bytes api_key = 420;
+
     bytes           stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
     SegmentPosition position = 2;
 
@@ -401,6 +440,8 @@ message SegmentBeginResponse {
 }
 
 message SegmentCommitRequest {
+    bytes api_key = 420;
+
     bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
 
     bytes encrypted_key_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
@@ -435,6 +476,8 @@ message SatSegmentID {
 message SegmentCommitResponse {}
 
 message SegmentMakeInlineRequest {
+    bytes api_key = 420;
+
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
     SegmentPosition position = 2;
 
@@ -447,6 +490,8 @@ message SegmentMakeInlineRequest {
 message SegmentMakeInlineResponse {}
 
 message SegmentBeginDeleteRequest {
+    bytes api_key = 420;
+
     bytes stream_id = 1;
     SegmentPosition position = 2;
 }
@@ -458,6 +503,8 @@ message SegmentBeginDeleteResponse {
 }
 
 message SegmentFinishDeleteRequest {
+    bytes api_key = 420;
+
     bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
     repeated SegmentPieceDeleteResult results = 2;
 }
@@ -471,6 +518,8 @@ message SegmentPieceDeleteResult {
 message SegmentFinishDeleteResponse {}
 
 message SegmentListRequest {
+    bytes api_key = 420;
+
     bytes stream_id                 = 1;
     SegmentPosition cursor_position = 2;
     int32 limit                     = 3;
@@ -486,6 +535,8 @@ message SegmentListItem {
 }
 
 message SegmentDownloadRequest {
+    bytes api_key = 420;
+
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
     SegmentPosition cursor_position = 2;
 }

@@ -16,7 +16,7 @@ var (
 
 // BatchItem represents single request in batch
 type BatchItem interface {
-	BatchItem() *pb.BatchRequestItem
+	BatchItem(apiKey []byte) *pb.BatchRequestItem
 }
 
 // BatchResponse single response from batch call
