@@ -50,7 +50,7 @@ func TestOverlaycache_AllPieceCounts(t *testing.T) {
 	// update piece count fields on test nodes; set exponentially
 	expectedPieceCounts := make(map[storj.NodeID]int)
 	sqlQuery := `UPDATE nodes SET piece_count = newvals.piece_count FROM ( VALUES `
-	args := make([]interface{}, 0, len(testNodes) * 2)
+	args := make([]interface{}, 0, len(testNodes)*2)
 	for i, node := range testNodes {
 		nodeID, err := storj.NodeIDFromBytes(node.Id)
 		pieceCount := int(math.Pow10(i))

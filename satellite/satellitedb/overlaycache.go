@@ -939,7 +939,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 		return nil
 	}
 	sqlQuery := `UPDATE nodes SET piece_count = newvals.piece_count FROM ( VALUES `
-	args := make([]interface{}, 0, len(pieceCounts) * 2)
+	args := make([]interface{}, 0, len(pieceCounts)*2)
 	for nodeID, pieceCount := range pieceCounts {
 		sqlQuery += `(?::BYTEA, ?::BIGINT), `
 		args = append(args, nodeID, pieceCount)
