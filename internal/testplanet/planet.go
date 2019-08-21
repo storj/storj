@@ -20,10 +20,8 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
@@ -66,7 +64,6 @@ type Planet struct {
 	databases []io.Closer
 	uplinks   []*Uplink
 
-	Bootstrap      *bootstrap.Peer
 	VersionControl *versioncontrol.Peer
 	Satellites     []*satellite.Peer
 	StorageNodes   []*storagenode.Peer
@@ -169,11 +166,6 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Bootstrap, err = planet.newBootstrap()
-	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
-	}
-
 	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
@@ -192,19 +184,6 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount, config.StorageNodeCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
-	}
-
-	// init Satellites
-	for _, satellite := range planet.Satellites {
-		if len(satellite.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
-		}
-	}
-	// init storage nodes
-	for _, storageNode := range planet.StorageNodes {
-		if len(storageNode.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
-		}
 	}
 
 	return planet, nil
@@ -229,16 +208,6 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	planet.started = true
 
-	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
-
-	for _, peer := range planet.StorageNodes {
-		peer.Kademlia.Service.WaitForBootstrap()
-	}
-
-	for _, peer := range planet.Satellites {
-		peer.Kademlia.Service.WaitForBootstrap()
-	}
-
 	planet.Reconnect(ctx)
 }
 
@@ -251,22 +220,11 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 	// TODO: instead of pinging try to use Lookups or natural discovery to ensure
 	// everyone finds everyone else
 
-	for _, storageNode := range planet.StorageNodes {
-		storageNode := storageNode
-		group.Go(func() error {
-			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local().Node)
-			if err != nil {
-				log.Error("storage node did not find bootstrap", zap.Error(err))
-			}
-			return nil
-		})
-	}
-
 	for _, satellite := range planet.Satellites {
 		satellite := satellite
 		group.Go(func() error {
 			for _, storageNode := range planet.StorageNodes {
-				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local().Node)
+				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local().Node) // TODO KAD UPDATE
 				if err != nil {
 					log.Error("satellite did not find storage node", zap.Error(err))
 				}
