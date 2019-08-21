@@ -7,16 +7,15 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/drpc"
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -124,9 +123,7 @@ func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj
 		Segment: segmentIndex,
 	})
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return nil, storage.ErrKeyNotFound.Wrap(err)
-		} else if strings.Contains(err.Error(), "code = NotFound") {
+		if errs2.IsRPC(err, codes.NotFound) {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
 		}
 		return nil, Error.Wrap(err)
@@ -146,7 +143,7 @@ func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj
 		Segment: segmentIndex,
 	})
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, codes.NotFound) {
 			return nil, nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
 		return nil, nil, piecePrivateKey, Error.Wrap(err)
@@ -184,7 +181,7 @@ func (client *Client) DeleteSegment(ctx context.Context, bucket string, path sto
 		Segment: segmentIndex,
 	})
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, codes.NotFound) {
 			return nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
 		return nil, piecePrivateKey, Error.Wrap(err)
@@ -365,7 +362,7 @@ func (client *Client) GetBucket(ctx context.Context, params GetBucketParams) (re
 
 	resp, err := client.client.GetBucket(ctx, params.toRequest(client.apiKey))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, codes.NotFound) {
 			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
 		}
 		return storj.Bucket{}, Error.Wrap(err)
@@ -405,7 +402,7 @@ func (client *Client) DeleteBucket(ctx context.Context, params DeleteBucketParam
 
 	_, err = client.client.DeleteBucket(ctx, params.toRequest(client.apiKey))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, codes.NotFound) {
 			return storj.ErrBucketNotFound.Wrap(err)
 		}
 		return Error.Wrap(err)
@@ -711,7 +708,7 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 	response, err := client.client.GetObject(ctx, params.toRequest(client.apiKey))
 
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, codes.NotFound) {
 			return storj.ObjectInfo{}, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return storj.ObjectInfo{}, Error.Wrap(err)
@@ -763,7 +760,7 @@ func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteO
 
 	response, err := client.client.BeginDeleteObject(ctx, params.toRequest(client.apiKey))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, codes.NotFound) {
 			return storj.StreamID{}, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return storj.StreamID{}, Error.Wrap(err)
