@@ -70,22 +70,21 @@ type ReservoirService struct {
 	Reservoirs     map[storj.NodeID]*Reservoir
 	rand           *rand.Rand
 
-	MetainfoLoop  *metainfo.Loop
-	ReservoirLoop sync2.Cycle
+	MetainfoLoop *metainfo.Loop
+	Loop         sync2.Cycle
 }
 
 // NewReservoirService instantiates Service2
 func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config) (*ReservoirService, error) {
-	r := rand.New(rand.NewSource(time.Now().Unix()))
 	return &ReservoirService{
 		log: log,
 
 		reservoirSlots: config.Slots,
-		Reservoirs:     make(map[storj.NodeID]*Reservoir),
-		rand:           r,
+		Reservoirs:     nil,
+		rand:           rand.New(rand.NewSource(time.Now().Unix())),
 
-		MetainfoLoop:  metaLoop,
-		ReservoirLoop: *sync2.NewCycle(config.Interval),
+		MetainfoLoop: metaLoop,
+		Loop:         *sync2.NewCycle(config.Interval),
 	}, nil
 }
 
@@ -94,7 +93,7 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("audit 2.0 is starting up")
 
-	return service.ReservoirLoop.Run(ctx, func(ctx context.Context) (err error) {
+	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 		pathCollector := NewPathCollector(service.reservoirSlots, service.rand)
 		err = service.MetainfoLoop.Join(ctx, pathCollector)
@@ -102,11 +101,7 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 			service.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
-		// We iterate over path collector reservoirs to deep copy them because map is a reference type.
-		service.Reservoirs = make(map[storj.NodeID]*Reservoir, len(pathCollector.Reservoirs))
-		for nodeID, res := range pathCollector.Reservoirs {
-			service.Reservoirs[nodeID] = res
-		}
+		service.Reservoirs = pathCollector.Reservoirs
 		return nil
 	})
 }
