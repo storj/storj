@@ -118,11 +118,22 @@ To mitigate the risk, we will have canary releases and gradual release rollout. 
 
 ## Implementation
 
-* Create an automatic updater.
-* Update version server to contain rollout information.
+Initially, we can implement a basic version of the auto-updater that matches the docker watchtower in features, so we can start supporting Windows Home sooner than waiting to implement all features described in this document.
+
+Basic auto-updater:
+* Update the version server to return suggested version for storage nodes.
+* Create an automatic updater that just checks the suggested version and updates the binary.
 * Make automatic updater part of installer.
-* Write document how to start and stop rollouts.
 * Test the system with anti-viruses and firewalls.
+
+Later we can add:
+* Canary releases
+  * Update the version server with a canary release channel.
+  * Update the auto-updater with a feature to opt-in to the canary release channel.
+* Rollout updates
+  * Update the version server to include rollout information.
+  * Update the auto-updater to check the rollout information.
+  * Write document how to start and stop rollouts.
 
 ## Open issues (if applicable)
 
