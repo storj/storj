@@ -1,5 +1,3 @@
-[This is a template for Storj v3 design docs]
-
 # [Title]
 
 ## Abstract

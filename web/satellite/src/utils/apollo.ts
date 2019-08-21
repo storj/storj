@@ -9,7 +9,7 @@ import { AuthToken } from '@/utils/authToken';
 
 // Satellite url
 const satelliteUrl = new HttpLink({
-    uri: '/api/graphql/v0',
+    uri: process.env.VUE_APP_ENDPOINT_URL,
 });
 
 // Adding auth headers

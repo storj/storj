@@ -224,7 +224,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		value, err := get(ctx, tx, key)
 		if storage.ErrKeyNotFound.Has(err) {
 			if oldValue != nil {
-				return storage.ErrKeyNotFound.New(key.String())
+				return storage.ErrKeyNotFound.New("%q", key)
 			}
 
 			if newValue == nil {
@@ -242,7 +242,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		}
 
 		if !bytes.Equal(value, oldValue) {
-			return storage.ErrValueChanged.New(key.String())
+			return storage.ErrValueChanged.New("%q", key)
 		}
 
 		// runs only if the watched keys remain unchanged
@@ -258,7 +258,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 	err = client.db.Watch(txf, key.String())
 	if err == redis.TxFailedErr {
-		return storage.ErrValueChanged.New(key.String())
+		return storage.ErrValueChanged.New("%q", key)
 	}
 	return Error.Wrap(err)
 }
@@ -267,7 +267,7 @@ func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage
 	defer mon.Task()(&ctx)(&err)
 	value, err := cmdable.Get(string(key)).Bytes()
 	if err == redis.Nil {
-		return nil, storage.ErrKeyNotFound.New(key.String())
+		return nil, storage.ErrKeyNotFound.New("%q", key)
 	}
 	if err != nil && err != redis.TxFailedErr {
 		return nil, Error.New("get error: %v", err)
