@@ -4,12 +4,10 @@
 package audit_test
 
 import (
-	"context"
 	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,10 +15,8 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink"
 )
 
@@ -57,28 +53,6 @@ func TestAuditPathCollector(t *testing.T) {
 			}, "testbucket", path, testData)
 			require.NoError(t, err)
 		}
-
-		err = satellite.Metainfo.Service.Iterate(ctx, "", "", true, false,
-			func(ctx context.Context, it storage.Iterator) error {
-				var item storage.ListItem
-
-				// iterate over every segment in metainfo
-				for it.Next(ctx, &item) {
-					pointer := &pb.Pointer{}
-
-					err = proto.Unmarshal(item.Value, pointer)
-					require.NoError(t, err)
-
-					// if context has been canceled exit. Otherwise, continue
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					default:
-					}
-				}
-				return nil
-			})
-		require.NoError(t, err)
 
 		r := rand.New(rand.NewSource(time.Now().Unix()))
 		observer := audit.NewPathCollector(3, r)
