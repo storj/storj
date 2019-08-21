@@ -6,13 +6,13 @@ import NotificationArea from '@/components/notifications/NotificationArea.vue';
 import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 import { DelayedNotification } from '@/types/DelayedNotification';
 
-describe('Notification.vue', () => {
+describe('NotificationArea.vue', () => {
 
     it('renders correctly', () => {
         const wrapper = shallowMount(NotificationArea, {
             computed: {
-                currentNotification: jest.fn(),
-            },
+                notifications: () => []
+            }
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -20,15 +20,27 @@ describe('Notification.vue', () => {
 
     it('renders correctly with notification', () => {
         const testMessage = 'testMessage';
-        const notification = new DelayedNotification(
+        const notifications = [new DelayedNotification(
             jest.fn(),
             NOTIFICATION_TYPES.SUCCESS,
             testMessage
-        );
+        ), new DelayedNotification(
+            jest.fn(),
+            NOTIFICATION_TYPES.ERROR,
+            testMessage
+        ), new DelayedNotification(
+            jest.fn(),
+            NOTIFICATION_TYPES.WARNING,
+            testMessage
+        ), new DelayedNotification(
+            jest.fn(),
+            NOTIFICATION_TYPES.NOTIFICATION,
+            testMessage
+        )];
 
         const wrapper = mount(NotificationArea, {
             computed: {
-                currentNotification: () => notification,
+                notifications: () => notifications
             }
         });
 
