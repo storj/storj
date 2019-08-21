@@ -1,10 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package communication
+package dialer
 
 import (
 	"context"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -14,16 +15,19 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/transport"
 )
+
 type Config struct {
-	limit        int        `help:"Semaphore size" Default:"32"`
+	Limit int `help:"Semaphore size" Default:"32"`
 }
 
 var mon = monkit.Package()
 
-// NodeDialer ... TODO
+// NodeDialer assists dialer to nodes
 type NodeDialer struct {
 	log       *zap.Logger
+	transport transport.Client
 	limit     sync2.Semaphore
 }
 
@@ -33,10 +37,13 @@ type Conn struct {
 	client pb.NodesClient
 }
 
-// NewNodeDialer ... TODO
-func NewNodeDialer(log *zap.Logger, config Config) *NodeDialer {
-	dialer := &NodeDialer{log: log}
-	dialer.limit.Init(config.limit)
+// NewNodeDialer instantiates a new node dialer struct
+func NewNodeDialer(log *zap.Logger, config Config, transport transport.Client) *NodeDialer {
+	dialer := &NodeDialer{
+		log:       log,
+		transport: transport,
+	}
+	dialer.limit.Init(config.Limit)
 	return dialer
 }
 
@@ -46,7 +53,7 @@ func (dialer *NodeDialer) Close() error {
 	return nil
 }
 
-// PingNode pings target.
+// PingNode pings the target node
 func (dialer *NodeDialer) PingNode(ctx context.Context, target pb.Node) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
@@ -154,3 +161,4 @@ func (dialer *NodeDialer) dialAddress(ctx context.Context, address string) (_ *C
 // disconnect disconnects this connection.
 func (conn *Conn) disconnect() error {
 	return conn.conn.Close()
+}
