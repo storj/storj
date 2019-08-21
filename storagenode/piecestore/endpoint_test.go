@@ -271,6 +271,11 @@ func TestDownload(t *testing.T) {
 		} else {
 			require.NoError(t, err)
 		}
+
+		// these should only be not-nil if action = pb.PieceAction_GET_REPAIR
+		hash, originalLimit := downloader.GetHashAndLimit()
+		require.Nil(t, hash)
+		require.Nil(t, originalLimit)
 	}
 }
 
