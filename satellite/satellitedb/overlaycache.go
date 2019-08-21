@@ -910,18 +910,21 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 	// ID and piece count from the nodes table where piece count is not zero.
 	rows, err := cache.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return make(map[storj.NodeID]int), Error.Wrap(err)
 	}
 
 	pieceCounts := make(map[storj.NodeID]int)
 
-	var nodeID storj.NodeID
+	nodeIEErrs := errs.Group{}
 	for _, row := range rows {
-		// NB: assumes node IDs in nodes table are always valid.
-		copy(nodeID[:], row.Id)
+		nodeID, err := storj.NodeIDFromBytes(row.Id)
+		if err != nil {
+			nodeIEErrs.Add(err)
+			continue
+		}
 		pieceCounts[nodeID] = int(row.PieceCount)
 	}
-	return pieceCounts, nil
+	return pieceCounts, nodeIEErrs.Err()
 }
 
 func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {

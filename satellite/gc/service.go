@@ -78,7 +78,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	// load last piece counts from overlay db
 	lastPieceCounts, err := service.overlay.AllPieceCounts(ctx)
 	if err != nil {
-		return Error.Wrap(err)
+		service.log.Error("error getting last piece counts", zap.Error(err))
 	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
@@ -103,6 +103,10 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 		// save piece counts to db for next satellite restart
 		err = service.overlay.UpdatePieceCounts(ctx, lastPieceCounts)
+		if err != nil {
+			service.log.Error("error updating piece counts", zap.Error(err))
+			return nil
+		}
 
 		// monitor information
 		for _, info := range pieceTracker.retainInfos {
