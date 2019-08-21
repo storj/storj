@@ -16,9 +16,9 @@ To gather the pieces for transferring we need a service on the satellite that fi
 
 The service starts by asking overlay for all exiting nodes.
 
-Then joins a metainfo loop to iterate over all segments. For any segment that contains nodes that are exiting it will add an entry to a queue.
+Then joins a metainfo loop to iterate over all segments. For any segment that contains nodes that are exiting it will add an entry to a queue. We call this transfer queue.
 
-The queue is stored in database. We will need batching when inserting to database to avoid excessive load.
+The transfer queue is stored in database. We will need batching when inserting to database to avoid excessive load.
 
 Once metainfo loop has completed successfully it updates node to be ready for transferring.
 
@@ -33,10 +33,11 @@ The metainfo loop `Join` guarantees the observer will only receive events at the
 ## Implementation
 
 1. Add method for finding exiting nodes to overlay.
-2. Implement queue for pieces.
+2. Implement transfer queue for pieces.
 3. Implement gexit.Service.
 
-Create `graceful_exit_transfer_queue`
+Create `graceful_exit_transfer_queue`:
+
 ```
 model graceful_exit_transfer_queue (
     key node_id path

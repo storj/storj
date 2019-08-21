@@ -33,7 +33,6 @@ TODO: Constraints on how graceful exit happens.
 
 TODO: Overview of the whole process.
 
-
 ## Open issues (if applicable)
 
 - Ungraceful exit.
