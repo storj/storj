@@ -8,19 +8,18 @@ capability for storage nodes.
 
 ## Background
 
-Many peer-to-peer, decentralized systems employ the Kademlia implementation of a distributed hash table to allow for 
-locating peer nodes, exchanging messages and sharing data. However, due to the nature of our network, we only use Kademlia 
-for node discovery and address lookups given node IDs. This is useful when satellites don’t know about all the nodes in 
-the network and nodes are unfamiliar with all of the satellites in the network.
+Many decentralized systems use Kademlia distributed hash table to find peers, exchange messages and share data.
+However, Storj only needs it for discovery and address lookups. This is useful when satellites don’t know about all the nodes in 
+the network and nodes don't know the satellites.
 
-With our recent business decision of simplifying the storage node operator user experience, we no longer require kademlia 
-for node discovery. In a solution called SNO-select, storage nodes operators manually select the satellites they want to work with 
-and satellites wait for storage nodes to work with them. The initial implementation of this solution allows SNOs to update 
-their trusted satellite list in a hardcoded configuration file, but future improvements will enable users to manage
-this list through a web console. 
+To improve storage node operator user experience we decided to use an opt-in approach.
+Opt-in means each storage node operator manually selects the satellites they want to work with.
+As a result, storage nodes can directly notify the satellites, without any discovery.
 
-We will replace our Kademlia DHT and related entities with direct communication between satellites and storage nodes, 
-and keep the network fresh without kademlia node discovery and random lookups.
+The initial implementation has a hardcoded list of satellites in a configuration file.
+Future improvements would add capabilities to manage the list dynamically.
+
+As a result of all these decisions we can remove Kademlia and replace it with direct communication.
 
 ## Design
 
