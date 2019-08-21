@@ -4,6 +4,7 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
+import { makeNotificationsModule } from '@/store/modules/notifications';
 import { ApiKeysApiGql } from '@/api/apiKeys';
 import { CreditsApiGql } from '@/api/credits';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
@@ -36,11 +37,11 @@ const projectMembersApi = new ProjectMembersApiGql();
 // Satellite store (vuex)
 const store = new Vuex.Store({
     modules: {
+        notificationsModule: makeNotificationsModule(),
         apiKeysModule: makeApiKeysModule(apiKeysApi),
         appStateModule,
         bucketUsageModule,
         creditsModule: makeCreditsModule(creditsApi),
-        notificationsModule,
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
         projectPaymentsMethodsModule,
         projectsModule: makeProjectsModule(),
