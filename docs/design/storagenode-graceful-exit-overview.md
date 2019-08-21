@@ -45,7 +45,7 @@ Overall a good graceful exit process looks like:
 
 For all of these steps we need to ensure that we have sufficient monitoring.
 
-When a Graceful Exit has been started, it must either run to completion, to release the escrow, or fail, without releasing the escrow. We'll call the failure scenario an ungraceful exit.
+When a Graceful Exit has been started, it must either succeed or fail. The escrow, held from storage node, will be released only on success. We will call the failure scenario an ungraceful exit.
 
 Ungraceful exit can happen when:
 
