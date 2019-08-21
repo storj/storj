@@ -359,6 +359,7 @@ func TestDownloadGetRepair(t *testing.T) {
 	require.Equal(t, originLimit.Limit, ulOrderLimit.Limit)
 	require.Equal(t, originLimit.PieceId, ulOrderLimit.PieceId)
 	require.Equal(t, originLimit.SatelliteId, ulOrderLimit.SatelliteId)
+	require.Equal(t, originLimit.SerialNumber, ulOrderLimit.SerialNumber)
 	require.Equal(t, originLimit.SatelliteSignature, ulOrderLimit.SatelliteSignature)
 	require.Equal(t, originLimit.UplinkPublicKey, ulOrderLimit.UplinkPublicKey)
 }
