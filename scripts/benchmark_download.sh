@@ -38,10 +38,10 @@ STORJ_DOWNLOAD_FAILURES=0
 STORJ_CHECKSUM_FAILURES=0
 
 # Upload benchmark files.
-# echo "Uploading file to S3..."
-# ( aws s3 cp $UPLOAD_FILE s3://$S3_BUCKET )
-# echo "Uploading file to Storj..."
-# ( uplink --log.level error --log.output /tmp/storj.log cp $UPLOAD_FILE sj://$STORJ_BUCKET/$FILENAME )
+echo "Uploading file to S3..."
+( aws s3 cp $UPLOAD_FILE s3://$S3_BUCKET )
+echo "Uploading file to Storj..."
+( uplink --log.level error --log.output /tmp/storj.log cp $UPLOAD_FILE sj://$STORJ_BUCKET/$FILENAME )
 
 # S3 download benchmark.
 echo "Benchmarking S3 Download..."
