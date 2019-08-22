@@ -99,7 +99,6 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 
 	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
-		s.serveInternalError(w, req, err)
 	}
 }
 
