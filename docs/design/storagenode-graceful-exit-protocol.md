@@ -41,9 +41,13 @@ Satellite will send an TransferPiece, which contains sufficient information to u
 
 The storage node will start a new piece upload to the angel node as uplink would. It will use `uplink/piecestore.Upload`. Once uploaded, the storage node will verify the piece hash sent by the angel node corresponds to the piece hash stored in the database.
 
+#### Verifying transfer
+
 TODO(write clearly): As a confirmation the storage node sends the piece hash, with order limit, signed by the original uploader and piece hash signed by the angel node.
 
 TODO(write clearly): Satellite verifies that the original uploader piece hash and angel piece hash match, and that the order limits have the appropriate signature. When these do not match, then the satellite will send ExitFailed.
+
+#### Updating the Segment / Pointer
 
 When the upload has been verified the Satellite will use `CompareAndSwap` to only switch the appropriate node without changing others. During the upload there may have been other things that happened:
 
