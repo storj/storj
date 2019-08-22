@@ -68,6 +68,12 @@
                 return;
             }
 
+            if (!projects.length) {
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+
+                return;
+            }
+
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
 
             await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
