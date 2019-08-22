@@ -13,6 +13,9 @@
 # the minimum duration for downloading a share from storage nodes before timing out
 # audit.min-download-timeout: 25s
 
+# number of reservoir slots allotted for nodes, currently capped at 2
+# audit.slots: 1
+
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 

@@ -46,7 +46,8 @@
     import { Component, Vue } from 'vue-property-decorator';
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import Button from '@/components/common/Button.vue';
-    import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { USER_ACTIONS } from '@/store/modules/users';
     import { UpdatedUser } from '@/types/users';
 
     @Component({

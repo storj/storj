@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
@@ -84,7 +85,7 @@ type Peer struct {
 }
 
 // New creates a new Bootstrap Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.RevocationDB, config Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -104,7 +105,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 	{ // setup listener and server
 		sc := config.Server
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config)
+
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
