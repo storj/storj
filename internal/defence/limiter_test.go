@@ -59,6 +59,7 @@ func TestLimiterConcurrent(t *testing.T) {
 	ctx, cancel := context.WithCancel(textContext)
 
 	defer textContext.Cleanup()
+	defer cancel()
 
 	var wg sync.WaitGroup
 	limiter := NewLimiter(maxAttempts, lockInterval, clearPeriod)
@@ -78,7 +79,6 @@ func TestLimiterConcurrent(t *testing.T) {
 	go processSecondAttacker(t, &wg, limiter)
 
 	wg.Wait()
-	cancel()
 }
 
 // first attacker performs 3 operation ( with 3 max attempts ) per ~4 seconds ( with attempt duration 1 sec)
@@ -152,6 +152,8 @@ func ExampleLimit_second() {
 	ctx, close := context.WithCancel(context.Background())
 	limiter := NewLimiter(maxAttempts, lockInterval, clearPeriod)
 
+	defer close()
+
 	go func() {
 		if err := limiter.Run(ctx); err != nil {
 			fmt.Print(err)
@@ -161,8 +163,6 @@ func ExampleLimit_second() {
 	if !limiter.Limit("someKey") {
 		fmt.Print("you are banned")
 	}
-
-	close()
 
 	// Output:
 }
