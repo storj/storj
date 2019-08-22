@@ -5535,7 +5535,7 @@
             "fields": [
               {
                 "id": 1,
-                "name": "number_of_segments",
+                "name": "deprecated_number_of_segments",
                 "type": "int64"
               },
               {
@@ -5577,6 +5577,11 @@
                 "id": 4,
                 "name": "last_segment_meta",
                 "type": "SegmentMeta"
+              },
+              {
+                "id": 5,
+                "name": "number_of_segments",
+                "type": "int64"
               }
             ]
           }
