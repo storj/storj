@@ -29,16 +29,16 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import { AuthToken } from '@/utils/authToken';
-    import ROUTES from '@/utils/constants/routerConstants';
+    import { RouteConfig } from '@/router';
     import {
         APP_STATE_ACTIONS,
         PROJETS_ACTIONS,
         PM_ACTIONS,
-        USER_ACTIONS,
         API_KEYS_ACTIONS,
         NOTIFICATION_ACTIONS,
-        BUCKET_USAGE_ACTIONS,
     } from '@/utils/constants/actionNames';
+    import { USER_ACTIONS } from '@/store/modules/users';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 
     @Component
     export default class ProjectSelectionDropdown extends Vue {
@@ -47,20 +47,20 @@
         }
 
         public onAccountSettingsClick(): void {
-            this.$router.push(ROUTES.ACCOUNT_SETTINGS.path + '/' + ROUTES.PROFILE.path);
+            this.$router.push(RouteConfig.Account.with(RouteConfig.Profile).path);
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
         }
 
         public onLogoutClick(): void {
             AuthToken.remove();
 
-            this.$router.push(ROUTES.LOGIN.path);
+            this.$router.push(RouteConfig.Login.path);
             this.$store.dispatch(PM_ACTIONS.CLEAR);
             this.$store.dispatch(PROJETS_ACTIONS.CLEAR);
             this.$store.dispatch(USER_ACTIONS.CLEAR);
             this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
             this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.CLEAR);
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         }
     }
 </script>

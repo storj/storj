@@ -157,7 +157,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		remoteSegmentInfo, err = irreparable.Get(ctx, []byte("fake-piece-id"))
+		_, err = irreparable.Get(ctx, []byte("fake-piece-id"))
 		require.Error(t, err)
 	})
 }

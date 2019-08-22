@@ -193,7 +193,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	totalTallies.Report("total")
 
 	//store byte hours, not just bytes
-	numHours := time.Now().Sub(latestTally).Hours()
+	numHours := time.Since(latestTally).Hours()
 	if latestTally.IsZero() {
 		numHours = 1.0 //todo: something more considered?
 	}
