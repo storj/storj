@@ -36,7 +36,7 @@ The installer shall:
   * Identity directory
   * Installation directory
   * Storage directory
-* Install the storage node binary in the installation directory.*
+* Install the storage node binary in the installation directory.
 * Generate `config.yaml` file with the user configuration.
 * Register the storage node binary as a Windows Service: https://wixtoolset.org/documentation/manual/v3/xsd/util/serviceconfig.html
 * Create a firewall exception for port 28967: https://wixtoolset.org/documentation/manual/v3/xsd/firewall/firewallexception.html
