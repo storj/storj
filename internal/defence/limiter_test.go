@@ -56,15 +56,13 @@ func TestLimiter(t *testing.T) {
 
 func TestLimiterConcurrent(t *testing.T) {
 	textContext := testcontext.New(t)
-	ctx, cancel := context.WithCancel(textContext)
-
 	defer textContext.Cleanup()
+
+	ctx, cancel := context.WithCancel(textContext)
 	defer cancel()
 
 	var wg sync.WaitGroup
 	limiter := NewLimiter(maxAttempts, lockInterval, clearPeriod)
-
-	defer limiter.Close()
 
 	go func() {
 		err := limiter.Run(ctx)
