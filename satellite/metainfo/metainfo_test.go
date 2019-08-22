@@ -27,21 +27,9 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
 )
-
-// mockAPIKeys is mock for api keys store of pointerdb
-type mockAPIKeys struct {
-	info console.APIKeyInfo
-	err  error
-}
-
-// GetByKey return api key info for given key
-func (keys *mockAPIKeys) GetByKey(ctx context.Context, key macaroon.APIKey) (*console.APIKeyInfo, error) {
-	return &keys.info, keys.err
-}
 
 func TestInvalidAPIKey(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -233,11 +221,6 @@ func TestServiceList(t *testing.T) {
 	for _, item := range items {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", item.Key, item.Value)
 		assert.NoError(t, err)
-	}
-
-	type Test struct {
-		Request  storj.ListOptions
-		Expected storj.ObjectList // objects are partial
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])

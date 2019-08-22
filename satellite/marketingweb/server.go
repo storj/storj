@@ -241,7 +241,7 @@ func (s *Server) Run(ctx context.Context) error {
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
-		return Error.Wrap(s.server.Shutdown(ctx))
+		return Error.Wrap(s.server.Shutdown(context.Background()))
 	})
 	group.Go(func() error {
 		defer cancel()

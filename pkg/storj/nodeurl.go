@@ -40,7 +40,7 @@ func ParseNodeURL(s string) (NodeURL, error) {
 		return NodeURL{}, nil
 	}
 	if !strings.HasPrefix(s, "storj://") {
-		if strings.Index(s, "://") < 0 {
+		if !strings.Contains(s, "://") {
 			s = "storj://" + s
 		}
 	}

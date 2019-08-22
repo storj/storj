@@ -8,7 +8,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,20 +42,17 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		})
 	}
 
-	var wg sync.WaitGroup
+	var group errgroup.Group
 	for _, item := range items {
 		key := item.Key
 		value := item.Value
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := store.Put(ctx, key, value)
-			if err != nil {
-				t.Fatal("store.Put err:", err)
-			}
-		}()
+		group.Go(func() error {
+			return store.Put(ctx, key, value)
+		})
 	}
-	wg.Wait()
+	if err := group.Wait(); err != nil {
+		t.Fatalf("Put failed: %v", err)
+	}
 	defer cleanupItems(store, items)
 
 	t.Run("Put Empty", func(t *testing.T) {
