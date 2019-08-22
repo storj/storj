@@ -20,17 +20,18 @@ const (
 	key2           = "email2@example.com"
 	maxAttempts    = 3
 	attemptsPeriod = time.Second
-	banDuration    = time.Second
+	lockInterval   = time.Second
 	clearPeriod    = time.Second * 3
 )
 
 func TestLimiter(t *testing.T) {
-	var limiter = NewLimiter(maxAttempts, attemptsPeriod, banDuration, clearPeriod)
+	var limiter = NewLimiter(maxAttempts, lockInterval, clearPeriod)
+	defer limiter.Close()
 
 	t.Run("Testing constructor", func(t *testing.T) {
 		assert.Equal(t, limiter.attempts, maxAttempts)
 		assert.Equal(t, limiter.attemptsPeriod, attemptsPeriod)
-		assert.Equal(t, limiter.lockDuration, banDuration)
+		assert.Equal(t, limiter.lockInterval, lockInterval)
 		assert.NotNil(t, limiter.attempts)
 	})
 
@@ -53,14 +54,18 @@ func TestLimiter(t *testing.T) {
 
 		assert.Equal(t, result, false)
 	})
-
-	limiter.Close()
 }
 
 func TestLimiterConcurrent(t *testing.T) {
-	ctx, cancel := context.WithCancel(testcontext.New(t))
+	textContext := testcontext.New(t)
+	ctx, cancel := context.WithCancel(textContext)
+
+	defer textContext.Cleanup()
+
 	var wg sync.WaitGroup
-	limiter := NewLimiter(maxAttempts, attemptsPeriod, banDuration, clearPeriod)
+	limiter := NewLimiter(maxAttempts, lockInterval, clearPeriod)
+
+	defer limiter.Close()
 
 	go func() {
 		err := limiter.Run(ctx)
@@ -79,7 +84,7 @@ func TestLimiterConcurrent(t *testing.T) {
 }
 
 // first attacker performs 3 operation ( with 3 max attempts ) per ~4 seconds ( with attempt duration 1 sec)
-// so he should not be locked
+// so it should not be locked.
 func processFirstAttacker(t *testing.T, wg *sync.WaitGroup, limiter *Limiter) {
 	defer wg.Done()
 
@@ -102,7 +107,7 @@ func processFirstAttacker(t *testing.T, wg *sync.WaitGroup, limiter *Limiter) {
 }
 
 // second attacker performs 4 operation ( with 3 max attempts ) per ~0.8 second ( with attempt duration 1 sec)
-// so he should be locked
+// so it should be locked.
 func processSecondAttacker(t *testing.T, wg *sync.WaitGroup, limiter *Limiter) {
 	defer wg.Done()
 
@@ -124,10 +129,12 @@ func processSecondAttacker(t *testing.T, wg *sync.WaitGroup, limiter *Limiter) {
 	assert.False(t, result)
 }
 
-// ExampleLimit shows how to use and close Limiter
+// ExampleLimit shows how to use and close Limiter.
 func ExampleLimit() {
 	ctx := context.Background()
-	limiter := NewLimiter(maxAttempts, attemptsPeriod, banDuration, clearPeriod)
+	limiter := NewLimiter(maxAttempts, lockInterval, clearPeriod)
+
+	defer limiter.Close()
 
 	go func() {
 		if err := limiter.Run(ctx); err != nil {
@@ -138,14 +145,12 @@ func ExampleLimit() {
 	if !limiter.Limit("someKey") {
 		return
 	}
-
-	limiter.Close()
 }
 
 // ExampleLimit shows how to use and close (with context) Limiter
 func ExampleLimit_second() {
 	ctx, close := context.WithCancel(context.Background())
-	limiter := NewLimiter(maxAttempts, attemptsPeriod, banDuration, clearPeriod)
+	limiter := NewLimiter(maxAttempts, lockInterval, clearPeriod)
 
 	go func() {
 		if err := limiter.Run(ctx); err != nil {

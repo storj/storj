@@ -13,38 +13,37 @@ import (
 	"storj.io/storj/internal/sync2"
 )
 
-// limited stores information about attacker entity
+// limited stores information about attacker entity.
 type limited struct {
 	limiter *rate.Limiter
 	expire  time.Time
 }
 
-// Limiter is used to store and manage list of banned entities
+// Limiter is used to store and manage a list of banned entities.
 type Limiter struct {
 	attackers map[string]*limited
 
-	// Attempts defines how many times attacker could perform an operation
+	// Attempts defines how many times attacker could perform an operation.
 	attempts int
 	// AttemptsPeriod defines period in which attempts will count. For example, 5 attempts per minute.
 	attemptsPeriod time.Duration
-	lockDuration   time.Duration
+	lockInterval   time.Duration
 
 	mu   sync.Mutex
 	loop *sync2.Cycle
 }
 
-// NewLimiter is a constructor for Limiter
-func NewLimiter(attempts int, attemptsPeriod, lockDuration, clearPeriod time.Duration) *Limiter {
+// NewLimiter is a constructor for Limiter.
+func NewLimiter(attempts int, lockInterval, clearPeriod time.Duration) *Limiter {
 	return &Limiter{
-		attackers:      map[string]*limited{},
-		attempts:       attempts,
-		attemptsPeriod: attemptsPeriod,
-		lockDuration:   lockDuration,
-		loop:           sync2.NewCycle(clearPeriod),
+		attackers:    map[string]*limited{},
+		attempts:     attempts,
+		lockInterval: lockInterval,
+		loop:         sync2.NewCycle(clearPeriod),
 	}
 }
 
-// Limit is use to add new fail attack
+// Limit is use to add new fail attack.
 func (limiter *Limiter) Limit(key string) bool {
 	limiter.mu.Lock()
 	defer limiter.mu.Unlock()
@@ -54,8 +53,8 @@ func (limiter *Limiter) Limit(key string) bool {
 	attacker, found := limiter.attackers[key]
 	if !found {
 		attacker = &limited{
-			limiter: rate.NewLimiter(rate.Every(limiter.lockDuration), limiter.attempts),
-			expire:  now.Add(limiter.lockDuration),
+			limiter: rate.NewLimiter(rate.Every(limiter.lockInterval), limiter.attempts),
+			expire:  now.Add(limiter.lockInterval),
 		}
 		limiter.attackers[key] = attacker
 	}
@@ -63,7 +62,7 @@ func (limiter *Limiter) Limit(key string) bool {
 	return attacker.limiter.AllowN(now, 1)
 }
 
-// Run is used to clean all attackers whose ban is expired
+// Run is used to clean all attackers whose ban is expired.
 func (limiter *Limiter) Run(ctx context.Context) error {
 	return limiter.loop.Run(ctx, func(ctx context.Context) error {
 		return limiter.cleanUp(ctx, time.Now())
@@ -90,7 +89,7 @@ func (limiter *Limiter) cleanUp(ctx context.Context, cleanUpTime time.Time) erro
 	return nil
 }
 
-// Close should be used when limiter is no longer needed
+// Close should be used when limiter is no longer needed.
 func (limiter *Limiter) Close() {
 	limiter.loop.Close()
 }
