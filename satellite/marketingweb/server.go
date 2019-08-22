@@ -6,7 +6,6 @@ package marketingweb
 import (
 	"context"
 	"html/template"
-	"io"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -43,10 +42,6 @@ type Server struct {
 		internalError *template.Template
 		badRequest    *template.Template
 	}
-}
-
-type templateWriter struct {
-	writer io.Writer
 }
 
 // commonPages returns templates that are required for all routes.
