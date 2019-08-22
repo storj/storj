@@ -286,9 +286,7 @@ func NewFullIdentity(ctx context.Context, opts NewCAOptions) (*FullIdentity, err
 // ToChains takes a number of certificate chains and returns them as a 2d slice of chains of certificates.
 func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
 	combinedChains := make([][]*x509.Certificate, len(chains))
-	for i, chain := range chains {
-		combinedChains[i] = chain
-	}
+	copy(combinedChains, chains)
 	return combinedChains
 }
 
