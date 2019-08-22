@@ -97,8 +97,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		planet.config.Reconfigure.Bootstrap(0, &config)
 	}
 
-	var verInfo version.Info
-	verInfo = planet.NewVersionInfo()
+	versionInfo := planet.NewVersionInfo()
 
 	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
 	if err != nil {
@@ -108,7 +107,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err = bootstrap.New(log, identity, db, revocationDB, config, verInfo)
+	peer, err = bootstrap.New(log, identity, db, revocationDB, config, versionInfo)
 	if err != nil {
 		return nil, err
 	}

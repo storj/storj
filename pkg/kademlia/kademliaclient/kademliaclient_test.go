@@ -282,7 +282,6 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 					if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
 						return errs.New("invalid error: %v (peer:%s target:%s)", err, peer.ID(), target.ID())
 					}
-					return nil
 				}
 				return nil
 			})
