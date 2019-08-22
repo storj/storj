@@ -29,12 +29,12 @@ const projects = [
 
 const project = new Project('11', 'name', 'descr', '23');
 
-describe('mutations', () =>
+describe('mutations', () => {
     beforeEach(() => {
         createLocalVue().use(Vuex);
     });
 
-it('add project', () => {
+    it('add project', () => {
 
         store.commit(ADD, project);
 
@@ -44,21 +44,21 @@ it('add project', () => {
         expect(state.projects[0].createdAt).toBe(project.createdAt );
     });
 
-it('set projects', () => {
+    it('set projects', () => {
         store.commit(SET_PROJECTS, projects);
 
         expect(state.projects).toBe(projects);
         expect(state.selectedProject.id).toBe('1');
     });
 
-it('select project', () => {
+    it('select project', () => {
         state.projects = projects;
 
         store.commit(SELECT_PROJECT, '11');
         expect(state.selectedProject.id).toBe('11');
     });
 
-it('update project', () => {
+    it('update project', () => {
         state.projects = projects;
 
         const newDescription = 'newDescription';
@@ -68,7 +68,7 @@ it('update project', () => {
         expect(state.projects.find((pr: Project) => pr.id === '11').description).toBe(newDescription);
     });
 
-it('remove project', () => {
+    it('remove project', () => {
         state.projects = projects;
 
         store.commit(REMOVE, '11');
@@ -77,14 +77,14 @@ it('remove project', () => {
         expect(state.projects[0].id).toBe('1');
     });
 
-it('clear projects', () => {
+    it('clear projects', () => {
         state.projects = projects;
 
         store.commit(CLEAR_PROJECTS);
 
         expect(state.projects.length).toBe(0);
     });
-})
+});
 
 describe('actions', () => {
     beforeEach(() => {
