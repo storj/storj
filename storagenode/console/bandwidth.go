@@ -35,8 +35,6 @@ type Ingress struct {
 
 // BandwidthInfo stores all info about storage node bandwidth usage
 type BandwidthInfo struct {
-	Egress    Egress  `json:"egress"`
-	Ingress   Ingress `json:"ingress"`
 	Used      float64 `json:"used"`
 	Available float64 `json:"available"`
 }
