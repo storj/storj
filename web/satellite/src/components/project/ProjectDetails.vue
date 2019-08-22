@@ -53,7 +53,7 @@
     import Checkbox from '@/components/common/Checkbox.vue';
     import EmptyState from '@/components/common/EmptyStateArea.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import ROUTES from '@/utils/constants/routerConstants';
+    import { RouteConfig } from '@/router';
     import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
     import { UpdateProjectModel } from '@/types/projects';
@@ -115,7 +115,7 @@
         }
 
         public onMoreClick(): void {
-            this.$router.push(ROUTES.USAGE_REPORT);
+            this.$router.push(RouteConfig.UsageReport.path);
         }
 
         private toggleEditing(): void {

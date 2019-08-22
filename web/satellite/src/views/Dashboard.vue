@@ -36,9 +36,9 @@
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { AppState } from '@/utils/constants/appStateEnum';
     import { AuthToken } from '@/utils/authToken';
-    import ROUTES from '@/utils/constants/routerConstants';
     import { Project } from '@/types/projects';
     import { RequestResponse } from '@/types/response';
+    import router, { RouteConfig } from '@/router';
     import { User } from '@/types/users';
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
@@ -52,7 +52,7 @@
             } catch (error) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                this.$router.push(ROUTES.LOGIN);
+                this.$router.push(RouteConfig.Login);
                 AuthToken.remove();
 
                 return;

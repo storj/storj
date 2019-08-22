@@ -207,7 +207,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			planet.config.Reconfigure.Satellite(log, i, &config)
 		}
 
-		verInfo := planet.NewVersionInfo()
+		versionInfo := planet.NewVersionInfo()
 
 		revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
 		if err != nil {
@@ -215,7 +215,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		}
 		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := satellite.New(log, identity, db, revocationDB, &config, verInfo)
+		peer, err := satellite.New(log, identity, db, revocationDB, &config, versionInfo)
 		if err != nil {
 			return xs, err
 		}

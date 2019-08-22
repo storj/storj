@@ -89,7 +89,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
-		return server.server.Shutdown(nil)
+		return server.server.Shutdown(context.Background())
 	})
 	group.Go(func() error {
 		defer cancel()
@@ -157,7 +157,7 @@ func (server *Server) satelliteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(strings.TrimLeft(r.URL.Path, "/api/satellite/"))
+	satelliteID, err := storj.NodeIDFromString(strings.TrimPrefix(r.URL.Path, "/api/satellite/"))
 	if err != nil {
 		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
 		return

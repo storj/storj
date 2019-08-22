@@ -196,7 +196,7 @@ func (db *ordersDB) Archive(ctx context.Context, requests ...orders.ArchiveReque
 			if err == nil {
 				if len(notFoundErrs) > 0 {
 					// Return a class error to allow to the caler to identify this case
-					err = orders.OrderNotFoundError.New(notFoundErrs.Err().Error())
+					err = orders.OrderNotFoundError.Wrap(notFoundErrs.Err())
 				}
 			}
 		} else {

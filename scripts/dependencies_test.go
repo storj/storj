@@ -13,5 +13,5 @@ import (
 )
 
 var _ = imports.Process
-var _ = packages.LoadImports
+var _ = packages.NeedName
 var _ = astutil.PathEnclosingInterval
