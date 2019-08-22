@@ -6,10 +6,13 @@ package marketingweb
 import (
 	"context"
 	"html/template"
+	"io"
 	"net"
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -42,6 +45,10 @@ type Server struct {
 		internalError *template.Template
 		badRequest    *template.Template
 	}
+}
+
+type templateWriter struct {
+	writer io.Writer
 }
 
 // commonPages returns templates that are required for all routes.
@@ -97,7 +104,16 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
+	tw := templateWriter{
+		writer: w,
+	}
+
+	if err := s.templates.home.ExecuteTemplate(tw, "base", offers.OrganizeOffersByType()); err != nil {
+		//if nErr, ok := err.(*net.OpError); ok {
+		//	if strings.Contains(nErr.Err.Error(), syscall.EPIPE.Error()) {
+		//		return
+		//	}
+		//}
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
@@ -211,7 +227,10 @@ func (s *Server) StopOffer(w http.ResponseWriter, req *http.Request) {
 func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 
-	err := s.templates.pageNotFound.ExecuteTemplate(w, "base", nil)
+	tw := templateWriter{
+		writer: w,
+	}
+	err := s.templates.pageNotFound.ExecuteTemplate(tw, "base", nil)
 	if err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
@@ -221,7 +240,10 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, errMsg error) {
 	w.WriteHeader(http.StatusInternalServerError)
 
-	if err := s.templates.internalError.ExecuteTemplate(w, "base", errMsg); err != nil {
+	tw := templateWriter{
+		writer: w,
+	}
+	if err := s.templates.internalError.ExecuteTemplate(tw, "base", errMsg); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
@@ -230,7 +252,10 @@ func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, er
 func (s *Server) serveBadRequest(w http.ResponseWriter, req *http.Request, errMsg error) {
 	w.WriteHeader(http.StatusBadRequest)
 
-	if err := s.templates.badRequest.ExecuteTemplate(w, "base", errMsg); err != nil {
+	tw := templateWriter{
+		writer: w,
+	}
+	if err := s.templates.badRequest.ExecuteTemplate(tw, "base", errMsg); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
@@ -254,4 +279,18 @@ func (s *Server) Run(ctx context.Context) error {
 // Close closes server and underlying listener
 func (s *Server) Close() error {
 	return Error.Wrap(s.server.Close())
+}
+
+// Write wraps the Write method from a io.Writer
+func (w templateWriter) Write(p []byte) (int, error) {
+	n, err := w.writer.Write(p)
+	if err != nil {
+		// Filter out broken pipe (user pressed "stop") errors
+		if nErr, ok := err.(*net.OpError); ok {
+			if strings.Contains(nErr.Err.Error(), syscall.EPIPE.Error()) {
+				return n, nil
+			}
+		}
+	}
+	return n, err
 }
