@@ -10,14 +10,16 @@ import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ApiKey } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
+import { ProjectsApiGql } from '@/api/projects';
 
 const Vue = createLocalVue();
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const { FETCH, CREATE, CLEAR_SELECTION, DELETE, TOGGLE_SELECTION, CLEAR } = API_KEYS_ACTIONS;
 
-const projectsModule = makeProjectsModule();
-const selectedProject = new Project();
+const projectsApi = new ProjectsApiGql();
+const projectsModule = makeProjectsModule(projectsApi);
+const selectedProject = new Project('', '', '', '');
 selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;
 

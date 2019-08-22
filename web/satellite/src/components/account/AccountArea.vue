@@ -15,6 +15,7 @@
     import { Component, Vue } from 'vue-property-decorator';
     import TabNavigation from '@/components/navigation/TabNavigation.vue';
     import { NavigationLink } from '@/types/navigation';
+    import { RouteConfig } from '@/router';
 
     @Component({
         components: {
@@ -23,14 +24,10 @@
     })
     export default class AccountArea extends Vue {
         public navigation: NavigationLink[] = [
-            new NavigationLink('/account/profile', 'Profile'),
-            new NavigationLink('/account/payment-methods', 'Payment Methods'),
-            new NavigationLink('/account/billing-history', 'Billing History'),
+            RouteConfig.Account.with(RouteConfig.Profile),
+            RouteConfig.Account.with(RouteConfig.PaymentMethods),
+            RouteConfig.Account.with(RouteConfig.BillingHistory),
         ];
-
-        public mounted(): void {
-            this.$router.push(this.navigation[0].path);
-        }
     }
 </script>
 
