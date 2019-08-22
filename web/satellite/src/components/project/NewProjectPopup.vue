@@ -45,19 +45,20 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import Checkbox from '@/components/common/Checkbox.vue';
-    import Button from '@/components/common/Button.vue';
     import {
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
-        NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PROJECT_USAGE_ACTIONS,
         PROJETS_ACTIONS,
-        BUCKET_USAGE_ACTIONS
+        PM_ACTIONS,
     } from '@/utils/constants/actionNames';
-    import { PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { RequestResponse } from '@/types/response';
+    import Button from '@/components/common/Button.vue';
+    import Checkbox from '@/components/common/Checkbox.vue';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { CreateProjectModel, Project } from '@/types/projects';
+    import { RequestResponse } from '@/types/response';
 
     @Component({
         components: {
@@ -184,8 +185,8 @@
         }
 
         private clearBucketUsage(): void {
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.SET_SEARCH, '');
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.CLEAR);
+            this.$store.dispatch(BUCKET_ACTIONS.SET_SEARCH, '');
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         }
 
         private notifyError(message: string): void {

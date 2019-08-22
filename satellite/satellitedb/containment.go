@@ -30,7 +30,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit
 	pending, err := containment.db.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, audit.ErrContainedNotFound.New(id.String())
+			return nil, audit.ErrContainedNotFound.New("%v", id)
 		}
 		return nil, audit.ContainError.Wrap(err)
 	}
@@ -60,7 +60,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 		}
 	case nil:
 		if !bytes.Equal(existingAudit.ExpectedShareHash, pendingAudit.ExpectedShareHash) {
-			return audit.ContainError.Wrap(errs.Combine(audit.ErrAlreadyExists.New(pendingAudit.NodeID.String()), tx.Rollback()))
+			return audit.ContainError.Wrap(errs.Combine(audit.ErrAlreadyExists.New("%v", pendingAudit.NodeID), tx.Rollback()))
 		}
 		statement := containment.db.Rebind(
 			`UPDATE pending_audits SET reverify_count = pending_audits.reverify_count + 1

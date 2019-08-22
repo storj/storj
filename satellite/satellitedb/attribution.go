@@ -127,7 +127,7 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 		dbx.ValueAttribution_BucketName(bucketName),
 	)
 	if err == sql.ErrNoRows {
-		return nil, attribution.ErrBucketNotAttributed.New(string(bucketName))
+		return nil, attribution.ErrBucketNotAttributed.New("%q", bucketName)
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)

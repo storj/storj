@@ -1122,8 +1122,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Add Peer Identities table",
+				Description: "Add piece_count column to nodes table",
 				Version:     53,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD piece_count BIGINT NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Add Peer Identities table",
+				Version:     54,
 				Action: migrate.SQL{
 					`CREATE TABLE peer_identities (
 						node_id bytea NOT NULL,

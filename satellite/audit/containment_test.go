@@ -44,7 +44,7 @@ func TestContainIncrementAndGet(t *testing.T) {
 
 		nodeID1 := planet.StorageNodes[1].ID()
 		_, err = containment.Get(ctx, nodeID1)
-		require.Error(t, err, audit.ErrContainedNotFound.New(nodeID1.String()))
+		require.Error(t, err, audit.ErrContainedNotFound.New("%v", nodeID1))
 		assert.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
@@ -115,7 +115,7 @@ func TestContainDelete(t *testing.T) {
 
 		// get pending audit that doesn't exist
 		_, err = containment.Get(ctx, info1.NodeID)
-		assert.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
+		assert.Error(t, err, audit.ErrContainedNotFound.New("%v", info1.NodeID))
 		assert.True(t, audit.ErrContainedNotFound.Has(err))
 
 		// delete pending audit that doesn't exist
@@ -151,7 +151,7 @@ func TestContainUpdateStats(t *testing.T) {
 
 		// get pending audit that doesn't exist
 		_, err = containment.Get(ctx, info1.NodeID)
-		assert.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
+		assert.Error(t, err, audit.ErrContainedNotFound.New("%v", info1.NodeID))
 		assert.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }

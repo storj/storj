@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 )
 
 var (
@@ -196,7 +197,7 @@ func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	revDB, err := identity.NewRevocationDB(revokePeerCACfg.RevocationDBURL)
+	revDB, err := revocation.NewDB(revokePeerCACfg.RevocationDBURL)
 	if err != nil {
 		return err
 	}
