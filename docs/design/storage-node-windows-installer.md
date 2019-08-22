@@ -59,7 +59,6 @@ There are a number of reasons to use the WiX toolset directly instead of go-msi:
 
 ## Implementation
 
-1. Implement ServiceMain in the storage node binary.
 1. Implement MSI installer using the WiX toolset.
 1. Update the build process to build and sign the MSI installer. 
 1. Ensure the MSI installer works properly
@@ -74,3 +73,6 @@ There are a number of reasons to use the WiX toolset directly instead of go-msi:
   * MSI package support unintsalling too. We must test to check what files are left on disk after uninstall.
 * How do we prevent UAC from triggering?
   * Hopefully, code-signing will prevent UAC.
+* Consider implementing ServiceMain in the storage node binary
+  * We should ensure that the storage node process shutdowns gracefully on "Stop Service" and "Restart Service" events. Otherwise, we should handle them in the ServiceMain.
+  * See [golang/sys](https://github.com/golang/sys/blob/master/windows/svc/example/service.go) for example.
