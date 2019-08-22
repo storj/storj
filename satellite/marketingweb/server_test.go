@@ -81,7 +81,7 @@ func TestCreateAndStopOffers(t *testing.T) {
 				//reading out the rest of the connection
 				_, err = io.Copy(ioutil.Discard, req.Body)
 				if err != nil {
-					panic(err.Error())
+					return err
 				}
 				if err := req.Body.Close(); err != nil {
 					return err
@@ -93,7 +93,7 @@ func TestCreateAndStopOffers(t *testing.T) {
 				}
 				_, err = io.Copy(ioutil.Discard, req.Body)
 				if err != nil {
-					panic(err.Error())
+					return err
 				}
 				if err := req.Body.Close(); err != nil {
 					return err
@@ -105,7 +105,7 @@ func TestCreateAndStopOffers(t *testing.T) {
 				}
 				_, err = io.Copy(ioutil.Discard, req.Body)
 				if err != nil {
-					panic(err.Error())
+					return err
 				}
 				if err := req.Body.Close(); err != nil {
 					return err
