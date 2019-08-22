@@ -50,7 +50,7 @@ model graceful_exit_transfer_queue (
     field requested_at        timestamp ( updateable ) // when the piece info and orderlimits were requested by the storagenode
     field failed_at           timestamp ( updateable ) // when/if it failed
     field failed_status_code  int
-    field completed_at        timestamp ( updateable )
+    field finished_at         timestamp ( updateable )
 )
 ```
 

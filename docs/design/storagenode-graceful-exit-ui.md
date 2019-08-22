@@ -53,7 +53,7 @@ Create `graceful_exit_status`
 
 		field satellite_id              blob not null
 		field initiated_at              timestamp ( autoinsert ) not null
-		field completed_at              timestamp ( updateable )
+		field finished_at              timestamp ( updateable )
 		field starting_disk_usage       int64 not null
 		field bytes_deleted             int64
 
