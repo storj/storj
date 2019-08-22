@@ -72,18 +72,27 @@ func TestCreateAndStopOffers(t *testing.T) {
 			group.Go(func() error {
 				baseURL := "http://" + addr.String()
 
-				_, err := http.PostForm(baseURL+o.Path, o.Values)
+				req, err := http.PostForm(baseURL+o.Path, o.Values)
 				if err != nil {
 					return err
 				}
-
-				_, err = http.Get(baseURL)
-				if err != nil {
+				if err := req.Body.Close(); err != nil {
 					return err
 				}
 
-				_, err = http.Post(baseURL+"/stop/"+id, "application/x-www-form-urlencoded", nil)
+				req, err = http.Get(baseURL)
 				if err != nil {
+					return err
+				}
+				if err := req.Body.Close(); err != nil {
+					return err
+				}
+
+				req, err = http.Post(baseURL+"/stop/"+id, "application/x-www-form-urlencoded", nil)
+				if err != nil {
+					return err
+				}
+				if err := req.Body.Close(); err != nil {
 					return err
 				}
 

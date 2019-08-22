@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
@@ -28,7 +28,7 @@ var (
 type Options struct {
 	Config            Config
 	Ident             *identity.FullIdentity
-	RevDB             *identity.RevocationDB
+	RevDB             extensions.RevocationDB
 	PeerCAWhitelist   []*x509.Certificate
 	VerificationFuncs *VerificationFuncs
 	Cert              *tls.Certificate
@@ -44,10 +44,13 @@ type VerificationFuncs struct {
 // ExtensionMap maps `pkix.Extension`s to their respective asn1 object ID string.
 type ExtensionMap map[string]pkix.Extension
 
-// NewOptions is a constructor for `tls options` given an identity and config.
-func NewOptions(i *identity.FullIdentity, c Config) (*Options, error) {
+// NewOptions is a constructor for `tls options` given an identity, config, and
+// revocation DB. A caller may pass a nil revocation DB if the revocation
+// extension is disabled.
+func NewOptions(i *identity.FullIdentity, c Config, revocationDB extensions.RevocationDB) (*Options, error) {
 	opts := &Options{
 		Config:            c,
+		RevDB:             revocationDB,
 		Ident:             i,
 		VerificationFuncs: new(VerificationFuncs),
 	}
@@ -75,7 +78,7 @@ func NewExtensionsMap(chain ...*x509.Certificate) ExtensionMap {
 func (opts *Options) ExtensionOptions() *extensions.Options {
 	return &extensions.Options{
 		PeerCAWhitelist: opts.PeerCAWhitelist,
-		RevDB:           opts.RevDB,
+		RevocationDB:    opts.RevDB,
 		PeerIDVersions:  opts.Config.PeerIDVersions,
 	}
 }
@@ -98,14 +101,21 @@ func (opts *Options) configure() (err error) {
 		opts.VerificationFuncs.ClientAdd(peertls.VerifyCAWhitelist(opts.PeerCAWhitelist))
 	}
 
+	handlers := make(extensions.HandlerFactories, len(extensions.DefaultHandlers))
+	copy(handlers, extensions.DefaultHandlers)
+
 	if opts.Config.Extensions.Revocation {
-		opts.RevDB, err = identity.NewRevocationDB(opts.Config.RevocationDBURL)
-		if err != nil {
-			return err
-		}
+		handlers.Register(
+			extensions.RevocationCheckHandler,
+			extensions.RevocationUpdateHandler,
+		)
 	}
 
-	opts.handleExtensions(extensions.AllHandlers)
+	if opts.Config.Extensions.WhitelistSignedLeaf {
+		handlers.Register(extensions.CAWhitelistSignedLeafHandler)
+	}
+
+	opts.handleExtensions(handlers)
 
 	opts.Cert, err = peertls.TLSCert(opts.Ident.RawChain(), opts.Ident.Leaf, opts.Ident.Key)
 	return err

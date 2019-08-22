@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
@@ -29,6 +28,7 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -42,6 +42,7 @@ var (
 	// ErrInternal is the default error class for internal piecestore errors.
 	ErrInternal = errs.Class("piecestore internal")
 )
+
 var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
 // OldConfig contains everything necessary for a server
@@ -58,55 +59,12 @@ type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
-	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
-	RetainStatus          RetainStatus  `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
+	CacheSyncInterval     time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
+
+	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
 
 	Monitor monitor.Config
-	Sender  orders.SenderConfig
-}
-
-// RetainStatus is a type defining the enabled/disabled status of retain requests
-type RetainStatus uint32
-
-const (
-	// RetainDisabled means we do not do anything with retain requests
-	RetainDisabled RetainStatus = iota + 1
-	// RetainEnabled means we fully enable retain requests and delete data not defined by bloom filter
-	RetainEnabled
-	// RetainDebug means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
-	RetainDebug
-)
-
-// Set implements pflag.Value
-func (v *RetainStatus) Set(s string) error {
-	switch s {
-	case "disabled":
-		*v = RetainDisabled
-	case "enabled":
-		*v = RetainEnabled
-	case "debug":
-		*v = RetainDebug
-	default:
-		return Error.New("invalid RetainStatus %q", s)
-	}
-	return nil
-}
-
-// Type implements pflag.Value
-func (*RetainStatus) Type() string { return "storj.RetainStatus" }
-
-// String implements pflag.Value
-func (v *RetainStatus) String() string {
-	switch *v {
-	case RetainDisabled:
-		return "disabled"
-	case RetainEnabled:
-		return "enabled"
-	case RetainDebug:
-		return "debug"
-	default:
-		return "invalid"
-	}
+	Orders  orders.Config
 }
 
 // Endpoint implements uploading, downloading and deleting for a storage node.
@@ -117,9 +75,9 @@ type Endpoint struct {
 	signer  signing.Signer
 	trust   *trust.Pool
 	monitor *monitor.Service
+	retain  *retain.Service
 
 	store       *pieces.Store
-	pieceinfo   pieces.DB
 	orders      orders.DB
 	usage       bandwidth.DB
 	usedSerials UsedSerials
@@ -128,7 +86,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -136,9 +94,9 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		signer:  signer,
 		trust:   trust,
 		monitor: monitor,
+		retain:  retain,
 
 		store:       store,
-		pieceinfo:   pieceinfo,
 		orders:      orders,
 		usage:       usage,
 		usedSerials: usedSerials,
@@ -147,8 +105,11 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 	}, nil
 }
 
+var monLiveRequests = mon.TaskNamed("live-request")
+
 // Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -158,16 +119,12 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
-	if err := endpoint.VerifyOrderLimit(ctx, delete.Limit); err != nil {
+	if err := endpoint.verifyOrderLimit(ctx, delete.Limit); err != nil {
 		// TODO: report grpc status unauthorized or bad request
 		return nil, Error.Wrap(err)
 	}
 
-	// TODO: parallelize this and maybe return early
-	pieceInfoErr := endpoint.pieceinfo.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
-	pieceErr := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
-
-	if err := errs.Combine(pieceInfoErr, pieceErr); err != nil {
+	if err := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId); err != nil {
 		// explicitly ignoring error because the errors
 		// TODO: add more debug info
 		endpoint.log.Error("delete failed", zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
@@ -183,6 +140,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -218,8 +176,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return ErrProtocol.New("expected put or put repair action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
 
-	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
-		return err // TODO: report grpc status unauthorized or bad request
+	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+		return err
 	}
 
 	var pieceWriter *pieces.Writer
@@ -273,7 +231,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 
 	largestOrder := pb.Order{}
-	defer endpoint.SaveOrder(ctx, limit, &largestOrder)
+	defer endpoint.saveOrder(ctx, limit, &largestOrder)
 
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
@@ -322,44 +280,36 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		}
 
 		if message.Done != nil {
-			expectedHash := pieceWriter.Hash()
-			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, expectedHash); err != nil {
+			calculatedHash := pieceWriter.Hash()
+			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
 				return err // TODO: report grpc status internal server error
 			}
 			if message.Done.PieceSize != pieceWriter.Size() {
 				return ErrProtocol.New("Size of finished piece does not match size declared by uplink! %d != %d",
-					message.Done.GetPieceSize(), pieceWriter.Size())
+					message.Done.PieceSize, pieceWriter.Size())
 			}
 
-			if err := pieceWriter.Commit(ctx); err != nil {
-				return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
-			}
-
-			// TODO: do this in a goroutine
 			{
-				// TODO: maybe this should be as a pieceWriter.Commit(ctx, info)
-				info := &pieces.Info{
-					SatelliteID: limit.SatelliteId,
-
-					PieceID:         limit.PieceId,
-					PieceSize:       pieceWriter.Size(),
-					PieceCreation:   limit.OrderCreation,
-					PieceExpiration: limit.PieceExpiration,
-
-					OrderLimit:      limit,
-					UplinkPieceHash: message.Done,
+				info := &pb.PieceHeader{
+					Hash:         calculatedHash,
+					CreationTime: message.Done.Timestamp,
+					Signature:    message.Done.GetSignature(),
+					OrderLimit:   *limit,
 				}
-
-				if err := endpoint.pieceinfo.Add(ctx, info); err != nil {
-					ignoreCancelContext := context.Background()
-					deleteErr := endpoint.store.Delete(ignoreCancelContext, limit.SatelliteId, limit.PieceId)
-					return ErrInternal.Wrap(errs.Combine(err, deleteErr))
+				if err := pieceWriter.Commit(ctx, info); err != nil {
+					return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+				}
+				if !limit.PieceExpiration.IsZero() {
+					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
+					if err != nil {
+						return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+					}
 				}
 			}
 
 			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
 				PieceId:   limit.PieceId,
-				Hash:      expectedHash,
+				Hash:      calculatedHash,
 				PieceSize: pieceWriter.Size(),
 				Timestamp: time.Now(),
 			})
@@ -378,6 +328,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 // Download implements downloading a piece from piece store.
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
+	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
 	atomic.AddInt32(&endpoint.liveRequests, 1)
@@ -410,7 +361,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return ErrProtocol.New("requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
-	if err := endpoint.VerifyOrderLimit(ctx, limit); err != nil {
+	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
 	}
 
@@ -519,7 +470,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	recvErr := func() (err error) {
 		largestOrder := pb.Order{}
-		defer endpoint.SaveOrder(ctx, limit, &largestOrder)
+		defer endpoint.saveOrder(ctx, limit, &largestOrder)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -560,8 +511,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	return Error.Wrap(errs.Combine(sendErr, recvErr))
 }
 
-// SaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
+// saveOrder saves the order with all necessary information. It assumes it has been already verified.
+func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -588,7 +539,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	defer mon.Task()(&ctx)(&err)
 
 	// if retain status is disabled, quit immediately
-	if endpoint.config.RetainStatus == RetainDisabled {
+	if endpoint.retain.Status() == retain.Disabled {
 		return &pb.RetainResponse{}, nil
 	}
 
@@ -607,49 +558,15 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, status.Error(codes.InvalidArgument, Error.Wrap(err).Error())
 	}
 
-	const limit = 1000
-	offset := 0
-	numDeleted := 0
-	hasMorePieces := true
-
-	for hasMorePieces {
-		// subtract some time to leave room for clock difference between the satellite and storage node
-		createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
-
-		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
-		if err != nil {
-			return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
-		}
-		for _, pieceID := range pieceIDs {
-			if !filter.Contains(pieceID) {
-				endpoint.log.Sugar().Debugf("About to delete piece id (%s) from satellite (%s). RetainStatus: %s", pieceID.String(), peer.ID.String(), endpoint.config.RetainStatus.String())
-
-				// if retain status is enabled, delete pieceid
-				if endpoint.config.RetainStatus == RetainEnabled {
-					if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
-						endpoint.log.Error("failed to delete a piece", zap.Error(err))
-						// continue because if we fail to delete from file system,
-						// we need to keep the pieceinfo so we can delete next time
-						continue
-					}
-					if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
-						endpoint.log.Error("failed to delete piece info", zap.Error(err))
-					}
-				}
-
-				numDeleted++
-			}
-		}
-
-		hasMorePieces = (len(pieceIDs) == limit)
-		offset += len(pieceIDs)
-		offset -= numDeleted
-		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
-		// so other goroutines can continue serving requests.
-		runtime.Gosched()
+	// the queue function will update the created before time based on the configurable retain buffer
+	queued := endpoint.retain.Queue(retain.Request{
+		SatelliteID:   peer.ID,
+		CreatedBefore: retainReq.GetCreationDate(),
+		Filter:        filter,
+	})
+	if !queued {
+		endpoint.log.Debug("Retain job not queued for satellite", zap.String("satellite ID", peer.ID.String()))
 	}
-
-	endpoint.log.Sugar().Debugf("Deleted %d pieces during retain. RetainStatus: %s", numDeleted, endpoint.config.RetainStatus.String())
 
 	return &pb.RetainResponse{}, nil
 }

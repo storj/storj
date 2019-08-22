@@ -53,14 +53,14 @@ type Verifier struct {
 	orders             *orders.Service
 	auditor            *identity.PeerIdentity
 	transport          transport.Client
-	overlay            *overlay.Cache
+	overlay            *overlay.Service
 	containment        Containment
 	minBytesPerSecond  memory.Size
 	minDownloadTimeout time.Duration
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
+func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, transport transport.Client, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
 		metainfo:           metainfo,
@@ -92,7 +92,8 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		return nil, err
 	}
 
-	// note: offlineNodes here will include disqualified nodes
+	// NOTE offlineNodes will include disqualified nodes because they aren't in
+	// the skip list
 	offlineNodes = getOfflineNodes(stripe.Segment, orderLimits, skip)
 	if len(offlineNodes) > 0 {
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)", zap.Strings("Node IDs", offlineNodes.Strings()))
@@ -541,13 +542,13 @@ func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath
 	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return nil, ErrSegmentDeleted.New(segmentPath)
+			return nil, ErrSegmentDeleted.New("%q", segmentPath)
 		}
 		return nil, err
 	}
 
 	if oldPointer != nil && oldPointer.CreationDate != newPointer.CreationDate {
-		return nil, ErrSegmentDeleted.New(segmentPath)
+		return nil, ErrSegmentDeleted.New("%q", segmentPath)
 	}
 	return newPointer, nil
 }
@@ -592,7 +593,8 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 	return copies, nil
 }
 
-// getOfflines nodes returns these storage nodes from pointer which have no order limit
+// getOfflines nodes returns these storage nodes from pointer which have no
+// order limit nor are skipped.
 func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, skip map[storj.NodeID]bool) storj.NodeIDList {
 	var offlines storj.NodeIDList
 

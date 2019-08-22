@@ -124,27 +124,27 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 	defer mon.Task()(&ctx)(&err)
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		endpoint.log.Debug("unauthorized request")
+		return nil, status.Error(codes.Unauthenticated, "Missing API credentials")
 	}
 
 	key, err := macaroon.ParseAPIKey(string(keyData))
 	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		endpoint.log.Debug("invalid request", zap.Error(err))
+		return nil, status.Error(codes.InvalidArgument, "Invalid API credentials")
 	}
 
 	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		endpoint.log.Debug("unauthorized request", zap.Error(err))
+		return nil, status.Error(codes.PermissionDenied, "Unauthorized API credentials")
 	}
 
 	// Revocations are currently handled by just deleting the key.
 	err = key.Check(ctx, keyInfo.Secret, action, nil)
 	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		endpoint.log.Debug("unauthorized request", zap.Error(err))
+		return nil, status.Error(codes.PermissionDenied, "Unauthorized API credentials")
 	}
 
 	return keyInfo, nil
@@ -283,7 +283,7 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			return Error.New("invalid no order limit for piece")
 		}
 
-		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.rsConfig.MaxSegmentSize.Int64(), storj.EncryptionParameters{
+		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.requiredRSConfig.MaxSegmentSize.Int64(), storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
 			BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
 		})
@@ -311,7 +311,7 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
 			}
-			if bytes.Compare(piece.NodeId.Bytes(), limit.StorageNodeId.Bytes()) != 0 {
+			if piece.NodeId != limit.StorageNodeId {
 				return Error.New("piece NodeID != order limit NodeID")
 			}
 		}
@@ -323,18 +323,18 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if endpoint.rsConfig.Validate == true {
-		if endpoint.rsConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
-			endpoint.rsConfig.MaxThreshold != int(redundancy.Total) ||
-			endpoint.rsConfig.MinThreshold != int(redundancy.MinReq) ||
-			endpoint.rsConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
-			endpoint.rsConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
+	if endpoint.requiredRSConfig.Validate {
+		if endpoint.requiredRSConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
+			endpoint.requiredRSConfig.MaxThreshold != int(redundancy.Total) ||
+			endpoint.requiredRSConfig.MinThreshold != int(redundancy.MinReq) ||
+			endpoint.requiredRSConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
+			endpoint.requiredRSConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
 			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d, %d] got [%d, %d, %d, %d, %d]",
-				endpoint.rsConfig.MinThreshold,
-				endpoint.rsConfig.RepairThreshold,
-				endpoint.rsConfig.SuccessThreshold,
-				endpoint.rsConfig.MaxThreshold,
-				endpoint.rsConfig.ErasureShareSize.Int32(),
+				endpoint.requiredRSConfig.MinThreshold,
+				endpoint.requiredRSConfig.RepairThreshold,
+				endpoint.requiredRSConfig.SuccessThreshold,
+				endpoint.requiredRSConfig.MaxThreshold,
+				endpoint.requiredRSConfig.ErasureShareSize.Int32(),
 
 				redundancy.MinReq,
 				redundancy.RepairThreshold,

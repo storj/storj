@@ -99,7 +99,6 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 
 	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
-		s.serveInternalError(w, req, err)
 	}
 }
 
@@ -132,7 +131,7 @@ func (s *Server) parseTemplates() (err error) {
 	)
 
 	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
-		"isEmpty": rewards.Offer.IsEmpty,
+		"referralLink": rewards.GeneratePartnerLink,
 	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
@@ -175,7 +174,6 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		offer.Type = rewards.FreeCredit
 	case "partner-offer":
 		offer.Type = rewards.Partner
-		offer.Name = offer.FormatPartnerName()
 	default:
 		err := errs.New("response status %d : invalid offer type", http.StatusBadRequest)
 		s.serveBadRequest(w, req, err)
@@ -243,7 +241,7 @@ func (s *Server) Run(ctx context.Context) error {
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
-		return Error.Wrap(s.server.Shutdown(ctx))
+		return Error.Wrap(s.server.Shutdown(context.Background()))
 	})
 	group.Go(func() error {
 		defer cancel()

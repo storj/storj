@@ -16,10 +16,10 @@ var (
 	Error = errs.Class("overlay error")
 )
 
-// Config is a configuration struct for everything you need to start the
-// Overlay cache responsibility.
+// Config is a configuration for overlay service.
 type Config struct {
-	Node NodeSelectionConfig
+	Node                 NodeSelectionConfig
+	UpdateStatsBatchSize int `help:"number of update requests to process per transaction" default:"100"`
 }
 
 // NodeSelectionConfig is a configuration struct to determine the minimum

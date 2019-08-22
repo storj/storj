@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
@@ -78,7 +79,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
+		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
 		satellite.Discovery.Service.Discovery.Stop()
 
 		testData := testrand.Bytes(memory.MiB)
@@ -127,7 +128,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
 
-				// mark node as offline in overlay cache
+				// mark node as offline in overlay
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				require.NoError(t, err)
 			}
@@ -204,7 +205,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 				wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
 				require.NoError(t, err)
-				options, err := tlsopts.NewOptions(storageNode.Identity, tlsopts.Config{
+				tlscfg := tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: wl,
@@ -213,14 +214,23 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
-				})
+				}
+
+				revocationDB, err := revocation.NewDBFromCfg(tlscfg)
 				require.NoError(t, err)
 
-				server, err := server.New(options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
+				options, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
+				require.NoError(t, err)
+
+				server, err := server.New(storageNode.Log.Named("mock-server"), options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
 				require.NoError(t, err)
 				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
 				go func() {
+					// TODO: get goroutine under control
 					err := server.Run(ctx)
+					require.NoError(t, err)
+
+					err = revocationDB.Close()
 					require.NoError(t, err)
 				}()
 				stopped = true

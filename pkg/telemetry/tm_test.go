@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap/zaptest"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
@@ -26,7 +27,7 @@ func TestMetrics(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = s.Close() }()
 
-	c, err := NewClient(s.Addr(), ClientOpts{
+	c, err := NewClient(zaptest.NewLogger(t), s.Addr(), ClientOpts{
 		Application: "testapp",
 		Instance:    "testinst",
 	})

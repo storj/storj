@@ -81,9 +81,9 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
     @Component({
         components: {
@@ -142,14 +142,17 @@
             return false;
         }
 
-        private async deleteProject(): Promise<boolean> {
-            let response = await this.$store.dispatch(PROJETS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+        private async deleteProject(): Promise<string> {
+            let deletedProjectName: string = '';
+
+            try {
+                deletedProjectName = await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
                 this.isLoading = false;
             }
 
-            return response.isSuccess;
+            return deletedProjectName;
         }
 
         private selectProject(): void {
@@ -157,7 +160,7 @@
                 return;
             }
 
-            this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
+            this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
             this.$store.dispatch(PM_ACTIONS.FETCH);
             this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
         }

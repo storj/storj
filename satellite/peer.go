@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
@@ -36,7 +37,6 @@ import (
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -77,8 +77,6 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
-	// CertDB returns database for storing uplink's public key & ID
-	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
 	// Attribution returns database for partner keys information
@@ -158,7 +156,8 @@ type Peer struct {
 	}
 
 	Overlay struct {
-		Service   *overlay.Cache
+		DB        overlay.DB
+		Service   *overlay.Service
 		Inspector *overlay.Inspector
 	}
 
@@ -188,7 +187,8 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service *audit.Service
+		Service          *audit.Service
+		ReservoirService *audit.ReservoirService
 	}
 
 	GarbageCollection struct {
@@ -230,7 +230,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -245,13 +245,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version.NewService(config.Version, versionInfo, "Satellite")
+		peer.Version = version.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 	}
 
 	{ // setup listener and server
 		log.Debug("Starting listener and server")
 		sc := config.Server
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config)
+
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -262,7 +263,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if sc.DebugLogTraffic {
 			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
 		}
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, unaryInterceptor)
+		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -270,9 +271,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup overlay
 		log.Debug("Starting overlay")
-		config := config.Overlay
 
-		peer.Overlay.Service = overlay.NewCache(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Node)
+		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
+		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
 		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
@@ -336,7 +337,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
+		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, nil)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
@@ -385,8 +386,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
-			peer.DB.CertDB(),
 			peer.DB.Orders(),
+			config.Orders.SettlementBatchSize,
 		)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
@@ -437,10 +438,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
-			peer.Metainfo.Service,
+			peer.Log.Named("checker"),
 			peer.DB.RepairQueue(),
-			peer.Overlay.Service, peer.DB.Irreparable(),
-			0, peer.Log.Named("checker"),
+			peer.DB.Irreparable(),
+			peer.Metainfo.Service,
+			peer.Metainfo.Loop,
+			peer.Overlay.Service,
 			config.Checker)
 
 		peer.Repair.Repairer = repairer.NewService(
@@ -475,6 +478,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		// setup audit 2.0
+		peer.Audit.ReservoirService, err = audit.NewReservoirService(peer.Log.Named("reservoir service"),
+			peer.Metainfo.Loop,
+			config,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup garbage collection
@@ -484,7 +496,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("garbage collection"),
 			config.GarbageCollection,
 			peer.Transport,
-			peer.DB.OverlayCache(),
+			peer.Overlay.DB,
 			peer.Metainfo.Loop,
 		)
 	}
@@ -642,7 +654,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
-			peer.DB.OverlayCache(),
+			peer.Overlay.DB,
 			peer.DB.StoragenodeAccounting())
 
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
@@ -686,6 +698,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.ReservoirService.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))

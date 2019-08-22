@@ -20,7 +20,7 @@
                             class="add-user__form-container__inputs-group__item"
                             :key="index" >
                                 <input
-                                    placeholder="test@mail.test"
+                                    placeholder="email@example.com"
                                     v-model="input.value"
                                     :class="[input.error ? 'error' : 'no-error']"
                                     @keyup="resetFormErrors(index)" />
@@ -66,13 +66,13 @@
 
 <script lang='ts'>
     import { Component, Vue } from 'vue-property-decorator';
+
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import { EmailInput } from '@/types/EmailInput';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { RouteConfig } from '@/router';
     import { validateEmail } from '@/utils/validation';
-    import ROUTES from '@/utils/constants/routerConstants';
-    import { RequestResponse } from '@/types/response';
 
     @Component({
         components: {
@@ -84,6 +84,8 @@
         private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
         private formError: string = '';
         private isLoading: boolean = false;
+
+        private FIRST_PAGE = 1;
 
         public async onAddUsersClick(): Promise<void> {
             if (this.isLoading) {
@@ -136,18 +138,10 @@
                 return;
             }
 
-            let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
-            if (!result.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding team members!');
-                this.isLoading = false;
-
-                return;
-            }
-
-            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, { limit: 20, offset: 0 });
-
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            try {
+                await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
+            } catch (err) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding projectMembers members. ${err.message}`);
                 this.isLoading = false;
 
                 return;
@@ -156,9 +150,10 @@
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-            const fetchMembersResponse: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
-            if (!fetchMembersResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
             }
 
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
@@ -202,7 +197,7 @@
         }
 
         public get registerPath(): string {
-            return location.host + ROUTES.REGISTER.path;
+            return location.host + RouteConfig.Register.path;
         }
 
         private resetFormErrors(index): void {

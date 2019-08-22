@@ -164,7 +164,7 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 	err = client.view(func(bucket *bolt.Bucket) error {
 		data := bucket.Get([]byte(key))
 		if len(data) == 0 {
-			return storage.ErrKeyNotFound.New(key.String())
+			return storage.ErrKeyNotFound.New("%q", key)
 		}
 		value = storage.CloneValue(storage.Value(data))
 		return nil
@@ -358,7 +358,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		data := bucket.Get([]byte(key))
 		if len(data) == 0 {
 			if oldValue != nil {
-				return storage.ErrKeyNotFound.New(key.String())
+				return storage.ErrKeyNotFound.New("%q", key)
 			}
 
 			if newValue == nil {
@@ -369,7 +369,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		}
 
 		if !bytes.Equal(storage.Value(data), oldValue) {
-			return storage.ErrValueChanged.New(key.String())
+			return storage.ErrValueChanged.New("%q", key)
 		}
 
 		if newValue == nil {

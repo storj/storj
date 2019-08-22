@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
@@ -21,6 +22,7 @@ import (
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 )
 
 const (
@@ -86,7 +88,7 @@ func serviceDirectory(serviceName string) string {
 func cmdNewService(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, config.Version, version.Build, "Identity")
+	err := version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -148,7 +150,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, config.Version, version.Build, "Identity")
+	err := version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -184,7 +186,15 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	// Ensure we dont enforce a signed Peer Identity
 	config.Signer.TLS.UsePeerCAWhitelist = false
 
-	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
+	revocationDB, err := revocation.NewDBFromCfg(config.Signer.TLS)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken, revocationDB)
 	if err != nil {
 		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
 	}

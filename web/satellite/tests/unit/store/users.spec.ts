@@ -1,84 +1,53 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { usersModule } from '@/store/modules/users';
-import * as api from '@/api/users';
-import { changePasswordRequest, deleteAccountRequest, getUserRequest, updateAccountRequest } from '@/api/users';
-import { USER_MUTATIONS } from '@/store/mutationConstants';
 import Vuex from 'vuex';
 import { createLocalVue } from '@vue/test-utils';
-import { RequestResponse } from '@/types/response';
-import { User } from '@/types/users';
+import { UsersApiGql } from '@/api/users';
+import { makeUsersModule } from '@/store/modules/users';
+import { UpdatedUser, User } from '@/types/users';
+import { USER_MUTATIONS, USER_ACTIONS } from '@/store/modules/users';
 
-const mutations = usersModule.mutations;
+const Vue = createLocalVue();
+const usersApi = new UsersApiGql();
+const usersModule = makeUsersModule(usersApi);
+const { UPDATE, GET, CLEAR } = USER_ACTIONS;
+
+Vue.use(Vuex);
+
+const store = new Vuex.Store(usersModule);
 
 describe('mutations', () => {
     beforeEach(() => {
         createLocalVue().use(Vuex);
     });
-    it('Set user info', () => {
-        const state = {
-            user: {
-                fullName: '',
-                shortName: '',
-                email: '',
-            }
-        };
+    it('Set user', () => {
+        const user = new User('1', 'fullName', 'shortName', 'example@email.com');
 
-        const store = new Vuex.Store({state, mutations});
+        store.commit(USER_MUTATIONS.SET_USER, user);
 
-        const user = {
-            fullName: 'fullName',
-            shortName: 'shortName',
-            email: 'email',
-        };
-
-        store.commit(USER_MUTATIONS.SET_USER_INFO, user);
-
-        expect(state.user.email).toBe('email');
-        expect(state.user.fullName).toBe('fullName');
-        expect(state.user.shortName).toBe('shortName');
+        expect(store.state.id).toBe(user.id);
+        expect(store.state.email).toBe(user.email);
+        expect(store.state.fullName).toBe(user.fullName);
+        expect(store.state.shortName).toBe(user.shortName);
     });
 
-    it('clear user info', () => {
-        const state = {
-            user: {
-                fullName: 'fullName',
-                shortName: 'shortName',
-                email: 'email',
-            }
-        };
+    it('clear user', () => {
+        store.commit(USER_MUTATIONS.CLEAR);
 
-        const store = new Vuex.Store({state, mutations});
-
-        store.commit(USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO);
-
-        expect(state.user.email).toBe('');
-        expect(state.user.fullName).toBe('');
-        expect(state.user.shortName).toBe('');
+        expect(store.state.id).toBe('');
+        expect(store.state.email).toBe('');
+        expect(store.state.fullName).toBe('');
+        expect(store.state.shortName).toBe('');
     });
 
-    it('Update user info', () => {
-        const state = {
-            user: {
-                fullName: '',
-                shortName: '',
-                email: '',
-            }
-        };
-        const user = {
-            fullName: 'fullName',
-            shortName: 'shortName',
-            email: 'email',
-        };
+    it('Update user', () => {
+        const user = new UpdatedUser('fullName', 'shortName');
 
-        const store = new Vuex.Store({state, mutations});
+        store.commit(USER_MUTATIONS.UPDATE_USER, user);
 
-        store.commit(USER_MUTATIONS.UPDATE_USER_INFO, user);
-
-        expect(state.user.email).toBe('email');
-        expect(state.user.fullName).toBe('fullName');
-        expect(state.user.shortName).toBe('shortName');
+        expect(store.state.fullName).toBe(user.fullName);
+        expect(store.state.shortName).toBe(user.shortName);
     });
 });
 
@@ -87,139 +56,84 @@ describe('actions', () => {
         jest.resetAllMocks();
     });
     it('success update account', async () => {
-        jest.spyOn(api, 'updateAccountRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<User>>{
-                isSuccess: true, data: {
-                    fullName: 'fullName',
-                    shortName: 'shortName',
-                    email: 'email',
-                }
-            })
+        jest.spyOn(usersApi, 'update').mockReturnValue(
+            Promise.resolve()
         );
-        const commit = jest.fn();
-        const user = {
-            fullName: '',
-            shortName: '',
-            email: '',
-        };
 
-        const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
+        const user = new UpdatedUser('fullName1', 'shortName2');
 
-        expect(dispatchResponse.isSuccess).toBeTruthy();
-        expect(commit).toHaveBeenCalledWith(USER_MUTATIONS.UPDATE_USER_INFO, {
-            fullName: 'fullName',
-            shortName: 'shortName',
-            email: 'email',
-        });
+        await store.dispatch(UPDATE, user);
+
+        expect(store.state.fullName).toBe('fullName1');
+        expect(store.state.shortName).toBe('shortName2');
     });
 
-    it('error update account', async () => {
-        jest.spyOn(api, 'updateAccountRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<User>>{
-                isSuccess: false
-            })
-        );
-        const commit = jest.fn();
-        const user = {
-            fullName: '',
-            shortName: '',
-            email: '',
-        };
+    it('update throws an error when api call fails', async () => {
+        jest.spyOn(usersApi, 'update').mockImplementation(() => { throw new Error(); });
+        const newUser = new UpdatedUser('', '');
+        const oldUser = store.getters.user;
 
-        const dispatchResponse = await usersModule.actions.updateAccount({commit}, user);
-
-        expect(dispatchResponse.isSuccess).toBeFalsy();
-        expect(commit).toHaveBeenCalledTimes(0);
+        try {
+            await store.dispatch(UPDATE, newUser);
+            expect(true).toBe(false);
+        } catch (error) {
+            expect(store.state.fullName).toBe(oldUser.fullName);
+            expect(store.state.shortName).toBe(oldUser.shortName);
+        }
     });
 
-    it('password change', async () => {
-        jest.spyOn(api, 'changePasswordRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<null>>{
-                isSuccess: true
-            })
-        );
-        const commit = jest.fn();
-        const updatePasswordModel = {oldPassword: 'o', newPassword: 'n'};
+    it('clears state', async () => {
+        await store.dispatch(CLEAR);
 
-        const requestResponse = await usersModule.actions.changePassword({commit}, updatePasswordModel);
-
-        expect(requestResponse.isSuccess).toBeTruthy();
-    });
-
-    it('delete account', async () => {
-        jest.spyOn(api, 'deleteAccountRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<null>>{
-                isSuccess: true
-            })
-        );
-
-        const commit = jest.fn();
-        const password = '';
-
-        const dispatchResponse = await usersModule.actions.deleteAccount(commit, password);
-
-        expect(dispatchResponse.isSuccess).toBeTruthy();
+        expect(store.state.fullName).toBe('');
+        expect(store.state.shortName).toBe('');
+        expect(store.state.email).toBe('');
+        expect(store.state.partnerId).toBe('');
+        expect(store.state.id).toBe('');
     });
 
     it('success get user', async () => {
-        jest.spyOn(api, 'getUserRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<User>>{
-                isSuccess: true,
-                data: {
-                    fullName: '',
-                    shortName: '',
-                    email: '',
-                }
-            })
+        const user = new User('2', 'newFullName', 'newShortName', 'example2@email.com');
+
+        jest.spyOn(usersApi, 'get').mockReturnValue(
+            Promise.resolve(user)
         );
-        const commit = jest.fn();
 
-        const requestResponse = await usersModule.actions.getUser({commit});
+        await store.dispatch(GET);
 
-        expect(requestResponse.isSuccess).toBeTruthy();
+        expect(store.state.id).toBe(user.id);
+        expect(store.state.shortName).toBe(user.shortName);
+        expect(store.state.fullName).toBe(user.fullName);
+        expect(store.state.email).toBe(user.email);
     });
 
-    it('error get user', async () => {
-        jest.spyOn(api, 'getUserRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<User>>{
-                isSuccess: false
-            })
-        );
-        const commit = jest.fn();
+    it('get throws an error when api call fails', async () => {
+        const user = store.getters.user;
+        jest.spyOn(usersApi, 'get').mockImplementation(() => { throw new Error(); });
 
-        const requestResponse = await usersModule.actions.getUser({commit});
-
-        expect(requestResponse.isSuccess).toBeFalsy();
+        try {
+            await store.dispatch(GET);
+            expect(true).toBe(false);
+        } catch (error) {
+            expect(store.state.fullName).toBe(user.fullName);
+            expect(store.state.shortName).toBe(user.shortName);
+        }
     });
 });
 
 describe('getters', () => {
     it('user model', function () {
-        const state = {
-            user: {
-                fullName: 'fullName',
-                shortName: 'shortName',
-                email: 'email',
-            }
-        };
+        const retrievedUser = store.getters.user;
 
-        const retrievedUser = usersModule.getters.user(state);
-
-        expect(retrievedUser.fullName).toBe('fullName');
-        expect(retrievedUser.shortName).toBe('shortName');
-        expect(retrievedUser.email).toBe('email');
+        expect(retrievedUser.id).toBe(store.state.id);
+        expect(retrievedUser.fullName).toBe(store.state.fullName);
+        expect(retrievedUser.shortName).toBe(store.state.shortName);
+        expect(retrievedUser.email).toBe(store.state.email);
     });
 
     it('user name', function () {
-        const state = {
-            user: {
-                fullName: 'John',
-                shortName: 'Doe'
-            }
-        };
+        const retrievedUserName = store.getters.userName;
 
-        const retrievedUserName = usersModule.getters.userName(state);
-
-        expect(retrievedUserName).toBe('John Doe');
+        expect(retrievedUserName).toBe(store.state.getFullName());
     });
 });

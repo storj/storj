@@ -141,7 +141,6 @@ func TestEncodingDecodingStress(t *testing.T) {
 					combination(i+1, j+1)
 				}
 			}
-			return
 		}
 		combination(0, 0)
 	}

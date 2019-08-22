@@ -1,132 +1,109 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import apollo from '@/utils/apolloManager';
-import gql from 'graphql-tag';
-import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
-import { TeamMember } from '@/types/teamMembers';
-import { RequestResponse } from '@/types/response';
+import { BaseGql } from '@/api/baseGql';
+import { ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPage } from '@/types/projectMembers';
 
-// Performs graqhQL request.
-export async function addProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
 
-    let response: any = await apollo.mutate(
-        {
-            mutation: gql(`
-            mutation {
+    public async add(projectId: string, emails: string[]): Promise<void> {
+        const query =
+            `mutation($projectId: String!, $emails:[String!]!) {
                 addProjectMembers(
-                    projectID: "${projectID}",
-                    email: [${prepareEmailList(emails)}]
+                    projectID: $projectId,
+                    email: $emails
                 ) {id}
-            }`,
-            ),
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
-        }
-    );
+            }`;
 
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
+        const variables = {
+            projectId,
+            emails,
+        };
+
+        await this.mutate(query, variables);
     }
 
-    return result;
-}
-
-// Performs graqhQL request.
-export async function deleteProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
-
-    let response: any = await apollo.mutate(
-        {
-            mutation: gql(`
-            mutation {
+    public async delete(projectId: string, emails: string[]): Promise<void> {
+        const query =
+            `mutation($projectId: String!, $emails:[String!]!) {
                 deleteProjectMembers(
-                    projectID: "${projectID}",
-                    email: [${prepareEmailList(emails)}]
+                    projectID: $projectId,
+                    email: $emails
                 ) {id}
-            }`
-            ),
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
-        }
-    );
+            }`;
 
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
+        const variables = {
+            projectId,
+            emails,
+        };
+
+        await this.mutate(query, variables);
     }
 
-    return result;
-}
-
-// Performs graqhQL request.
-export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMember[]>> {
-    let result: RequestResponse<TeamMember[]> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: []
-    };
-
-    let response: any = await apollo.query(
-        {
-            query: gql(`
-            query {
-                project(
-                    id: "${projectID}",
+    public async get(projectId: string, cursor: ProjectMemberCursor): Promise<ProjectMembersPage> {
+        const query =
+            `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
+                project (
+                    id: $projectId,
                 ) {
-                    members(limit: ${limit}, offset: ${offset}, order: ${sortBy}, search: "${searchQuery}") {
-                        user {
-                            id,
-                            fullName,
-                            shortName,
-                            email
+                    members (
+                        cursor: {
+                            limit: $limit,
+                            search: $search,
+                            page: $page,
+                            order: $order,
+                            orderDirection: $orderDirection
+                        }
+                    ) {
+                        projectMembers {
+                            user {
+                                id,
+                                fullName,
+                                shortName,
+                                email
+                            },
+                            joinedAt
                         },
-                        joinedAt
+                        search, 
+                        limit, 
+                        order,
+                        pageCount, 
+                        currentPage,
+                        totalCount
                     }
                 }
-            }`
-            ),
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
+            }`;
+
+        const variables = {
+            projectId: projectId,
+            limit: cursor.limit,
+            search: cursor.search,
+            page: cursor.page,
+            order: cursor.order,
+            orderDirection: cursor.orderDirection,
+        };
+
+        const response = await this.query(query, variables);
+
+        return this.getProjectMembersList(response.data.project.members);
+    }
+
+    private getProjectMembersList(projectMembers: any): ProjectMembersPage {
+        if (!projectMembers) {
+            return new ProjectMembersPage();
         }
-    );
 
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
-        result.data = getProjectMembersList(response.data.project.members);
+        const projectMembersPage: ProjectMembersPage = new ProjectMembersPage();
+        projectMembersPage.projectMembers = projectMembers.projectMembers.map(key => new ProjectMember(key.user.fullName, key.user.shortName, key.user.email, key.joinedAt, key.user.id));
+
+        projectMembersPage.search = projectMembers.search;
+        projectMembersPage.limit = projectMembers.limit;
+        projectMembersPage.order = projectMembers.order;
+        projectMembersPage.orderDirection = projectMembers.orderDirection;
+        projectMembersPage.pageCount = projectMembers.pageCount;
+        projectMembersPage.currentPage = projectMembers.currentPage;
+        projectMembersPage.totalCount = projectMembers.totalCount;
+
+        return projectMembersPage;
     }
-
-    return result;
-}
-
-function prepareEmailList(emails: string[]): string {
-    let emailString: string = '';
-
-    emails.forEach(email => {
-        emailString += `"${email}", `;
-    });
-
-    return emailString;
-}
-
-function getProjectMembersList(projectMembers: any[]): TeamMember[] {
-    if (!projectMembers) {
-        return [];
-    }
-
-    return projectMembers.map(key => new TeamMember(key.user.fullName, key.user.shortName, key.user.email, '', key.user.id));
 }

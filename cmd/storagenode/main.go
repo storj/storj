@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -27,8 +28,7 @@ import (
 
 // StorageNodeFlags defines storage node configuration
 type StorageNodeFlags struct {
-	EditConf        bool `default:"false" help:"open config in default editor"`
-	SaveAllDefaults bool `default:"false" help:"save all default values to config.yaml file" setup:"true"`
+	EditConf bool `default:"false" help:"open config in default editor"`
 
 	storagenode.Config
 }
@@ -140,7 +140,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	peer, err := storagenode.New(log, identity, db, runCfg.Config, version.Build)
+	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	peer, err := storagenode.New(log, identity, db, revocationDB, runCfg.Config, version.Build)
 	if err != nil {
 		return err
 	}
@@ -152,13 +160,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
 	err = db.CreateTables()
 	if err != nil {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
+	}
+
+	if err := peer.Storage2.CacheService.Init(ctx); err != nil {
+		zap.S().Error("Failed to initialize CacheService: ", err)
 	}
 
 	runError := peer.Run(ctx)
@@ -197,11 +209,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	configFile := filepath.Join(setupDir, "config.yaml")
-	if setupCfg.SaveAllDefaults {
-		err = process.SaveConfigWithAllDefaults(cmd.Flags(), configFile, overrides)
-	} else {
-		err = process.SaveConfig(cmd.Flags(), configFile, overrides)
-	}
+	err = process.SaveConfig(cmd, configFile, process.SaveConfigWithOverrides(overrides))
 	if err != nil {
 		return err
 	}

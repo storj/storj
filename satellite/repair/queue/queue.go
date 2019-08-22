@@ -20,4 +20,6 @@ type RepairQueue interface {
 	Delete(ctx context.Context, s *pb.InjuredSegment) error
 	// SelectN lists limit amount of injured segments.
 	SelectN(ctx context.Context, limit int) ([]pb.InjuredSegment, error)
+	// Count counts the number of segments in the repair queue.
+	Count(ctx context.Context) (count int, err error)
 }

@@ -24,7 +24,9 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/processgroup"
+	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/storj"
 )
 
 const (
@@ -32,6 +34,11 @@ const (
 	maxStoragenodeCount = 200
 
 	folderPermissions = 0744
+)
+
+var (
+	defaultAPIKeyData = "13YqgH45XZLg7nm6KsQ72QgXfjbDu2uhTaeSdMVP2A85QuANthM9K58ww5Y4nhMowrZDoqdA4Kyqt1ioQghQcm9fT5uR2drPHpFEqeb"
+	defaultAPIKey, _  = uplink.ParseAPIKey(defaultAPIKeyData)
 )
 
 const (
@@ -176,7 +183,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	withCommon := func(dir string, all Arguments) Arguments {
 		common := []string{"--metrics.app-suffix", "sim", "--log.level", "debug", "--config-dir", dir}
 		if flags.IsDev {
-			common = append(common, "--dev")
+			common = append(common, "--defaults", "dev")
 		}
 		for command, args := range all {
 			all[command] = append(append(common, command), args...)
@@ -311,20 +318,24 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Extra:      []string{},
 		})
 
+		scopeData, err := (&uplink.Scope{
+			SatelliteAddr:    satellite.Address,
+			APIKey:           defaultAPIKey,
+			EncryptionAccess: uplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
+		}).Serialize()
+		if err != nil {
+			return nil, err
+		}
+
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--non-interactive",
 
-				"--enc.encryption-key=TestEncryptionKey",
-
+				"--scope", scopeData,
 				"--identity-dir", process.Directory,
-				"--satellite-addr", satellite.Address,
-
 				"--server.address", process.Address,
-
-				"--satellite-addr", satellite.Address,
 
 				"--rs.min-threshold", strconv.Itoa(1 * flags.StorageNodeCount / 5),
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
@@ -336,6 +347,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
 			},
+
 			"run": {},
 		})
 
@@ -356,12 +368,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// check if gateway config has an api key, if it's not
 			// create example project with key and add it to the config
 			// so that gateway can have access to the satellite
-			apiKey := vip.GetString("api-key")
-			if !flags.OnlyEnv && apiKey == "" {
+			if runScopeData := vip.GetString("scope"); !flags.OnlyEnv && runScopeData == scopeData {
 				var consoleAddress string
-				satelliteConfigErr := readConfigString(&consoleAddress, satellite.Directory, "console.address")
-				if satelliteConfigErr != nil {
-					return satelliteConfigErr
+				err := readConfigString(&consoleAddress, satellite.Directory, "console.address")
+				if err != nil {
+					return err
 				}
 
 				host := "http://" + consoleAddress
@@ -372,19 +383,32 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				// wait for console server to start
 				time.Sleep(3 * time.Second)
 
+				var apiKey string
 				if err := addExampleProjectWithKey(&apiKey, createRegistrationTokenAddress, consoleActivationAddress, consoleAPIAddress); err != nil {
 					return err
 				}
 
-				vip.Set("api-key", apiKey)
+				scope, err := uplink.ParseScope(runScopeData)
+				if err != nil {
+					return err
+				}
+				scope.APIKey, err = uplink.ParseAPIKey(apiKey)
+				if err != nil {
+					return err
+				}
+				scopeData, err := scope.Serialize()
+				if err != nil {
+					return err
+				}
+				vip.Set("scope", scopeData)
 
 				if err := vip.WriteConfig(); err != nil {
 					return err
 				}
 			}
 
-			if apiKey != "" {
-				process.Extra = append(process.Extra, "API_KEY="+apiKey)
+			if runScopeData := vip.GetString("scope"); runScopeData != scopeData {
+				process.Extra = append(process.Extra, "SCOPE="+runScopeData)
 			}
 
 			accessKey := vip.GetString("minio.access-key")
@@ -429,8 +453,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@mail.test", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
 
-				"--storage2.monitor.minimum-disk-space", "10GB",
-				"--storage2.monitor.minimum-bandwidth", "10GB",
+				"--storage2.monitor.minimum-disk-space", "0",
+				"--storage2.monitor.minimum-bandwidth", "0",
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
@@ -461,7 +485,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		}
 
 		process.ExecBefore["run"] = func(process *Process) error {
-
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
 	}

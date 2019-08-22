@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
@@ -99,13 +99,45 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, err
 	}
 
-	// TODO: remove after vanguard release
-	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
-	if err != nil {
-		return nil, errs.New(vanguardRegTokenErrMsg)
+	offerType := rewards.FreeCredit
+	if user.PartnerID != "" {
+		offerType = rewards.Partner
+	} else if refUserID != "" {
+		offerType = rewards.Referral
 	}
-	if registrationToken.OwnerID != nil {
-		return nil, errs.New(usedRegTokenVanguardErrMsg)
+
+	//TODO: Create a current offer cache to replace database call
+	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
+	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+		s.log.Error("internal error", zap.Error(err))
+		return nil, errs.New(internalErrMsg)
+	}
+	currentReward, err := offers.GetActiveOffer(offerType, user.PartnerID)
+	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
+		s.log.Error("internal error", zap.Error(err))
+		return nil, errs.New(internalErrMsg)
+	}
+
+	// TODO: remove after vanguard release
+	// when user uses an open source partner referral link, there won't be a registration token in the link.
+	// therefore, we need to create one so we can still control the project limit on the account level
+	var registrationToken *RegistrationToken
+	if user.PartnerID != "" {
+		// set the project limit to be 1 for open source partner invitees
+		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
+		if err != nil {
+			return nil, errs.New(internalErrMsg)
+		}
+	} else {
+		registrationToken, err = s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
+		if err != nil {
+			return nil, errs.New(vanguardRegTokenErrMsg)
+		}
+		// if a registration token is already associated with an user ID, that means the token is already used
+		// we should terminate the account creation process and return an error
+		if registrationToken.OwnerID != nil {
+			return nil, errs.New(usedRegTokenVanguardErrMsg)
+		}
 	}
 
 	// TODO: store original email input in the db,
@@ -155,6 +187,23 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return errs.New(internalErrMsg)
 		}
 
+		if currentReward != nil {
+			var refID *uuid.UUID
+			if refUserID != "" {
+				refID, err = uuid.Parse(refUserID)
+				if err != nil {
+					return errs.New(internalErrMsg)
+				}
+			}
+			newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
+			if err != nil {
+				return err
+			}
+			err = tx.UserCredits().Create(ctx, *newCredit)
+			if err != nil {
+				return err
+			}
+		}
 		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
 			Email: email,
 			Name:  user.FullName,
@@ -405,9 +454,13 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	}
 
 	user.Status = Active
-
 	err = s.store.Users().Update(ctx, user)
 	if err != nil {
+		return errs.New(internalErrMsg)
+	}
+
+	err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
+	if err != nil && !NoCreditForUpdateErr.Has(err) {
 		return errs.New(internalErrMsg)
 	}
 
@@ -627,15 +680,15 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 }
 
 // GetCurrentRewardByType is a method for querying current active reward offer based on its type
-func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.OfferType) (reward *rewards.Offer, err error) {
+func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.OfferType) (offer *rewards.Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	reward, err = s.rewards.GetCurrentByType(ctx, offerType)
+	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil {
+		s.log.Error("internal error", zap.Error(err))
 		return nil, errs.New(internalErrMsg)
 	}
-
-	return reward, nil
+	return offers.GetActiveOffer(offerType, "")
 }
 
 // GetUserCreditUsage is a method for querying users' credit information up until now
@@ -652,22 +705,6 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 	}
 
 	return usage, nil
-}
-
-// CreateCredit creates a new record in database when new user earns new credits
-func (s *Service) CreateCredit(ctx context.Context, newCredit UserCredit) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	err = s.store.UserCredits().Create(ctx, newCredit)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	return nil
 }
 
 // CreateProject is a method for creating new project
@@ -694,9 +731,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 			&Project{
 				Description: projectInfo.Description,
 				Name:        projectInfo.Name,
+				OwnerID:     auth.User.ID,
+				PartnerID:   auth.User.PartnerID,
 			},
 		)
 		if err != nil {
+			s.log.Error("internal error", zap.Error(err))
 			return errs.New(internalErrMsg)
 		}
 
@@ -822,8 +862,8 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return err
 	}
 
-	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
-		return ErrUnauthorized.Wrap(err)
+	if err = s.isProjectOwner(ctx, auth.User.ID, projectID); err != nil {
+		return err
 	}
 
 	var userIDs []uuid.UUID
@@ -872,7 +912,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 }
 
 // GetProjectMembers returns ProjectMembers for given Project
-func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pagination Pagination) (pm []ProjectMember, err error) {
+func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
@@ -884,11 +924,11 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pa
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if pagination.Limit > maxLimit {
-		pagination.Limit = maxLimit
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
 	}
 
-	pm, err = s.store.ProjectMembers().GetByProjectID(ctx, projectID, pagination)
+	pmp, err = s.store.ProjectMembers().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
@@ -924,15 +964,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		Name:      name,
 		ProjectID: projectID,
 		Secret:    secret,
-	}
-
-	user, err := s.GetUser(ctx, auth.User.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	// If the user has a partnerID set it in the apikey for value attribution
-	if !user.PartnerID.IsZero() {
-		apikey.PartnerID = user.PartnerID
+		PartnerID: auth.User.PartnerID,
 	}
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
@@ -1293,6 +1325,22 @@ type isProjectMember struct {
 
 // ErrNoMembership is error type of not belonging to a specific project
 var ErrNoMembership = errs.Class("no membership error")
+
+// isProjectOwner checks if the user is an owner of a project
+func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	project, err := s.store.Projects().Get(ctx, projectID)
+	if err != nil {
+		s.log.Error("internal error", zap.Error(err))
+		return errs.New(internalErrMsg)
+	}
+
+	if project.OwnerID != userID {
+		return errs.New(unauthorizedErrMsg)
+	}
+
+	return nil
+}
 
 // isProjectMember checks if the user is a member of given project
 func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (result isProjectMember, err error) {

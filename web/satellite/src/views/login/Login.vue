@@ -8,13 +8,13 @@
     import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
     import Button from '@/components/common/Button.vue';
     import { AuthToken } from '@/utils/authToken';
-    import ROUTES from '@/utils/constants/routerConstants';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { getTokenRequest } from '@/api/users';
+    import { AuthApi } from '@/api/auth';
     import { LOADING_CLASSES } from '@/utils/constants/classConstants';
     import { AppState } from '@/utils/constants/appStateEnum';
     import { validateEmail, validatePassword } from '@/utils/validation';
-    import EVENTS from '../../utils/constants/analyticsEventNames';
+    import EVENTS from '@/utils/constants/analyticsEventNames';
+    import { RouteConfig } from '@/router';
 
     @Component({
         components: {
@@ -23,13 +23,17 @@
         }
     })
     export default class Login extends Vue {
-        public forgotPasswordRouterPath: string = ROUTES.FORGOT_PASSWORD.path;
         private email: string = '';
         private password: string = '';
+        private authToken: string = '';
+
+        private readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
         private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
         private loadingLogoClassName: string = LOADING_CLASSES.LOADING_LOGO;
         private emailError: string = '';
         private passwordError: string = '';
+
+        private readonly auth: AuthApi = new AuthApi();
 
         public onLogoClick(): void {
             location.reload();
@@ -46,7 +50,7 @@
         }
 
         public onSignUpClick(): void {
-            this.$router.push(ROUTES.REGISTER.path);
+            this.$router.push(RouteConfig.Register.path);
         }
 
         public async onLogin(): Promise<void> {
@@ -57,9 +61,10 @@
                 return;
             }
 
-            let loginResponse = await getTokenRequest(this.email, this.password);
-            if (!loginResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, loginResponse.errorMessage);
+            try {
+                this.authToken = await this.auth.token(this.email, this.password);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
                 return;
             }
@@ -67,9 +72,9 @@
             this.activateLoadingOverlay();
 
             setTimeout(() => {
-                AuthToken.set(loginResponse.data);
+                AuthToken.set(this.authToken);
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
-                this.$router.push(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
+                this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
             }, 2000);
         }
 

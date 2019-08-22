@@ -7,7 +7,6 @@ package satellitedb
 
 import (
 	"context"
-	"crypto"
 	"sync"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/certdb"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -122,33 +120,6 @@ func (m *lockedBuckets) UpdateBucket(ctx context.Context, bucket storj.Bucket) (
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBucket(ctx, bucket)
-}
-
-// CertDB returns database for storing uplink's public key & ID
-func (m *locked) CertDB() certdb.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedCertDB{m.Locker, m.db.CertDB()}
-}
-
-// lockedCertDB implements locking wrapper for certdb.DB
-type lockedCertDB struct {
-	sync.Locker
-	db certdb.DB
-}
-
-// GetPublicKey gets the public key of uplink corresponding to uplink id
-func (m *lockedCertDB) GetPublicKey(ctx context.Context, a1 storj.NodeID) (crypto.PublicKey, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetPublicKey(ctx, a1)
-}
-
-// SavePublicKey adds a new bandwidth agreement.
-func (m *lockedCertDB) SavePublicKey(ctx context.Context, a1 storj.NodeID, a2 crypto.PublicKey) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SavePublicKey(ctx, a1, a2)
 }
 
 // Close closes the database
@@ -321,11 +292,11 @@ func (m *lockedProjectMembers) GetByMemberID(ctx context.Context, memberID uuid.
 	return m.db.GetByMemberID(ctx, memberID)
 }
 
-// GetByProjectID is a method for querying project members from the database by projectID, offset and limit.
-func (m *lockedProjectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUID, pagination console.Pagination) ([]console.ProjectMember, error) {
+// GetPagedByProjectID is a method for querying project members from the database by projectID and cursor
+func (m *lockedProjectMembers) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (*console.ProjectMembersPage, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetByProjectID(ctx, projectID, pagination)
+	return m.db.GetPagedByProjectID(ctx, projectID, cursor)
 }
 
 // Insert is a method for inserting project member into the database.
@@ -578,7 +549,7 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) error {
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.CreateCredit) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, userCredit)
@@ -594,6 +565,12 @@ func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsT
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
+}
+
+func (m *lockedUserCredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateEarnedCredits(ctx, userID)
 }
 
 // UserPayments is a getter for UserPayments repository
@@ -845,6 +822,12 @@ func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.S
 	return m.db.UseSerialNumber(ctx, serialNumber, storageNodeID)
 }
 
+func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ProcessOrders(ctx, requests)
+}
+
 // OverlayCache returns database for caching overlay information
 func (m *locked) OverlayCache() overlay.DB {
 	m.Lock()
@@ -856,6 +839,13 @@ func (m *locked) OverlayCache() overlay.DB {
 type lockedOverlayCache struct {
 	sync.Locker
 	db overlay.DB
+}
+
+// BatchUpdateStats updates multiple storagenode's stats in one transaction
+func (m *lockedOverlayCache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.BatchUpdateStats(ctx, updateRequests, batchSize)
 }
 
 // Get looks up the node by nodeID
@@ -1010,6 +1000,13 @@ type lockedRepairQueue struct {
 	db queue.RepairQueue
 }
 
+// Count counts the number of segments in the repair queue.
+func (m *lockedRepairQueue) Count(ctx context.Context) (count int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Count(ctx)
+}
+
 // Delete removes an injured segment.
 func (m *lockedRepairQueue) Delete(ctx context.Context, s *pb.InjuredSegment) error {
 	m.Lock()
@@ -1063,10 +1060,10 @@ func (m *lockedRewards) Finish(ctx context.Context, offerID int) error {
 	return m.db.Finish(ctx, offerID)
 }
 
-func (m *lockedRewards) GetCurrentByType(ctx context.Context, offerType rewards.OfferType) (*rewards.Offer, error) {
+func (m *lockedRewards) GetActiveOffersByType(ctx context.Context, offerType rewards.OfferType) (rewards.Offers, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetCurrentByType(ctx, offerType)
+	return m.db.GetActiveOffersByType(ctx, offerType)
 }
 
 func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {
@@ -1123,18 +1120,18 @@ func (m *lockedStoragenodeAccounting) LastTimestamp(ctx context.Context, timesta
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
-func (m *lockedStoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.NodeSpaceUsage, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.QueryNodeDailySpaceUsage(ctx, nodeID, start, end)
-}
-
 // QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID
 func (m *lockedStoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.QueryPaymentInfo(ctx, start, end)
+}
+
+// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
+func (m *lockedStoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.StorageNodeUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.QueryStorageNodeUsage(ctx, nodeID, start, end)
 }
 
 // SaveRollup records tally and bandwidth rollup aggregations to the database
