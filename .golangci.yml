@@ -28,7 +28,6 @@ linters:
     #TODO#- unparam     # check for unused parameters
     #TODO#- maligned    # check for better memory usage
     #TODO#- prealloc    # easy optimizations
-    - stylecheck
     #TODO#- gosec
   disable:
     - goimports   # disabled, because it's slow, using scripts/check-imports.go instead.
@@ -36,6 +35,7 @@ linters:
     - gocyclo     # needs tweaking
     - depguard    # unused
     - gosec       # needs tweaking
+    - stylecheck  # has false positives
     - dupl        # slow
     - interfacer  # not that useful
     - gosimple    # part of staticcheck
