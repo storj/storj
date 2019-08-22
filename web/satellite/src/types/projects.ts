@@ -60,6 +60,11 @@ export class Project {
 export class UpdateProjectModel {
     public id: string;
     public description: string;
+
+    public constructor(id: string, description: string) {
+        this.id = id;
+        this.description = description;
+    }
 }
 
 // CreateProjectModel is a type, used for creating project

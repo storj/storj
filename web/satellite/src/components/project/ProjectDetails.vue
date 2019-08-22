@@ -56,6 +56,7 @@
     import ROUTES from '@/utils/constants/routerConstants';
     import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+    import { UpdateProjectModel } from '@/types/projects';
 
     @Component({
         components: {
@@ -99,10 +100,7 @@
         public async onSaveButtonClick(): Promise<void> {
             try {
                 await this.$store.dispatch(
-                    PROJECTS_ACTIONS.UPDATE, {
-                        id: this.$store.getters.selectedProject.id,
-                        description: this.newDescription
-                    }
+                    PROJECTS_ACTIONS.UPDATE, new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription)
                 );
             } catch (e) {
                 await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);

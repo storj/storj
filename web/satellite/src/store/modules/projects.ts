@@ -23,13 +23,7 @@ export const PROJECTS_MUTATIONS = {
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
 };
 
-const defaultSelectedProject: Project = {
-    name: '',
-    id: '',
-    description: '',
-    createdAt: '',
-    isSelected: true,
-};
+const defaultSelectedProject = new Project('', '', '', '', true);
 
 class ProjectsState {
     public projects: Project[] = [];
