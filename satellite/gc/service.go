@@ -105,7 +105,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		err = service.overlay.UpdatePieceCounts(ctx, lastPieceCounts)
 		if err != nil {
 			service.log.Error("error updating piece counts", zap.Error(err))
-			return nil
 		}
 
 		// monitor information
