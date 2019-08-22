@@ -59,7 +59,7 @@ func TestStorageNodeUsage(t *testing.T) {
 		nodes = append(nodes, testrand.NodeID())
 		nodes = append(nodes, testrand.NodeID())
 
-		rollups, _ := createRollups(nodes)
+		rollups := createRollups(nodes)
 
 		// run 2 rollups for the same day
 		err := db.StoragenodeAccounting().SaveRollup(ctx, time.Now(), rollups)
@@ -104,8 +104,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.Buc
 	return bucketTallies, expectedTallies, nil
 }
 
-func createRollups(nodes storj.NodeIDList) (accounting.RollupStats, []time.Time) {
-	var dates []time.Time
+func createRollups(nodes storj.NodeIDList) accounting.RollupStats {
 	rollups := make(accounting.RollupStats)
 	now := time.Now().UTC()
 
@@ -132,9 +131,7 @@ func createRollups(nodes storj.NodeIDList) (accounting.RollupStats, []time.Time)
 			rollupCounter++
 			rollups[startDate][nodeID] = rollup
 		}
-
-		dates = append(dates, startDate)
 	}
 
-	return rollups, dates
+	return rollups
 }

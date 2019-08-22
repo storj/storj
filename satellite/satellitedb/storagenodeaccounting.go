@@ -203,7 +203,10 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 
 	lastRollup, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup))
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
+	}
+	if lastRollup == nil {
+		return nil, Error.New("unable to find last accounting rollup timestamp")
 	}
 
 	start, end = start.UTC(), end.UTC()
