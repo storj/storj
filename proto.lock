@@ -4039,6 +4039,21 @@
                 "id": 2,
                 "name": "audit_check",
                 "type": "ReputationStats"
+              },
+              {
+                "id": 3,
+                "name": "disqualified",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "true"
+                  }
+                ]
               }
             ]
           },
