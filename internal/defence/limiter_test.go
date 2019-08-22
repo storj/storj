@@ -30,7 +30,6 @@ func TestLimiter(t *testing.T) {
 
 	t.Run("Testing constructor", func(t *testing.T) {
 		assert.Equal(t, limiter.attempts, maxAttempts)
-		assert.Equal(t, limiter.attemptsPeriod, attemptsPeriod)
 		assert.Equal(t, limiter.lockInterval, lockInterval)
 		assert.NotNil(t, limiter.attempts)
 	})
