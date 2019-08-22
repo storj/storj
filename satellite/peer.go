@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/inspector"
@@ -119,6 +120,8 @@ type Config struct {
 
 	GarbageCollection gc.Config
 
+	DBCleanup dbcleanup.Config
+
 	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
@@ -193,6 +196,10 @@ type Peer struct {
 
 	GarbageCollection struct {
 		Service *gc.Service
+	}
+
+	DBCleanup struct {
+		Service *dbcleanup.Service
 	}
 
 	Accounting struct {
@@ -501,6 +508,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 	}
 
+	{ // setup db cleanup
+		log.Debug("Setting up db cleanup")
+		peer.DBCleanup.Service = dbcleanup.NewService(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
+	}
+
 	{ // setup accounting
 		log.Debug("Setting up accounting")
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
@@ -719,6 +731,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.DBCleanup.Service.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -751,6 +766,9 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+	if peer.DBCleanup.Service != nil {
+		errlist.Add(peer.DBCleanup.Service.Close())
+	}
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
 	}
