@@ -26,12 +26,12 @@
     NOTIFICATION_ACTIONS,
     PM_ACTIONS,
     API_KEYS_ACTIONS,
-    PROJECT_USAGE_ACTIONS,
     PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { Project } from '@/types/projects';
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
     @Component
     export default class ProjectSelectionDropdown extends Vue {
@@ -42,8 +42,12 @@
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-            // TODO: add types
-            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+            try {
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+            } catch (err) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${err.message}`);
+            }
+
             const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
 
             try {
@@ -56,10 +60,6 @@
                 await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
             } catch {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
-            }
-
-            if (!usageResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
             }
 
             try {

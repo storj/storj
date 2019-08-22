@@ -60,8 +60,10 @@
     import { Component, Vue } from 'vue-property-decorator';
     import { RouteConfig } from '@/router';
     import Datepicker from '@/components/project/DatePicker.vue';
-    import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
+    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { toUnixTimestamp } from '@/utils/time';
+    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+    import { DateRange } from "@/types/usage";
 
     @Component({
         components: {
@@ -107,12 +109,18 @@
             return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
         }
 
-        public mounted(): void {
-            this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+        public async mounted(): Promise<void> {
+            try {
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`)
+            }
         }
 
-        public beforeRouteLeave(to, from, next): void {
-            this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.dateRange);
+        public async beforeRouteLeave(to, from, next): Promise<void> {
+            try {
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.dateRange);
+            } catch (e) { }
 
             const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
             buttons.forEach(option => {
@@ -130,18 +138,20 @@
         public async onCurrentRollupClick(event: any): Promise<void> {
             this.onButtonClickAction(event);
 
-            const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            try {
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`)
             }
         }
 
         public async onPreviousRollupClick(event: any): Promise<void> {
             this.onButtonClickAction(event);
 
-            const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            try {
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`)
             }
         }
 
@@ -173,6 +183,7 @@
 
             let startDate = isInverted ? secondDate : firstDate;
             let endDate = isInverted ? firstDate : secondDate;
+            const dateRange: DateRange = new DateRange(startDate, endDate);
 
             endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
             if (now.getUTCFullYear() === endDate.getUTCFullYear() &&
@@ -181,9 +192,10 @@
                 endDate = now;
             }
 
-            const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate, endDate});
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            try {
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, dateRange);
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`)
             }
         }
 
