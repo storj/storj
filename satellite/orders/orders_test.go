@@ -32,7 +32,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Service.Loop.Stop()
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Sender.Loop.Pause()
+			storageNode.Storage2.Orders.Sender.Pause()
 		}
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
@@ -53,7 +53,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 		sumArchived := 0
 
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Sender.Loop.TriggerWait()
+			storageNode.Storage2.Orders.Sender.TriggerWait()
 
 			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
 			require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestUnableToSendOrders(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Service.Loop.Stop()
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Sender.Loop.Pause()
+			storageNode.Storage2.Orders.Sender.Pause()
 		}
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
@@ -99,7 +99,7 @@ func TestUnableToSendOrders(t *testing.T) {
 		sumUnsent := 0
 		sumArchived := 0
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Sender.Loop.TriggerWait()
+			storageNode.Storage2.Orders.Sender.TriggerWait()
 
 			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
 			require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 
 		planet.Satellites[0].Audit.Service.Loop.Stop()
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Sender.Loop.Pause()
+			storageNode.Storage2.Orders.Sender.Pause()
 		}
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
@@ -153,7 +153,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		}
 
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Sender.Loop.TriggerWait()
+			storageNode.Storage2.Orders.Sender.TriggerWait()
 		}
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)

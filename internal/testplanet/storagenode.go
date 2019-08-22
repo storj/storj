@@ -106,9 +106,11 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				ExpirationGracePeriod: 0,
 				MaxConcurrentRequests: 100,
 				OrderLimitGracePeriod: time.Hour,
-				Sender: orders.SenderConfig{
-					Interval: time.Hour,
-					Timeout:  time.Hour,
+				Orders: orders.Config{
+					SenderInterval:  time.Hour,
+					SenderTimeout:   time.Hour,
+					CleanupInterval: time.Hour,
+					ArchiveTTL:      time.Hour,
 				},
 				Monitor: monitor.Config{
 					MinimumBandwidth: 100 * memory.MB,
