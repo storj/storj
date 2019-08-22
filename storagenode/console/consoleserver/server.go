@@ -157,7 +157,7 @@ func (server *Server) satelliteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(strings.TrimLeft(r.URL.Path, "/api/satellite/"))
+	satelliteID, err := storj.NodeIDFromString(strings.TrimPrefix(r.URL.Path, "/api/satellite/"))
 	if err != nil {
 		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
 		return
