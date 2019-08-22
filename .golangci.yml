@@ -30,7 +30,6 @@ linters:
     #TODO#- prealloc    # easy optimizations
     - stylecheck
     #TODO#- gosec
-    - interfacer
   disable:
     - goimports   # disabled, because it's slow, using scripts/check-imports.go instead.
     - goconst     # check for things that could be replaced by constants
@@ -38,7 +37,7 @@ linters:
     - depguard    # unused
     - gosec       # needs tweaking
     - dupl        # slow
-    #- interfacer  # not that useful
+    - interfacer  # not that useful
     - gosimple    # part of staticcheck
     - unused      # part of staticcheck
     - lll
