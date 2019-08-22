@@ -96,7 +96,6 @@ type Config struct {
 	Bandwidth bandwidth.Config
 
 	// new values
-	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/xyz"` //TODO
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 	Operator        OperatorConfig
 }

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package dialer
+package overlay
 
 import (
 	"context"
@@ -10,19 +10,12 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
 )
-
-type Config struct {
-	DialerLimit int `help:"Semaphore size" Default:"32"`
-}
-
-var mon = monkit.Package()
 
 // NodeDialer assists dialer to nodes
 type NodeDialer struct {
