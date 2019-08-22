@@ -47,7 +47,7 @@
 
         public onBackToLoginClick(): void {
             this.$segment.track(EVENTS.CLICKED_BACK_TO_LOGIN);
-            this.$router.push(RouteConfig.Login);
+            this.$router.push(RouteConfig.Login.path);
         }
 
         public onLogoClick(): void {
