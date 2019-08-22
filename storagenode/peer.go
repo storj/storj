@@ -94,11 +94,16 @@ type Config struct {
 	Version version.Config
 
 	Bandwidth bandwidth.Config
+
+	// new values
+	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/xyz"` //TODO
+	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
+	Operator        OperatorConfig
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
 func (config *Config) Verify(log *zap.Logger) error {
-	return config.Kademlia.Verify(log)
+	return config.Operator.Verify(log)
 }
 
 // Peer is the representation of a Storage Node.
@@ -153,6 +158,8 @@ type Peer struct {
 	}
 
 	Bandwidth *bandwidth.Service
+
+	Self *overlay.NodeDossier
 }
 
 // New creates a new Storage Node.
@@ -190,13 +197,41 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 	}
 
-	{ // setup trust pool before kademlia
+	{ // setup trust pool
 		peer.Storage2.Trust, err = trust.NewPool(peer.Transport, config.Storage.WhitelistedSatellites)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
 
+	{ // setup self node dossier
+		if config.ExternalAddress == "" {
+			config.ExternalAddress = peer.Addr()
+		}
+
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		self := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   config.ExternalAddress,
+				},
+			},
+			Type: pb.NodeType_STORAGE,
+			Operator: pb.NodeOperator{
+				Email:  config.Operator.Email,
+				Wallet: config.Operator.Wallet,
+			},
+			Version: *pbVersion,
+		}
+		peer.Self = self
+	}
+
+	// TODO REMOVE ****
 	{ // setup kademlia
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
@@ -244,6 +279,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
+	// ****
 
 	{ // setup storage
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.DB.Pieces())
@@ -367,10 +403,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Storage2.Inspector = inspector.NewEndpoint(
 			peer.Log.Named("pieces:inspector"),
 			peer.Storage2.Store,
-			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
 			config.Storage,
 			peer.Console.Listener.Addr(),
+			peer.Self.Id,
+			peer.Self.Address,
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}
@@ -496,7 +533,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return *peer.Self }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }

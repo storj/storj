@@ -35,6 +35,8 @@ type Endpoint struct {
 	startTime        time.Time
 	pieceStoreConfig piecestore.OldConfig
 	dashboardAddress net.Addr
+	id               pb.NodeID
+	address          pb.NodeAddress
 }
 
 // NewEndpoint creates piecestore inspector instance
@@ -43,15 +45,19 @@ func NewEndpoint(
 	pieceStore *pieces.Store,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
-	dashbaordAddress net.Addr) *Endpoint {
+	dashboardAddress net.Addr,
+	id pb.NodeID,
+	address pb.NodeAddress) *Endpoint {
 
 	return &Endpoint{
 		log:              log,
 		pieceStore:       pieceStore,
 		usageDB:          usageDB,
 		pieceStoreConfig: pieceStoreConfig,
-		dashboardAddress: dashbaordAddress,
+		dashboardAddress: dashboardAddress,
 		startTime:        time.Now(),
+		id:               id,
+		address:          address,
 	}
 }
 
@@ -107,11 +113,11 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 	}
 
 	return &pb.DashboardResponse{
-		NodeId:           inspector.kademlia.Local().Id, // TODO kad update
+		NodeId:           inspector.id,
 		InternalAddress:  "",
-		ExternalAddress:  inspector.kademlia.Local().Address.Address, // TODO kad update
-		LastPinged:       inspector.kademlia.LastPinged(),            // TODO kad update
-		LastQueried:      inspector.kademlia.LastQueried(),           // TODO kad update
+		ExternalAddress:  inspector.address.Address,
+		LastPinged:       inspector.kademlia.LastPinged(),  // TODO kad update
+		LastQueried:      inspector.kademlia.LastQueried(), // TODO kad update
 		DashboardAddress: inspector.dashboardAddress.String(),
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
