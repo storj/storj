@@ -177,7 +177,11 @@ func (service *Service) sendOrders(ctx context.Context) (err error) {
 	}
 
 	close(requests)
-	return batchGroup.Wait()
+	err = batchGroup.Wait()
+	if err != nil {
+		service.log.Error("archiving orders", zap.Error(err))
+	}
+	return nil
 }
 
 // Settle uploads orders to the satellite.
