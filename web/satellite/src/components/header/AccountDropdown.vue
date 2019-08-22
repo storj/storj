@@ -32,16 +32,16 @@
     import { RouteConfig } from '@/router';
     import {
         APP_STATE_ACTIONS,
-        PROJETS_ACTIONS,
         PM_ACTIONS,
         API_KEYS_ACTIONS,
         NOTIFICATION_ACTIONS,
     } from '@/utils/constants/actionNames';
     import { USER_ACTIONS } from '@/store/modules/users';
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
     @Component
-    export default class ProjectSelectionDropdown extends Vue {
+    export default class AccountDropdown extends Vue {
         public onCloseClick(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
         }
@@ -56,7 +56,7 @@
 
             this.$router.push(RouteConfig.Login.path);
             this.$store.dispatch(PM_ACTIONS.CLEAR);
-            this.$store.dispatch(PROJETS_ACTIONS.CLEAR);
+            this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
             this.$store.dispatch(USER_ACTIONS.CLEAR);
             this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
             this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
