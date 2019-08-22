@@ -37,21 +37,27 @@ type Meta struct {
 	Data       []byte
 }
 
-func numberOfSegments(stream *pb.StreamInfo, streamMeta *pb.StreamMeta) int64 {
+func numberOfSegments(stream *pb.StreamInfo, streamMeta *pb.StreamMeta) (count int64, ok bool) {
 	if streamMeta.NumberOfSegments > 0 {
-		return streamMeta.NumberOfSegments
+		return streamMeta.NumberOfSegments, true
 	}
-	return stream.DeprecatedNumberOfSegments
+	if stream != nil {
+		return stream.DeprecatedNumberOfSegments, true
+	}
+	return 0, false
 }
 
 // convertMeta converts segment metadata to stream metadata
-func convertMeta(modified, expiration time.Time, stream pb.StreamInfo, streamMeta pb.StreamMeta) Meta {
-	return Meta{
-		Modified:   modified,
-		Expiration: expiration,
-		Size:       ((numberOfSegments(&stream, &streamMeta) - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
-		Data:       stream.Metadata,
+func convertMeta(modified, expiration time.Time, stream *pb.StreamInfo, streamMeta pb.StreamMeta) (rv Meta) {
+	rv.Modified = modified
+	rv.Expiration = expiration
+	if stream != nil {
+		if segmentCount, ok := numberOfSegments(stream, &streamMeta); ok {
+			rv.Size = (segmentCount-1)*stream.SegmentsSize + stream.LastSegmentSize
+		}
+		rv.Data = stream.Metadata
 	}
+	return rv
 }
 
 // Store interface methods for streams to satisfy to be a store
@@ -311,15 +317,12 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		return nil, Meta{}, err
 	}
 
-	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
+	stream, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
 	if err != nil {
 		return nil, Meta{}, err
 	}
-
-	stream := pb.StreamInfo{}
-	err = proto.Unmarshal(streamInfo, &stream)
-	if err != nil {
-		return nil, Meta{}, err
+	if stream == nil {
+		return nil, Meta{}, errs.New("unable to retrieve encrypted stream metadata")
 	}
 
 	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
@@ -327,8 +330,13 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		return nil, Meta{}, err
 	}
 
+	segmentCount, ok := numberOfSegments(stream, &streamMeta)
+	if !ok {
+		return nil, Meta{}, errs.New("number of segments unable to be calculated")
+	}
+
 	var rangers []ranger.Ranger
-	for i := int64(0); i < numberOfSegments(&stream, &streamMeta)-1; i++ {
+	for i := int64(0); i < segmentCount-1; i++ {
 		var contentNonce storj.Nonce
 		_, err = encryption.Increment(&contentNonce, i+1)
 		if err != nil {
@@ -350,7 +358,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 	}
 
 	var contentNonce storj.Nonce
-	_, err = encryption.Increment(&contentNonce, numberOfSegments(&stream, &streamMeta))
+	_, err = encryption.Increment(&contentNonce, segmentCount)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -391,13 +399,8 @@ func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.Ciph
 		EncryptedPath: []byte(encPath.Raw()),
 	})
 
-	streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
+	stream, streamMeta, err := TypedDecryptStreamInfo(ctx, object.Metadata, path, s.encStore)
 	if err != nil {
-		return Meta{}, err
-	}
-
-	var stream pb.StreamInfo
-	if err := proto.Unmarshal(streamInfo, &stream); err != nil {
 		return Meta{}, err
 	}
 
@@ -537,13 +540,8 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 			path = CreatePath(string(item.EncryptedPath), paths.Unencrypted{})
 		}
 
-		streamInfo, streamMeta, err := TypedDecryptStreamInfo(ctx, item.EncryptedMetadata, path, s.encStore)
+		stream, streamMeta, err := TypedDecryptStreamInfo(ctx, item.EncryptedMetadata, path, s.encStore)
 		if err != nil {
-			return nil, false, err
-		}
-
-		var stream pb.StreamInfo
-		if err := proto.Unmarshal(streamInfo, &stream); err != nil {
 			return nil, false, err
 		}
 
@@ -659,12 +657,16 @@ func getEncryptedKeyAndNonce(m *pb.SegmentMeta) (storj.EncryptedPrivateKey, *sto
 
 // TypedDecryptStreamInfo decrypts stream info
 func TypedDecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path Path, encStore *encryption.Store) (
-	streamInfo []byte, streamMeta pb.StreamMeta, err error) {
+	_ *pb.StreamInfo, streamMeta pb.StreamMeta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = proto.Unmarshal(streamMetaBytes, &streamMeta)
 	if err != nil {
 		return nil, pb.StreamMeta{}, err
+	}
+
+	if encStore.EncryptionBypass {
+		return nil, streamMeta, nil
 	}
 
 	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), encStore)
@@ -680,6 +682,15 @@ func TypedDecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path Pa
 	}
 
 	// decrypt metadata with the content encryption key and zero nonce
-	streamInfo, err = encryption.Decrypt(streamMeta.EncryptedStreamInfo, cipher, contentKey, &storj.Nonce{})
-	return streamInfo, streamMeta, err
+	streamInfo, err := encryption.Decrypt(streamMeta.EncryptedStreamInfo, cipher, contentKey, &storj.Nonce{})
+	if err != nil {
+		return nil, pb.StreamMeta{}, err
+	}
+
+	var stream pb.StreamInfo
+	if err := proto.Unmarshal(streamInfo, &stream); err != nil {
+		return nil, pb.StreamMeta{}, err
+	}
+
+	return &stream, streamMeta, nil
 }
