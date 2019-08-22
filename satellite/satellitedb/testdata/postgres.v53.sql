@@ -79,10 +79,7 @@ CREATE TABLE nodes (
     wallet text NOT NULL,
     free_bandwidth bigint NOT NULL,
     free_disk bigint NOT NULL,
-<<<<<<< HEAD
-=======
     piece_count bigint NOT NULL,
->>>>>>> master
     major bigint NOT NULL,
     minor bigint NOT NULL,
     patch bigint NOT NULL,
