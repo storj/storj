@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"storj.io/storj/internal/dbutil"
@@ -245,9 +244,6 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 		err = errs.Combine(err, rows.Close())
 	}()
 
-	fmt.Println("NodeID: ", nodeID.String())
-	fmt.Println("NodeID unformat", string(nodeID[:]))
-
 	var nodeStorageUsages []accounting.StorageNodeUsage
 	for rows.Next() {
 		var atRestTotal float64
@@ -257,9 +253,6 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-
-		fmt.Println("startTime: ", startTime.String())
-		fmt.Println("atRestTotal: ", atRestTotal)
 
 		nodeStorageUsages = append(nodeStorageUsages, accounting.StorageNodeUsage{
 			NodeID:      nodeID,

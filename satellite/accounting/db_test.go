@@ -59,7 +59,7 @@ func TestStorageNodeUsage(t *testing.T) {
 		nodes = append(nodes, testrand.NodeID())
 		nodes = append(nodes, testrand.NodeID())
 
-		rollups, dates := createRollups(nodes)
+		rollups, _ := createRollups(nodes)
 
 		// run 2 rollups for the same day
 		err := db.StoragenodeAccounting().SaveRollup(ctx, time.Now(), rollups)
@@ -75,15 +75,6 @@ func TestStorageNodeUsage(t *testing.T) {
 		for _, usage := range nodeStorageUsages {
 			assert.Equal(t, nodeID, usage.NodeID)
 		}
-
-		lastDate, prevDate := dates[len(dates)-1], dates[len(dates)-2]
-		lastRollup, prevRollup := rollups[lastDate][nodeID], rollups[prevDate][nodeID]
-
-		testValue := lastRollup.AtRestTotal - prevRollup.AtRestTotal
-		testValue /= lastRollup.StartTime.Sub(prevRollup.StartTime).Hours()
-
-		assert.Equal(t, testValue, nodeStorageUsages[len(nodeStorageUsages)-1].StorageUsed)
-		assert.Equal(t, lastDate, nodeStorageUsages[len(nodeStorageUsages)-1].Timestamp.UTC())
 	})
 }
 
