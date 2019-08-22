@@ -5,18 +5,18 @@
     <div class="chart">
         <Chart
             id="disk-space-chart"
-            :chartData="diskSpaceUsed"
+            :chartData="chartData"
             :width="400"
-            :height="150"
-            min="1"
-            max="7.2"
+            :height="200"
             :tooltipConstructor="diskSpaceTooltip" />
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import {Component, Vue, Watch} from 'vue-property-decorator';
     import Chart from '@/components/Chart.vue';
+    import { ChartUtils } from '@/utils/chart';
+    import {formatBytes} from "@/utils/converter";
 
     @Component ({
         components: {
@@ -24,28 +24,27 @@
         },
     })
     export default class DiskSpaceChart extends Vue {
-        public diskSpaceUsed: object = {
-            labels: [
-                '1',
-                '',
-                '',
-                '',
-                '',
-                '',
-                '15',
-                '',
-                '',
-                '',
-                '',
-                '30'
-                ],
-            datasets: [{
-                backgroundColor: '#F2F6FC',
-                borderColor: '#1F49A3',
-                borderWidth: 2,
-                data: [4, 3, 5, 5, 4, 3, 3, 6, 5, 4, 5, 2],
-            }],
-        };
+        public get chartData(): object {
+            let data: number[] = [0];
+
+            const chartData = this.$store.state.node.storageChartData;
+            if (chartData) {
+                data = ChartUtils.normalizeArray(chartData.map(elem => elem.atRestTotal));
+            }
+
+            const tillDate = new Date();
+            tillDate.setDate(tillDate.getDate());
+
+            return {
+                labels: ChartUtils.xAxeOptions(tillDate),
+                datasets: [{
+                    backgroundColor: '#F2F6FC',
+                    borderColor: '#1F49A3',
+                    borderWidth: 2,
+                    data,
+                }],
+            };
+        }
 
         public diskSpaceTooltip(tooltipModel): void {
             // Tooltip Element
@@ -66,9 +65,12 @@
 
             // Set Text
             if (tooltipModel.body) {
+                const index = tooltipModel.dataPoints[0].index;
+                const point = this.$store.state.node.storageChartData[index].getLabels();
+
                 tooltipEl.innerHTML = `<div class='tooltip-body'>
-                                           <p class='tooltip-body__data'><b>30GB</b></p>
-                                           <p class='tooltip-body__footer'>May 25, 2019</p>
+                                           <p class='tooltip-body__data'><b>${point.atRestTotal}</b></p>
+                                           <p class='tooltip-body__footer'>${point.timestamp}</p>
                                        </div>`;
             }
 

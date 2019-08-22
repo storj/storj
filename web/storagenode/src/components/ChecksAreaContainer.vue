@@ -15,7 +15,7 @@
                 </div>
             </InfoComponent>
         </div>
-        <p class="checks-area-container__amount"><b>{{amount}}</b>%</p>
+        <p class="checks-area-container__amount"><b>{{value}}</b>%</p>
     </div>
 </template>
 
@@ -32,9 +32,13 @@
         @Prop({default: ''})
         private readonly label: string;
         @Prop({default: ''})
-        private readonly amount: string;
+        private readonly amount: number;
         @Prop({default: ''})
         private readonly infoText: string;
+
+        public get value(): string {
+            return this.amount.toFixed(1);
+        }
     }
 </script>
 

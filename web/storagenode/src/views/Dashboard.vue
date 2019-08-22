@@ -27,7 +27,8 @@
     })
     export default class Dashboard extends Vue {
         public async mounted() {
-            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO, '/api/dashboard/');
+            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
         }
     }
 </script>

@@ -3,7 +3,7 @@
 
 import Vue from 'vue';
 import Vuex from 'vuex';
-import { nodeModule } from './modules/node';
+import { node } from './modules/node';
 import { appStateModule } from './modules/appState';
 
 Vue.use(Vuex);
@@ -11,7 +11,7 @@ Vue.use(Vuex);
 // storage node store (vuex)
 const store = new Vuex.Store({
    modules: {
-       nodeModule,
+       node,
        appStateModule,
    }
 });

@@ -12,19 +12,14 @@ declare type Ingress = {
     usage: number;
 };
 
-declare interface BandwidthChartData {
-    From: string;
-    To: string;
-    egress: Egress;
-    ingress: Ingress;
-    summary: number;
-
-    getLabels(): any;
-}
-
 declare type FetchedBandwidthChartData = {
-    From: string;
-    To: string;
+    from: string;
+    to: string;
     egress: Egress;
     ingress: Ingress;
+};
+
+declare type FetchedStorageChartData = {
+    atRestTotal: number;
+    timestamp: string;
 };

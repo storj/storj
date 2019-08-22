@@ -14,7 +14,7 @@
                 </svg>
             </div>
             <div class="header__content-holder__node">
-                <p><b>Node ID:</b>{{node.id}}</p>
+                <p><b>Node ID:</b>{{nodeID}}</p>
             </div>
         </div>
     </div>
@@ -27,14 +27,13 @@
     @Component
     export default class SNOHeader extends Vue {
         public async onRefresh(): Promise<void> {
-            const id = this.$store.state.nodeModule.selectedSatellite;
-            id ?
-            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO, `/api/dashboard/?satelliteId=${id}`)
-            : await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO, `/api/dashboard/}`);
+            const selectedSatellite = this.$store.state.node.selectedSatellite.id;
+            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, selectedSatellite);
         }
 
-        public get node(): object  {
-            return this.$store.state.nodeModule.node;
+        public get nodeID(): object  {
+            return this.$store.state.node.info.id;
         }
     }
 </script>

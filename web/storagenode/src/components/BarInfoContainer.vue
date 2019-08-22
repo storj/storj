@@ -4,7 +4,7 @@
 <template>
     <div class="remaining-space-container">
         <p class="remaining-space-container__title">{{label}}</p>
-        <p class="remaining-space-container__amount"><b>{{amount}}</b></p>
+        <p class="remaining-space-container__amount"><b>{{remaining}}</b>GB</p>
         <div class="remaining-space-container__bar">
             <InfoComponent :text="infoMessage">
                 <Bar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
@@ -14,7 +14,7 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+    import {Component, Prop, Vue, Watch} from 'vue-property-decorator';
     import Bar from '@/components/Bar.vue';
     import InfoComponent from '@/components/InfoComponent.vue';
 
@@ -28,16 +28,20 @@
         @Prop({default: ''})
         private readonly label: string;
         @Prop({default: ''})
-        private readonly amount: string;
+        private readonly amount: number;
         @Prop({default: ''})
         private readonly infoText: string;
         @Prop({default: ''})
-        private readonly currentBarAmount: string;
+        private readonly currentBarAmount: number;
         @Prop({default: ''})
-        private readonly maxBarAmount: string;
+        private readonly maxBarAmount: number;
 
         public get infoMessage(): string {
-            return `${100 - Math.round((parseFloat(this.currentBarAmount) / parseFloat(this.maxBarAmount)) * 100)}% ${this.infoText}`;
+            return `${Math.floor(100 - (this.currentBarAmount / this.maxBarAmount) * 100)}% ${this.infoText}`;
+        }
+
+        public get remaining(): string {
+            return this.amount.toFixed(2);
         }
     }
 </script>

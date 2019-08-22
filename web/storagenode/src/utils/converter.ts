@@ -1,11 +1,23 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-export function formatBytes(bytes, decimals = 2) {
+export const KB = 1e3;
+export const MB = 1e6;
+export const GB = 1e9;
+
+export function formatBytes(bytes) {
     if (bytes === 0) return '0 Bytes';
 
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
+    const decimals = 2;
 
-    return parseFloat((bytes / Math.pow(k, 3)).toFixed(dm)) + ' GB';
+    let _bytes = Math.abs(bytes);
+
+    switch (true) {
+        case _bytes < MB:
+            return `${(bytes/KB).toFixed(decimals)}KB`;
+        case _bytes < GB:
+            return `${(bytes/MB).toFixed(decimals)}MB`;
+        default:
+            return `${(bytes/GB).toFixed(decimals)}GB`;
+    }
 }

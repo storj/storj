@@ -5,11 +5,9 @@
     <div class="chart">
         <Chart
             id="bandwidth-chart"
-            :chartData="chartData.data"
+            :chartData="chartData"
             :width="400"
-            :height="150"
-            :min="chartData.min"
-            :max="chartData.max"
+            :height="200"
             :tooltipConstructor="bandwidthTooltip" />
     </div>
 </template>
@@ -17,7 +15,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Chart from '@/components/Chart.vue';
-    import { formatBytes } from '@/utils/converter';
+    import { ChartUtils } from '@/utils/chart';
 
     @Component ({
         components: {
@@ -28,27 +26,20 @@
         public get chartData(): object {
             let data = [0];
 
-            if (this.$store.state.nodeModule.bandwidthChartData.length) {
-                data = this.$store.state.nodeModule.bandwidthChartData.map(elem => {
-                    return parseFloat(formatBytes(elem.summary));
-                });
+            if (this.$store.state.node.bandwidthChartData.length) {
+                data = ChartUtils.normalizeArray(this.$store.state.node.bandwidthChartData.map((elem, index) => {
+                    return elem.summary;
+                }));
             }
 
-            const min = Math.min(...data);
-            const max = (Math.max(...data) * 1.1) > 1 ? Math.max(...data) * 1.1 : 1;
-
             return {
-                data: {
-                    labels: this.xAxeOption(),
-                    datasets: [{
-                        backgroundColor: '#F2F6FC',
-                        borderColor: '#1F49A3',
-                        borderWidth: 2,
-                        data,
-                    }],
-                },
-                min,
-                max,
+                labels: ChartUtils.xAxeOptions(new Date()),
+                datasets: [{
+                    backgroundColor: '#F2F6FC',
+                    borderColor: '#1F49A3',
+                    borderWidth: 2,
+                    data,
+                }],
             };
         }
 
@@ -72,7 +63,7 @@
             // Set Text
             if (tooltipModel.body) {
                 const dataIndex = tooltipModel.dataPoints[0].index;
-                const dataPoint = this.$store.state.nodeModule.bandwidthChartData[dataIndex].getLabels();
+                const dataPoint = this.$store.state.node.bandwidthChartData[dataIndex].getLabels();
                 tooltipEl.innerHTML = `<div class='tooltip-header'>
                                            <p>EGRESS</p>
                                            <p class='tooltip-header__ingress'>INGRESS</p>
@@ -109,19 +100,6 @@
             }
 
             return;
-        }
-
-        private xAxeOption(): number[] {
-            let dateNow = new Date().getDate();
-            let daysDisplayed = (dateNow === 1) ? Array(dateNow + 1).fill('') : Array(dateNow).fill('');
-
-            daysDisplayed[0] = 1;
-            daysDisplayed[dateNow - 1] = dateNow;
-            if (dateNow > 2) {
-                daysDisplayed[Math.round(dateNow / 2)] = Math.floor(dateNow / 2);
-            }
-
-            return daysDisplayed;
         }
     }
 </script>

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+    import {Component, Prop, Vue, Watch} from 'vue-property-decorator';
     import * as VChart from 'vue-chartjs';
 
     @Component({
@@ -11,14 +11,15 @@
     export default class Chart extends Vue {
         @Prop({default: '$'})
         private readonly currency: string;
-        @Prop({default: ''})
-        private readonly max: string;
-        @Prop({default: ''})
-        private readonly min: string;
         @Prop({default: () => { console.error('Tooltip constructor is undefined'); }, })
         private tooltipConstructor: (tooltipModel) => void;
         @Prop({default: {}})
         private readonly chartData: object;
+
+        @Watch('chartData')
+        private onDataChange(news: object, old: object) {
+            (this as any).renderChart(this.chartData, this.chartOptions);
+        }
 
         public mounted(): void {
             (this as any).renderChart(this.chartData, this.chartOptions);
@@ -35,7 +36,7 @@
 
                 elements: {
                     point: {
-                        radius: 3,
+                        radius: 0,
                         hitRadius: 5,
                         hoverRadius: 5,
                         hoverBackgroundColor: '#4D72B7',
@@ -44,11 +45,9 @@
 
                 scales: {
                     yAxes: [{
-                        display: true,
+                        display: false,
                         ticks: {
                             fontFamily: 'font_regular',
-                            max: parseInt(this.max),
-                            min: parseInt(this.min),
                             autoSkip: false,
                         },
                         gridLines: {
@@ -58,10 +57,12 @@
                     xAxes: [{
                         display: true,
                         ticks: {
-                            autoSkip: false,
+                            autoSkip: true,
+                            maxRotation: 0,
+                            minRotation: 0,
                         },
                         gridLines: {
-                            display:false
+                            display: false
                         },
                     }],
                 },
