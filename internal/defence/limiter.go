@@ -24,10 +24,8 @@ type Limiter struct {
 	attackers map[string]*limited
 
 	// Attempts defines how many times attacker could perform an operation.
-	attempts int
-	// AttemptsPeriod defines period in which attempts will count. For example, 5 attempts per minute.
-	attemptsPeriod time.Duration
-	lockInterval   time.Duration
+	attempts     int
+	lockInterval time.Duration
 
 	mu   sync.Mutex
 	loop *sync2.Cycle

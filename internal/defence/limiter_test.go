@@ -16,12 +16,11 @@ import (
 )
 
 const (
-	key1           = "email1@example.com"
-	key2           = "email2@example.com"
-	maxAttempts    = 3
-	attemptsPeriod = time.Second
-	lockInterval   = time.Second
-	clearPeriod    = time.Second * 3
+	key1         = "email1@example.com"
+	key2         = "email2@example.com"
+	maxAttempts  = 3
+	lockInterval = time.Second
+	clearPeriod  = time.Second * 3
 )
 
 func TestLimiter(t *testing.T) {
@@ -138,13 +137,14 @@ func ExampleLimit() {
 	go func() {
 		if err := limiter.Run(ctx); err != nil {
 			fmt.Print(err)
-			// Output: error message
 		}
 	}()
 
 	if !limiter.Limit("someKey") {
 		return
 	}
+
+	// Output:
 }
 
 // ExampleLimit shows how to use and close (with context) Limiter
@@ -155,14 +155,14 @@ func ExampleLimit_second() {
 	go func() {
 		if err := limiter.Run(ctx); err != nil {
 			fmt.Print(err)
-			// Output: error message
 		}
 	}()
 
 	if !limiter.Limit("someKey") {
 		fmt.Print("you are banned")
-		// Output: you are banned
 	}
 
 	close()
+
+	// Output:
 }
