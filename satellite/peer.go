@@ -130,6 +130,9 @@ type Config struct {
 	Vouchers  vouchers.Config
 
 	Version version.Config
+
+	// new values
+	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 }
 
 // Peer is the satellite
@@ -226,6 +229,7 @@ type Peer struct {
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
+	Self *overlay.NodeDossier
 }
 
 // New creates a new satellite
@@ -278,7 +282,34 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
 	}
+	{ // set up self dossier (TODO is this necessary?)
+		if config.ExternalAddress == "" {
+			config.ExternalAddress = peer.Addr()
+		}
 
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		self := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Address: config.ExternalAddress,
+				},
+			},
+			Type: pb.NodeType_SATELLITE,
+			Operator: pb.NodeOperator{
+				Email:  "",
+				Wallet: "",
+			},
+			Version: *pbVersion,
+		}
+		peer.Self = self
+	}
+
+	// TODO REMOVE ****
 	{ // setup kademlia
 		log.Debug("Setting up Kademlia")
 		config := config.Kademlia
@@ -342,7 +373,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
-
+	//****
 	{ // setup discovery
 		log.Debug("Setting up discovery")
 		config := config.Discovery
@@ -778,7 +809,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return *peer.Self }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }

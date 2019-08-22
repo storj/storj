@@ -14,6 +14,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -35,8 +36,8 @@ type Endpoint struct {
 	startTime        time.Time
 	pieceStoreConfig piecestore.OldConfig
 	dashboardAddress net.Addr
-	id               pb.NodeID
-	address          pb.NodeAddress
+	NodeId           pb.NodeID
+	NodeAddress      string
 }
 
 // NewEndpoint creates piecestore inspector instance
@@ -46,8 +47,7 @@ func NewEndpoint(
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
 	dashboardAddress net.Addr,
-	id pb.NodeID,
-	address pb.NodeAddress) *Endpoint {
+	url storj.NodeURL) *Endpoint {
 
 	return &Endpoint{
 		log:              log,
@@ -56,8 +56,8 @@ func NewEndpoint(
 		pieceStoreConfig: pieceStoreConfig,
 		dashboardAddress: dashboardAddress,
 		startTime:        time.Now(),
-		id:               id,
-		address:          address,
+		NodeId:           url.ID,
+		NodeAddress:      url.Address,
 	}
 }
 
@@ -113,9 +113,9 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 	}
 
 	return &pb.DashboardResponse{
-		NodeId:           inspector.id,
+		NodeId:           inspector.NodeId,
 		InternalAddress:  "",
-		ExternalAddress:  inspector.address.Address,
+		ExternalAddress:  inspector.NodeAddress,
 		LastPinged:       inspector.kademlia.LastPinged(),  // TODO kad update
 		LastQueried:      inspector.kademlia.LastQueried(), // TODO kad update
 		DashboardAddress: inspector.dashboardAddress.String(),

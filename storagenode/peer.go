@@ -372,15 +372,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Console(),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
-			peer.Kademlia.Service,
 			peer.Version,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
-			config.Kademlia.Operator.Wallet,
 			versionInfo,
 			peer.Storage2.Trust,
 			peer.DB.Reputation(),
-			peer.DB.StorageUsage())
+			peer.DB.StorageUsage(),
+			peer.Local())
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -406,8 +405,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Bandwidth(),
 			config.Storage,
 			peer.Console.Listener.Addr(),
-			peer.Self.Id,
-			peer.Self.Address,
+			peer.URL(),
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}
