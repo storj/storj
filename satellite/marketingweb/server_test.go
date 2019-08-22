@@ -4,6 +4,8 @@
 package marketingweb_test
 
 import (
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -76,6 +78,11 @@ func TestCreateAndStopOffers(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				//reading out the rest of the connection
+				_, err = io.Copy(ioutil.Discard, req.Body)
+				if err != nil {
+					panic(err.Error())
+				}
 				if err := req.Body.Close(); err != nil {
 					return err
 				}
@@ -84,6 +91,10 @@ func TestCreateAndStopOffers(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				_, err = io.Copy(ioutil.Discard, req.Body)
+				if err != nil {
+					panic(err.Error())
+				}
 				if err := req.Body.Close(); err != nil {
 					return err
 				}
@@ -91,6 +102,10 @@ func TestCreateAndStopOffers(t *testing.T) {
 				req, err = http.Post(baseURL+"/stop/"+id, "application/x-www-form-urlencoded", nil)
 				if err != nil {
 					return err
+				}
+				_, err = io.Copy(ioutil.Discard, req.Body)
+				if err != nil {
+					panic(err.Error())
 				}
 				if err := req.Body.Close(); err != nil {
 					return err

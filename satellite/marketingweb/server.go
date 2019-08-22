@@ -11,8 +11,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
-	"strings"
-	"syscall"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -104,11 +102,7 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	tw := templateWriter{
-		writer: w,
-	}
-
-	if err := s.templates.home.ExecuteTemplate(tw, "base", offers.OrganizeOffersByType()); err != nil {
+	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
@@ -222,10 +216,7 @@ func (s *Server) StopOffer(w http.ResponseWriter, req *http.Request) {
 func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 
-	tw := templateWriter{
-		writer: w,
-	}
-	err := s.templates.pageNotFound.ExecuteTemplate(tw, "base", nil)
+	err := s.templates.pageNotFound.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
@@ -235,10 +226,7 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, errMsg error) {
 	w.WriteHeader(http.StatusInternalServerError)
 
-	tw := templateWriter{
-		writer: w,
-	}
-	if err := s.templates.internalError.ExecuteTemplate(tw, "base", errMsg); err != nil {
+	if err := s.templates.internalError.ExecuteTemplate(w, "base", errMsg); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
@@ -247,10 +235,7 @@ func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, er
 func (s *Server) serveBadRequest(w http.ResponseWriter, req *http.Request, errMsg error) {
 	w.WriteHeader(http.StatusBadRequest)
 
-	tw := templateWriter{
-		writer: w,
-	}
-	if err := s.templates.badRequest.ExecuteTemplate(tw, "base", errMsg); err != nil {
+	if err := s.templates.badRequest.ExecuteTemplate(w, "base", errMsg); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
@@ -274,18 +259,4 @@ func (s *Server) Run(ctx context.Context) error {
 // Close closes server and underlying listener
 func (s *Server) Close() error {
 	return Error.Wrap(s.server.Close())
-}
-
-// Write wraps the Write method from a io.Writer
-func (w templateWriter) Write(p []byte) (int, error) {
-	n, err := w.writer.Write(p)
-	if err != nil {
-		// Filter out broken pipe (user pressed "stop") errors
-		if nErr, ok := err.(*net.OpError); ok {
-			if strings.Contains(nErr.Err.Error(), syscall.EPIPE.Error()) {
-				return n, nil
-			}
-		}
-	}
-	return n, err
 }
