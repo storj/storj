@@ -138,6 +138,7 @@ func ExampleLimit() {
 	go func() {
 		if err := limiter.Run(ctx); err != nil {
 			fmt.Print(err)
+			// Output: error message
 		}
 	}()
 
@@ -154,11 +155,13 @@ func ExampleLimit_second() {
 	go func() {
 		if err := limiter.Run(ctx); err != nil {
 			fmt.Print(err)
+			// Output: error message
 		}
 	}()
 
 	if !limiter.Limit("someKey") {
 		fmt.Print("you are banned")
+		// Output: you are banned
 	}
 
 	close()
