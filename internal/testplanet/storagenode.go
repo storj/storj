@@ -139,7 +139,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			}
 		}
 
-		verInfo := planet.NewVersionInfo()
+		verisonInfo := planet.NewVersionInfo()
 
 		storageConfig := storagenodedb.Config{
 			Storage:  config.Storage.Path,
@@ -168,7 +168,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		}
 		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := storagenode.New(log, identity, db, revocationDB, config, verInfo)
+		peer, err := storagenode.New(log, identity, db, revocationDB, config, verisonInfo)
 		if err != nil {
 			return xs, err
 		}

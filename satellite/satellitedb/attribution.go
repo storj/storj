@@ -172,7 +172,7 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 	}
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-	results := make([]*attribution.CSVRow, 0, 0)
+	results := []*attribution.CSVRow{}
 	for rows.Next() {
 		r := &attribution.CSVRow{}
 		err := rows.Scan(&r.PartnerID, &r.ProjectID, &r.BucketName, &r.RemoteBytesPerHour, &r.InlineBytesPerHour, &r.EgressData)
