@@ -64,7 +64,7 @@ type Config struct {
 	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
 
 	Monitor monitor.Config
-	Sender  orders.SenderConfig
+	Orders  orders.Config
 }
 
 // Endpoint implements uploading, downloading and deleting for a storage node.

@@ -181,7 +181,7 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 // follow with the next ones without interrupting the operation and it will
 // return an error of the class orders.OrderNotFoundError. Any other error, will
 // abort the operation, rolling back the transaction.
-func (db *ordersDB) Archive(ctx context.Context, requests ...orders.ArchiveRequest) (err error) {
+func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests ...orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	txn, err := db.Begin()
@@ -205,7 +205,7 @@ func (db *ordersDB) Archive(ctx context.Context, requests ...orders.ArchiveReque
 	}()
 
 	for _, req := range requests {
-		err := db.archiveOne(ctx, txn, req)
+		err := db.archiveOne(ctx, txn, archivedAt, req)
 		if err != nil {
 			if orders.OrderNotFoundError.Has(err) {
 				notFoundErrs.Add(err)
@@ -220,7 +220,7 @@ func (db *ordersDB) Archive(ctx context.Context, requests ...orders.ArchiveReque
 }
 
 // archiveOne marks order as being handled.
-func (db *ordersDB) archiveOne(ctx context.Context, txn *sql.Tx, req orders.ArchiveRequest) (err error) {
+func (db *ordersDB) archiveOne(ctx context.Context, txn *sql.Tx, archivedAt time.Time, req orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := txn.Exec(`
@@ -239,7 +239,7 @@ func (db *ordersDB) archiveOne(ctx context.Context, txn *sql.Tx, req orders.Arch
 
 		DELETE FROM unsent_order
 		WHERE satellite_id = ? AND serial_number = ?;
-	`, int(req.Status), time.Now().UTC(), req.Satellite, req.Serial, req.Satellite, req.Serial)
+	`, int(req.Status), archivedAt, req.Satellite, req.Serial, req.Satellite, req.Serial)
 	if err != nil {
 		return ErrOrders.Wrap(err)
 	}

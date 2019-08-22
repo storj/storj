@@ -25,7 +25,7 @@ func TestCollector(t *testing.T) {
 			// stop collector, so we can run it manually
 			storageNode.Collector.Loop.Pause()
 			// stop order sender because we will stop satellite later
-			storageNode.Storage2.Sender.Loop.Pause()
+			storageNode.Storage2.Orders.Sender.Pause()
 		}
 
 		expectedData := testrand.Bytes(100 * memory.KiB)
