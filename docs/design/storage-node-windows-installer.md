@@ -24,7 +24,7 @@ We need to take care that we:
 
 ## Design
 
-The high-level idea is to create an installer using the WiX toolset and make Storage Node a Windows service.
+The high-level idea is to create an installer using the [WiX toolset](https://wixtoolset.org) and make Storage Node a Windows service.
 
 The installer shall:
 * Display a GUI for collecting user configuration about:
@@ -59,10 +59,10 @@ There are a number of reasons to use the WiX toolset directly instead of go-msi:
 
 ## Implementation
 
-1) Implement ServiceMain in the storage node binary.
-2) Implement MSI installer using the WiX toolset.
-4) Update the build process to build and sign the MSI installer. 
-5) Ensure the MSI installer works properly
+1. Implement ServiceMain in the storage node binary.
+1. Implement MSI installer using the WiX toolset.
+1. Update the build process to build and sign the MSI installer. 
+1. Ensure the MSI installer works properly
   * Install Storage Node using the MSI installer.
   * Ensure binaries run on Windows startup, and it runs as a background process when not logged in.
   * Ensure UAC(s) is not triggered after installation.
@@ -73,4 +73,4 @@ There are a number of reasons to use the WiX toolset directly instead of go-msi:
 * Consider writing an uninstaller.
   * MSI package support unintsalling too. We must test to check what files are left on disk after uninstall.
 * How do we prevent UAC from triggering?
-  * Hopefully, code-siging will prevent UAC.
+  * Hopefully, code-signing will prevent UAC.
