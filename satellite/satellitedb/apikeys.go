@@ -136,34 +136,6 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	return page, err
 }
 
-// GetByProjectID implements satellite.APIKeys ordered by name
-func (keys *apikeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) (_ []console.APIKeyInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-	dbKeys, err := keys.methods.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, dbx.ApiKey_ProjectId(projectID[:]))
-	if err != nil {
-		return nil, err
-	}
-
-	var apiKeys []console.APIKeyInfo
-	var parseErr errs.Group
-
-	for _, key := range dbKeys {
-		info, err := fromDBXAPIKey(ctx, key)
-		if err != nil {
-			parseErr.Add(err)
-			continue
-		}
-
-		apiKeys = append(apiKeys, *info)
-	}
-
-	if err := parseErr.Err(); err != nil {
-		return nil, err
-	}
-
-	return apiKeys, nil
-}
-
 // Get implements satellite.APIKeys
 func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)

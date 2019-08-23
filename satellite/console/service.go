@@ -1075,27 +1075,6 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 	return
 }
 
-// GetAPIKeysInfoByProjectID retrieves all api keys for a given project
-func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.UUID) (info []APIKeyInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
-	if err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
-	}
-
-	info, err = s.store.APIKeys().GetByProjectID(ctx, projectID)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
-	}
-
-	return info, nil
-}
-
 // GetProjectUsage retrieves project usage for a given period
 func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
