@@ -49,6 +49,12 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 				updated_at
 			) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
+	// ensure we insert utc
+	if stats.Disqualified != nil {
+		utc := stats.Disqualified.UTC()
+		stats.Disqualified = &utc
+	}
+
 	_, err = db.ExecContext(ctx, query,
 		stats.SatelliteID,
 		stats.Uptime.SuccessCount,
@@ -61,7 +67,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.Audit.Alpha,
 		stats.Audit.Beta,
 		stats.Audit.Score,
-		stats.Disqualified.UTC(),
+		stats.Disqualified,
 		stats.UpdatedAt.UTC(),
 	)
 
