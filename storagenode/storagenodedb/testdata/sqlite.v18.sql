@@ -115,7 +115,6 @@ CREATE TABLE reputation (
     audit_reputation_alpha REAL NOT NULL,
     audit_reputation_beta REAL NOT NULL,
     audit_reputation_score REAL NOT NULL,
-    disqualified TIMESTAMP,
     updated_at TIMESTAMP NOT NULL,
     PRIMARY KEY (satellite_id)
 );
