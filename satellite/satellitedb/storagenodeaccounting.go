@@ -222,7 +222,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 					) ids
 					INNER JOIN accounting_rollups r ON r.id = ids.id
 					UNION
-					SELECT SUM(data_total) as at_rest_total, DATETIME(DATE(interval_end_time)) as start_time
+					SELECT SUM(data_total) as at_rest_total, DATE(interval_end_time) as start_time
 					FROM storagenode_storage_tallies
 					WHERE node_id = ?
 					AND ? < interval_end_time AND interval_end_time <= ?

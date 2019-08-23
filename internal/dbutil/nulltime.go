@@ -10,7 +10,7 @@ import (
 
 const (
 	sqliteTimeLayout       = "2006-01-02 15:04:05-07:00"
-	sqliteTimeLayoutNoZone = "2006-01-02 15:04:05"
+	sqliteTimeLayoutDate = "2006-01-02"
 )
 
 // NullTime time helps convert nil to time.Time
@@ -62,5 +62,5 @@ func parseSqliteTimeString(val string) (time.Time, error) {
 		return times, nil
 	}
 
-	return time.Parse(sqliteTimeLayoutNoZone, val)
+	return time.Parse(sqliteTimeLayoutDate, val)
 }
