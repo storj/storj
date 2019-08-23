@@ -129,6 +129,9 @@ if !pieces collected {
 inprogress pieces
 more pieces := true
 
+when storage node prematurely exits
+    we'll mark every inprogress as failed
+
 go func() {
     for {
         ensure we have only up to N inprogress at the same time
