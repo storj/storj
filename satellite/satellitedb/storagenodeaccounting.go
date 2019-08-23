@@ -227,7 +227,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 					WHERE node_id = ?
 					AND ? < interval_end_time AND interval_end_time <= ?
 					GROUP BY start_time
-				) GROUP BY start_time
+				) stamps GROUP BY start_time
 				ORDER BY start_time ASC`
 
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
