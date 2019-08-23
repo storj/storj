@@ -36,8 +36,7 @@
     import { AppState } from '@/utils/constants/appStateEnum';
     import { AuthToken } from '@/utils/authToken';
     import { Project } from '@/types/projects';
-    import { RequestResponse } from '@/types/response';
-    import router, { RouteConfig } from '@/router';
+    import { RouteConfig } from '@/router';
     import { User } from '@/types/users';
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
     import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
@@ -45,10 +44,8 @@
     @Component({
     mounted: async function() {
         setTimeout(async () => {
-            let user: User;
-
             try {
-                user = await this.$store.dispatch(USER_ACTIONS.GET);
+                await this.$store.dispatch(USER_ACTIONS.GET);
             } catch (error) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
@@ -92,7 +89,7 @@
             try {
                 await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
             } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`)
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
             }
 
             try {

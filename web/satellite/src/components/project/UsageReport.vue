@@ -63,7 +63,7 @@
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { toUnixTimestamp } from '@/utils/time';
     import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
-    import { DateRange } from "@/types/usage";
+    import { DateRange } from '@/types/usage';
 
     @Component({
         components: {
@@ -113,14 +113,16 @@
             try {
                 await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
             } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`)
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
             }
         }
 
         public async beforeRouteLeave(to, from, next): Promise<void> {
             try {
                 await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.dateRange);
-            } catch (e) { }
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            }
 
             const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
             buttons.forEach(option => {
@@ -141,7 +143,7 @@
             try {
                 await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
             } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`)
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
             }
         }
 
@@ -151,7 +153,7 @@
             try {
                 await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
             } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`)
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
             }
         }
 
@@ -183,19 +185,21 @@
 
             let startDate = isInverted ? secondDate : firstDate;
             let endDate = isInverted ? firstDate : secondDate;
-            const dateRange: DateRange = new DateRange(startDate, endDate);
 
             endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
+
             if (now.getUTCFullYear() === endDate.getUTCFullYear() &&
                 now.getUTCMonth() === endDate.getUTCMonth() &&
                 now.getUTCDate() === endDate.getUTCDate()) {
                 endDate = now;
             }
 
+            const dateRange: DateRange = new DateRange(startDate, endDate);
+
             try {
                 await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, dateRange);
             } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`)
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
             }
         }
 
