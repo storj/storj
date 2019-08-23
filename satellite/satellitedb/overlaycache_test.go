@@ -26,7 +26,10 @@ import (
 //type overlaycache = satellitedb.TestOverlaycache
 
 func TestOverlaycache_AllPieceCounts(t *testing.T) {
-	testDBs(t, func(t *testing.T, ctx *testcontext.Context, db satellite.DB) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		// get overlay db
 		overlay, ok := db.OverlayCache().(*satellitedb.Overlaycache)
 		require.True(t, ok)
@@ -62,9 +65,9 @@ func TestOverlaycache_AllPieceCounts(t *testing.T) {
 }
 
 func TestOverlaycache_UpdatePieceCounts(t *testing.T) {
-	testDBs(t, func(t *testing.T, ctx *testcontext.Context, db satellite.DB) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		// get overlay db
-		overlay, ok := db.OverlayCache().(*overlaycache)
+		overlay, ok := db.OverlayCache().(*satellitedb.overlaycache)
 		require.True(t, ok)
 		require.NotNil(t, overlay)
 
