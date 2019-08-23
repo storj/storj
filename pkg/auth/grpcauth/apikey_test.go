@@ -79,10 +79,10 @@ type helloServer struct{}
 func (s *helloServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 	key, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		return nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credentials")
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credentials")
 	}
 	if string(key) != "good key" {
-		return nil, grpc.Errorf(codes.Unauthenticated, "Invalid API credentials")
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credentials")
 	}
 
 	return &pb.HelloReply{Message: "Hello " + in.Name}, nil

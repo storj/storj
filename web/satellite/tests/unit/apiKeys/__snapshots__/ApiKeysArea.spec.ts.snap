@@ -2,7 +2,7 @@
 
 exports[`ApiKeysArea renders correctly 1`] = `
 <div class="api-keys-area">
-  <h1>Api Key</h1>
+  <h1>API Keys</h1>
   <div class="api-keys-area__container">
     <!---->
     <!---->

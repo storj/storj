@@ -17,6 +17,7 @@ import (
 
 	"storj.io/storj/internal/dbutil/dbschema"
 	"storj.io/storj/internal/dbutil/sqliteutil"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
@@ -74,13 +75,20 @@ func newData(snap *dbschema.Snapshot) string {
 }
 
 func TestMigrate(t *testing.T) {
+	ctx := testcontext.New(t)
 	snapshots, err := loadSnapshots()
 	require.NoError(t, err)
 
 	log := zaptest.NewLogger(t)
 
+	cfg := storagenodedb.Config{
+		Pieces:   ctx.Dir("storage"),
+		Info2:    ctx.Dir("storage") + "/info.db",
+		Kademlia: ctx.Dir("storage") + "/kademlia",
+	}
+
 	// create a new satellitedb connection
-	db, err := storagenodedb.NewInfoTest()
+	db, err := storagenodedb.New(log, cfg)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
@@ -91,7 +99,7 @@ func TestMigrate(t *testing.T) {
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
 		// run migration up to a specific version
-		err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"), db)
+		err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"), db.VersionsMigration())
 		require.NoError(t, err, tag)
 
 		// find the matching expected version
@@ -100,19 +108,19 @@ func TestMigrate(t *testing.T) {
 
 		// insert data for new tables
 		if newdata := newData(expected); newdata != "" {
-			_, err = db.RawDB().Exec(newdata)
+			_, err = db.Versions().Exec(newdata)
 			require.NoError(t, err, tag)
 		}
 
 		// load schema from database
-		currentSchema, err := sqliteutil.QuerySchema(db.RawDB())
+		currentSchema, err := sqliteutil.QuerySchema(db.Versions())
 		require.NoError(t, err, tag)
 
 		// we don't care changes in versions table
 		currentSchema.DropTable("versions")
 
 		// load data from database
-		currentData, err := sqliteutil.QueryData(db.RawDB(), currentSchema)
+		currentData, err := sqliteutil.QueryData(db.Versions(), currentSchema)
 		require.NoError(t, err, tag)
 
 		// verify schema and data

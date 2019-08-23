@@ -20,39 +20,41 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
+
     import {
     APP_STATE_ACTIONS,
-    PROJETS_ACTIONS,
     NOTIFICATION_ACTIONS,
     PM_ACTIONS,
     API_KEYS_ACTIONS,
     PROJECT_USAGE_ACTIONS,
-    BUCKET_USAGE_ACTIONS,
     PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { Project } from '@/types/projects';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
     @Component
     export default class ProjectSelectionDropdown extends Vue {
         private FIRST_PAGE = 0;
 
         public async onProjectSelected(projectID: string): Promise<void> {
-            this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
+            this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
             // TODO: add types
-            const pmResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
             const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
             const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
 
-            if (!pmResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (err) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
             }
 
-            if (!keysResponse.isSuccess) {
+            try {
+                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            } catch {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
@@ -60,8 +62,10 @@
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
             }
 
-            if (!bucketsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+            try {
+                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
             }
 
             if (!paymentMethodsResponse.isSuccess) {
