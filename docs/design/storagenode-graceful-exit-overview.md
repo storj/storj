@@ -61,8 +61,11 @@ Ungraceful exit can happen when:
 To coordinate the four parts we need few things implemented:
 
 - Add `satellites` table and interfaces to storage node.
+- Add `satellites_exit_progress` table and interfaces to storage node.
+- Update `nodes` table on satellite.
+- Add `nodes_exit_progress` table to satellite.
 
-### Satellites Table
+### Storage Node Database Changes
 
 ```
 model satellites (
@@ -85,6 +88,10 @@ model satellites_exit_progress (
     field completion_receipt   blob
 )
 ```
+
+### Satellite Database Changes
+
+TODO
 
 ## Rationale
 
