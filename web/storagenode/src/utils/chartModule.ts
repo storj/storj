@@ -90,13 +90,14 @@ export class ChartFormatter {
     // and fills it with fetched data if there is data for given date, or creates empty item otherwise
     public static createBandwidthChartItems(fetchedData: FetchedBandwidthChartData[]): BandwidthChartItem[] {
         const bandwidthChartData: BandwidthChartItem[] = new Array(new Date().getDate());
+        const data = fetchedData ? fetchedData : [];
 
         outer:
         for (let i = 0; i < bandwidthChartData.length; i++) {
             const date = i + 1;
 
-            for (let j = 0; j < fetchedData.length; j++) {
-                const fetched = fetchedData[j];
+            for (let j = 0; j < data.length; j++) {
+                const fetched = data[j];
 
                 if (new Date(fetched.from).getDate() === date) {
                     bandwidthChartData[i] = new BandwidthChartItem(fetched);
@@ -112,8 +113,9 @@ export class ChartFormatter {
 
      public static createStorageUsageChartItems(fetchedData: FetchedStorageChartData[]): StorageUsageChartItem[] {
         const storageChartData: StorageUsageChartItem[] = new Array( new Date().getDate());
+        const data = fetchedData ? fetchedData : [];
 
-        if (storageChartData.length === 0 || fetchedData.length === 0) {
+        if (storageChartData.length === 0 || data.length === 0) {
             return storageChartData;
         }
 
@@ -121,8 +123,8 @@ export class ChartFormatter {
         for (let i = 0; i < storageChartData.length; i++ ) {
             const date = i + 1;
 
-            for (let j = 0; j < fetchedData.length; j++) {
-                const storageUsage = StorageUsageChartItem.fromFetchedData(fetchedData[j]);
+            for (let j = 0; j < data.length; j++) {
+                const storageUsage = StorageUsageChartItem.fromFetchedData(data[j]);
 
                 if (storageUsage.timestamp.getDate() === date) {
                     storageChartData[i] = storageUsage;

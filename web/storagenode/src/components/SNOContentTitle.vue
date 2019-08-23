@@ -45,38 +45,39 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import InfoComponent from '@/components/InfoComponent.vue';
-    import {StatusOnline} from "@/store/modules/node";
+import { Component, Vue } from 'vue-property-decorator';
+import InfoComponent from '@/components/InfoComponent.vue';
+import { StatusOnline } from '@/store/modules/node';
 
-    @Component ({
-        components: {
-            InfoComponent,
-        },
-    })
-    export default class SNOContentTitle extends Vue {
-        public get info(): object {
-            return this.$store.state.node.info;
-        }
-
-        public get version(): string {
-            const version = this.$store.state.node.info.version;
-            return `v${version.major}.${version.minor}.${version.patch}`;
-        }
-
-        public get online(): boolean {
-            return this.$store.state.node.info.status === StatusOnline;
-        }
-
-        public get currentMonth(): string {
-            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'
-            ];
-            const date = new Date();
-
-            return monthNames[date.getMonth()];
-        }
+@Component ({
+    components: {
+        InfoComponent,
+    },
+})
+export default class SNOContentTitle extends Vue {
+    public get info(): object {
+        return this.$store.state.node.info;
     }
+
+    public get version(): string {
+        const version = this.$store.state.node.info.version;
+
+        return `v${version.major}.${version.minor}.${version.patch}`;
+    }
+
+    public get online(): boolean {
+        return this.$store.state.node.info.status === StatusOnline;
+    }
+
+    public get currentMonth(): string {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        const date = new Date();
+
+        return monthNames[date.getMonth()];
+    }
+}
 </script>
 
 <style lang="scss">

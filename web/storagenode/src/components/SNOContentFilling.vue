@@ -40,7 +40,6 @@
                 <ChecksAreaContainer label="Audit Checks" :amount="checks.audit" infoText="Audit checks occur to make sure the file data sent to your storage node is still there and intact. This is the percentage of audit checks you’ve passed."/>
             </div>
         </div>
-<!--        <div class="info-area__remaining-space-area">-->
         <div>
             <p class="info-area__title">Remaining on the Node</p>
             <div class="info-area__remaining-space-area">

@@ -128,6 +128,7 @@
     }
 
     .tooltip-body {
+
         &__info {
             display: flex;
             background-color: #EBECF0;

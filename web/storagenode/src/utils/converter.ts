@@ -14,10 +14,10 @@ export function formatBytes(bytes) {
 
     switch (true) {
         case _bytes < MB:
-            return `${(bytes/KB).toFixed(decimals)}KB`;
+            return `${(bytes / KB).toFixed(decimals)}KB`;
         case _bytes < GB:
-            return `${(bytes/MB).toFixed(decimals)}MB`;
+            return `${(bytes / MB).toFixed(decimals)}MB`;
         default:
-            return `${(bytes/GB).toFixed(decimals)}GB`;
+            return `${(bytes / GB).toFixed(decimals)}GB`;
     }
 }
