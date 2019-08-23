@@ -87,7 +87,7 @@ func TestStorageNodeUsage(t *testing.T) {
 		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, time.Time{}, time.Now())
 		require.NoError(t, err)
 		assert.NotNil(t, nodeStorageUsages)
-		assert.Equal(t, rollupsCount+len(storageTallies), len(nodeStorageUsages))
+		assert.Equal(t, rollupsCount+1, len(nodeStorageUsages))
 
 		for _, usage := range nodeStorageUsages {
 			assert.Equal(t, nodeID, usage.NodeID)
