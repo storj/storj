@@ -5,6 +5,7 @@ package main
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
@@ -12,10 +13,12 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 )
 
-type batchCfg struct {
+// BatchCfg defines configuration for batching
+type BatchCfg struct {
 	EmailsPath string `help:"optional path to a list of emails, delimited by <delimiter>, for batch processing"`
 	Delimiter  string `help:"delimiter to split emails loaded from <emails-path> on (e.g. comma, new-line)" default:"\n"`
 }
@@ -33,7 +36,7 @@ var (
 	}
 
 	config struct {
-		batchCfg
+		BatchCfg
 		CA       identity.CASetupConfig
 		Identity identity.SetupConfig
 		Server   struct { // workaround server.Config change
@@ -59,7 +62,15 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		zap.S().Fatal(err)
 	}
 
-	return config.Server.Run(ctx, zap.L(), identity, nil, config.Signer)
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	return config.Server.Run(ctx, zap.L(), identity, revocationDB, nil, config.Signer)
 }
 
 func main() {

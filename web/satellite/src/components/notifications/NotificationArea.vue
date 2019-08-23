@@ -2,14 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="notificationArea" class="notification-container" v-if="currentNotification" >
-        <Notification :notification="currentNotification" />
+    <div id="notificationArea" class="notification-container" v-if="notifications.length > 0" >
+        <Notification v-for="notification in notifications" :notification="notification" :key="notification.id" />
     </div>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Notification from '@/components/notifications/Notification.vue';
+    import { DelayedNotification } from '@/types/DelayedNotification';
 
     @Component({
         components: {
@@ -17,27 +18,25 @@
         }
     })
     export default class NotificationArea extends Vue {
-        public get currentNotification(): Notification {
-            return this.$store.getters.currentNotification;
+        public get notifications(): DelayedNotification[] {
+            return this.$store.state.notificationsModule.notificationQueue;
         }
     }
 </script>
 
 <style scoped lang="scss">
     .notification-container {
-        height: 98px;
-        max-width: 80%;
-        width: 100%;
-        background-color: #fff;
+        width: 417px;
+        background-color: transparent;
         display: flex;
+        flex-direction: column;
         position: fixed;
-        bottom: 50px;
-        right: 50%;
-        transform: translate(50%);
-        align-items: center;
+        top: 114px;
+        right: 17px;
+        align-items: flex-end;
         justify-content: space-between;
-        box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
-        border-radius: 6px;
+        border-radius: 12px;
         z-index: 9999;
+        overflow: hidden;
     }
 </style>

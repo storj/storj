@@ -24,9 +24,9 @@ type DB interface {
 
 // Stamp is storage usage stamp for satellite at some point in time
 type Stamp struct {
-	SatelliteID storj.NodeID
+	SatelliteID storj.NodeID `json:"-"`
 
-	AtRestTotal float64
+	AtRestTotal float64 `json:"atRestTotal"`
 
-	Timestamp time.Time
+	Timestamp time.Time `json:"timestamp"`
 }

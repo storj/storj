@@ -6,19 +6,27 @@ package storagenodedb
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/reputation"
 )
 
-// Reputation returns reputation.DB
-func (db *InfoDB) Reputation() reputation.DB { return &reputationDB{db} }
-
-// Reputation returns reputation.DB
-func (db *DB) Reputation() reputation.DB { return db.info.Reputation() }
+// ErrReputation represents errors from the reputation database.
+var ErrReputation = errs.Class("reputation error")
 
 // reputation works with node reputation DB
 type reputationDB struct {
-	*InfoDB
+	location string
+	SQLDB
+}
+
+// newReputationDB returns a new instance of reputationDB initialized with the specified database.
+func newReputationDB(db SQLDB, location string) *reputationDB {
+	return &reputationDB{
+		location: location,
+		SQLDB:    db,
+	}
 }
 
 // Store inserts or updates reputation stats into the db
@@ -40,7 +48,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 				updated_at
 			) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
 
-	_, err = db.db.ExecContext(ctx, stmt,
+	_, err = db.ExecContext(ctx, stmt,
 		stats.SatelliteID,
 		stats.Uptime.SuccessCount,
 		stats.Uptime.TotalCount,
@@ -64,7 +72,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 
 	stats := reputation.Stats{}
 
-	row := db.db.QueryRowContext(ctx,
+	row := db.QueryRowContext(ctx,
 		`SELECT * FROM reputation WHERE satellite_id = ?`,
 		satelliteID,
 	)

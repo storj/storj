@@ -5,17 +5,17 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import HeaderlessInput from '../../components/common/HeaderlessInput.vue';
-    import RegistrationSuccessPopup from '../../components/common/RegistrationSuccessPopup.vue';
-    import { validateEmail, validatePassword } from '../../utils/validation';
-    import ROUTES from '../../utils/constants/routerConstants';
-    import EVENTS from '../../utils/constants/analyticsEventNames';
-    import { LOADING_CLASSES } from '../../utils/constants/classConstants';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '../../utils/constants/actionNames';
-    import { createUserRequest } from '../../api/users';
+    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+    import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
+    import { validateEmail, validatePassword } from '@/utils/validation';
+    import { RouteConfig } from '@/router';
+    import EVENTS from '@/utils/constants/analyticsEventNames';
+    import { LOADING_CLASSES } from '@/utils/constants/classConstants';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { AuthApi } from '@/api/auth';
     import { setUserId } from '@/utils/consoleLocalStorage';
-    import { User } from '../../types/users';
-    import InfoComponent from '../../components/common/InfoComponent.vue';
+    import { User } from '@/types/users';
+    import InfoComponent from '@/components/common/InfoComponent.vue';
 
     @Component({
         components: {
@@ -25,32 +25,46 @@
         },
     })
     export default class Register extends Vue {
-        private fullName: string = '';
-        private fullNameError: string = '';
-        private shortName: string = '';
-        private email: string = '';
-        private emailError: string = '';
-        private password: string = '';
-        private passwordError: string = '';
-        private repeatedPassword: string = '';
-        private repeatedPasswordError: string = '';
-        private isTermsAccepted: boolean = false;
-        private isTermsAcceptedError: boolean = false;
+        private readonly user = new User();
+
+        // tardigrade logic
         private secret: string = '';
-        private partnerId: string = '';
         private refUserId: string = '';
+
+        private userId: string = '';
+        private isTermsAccepted: boolean = false;
+        private password: string = '';
+        private repeatedPassword: string = '';
+
+        private fullNameError: string = '';
+        private emailError: string = '';
+        private passwordError: string = '';
+        private repeatedPasswordError: string = '';
+        private isTermsAcceptedError: boolean = false;
+
         private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
+
+        private readonly auth: AuthApi = new AuthApi();
 
         mounted(): void {
             if (this.$route.query.token) {
                 this.secret = this.$route.query.token.toString();
             }
 
-            let { ids } = this.$route.params;
-            let referralIds = ids ? JSON.parse(atob(ids)) : undefined;
+            let { ids = '' } = this.$route.params;
+            let decoded = '';
+            try {
+                decoded = atob(ids);
+            } catch {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Invalid Referral URL');
+                this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
+
+                return;
+            }
+            let referralIds = ids ? JSON.parse(decoded) : undefined;
             if (referralIds) {
-                this.$data.partnerId = referralIds.partnerId;
-                this.$data.refUserId = referralIds.userId;
+                this.user.partnerId = referralIds.partnerId;
+                this.refUserId = referralIds.userId;
             }
         }
 
@@ -71,18 +85,18 @@
         }
         public onLoginClick(): void {
             this.$segment.track(EVENTS.CLICKED_LOGIN);
-            this.$router.push(ROUTES.LOGIN.path);
+            this.$router.push(RouteConfig.Login.path);
         }
         public setEmail(value: string): void {
-            this.email = value;
+            this.user.email = value.trim();
             this.emailError = '';
         }
         public setFullName(value: string): void {
-            this.fullName = value;
+            this.user.fullName = value.trim();
             this.fullNameError = '';
         }
         public setShortName(value: string): void {
-            this.shortName = value;
+            this.user.shortName = value.trim();
         }
         public setPassword(value: string): void {
             this.password = value;
@@ -96,12 +110,12 @@
         private validateFields(): boolean {
             let isNoErrors = true;
 
-            if (!this.fullName.trim()) {
+            if (!this.user.fullName.trim()) {
                 this.fullNameError = 'Invalid Name';
                 isNoErrors = false;
             }
 
-            if (!validateEmail(this.email.trim())) {
+            if (!validateEmail(this.user.email.trim())) {
                 this.emailError = 'Invalid Email';
                 isNoErrors = false;
             }
@@ -123,22 +137,21 @@
 
             return isNoErrors;
         }
-        private async createUser(): Promise<void> {
-            let user = new User(this.fullName.trim(), this.shortName.trim(), this.email.trim(), this.partnerId);
-            let response = await createUserRequest(user, this.password, this.secret, this.refUserId);
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-                this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
-                return;
-            }
-            if (response.data) {
-                setUserId(response.data);
-            }
-            // TODO: improve it
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
-            if (this.$refs['register_success_popup'] !== null) {
-                (this.$refs['register_success_popup'] as any).startResendEmailCountdown();
+        private async createUser(): Promise<void> {
+            try {
+                this.userId = await this.auth.create(this.user, this.password , this.secret, this.refUserId);
+
+                setUserId(this.userId);
+
+                // TODO: improve it
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
+                if (this.$refs['register_success_popup'] !== null) {
+                    (this.$refs['register_success_popup'] as any).startResendEmailCountdown();
+                }
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+                this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
             }
         }
     }
