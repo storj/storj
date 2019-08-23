@@ -90,8 +90,8 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.Audit.Alpha,
 		&stats.Audit.Beta,
 		&stats.Audit.Score,
-		&stats.UpdatedAt,
 		&stats.Disqualified,
+		&stats.UpdatedAt,
 	)
 
 	return &stats, ErrReputation.Wrap(err)
@@ -117,7 +117,7 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			&stats.Uptime.Alpha, &stats.Uptime.Beta, &stats.Uptime.Score,
 			&stats.Audit.SuccessCount, &stats.Audit.TotalCount,
 			&stats.Audit.Alpha, &stats.Audit.Beta, &stats.Audit.Score,
-			&stats.UpdatedAt, &stats.Disqualified)
+			&stats.Disqualified, &stats.UpdatedAt)
 		if err != nil {
 			return nil, ErrReputation.Wrap(err)
 		}

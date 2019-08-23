@@ -115,6 +115,7 @@ CREATE TABLE reputation (
     audit_reputation_alpha REAL NOT NULL,
     audit_reputation_beta REAL NOT NULL,
     audit_reputation_score REAL NOT NULL,
+    disqualified TIMESTAMP,
     updated_at TIMESTAMP NOT NULL,
     PRIMARY KEY (satellite_id)
 );
@@ -178,7 +179,7 @@ INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 20:00:00+00:00',X'2b3a586
 INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 18:00:00+00:00',X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',6,6);
 INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 20:00:00+00:00',X'2b3a5863a41f25408a8f5348839d7a1361dbd886d75786bb139a8ca0bdf41000',6,6);
 
-INSERT INTO reputation VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',1,1,1.0,1.0,1.0,1,1,1.0,1.0,1.0,'2019-07-19 20:00:00+00:00');
+INSERT INTO reputation VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',1,1,1.0,1.0,1.0,1,1,1.0,1.0,1.0,'2019-07-19 20:00:00+00:00','2019-08-23 20:00:00+00:00');
 
 INSERT INTO storage_usage VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',5.0,'2019-07-19 20:00:00+00:00');
 
