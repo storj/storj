@@ -903,6 +903,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 }
 
 // AllPieceCounts returns a map of node IDs to piece counts from the db.
+// NB: a valid, partial piece map can be returned even if node ID parsing error(s) are returned.
 func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.NodeID]int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -910,21 +911,21 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 	// ID and piece count from the nodes table where piece count is not zero.
 	rows, err := cache.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
 	if err != nil {
-		return make(map[storj.NodeID]int), Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	pieceCounts := make(map[storj.NodeID]int)
 
-	nodeIEErrs := errs.Group{}
+	nodeIDErrs := errs.Group{}
 	for _, row := range rows {
 		nodeID, err := storj.NodeIDFromBytes(row.Id)
 		if err != nil {
-			nodeIEErrs.Add(err)
+			nodeIDErrs.Add(err)
 			continue
 		}
 		pieceCounts[nodeID] = int(row.PieceCount)
 	}
-	return pieceCounts, nodeIEErrs.Err()
+	return pieceCounts, nodeIDErrs.Err()
 }
 
 func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {

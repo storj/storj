@@ -80,6 +80,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	if err != nil {
 		service.log.Error("error getting last piece counts", zap.Error(err))
 	}
+	if lastPieceCounts == nil {
+		lastPieceCounts = make(map[storj.NodeID]int)
+	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)

@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/satellitedb"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -26,12 +25,17 @@ func TestOverlaycache_AllPieceCounts(t *testing.T) {
 
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		// get overlay db
-		overlay, ok := db.OverlayCache().(*satellitedb.overlaycache)
+		overlay := db.OverlayCache()
+
+		// get dbx db access
+		_db, ok := db.(interface{ TestDBAccess() *dbx.DB })
 		require.True(t, ok)
-		require.NotNil(t, overlay)
+
+		dbAccess := _db.TestDBAccess()
+		require.NotNil(t, dbAccess)
 
 		// create test nodes in overlay db
-		testNodes := createTestNodes(10, t, ctx, overlay.db)
+		testNodes := createTestNodes(ctx, 10, t, dbAccess)
 
 		// set expected piece counts
 		var err error
@@ -44,12 +48,7 @@ func TestOverlaycache_AllPieceCounts(t *testing.T) {
 			expectedPieceCounts[nodeID] = int(pieceCount)
 		}
 
-		switch overlay.db.Driver().(type) {
-		case *pq.Driver:
-			err = overlay.postgresUpdatePieceCounts(ctx, expectedPieceCounts)
-		default:
-			err = overlay.sqliteUpdatePieceCounts(ctx, expectedPieceCounts)
-		}
+		updateTestPieceCounts(t, dbAccess, expectedPieceCounts)
 		require.NoError(t, err)
 
 		// expected and actual piece count maps should match
@@ -64,24 +63,25 @@ func TestOverlaycache_UpdatePieceCounts(t *testing.T) {
 	defer ctx.Cleanup()
 
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		// get overlay db
-		overlay, ok := db.OverlayCache().(*satellitedb.overlaycache)
+		// get dbx db access
+		_db, ok := db.(interface{ TestDBAccess() *dbx.DB })
 		require.True(t, ok)
-		require.NotNil(t, overlay)
+
+		dbAccess := _db.TestDBAccess()
+		require.NotNil(t, dbAccess)
 
 		// create test nodes in overlay db
-		testNodes := createTestNodes(10, t, ctx, overlay.db)
+		testNodes := createTestNodes(ctx, 10, t, dbAccess)
 
 		// set expected piece counts
 		expectedPieceCounts := testPieceCounts(t, testNodes)
 
 		// update piece count fields on test nodes; set exponentially
-		err := overlay.UpdatePieceCounts(ctx, expectedPieceCounts)
-		require.NoError(t, err)
+		updateTestPieceCounts(t, dbAccess, expectedPieceCounts)
 
 		// build actual piece counts map
 		actualPieceCounts := make(map[storj.NodeID]int)
-		rows, err := overlay.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
+		rows, err := dbAccess.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
 		for _, row := range rows {
 			var nodeID storj.NodeID
 			copy(nodeID[:], row.Id)
@@ -95,6 +95,23 @@ func TestOverlaycache_UpdatePieceCounts(t *testing.T) {
 	})
 }
 
+func updateTestPieceCounts(t *testing.T, dbAccess *dbx.DB, pieceCounts map[storj.NodeID]int) {
+	for nodeID, pieceCount := range pieceCounts {
+		var args []interface{}
+		var sqlQuery string
+		args = append(args, pieceCount, nodeID)
+		switch dbAccess.Driver().(type) {
+		case *pq.Driver:
+			sqlQuery = "UPDATE nodes SET piece_count = ( ?::BIGINT ) WHERE id = ?::BYTEA;"
+		default:
+			sqlQuery = "UPDATE nodes SET piece_count = ( ? ) WHERE id = ?;"
+		}
+		_, err := dbAccess.Exec(dbAccess.Rebind(sqlQuery), args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
 // testPieceCounts builds a piece count map from the node ids of `testNodes`,
 // incrementing the piece count exponentially from one node to the next.
@@ -112,7 +129,7 @@ func testPieceCounts(t *testing.T, testNodes []*dbx.Node) map[storj.NodeID]int {
 	return pieceCounts
 }
 
-func createTestNodes(count int, t *testing.T, ctx *testcontext.Context, db *dbx.DB) (nodes []*dbx.Node) {
+func createTestNodes(ctx *testcontext.Context, count int, t *testing.T, db *dbx.DB) (nodes []*dbx.Node) {
 	for i := 0; i < count; i++ {
 		nodeID := storj.NodeID{byte(i + 1)}
 
@@ -160,13 +177,4 @@ func createTestNodes(count int, t *testing.T, ctx *testcontext.Context, db *dbx.
 	require.Len(t, rows, count)
 
 	return nodes
-}
-
-func cleanup(t *testing.T, db satellite.DB, schema string) {
-	err := db.DropSchema(schema)
-	require.NoError(t, err)
-
-	err = db.Close()
-	require.NoError(t, err)
-
 }
