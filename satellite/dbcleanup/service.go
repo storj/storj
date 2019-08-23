@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	// Error the default orders errs class
+	// Error the default dbcleanup errs class
 	Error = errs.Class("dbcleanup error")
 
 	mon = monkit.Package()
@@ -65,7 +65,7 @@ func (service *Service) deleteExpiredSerials(ctx context.Context) (err error) {
 	return nil
 }
 
-// Close stops the
+// Close stops the dbcleanup service
 func (service *Service) Close() error {
 	service.Serials.Close()
 	return nil
