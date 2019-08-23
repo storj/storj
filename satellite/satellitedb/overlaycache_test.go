@@ -1,10 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package satellitedb_test
 
 import (
+	"github.com/lib/pq"
 	"math"
+	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,7 +16,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/dbutil/pgutil"
-	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -20,114 +23,92 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
+//type overlaycache = satellitedb.TestOverlaycache
+
 func TestOverlaycache_AllPieceCounts(t *testing.T) {
-	if *pgtest.ConnStr == "" {
-		t.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
-	}
+	testDBs(t, func(t *testing.T, ctx *testcontext.Context, db satellite.DB) {
+		// get overlay db
+		overlay, ok := db.OverlayCache().(*satellitedb.Overlaycache)
+		require.True(t, ok)
+		require.NotNil(t, overlay)
 
-	ctx := testcontext.New(t)
+		// create test nodes in overlay db
+		testNodes := createTestNodes(10, t, ctx, overlay.DB())
 
-	// setup satellite db
-	log := zaptest.NewLogger(t)
-	schema := "overlaycache-" + pgutil.CreateRandomTestingSchemaName(8)
-	connstr := pgutil.ConnstrWithSchema(*pgtest.ConnStr, schema)
-	db, err := New(log, connstr)
-	require.NoError(t, err)
-	require.NotNil(t, db)
-	defer cleanup(t, db, schema)
+		// set expected piece counts
+		var err error
+		expectedPieceCounts := make(map[storj.NodeID]int)
+		for i, node := range testNodes {
+			pieceCount := math.Pow10(i + 1)
+			nodeID, err := storj.NodeIDFromBytes(node.Id)
+			require.NoError(t, err)
 
-	err = db.CreateTables()
-	require.NoError(t, err)
+			expectedPieceCounts[nodeID] = int(pieceCount)
+		}
 
-	// get overlay db
-	overlay, ok := db.OverlayCache().(*overlaycache)
-	require.True(t, ok)
-	require.NotNil(t, overlay)
-
-	// create test nodes in overlay db
-	testNodes := createTestNodes(10, t, ctx, overlay.db)
-
-	// update piece count fields on test nodes; set exponentially
-	expectedPieceCounts := make(map[storj.NodeID]int)
-	sqlQuery := `UPDATE nodes SET piece_count = newvals.piece_count FROM ( VALUES `
-	args := make([]interface{}, 0, len(testNodes)*2)
-	for i, node := range testNodes {
-		nodeID, err := storj.NodeIDFromBytes(node.Id)
-		pieceCount := int(math.Pow10(i))
+		switch overlay.db.Driver().(type) {
+		case *pq.Driver:
+			err = overlay.postgresUpdatePieceCounts(ctx, expectedPieceCounts)
+		default:
+			err = overlay.sqliteUpdatePieceCounts(ctx, expectedPieceCounts)
+		}
 		require.NoError(t, err)
-		require.NotEqual(t, storj.NodeID{}, nodeID)
 
-		expectedPieceCounts[nodeID] = pieceCount
-
-		sqlQuery += `(?::BYTEA, ?::BIGINT), `
-		args = append(args, nodeID, pieceCount)
-	}
-	sqlQuery = sqlQuery[:len(sqlQuery)-2] // trim off the last comma+space
-	sqlQuery += `) newvals(nodeid, piece_count) WHERE nodes.id = newvals.nodeid`
-
-	_, err = overlay.db.ExecContext(ctx, overlay.db.Rebind(sqlQuery), args...)
-	require.NoError(t, err)
-
-	// expected and actual piece count maps should match
-	actualPieceCounts, err := overlay.AllPieceCounts(ctx)
-	require.NoError(t, err)
-	require.Equal(t, expectedPieceCounts, actualPieceCounts)
+		// expected and actual piece count maps should match
+		actualPieceCounts, err := overlay.AllPieceCounts(ctx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPieceCounts, actualPieceCounts)
+	})
 }
 
 func TestOverlaycache_UpdatePieceCounts(t *testing.T) {
-	if *pgtest.ConnStr == "" {
-		t.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
-	}
+	testDBs(t, func(t *testing.T, ctx *testcontext.Context, db satellite.DB) {
+		// get overlay db
+		overlay, ok := db.OverlayCache().(*overlaycache)
+		require.True(t, ok)
+		require.NotNil(t, overlay)
 
-	ctx := testcontext.New(t)
+		// create test nodes in overlay db
+		testNodes := createTestNodes(10, t, ctx, overlay.db)
 
-	// setup satellite db
-	log := zaptest.NewLogger(t)
-	schema := "overlaycache-" + pgutil.CreateRandomTestingSchemaName(8)
-	connstr := pgutil.ConnstrWithSchema(*pgtest.ConnStr, schema)
-	db, err := New(log, connstr)
-	require.NoError(t, err)
-	require.NotNil(t, db)
-	defer cleanup(t, db, schema)
+		// set expected piece counts
+		expectedPieceCounts := testPieceCounts(t, testNodes)
 
-	err = db.CreateTables()
-	require.NoError(t, err)
+		// update piece count fields on test nodes; set exponentially
+		err := overlay.UpdatePieceCounts(ctx, expectedPieceCounts)
+		require.NoError(t, err)
 
-	// get overlay db
-	overlay, ok := db.OverlayCache().(*overlaycache)
-	require.True(t, ok)
-	require.NotNil(t, overlay)
+		// build actual piece counts map
+		actualPieceCounts := make(map[storj.NodeID]int)
+		rows, err := overlay.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
+		for _, row := range rows {
+			var nodeID storj.NodeID
+			copy(nodeID[:], row.Id)
 
-	// create test nodes in overlay db
-	testNodes := createTestNodes(10, t, ctx, overlay.db)
+			actualPieceCounts[nodeID] = int(row.PieceCount)
+		}
+		require.NoError(t, err)
 
-	// set expected piece counts
-	expectedPieceCounts := make(map[storj.NodeID]int)
+		// expected and actual piece count maps should match
+		require.Equal(t, expectedPieceCounts, actualPieceCounts)
+	})
+}
+
+
+// testPieceCounts builds a piece count map from the node ids of `testNodes`,
+// incrementing the piece count exponentially from one node to the next.
+func testPieceCounts(t *testing.T, testNodes []*dbx.Node) map[storj.NodeID]int {
+	pieceCounts := make(map[storj.NodeID]int)
 	for i, node := range testNodes {
-		pieceCount := int(math.Pow10(i))
+		pieceCount := math.Pow10(i + 1)
+		nodeID, err := storj.NodeIDFromBytes(node.Id)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		var nodeID storj.NodeID
-		copy(nodeID[:], node.Id)
-		expectedPieceCounts[nodeID] = pieceCount
+		pieceCounts[nodeID] = int(pieceCount)
 	}
-
-	// update piece count fields on test nodes; set exponentially
-	err = overlay.UpdatePieceCounts(ctx, expectedPieceCounts)
-	require.NoError(t, err)
-
-	// build actual piece counts map
-	actualPieceCounts := make(map[storj.NodeID]int)
-	rows, err := overlay.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
-	for _, row := range rows {
-		var nodeID storj.NodeID
-		copy(nodeID[:], row.Id)
-
-		actualPieceCounts[nodeID] = int(row.PieceCount)
-	}
-	require.NoError(t, err)
-
-	// expected and actual piece count maps should match
-	require.Equal(t, expectedPieceCounts, actualPieceCounts)
+	return pieceCounts
 }
 
 func createTestNodes(count int, t *testing.T, ctx *testcontext.Context, db *dbx.DB) (nodes []*dbx.Node) {
