@@ -104,6 +104,7 @@ func (service *ReservoirService) GetRandomReservoir() (reservoir *Reservoir, err
 		}
 		randomIndex--
 	}
+	// todo: is it okay to return nil, nil here?
 	return nil, nil
 }
 
