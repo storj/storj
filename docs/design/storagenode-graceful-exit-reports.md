@@ -33,10 +33,6 @@ Add satellite CLI command to list gracefully exiting nodes between two dates. Th
 
 GB transferred will be retrieved from a new `graceful_exit_progress` table.
 
-## Rationale
-
-Bytes transferred could be stored in `nodes`, but since `nodes` is a heavily accessed, this would add more load. Alternatively, we could use `graceful_exit_transfer_queue`, however this would require keeping a lot of additional data in the database.
-
 ## Implementation
 
 - Add `graceful_exit_progress` table.
@@ -45,25 +41,3 @@ Bytes transferred could be stored in `nodes`, but since `nodes` is a heavily acc
 - Add commands `gracefully-exited-report` and `gracefully-exiting-report` to satellite CLI.
     - See [Protocol for transferring pieces.](storagenode-graceful-exit-protocol.md) for details on `graceful_exit_progress`.
 
-Update `nodes` table:
-
-```
-model nodes (
-    ...
-    field exit_loop_completed       timestamp ( updateable )
-    field exit_initiated_at         timestamp ( updateable )
-    field exit_finished_at         timestamp ( updateable )
-}
-```
-
-Create `graceful_exit_progress` table:
-
-```
-model graceful_exit_progress {
-    key node_id
-
-    field node_id              blob
-    field bytes_transferred    int64
-    field updated_at           timestamp ( updateable )
-}
-```

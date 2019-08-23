@@ -37,16 +37,16 @@ When the storage node has failed too many transfers or has sent incorrect data, 
 
 The satellite picks a piece from the transfer queue and verifies whether it still needs to be transferred. During gathering or the Graceful Exit process the segment may have been changed or deleted.
 
-The satellite will send a `TransferPiece`, which contains sufficient information to upload the piece to an angel node. TODO(find better name than angel node)
+The satellite will send a `TransferPiece`, which contains sufficient information to upload the piece to a replacement node.
 
-The storage node will start a new piece upload to the angel node similar to uplink. It will use `uplink/piecestore.Upload`. Once uploaded, the storage node will verify the piece hash sent by the angel node corresponds to the piece hash stored in the database.
+The storage node will start a new piece upload to the replacement node similar to uplink. It will use `uplink/piecestore.Upload`. Once uploaded, the storage node will verify the piece hash sent by the replacement node corresponds to the piece hash stored in the database.
 
 #### Verifying transfer
 
-The storage node sends the piece hash, order limit, original "uploader" signature, and piece hash signed by the angel node to the satellite for confirmation.
-The satellite verifies that the original piece hash matches the angel piece hash, and verifies the order limits signature. On success, the satellite will update segment / pointer information. If verification fails, the satellite will send `ExitFailed`.
+The storage node sends the piece hash, order limit, original "uploader" signature, and piece hash signed by the replacement node to the satellite for confirmation.
+The satellite verifies that the original piece hash matches the replacement piece hash, and verifies the order limits signature. On success, the satellite will update segment / pointer information. If verification fails, the satellite will send `ExitFailed`.
 
-TODO: diagram how the signatures happen
+![Transfer Sequence](./images/storagenode-graceful-exit-transfer-sequence.jpg)
 
 #### Updating the Segment / Pointer
 
@@ -60,7 +60,7 @@ After changing the segment / pointer, we'll delete the piece from transfer queue
 
 #### Handling transfer failure
 
-If a storage node report a failure to the satellite if it fails to upload to an angel node, or the angel node returns a bad piece hash. The satellite will track the failures and retry the transfer to another node.
+If a storage node report a failure to the satellite if it fails to upload to the replacement node, or the replacement node returns a bad piece hash. The satellite will track the failures and retry the transfer to another node.
 
 ## Rationale
 
@@ -173,7 +173,7 @@ message StorageNodeMessage {
         message TransferSucceeded {
             AddressedOrderLimit addressed_order_limit;
             PieceHash original_piece_hash;
-            PieceHash angel_piece_hash;
+            PieceHash replacement_piece_hash;
         }
         message TransferFailed {
             enum Error {

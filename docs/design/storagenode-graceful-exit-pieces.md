@@ -37,24 +37,6 @@ The metainfo loop `Join` guarantees the observer will only receive events at the
 3. Implement gexit.Service.
 4. Update satellite to ignore exiting storage nodes for repairs and uploads.
 
-Create `graceful_exit_transfer_queue`:
-
-```
-model graceful_exit_transfer_queue (
-    key node_id path
-
-    field node_id             blob
-    field path                blob
-    field piece_num           int
-    field durability_ratio    float64
-    field queued_at           timestamp ( autoinsert ) // when the the piece info was queued
-    field requested_at        timestamp ( updateable ) // when the piece info and orderlimits were requested by the storagenode
-    field failed_at           timestamp ( updateable ) // when/if it failed
-    field failed_status_code  int
-    field finished_at         timestamp ( updateable )
-)
-```
-
 ## Open issues (if applicable)
 
 - Can pieces with really high durability can be ignored?

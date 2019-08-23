@@ -67,6 +67,8 @@ To coordinate the four parts we need few things implemented:
 
 ### Storage Node Database Changes
 
+Create `satellites` table:
+
 ```
 model satellites (
     key node_id
@@ -77,7 +79,11 @@ model satellites (
 
     field status   byte not null
 )
+```
 
+Create `satellites_exit_progress` tables:
+
+```
 model satellites_exit_progress (
     fk satellite_id 
 
@@ -89,11 +95,7 @@ model satellites_exit_progress (
 )
 ```
 
-### Satellite Database Changes
-
-TODO
-
-## Rationale
+### Rationale
 
 We could have all the information in a single table, but this would make the table more complicated to manage:
 
@@ -113,3 +115,50 @@ model satellites (
     field exit_completion_receipt   blob
 )
 ```
+
+### Satellite Database Changes
+
+Update `nodes` table:
+
+```
+model nodes (
+    ...
+    field exit_loop_completed       timestamp ( updateable )
+    field exit_initiated_at         timestamp ( updateable )
+    field exit_finished_at         timestamp ( updateable )
+}
+```
+
+Create `graceful_exit_progress` table:
+
+```
+model graceful_exit_progress {
+    key node_id
+
+    field node_id              blob
+    field bytes_transferred    int64
+    field updated_at           timestamp ( updateable )
+}
+```
+
+Create `graceful_exit_transfer_queue`:
+
+```
+model graceful_exit_transfer_queue (
+    key node_id path
+
+    field node_id             blob
+    field path                blob
+    field piece_num           int
+    field durability_ratio    float64
+    field queued_at           timestamp ( autoinsert ) // when the the piece info was queued
+    field requested_at        timestamp ( updateable ) // when the piece info and orderlimits were requested by the storagenode
+    field failed_at           timestamp ( updateable ) // when/if it failed
+    field failed_status_code  int
+    field finished_at         timestamp ( updateable )
+)
+```
+
+### Rationale
+
+Bytes transferred could be stored in `nodes`, but since `nodes` is a heavily accessed, this would add more load. Alternatively, we could use `graceful_exit_transfer_queue`, however this would require keeping a lot of additional data in the database.
