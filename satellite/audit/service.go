@@ -32,7 +32,7 @@ type Config struct {
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 
 	Slots         int `help:"number of reservoir slots allotted for nodes, currently capped at 2" default:"1"`
-	NodesToSelect int `help:"number of nodes' reservoirs to randomly select segments from"`
+	NodesToSelect int `help:"number of nodes' reservoirs to randomly select segments from" default:"100"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
