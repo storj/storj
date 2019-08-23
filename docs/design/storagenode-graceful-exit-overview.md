@@ -95,27 +95,6 @@ model satellites_exit_progress (
 )
 ```
 
-### Rationale
-
-We could have all the information in a single table, but this would make the table more complicated to manage:
-
-```
-model satellites (
-    key node_id
-
-    field node_id  blob not null
-    field address  text not null
-    field added_at timestamp ( autoinsert ) not null
-    field status   byte not null
-
-    field exit_initiated_at         timestamp ( updateable )
-    field exit_finished_at          timestamp ( updateable )
-    field exit_starting_disk_usage  int64 not null
-    field exit_bytes_deleted        int64
-    field exit_completion_receipt   blob
-)
-```
-
 ### Satellite Database Changes
 
 Update `nodes` table:
@@ -159,6 +138,25 @@ model graceful_exit_transfer_queue (
 )
 ```
 
-### Rationale
+## Rationale
+
+We could have all the information in a single table, but this would make the table more complicated to manage:
+
+```
+model satellites (
+    key node_id
+
+    field node_id  blob not null
+    field address  text not null
+    field added_at timestamp ( autoinsert ) not null
+    field status   byte not null
+
+    field exit_initiated_at         timestamp ( updateable )
+    field exit_finished_at          timestamp ( updateable )
+    field exit_starting_disk_usage  int64 not null
+    field exit_bytes_deleted        int64
+    field exit_completion_receipt   blob
+)
+```
 
 Bytes transferred could be stored in `nodes`, but since `nodes` is a heavily accessed, this would add more load. Alternatively, we could use `graceful_exit_transfer_queue`, however this would require keeping a lot of additional data in the database.
