@@ -200,3 +200,8 @@ And its disadvantages are:
 * It requires to deploy InfluxDB for production, currently it's only used for collected metrics.
 
 Unless the Data Science team manifest that InfluxDB is essential for them, this alternative doesn't outweigh the current design.
+
+
+## Open issues
+
+* The estimating offline time process will infinitely check permanent offline Storage Nodes unless they are marked as disqualified.
