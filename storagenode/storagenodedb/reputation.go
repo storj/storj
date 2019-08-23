@@ -33,7 +33,7 @@ func newReputationDB(db SQLDB, location string) *reputationDB {
 func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stmt := `INSERT OR REPLACE INTO reputation (
+	query := `INSERT OR REPLACE INTO reputation (
 				satellite_id, 
 				uptime_success_count,
 				uptime_total_count,
@@ -45,10 +45,11 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 				audit_reputation_alpha,
 				audit_reputation_beta,
 				audit_reputation_score,
+				disqualified,
 				updated_at
-			) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
+			) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
-	_, err = db.ExecContext(ctx, stmt,
+	_, err = db.ExecContext(ctx, query,
 		stats.SatelliteID,
 		stats.Uptime.SuccessCount,
 		stats.Uptime.TotalCount,
@@ -60,17 +61,18 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.Audit.Alpha,
 		stats.Audit.Beta,
 		stats.Audit.Score,
+		stats.Disqualified.UTC(),
 		stats.UpdatedAt.UTC(),
 	)
 
-	return nil
+	return ErrReputation.Wrap(err)
 }
 
 // Get retrieves stats for specific satellite
 func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stats := reputation.Stats{}
+	var stats reputation.Stats
 
 	row := db.QueryRowContext(ctx,
 		`SELECT * FROM reputation WHERE satellite_id = ?`,
@@ -88,11 +90,40 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.Audit.Alpha,
 		&stats.Audit.Beta,
 		&stats.Audit.Score,
+		&stats.Disqualified,
 		&stats.UpdatedAt,
 	)
+
+	return &stats, ErrReputation.Wrap(err)
+}
+
+// All retrieves all stats from DB
+func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := db.QueryContext(ctx, `SELECT * FROM reputation`)
 	if err != nil {
 		return nil, err
 	}
 
-	return &stats, nil
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var statsList []reputation.Stats
+	for rows.Next() {
+		var stats reputation.Stats
+
+		err := rows.Scan(&stats.SatelliteID,
+			&stats.Uptime.SuccessCount, &stats.Uptime.TotalCount,
+			&stats.Uptime.Alpha, &stats.Uptime.Beta, &stats.Uptime.Score,
+			&stats.Audit.SuccessCount, &stats.Audit.TotalCount,
+			&stats.Audit.Alpha, &stats.Audit.Beta, &stats.Audit.Score,
+			&stats.Disqualified, &stats.UpdatedAt)
+		if err != nil {
+			return nil, ErrReputation.Wrap(err)
+		}
+
+		statsList = append(statsList, stats)
+	}
+
+	return statsList, nil
 }
