@@ -210,7 +210,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 
 	start, end = start.UTC(), end.UTC()
 
-	query := `SELECT at_rest_total, start_time
+	query := `SELECT SUM(at_rest_total), start_time
 				FROM (
 					SELECT r.at_rest_total, r.start_time
 					FROM (
