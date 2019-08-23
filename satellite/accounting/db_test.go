@@ -59,22 +59,43 @@ func TestStorageNodeUsage(t *testing.T) {
 		nodes = append(nodes, testrand.NodeID())
 		nodes = append(nodes, testrand.NodeID())
 
+		accountingDB := db.StoragenodeAccounting()
+
+		// create last rollup timestamp
+		_, err := accountingDB.LastTimestamp(ctx, accounting.LastRollup)
+		require.NoError(t, err)
+
 		rollups := createRollups(nodes)
 
+		storageTallies := make(map[storj.NodeID]float64)
+		storageTallies[nodeID] = testrand.Float64n(10000)
+
+		now := time.Now().UTC()
+
 		// run 2 rollups for the same day
-		err := db.StoragenodeAccounting().SaveRollup(ctx, time.Now(), rollups)
+		err = accountingDB.SaveRollup(ctx, now, rollups)
 		require.NoError(t, err)
-		err = db.StoragenodeAccounting().SaveRollup(ctx, time.Now(), rollups)
+		err = accountingDB.SaveRollup(ctx, now.Add(-time.Hour), rollups)
 		require.NoError(t, err)
 
-		nodeStorageUsages, err := db.StoragenodeAccounting().QueryStorageNodeUsage(ctx, nodeID, time.Time{}, time.Now())
+		// create tallies new tallies
+		err = accountingDB.SaveTallies(ctx, now, storageTallies)
+		require.NoError(t, err)
+		err = accountingDB.SaveTallies(ctx, now.Add(time.Minute), storageTallies)
+		require.NoError(t, err)
+
+		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, time.Time{}, time.Now())
 		require.NoError(t, err)
 		assert.NotNil(t, nodeStorageUsages)
-		assert.Equal(t, rollupsCount-1, len(nodeStorageUsages))
+		assert.Equal(t, rollupsCount+len(storageTallies), len(nodeStorageUsages))
 
 		for _, usage := range nodeStorageUsages {
 			assert.Equal(t, nodeID, usage.NodeID)
 		}
+
+		assert.Equal(t,
+			nodeStorageUsages[len(nodeStorageUsages)-1].Timestamp,
+			time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()))
 	})
 }
 

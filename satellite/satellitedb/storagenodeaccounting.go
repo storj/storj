@@ -232,12 +232,8 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 				ORDER BY start_time ASC`
 
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
-		nodeID,
-		start,
-		end,
-		nodeID,
-		lastRollup.Value,
-		end)
+		nodeID, start, end,
+		nodeID, lastRollup.Value, end)
 
 	if err != nil {
 		return nil, Error.Wrap(err)
