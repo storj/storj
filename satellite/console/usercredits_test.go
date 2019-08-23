@@ -1,25 +1,22 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package console_test
 
 import (
-	"context"
 	"testing"
-	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/currency"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestUsercredits(t *testing.T) {
+func TestUserCredits(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
