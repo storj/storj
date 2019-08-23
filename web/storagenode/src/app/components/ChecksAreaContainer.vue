@@ -21,7 +21,7 @@
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
-    import InfoComponent from '@/components/InfoComponent.vue';
+    import InfoComponent from '@/app/components/InfoComponent.vue';
 
     @Component ({
         components: {

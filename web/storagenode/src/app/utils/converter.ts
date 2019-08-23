@@ -5,7 +5,7 @@ export const KB = 1e3;
 export const MB = 1e6;
 export const GB = 1e9;
 
-export function formatBytes(bytes) {
+export function formatBytes(bytes): string {
     if (bytes === 0) return '0 Bytes';
 
     const decimals = 2;

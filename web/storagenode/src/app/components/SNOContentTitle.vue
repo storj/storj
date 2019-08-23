@@ -46,8 +46,8 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import InfoComponent from '@/components/InfoComponent.vue';
-import { StatusOnline } from '@/store/modules/node';
+import InfoComponent from '@/app/components/InfoComponent.vue';
+import { StatusOnline } from '@/app/store/modules/node';
 
 @Component ({
     components: {

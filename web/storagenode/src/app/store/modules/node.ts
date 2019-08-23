@@ -1,13 +1,16 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { NODE_ACTIONS, NODE_MUTATIONS } from '@/utils/constants';
-import { ChartFormatter } from '@/utils/chartModule';
+import { NODE_ACTIONS, NODE_MUTATIONS } from '@/app/utils/constants';
+import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
+import { BandwidthUsed, Satellite, Stamp } from '@/storagenode/satellite';
+import { SNOApi } from '@/storagenode/api/storagenode';
 
 export const StatusOnline = 'Online';
 export const StatusOffline = 'Offline';
 
 const statusThreshHoldMinutes = 10;
+const snoAPI = new SNOApi();
 
 const allSatellites = {
     id: null,
@@ -35,11 +38,11 @@ export const node = {
                 available: 1,
             },
         },
-        satellites: [],
-        disqualifiedSatellites: [],
+        satellites: new Array<SatelliteInfo>(),
+        disqualifiedSatellites: new Array<SatelliteInfo>(),
         selectedSatellite: allSatellites,
-        bandwidthChartData: ChartFormatter.createBandwidthChartItems([]),
-        storageChartData: ChartFormatter.createStorageUsageChartItems([]),
+        bandwidthChartData: new Array<BandwidthUsed>(),
+        storageChartData: new Array<Stamp>(),
         storageSummary: 0,
         bandwidthSummary: 0,
         checks: {
@@ -48,9 +51,9 @@ export const node = {
         },
     },
     mutations: {
-        [NODE_MUTATIONS.POPULATE_STORE](state: any, nodeInfo: any): void {
+        [NODE_MUTATIONS.POPULATE_STORE](state: any, nodeInfo: Dashboard): void {
             state.info.id = nodeInfo.nodeID;
-            state.info.isLastVersion = nodeInfo.upToDate;
+            state.info.isLastVersion = nodeInfo.isUpToDate;
             state.info.version = nodeInfo.version;
             state.info.wallet = nodeInfo.wallet;
             state.utilization.diskSpace.used = nodeInfo.diskSpace.used;
@@ -61,38 +64,27 @@ export const node = {
             state.utilization.bandwidth.available = nodeInfo.bandwidth.available;
             state.disqualifiedSatellites = [];
 
-            state.satellites = nodeInfo.satellites ? nodeInfo.satellites.map(elem => {
-                let satellite = {
-                    id: elem.id,
-                    disqualified: elem.disqualified ? new Date(elem.disqualified) : null,
-                };
-
-                if (satellite.disqualified) {
-                    state.disqualifiedSatellites.push(satellite);
-                }
-
-                return {
-                    id: elem.id,
-                    disqualified: elem.disqualified ? new Date(elem.disqualified) : null,
-                };
-            }) : [];
+            state.satellites = nodeInfo.satellites ? nodeInfo.satellites : [];
 
             state.info.status = StatusOffline;
+
             if (getDateDiffMinutes(new Date(), new Date(nodeInfo.lastPinged)) < statusThreshHoldMinutes) {
                 state.info.status = StatusOnline;
             }
         },
-        [NODE_MUTATIONS.SELECT_SATELLITE](state: any, satelliteInfo: any): void {
+        [NODE_MUTATIONS.SELECT_SATELLITE](state: any, satelliteInfo: Satellite): void {
             if (satelliteInfo.id) {
                 state.satellites.forEach(satellite => {
                     if (satelliteInfo.id === satellite.id) {
                         const audit = calculateSuccessRatio(
                             satelliteInfo.audit.successCount,
-                            satelliteInfo.audit.totalCount);
+                            satelliteInfo.audit.totalCount
+                        );
 
                         const uptime = calculateSuccessRatio(
                             satelliteInfo.uptime.successCount,
-                            satelliteInfo.uptime.totalCount);
+                            satelliteInfo.uptime.totalCount
+                        );
 
                         state.selectedSatellite = satellite;
                         state.checks.audit = audit;
@@ -106,37 +98,22 @@ export const node = {
                 state.selectedSatellite = allSatellites;
             }
 
-            state.bandwidthChartData = ChartFormatter.createBandwidthChartItems(satelliteInfo.bandwidthDaily);
-            state.storageChartData = ChartFormatter.createStorageUsageChartItems(satelliteInfo.storageDaily);
-
+            state.bandwidthChartData = satelliteInfo.bandwidthDaily;
+            state.storageChartData = satelliteInfo.storageDaily;
             state.bandwidthSummary = satelliteInfo.bandwidthSummary;
             state.storageSummary = satelliteInfo.storageSummary;
         },
     },
     actions: {
         [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: any): Promise<any> {
-            const url = '/api/dashboard';
+            const response = await snoAPI.dashboard();
 
-            let response = await httpGet(url);
-            if (response.data) {
-                commit(NODE_MUTATIONS.POPULATE_STORE, response.data);
-
-                return;
-            }
-
-            console.error('Error while fetching Node info!');
+            commit(NODE_MUTATIONS.POPULATE_STORE, response);
         },
         [NODE_ACTIONS.SELECT_SATELLITE]: async function ({commit}, id: any): Promise<any> {
-            const url = id ? '/api/satellite/' + id : '/api/satellites';
+            const response = id ? await snoAPI.satellite(id) : await snoAPI.satellites();
 
-            let response = await httpGet(url);
-            if (response.data) {
-                commit(NODE_MUTATIONS.SELECT_SATELLITE, response.data);
-
-                return;
-            }
-
-            console.error('Error while fetching Node info!');
+            commit(NODE_MUTATIONS.SELECT_SATELLITE, response);
         },
     },
 };

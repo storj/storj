@@ -1,11 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { GB, KB, MB } from '@/utils/converter';
+import { GB, KB, MB } from '@/app/utils/converter';
 
 export class ChartUtils {
     public static normalizeArray(data: number[]): number[] {
-
         const maxBytes = Math.ceil(Math.max(...data));
 
         let divider: number = GB;

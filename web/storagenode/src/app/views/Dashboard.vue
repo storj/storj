@@ -11,11 +11,11 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import SNOHeader from '@/components/SNOHeader.vue';
-    import SNOContentTitle from '@/components/SNOContentTitle.vue';
-    import SNOContentFilling from '@/components/SNOContentFilling.vue';
-    import SNOFooter from '@/components/SNOFooter.vue';
-    import { NODE_ACTIONS } from '@/utils/constants';
+    import SNOHeader from '@/app/components/SNOHeader.vue';
+    import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
+    import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
+    import SNOFooter from '@/app/components/SNOFooter.vue';
+    import { NODE_ACTIONS } from '@/app/utils/constants';
 
     @Component ({
         components: {

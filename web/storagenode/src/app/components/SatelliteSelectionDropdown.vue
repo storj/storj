@@ -25,7 +25,7 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { NODE_ACTIONS, APPSTATE_ACTIONS } from '@/utils/constants';
+    import { NODE_ACTIONS, APPSTATE_ACTIONS } from '@/app/utils/constants';
 
     @Component
     export default class SatelliteSelectionDropdown extends Vue {

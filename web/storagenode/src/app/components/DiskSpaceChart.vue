@@ -13,9 +13,22 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator';
-import Chart from '@/components/Chart.vue';
-import { ChartUtils } from '@/utils/chart';
+import { Component, Vue } from 'vue-property-decorator';
+import Chart from '@/app/components/Chart.vue';
+import { ChartUtils } from '@/app/utils/chart';
+import { ChartFormatter } from '@/app/utils/chartModule';
+import { formatBytes } from '@/app/utils/converter';
+import { Stamp } from '@/storagenode/satellite';
+
+class StampTooltip {
+    public atRestTotal: string;
+    public timestamp: string;
+
+    public constructor(stamp: Stamp) {
+        this.atRestTotal = formatBytes(stamp.atRestTotal);
+        this.timestamp = stamp.timestamp.toLocaleString();
+    }
+}
 
 @Component ({
     components: {
@@ -23,18 +36,19 @@ import { ChartUtils } from '@/utils/chart';
     },
 })
 export default class DiskSpaceChart extends Vue {
-    public get chartData(): object {
-        let data: number[] = [0];
+    private get allStamps(): Stamp[] {
+        const stamps: Stamp[] = ChartFormatter.populateEmptyStamps(this.$store.state.node.storageChartData);
 
-        const chartData = this.$store.state.node.storageChartData;
-        if (chartData) {
-            data = ChartUtils.normalizeArray(chartData.map(elem => elem.atRestTotal));
-        }
+        return stamps;
+    }
+
+    public get chartData(): any {
+        let data: number[] = ChartUtils.normalizeArray(this.allStamps.map(elem => elem.atRestTotal));
 
         const tillDate = new Date();
         tillDate.setDate(tillDate.getDate());
 
-        return {
+        const result = {
             labels: ChartUtils.xAxeOptions(tillDate),
             datasets: [{
                 backgroundColor: '#F2F6FC',
@@ -43,6 +57,9 @@ export default class DiskSpaceChart extends Vue {
                 data,
             }],
         };
+
+        // TODO: create needed type
+        return result;
     }
 
     public diskSpaceTooltip(tooltipModel): void {
@@ -65,7 +82,7 @@ export default class DiskSpaceChart extends Vue {
         // Set Text
         if (tooltipModel.body) {
             const index = tooltipModel.dataPoints[0].index;
-            const point = this.$store.state.node.storageChartData[index].getLabels();
+            const point = new StampTooltip(this.allStamps[index]);
 
             tooltipEl.innerHTML = `<div class='tooltip-body'>
                                        <p class='tooltip-body__data'><b>${point.atRestTotal}</b></p>

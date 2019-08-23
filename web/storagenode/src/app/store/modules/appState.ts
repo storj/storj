@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { APPSTATE_ACTIONS, APPSTATE_MUTATIONS } from '@/utils/constants';
+import { APPSTATE_ACTIONS, APPSTATE_MUTATIONS } from '@/app/utils/constants';
 
 export const appStateModule = {
     state: {

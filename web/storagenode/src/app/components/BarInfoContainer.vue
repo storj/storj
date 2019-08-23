@@ -14,9 +14,9 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
-import Bar from '@/components/Bar.vue';
-import InfoComponent from '@/components/InfoComponent.vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import Bar from '@/app/components/Bar.vue';
+import InfoComponent from '@/app/components/InfoComponent.vue';
 
 @Component ({
     components: {

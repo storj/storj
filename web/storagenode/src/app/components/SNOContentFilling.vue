@@ -56,13 +56,13 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import BandwidthChart from '@/components/BandwidthChart.vue';
-    import DiskSpaceChart from '@/components/DiskSpaceChart.vue';
-    import BarInfoContainer from '@/components/BarInfoContainer.vue';
-    import ChecksAreaContainer from '@/components/ChecksAreaContainer.vue';
-    import PayoutContainer from '@/components/PayoutContainer.vue';
-    import SatelliteSelectionContainer from '@/components/SatelliteSelectionContainer.vue';
-    import { formatBytes } from '@/utils/converter';
+    import BandwidthChart from '@/app/components/BandwidthChart.vue';
+    import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
+    import BarInfoContainer from '@/app/components/BarInfoContainer.vue';
+    import ChecksAreaContainer from '@/app/components/ChecksAreaContainer.vue';
+    import PayoutContainer from '@/app/components/PayoutContainer.vue';
+    import SatelliteSelectionContainer from '@/app/components/SatelliteSelectionContainer.vue';
+    import { formatBytes } from '@/app/utils/converter';
 
     @Component ({
         components: {

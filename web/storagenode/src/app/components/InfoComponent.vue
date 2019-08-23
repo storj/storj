@@ -72,7 +72,7 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            background-image: url('../../static/images/Message.png');
+            background-image: url('../../../static/images/Message.png');
             background-size:100% 100%;
             z-index: 101;
             padding: 11px 18px 20px 18px;
