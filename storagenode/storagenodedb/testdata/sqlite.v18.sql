@@ -131,23 +131,7 @@ CREATE TABLE piece_space_used (
 	satellite_id BLOB
 );
 
-DROP TABLE reputation;
-CREATE TABLE reputation (
-    satellite_id BLOB NOT NULL,
-    uptime_success_count INTEGER NOT NULL,
-    uptime_total_count INTEGER NOT NULL,
-    uptime_reputation_alpha REAL NOT NULL,
-    uptime_reputation_beta REAL NOT NULL,
-    uptime_reputation_score REAL NOT NULL,
-    audit_success_count INTEGER NOT NULL,
-    audit_total_count INTEGER NOT NULL,
-    audit_reputation_alpha REAL NOT NULL,
-    audit_reputation_beta REAL NOT NULL,
-    audit_reputation_score REAL NOT NULL,
-    disqualified TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL,
-    PRIMARY KEY (satellite_id)
-);
+ALTER TABLE reputation ADD COLUMN disqualified TIMESTAMP;
 
 CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id);
 
