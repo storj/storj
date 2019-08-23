@@ -629,7 +629,6 @@ func (db *DB) Migration() *migrate.Migration {
 						audit_reputation_alpha REAL NOT NULL,
 						audit_reputation_beta REAL NOT NULL,
 						audit_reputation_score REAL NOT NULL,
-						disqualified TIMESTAMP,
 						updated_at TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id)
 					)`,
@@ -652,6 +651,29 @@ func (db *DB) Migration() *migrate.Migration {
 					)`,
 					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
 					`INSERT INTO piece_space_used (total) select ifnull(sum(piece_size), 0) from pieceinfo_`,
+				},
+			},
+			{
+				Description: "Add disqualified field to reputation",
+				Version:     18,
+				Action: migrate.SQL{
+					`DROP TABLE reputation;`,
+					`CREATE TABLE reputation (
+						satellite_id BLOB NOT NULL,
+						uptime_success_count INTEGER NOT NULL,
+						uptime_total_count INTEGER NOT NULL,
+						uptime_reputation_alpha REAL NOT NULL,
+						uptime_reputation_beta REAL NOT NULL,
+						uptime_reputation_score REAL NOT NULL,
+						audit_success_count INTEGER NOT NULL,
+						audit_total_count INTEGER NOT NULL,
+						audit_reputation_alpha REAL NOT NULL,
+						audit_reputation_beta REAL NOT NULL,
+						audit_reputation_score REAL NOT NULL,
+						disqualified TIMESTAMP,
+						updated_at TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id)
+					);`,
 				},
 			},
 		},
