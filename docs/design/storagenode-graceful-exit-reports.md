@@ -6,7 +6,7 @@ A satellite operator needs to know that status of exiting nodes in order to proc
 
 ## Background
 
-As a result of a Graceful Exit, Satellite operators need to release the escrow to the exited Storage Node. This means we need a report about exited nodes. 
+As a result of a Graceful Exit, satellite operators need to release the escrow to the exited storage node. This means we need a report for exited nodes. 
 
 This report should contain:
 - NodeID
@@ -16,7 +16,7 @@ This report should contain:
 - The date the node completed the exit
 - GB Transferred (amount of data the node transferred during exiting)
 
-A Satellite operator also needs a report for nodes that have initiated the exit, but not completed it with a given timeframe.
+A satellite operator needs a list of nodes that have initiated an exit, but have not completed. This means we need a report for exiting nodes.
 
 This report should contain:
 - NodeID
@@ -24,8 +24,6 @@ This report should contain:
 - The date the node joined the network
 - The date the node initiated the Graceful Exit
 - GB Transferred (amount of data the node transferred during exiting)
-
-TODO: Discuss the original business requirements says "...run a report to get information exited and/or exiting Storage Nodes...".  Question is 1 report that contains both, or have 2 reports.
 
 ## Design
 
@@ -41,13 +39,13 @@ Bytes transferred could be stored in `nodes`, but since `nodes` is a heavily acc
 
 ## Implementation
 
-- Add `graceful_exit_progress` table. TODO: move to overview?
-- Add "exit" fields to `nodes` TODO: move to overview?
+- Add `graceful_exit_progress` table.
+- Add "exit" fields to `nodes` table.
 - Add `cmd/satellite/reports/graceful-exit.go` with methods `GracefullyExited` and `GracefullyExiting`, adding and adjusting database interfaces, if necessary. Accepts start and end date as parameters. Dates are inclusive, ignoring time.
 - Add commands `gracefully-exited-report` and `gracefully-exiting-report` to satellite CLI.
     - See [Protocol for transferring pieces.](storagenode-graceful-exit-protocol.md) for details on `graceful_exit_progress`.
 
-Update `nodes` tables:
+Update `nodes` table:
 
 ```
 model nodes (

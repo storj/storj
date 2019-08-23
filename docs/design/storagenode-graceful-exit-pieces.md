@@ -2,17 +2,17 @@
 
 ## Abstract
 
-During [Graceful Exit](storagenode-graceful-exit-overview.md) satellite needs to find pieces to be transferred from the exiting Storage Node.
+During [Graceful Exit](storagenode-graceful-exit-overview.md), a satellite needs to find pieces to be transferred from the exiting storage node.
 
 ## Background
 
-Graceful Exit contains a process that moves existing pieces from one Storage Node to another. To accomplish this we need a list of pieces that need to be transferred.
+Graceful Exit contains a process that moves existing pieces from one storage node to another. To accomplish this we need a list of pieces that need to be transferred.
 
 Pieces with lower durability have higher importance to be transferred.
 
 ## Design
 
-To gather the pieces for transferring we need a service on the satellite that finds the relevant information from the metainfo database. We'll call this service `gexit.Service` or Graceful Exit service.
+We need a service on the satellite that finds pieces in the metainfo database that need to be transferred. We'll call this service `gexit.Service` or Graceful Exit service.
 
 The service starts by asking overlay for all exiting nodes.
 
@@ -24,7 +24,7 @@ Once metainfo loop has completed successfully it updates node to be ready for tr
 
 ## Rationale
 
-We could store the queue in-memory, however there is a danger that it might get too big. We can simplify the queue, by not having batching, however this would significantly increase the database load.
+We could store the queue in-memory, however there is a danger that it might consume too much memory. We can simplify the queue, by not having batching, however this would significantly increase the database load.
 
 We could keep keep a live summary of the pieces in the queue, however, we can always query the database, which is easier to implement and change.
 
@@ -35,6 +35,7 @@ The metainfo loop `Join` guarantees the observer will only receive events at the
 1. Add method for finding exiting nodes to overlay.
 2. Implement transfer queue for pieces.
 3. Implement gexit.Service.
+4. Update satellite to ignore exiting storage nodes for repairs and uploads.
 
 Create `graceful_exit_transfer_queue`:
 
