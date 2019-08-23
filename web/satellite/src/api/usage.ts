@@ -6,7 +6,9 @@ import gql from 'graphql-tag';
 import { ProjectUsage, UsageApi } from '@/types/usage';
 import { BaseGql } from '@/api/baseGql';
 
-// fetchProjectUsage retrieves total project usage for a given period
+/**
+ * Exposes all project-usage-related functionality
+ */
 export class ProjectUsageApiGql extends BaseGql implements UsageApi {
     /**
      * Fetch usage

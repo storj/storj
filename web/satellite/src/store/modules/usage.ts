@@ -87,6 +87,5 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
                 commit(PROJECT_USAGE_MUTATIONS.CLEAR);
             }
         },
-        getters: {}
     };
 }

@@ -135,4 +135,20 @@ describe('actions', () => {
         expect(state.startDate.toDateString()).toBe(now.toDateString());
         expect(state.endDate.toDateString()).toBe(now.toDateString());
     });
+
+    it('create throws an error when create api call fails', async () => {
+        state.projects = [];
+        jest.spyOn(projectUsageApi, 'get').mockImplementation(() => { throw new Error(); });
+
+        try {
+            await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
+            expect(true).toBe(false);
+        } catch (error) {
+            expect(state.projectUsage.storage).toBe(0);
+            expect(state.projectUsage.egress).toBe(0);
+            expect(state.projectUsage.objectCount).toBe(0);
+            expect(state.startDate.toDateString()).toBe(now.toDateString());
+            expect(state.endDate.toDateString()).toBe(now.toDateString());
+        }
+    });
 });
