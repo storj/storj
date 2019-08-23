@@ -33,7 +33,7 @@ func (nt *NullTime) Scan(value interface{}) error {
 		return nil
 	}
 
-	times, err := parseSQLITETimeString(string(date))
+	times, err := parseSqliteTimeString(string(date))
 	if err != nil {
 		return nil
 	}
@@ -50,10 +50,10 @@ func (nt NullTime) Value() (driver.Value, error) {
 	return nt.Time, nil
 }
 
-// parseSQLITETimeString parses sqlite times string.
+// parseSqliteTimeString parses sqlite times string.
 // It tries to process value as string with timezone first,
 // then fallback to parsing as string without timezone.
-func parseSQLITETimeString(val string) (time.Time, error) {
+func parseSqliteTimeString(val string) (time.Time, error) {
 	var times time.Time
 	var err error
 
