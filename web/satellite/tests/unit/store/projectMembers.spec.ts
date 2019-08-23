@@ -11,8 +11,10 @@ import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { ProjectsApiGql } from '@/api/projects';
 
-const projectsModule = makeProjectsModule();
+const projectsApi = new ProjectsApiGql();
+const projectsModule = makeProjectsModule(projectsApi);
 const selectedProject = new Project();
 selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;
@@ -33,10 +35,6 @@ const state = (store.state as any).projectMembersModule;
 const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
 
 describe('mutations', () => {
-    beforeEach(() => {
-        createLocalVue().use(Vuex);
-    });
-
     it('fetch project members', function () {
         const testProjectMembersPage = new ProjectMembersPage();
         testProjectMembersPage.projectMembers = [projectMember1];
@@ -88,7 +86,7 @@ describe('mutations', () => {
     it('clear selection', function () {
         store.commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
 
-        expect(state.page.projectMembers[0].isSelected).toBe(false);
+        expect(state.page.projectMembers.filter(member => member.isSelected)).toBe(0);
     });
 
     it('clear store', function () {

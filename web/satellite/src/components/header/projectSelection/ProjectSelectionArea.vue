@@ -4,7 +4,7 @@
 <template>
     <div class="project-selection-container" id="projectDropdownButton">
         <p class="project-selection-container__no-projects-text" v-if="!hasProjects">You have no projects</p>
-        <div class="project-selection-toggle-container" v-on:click="toggleSelection" v-if="hasProjects">
+        <div class="project-selection-toggle-container" @click="toggleSelection" v-if="hasProjects">
             <h1>{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
                 <img v-if="!isDropdownShown" src="../../../../static/images/register/BlueExpand.svg"/>
@@ -18,9 +18,9 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
-    import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { RequestResponse } from '../../../types/response';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { Project } from '@/types/projects';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
     @Component({
         components: {
@@ -29,18 +29,17 @@
     })
     export default class ProjectSelectionArea extends Vue {
         public async toggleSelection(): Promise<void> {
-            const response: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-
-                return;
+            try {
+                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
             }
 
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
         }
 
         public get name(): string {
-            let selectedProject = this.$store.state.projectsModule.selectedProject;
+            let selectedProject: Project = this.$store.state.projectsModule.selectedProject;
 
             return selectedProject.id ? selectedProject.name : 'Choose project';
         }
@@ -50,7 +49,7 @@
         }
 
         public get hasProjects(): boolean {
-            return this.$store.state.projectsModule.projects.length;
+            return !!this.$store.state.projectsModule.projects.length;
         }
     }
 </script>

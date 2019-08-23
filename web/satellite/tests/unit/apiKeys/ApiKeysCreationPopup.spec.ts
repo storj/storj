@@ -10,12 +10,14 @@ import { makeProjectsModule } from '@/store/modules/projects';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { Project } from '@/types/projects';
 import { ApiKeysApiGql } from '@/api/apiKeys';
+import { ProjectsApiGql } from '@/api/projects';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
-const projectsModule = makeProjectsModule();
+const projectsApi = new ProjectsApiGql();
+const projectsModule = makeProjectsModule(projectsApi);
 
 const selectedProject = new Project();
 selectedProject.id = '1';
