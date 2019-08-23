@@ -9,13 +9,15 @@ import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { Bucket, BucketCursor, BucketPage } from '@/types/buckets';
 import { Project } from '@/types/projects';
+import { ProjectsApiGql } from '@/api/projects';
 
 const Vue = createLocalVue();
 const bucketsApi = new BucketsApiGql();
 const bucketsModule = makeBucketsModule(bucketsApi);
 const { FETCH, SET_SEARCH, CLEAR } = BUCKET_ACTIONS;
 
-const projectsModule = makeProjectsModule();
+const projectsApi = new ProjectsApiGql();
+const projectsModule = makeProjectsModule(projectsApi);
 const selectedProject = new Project();
 selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;

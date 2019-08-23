@@ -144,7 +144,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
-		return server.server.Shutdown(nil)
+		return server.server.Shutdown(context.Background())
 	})
 	group.Go(func() error {
 		defer cancel()

@@ -45,15 +45,6 @@ export const PM_ACTIONS = {
     CLEAR_OFFSET: 'clearProjectMembersOffset'
 };
 
-export const PROJETS_ACTIONS = {
-    FETCH: 'fetchProjects',
-    CREATE: 'createProject',
-    SELECT: 'selectProject',
-    UPDATE: 'updateProject',
-    DELETE: 'deleteProject',
-    CLEAR: 'clearProjects',
-};
-
 export const API_KEYS_ACTIONS = {
     FETCH: 'setAPIKeys',
     CREATE: 'createAPIKey',

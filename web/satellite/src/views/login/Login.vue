@@ -8,13 +8,13 @@
     import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
     import Button from '@/components/common/Button.vue';
     import { AuthToken } from '@/utils/authToken';
-    import ROUTES from '@/utils/constants/routerConstants';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { AuthApi } from '@/api/auth';
     import { LOADING_CLASSES } from '@/utils/constants/classConstants';
     import { AppState } from '@/utils/constants/appStateEnum';
     import { validateEmail, validatePassword } from '@/utils/validation';
-    import EVENTS from '../../utils/constants/analyticsEventNames';
+    import EVENTS from '@/utils/constants/analyticsEventNames';
+    import { RouteConfig } from '@/router';
 
     @Component({
         components: {
@@ -27,7 +27,7 @@
         private password: string = '';
         private authToken: string = '';
 
-        public forgotPasswordRouterPath: string = ROUTES.FORGOT_PASSWORD.path;
+        private readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
         private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
         private loadingLogoClassName: string = LOADING_CLASSES.LOADING_LOGO;
         private emailError: string = '';
@@ -50,7 +50,7 @@
         }
 
         public onSignUpClick(): void {
-            this.$router.push(ROUTES.REGISTER.path);
+            this.$router.push(RouteConfig.Register.path);
         }
 
         public async onLogin(): Promise<void> {
@@ -74,7 +74,7 @@
             setTimeout(() => {
                 AuthToken.set(this.authToken);
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
-                this.$router.push(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
+                this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
             }, 2000);
         }
 

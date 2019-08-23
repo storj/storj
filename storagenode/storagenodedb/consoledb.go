@@ -78,7 +78,7 @@ func (db *consoleDB) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 	}()
 
 	var dates []time.Time
-	dailyBandwidth := make(map[time.Time]*console.BandwidthUsed, 0)
+	dailyBandwidth := make(map[time.Time]*console.BandwidthUsed)
 
 	for rows.Next() {
 		var action int32
