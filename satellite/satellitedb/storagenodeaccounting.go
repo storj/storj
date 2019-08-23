@@ -6,11 +6,13 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
+
+	"storj.io/storj/internal/dbutil"
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -200,21 +202,41 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.StorageNodeUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT at_rest_total, start_time, 
-		LAG(at_rest_total) OVER win AS prev_at_rest, 
-		LAG(start_time) OVER win AS prev_start_time
-		FROM accounting_rollups
-		WHERE id IN (
-			SELECT MAX(id)
-			FROM accounting_rollups
-			WHERE node_id = ?
-			AND ? <= start_time AND start_time <= ?
-			GROUP BY start_time
-			ORDER BY start_time ASC
-		)
-		WINDOW win AS (ORDER BY start_time)`
+	lastRollup, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup))
+	if err != nil {
+		return nil, err
+	}
 
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start.UTC(), end.UTC())
+	start, end = start.UTC(), end.UTC()
+
+	query := `SELECT at_rest_total, start_time
+				FROM (
+					SELECT r.at_rest_total, r.start_time
+					FROM (
+						SELECT MAX(id) as id
+						FROM accounting_rollups
+						WHERE node_id = ?
+						AND ? <= start_time AND start_time <= ?
+						GROUP BY start_time
+					) ids
+					INNER JOIN accounting_rollups r ON r.id = ids.id
+					UNION
+					SELECT SUM(data_total) as at_rest_total, DATETIME(DATE(interval_end_time)) as start_time
+					FROM storagenode_storage_tallies
+					WHERE node_id = ?
+					AND ? < interval_end_time AND interval_end_time <= ?
+					GROUP BY start_time
+				) GROUP BY start_time
+				ORDER BY start_time ASC`
+
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
+		nodeID,
+		start,
+		end,
+		nodeID,
+		lastRollup.Value,
+		end)
+
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -223,35 +245,26 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 		err = errs.Combine(err, rows.Close())
 	}()
 
+	fmt.Println("NodeID: ", nodeID.String())
+	fmt.Println("NodeID unformat", string(nodeID[:]))
+
 	var nodeStorageUsages []accounting.StorageNodeUsage
 	for rows.Next() {
 		var atRestTotal float64
-		var startTime time.Time
-		var prevAtRestTotal sql.NullFloat64
-		var prevStartTime dbutil.NullTime
+		var startTime dbutil.NullTime
 
-		err = rows.Scan(&atRestTotal, &startTime, &prevAtRestTotal, &prevStartTime)
+		err = rows.Scan(&atRestTotal, &startTime)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		// skip first entry as we can not extract hours
-		// properly without storagenode storage tallies
-		// which formed this value
-		if !prevStartTime.Valid {
-			continue
-		}
-
-		atRest := atRestTotal - prevAtRestTotal.Float64
-		hours := startTime.Sub(prevStartTime.Time).Hours()
-		if hours != 0 {
-			atRest /= hours
-		}
+		fmt.Println("startTime: ", startTime.String())
+		fmt.Println("atRestTotal: ", atRestTotal)
 
 		nodeStorageUsages = append(nodeStorageUsages, accounting.StorageNodeUsage{
 			NodeID:      nodeID,
-			StorageUsed: atRest,
-			Timestamp:   startTime,
+			StorageUsed: atRestTotal,
+			Timestamp:   startTime.Time,
 		})
 	}
 

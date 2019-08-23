@@ -40,7 +40,7 @@ func (db *consoleDB) GetDaily(ctx context.Context, satelliteID storj.NodeID, fro
 	_, before := date.DayBoundary(to.UTC())
 
 	return db.getDailyBandwidthUsed(ctx,
-		"WHERE satellite_id = ? AND ? <= created_at AND created_at <= ?",
+		"WHERE satellite_id = ? AND ? <= interval_start AND interval_start <= ?",
 		satelliteID, since, before)
 }
 
@@ -53,7 +53,7 @@ func (db *consoleDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ [
 	_, before := date.DayBoundary(to.UTC())
 
 	return db.getDailyBandwidthUsed(ctx,
-		"WHERE ? <= created_at AND created_at <= ?",
+		"WHERE ? <= interval_start AND interval_start <= ?",
 		since, before)
 }
 
@@ -62,11 +62,11 @@ func (db *consoleDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ [
 func (db *consoleDB) getDailyBandwidthUsed(ctx context.Context, cond string, args ...interface{}) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT action, SUM(amount), created_at
-				FROM bandwidth_usage
+	query := `SELECT action, SUM(amount), interval_start
+				FROM bandwidth_usage_rollups
 				` + cond + `
-				GROUP BY DATE(created_at), action
-				ORDER BY created_at ASC`
+				GROUP BY DATE(interval_start), action
+				ORDER BY interval_start ASC`
 
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -83,14 +83,14 @@ func (db *consoleDB) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 	for rows.Next() {
 		var action int32
 		var amount int64
-		var createdAt time.Time
+		var intervalStart time.Time
 
-		err = rows.Scan(&action, &amount, &createdAt)
+		err = rows.Scan(&action, &amount, &intervalStart)
 		if err != nil {
 			return nil, err
 		}
 
-		from, to := date.DayBoundary(createdAt)
+		from, to := date.DayBoundary(intervalStart)
 
 		bandwidthUsed, ok := dailyBandwidth[from]
 		if !ok {

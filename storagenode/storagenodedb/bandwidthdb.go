@@ -124,6 +124,51 @@ func (db *bandwidthDB) Summary(ctx context.Context, from, to time.Time) (_ *band
 	return usage, ErrBandwidth.Wrap(rows.Err())
 }
 
+// SatelliteSummary returns aggregated bandwidth usage for particular satellite
+func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	from, to = from.UTC(), to.UTC()
+
+	query := `SELECT action, sum(a) amount from(
+					SELECT action, sum(amount) a
+					FROM bandwidth_usage
+					WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+					AND satellite_id = ?
+					GROUP BY action
+					UNION ALL
+					SELECT action, sum(amount) a
+					FROM bandwidth_usage_rollups
+					WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+					AND satellite_id = ?
+					GROUP BY action
+			) GROUP BY action;`
+
+	rows, err := db.QueryContext(ctx, query, from, to, satelliteID, from, to, satelliteID)
+	if err != nil {
+		return nil, ErrBandwidth.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	usage := new(bandwidth.Usage)
+	for rows.Next() {
+		var action pb.PieceAction
+		var amount int64
+
+		err := rows.Scan(&action, &amount)
+		if err != nil {
+			return nil, ErrBandwidth.Wrap(err)
+		}
+
+		usage.Include(action, amount)
+	}
+
+	return usage, nil
+}
+
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
 func (db *bandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storj.NodeID]*bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
