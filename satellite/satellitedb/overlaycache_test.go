@@ -20,20 +20,18 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-//type overlaycache = satellitedb.TestOverlaycache
-
 func TestOverlaycache_AllPieceCounts(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		// get overlay db
-		overlay, ok := db.OverlayCache().(*satellitedb.Overlaycache)
+		overlay, ok := db.OverlayCache().(*satellitedb.overlaycache)
 		require.True(t, ok)
 		require.NotNil(t, overlay)
 
 		// create test nodes in overlay db
-		testNodes := createTestNodes(10, t, ctx, overlay.DB())
+		testNodes := createTestNodes(10, t, ctx, overlay.db)
 
 		// set expected piece counts
 		var err error
@@ -62,6 +60,9 @@ func TestOverlaycache_AllPieceCounts(t *testing.T) {
 }
 
 func TestOverlaycache_UpdatePieceCounts(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		// get overlay db
 		overlay, ok := db.OverlayCache().(*satellitedb.overlaycache)
