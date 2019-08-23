@@ -94,7 +94,7 @@ func TestStorageNodeUsage(t *testing.T) {
 		}
 
 		assert.Equal(t,
-			nodeStorageUsages[len(nodeStorageUsages)-1].Timestamp,
+			nodeStorageUsages[len(nodeStorageUsages)-1].Timestamp.UTC(),
 			time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()))
 	})
 }
