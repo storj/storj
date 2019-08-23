@@ -46,7 +46,7 @@ The storage node will start a new piece upload to the replacement node similar t
 The storage node sends the piece hash, order limit, original "uploader" signature, and piece hash signed by the replacement node to the satellite for confirmation.
 The satellite verifies that the original piece hash matches the replacement piece hash, and verifies the order limits signature. On success, the satellite will update segment / pointer information. If verification fails, the satellite will send `ExitFailed`.
 
-![Transfer Sequence](./images/storagenode-graceful-exit-transfer-sequence.jpg)
+![Transfer Sequence](./images/storagenode-graceful-exit-transfer-sequence.svg)
 
 #### Updating the Segment / Pointer
 
