@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	sqliteTimeLayout       = "2006-01-02 15:04:05-07:00"
+	sqliteTimeLayout     = "2006-01-02 15:04:05-07:00"
 	sqliteTimeLayoutDate = "2006-01-02"
 )
 
