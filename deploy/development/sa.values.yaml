@@ -1,0 +1,27 @@
+Name: satellite-dev-deployment
+domainName: sa-dev.jessica-us-east1.dev.storj.io
+ingressClass: nginx
+
+vpn: 104.196.58.99/32
+
+labels:
+  app: satellite-dev
+replicas: 2
+maxReplicas: 4
+image:
+  repository: gcr.io/storj-jessica/sa-k8s-hard-way
+  # TODO: need to overwrite tag when we deploy this chart
+  tag: 1
+# TODO: These may be too high. Confirm once workload is deployed.
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+static:
+  console: /app
+  mail: /app/static/emails
+  marketing: /app/marketing

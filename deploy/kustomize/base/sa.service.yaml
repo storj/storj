@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: satellite-svc
+spec:
+  type: NodePort
+  selector:
+    app: satellite-dev
+  ports:
+    - name: satellite-ui
+      protocol: TCP
+      port: 80
+      targetPort: 10100
+    - name: public-grpc
+      protocol: TCP
+      port: 7777
+      targetPort: 7777

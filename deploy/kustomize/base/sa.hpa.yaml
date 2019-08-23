@@ -1,0 +1,17 @@
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: satellite-hpa
+spec:
+  minReplicas: 2
+  maxReplicas: 4
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: satellite-dev
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 65
+    type: Resource

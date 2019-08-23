@@ -1,0 +1,2 @@
+controller.service.externalTrafficPolicy: Local
+controller.publishService.enabled: "true"

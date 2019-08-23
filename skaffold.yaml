@@ -1,0 +1,26 @@
+apiVersion: skaffold/v1beta13
+kind: Config
+# TODO: have scaffold look for dockerfile.sa in deploy dir
+build:
+  local: {}
+  artifacts:
+  - image: gcr.io/storj-jessica/sa-k8s-hard-way/satellite
+  tagPolicy:
+    gitCommit: {}
+deploy:
+  kustomize:
+    path: deploy/kustomize/overlays/dev
+
+# alternatively deploy using helm
+# deploy:
+#   helm:
+#     releases:
+#     - name: satellite-dev
+#       chartPath: deploy/charts/satellite
+#       wait: true
+#       namespace: dev
+#       valuesFiles:
+#         - deploy/development/sa.values.yaml
+#       values:
+#         image: gcr.io/storj-jessica/sa-k8s-hard-way/satellite
+#       recreatePods: true

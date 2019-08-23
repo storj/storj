@@ -32,3 +32,6 @@ debug
 resource.syso
 
 *.resource.go
+
+# deploy secrets
+*.secret.y*

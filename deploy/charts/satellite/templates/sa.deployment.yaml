@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.Name }}
+  labels:
+{{ toYaml .Values.labels | indent 4 }}
+spec:
+  replicas: {{ default 1 .Values.replicas }}
+  selector:
+    matchLabels:
+{{ toYaml .Values.labels | indent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 33%
+      maxUnavailable: 33%
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/sa.config.configmap.yaml") . | sha256sum }}
+      labels:
+{{ toYaml .Values.labels | indent 8 }}
+    spec:
+      containers:
+      - name: satellite
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        command: ["./satellite", "--config-dir", "/root/.local/share/storj/satellite", "run"]
+        ports:
+        - name: public-grpc
+          containerPort: 7777
+          protocol: TCP
+        - name: private-grpc
+          containerPort: 7778
+          protocol: TCP
+        - name: satellite-ui
+          containerPort: 10100
+          protocol: TCP
+        - name: marketing-ui
+          protocol: TCP
+          containerPort: 8090
+        env:
+        - name: STORJ_CONSOLE_ADDRESS
+          value: 0.0.0.0:10100
+        - name: STORJ_CONSOLE_STATIC_DIR
+          value: /app
+        envFrom:
+        - secretRef:
+            name: satellite-dev-deployment-env
+        volumeMounts:
+        - name: satellite-config-yaml
+          mountPath: /root/.local/share/storj/satellite
+          readOnly: true
+        - name: satellite-identity
+          mountPath: /root/.local/share/storj/identity/satellite
+          readOnly: true
+      volumes:
+      - name: satellite-config-yaml
+        configMap:
+          name: "{{ .Values.Name }}-config"
+      - name: satellite-identity
+        secret:
+          secretName: "{{ .Values.Name }}-identity"
+    resources:
+{{ toYaml .Values.resources | indent 12 }}

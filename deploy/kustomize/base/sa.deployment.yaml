@@ -1,0 +1,70 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: satellite-deployment
+  labels:
+    app: satellite-base
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: satellite-base
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 33%
+      maxUnavailable: 33%
+  template:
+    metadata:
+      labels:
+        app: satellite-base
+    spec:
+      containers:
+      - name: satellite
+        image: gcr.io/storj-jessica/sa-k8s-hard-way:latest
+        imagePullPolicy: IfNotPresent
+        command: ["./satellite", "--config-dir", "/root/.local/share/storj/satellite", "run"]
+        ports:
+        - name: public-grpc
+          containerPort: 7777
+          protocol: TCP
+        - name: private-grpc
+          containerPort: 7778
+          protocol: TCP
+        - name: satellite-ui
+          containerPort: 10100
+          protocol: TCP
+        - name: marketing-ui
+          protocol: TCP
+          containerPort: 8090
+        env:
+        - name: STORJ_CONSOLE_ADDRESS
+          value: 0.0.0.0:10100
+        - name: STORJ_CONSOLE_STATIC_DIR
+          value: /app
+        envFrom:
+        - secretRef:
+            name: satellite-secret-env
+        volumeMounts:
+        - name: satellite-config-yaml
+          mountPath: /root/.local/share/storj/satellite
+          readOnly: true
+        - name: satellite-identity
+          mountPath: /root/.local/share/storj/identity/satellite
+          readOnly: true
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+      volumes:
+      - name: satellite-config-yaml
+        configMap:
+          name: satellite-config-yaml
+      - name: satellite-identity
+        secret:
+          secretName: satellite-secret-identity
+            

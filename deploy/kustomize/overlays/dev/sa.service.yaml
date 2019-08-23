@@ -1,0 +1,8 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: satellite-svc
+spec:
+  selector:
+    app: satellite-dev

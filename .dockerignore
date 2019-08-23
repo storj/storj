@@ -1,2 +1,14 @@
 /*.swp
 docker-compose.yaml
+deploy
+docs
+examples
+infra
+.github
+.git
+.vscode
+.DS_Store
+.gitignore
+.clabot
+.golangci.yml
+.idea

@@ -1,0 +1,30 @@
+# build stage for web
+# TODO: build static assets as part of the CI/CD pipeline and
+# and serve assets from a CDN instead of from this container
+FROM node:11.15.0 as web-builder
+WORKDIR /app
+COPY web/satellite/ /app
+COPY web/marketing/ /app/marketing
+RUN npm install
+# I don't know why we need to rebuild sass here,
+# but the build was complaining otherwise
+RUN npm rebuild node-sass
+RUN npm run build
+
+# build stage for backend
+FROM golang:alpine AS builder
+RUN apk --no-cache add --update git gcc build-base
+COPY . /src
+RUN cd /src/cmd/satellite && GOOS=linux go build -a -o satellite .
+
+# final stage
+FROM alpine
+RUN apk --no-cache add ca-certificates
+WORKDIR /app
+COPY --from=web-builder /app/static /app/static
+COPY --from=web-builder /app/dist /app/dist
+COPY --from=web-builder /app/marketing /app/marketing
+COPY --from=builder /src/cmd/satellite/satellite /app/
+# TODO: expose debug port if we want that
+EXPOSE 7777 10100 7778
+CMD ["./satellite", "--config-dir", "config", "run"]

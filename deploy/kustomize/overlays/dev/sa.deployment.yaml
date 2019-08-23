@@ -1,0 +1,26 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: satellite-deployment
+  labels:
+    app: satellite-dev
+spec:
+  selector:
+    matchLabels:
+      app: satellite-dev
+  template:
+    metadata:
+      labels:
+        app: satellite-dev
+    spec:
+      containers:
+      - name: satellite
+        image: gcr.io/storj-jessica/sa-k8s-hard-way/satellite@sha256:b75a20b6b46cecc3d127d9b4effa229b449edbff551a0141db39cd435c48b0ec
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 300m
+            memory: 1Gi

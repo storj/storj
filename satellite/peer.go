@@ -402,7 +402,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup metainfo
 		log.Debug("Setting up metainfo")
-		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
+		metainfoDB := config.Metainfo.DatabaseURL
+		if os.Getenv("PROD_META_POSTGRES") != "" {
+			metainfoDB = os.Getenv("PROD_META_POSTGRES")
+		}
+
+		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), metainfoDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ .Values.Name }}
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.ingressClass }}
+    # nginx.ingress.kubernetes.io/whitelist-source-range: {{ .Values.vpn }}
+spec:
+  # TODO: add tls with cert-manager and letsencrypt
+  # tls:
+  # - hosts:
+  #   - {{ .Values.domainName }}
+  #   secretName: {{ .Values.certSecret }}
+  rules:
+  - host: {{ .Values.domainName }}
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: "{{ .Values.Name }}-svc"
+          servicePort: 80

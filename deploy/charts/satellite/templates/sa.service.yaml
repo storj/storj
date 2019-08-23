@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Values.Name }}-svc"
+spec:
+  type: NodePort
+  selector:
+{{ toYaml .Values.labels | indent 4 }}
+  ports:
+    - name: satellite-ui
+      protocol: TCP
+      port: 80
+      targetPort: 10100
+    - name: public-grpc
+      protocol: TCP
+      port: 7777
+      targetPort: 7777

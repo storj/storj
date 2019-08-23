@@ -1,0 +1,22 @@
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: satellite-ing
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # nginx.ingress.kubernetes.io/whitelist-source-range: 104.196.58.99/32
+spec:
+  # TODO: add tls with cert-manager and letsencrypt
+  # tls:
+  # - hosts:
+  #   - sa-dev.jessica-us-east1.dev.storj.io
+  #   secretName: 
+  rules:
+  - host: sa-dev.jessica-us-east1.dev.storj.io
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: satellite-svc
+          servicePort: 80

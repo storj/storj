@@ -1,0 +1,8 @@
+commonLabels:
+  app: satellite
+resources:
+- sa.config.configmap.yaml
+- sa.deployment.yaml
+- sa.hpa.yaml
+- sa.ingress.yaml
+- sa.service.yaml
