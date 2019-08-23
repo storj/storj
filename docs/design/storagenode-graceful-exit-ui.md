@@ -8,9 +8,9 @@ This document describes how the storage node operator manages the Graceful Exit 
 ## Background
 
 The storage node operator needs:
-- A way to initiate graceful exit
-- A way to monitor graceful exit progress
-- Terminate graceful exit without escrow
+- a way to initiate graceful exit, 
+- a way to monitor graceful exit progress, and
+- terminate graceful exit without escrow.
 
 ## Design
 
@@ -26,7 +26,7 @@ The satellite list should contain:
 Once the exit is initiated the command returns. The graceful exit process cannot be cancelled.
 
 Initiating an graceful exit adds an entry with `satellite_id`, `initiated_at`, and `starting_disk_usage` to 
-`graceful_exit_status` table. `starting_disk_usage` is loaded from `pieces.Service`. The graceful exit service starts a new worker for exiting, if one doesn't already exist.
+`satellites` table. `starting_disk_usage` is loaded from `pieces.Service`. The graceful exit service starts a new worker for exiting, if one doesn't already exist.
 
 Add a command `storagenode exit-status` that a storage node operator can execute to get Graceful Exit status.  This report should return a list of exiting nodes with:
 - Domain name
@@ -43,26 +43,10 @@ For `exit-satellite` command it could stay up and show exiting progress. However
 
 ## Implementation
 
-- Add `graceful_exit_status` table and interfaces.
 - Add `storagenode exit-satellite` command to storagenode CLI, which calls `gexit.Service.InitiateExit`.
 	- Once initiated [protocol for transferring pieces](storagenode-graceful-exit-protocol.md) should start.
 - Add `storagenode exit-status` command to storagenode CLI. This returns completion status as described above.
 - TODO: terminating graceful exit?
-
-Create `graceful_exit_status`
-```
-	model graceful_exit_status (
-		key satellite_id
-
-		field satellite_id              blob not null
-		field initiated_at              timestamp ( autoinsert ) not null
-		field finished_at              timestamp ( updateable )
-		field starting_disk_usage       int64 not null
-		field bytes_deleted             int64
-
-		field completion_receipt  blob
-	)
-```
 
 ## Open issues (if applicable)
 

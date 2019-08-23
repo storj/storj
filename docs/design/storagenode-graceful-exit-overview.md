@@ -56,6 +56,53 @@ Ungraceful exit can happen when:
 - Storage node is too slow to transfer pieces,
 - Storage node decided to terminate the process.
 
-## Open issues (if applicable)
+## Implementation
 
-- Should we have an `satellites` table in storage node to store trusted satellites and graceful exit information?
+To coordinate the four parts we need few things implemented:
+
+- Add `satellites` table and interfaces to storage node.
+
+### Satellites Table
+
+```
+model satellites (
+    key node_id
+
+    field node_id  blob not null
+    field address  text not null
+    field added_at timestamp ( autoinsert ) not null
+
+    field status   byte not null
+)
+
+model satellites_exit_progress (
+    fk satellite_id 
+
+    field initiated_at         timestamp ( updateable )
+    field finished_at          timestamp ( updateable )
+    field starting_disk_usage  int64 not null
+    field bytes_deleted        int64 not null
+    field completion_receipt   blob
+)
+```
+
+## Rationale
+
+We could have all the information in a single table, but this would make the table more complicated to manage:
+
+```
+model satellites (
+    key node_id
+
+    field node_id  blob not null
+    field address  text not null
+    field added_at timestamp ( autoinsert ) not null
+    field status   byte not null
+
+    field exit_initiated_at         timestamp ( updateable )
+    field exit_finished_at          timestamp ( updateable )
+    field exit_starting_disk_usage  int64 not null
+    field exit_bytes_deleted        int64
+    field exit_completion_receipt   blob
+)
+```

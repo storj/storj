@@ -1,4 +1,4 @@
-# storage node Graceful Exit - Transferring Pieces
+# Storage Node Graceful Exit - Transferring Pieces
 
 ## Abstract
 
@@ -8,7 +8,7 @@ This document describes how storage node transfers its pieces during Graceful Ex
 
 During Graceful Exit a storage node needs to transfer pieces to other nodes. During transfering the storage node or satellite may crash, hence it needs to be able to continue after a restart. 
 
-satellite gathers transferred pieces list asynchronously, which is described in [Gathering Pieces Document](storagenode-graceful-exit-pieces.md). This may consume a significant amount of time.
+Satellite gathers transferred pieces list asynchronously, which is described in [Gathering Pieces Document](storagenode-graceful-exit-pieces.md). This may consume a significant amount of time.
 
 Transferring a piece to another node may fail, hence we need to ensure that critical pieces get transferred. Storage nodes can be malicious and try to misreport transfer as "failed" or "completed". A storage node may also try to send incorrect data. This means we need proof that the correct piece was transferred.
 
@@ -78,132 +78,132 @@ We could have a separate initiate graceful exit RPC, however this would complica
 ### Sketch
 
 ```
-storagenode
+### storagenode ###
+
+for {
+    stream := dial satellite
 
     for {
-        stream := dial satellite
-
-        for {
-            msg := stream.Recv(&msg)
-            if msg is NotReady {
-                go sleep a bit
-                and retry later
-            }
-
-            if msg is Completed {
-                update database about completion
-                delete all pieces
-                exit
-            }
-
-            if msg is TransferConfirmed {
-                update the progress table
-                delete the piece from disk
-                exit
-            }
-
-            if msg is TransferPiece {
-                // transfer multiple pieces in parallel, configurable
-                limiter.Go(func(){
-                    result := try transfer msg.PieceID
-                    stream.Send(result)
-                    update progress table
-                })
-            }
-        }
-    }
-
-satellite
-
-    if !initiated {
-        then add node to the gracefully exiting list
-        send NotReady
-        return
-    }
-
-    if !pieces collected {
-        send NotReady
-        return
-    }
-
-    inprogress pieces
-    more pieces := true
-
-    go func() {
-        for {
-            ensure we have only up to N inprogress at the same time
-            
-            list transferred piece that is not in progress
-            if no pieces {
-                morepieces = false
-                break
-            }
-
-            stream.Send TransferPiece
+        msg := stream.Recv(&msg)
+        if msg is NotReady {
+            go sleep a bit
+            and retry later
         }
 
-        more pieces = false
-    }()
+        if msg is Completed {
+            update database about completion
+            delete all pieces
+            exit
+        }
 
-    for more pieces && len(inprogress) > 0 {
-        response := stream.Recv
+        if msg is TransferConfirmed {
+            update the progress table
+            delete the piece from disk
+            exit
+        }
 
-        verify that response has proper signatures and things
-        update metainfo database with the new storage node
-        delete from inprogress
+        if msg is TransferPiece {
+            // transfer multiple pieces in parallel, configurable
+            limiter.Go(func(){
+                result := try transfer msg.PieceID
+                stream.Send(result)
+                update progress table
+            })
+        }
+    }
+}
 
-        stream.Send TransferConfirmed
+### satellite ###
+
+if !initiated {
+    then add node to the gracefully exiting list
+    send NotReady
+    return
+}
+
+if !pieces collected {
+    send NotReady
+    return
+}
+
+inprogress pieces
+more pieces := true
+
+go func() {
+    for {
+        ensure we have only up to N inprogress at the same time
+        
+        list transferred piece that is not in progress
+        if no pieces {
+            morepieces = false
+            break
+        }
+
+        stream.Send TransferPiece
     }
 
-    stream.Send Completed with receipt
+    more pieces = false
+}()
+
+for more pieces && len(inprogress) > 0 {
+    response := stream.Recv
+
+    verify that response has proper signatures and things
+    update metainfo database with the new storage node
+    delete from inprogress
+
+    stream.Send TransferConfirmed
+}
+
+stream.Send Completed with receipt
 ```
 
 
 
 ``` proto
-	service GracefulExit {
-        rpc Process(stream StorageNodeMessage) returns (stream SatelliteMessage)
-	}
+service GracefulExit {
+    rpc Process(stream StorageNodeMessage) returns (stream SatelliteMessage)
+}
 
-	message StorageNodeMessage {
-        oneof Message {
-            message TransferSucceeded {
-                AddressedOrderLimit addressed_order_limit;
-                PieceHash original_piece_hash;
-                PieceHash angel_piece_hash;
-            }
-            message TransferFailed {
-                enum Error {
-                    NOT_FOUND = 0;
-                    STORAGE_NODE_UNAVAILABLE = 1;
-                    UNKNOWN = 2;
-                }
-                Error error = 0;
-            }
+message StorageNodeMessage {
+    oneof Message {
+        message TransferSucceeded {
+            AddressedOrderLimit addressed_order_limit;
+            PieceHash original_piece_hash;
+            PieceHash angel_piece_hash;
         }
-	}
-
-	message SatelliteMessage {
-        oneof Message {
-            message NotReady {} // this could be a grpc error rather than a message
-
-            message TransferPiece {
-                bytes piece_id; // the current piece-id
-                bytes private_key;
-                // addressed_order_limit contains the new piece id.
-                AddressedOrderLimit addressed_order_limit;              
+        message TransferFailed {
+            enum Error {
+                NOT_FOUND = 0;
+                STORAGE_NODE_UNAVAILABLE = 1;
+                UNKNOWN = 2;
             }
-
-            message DeletePiece {
-                bytes piece_id;
-            }
-
-            message Completed {
-                // when everything is completed
-                bytes exit_complete_signature;
-            }
+            Error error = 0;
         }
-	}
+    }
+}
+
+message SatelliteMessage {
+    oneof Message {
+        message NotReady {} // this could be a grpc error rather than a message
+
+        message TransferPiece {
+            bytes piece_id; // the current piece-id
+            bytes private_key;
+            // addressed_order_limit contains the new piece id.
+            AddressedOrderLimit addressed_order_limit;              
+        }
+
+        message DeletePiece {
+            bytes piece_id;
+        }
+
+        message Completed {
+            // when everything is completed
+            bytes exit_complete_signature;
+        }
+    }
+}
 ```
 
 
