@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
@@ -98,6 +98,7 @@ type Config struct {
 	// new values
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 	Operator        OperatorConfig
+	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -230,9 +231,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Self = self
 	}
 
-	// TODO REMOVE ****
 	{ // setup kademlia
-		config := config.Kademlia
+		c := config.Kademlia
 		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
 			config.ExternalAddress = peer.Addr()
@@ -260,14 +260,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		kdb, ndb, adb := peer.DB.RoutingTable()
-		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, adb, &config.RoutingTableConfig)
+		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, adb, &c.RoutingTableConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, config)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, c)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -278,7 +278,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
-	// ****
 
 	{ // setup storage
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.DB.Pieces())
@@ -404,7 +403,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Bandwidth(),
 			config.Storage,
 			peer.Console.Listener.Addr(),
-			peer.URL(),
+			peer.URL(), // TODO should this include self.Address instead?
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -81,17 +80,16 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			BootstrapBackoffBase: 500 * time.Millisecond,
 			BootstrapBackoffMax:  2 * time.Second,
 			Alpha:                5,
-			DBPath:               dbDir, // TODO: replace with master db
-			Operator: kademlia.OperatorConfig{
-				Email:  prefix + "@mail.test",
-				Wallet: "0x" + strings.Repeat("00", 20),
-			},
 		},
 		Web: bootstrapserver.Config{
 			Address:   "127.0.0.1:0",
 			StaticDir: "./web/bootstrap", // TODO: for development only
 		},
 		Version: planet.NewVersionConfig(),
+		//DBPath:               dbDir, // TODO: replace with master db
+		//Operator: kademlia.OperatorConfig{
+		//	Email:  prefix + "@mail.test",
+		//	Wallet: "0x" + strings.Repeat("00", 20),
 	}
 	if planet.config.Reconfigure.Bootstrap != nil {
 		planet.config.Reconfigure.Bootstrap(0, &config)

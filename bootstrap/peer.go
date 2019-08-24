@@ -47,12 +47,9 @@ type Config struct {
 
 	Web bootstrapserver.Config
 
-	Version version.Config
-}
-
-// Verify verifies whether configuration is consistent and acceptable.
-func (config *Config) Verify(log *zap.Logger) error {
-	return config.Kademlia.Verify(log)
+	Version         version.Config
+	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
+	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
 }
 
 // Peer is the representation of a Bootstrap Node.
@@ -82,6 +79,7 @@ type Peer struct {
 		Service  *bootstrapweb.Service
 		Endpoint *bootstrapserver.Server
 	}
+	Self *overlay.NodeDossier
 }
 
 // New creates a new Bootstrap Node.
@@ -119,8 +117,32 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 		}
 	}
 
+	{ // setup self
+		if config.ExternalAddress == "" {
+			config.ExternalAddress = peer.Addr()
+		}
+
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		self := &overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   config.ExternalAddress,
+				},
+			},
+			Type:     pb.NodeType_BOOTSTRAP,
+			Operator: pb.NodeOperator{},
+			Version:  *pbVersion,
+		}
+		peer.Self = self
+	}
 	{ // setup kademlia
-		config := config.Kademlia
+		c := config.Kademlia
 		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
 			config.ExternalAddress = peer.Addr()
@@ -139,23 +161,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 					Address:   config.ExternalAddress,
 				},
 			},
-			Type: pb.NodeType_BOOTSTRAP,
-			Operator: pb.NodeOperator{
-				Email:  config.Operator.Email,
-				Wallet: config.Operator.Wallet,
-			},
-			Version: *pbVersion,
+			Type:     pb.NodeType_BOOTSTRAP,
+			Operator: pb.NodeOperator{},
+			Version:  *pbVersion,
 		}
 
 		kdb, ndb, adb := peer.DB.RoutingTable()
-		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, adb, &config.RoutingTableConfig)
+		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, adb, &c.RoutingTableConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, config)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, c)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -254,7 +273,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return *peer.Self }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }

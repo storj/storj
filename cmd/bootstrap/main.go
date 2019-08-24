@@ -72,13 +72,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Fatal(err)
 	}
 
-	if err := runCfg.Verify(log); err != nil {
-		log.Sugar().Error("Invalid configuration: ", err)
-		return err
-	}
-
 	db, err := bootstrapdb.New(bootstrapdb.Config{
-		Kademlia: runCfg.Kademlia.DBPath,
+		Kademlia: runCfg.DBPath,
 	})
 	if err != nil {
 		return errs.New("Error starting master database on bootstrap: %+v", err)

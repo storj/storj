@@ -133,6 +133,7 @@ type Config struct {
 
 	// new values
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
+	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
 }
 
 // Peer is the satellite
@@ -162,6 +163,7 @@ type Peer struct {
 		DB        overlay.DB
 		Service   *overlay.Service
 		Inspector *overlay.Inspector
+		Dialer    *overlay.NodeDialer
 	}
 
 	Discovery struct {
@@ -281,6 +283,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
+		peer.Overlay.Dialer = overlay.NewNodeDialer(log.Named("dialer"), config.Overlay, peer.Transport)
 	}
 	{ // set up self dossier (TODO is this necessary?)
 		if config.ExternalAddress == "" {
@@ -312,7 +315,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	// TODO REMOVE ****
 	{ // setup kademlia
 		log.Debug("Setting up Kademlia")
-		config := config.Kademlia
+		c := config.Kademlia
 		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
 			config.ExternalAddress = peer.Addr()
@@ -330,12 +333,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 					Address: config.ExternalAddress,
 				},
 			},
-			Type: pb.NodeType_SATELLITE,
-			Operator: pb.NodeOperator{
-				Email:  config.Operator.Email,
-				Wallet: config.Operator.Wallet,
-			},
-			Version: *pbVersion,
+			Type:     pb.NodeType_SATELLITE,
+			Operator: pb.NodeOperator{},
+			Version:  *pbVersion,
 		}
 
 		{ // setup routing table
@@ -354,7 +354,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			}
 			peer.Kademlia.kdb, peer.Kademlia.ndb, peer.Kademlia.adb = dbs[0], dbs[1], dbs[2]
 
-			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb, peer.Kademlia.adb, &config.RoutingTableConfig)
+			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb, peer.Kademlia.adb, &c.RoutingTableConfig)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
@@ -362,7 +362,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
 		}
 
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, config)
+		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, c)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -427,7 +427,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   config.Kademlia.ExternalAddress,
+				Address:   config.ExternalAddress,
 			},
 			config.Repairer.MaxExcessRateOptimalThreshold,
 		)

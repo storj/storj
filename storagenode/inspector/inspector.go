@@ -116,8 +116,8 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 		NodeId:           inspector.NodeId,
 		InternalAddress:  "",
 		ExternalAddress:  inspector.NodeAddress,
-		LastPinged:       inspector.kademlia.LastPinged(),  // TODO kad update
-		LastQueried:      inspector.kademlia.LastQueried(), // TODO kad update
+		LastPinged:       inspector.LastPinged(),  // TODO kad update
+		LastQueried:      inspector.LastQueried(), // TODO kad update
 		DashboardAddress: inspector.dashboardAddress.String(),
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
