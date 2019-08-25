@@ -24,7 +24,7 @@ Orders is responsible for creating/managing orders that the satellite issues for
 #### audit
 Audit performs audits of the storage nodes to make sure the data they store is still retrievable. The audit system is currently made up of an audit service that runs on an interval performing audits on a segment at a time. The result of the audits are reported to the overlay service to store in node table in Satellite.DB. See [docs on audit](https://github.com/storj/docs/blob/master/code/audits/audit-service.md) for more details.
 
-#### audit
+#### repair
 Repair loops over the metainfoDB and checks if a pointer is injured, if it is injured, its added to the repair queue and a repairer later fixes it. If its unable to be repaired then its added to irreparabledb. The irreparable loop later iterates over this table and attempts to re-repair these injured segments. The repair system is currently made of 4 parts and 2 DBs (db tables). The 4 parts are 1) repair observer (contains ReliabilityCache) 2) irreparable loop 3) repairer 4) repair queue. The 2 DBs are 1) injuredsegment (repair queue) table in satellite.DB 2) and irreparabledb table in satellite.DB 
 
 #### garbage collection (GC)
@@ -127,9 +127,13 @@ Can we remove the version service? Or do we want to keep it and let these separa
 #### uptime ?
 Is uptime going to be a system?
 
+*** 
+
 The following diagram shows the above propsed design:
 
 ![Diagram of the above listed binaries](sa-separation-design.png)
+
+*** 
 
 ## Rationale
 
