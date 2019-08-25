@@ -103,7 +103,8 @@ The tally observer uses the pointers from the metainfo loop to sum the total dat
 
 The following diagram outlines the metainfo loop with the 4 observer:
 
-![Diagram of the above described metainfo loop observers](metainfo-loop-observers.png)
+<!-- ![Diagram of the above described metainfo loop observers](metainfo-loop-observers.png) -->
+![Diagram of the above described metainfo loop observers](metainfo-loop-design.svg)
 
 #### irreparable loop
 The irreparable loop iterates through the irreparabledb table in Satellite.DB and attempts to repair the segment by adding to the reapir queue again. 
@@ -140,9 +141,12 @@ The following diagram shows the above propsed design:
 #### metainfo loop and observer system
 For database performance reasons we should only have one thing looping over the metainfo database. This is why we are combining everything into the metainfo loop observer system. There is no sense in having multiple different processes all redoing the work of iterating over the database and parsing protobufs if lots of things need to do that same work over and over. Even with the observers running on different intervals, we still thinks its fine to combine all the 
 
-There has been discussion about making the audit and GC observers run on differnt loops, but for performance concerns, its been decided to run all observers on the same metainfo loop (though GC will run less frequently). It's important for the GC observer that we hit every single item in the metainfoDB otherwise we could mess up GC output if we don't get an accurate list of current pieceIDs for storage nodes.
+There has been discussion about making the audit and GC observers run on differnt loops, but for performance concerns, its been decided to run all observers on the same metainfo loop (though GC will run less frequently). 
 
-The metainfo loop and observer system its not critical to have high availability for these systems, therefor its ok to have all these observers depend on a single metainfo loop process.
+An additional is that for each metainfoDB iteration, we might want to choose a random starting position
+so that the reservoir samples for the audit observer aren't biased toward the items at the beginning of the metainfoDB. If we start at a random location we can still loop through everything, we just have to make sure to wrap back to the beginning when we reach the end and keep going until we get back to the starting place. Keep in mind it's important for the GC observer that we hit every single item in the metainfoDB otherwise we could mess up GC output if we don't get an accurate list of current pieceIDs for storage nodes.
+
+For the metainfo loop and observer system its not critical to have high availability for these systems, therefore its ok to have all these observers depend on a single metainfo loop process.  In the worst case scenario, if the metainfo loop goes down there may be downtime until its fixed and back up, this should be fine for small periods of time.
 
 #### satellite api
 

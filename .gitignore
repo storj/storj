@@ -32,3 +32,4 @@ debug
 resource.syso
 
 *.resource.go
+!docs/design/*.svg
