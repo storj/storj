@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/communication"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -75,8 +76,9 @@ type DB interface {
 type Config struct {
 	Identity identity.Config
 
-	Server   server.Config
-	Kademlia kademlia.Config
+	Server        server.Config
+	Kademlia      kademlia.Config
+	Communication communication.Config
 
 	// TODO: flatten storage config and only keep the new one
 	Storage   piecestore.OldConfig
@@ -157,9 +159,11 @@ type Peer struct {
 		Endpoint *consoleserver.Server
 	}
 
-	Bandwidth *bandwidth.Service
-
-	Self *overlay.NodeDossier
+	Bandwidth     *bandwidth.Service
+	Communication struct {
+		Service  *communication.Communication
+		Endpoint *communication.Endpoint
+	}
 }
 
 // New creates a new Storage Node.
@@ -204,7 +208,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 	}
 
-	{ // setup self node dossier
+	{ // setup communication
 		if config.ExternalAddress == "" {
 			config.ExternalAddress = peer.Addr()
 		}
@@ -228,9 +232,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			},
 			Version: *pbVersion,
 		}
-		peer.Self = self
+		peer.Communication.Service = communication.NewService(peer.Log.Named("communication"), config.Communication, self, peer.Transport)
+		peer.Communication.Endpoint = communication.NewEndpoint(peer.Log.Named("communication:endpoint"), peer.Communication.Service, peer.Storage2.Trust)
 	}
-
 	{ // setup kademlia
 		c := config.Kademlia
 		// TODO: move this setup logic into kademlia package
@@ -403,7 +407,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Bandwidth(),
 			config.Storage,
 			peer.Console.Listener.Addr(),
-			peer.URL(), // TODO should this include self.Address instead?
+			peer.Communication.Service,
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}
@@ -529,7 +533,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return *peer.Self }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Communication.Service.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }

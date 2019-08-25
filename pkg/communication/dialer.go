@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay
+package communication
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
@@ -17,22 +18,28 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
-// NodeDialer assists dialer to nodes
-type NodeDialer struct {
+type Config struct {
+	DialerLimit int `help:"Semaphore size" Default:"32"`
+}
+
+var mon = monkit.Package()
+
+// Dialer sends requests to communication endpoints on satellites/storage nodes
+type Dialer struct {
 	log       *zap.Logger
 	transport transport.Client
 	limit     sync2.Semaphore
 }
 
-// Conn represents a node connection
+// Conn represents a connection
 type Conn struct {
 	conn   *grpc.ClientConn
 	client pb.NodesClient
 }
 
-// NewNodeDialer instantiates a new node dialer struct
-func NewNodeDialer(log *zap.Logger, config Config, transport transport.Client) *NodeDialer {
-	dialer := &NodeDialer{
+// NewDialer creates a new dialer.
+func NewDialer(log *zap.Logger, config Config, transport transport.Client) *Dialer {
+	dialer := &Dialer{
 		log:       log,
 		transport: transport,
 	}
@@ -41,13 +48,13 @@ func NewNodeDialer(log *zap.Logger, config Config, transport transport.Client) *
 }
 
 // Close closes the pool resources and prevents new connections to be made.
-func (dialer *NodeDialer) Close() error {
+func (dialer *Dialer) Close() error {
 	dialer.limit.Close()
 	return nil
 }
 
-// PingNode pings the target node
-func (dialer *NodeDialer) PingNode(ctx context.Context, target pb.Node) (_ bool, err error) {
+// PingNode pings target.
+func (dialer *Dialer) PingNode(ctx context.Context, target pb.Node) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
 		return false, context.Canceled
@@ -65,7 +72,7 @@ func (dialer *NodeDialer) PingNode(ctx context.Context, target pb.Node) (_ bool,
 }
 
 // FetchPeerIdentity connects to a node and returns its peer identity
-func (dialer *NodeDialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (_ *identity.PeerIdentity, err error) {
+func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
@@ -87,7 +94,7 @@ func (dialer *NodeDialer) FetchPeerIdentity(ctx context.Context, target pb.Node)
 }
 
 // FetchPeerIdentityUnverified connects to an address and returns its peer identity (no node ID verification).
-func (dialer *NodeDialer) FetchPeerIdentityUnverified(ctx context.Context, address string, opts ...grpc.CallOption) (_ *identity.PeerIdentity, err error) {
+func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address string, opts ...grpc.CallOption) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
@@ -109,7 +116,7 @@ func (dialer *NodeDialer) FetchPeerIdentityUnverified(ctx context.Context, addre
 }
 
 // FetchInfo connects to a node and returns its node info.
-func (dialer *NodeDialer) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.InfoResponse, err error) {
+func (dialer *Dialer) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.InfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
@@ -127,12 +134,13 @@ func (dialer *NodeDialer) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.
 }
 
 // AlertSuccess alerts the transport observers of a successful connection
-func (dialer *NodeDialer) AlertSuccess(ctx context.Context, node *pb.Node) {
+// TODO update to not use transport observers
+func (dialer *Dialer) AlertSuccess(ctx context.Context, node *pb.Node) {
 	dialer.transport.AlertSuccess(ctx, node)
 }
 
 // dialNode dials the specified node.
-func (dialer *NodeDialer) dialNode(ctx context.Context, target pb.Node) (_ *Conn, err error) {
+func (dialer *Dialer) dialNode(ctx context.Context, target pb.Node) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 	grpcconn, err := dialer.transport.DialNode(ctx, &target)
 	return &Conn{
@@ -142,7 +150,7 @@ func (dialer *NodeDialer) dialNode(ctx context.Context, target pb.Node) (_ *Conn
 }
 
 // dialAddress dials the specified node by address (no node ID verification)
-func (dialer *NodeDialer) dialAddress(ctx context.Context, address string) (_ *Conn, err error) {
+func (dialer *Dialer) dialAddress(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
 	grpcconn, err := dialer.transport.DialAddress(ctx, address)
 	return &Conn{

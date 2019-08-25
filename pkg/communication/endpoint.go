@@ -1,10 +1,11 @@
-package storagenode
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package communication
 
 import (
 	"context"
-	"sync/atomic"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,9 +15,6 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// EndpointError defines errors class for Endpoint
-var EndpointError = errs.Class("storagenode endpoint error")
-
 // SatelliteIDVerifier checks if the connection is from a trusted satellite
 type SatelliteIDVerifier interface {
 	VerifySatelliteID(ctx context.Context, id storj.NodeID) error
@@ -24,49 +22,27 @@ type SatelliteIDVerifier interface {
 
 // Endpoint implements the kademlia Endpoints
 type Endpoint struct {
-	log       *zap.Logger
-	trust     SatelliteIDVerifier
-	connected int32
+	log     *zap.Logger
+	service *Communication
+	trust   SatelliteIDVerifier
 }
 
 // NewEndpoint returns a new kademlia endpoint
-func NewEndpoint(log *zap.Logger, trust SatelliteIDVerifier) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Communication, trust SatelliteIDVerifier) *Endpoint {
 	return &Endpoint{
-		log:   log,
-		trust: trust,
-	}
-}
-
-// pingback implements pingback for queries
-func (endpoint *Endpoint) pingback(ctx context.Context, target *pb.Node) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-	_, err = endpoint.service.Ping(ctx, *target)
-	if err != nil {
-		endpoint.log.Debug("connection to node failed", zap.Error(err), zap.Stringer("nodeID", target.Id))
-		err = endpoint.routingTable.ConnectionFailed(ctx, target)
-		if err != nil {
-			endpoint.log.Error("could not respond to connection failed", zap.Error(err))
-		}
-	} else {
-		err = endpoint.routingTable.ConnectionSuccess(ctx, target)
-		if err != nil {
-			endpoint.log.Error("could not respond to connection success", zap.Error(err))
-		} else {
-			count := atomic.AddInt32(&endpoint.connected, 1)
-			if count == 1 {
-				endpoint.log.Sugar().Debugf("Successfully connected with %s", target.Address.Address)
-			} else if count%100 == 0 {
-				endpoint.log.Sugar().Debugf("Successfully connected with %s %dx times", target.Address.Address, count)
-			}
-		}
+		log:     log,
+		service: service,
+		trust:   trust,
 	}
 }
 
 // Ping provides an easy way to verify a node is online and accepting requests
 func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.PingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	endpoint.service.Pinged()
+	self := endpoint.service.Local()
+	if self.Type == pb.NodeType_STORAGE {
+		endpoint.service.Pinged()
+	}
 	return &pb.PingResponse{}, nil
 }
 
