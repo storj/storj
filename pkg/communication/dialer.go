@@ -18,10 +18,6 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
-type Config struct {
-	DialerLimit int `help:"Semaphore size" Default:"32"`
-}
-
 var mon = monkit.Package()
 
 // Dialer sends requests to communication endpoints on satellites/storage nodes

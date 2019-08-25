@@ -16,12 +16,18 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
+type Config struct {
+	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
+	DialerLimit     int    `help:"Semaphore size" Default:"32"`
+}
+
 var (
 	// NodeErr is the class for all errors pertaining to node operations
 	NodeErr = errs.Class("node error")
 )
 
-type Communication struct {
+// Service is the communication service between storage nodes and satellites
+type Service struct {
 	log        *zap.Logger
 	self       *overlay.NodeDossier
 	dialer     *Dialer
@@ -29,8 +35,9 @@ type Communication struct {
 	lastPinged time.Time
 }
 
-func NewService(log *zap.Logger, config Config, self *overlay.NodeDossier, transport transport.Client) *Communication {
-	return &Communication{
+// NewService creates a new communication service
+func NewService(log *zap.Logger, config Config, self *overlay.NodeDossier, transport transport.Client) *Service {
+	return &Service{
 		log:    log,
 		self:   self,
 		dialer: NewDialer(log.Named("dialer"), config, transport),
@@ -38,45 +45,54 @@ func NewService(log *zap.Logger, config Config, self *overlay.NodeDossier, trans
 }
 
 // LastPinged returns last time someone pinged this node.
-func (c *Communication) LastPinged() time.Time {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.lastPinged
+func (service *Service) LastPinged() time.Time {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	return service.lastPinged
 }
 
 // Pinged notifies the service it has been remotely pinged.
-func (c *Communication) Pinged() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.lastPinged = time.Now()
+func (service *Service) Pinged() {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	service.lastPinged = time.Now()
 }
 
 // Local returns the local node
-func (c *Communication) Local() overlay.NodeDossier {
-	return *c.self
+func (service *Service) Local() overlay.NodeDossier {
+	return *service.self
 }
 
 // Ping checks that the provided node is still accessible on the network
-func (c *Communication) Ping(ctx context.Context, node pb.Node) (_ pb.Node, err error) {
+func (service *Service) Ping(ctx context.Context, node pb.Node) (_ pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ok, err := c.dialer.PingNode(ctx, node)
+	ok, err := service.dialer.PingNode(ctx, node)
 	if err != nil {
 		return pb.Node{}, NodeErr.Wrap(err)
 	}
 	if !ok {
-		return pb.Node{}, NodeErr.New("%s : %s failed to ping node ID %s", c.self.Type.String(), c.self.Id.String(), node.Id.String())
+		return pb.Node{}, NodeErr.New("%s : %s failed to ping node ID %s", service.self.Type.String(), service.self.Id.String(), node.Id.String())
 	}
 	return node, nil
 }
 
 // FetchInfo connects to a node address and returns the node info
-func (c *Communication) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoResponse, err error) {
+func (service *Service) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	info, err := c.dialer.FetchInfo(ctx, node)
+	info, err := service.dialer.FetchInfo(ctx, node)
 	if err != nil {
 		return nil, NodeErr.Wrap(err)
 	}
 	return info, nil
+}
+
+// UpdateSelf updates the local node with the provided info
+func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	if capacity != nil {
+		service.self.Capacity = *capacity
+	}
 }

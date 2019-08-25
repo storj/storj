@@ -9,11 +9,11 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/communication"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/pieces"
@@ -36,7 +36,7 @@ type Config struct {
 // Service which monitors disk usage and updates kademlia network as necessary.
 type Service struct {
 	log                *zap.Logger
-	routingTable       *kademlia.RoutingTable
+	comm               *communication.Service
 	store              *pieces.Store
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
@@ -48,10 +48,10 @@ type Service struct {
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, communication *communication.Service, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
 	return &Service{
 		log:                log,
-		routingTable:       routingTable,
+		comm:               communication,
 		store:              store,
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
@@ -150,7 +150,7 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	service.routingTable.UpdateSelf(&pb.NodeCapacity{
+	service.comm.UpdateSelf(&pb.NodeCapacity{
 		FreeBandwidth: service.allocatedBandwidth - usedBandwidth,
 		FreeDisk:      service.allocatedDiskSpace - usedSpace,
 	})

@@ -23,12 +23,12 @@ type SatelliteIDVerifier interface {
 // Endpoint implements the kademlia Endpoints
 type Endpoint struct {
 	log     *zap.Logger
-	service *Communication
+	service *Service
 	trust   SatelliteIDVerifier
 }
 
 // NewEndpoint returns a new kademlia endpoint
-func NewEndpoint(log *zap.Logger, service *Communication, trust SatelliteIDVerifier) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Service, trust SatelliteIDVerifier) *Endpoint {
 	return &Endpoint{
 		log:     log,
 		service: service,
