@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/communication"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -103,12 +104,12 @@ type DB interface {
 
 // Config is the global config satellite
 type Config struct {
-	Identity identity.Config
-	Server   server.Config
-
-	Kademlia  kademlia.Config
-	Overlay   overlay.Config
-	Discovery discovery.Config
+	Identity      identity.Config
+	Server        server.Config
+	Communication communication.Config
+	Kademlia      kademlia.Config
+	Overlay       overlay.Config
+	Discovery     discovery.Config
 
 	Metainfo metainfo.Config
 	Orders   orders.Config
@@ -163,7 +164,6 @@ type Peer struct {
 		DB        overlay.DB
 		Service   *overlay.Service
 		Inspector *overlay.Inspector
-		Dialer    *overlay.NodeDialer
 	}
 
 	Discovery struct {
@@ -231,7 +231,10 @@ type Peer struct {
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
-	Self *overlay.NodeDossier
+	Communication struct {
+		Service  *communication.Communication
+		Endpoint *communication.Endpoint
+	}
 }
 
 // New creates a new satellite
@@ -283,9 +286,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
-		peer.Overlay.Dialer = overlay.NewNodeDialer(log.Named("dialer"), config.Overlay, peer.Transport)
 	}
-	{ // set up self dossier (TODO is this necessary?)
+
+	{ // setup communication
 		if config.ExternalAddress == "" {
 			config.ExternalAddress = peer.Addr()
 		}
@@ -302,14 +305,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 					Address: config.ExternalAddress,
 				},
 			},
-			Type: pb.NodeType_SATELLITE,
-			Operator: pb.NodeOperator{
-				Email:  "",
-				Wallet: "",
-			},
-			Version: *pbVersion,
+			Type:     pb.NodeType_SATELLITE,
+			Operator: pb.NodeOperator{},
+			Version:  *pbVersion,
 		}
-		peer.Self = self
+		peer.Communication.Service = communication.NewService(peer.Log.Named("communication"), config.Communication, self, peer.Transport)
+		peer.Communication.Endpoint = communication.NewEndpoint(peer.Log.Named("communication:endpoint"), peer.Communication.Service, nil)
 	}
 
 	// TODO REMOVE ****
@@ -809,7 +810,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return *peer.Self }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Communication.Service.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
