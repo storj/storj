@@ -103,8 +103,11 @@ The tally observer uses the pointers from the metainfo loop to sum the total dat
 
 The following diagram outlines the metainfo loop with the 4 observer:
 
-<!-- ![Diagram of the above described metainfo loop observers](metainfo-loop-observers.png) -->
-![Diagram of the above described metainfo loop observers](metainfo-loop-design.svg)
+***
+
+![Diagram of the above described metainfo loop observers](images/metainfo-loop-design.svg)
+
+***
 
 #### irreparable loop
 The irreparable loop iterates through the irreparabledb table in Satellite.DB and attempts to repair the segment by adding to the reapir queue again. 
@@ -117,7 +120,12 @@ The audit binary should be able to run many audits in parallel. For the [audit-v
 
 The following diagram outlines the design for the audit system once separated out of the satellite:
 
-![Diagram of the audit v2 system](audit-v2-design.png)
+***
+
+![Diagram of the audit v2 system](images/audit-v2-design.svg)
+
+***
+
 
 #### accounting
 The accounting binary is responsible for calculating invoices for uplinks and payments for storage nodes. In order to do this, accounting must track total amounts of disk usage and bandwidth used by storage nodes and by buckets. Accounting should receive storage node total stored bytes data from the tally observer running with the metainfo loop.
@@ -128,13 +136,13 @@ Can we remove the version service? Or do we want to keep it and let these separa
 #### uptime ?
 Is uptime going to be a system?
 
-*** 
+***
 
 The following diagram shows the above propsed design:
 
-![Diagram of the above listed binaries](sa-separation-design.png)
+![Diagram of the above listed binaries](images/sa-separation-design.svg)
 
-*** 
+***
 
 ## Rationale
 
