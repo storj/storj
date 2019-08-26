@@ -18,15 +18,13 @@ var StorageUsageDatabaseFilename = "storage_usage.db"
 
 // storageusageDB storage usage DB
 type storageusageDB struct {
-	location string
 	SQLDB
 }
 
 // newStorageusageDB returns a new instance of storageusageDB initialized with the specified database.
-func newStorageusageDB(db SQLDB, location string) *storageusageDB {
+func newStorageusageDB(db SQLDB) *storageusageDB {
 	return &storageusageDB{
-		location: location,
-		SQLDB:    db,
+		SQLDB: db,
 	}
 }
 

@@ -18,15 +18,13 @@ var ErrPieceSpaceUsed = errs.Class("piece space used error")
 var PieceSpacedUsedDatabaseFilename = "piece_spaced_used.db"
 
 type pieceSpaceUsedDB struct {
-	location string
 	SQLDB
 }
 
 // newPieceSpaceUsedDB returns a new instance of pieceSpaceUsedDB initialized with the specified database.
-func newPieceSpaceUsedDB(db SQLDB, location string) *pieceSpaceUsedDB {
+func newPieceSpaceUsedDB(db SQLDB) *pieceSpaceUsedDB {
 	return &pieceSpaceUsedDB{
-		location: location,
-		SQLDB:    db,
+		SQLDB: db,
 	}
 }
 

@@ -19,15 +19,13 @@ var ErrPieceExpiration = errs.Class("piece expiration error")
 var PieceExpirationDatabaseFilename = "piece_expirations.db"
 
 type pieceExpirationDB struct {
-	location string
 	SQLDB
 }
 
 // newPieceExpirationDB returns a new instance of pieceExpirationDB initialized with the specified database.
-func newPieceExpirationDB(db SQLDB, location string) *pieceExpirationDB {
+func newPieceExpirationDB(db SQLDB) *pieceExpirationDB {
 	return &pieceExpirationDB{
-		location: location,
-		SQLDB:    db,
+		SQLDB: db,
 	}
 }
 

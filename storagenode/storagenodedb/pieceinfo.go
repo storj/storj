@@ -24,15 +24,13 @@ var ErrPieceInfo = errs.Class("v0pieceinfodb error")
 var v0PieceInfoDatabaseFilename = "pieceinfo.db"
 
 type v0PieceInfoDB struct {
-	location string
 	SQLDB
 }
 
 // newV0PieceInfoDB returns a new instance of pieceinfo initialized with the specified database.
-func newV0PieceInfoDB(db SQLDB, location string) *v0PieceInfoDB {
+func newV0PieceInfoDB(db SQLDB) *v0PieceInfoDB {
 	return &v0PieceInfoDB{
-		location: location,
-		SQLDB:    db,
+		SQLDB: db,
 	}
 }
 

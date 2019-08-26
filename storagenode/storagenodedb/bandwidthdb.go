@@ -27,15 +27,13 @@ type bandwidthDB struct {
 	usedMu    sync.RWMutex
 	usedSince time.Time
 
-	location string
 	SQLDB
 }
 
 // newBandwidthDB returns a new instance of usedSerials initialized with the specified database.
-func newBandwidthDB(db SQLDB, location string) *bandwidthDB {
+func newBandwidthDB(db SQLDB) *bandwidthDB {
 	return &bandwidthDB{
-		location: location,
-		SQLDB:    db,
+		SQLDB: db,
 	}
 }
 

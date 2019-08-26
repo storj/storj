@@ -19,15 +19,13 @@ var ReputationDatabaseFilename = "reputation.db"
 
 // reputation works with node reputation DB
 type reputationDB struct {
-	location string
 	SQLDB
 }
 
 // newReputationDB returns a new instance of reputationDB initialized with the specified database.
-func newReputationDB(db SQLDB, location string) *reputationDB {
+func newReputationDB(db SQLDB) *reputationDB {
 	return &reputationDB{
-		location: location,
-		SQLDB:    db,
+		SQLDB: db,
 	}
 }
 

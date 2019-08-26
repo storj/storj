@@ -19,15 +19,13 @@ var ErrUsedSerials = errs.Class("usedserialsdb error")
 var UsedSerialsDatabaseFilename = "used_serial.db"
 
 type usedSerialsDB struct {
-	location string
 	SQLDB
 }
 
 // newUsedSerialsDB returns a new instance of usedSerials initialized with the specified database.
-func newUsedSerialsDB(db SQLDB, location string) *usedSerialsDB {
+func newUsedSerialsDB(db SQLDB) *usedSerialsDB {
 	return &usedSerialsDB{
-		location: location,
-		SQLDB:    db,
+		SQLDB: db,
 	}
 }
 

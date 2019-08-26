@@ -162,7 +162,6 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 	}
 	pieces := filestore.New(log, piecesDir)
 
-	versionsPath := ""
 	versionsDB, err := openTestDatabase()
 	if err != nil {
 		return nil, err
@@ -177,17 +176,17 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 
 		// Initialize databases. Currently shares one info.db database file but
 		// in the future these will initialize their own database connections.
-		versionsDB:        newVersionsDB(versionsDB, versionsPath),
-		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
-		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
+		versionsDB:        newVersionsDB(versionsDB, ""),
+		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB),
+		bandwidthDB:       newBandwidthDB(versionsDB),
 		consoleDB:         newConsoleDB(versionsDB),
-		ordersDB:          newOrdersDB(versionsDB, versionsPath),
-		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
-		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
-		reputationDB:      newReputationDB(versionsDB, versionsPath),
-		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
-		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
-		vouchersDB:        newVouchersDB(versionsDB, versionsPath),
+		ordersDB:          newOrdersDB(versionsDB),
+		pieceExpirationDB: newPieceExpirationDB(versionsDB),
+		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB),
+		reputationDB:      newReputationDB(versionsDB),
+		storageUsageDB:    newStorageusageDB(versionsDB),
+		usedSerialsDB:     newUsedSerialsDB(versionsDB),
+		vouchersDB:        newVouchersDB(versionsDB),
 	}
 	return db, nil
 }
@@ -200,13 +199,13 @@ func (db *DB) openDatabases(databasesPath string) error {
 	if err != nil {
 		return err
 	}
-	db.versionsDB = newVersionsDB(versionsDB, "")
+	db.versionsDB = newVersionsDB(versionsDB, filepath.Join(databasesPath, VersionsDatabaseFilename))
 
 	bandwidthDB, err := openDatabase(filepath.Join(databasesPath, BandwidthDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.bandwidthDB = newBandwidthDB(bandwidthDB, "")
+	db.bandwidthDB = newBandwidthDB(bandwidthDB)
 
 	// TODO: console database?
 
@@ -214,49 +213,49 @@ func (db *DB) openDatabases(databasesPath string) error {
 	if err != nil {
 		return err
 	}
-	db.ordersDB = newOrdersDB(ordersDB, "")
+	db.ordersDB = newOrdersDB(ordersDB)
 
 	pieceExpirationDB, err := openDatabase(filepath.Join(databasesPath, PieceExpirationDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.pieceExpirationDB = newPieceExpirationDB(pieceExpirationDB, "")
+	db.pieceExpirationDB = newPieceExpirationDB(pieceExpirationDB)
 
 	v0PieceInfoDB, err := openDatabase(filepath.Join(databasesPath, v0PieceInfoDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.v0PieceInfoDB = newV0PieceInfoDB(v0PieceInfoDB, "")
+	db.v0PieceInfoDB = newV0PieceInfoDB(v0PieceInfoDB)
 
 	pieceSpaceUsedDB, err := openDatabase(filepath.Join(databasesPath, PieceSpacedUsedDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.pieceSpaceUsedDB = newPieceSpaceUsedDB(pieceSpaceUsedDB, "")
+	db.pieceSpaceUsedDB = newPieceSpaceUsedDB(pieceSpaceUsedDB)
 
 	reputationDB, err := openDatabase(filepath.Join(databasesPath, ReputationDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.reputationDB = newReputationDB(reputationDB, "")
+	db.reputationDB = newReputationDB(reputationDB)
 
 	storageUsageDB, err := openDatabase(filepath.Join(databasesPath, StorageUsageDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.storageUsageDB = newStorageusageDB(storageUsageDB, "")
+	db.storageUsageDB = newStorageusageDB(storageUsageDB)
 
 	usedSerialsDB, err := openDatabase(filepath.Join(databasesPath, UsedSerialsDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.usedSerialsDB = newUsedSerialsDB(usedSerialsDB, "")
+	db.usedSerialsDB = newUsedSerialsDB(usedSerialsDB)
 
 	vouchersDB, err := openDatabase(filepath.Join(databasesPath, VouchersDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.vouchersDB = newVouchersDB(vouchersDB, "")
+	db.vouchersDB = newVouchersDB(vouchersDB)
 
 	return nil
 }

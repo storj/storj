@@ -21,15 +21,13 @@ var ErrVouchers = errs.Class("vouchersdb error")
 var VouchersDatabaseFilename = "vouchers.db"
 
 type vouchersDB struct {
-	location string
 	SQLDB
 }
 
 // newVouchersDB returns a new instance of vouchersdb initialized with the specified database.
-func newVouchersDB(db SQLDB, location string) *vouchersDB {
+func newVouchersDB(db SQLDB) *vouchersDB {
 	return &vouchersDB{
-		location: location,
-		SQLDB:    db,
+		SQLDB: db,
 	}
 }
 

@@ -22,15 +22,13 @@ var ErrOrders = errs.Class("ordersdb error")
 var OrdersDatabaseFilename = "orders.db"
 
 type ordersDB struct {
-	location string
 	SQLDB
 }
 
 // newOrdersDB returns a new instance of ordersdb initialized with the specified database.
-func newOrdersDB(db SQLDB, location string) *ordersDB {
+func newOrdersDB(db SQLDB) *ordersDB {
 	return &ordersDB{
-		location: location,
-		SQLDB:    db,
+		SQLDB: db,
 	}
 }
 
