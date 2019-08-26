@@ -162,11 +162,23 @@ For each node performs an _uptime check_.
 
 ## Rationale
 
+The designed approach has the drawback that `last_contact_failure` of the `nodes` table may get updated by other satellite services before the _estimating offline time_ subprocess reads the last value and calculates the number of offline seconds.
+
+The following diagram shows one of these scenarios:
+
+![missing tracking offline seconds](images/storagenode-downtime-tracking-missing-tracking-offline-seconds.png)
+
+The solution is to restrict to this new service the updates of the `last_contact_failure`. The other Satellite services will have to inform when they detect an uptime failure, but this solution increases the complexity and probably impacts the performance of those services due to the introduced indirection.
+
+The services which update the `last_contact_failure` choose Storage Nodes randomly, hence we believe that these corner cases are minimal and losing some offline seconds tracking is acceptable and desirable for having a simpler solution.
+
+Next, we present some alternative architectural solutions.
+
 ### Independent Service
 
 The designed system runs in the Satellite single operative system process spinning up them in Goroutines. Currently, this is how all the different Satellite application processes run.
 
-An alternate design is to create an independent service for running the process of the _offline downtime tracking_ described in the [design section](#design).
+An alternative design is to create an independent service for running the process of the _offline downtime tracking_ described in the [design section](#design).
 
 The advantages of this alternative are:
 
@@ -191,7 +203,7 @@ The disadvantages outweigh the advantages of considering that:
 
 The designed system uses a SQL database for storing the Storage Nodes downtime.
 
-An alternate solution is to use [InfluxDB time-series database](https://www.influxdata.com/).
+An alternative solution is to use [InfluxDB time-series database](https://www.influxdata.com/).
 
 The advantages are:
 
