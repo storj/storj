@@ -67,7 +67,7 @@ There are a number of reasons to use the WiX toolset directly instead of go-msi:
    * Ensure UAC(s) is not triggered after installation.
    * Ensure that storage node restarts automatically after a crash 
 
-## Open Issues/ Comments (if applicable)
+## Open issues
 
 * Consider writing an uninstaller.
   * MSI package support unintsalling too. We must test to check what files are left on disk after uninstall.
