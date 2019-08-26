@@ -29,7 +29,6 @@
         APP_STATE_ACTIONS,
         NOTIFICATION_ACTIONS,
         PM_ACTIONS,
-        PROJETS_ACTIONS,
         PROJECT_USAGE_ACTIONS,
         PROJECT_PAYMENT_METHODS_ACTIONS,
     } from '@/utils/constants/actionNames';
@@ -37,10 +36,11 @@
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { AppState } from '@/utils/constants/appStateEnum';
     import { AuthToken } from '@/utils/authToken';
-    import ROUTES from '@/utils/constants/routerConstants';
     import { Project } from '@/types/projects';
     import { RequestResponse } from '@/types/response';
+    import router, { RouteConfig } from '@/router';
     import { User } from '@/types/users';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
     @Component({
     mounted: async function() {
@@ -52,20 +52,29 @@
             } catch (error) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                this.$router.push(ROUTES.LOGIN);
+                this.$router.push(RouteConfig.Login);
                 AuthToken.remove();
 
                 return;
             }
 
-            let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-            if (!getProjectsResponse.isSuccess || getProjectsResponse.data.length < 1) {
-                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+            let projects: Project[] = [];
+
+            try {
+                projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            } catch (error) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
                 return;
             }
 
-            await this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
+            if (!projects.length) {
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+
+                return;
+            }
+
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
 
             await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
             try {

@@ -77,6 +77,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 			ReputationBeta:  node.Reputation.AuditReputationBeta,
 			ReputationScore: auditScore,
 		},
+		Disqualified: node.Disqualified,
 	}, nil
 }
 

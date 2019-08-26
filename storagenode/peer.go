@@ -133,7 +133,7 @@ type Peer struct {
 		Endpoint      *piecestore.Endpoint
 		Inspector     *inspector.Endpoint
 		Monitor       *monitor.Service
-		Sender        *orders.Sender
+		Orders        *orders.Service
 	}
 
 	Vouchers *vouchers.Service
@@ -297,12 +297,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
-		peer.Storage2.Sender = orders.NewSender(
-			log.Named("piecestore:orderssender"),
+		peer.Storage2.Orders = orders.NewService(
+			log.Named("orders"),
 			peer.Transport,
 			peer.DB.Orders(),
 			peer.Storage2.Trust,
-			config.Storage2.Sender,
+			config.Storage2.Orders,
 		)
 	}
 
@@ -403,7 +403,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Collector.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.Sender.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Storage2.Orders.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
@@ -463,8 +463,8 @@ func (peer *Peer) Close() error {
 	if peer.Storage2.Monitor != nil {
 		errlist.Add(peer.Storage2.Monitor.Close())
 	}
-	if peer.Storage2.Sender != nil {
-		errlist.Add(peer.Storage2.Sender.Close())
+	if peer.Storage2.Orders != nil {
+		errlist.Add(peer.Storage2.Orders.Close())
 	}
 	if peer.Storage2.CacheService != nil {
 		errlist.Add(peer.Storage2.CacheService.Close())

@@ -128,7 +128,7 @@ func ParseMacaroon(data []byte) (_ *Macaroon, err error) {
 		//cav.VerificationId = section[0].data
 		mac.caveats = append(mac.caveats, cav)
 	}
-	data, sig, err := parsePacket(data)
+	_, sig, err := parsePacket(data)
 	if err != nil {
 		return nil, err
 	}
