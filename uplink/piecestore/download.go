@@ -191,7 +191,7 @@ func (client *Download) Read(data []byte) (read int, err error) {
 			client.unread.Fill(response.Chunk.Data)
 		}
 		// we got a piece hash and the original order limit (GET_REPAIR)
-		if response != nil && response.Hash != nil {
+		if response != nil && response.Hash != nil && response.Limit != nil {
 			client.hash = response.Hash
 			client.originLimit = response.Limit
 		}
