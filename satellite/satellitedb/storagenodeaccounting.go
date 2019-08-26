@@ -171,7 +171,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		return nil, Error.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-	csv := make([]*accounting.CSVRow, 0, 0)
+	csv := []*accounting.CSVRow{}
 	for rows.Next() {
 		var nodeID []byte
 		r := &accounting.CSVRow{}

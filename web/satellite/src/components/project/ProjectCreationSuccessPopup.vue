@@ -52,7 +52,7 @@
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import ROUTES from '@/utils/constants/routerConstants';
+    import { RouteConfig } from '@/router';
 
     @Component({
         components: {
@@ -65,9 +65,8 @@
         }
 
         public onCreateAPIKeyClick(): void {
-            this.$router.push(ROUTES.API_KEYS.path);
+            this.$router.push(RouteConfig.ApiKeys.path);
             this.onCloseClick();
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
         }
 
         public get isPopupShown(): boolean {
