@@ -13,10 +13,10 @@ Currently all Satellite services run in a single binary in a single container. W
 Currently the Satellite is a single binary made of up the following services:
 
 #### overlay
-wip
+The overlay cache maintains critical information about nodes in the network. One important use of overlay is to help select which storage nodes to upload files to.
 
 #### metainfo
-Metainfo is responsible for all things related to the metainfo stored for each file on the network. The metainfo system is currently composed of the following parts: 1) metainfoDB, a key/value store with segment path names as the key and a pointer/segment object as the value, 2) metainfo loop which iterates over all the key/values in metainfDB, 3) metainfo endpoint which creates the public GRPCs for creating/deleting metainfo, 4) metainfo service.
+Metainfo is responsible for all things related to the metainfo stored for each file on the network. The metainfo system is currently composed of the following parts: 1) metainfoDB, a key/value store with segment path names as the key and a segment object as the value, 2) metainfo loop which iterates over all the key/values in metainfDB, 3) metainfo endpoint which creates the public GRPCs for creating/deleting metainfo, 4) metainfo service.
 
 #### orders
 Orders is responsible for creating/managing orders that the satellite issues for a file upload/download. Orders are used to keep track of how much bandwidth was used to upload/download a file. This data is used to pay storage nodes for bandwidth usage and to charge the uplinks. See this [doc on the lifecycle of data](https://github.com/storj/docs/blob/master/code/payments/Accounting.md#lifecycle-of-the-data) related to accounting which includes orders.
@@ -25,10 +25,10 @@ Orders is responsible for creating/managing orders that the satellite issues for
 Audit performs audits of the storage nodes to make sure the data they store is still retrievable. The audit system is currently made up of an audit service that runs on an interval performing audits on a segment at a time. The result of the audits are reported to the overlay service to store in node table in Satellite.DB. See [docs on audit](https://github.com/storj/docs/blob/master/code/audits/audit-service.md) for more details.
 
 #### repair
-Repair loops over the metainfoDB and checks if a pointer is injured, if it is injured, its added to the repair queue and a repairer later fixes it. If its unable to be repaired then its added to irreparabledb. The irreparable loop later iterates over this table and attempts to re-repair these injured segments. The repair system is currently made of 4 parts and 2 DBs (db tables). The 4 parts are 1) repair observer (contains ReliabilityCache) 2) irreparable loop 3) repairer 4) repair queue. The 2 DBs are 1) injuredsegment (repair queue) table in satellite.DB 2) and irreparabledb table in satellite.DB 
+Repair loops over the metainfoDB and checks if a segment is injured, if it is injured, its added to the repair queue and a repairer later fixes it. If its unable to be repaired then its added to irreparabledb. The irreparable loop later iterates over this table and attempts to re-repair these injured segments. The repair system is currently made of 4 parts and 2 DBs (db tables). The 4 parts are 1) repair observer (contains ReliabilityCache) 2) irreparable loop 3) repairer 4) repair queue. The 2 DBs are 1) injuredsegment (repair queue) table in satellite.DB 2) and irreparabledb table in satellite.DB 
 
 #### garbage collection (GC)
-GC consults with the metainfoDB, the source of truth for what data should be on the network, then with this info creates lists of what data each storage node should be storing and sends those lists to their respective storgae node.  The storage nodes can then delete any data that they are storing that is no longer in the GC list. See [GC design doc](https://github.com/storj/storj/blob/master/docs/design/garbage-collection.md) for more details. 
+GC consults with the metainfoDB, the source of truth for what data should be on the network, then with this info creates lists of what data each storage node should have and sends those lists to their respective storgae node.  The storage nodes can then delete any data that they are storing that is no longer in the GC list. See [GC design doc](https://github.com/storj/storj/blob/master/docs/design/garbage-collection.md) for more details. 
 
 #### accounting
 Accounting includes tally and rollup service along with the live accounting cache. The function of accounting is to calculate what to charge Uplinks for their usage and also what to pay storage nodes for their contributions to the network. See [docs on accounting](https://github.com/storj/docs/blob/master/code/payments/Accounting.md) for more details.
@@ -43,7 +43,7 @@ Mail sends email for the console UI.
 Nodestats makes it so that storagenodes can ask the satellite for info about itself, for example, it can ask for stats on reputation and accounting storage usage.
 
 #### version
-Version publishes what version of the satellite are supported.
+Version publishes what version of the satellite are supported. The storage nodes update their software version based on info from this version service.
 
 #### inspectors
 Inspectors are exposed on a private GRPC port and provide a way to get data about certain systems. The following inspectors currently exist: overlay inspector, health inspector, and irreparable inspector.
@@ -62,7 +62,7 @@ The Satellite has the following HTTP endpoints:
 - Private: marketing admin UI, debug
 
 #### databases
-All services (except version) make connections to the masterDB. Five services rely on metainfo service to access the metainfoDB, this includes inspectors, accounting, audit, repair, and garbage collection.
+All services (except version) make connections to the satellite.DB. Five services rely on metainfo service to access the metainfoDB, this includes inspectors, accounting, audit, repair, and garbage collection.
 
 See these docs for details on current database design: 
 - https://github.com/storj/docs/blob/master/code/Database.md#database
@@ -91,15 +91,15 @@ The satellite api will handle all public GRPC and HTTP requests, this includes a
 The private api binary handles all private GRPC and HTTP requests, this includes inspectors (overlay, health, irreparable), debug endpoints, and the marketing web UI. Open question: do we need the inspectors, if not should they be removed?
 
 #### metainfo loop and the observer system
-The metainfo loop binary iterates over all the pointers in metainfoDB repeatedly on an interval. With each loop, the process can also execute the code for the observer systems that take a pointer as input and performs some action with it. The observer systems currently include: audit observer, gc observer, repair checker observer, and accounting tally.
+The metainfo loop binary iterates over all the segments in metainfoDB repeatedly on an interval. With each loop, the process can also execute the code for the observer systems that take a segment as input and performs some action with it. The observer systems currently include: audit observer, gc observer, repair checker observer, and accounting tally.
 
-The audit observer uses the pointers from the metainfo loop to create segment reservoir samples for each storage node and saves those samples to a reservoir cache. Audit observer currently runs on a 30s interval for the release default setting. See [audit-v2 design](https://github.com/storj/storj/blob/master/docs/design/audit-v2.md) for more details.
+The audit observer uses the segments from the metainfo loop to create segment reservoir samples for each storage node and saves those samples to a reservoir cache. Audit observer currently runs on a 30s interval for the release default setting. See [audit-v2 design](https://github.com/storj/storj/blob/master/docs/design/audit-v2.md) for more details.
 
-The repair (checker) observer uses the pointers from the metainfo loop to identify segments that need to be repaired and adds those injured segments to the repair queue. The repair check currently has a checkerObserver.ReliabilityCache, is this cache ok to stay in-memory? The repair observer currently runs on a 30s interval for the release default setting.
+The repair (checker) observer uses the segments from the metainfo loop to identify segments that need to be repaired and adds those injured segments to the repair queue. The repair check currently has a checkerObserver.ReliabilityCache, this should be ok to stay in-memory for the time being since we plan on only running a single metainfo loop. The repair observer currently runs on a 30s interval for the release default setting.
 
-The garbage collector (GC) observer uses the pointers from the metainfo loop to create bloom filters for each storge node. The bloom filters contain all the pieceIDs that the storage node should have. The bloom filters are stored in-memory then sent to the appropriate storage node. Keeping the bloom filters in-memory is ok as long as we don't run more replicas of the metainfo loop service, is this what we want? The GC observer currently runs on 5 day interval for the release default setting.
+The garbage collector (GC) observer uses the segments from the metainfo loop to create bloom filters for each storge node. The bloom filters contain all the pieceIDs that the storage node should have. The bloom filters are stored in-memory then sent to the appropriate storage node. Keeping the bloom filters in-memory is ok for the time being since we don't plan to run more than a single replica of the metainfo loop service. The GC observer currently runs on 5 day interval for the release default setting.
 
-The tally observer uses the pointers from the metainfo loop to sum the total data stored on storage nodes and in buckets then saves these values in the tables `storagenode_storage_tally` and `bucket_storage_tally` in the Satellite.DB database.
+The tally observer uses the segments from the metainfo loop to sum the total data stored on storage nodes and in buckets then saves these values in the tables `storagenode_storage_tally` and `bucket_storage_tally` in the Satellite.DB database.
 
 The following diagram outlines the metainfo loop with the 4 observer:
 
@@ -131,7 +131,7 @@ The following diagram outlines the design for the audit system once separated ou
 The accounting binary is responsible for calculating invoices for uplinks and payments for storage nodes. In order to do this, accounting must track total amounts of disk usage and bandwidth used by storage nodes and by buckets. Accounting should receive storage node total stored bytes data from the tally observer running with the metainfo loop.
 
 #### version
-Can we remove the version service? Or do we want to keep it and let these separated binaries check in with the version service to check they are running an appropriate version? Not sure if that is necessary since we could handle version compatibility at the layer of infrastructure deployment.
+We need a way for all these new satellite binaries to perform a version compatibility check with each other.  This could be done by having one dedicated service (i.e. the version service) that everything checks in with, or maybe by having all storj software pieces set their current version information in grpc metadata or something like that. The version compaibility check will need to be smarter than "require all actors to be on the exact same version" because, at some point, we will probably want to upgrade certain components of the system without having to upgrade and restart all of them.
 
 #### uptime ?
 Is uptime going to be a system?
@@ -147,18 +147,16 @@ The following diagram shows the above propsed design:
 ## Rationale
 
 #### metainfo loop and observer system
-For database performance reasons we should only have one thing looping over the metainfo database. This is why we are combining everything into the metainfo loop observer system. There is no sense in having multiple different processes all redoing the work of iterating over the database and parsing protobufs if lots of things need to do that same work over and over. Even with the observers running on different intervals, we still thinks its fine to combine all the 
+For database performance reasons we should only have one thing looping over the metainfo database. This is why we are combining everything into the metainfo loop observer system. There is no sense in having multiple different processes all redoing the work of iterating over the database and parsing protobufs if lots of things need to do that same work over and over. We could add functionality to this version service so that all binaries running in the new satellite system check in and provide software version compatibility details. There has been discussion about making the audit and GC observers run on differnt loops, but for performance concerns, its been decided to run all observers on the same metainfo loop (though GC will run less frequently). 
 
-There has been discussion about making the audit and GC observers run on differnt loops, but for performance concerns, its been decided to run all observers on the same metainfo loop (though GC will run less frequently). 
+Keep in mind it's important for the GC observer that we hit every single item in the metainfoDB, otherwise the GC bloom filters could be inaccurate which could cause storage nodes to delete live data.
 
-An additional is that for each metainfoDB iteration, we might want to choose a random starting position
-so that the reservoir samples for the audit observer aren't biased toward the items at the beginning of the metainfoDB. If we start at a random location we can still loop through everything, we just have to make sure to wrap back to the beginning when we reach the end and keep going until we get back to the starting place. Keep in mind it's important for the GC observer that we hit every single item in the metainfoDB otherwise we could mess up GC output if we don't get an accurate list of current pieceIDs for storage nodes.
-
-For the metainfo loop and observer system its not critical to have high availability for these systems, therefore its ok to have all these observers depend on a single metainfo loop process.  In the worst case scenario, if the metainfo loop goes down there may be downtime until its fixed and back up, this should be fine for small periods of time.
+For the metainfo loop and observer system its not critical to have high availability for these systems in the short term, therefore its ok to have all these observers depend on a single metainfo loop process.  If the need arises to have multiple concurrent metainfo loops then we can address those specific needs as they come up. In the worst case scenario, if the metainfo loop goes down we don't expect any overall sateillite system downtime, however there may be metainfo loop downtime until its fixed and back up. This should be fine for small periods of time.  We should figure out what is an acceptable amount of downtime for metainfo loop should it occur.
 
 #### satellite api
 
-We chose to combine all public GRPC and HTTP endpoints into one binary. The reason for this is so that we handle all requests in one place so we can scale handling requests up easier.
+For creating the satellite api, there are two options for design. One, a single binary containing all public GRPC/HTTP endpoints **and** all code necessary to process any request to those endpoints. Or two, a single binary that contains all public GRPC/HTTP endpoints but does **not** contain the code to process requests, instead the api would act as a proxy passing along requests to the correct backend services. Here we will do the first option since it is less complex and it fullfills our need to run replicas to handle lots of traffic. In the future we can migrate to options two should the additional complexity be needed to satisfy some other need.
+
 
 ## Implementation
 
@@ -191,8 +189,6 @@ Other work:
 ## Open issues
 - with kademlia/discovery/bootstrap being removed, what will be taking the place of the functionality still needed? For example, what will handle the storage nodes pinging satellite to ensure uptime checks?
 - is uptime system going to be a thing?
-- will we need to run more than one replica of the metainfo loop and its observer system? if so, there are two areas that may prevent scaling: 1) the repair.checkerObserver.ReliabilityCache and 2) the GC observer storing bloom filters in-memory.
 - Do we need to keep the inspectors? Does anyone use those? If no, can we remove?
 - how do we update storj-sim with these changes?
-- how to handle version of different services? do we want to keep version service around?
-- does any of this change with different dbs (i.e. spanner, etc)?
+- how to handle version of different services? should the version service help with this?

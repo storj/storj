@@ -27,9 +27,7 @@ debug
 
 /release/
 *.swp
-*.svg
 /bin
 resource.syso
 
 *.resource.go
-!docs/design/images/*.svg
