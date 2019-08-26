@@ -4,6 +4,8 @@
 package marketingweb_test
 
 import (
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -28,7 +30,7 @@ func TestCreateAndStopOffers(t *testing.T) {
 
 		requests := []CreateRequest{
 			{
-				Path: "/create/referral-offer",
+				Path: "/create/referral",
 				Values: url.Values{
 					"Name":                      {"Referral Credit"},
 					"Description":               {"desc"},
@@ -40,7 +42,7 @@ func TestCreateAndStopOffers(t *testing.T) {
 					"RedeemableCap":             {"150"},
 				},
 			}, {
-				Path: "/create/free-credit-offer",
+				Path: "/create/free-credit",
 				Values: url.Values{
 					"Name":                      {"Free Credit"},
 					"Description":               {"desc"},
@@ -50,9 +52,9 @@ func TestCreateAndStopOffers(t *testing.T) {
 					"RedeemableCap":             {"150"},
 				},
 			}, {
-				Path: "/create/partner-offer",
+				Path: "/create/partner",
 				Values: url.Values{
-					"Name":                      {"OSPP003-FileZilla"},
+					"Name":                      {"FileZilla"},
 					"Description":               {"desc"},
 					"ExpiresAt":                 {"2119-06-27"},
 					"InviteeCredit":             {"50"},
@@ -76,6 +78,12 @@ func TestCreateAndStopOffers(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				require.Equal(t, http.StatusOK, req.StatusCode)
+				//reading out the rest of the connection
+				_, err = io.Copy(ioutil.Discard, req.Body)
+				if err != nil {
+					return err
+				}
 				if err := req.Body.Close(); err != nil {
 					return err
 				}
@@ -84,11 +92,21 @@ func TestCreateAndStopOffers(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				require.Equal(t, http.StatusOK, req.StatusCode)
+				_, err = io.Copy(ioutil.Discard, req.Body)
+				if err != nil {
+					return err
+				}
 				if err := req.Body.Close(); err != nil {
 					return err
 				}
 
 				req, err = http.Post(baseURL+"/stop/"+id, "application/x-www-form-urlencoded", nil)
+				if err != nil {
+					return err
+				}
+				require.Equal(t, http.StatusOK, req.StatusCode)
+				_, err = io.Copy(ioutil.Discard, req.Body)
 				if err != nil {
 					return err
 				}
