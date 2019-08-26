@@ -62,10 +62,10 @@ There are a number of reasons to use the WiX toolset directly instead of go-msi:
 1. Implement MSI installer using the WiX toolset.
 1. Update the build process to build and sign the MSI installer. 
 1. Ensure the MSI installer works properly
-  * Install Storage Node using the MSI installer.
-  * Ensure binaries run on Windows startup, and it runs as a background process when not logged in.
-  * Ensure UAC(s) is not triggered after installation.
-  * Ensure that storage node restarts automatically after a crash 
+   * Install Storage Node using the MSI installer.
+   * Ensure binaries run on Windows startup, and it runs as a background process when not logged in.
+   * Ensure UAC(s) is not triggered after installation.
+   * Ensure that storage node restarts automatically after a crash 
 
 ## Open Issues/ Comments (if applicable)
 
