@@ -65,7 +65,8 @@ There are a number of reasons to use the WiX toolset directly instead of go-msi:
    * Install Storage Node using the MSI installer.
    * Ensure binaries run on Windows startup, and it runs as a background process when not logged in.
    * Ensure UAC(s) is not triggered after installation.
-   * Ensure that storage node restarts automatically after a crash 
+   * Ensure that storage node restarts automatically after a crash
+   * Verify that service writes to the logs properly
 
 ## Open issues
 
