@@ -20,36 +20,23 @@ import (
 )
 
 func TestOverlaycache_AllPieceCounts(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
 		// get overlay db
 		overlay := db.OverlayCache()
 
 		// get dbx db access
-		_db, ok := db.(interface{ TestDBAccess() *dbx.DB })
-		require.True(t, ok)
-
-		dbAccess := _db.TestDBAccess()
+		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 		require.NotNil(t, dbAccess)
 
 		// create test nodes in overlay db
-		testNodes := createTestNodes(ctx, 10, t, dbAccess)
+		testNodes := newTestNodes(ctx, 10, t, dbAccess)
 
-		// set expected piece counts
-		var err error
-		expectedPieceCounts := make(map[storj.NodeID]int)
-		for i, node := range testNodes {
-			pieceCount := math.Pow10(i + 1)
-			nodeID, err := storj.NodeIDFromBytes(node.Id)
-			require.NoError(t, err)
-
-			expectedPieceCounts[nodeID] = int(pieceCount)
-		}
-
-		updateTestPieceCounts(t, dbAccess, expectedPieceCounts)
-		require.NoError(t, err)
+		// build and set expected piece counts
+		expectedPieceCounts := newTestPieceCounts(t, testNodes)
+		setTestNodePieceCounts(t, dbAccess, expectedPieceCounts)
 
 		// expected and actual piece count maps should match
 		actualPieceCounts, err := overlay.AllPieceCounts(ctx)
@@ -59,25 +46,24 @@ func TestOverlaycache_AllPieceCounts(t *testing.T) {
 }
 
 func TestOverlaycache_UpdatePieceCounts(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		// get dbx db access
-		_db, ok := db.(interface{ TestDBAccess() *dbx.DB })
-		require.True(t, ok)
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
-		dbAccess := _db.TestDBAccess()
+		// get overlay db
+		overlay := db.OverlayCache()
+
+		// get dbx db access
+		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 		require.NotNil(t, dbAccess)
 
 		// create test nodes in overlay db
-		testNodes := createTestNodes(ctx, 10, t, dbAccess)
+		testNodes := newTestNodes(ctx, 10, t, dbAccess)
 
-		// set expected piece counts
-		expectedPieceCounts := testPieceCounts(t, testNodes)
-
-		// update piece count fields on test nodes; set exponentially
-		updateTestPieceCounts(t, dbAccess, expectedPieceCounts)
+		// build and set expected piece counts
+		expectedPieceCounts := newTestPieceCounts(t, testNodes)
+		err := overlay.UpdatePieceCounts(ctx, expectedPieceCounts)
+		require.NoError(t, err)
 
 		// build actual piece counts map
 		actualPieceCounts := make(map[storj.NodeID]int)
@@ -95,7 +81,7 @@ func TestOverlaycache_UpdatePieceCounts(t *testing.T) {
 	})
 }
 
-func updateTestPieceCounts(t *testing.T, dbAccess *dbx.DB, pieceCounts map[storj.NodeID]int) {
+func setTestNodePieceCounts(t *testing.T, dbAccess *dbx.DB, pieceCounts map[storj.NodeID]int) {
 	for nodeID, pieceCount := range pieceCounts {
 		var args []interface{}
 		var sqlQuery string
@@ -113,9 +99,9 @@ func updateTestPieceCounts(t *testing.T, dbAccess *dbx.DB, pieceCounts map[storj
 	}
 }
 
-// testPieceCounts builds a piece count map from the node ids of `testNodes`,
+// newTestPieceCounts builds a piece count map from the node ids of `testNodes`,
 // incrementing the piece count exponentially from one node to the next.
-func testPieceCounts(t *testing.T, testNodes []*dbx.Node) map[storj.NodeID]int {
+func newTestPieceCounts(t *testing.T, testNodes []*dbx.Node) map[storj.NodeID]int {
 	pieceCounts := make(map[storj.NodeID]int)
 	for i, node := range testNodes {
 		pieceCount := math.Pow10(i + 1)
@@ -129,7 +115,7 @@ func testPieceCounts(t *testing.T, testNodes []*dbx.Node) map[storj.NodeID]int {
 	return pieceCounts
 }
 
-func createTestNodes(ctx *testcontext.Context, count int, t *testing.T, db *dbx.DB) (nodes []*dbx.Node) {
+func newTestNodes(ctx *testcontext.Context, count int, t *testing.T, db *dbx.DB) (nodes []*dbx.Node) {
 	for i := 0; i < count; i++ {
 		nodeID := storj.NodeID{byte(i + 1)}
 
