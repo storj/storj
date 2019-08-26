@@ -415,7 +415,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		var orderLimit pb.OrderLimit
 		var pieceHash pb.PieceHash
 
-		//GetPieceHeader returns BadFormatVersion err if v0
+		// GetPieceHeader returns BadFormatVersion err if v0
 		header, err := pieceReader.GetPieceHeader()
 		switch {
 		case err == nil:
@@ -442,7 +442,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
 		if err != nil {
-			return ErrInternal.Wrap(err)
+			return status.Error(codes.Internal, err.Error())
 		}
 	}
 
@@ -453,7 +453,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
 	if err != nil {
-		return ErrInternal.Wrap(err)
+		return status.Error(codes.Internal, err.Error())
 	}
 
 	throttle := sync2.NewThrottle()
@@ -478,13 +478,13 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			chunkData := make([]byte, chunkSize)
 			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
 			if err != nil {
-				return ErrInternal.Wrap(err)
+				return status.Error(codes.Internal, err.Error())
 			}
 
 			// ReadFull is required to ensure we are sending the right amount of data.
 			_, err = io.ReadFull(pieceReader, chunkData)
 			if err != nil {
-				return ErrInternal.Wrap(err)
+				return status.Error(codes.Internal, err.Error())
 			}
 
 			err = stream.Send(&pb.PieceDownloadResponse{
