@@ -1,5 +1,13 @@
 # Satellite Service Separation
 
+## Table of Contents
+1. [Abstract](#abstract)
+2. [Background](#background): Current Satellite Design
+3. [Design](#design)
+4. [Rationale](#rationale)
+4. [Implementation](#implementation)
+5. [Open Issues](#open-issues)
+
 ## Abstract
 
 The goal of the design doc is to describe the work necessary to make the Satellite horizontally scalable.
@@ -13,10 +21,18 @@ Currently all Satellite services run in a single binary in a single container. W
 Currently the Satellite is a single binary made of up the following services:
 
 #### overlay
-The overlay cache maintains critical information about nodes in the network. One important use of overlay is to help select which storage nodes to upload files to.
+The overlay cache maintains critical information about nodes in the network (via the nodes table in Satellite.DB). One important use of overlay is to help select which storage nodes to upload files to.
 
 #### metainfo
-Metainfo is responsible for all things related to the metainfo stored for each file on the network. The metainfo system is currently composed of the following parts: 1) metainfoDB, a key/value store with segment path names as the key and a segment object as the value, 2) metainfo loop which iterates over all the key/values in metainfDB, 3) metainfo endpoint which creates the public GRPCs for creating/deleting metainfo, 4) metainfo service.
+Metainfo is responsible for all things related to the metainfo stored for each file on the network. The metainfo system is currently composed of the following parts: 
+
+1) metainfoDB, a key/value store with segment path names as the key and a pointer as the value, 
+
+2) metainfo loop which iterates over all the key/values in metainfoDB, 
+
+3) metainfo endpoint which creates the public RPCs for creating/deleting metainfo, 
+
+4) metainfo service.
 
 #### orders
 Orders is responsible for creating/managing orders that the satellite issues for a file upload/download. Orders are used to keep track of how much bandwidth was used to upload/download a file. This data is used to pay storage nodes for bandwidth usage and to charge the uplinks. See this [doc on the lifecycle of data](https://github.com/storj/docs/blob/master/code/payments/Accounting.md#lifecycle-of-the-data) related to accounting which includes orders.
@@ -39,6 +55,9 @@ Console provides the web UI for the Satellite where users can create new account
 #### mail
 Mail sends email for the console UI.
 
+#### marketing
+Marketing provides a private web UI for the the marketing admins for referral program.
+
 #### nodestats
 Nodestats makes it so that storagenodes can ask the satellite for info about itself, for example, it can ask for stats on reputation and accounting storage usage.
 
@@ -46,13 +65,13 @@ Nodestats makes it so that storagenodes can ask the satellite for info about its
 Version publishes what version of the satellite are supported. The storage nodes update their software version based on info from this version service.
 
 #### inspectors
-Inspectors are exposed on a private GRPC port and provide a way to get data about certain systems. The following inspectors currently exist: overlay inspector, health inspector, and irreparable inspector.
+Inspectors are exposed on a private port and provide a way to get data about certain systems. The following inspectors currently exist: overlay inspector, health inspector, and irreparable inspector.
 
 #### kademlia
 Kademlia, discovery, bootstrap, and vouchers are being removed and not included in this doc. See [kademlia removal design doc](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md) for more details.
 
-#### GPRC endpoints
-The Satellite has the following GRPC endpoints:
+#### PRC endpoints
+The Satellite has the following RPC endpoints:
 - Public: metainfo, nodestats, orders, overlay (currently part of kademlia, but may be added here)
 - Private: inspectors
 
@@ -85,7 +104,7 @@ The plan is to break the Satellite into multiple processes. Each process runs in
 Currently there is only one Satellite binary. We propose to add the following binaries:
 
 #### satellite api
-The satellite api will handle all public GRPC and HTTP requests, this includes all public endpoints for nodestats, overlay, orders, metainfo, and console web UI. It will need all the code to successfully process these public requests, but no more than that. If the console needs the mail service then that can be added as well, but make sure to only include the specific parts of the mail service it needs and don't include any background jobs if there are any.
+The satellite api will handle all public GRPC and HTTP requests, this includes all public endpoints for nodestats, overlay, orders, metainfo, and console web UI. It will need all the code to successfully process these public requests, but no more than that. For example, if the console needs the mail service to succesfully complete the any request, then that can be added as well, but make sure to only include the necessary parts. There shouldn't be any background jobs running here nor persistent state, meaning if there are no requests coming in, the satellite api should be idle.
 
 #### private api
 The private api binary handles all private GRPC and HTTP requests, this includes inspectors (overlay, health, irreparable), debug endpoints, and the marketing web UI. Open question: do we need the inspectors, if not should they be removed?
@@ -126,15 +145,14 @@ The following diagram outlines the design for the audit system once separated ou
 
 ***
 
-
 #### accounting
 The accounting binary is responsible for calculating invoices for uplinks and payments for storage nodes. In order to do this, accounting must track total amounts of disk usage and bandwidth used by storage nodes and by buckets. Accounting should receive storage node total stored bytes data from the tally observer running with the metainfo loop.
 
 #### version
-We need a way for all these new satellite binaries to perform a version compatibility check with each other.  This could be done by having one dedicated service (i.e. the version service) that everything checks in with, or maybe by having all storj software pieces set their current version information in grpc metadata or something like that. The version compaibility check will need to be smarter than "require all actors to be on the exact same version" because, at some point, we will probably want to upgrade certain components of the system without having to upgrade and restart all of them.
+Every Satellite system binary needs to check in and make sure its running the latest version before it runs. We need a way for all these new satellite binaries to perform a version compatibility check. This can be done by having all binaries check in with the version service. 
 
-#### uptime ?
-Is uptime going to be a system?
+#### uptime
+Previously the discovery service was responsible from refreshing the overlay cache. Now that kademlia along with the discovery service is being removed, the uptime binary will now be refreshing the overlay cache.
 
 ***
 
@@ -157,10 +175,13 @@ For the metainfo loop and observer system its not critical to have high availabi
 
 For creating the satellite api, there are two options for design. One, a single binary containing all public GRPC/HTTP endpoints **and** all code necessary to process any request to those endpoints. Or two, a single binary that contains all public GRPC/HTTP endpoints but does **not** contain the code to process requests, instead the api would act as a proxy passing along requests to the correct backend services. Here we will do the first option since it is less complex and it fullfills our need to run replicas to handle lots of traffic. In the future we can migrate to options two should the additional complexity be needed to satisfy some other need.
 
+#### version
+
+We need a way for all these new satellite binaries to perform a version compatibility check. In the short term we can add to the version service so now, in addition to the storage nodes, the satellite system binaries can check it. Another option may be having all storj software pieces set their current version information in grpc metadata or something like that. The version compatibility check will need to be smarter than "require all actors to be on the exact same version" because, at some point, we will want to upgrade certain components of the system without having to upgrade and restart all of them.
 
 ## Implementation
 
-Note: getting Kademlia removed is a blocker to implementation.
+Note: getting Kademlia removed is a blocker to implementation because the routing table is stored in-memory.
 
 We should break out one process at a time from the Satellite.  Here are the things we should do first since they impedes scale the most:
 - satellite api
@@ -179,6 +200,8 @@ For each new satellite binary we need to do the following steps:
 - create kubernetes deployment configs (this includes a dockerfile and an k8s HPA resource)
 - automated deployment to staging kubernetes environment is setup and deploying
 
+One thing to keep in mind when creating these new satellite system binaries, is that we want to make sure we to only pull in the code necessary for the new process to accomplish its main tasks. For example, if the new satellite api binary needs to create a pointer for pointerDB, we only want to include the minimum metainfo code needed to do so.  We should not be adding in any addition code like the metainfo loop or anything else unnecessary.
+
 There is a prototype PR with an example that implements these steps (minus deployment configs) for the repair service, see that [here](https://github.com/storj/storj/pull/2836). This is now out of date since we are adding the repair (checker) observer to the metainfo loop observer system, but this prototype is still useful as an example.
 
 Other work:
@@ -187,8 +210,3 @@ Other work:
 - Update storj-sim to run with all the new services.
 
 ## Open issues
-- with kademlia/discovery/bootstrap being removed, what will be taking the place of the functionality still needed? For example, what will handle the storage nodes pinging satellite to ensure uptime checks?
-- is uptime system going to be a thing?
-- Do we need to keep the inspectors? Does anyone use those? If no, can we remove?
-- how do we update storj-sim with these changes?
-- how to handle version of different services? should the version service help with this?
