@@ -48,8 +48,8 @@ func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (e
 	// click all links
 	var sendError error
 	for _, link := range links {
-		_, err := http.Get(link)
-		sendError = errs.Combine(sendError, err)
+		response, err := http.Get(link)
+		sendError = errs.Combine(sendError, err, response.Body.Close())
 	}
 
 	return sendError

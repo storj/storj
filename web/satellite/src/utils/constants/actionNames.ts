@@ -25,6 +25,7 @@ export const NOTIFICATION_ACTIONS = {
     SUCCESS: 'success',
     ERROR: 'error',
     NOTIFY: 'notify',
+    WARNING: 'WARNING',
     DELETE: 'deleteNotification',
     PAUSE: 'pauseNotification',
     RESUME: 'resumeNotification',
@@ -44,15 +45,6 @@ export const PM_ACTIONS = {
     CLEAR_OFFSET: 'clearProjectMembersOffset'
 };
 
-export const PROJETS_ACTIONS = {
-    FETCH: 'fetchProjects',
-    CREATE: 'createProject',
-    SELECT: 'selectProject',
-    UPDATE: 'updateProject',
-    DELETE: 'deleteProject',
-    CLEAR: 'clearProjects',
-};
-
 export const API_KEYS_ACTIONS = {
     FETCH: 'setAPIKeys',
     CREATE: 'createAPIKey',
@@ -67,12 +59,6 @@ export const PROJECT_USAGE_ACTIONS = {
     FETCH_CURRENT_ROLLUP: 'fetchCurrentProjectUsage',
     FETCH_PREVIOUS_ROLLUP: 'fetchPreviousProjectUsage',
     CLEAR: 'clearProjectUsage',
-};
-
-export const BUCKET_USAGE_ACTIONS = {
-    FETCH: 'fetchBucketUsages',
-    SET_SEARCH: 'setSearchBucketUsage',
-    CLEAR: 'clearBucketUsages'
 };
 
 export const PROJECT_PAYMENT_METHODS_ACTIONS = {

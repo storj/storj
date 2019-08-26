@@ -29,18 +29,12 @@
             TabNavigation,
         }
     })
-    export default class ProjectDetailsArea extends Vue {
+    export default class ProjectOverviewArea extends Vue {
         // TODO: make type for project routes
         public navigation: NavigationLink[] = [
             new NavigationLink('/project-overview/details', 'Details'),
-            new NavigationLink('/project-overview/payment-methods', 'Payment Methods'),
-            new NavigationLink('/project-overview/billing-history', 'Billing History'),
             new NavigationLink('/project-overview/usage-report', 'Report'),
         ];
-
-        public mounted(): void {
-            this.$router.push(this.navigation[0].path);
-        }
 
         public get isProjectSelected(): boolean {
             return this.$store.getters.selectedProject.id !== '';
