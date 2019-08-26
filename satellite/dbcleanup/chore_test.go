@@ -20,7 +20,7 @@ func TestDeleteExpiredSerials(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		node := planet.StorageNodes[0].ID()
-		satellite.DBCleanup.Service.Serials.Pause()
+		satellite.DBCleanup.Chore.Serials.Pause()
 
 		var expiredSerials []storj.SerialNumber
 		for i := 0; i < 5; i++ {
@@ -51,7 +51,7 @@ func TestDeleteExpiredSerials(t *testing.T) {
 		}
 
 		// trigger expired serial number deletion
-		satellite.DBCleanup.Service.Serials.TriggerWait()
+		satellite.DBCleanup.Chore.Serials.TriggerWait()
 
 		// check expired serial numbers have been deleted from serial_numbers and used_serials
 		for i := 0; i < 5; i++ {

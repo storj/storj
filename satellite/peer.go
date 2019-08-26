@@ -199,7 +199,7 @@ type Peer struct {
 	}
 
 	DBCleanup struct {
-		Service *dbcleanup.Service
+		Chore *dbcleanup.Chore
 	}
 
 	Accounting struct {
@@ -510,7 +510,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup db cleanup
 		log.Debug("Setting up db cleanup")
-		peer.DBCleanup.Service = dbcleanup.NewService(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
+		peer.DBCleanup.Chore = dbcleanup.NewChore(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
 	}
 
 	{ // setup accounting
@@ -732,7 +732,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.DBCleanup.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.DBCleanup.Chore.Run(ctx))
 	})
 
 	return group.Wait()
@@ -766,8 +766,8 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
-	if peer.DBCleanup.Service != nil {
-		errlist.Add(peer.DBCleanup.Service.Close())
+	if peer.DBCleanup.Chore != nil {
+		errlist.Add(peer.DBCleanup.Chore.Close())
 	}
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
