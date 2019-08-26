@@ -1,136 +1,101 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import apollo from '@/utils/apolloManager';
-import gql from 'graphql-tag';
-import { RequestResponse } from '@/types/response';
-import { CreateProjectModel, Project } from '@/types/projects';
+import { BaseGql } from '@/api/baseGql';
+import { CreateProjectModel, Project, ProjectsApi } from '@/types/projects';
 
-// Performs graqhQL request for project creation.
-export async function createProjectRequest(createProjectModel: CreateProjectModel): Promise<RequestResponse<Project>> {
-    let result: RequestResponse<Project> = new RequestResponse<Project>();
-    let response: any = await apollo.mutate(
-        {
-            mutation: gql(`
-                mutation($name: String!, $description: String!) {
-                    createProject(
-                        input: {
-                            name: $name,
-                            description: $description,
-                        }
-                    ) {id}
-                }`
-            ),
-            variables: {
-                name: createProjectModel.name,
-                description: createProjectModel.description
-            },
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
-        }
-    );
-
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
-        result.data.id = response.data.createProject.id;
-        result.data.description = createProjectModel.description;
-        result.data.name = createProjectModel.name;
-    }
-
-    return result;
-}
-
-// Performs graqhQL request for fetching all projects of current user.
-export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>> {
-    let result: RequestResponse<Project[]>  = new RequestResponse<Project[]>();
-
-    let response: any = await apollo.query(
-        {
-            query: gql(`
-                query {
-                    myProjects{
-                        name
-                        id
-                        description
-                        createdAt
+export class ProjectsApiGql extends BaseGql implements ProjectsApi {
+    /**
+     * Creates project
+     *
+     * @param createProjectModel - contains project information
+     * @throws Error
+     */
+    public async create(createProjectModel: CreateProjectModel): Promise<Project> {
+        const query =
+            `mutation($name: String!, $description: String!) {
+                createProject(
+                    input: {
+                        name: $name,
+                        description: $description,
                     }
-                }`
-            ),
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
-        }
-    );
+                ) {id}
+            }`;
 
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
-        result.data = response.data.myProjects;
+        const variables = {
+            name: createProjectModel.name,
+            description: createProjectModel.description,
+        };
+
+        const response = await this.mutate(query, variables);
+
+        return new Project(response.data.createProject.id, variables.name, variables.description, '');
     }
 
-    return result;
-}
+    /**
+     * Fetch projects
+     *
+     * @returns Project[]
+     * @throws Error
+     */
+    public async get(): Promise<Project[]> {
+        const query = `query {
+            myProjects{
+                name
+                id
+                description
+                createdAt
+            }
+        }`;
 
-// Performs graqhQL request for updating selected project description
-export async function updateProjectRequest(projectId: string, description: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null>  = new RequestResponse<null>();
+        const response = await this.query(query);
 
-    let response: any = await apollo.mutate(
-        {
-            mutation: gql(`
-                mutation($projectId: String!, $description: String!) {
-                    updateProjectDescription(
-                        id: $projectId,
-                        description: $description
-                    ) {name}
-                }`
-            ),
-            variables: {
-                projectId: projectId,
-                description: description
-            },
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
-        }
-    );
-
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
+        return response.data.myProjects;
     }
 
-    return result;
-}
+    /**
+     * Update project description
+     *
+     * @param projectId - project ID
+     * @param description - project description
+     * @returns Project[]
+     * @throws Error
+     */
+    public async update(projectId: string, description: string): Promise<void> {
+        const query =
+            `mutation($projectId: String!, $description: String!) {
+                updateProjectDescription(
+                    id: $projectId,
+                    description: $description
+                ) {name}
+            }`;
 
-// Performs graqhQL request for deleting selected project
-export async function deleteProjectRequest(projectId: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null>  = new RequestResponse<null>();
+        const variables = {
+            projectId: projectId,
+            description: description,
+        };
 
-    let response = await apollo.mutate(
-        {
-            mutation: gql(`
-                mutation($projectId: String!) {
-                    deleteProject(
-                        id: $projectId
-                    ) {name}
-                }`
-            ),
-            variables: {
-                projectId: projectId
-            },
-            fetchPolicy: 'no-cache',
-            errorPolicy: 'all',
-        }
-    );
-
-    if (response.errors) {
-        result.errorMessage = response.errors[0].message;
-    } else {
-        result.isSuccess = true;
+        await this.mutate(query, variables);
     }
 
-    return result;
+    /**
+     * Delete project
+     *
+     * @param projectId - project ID
+     * @throws Error
+     */
+    public async delete(projectId: string): Promise<void> {
+        const query =
+            `mutation($projectId: String!) {
+                deleteProject(
+                    id: $projectId
+                ) {name}
+            }`;
+
+        const variables = {
+            projectId: projectId,
+        };
+
+        await this.mutate(query, variables);
+    }
 }

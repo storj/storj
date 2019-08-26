@@ -1,0 +1,29 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`should render correctly with item row highlighted 1`] = `
+<div class="user-container">
+  <div class="user-container__base-info">
+    <div class="checkbox"></div>
+    <div class="user-container__base-info__avatar" style="background: rgb(88, 185, 255);">
+      <h1>T</h1>
+    </div>
+    <p class="user-container__base-info__user-name">testShortName</p>
+  </div>
+  <p class="user-container__date">8/9/2019</p>
+  <p class="user-container__user-email">test@example.com</p>
+</div>
+`;
+
+exports[`should renders correctly 1`] = `
+<div class="user-container">
+  <div class="user-container__base-info">
+    <div class="checkbox"></div>
+    <div class="user-container__base-info__avatar" style="background: rgb(88, 185, 255);">
+      <h1>T</h1>
+    </div>
+    <p class="user-container__base-info__user-name">testShortName</p>
+  </div>
+  <p class="user-container__date">8/9/2019</p>
+  <p class="user-container__user-email">test@example.com</p>
+</div>
+`;
