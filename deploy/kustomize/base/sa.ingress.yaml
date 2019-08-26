@@ -5,7 +5,8 @@ metadata:
   name: satellite-ing
   annotations:
     kubernetes.io/ingress.class: nginx
-    # nginx.ingress.kubernetes.io/whitelist-source-range: 104.196.58.99/32
+    # TODO: put behind vpn if we want
+    # nginx.ingress.kubernetes.io/whitelist-source-range: <storj vpn>
 spec:
   # TODO: add tls with cert-manager and letsencrypt
   # tls:

@@ -2,7 +2,7 @@ Name: satellite-dev-deployment
 domainName: sa-dev.jessica-us-east1.dev.storj.io
 ingressClass: nginx
 
-vpn: 104.196.58.99/32
+# vpn: <storj vpn>
 
 labels:
   app: satellite-dev
@@ -11,7 +11,7 @@ maxReplicas: 4
 image:
   repository: gcr.io/storj-jessica/sa-k8s-hard-way
   # TODO: need to overwrite tag when we deploy this chart
-  tag: 1
+  tag: latest
 # TODO: These may be too high. Confirm once workload is deployed.
 resources:
   requests:
