@@ -61,9 +61,6 @@ Marketing provides a private web UI for the the marketing admins for referral pr
 #### nodestats
 Nodestats makes it so that storagenodes can ask the satellite for info about itself, for example, it can ask for stats on reputation and accounting storage usage.
 
-#### version
-Version publishes what version of the satellite are supported. The storage nodes update their software version based on info from this version service.
-
 #### inspectors
 Inspectors are exposed on a private port and provide a way to get data about certain systems. The following inspectors currently exist: overlay inspector, health inspector, and irreparable inspector.
 
@@ -129,7 +126,7 @@ The following diagram outlines the metainfo loop with the 4 observer:
 ***
 
 #### irreparable loop
-The irreparable loop iterates through the irreparabledb table in Satellite.DB and attempts to repair the segment by adding to the reapir queue again. 
+Lets get rid of the irreparable loop. For one, we never expect there to be files that can't get repaired. In the off chance there are, lets just add the file back to the repair queue and try again later, but lets keep track of how many times we've tried.
 
 #### repair workers
 The repair worker executes a repair for an item in the repair queue. We want to work through the repair queue as fast as possible so its important to be able to dispatch many workers at a time.
@@ -148,11 +145,8 @@ The following diagram outlines the design for the audit system once separated ou
 #### accounting
 The accounting binary is responsible for calculating invoices for uplinks and payments for storage nodes. In order to do this, accounting must track total amounts of disk usage and bandwidth usage by storage nodes and from uplink projects (via buckets). Accounting should receive storage node total stored bytes data from the tally observer running with the metainfo loop.
 
-#### version
-Every Satellite system binary needs to check in and make sure its running the latest version before it runs. We need a way for all these new satellite binaries to perform a version compatibility check. This can be done by having all binaries check in with the version service. 
-
 #### uptime
-Previously the discovery service was responsible from refreshing the overlay cache. Now that kademlia along with the discovery service is being removed, the uptime binary will now be refreshing the overlay cache.
+The uptime process will be responsible for pinging nodes we haven't heard from in a while and updating the overlay cache with the results.
 
 ***
 
@@ -177,7 +171,7 @@ For creating the satellite api, there are two options for design. One, a single 
 
 #### version
 
-We need a way for all these new satellite binaries to perform a version compatibility check. In the short term the version service can be responsible for this. So in addition to the storage nodes, the satellite system binaries can check in too. Another option may be having all storj software pieces set their current version information in grpc metadata or something like that. The version compatibility check will need to be smarter than "require all actors to be on the exact same version" because, at some point, we will want to upgrade certain components of the system without having to upgrade and restart all of them.
+We need a way for all these new satellite binaries to perform a version compatibility check. In the short term the version server can be responsible for this. So in addition to the storage nodes, the satellite system binaries can check in as well. Lets make sure that they cannot start up unless they are running the right version.
 
 ## Implementation
 
@@ -200,7 +194,9 @@ For each new satellite binary we need to do the following steps:
 - create kubernetes deployment configs (this includes a dockerfile and an k8s HPA resource)
 - automated deployment to staging kubernetes environment is setup and deploying
 
-One thing to keep in mind when creating these new satellite system binaries, is that we want to make sure we to only pull in the code necessary for the new process to accomplish its main tasks. For example, if the new satellite api binary needs to create a pointer for pointerDB, we only want to include the minimum metainfo code needed to do so.  We should not be adding any additional code like the metainfo loop or anything else unnecessary.
+A couple important notes:
+- every satellite system binary must check in with the version server to confirm it is running the righ version. The process cannot start unless it is running the correct version.
+- when creating these new satellite system binaries, is that we want to make sure we to only pull in the code necessary for the new process to accomplish its main tasks. For example, if the new satellite api binary needs to create a pointer for pointerDB, we only want to include the minimum metainfo code needed to do so.  We should not be adding any additional code like the metainfo loop or anything else unnecessary.
 
 [Here](https://github.com/storj/storj/pull/2836) is a prototype PR with an example that implements these steps (minus deployment configs) for the repair service. This is now out of date since we are adding the repair (checker) observer to the metainfo loop observer system, but this prototype is still useful as an example.
 
