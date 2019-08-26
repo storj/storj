@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -187,7 +187,8 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service *audit.Service
+		Service          *audit.Service
+		ReservoirService *audit.ReservoirService
 	}
 
 	GarbageCollection struct {
@@ -477,6 +478,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		// setup audit 2.0
+		peer.Audit.ReservoirService, err = audit.NewReservoirService(peer.Log.Named("reservoir service"),
+			peer.Metainfo.Loop,
+			config,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup garbage collection
@@ -688,6 +698,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.ReservoirService.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))

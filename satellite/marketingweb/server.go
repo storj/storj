@@ -99,7 +99,6 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 
 	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
-		s.serveInternalError(w, req, err)
 	}
 }
 
@@ -169,11 +168,11 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	offerType := mux.Vars(req)["offer_type"]
 
 	switch offerType {
-	case "referral-offer":
+	case "referral":
 		offer.Type = rewards.Referral
 	case "free-credit":
 		offer.Type = rewards.FreeCredit
-	case "partner-offer":
+	case "partner":
 		offer.Type = rewards.Partner
 	default:
 		err := errs.New("response status %d : invalid offer type", http.StatusBadRequest)
@@ -242,7 +241,7 @@ func (s *Server) Run(ctx context.Context) error {
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
-		return Error.Wrap(s.server.Shutdown(ctx))
+		return Error.Wrap(s.server.Shutdown(context.Background()))
 	})
 	group.Go(func() error {
 		defer cancel()

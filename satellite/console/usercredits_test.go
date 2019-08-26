@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package console_test
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestUsercredits(t *testing.T) {
+func TestUserCredits(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
