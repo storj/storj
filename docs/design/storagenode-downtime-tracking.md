@@ -106,7 +106,7 @@ For each node, the Satellite performs an _uptime check_.
 
 ### Estimating offline time
 
-An independent process has the following configurable parameters:
+Another independent process has the following configurable parameters:
 
 - Sleep time.
 - Number of nodes to check.
