@@ -14,7 +14,7 @@ We need to enable back uptime disqualification, however before, we need to track
 
 This document presents a solution for tracking  Storage Node offline time, but it's out of the scope of this document how Storage Node reputation is affected by it.
 
-The presented solution considers the requirements imposed by the [Kademlia removal design document](kademia-removal.md), where the Storage Nodes must contact the Satellite when they start and after, every hour.
+The presented solution considers the requirements imposed by the [Kademlia removal design document](kademia-removal.md), where the Storage Nodes must contact the Satellite when they start and after every hour.
 
 ## Design
 
