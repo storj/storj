@@ -429,7 +429,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				Signature: header.GetSignature(),
 			}
 		case pieces.BadFormatVersion.Has(err):
-			//v0 stores this information in SQL
+			// v0 stores this information in SQL
 			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
 			if err != nil {
 				return status.Error(codes.Internal, err.Error())

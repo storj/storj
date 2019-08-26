@@ -19,7 +19,7 @@ import (
 
 // Downloader is interface that can be used for downloading content.
 // It matches signature of `io.ReadCloser`, with one extra function,
-// GetHashAndLimit(), used for accessing information during GET_REPAIR
+// GetHashAndLimit(), used for accessing information during GET_REPAIR.
 type Downloader interface {
 	Read([]byte) (int, error)
 	Close() error
@@ -190,7 +190,7 @@ func (client *Download) Read(data []byte) (read int, err error) {
 			client.downloaded += int64(len(response.Chunk.Data))
 			client.unread.Fill(response.Chunk.Data)
 		}
-		// we got a piece hash and the original order limit (GET_REPAIR)
+		// This is a GET_REPAIR because we got a piece hash and the original order limit.
 		if response != nil && response.Hash != nil && response.Limit != nil {
 			client.hash = response.Hash
 			client.originLimit = response.Limit
@@ -256,7 +256,7 @@ func (client *Download) Close() (err error) {
 	return client.closingError
 }
 
-// GetHashAndLimit gets the download's hash and original order limit
+// GetHashAndLimit gets the download's hash and original order limit.
 func (client *Download) GetHashAndLimit() (*pb.PieceHash, *pb.OrderLimit) {
 	return client.hash, client.originLimit
 }
