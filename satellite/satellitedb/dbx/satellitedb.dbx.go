@@ -392,7 +392,7 @@ CREATE TABLE offers (
 );
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
-	serial_number bytea NOT NULL,
+	leaf_serial_number bytea NOT NULL,
 	chain bytea NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
@@ -742,7 +742,7 @@ CREATE TABLE offers (
 );
 CREATE TABLE peer_identities (
 	node_id BLOB NOT NULL,
-	serial_number BLOB NOT NULL,
+	leaf_serial_number BLOB NOT NULL,
 	chain BLOB NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( node_id )
@@ -2997,17 +2997,17 @@ func (f Offer_Type_Field) value() interface{} {
 func (Offer_Type_Field) _Column() string { return "type" }
 
 type PeerIdentity struct {
-	NodeId       []byte
-	SerialNumber []byte
-	Chain        []byte
-	UpdatedAt    time.Time
+	NodeId           []byte
+	LeafSerialNumber []byte
+	Chain            []byte
+	UpdatedAt        time.Time
 }
 
 func (PeerIdentity) _Table() string { return "peer_identities" }
 
 type PeerIdentity_Update_Fields struct {
-	SerialNumber PeerIdentity_SerialNumber_Field
-	Chain        PeerIdentity_Chain_Field
+	LeafSerialNumber PeerIdentity_LeafSerialNumber_Field
+	Chain            PeerIdentity_Chain_Field
 }
 
 type PeerIdentity_NodeId_Field struct {
@@ -3029,24 +3029,24 @@ func (f PeerIdentity_NodeId_Field) value() interface{} {
 
 func (PeerIdentity_NodeId_Field) _Column() string { return "node_id" }
 
-type PeerIdentity_SerialNumber_Field struct {
+type PeerIdentity_LeafSerialNumber_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func PeerIdentity_SerialNumber(v []byte) PeerIdentity_SerialNumber_Field {
-	return PeerIdentity_SerialNumber_Field{_set: true, _value: v}
+func PeerIdentity_LeafSerialNumber(v []byte) PeerIdentity_LeafSerialNumber_Field {
+	return PeerIdentity_LeafSerialNumber_Field{_set: true, _value: v}
 }
 
-func (f PeerIdentity_SerialNumber_Field) value() interface{} {
+func (f PeerIdentity_LeafSerialNumber_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (PeerIdentity_SerialNumber_Field) _Column() string { return "serial_number" }
+func (PeerIdentity_LeafSerialNumber_Field) _Column() string { return "leaf_serial_number" }
 
 type PeerIdentity_Chain_Field struct {
 	_set   bool
@@ -5548,8 +5548,8 @@ type Id_Row struct {
 	Id []byte
 }
 
-type SerialNumber_Row struct {
-	SerialNumber []byte
+type LeafSerialNumber_Row struct {
+	LeafSerialNumber []byte
 }
 
 type Value_Row struct {
@@ -6118,23 +6118,23 @@ func (obj *postgresImpl) Create_StoragenodeStorageTally(ctx context.Context,
 
 func (obj *postgresImpl) Create_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
-	peer_identity_serial_number PeerIdentity_SerialNumber_Field,
+	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
 	peer_identity_chain PeerIdentity_Chain_Field) (
 	peer_identity *PeerIdentity, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := peer_identity_node_id.value()
-	__serial_number_val := peer_identity_serial_number.value()
+	__leaf_serial_number_val := peer_identity_leaf_serial_number.value()
 	__chain_val := peer_identity_chain.value()
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? ) RETURNING peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? ) RETURNING peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __serial_number_val, __chain_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __serial_number_val, __chain_val, __updated_at_val).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7556,7 +7556,7 @@ func (obj *postgresImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, peer_identity_node_id.value())
@@ -7565,7 +7565,7 @@ func (obj *postgresImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7573,11 +7573,11 @@ func (obj *postgresImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Context,
+func (obj *postgresImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
-	row *SerialNumber_Row, err error) {
+	row *LeafSerialNumber_Row, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.leaf_serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, peer_identity_node_id.value())
@@ -7585,8 +7585,8 @@ func (obj *postgresImpl) Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Con
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &SerialNumber_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.SerialNumber)
+	row = &LeafSerialNumber_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.LeafSerialNumber)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8398,15 +8398,15 @@ func (obj *postgresImpl) Update_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity *PeerIdentity, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ? RETURNING peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ? RETURNING peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
 
-	if update.SerialNumber._set {
-		__values = append(__values, update.SerialNumber.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("serial_number = ?"))
+	if update.LeafSerialNumber._set {
+		__values = append(__values, update.LeafSerialNumber.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("leaf_serial_number = ?"))
 	}
 
 	if update.Chain._set {
@@ -8428,7 +8428,7 @@ func (obj *postgresImpl) Update_PeerIdentity_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -9946,22 +9946,22 @@ func (obj *sqlite3Impl) Create_StoragenodeStorageTally(ctx context.Context,
 
 func (obj *sqlite3Impl) Create_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
-	peer_identity_serial_number PeerIdentity_SerialNumber_Field,
+	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
 	peer_identity_chain PeerIdentity_Chain_Field) (
 	peer_identity *PeerIdentity, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := peer_identity_node_id.value()
-	__serial_number_val := peer_identity_serial_number.value()
+	__leaf_serial_number_val := peer_identity_leaf_serial_number.value()
 	__chain_val := peer_identity_chain.value()
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __serial_number_val, __chain_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __serial_number_val, __chain_val, __updated_at_val)
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11402,7 +11402,7 @@ func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, peer_identity_node_id.value())
@@ -11411,7 +11411,7 @@ func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11419,11 +11419,11 @@ func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Context,
+func (obj *sqlite3Impl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
-	row *SerialNumber_Row, err error) {
+	row *LeafSerialNumber_Row, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.leaf_serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, peer_identity_node_id.value())
@@ -11431,8 +11431,8 @@ func (obj *sqlite3Impl) Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Cont
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &SerialNumber_Row{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.SerialNumber)
+	row = &LeafSerialNumber_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.LeafSerialNumber)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12330,9 +12330,9 @@ func (obj *sqlite3Impl) Update_PeerIdentity_By_NodeId(ctx context.Context,
 	var __values []interface{}
 	var __args []interface{}
 
-	if update.SerialNumber._set {
-		__values = append(__values, update.SerialNumber.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("serial_number = ?"))
+	if update.LeafSerialNumber._set {
+		__values = append(__values, update.LeafSerialNumber.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("leaf_serial_number = ?"))
 	}
 
 	if update.Chain._set {
@@ -12359,12 +12359,12 @@ func (obj *sqlite3Impl) Update_PeerIdentity_By_NodeId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13336,13 +13336,13 @@ func (obj *sqlite3Impl) getLastPeerIdentity(ctx context.Context,
 	pk int64) (
 	peer_identity *PeerIdentity, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&peer_identity.NodeId, &peer_identity.SerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14129,14 +14129,14 @@ func (rx *Rx) Create_Offer(ctx context.Context,
 
 func (rx *Rx) Create_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
-	peer_identity_serial_number PeerIdentity_SerialNumber_Field,
+	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
 	peer_identity_chain PeerIdentity_Chain_Field) (
 	peer_identity *PeerIdentity, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_PeerIdentity(ctx, peer_identity_node_id, peer_identity_serial_number, peer_identity_chain)
+	return tx.Create_PeerIdentity(ctx, peer_identity_node_id, peer_identity_leaf_serial_number, peer_identity_chain)
 
 }
 
@@ -14634,14 +14634,14 @@ func (rx *Rx) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	return tx.Get_PeerIdentity_By_NodeId(ctx, peer_identity_node_id)
 }
 
-func (rx *Rx) Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Context,
+func (rx *Rx) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
-	row *SerialNumber_Row, err error) {
+	row *LeafSerialNumber_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_PeerIdentity_SerialNumber_By_NodeId(ctx, peer_identity_node_id)
+	return tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, peer_identity_node_id)
 }
 
 func (rx *Rx) Get_PendingAudits_By_NodeId(ctx context.Context,
@@ -15203,7 +15203,7 @@ type Methods interface {
 
 	Create_PeerIdentity(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field,
-		peer_identity_serial_number PeerIdentity_SerialNumber_Field,
+		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
 		peer_identity_chain PeerIdentity_Chain_Field) (
 		peer_identity *PeerIdentity, err error)
 
@@ -15428,9 +15428,9 @@ type Methods interface {
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
 		peer_identity *PeerIdentity, err error)
 
-	Get_PeerIdentity_SerialNumber_By_NodeId(ctx context.Context,
+	Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
-		row *SerialNumber_Row, err error)
+		row *LeafSerialNumber_Row, err error)
 
 	Get_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field) (

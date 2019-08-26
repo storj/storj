@@ -120,7 +120,7 @@ CREATE TABLE offers (
 );
 CREATE TABLE peer_identities (
 	node_id BLOB NOT NULL,
-	serial_number BLOB NOT NULL,
+	leaf_serial_number BLOB NOT NULL,
 	chain BLOB NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( node_id )

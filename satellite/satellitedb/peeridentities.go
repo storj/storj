@@ -41,24 +41,24 @@ func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, iden
 		}
 	}()
 
-	serial, err := tx.Get_PeerIdentity_SerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+	serial, err := tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
 	if serial == nil || err != nil {
 		if serial == nil || err == sql.ErrNoRows {
 			_, err = tx.Create_PeerIdentity(ctx,
 				dbx.PeerIdentity_NodeId(nodeID.Bytes()),
-				dbx.PeerIdentity_SerialNumber(ident.Leaf.SerialNumber.Bytes()),
+				dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
 				dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
 			)
 			return Error.Wrap(err)
 		}
 		return Error.Wrap(err)
 	}
-	if !bytes.Equal(serial.SerialNumber, ident.Leaf.SerialNumber.Bytes()) {
+	if !bytes.Equal(serial.LeafSerialNumber, ident.Leaf.SerialNumber.Bytes()) {
 		_, err = tx.Update_PeerIdentity_By_NodeId(ctx,
 			dbx.PeerIdentity_NodeId(nodeID.Bytes()),
 			dbx.PeerIdentity_Update_Fields{
-				SerialNumber: dbx.PeerIdentity_SerialNumber(ident.Leaf.SerialNumber.Bytes()),
-				Chain:        dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
+				LeafSerialNumber: dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
+				Chain:            dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
 			},
 		)
 	}

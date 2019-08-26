@@ -621,10 +621,10 @@ read all (
 model peer_identity (
     key node_id
 
-    field node_id        blob
-    field serial_number  blob (updatable)
-    field chain          blob (updatable) // x509 ASN.1 DER content 
-    field updated_at     timestamp ( autoinsert, autoupdate )
+    field node_id            blob
+    field leaf_serial_number blob (updatable)
+    field chain              blob (updatable) // x509 ASN.1 DER content 
+    field updated_at         timestamp ( autoinsert, autoupdate )
 )
 
 create peer_identity ( )
@@ -637,7 +637,7 @@ read one (
     where  peer_identity.node_id = ?
 )
 read one (
-    select peer_identity.serial_number
+    select peer_identity.leaf_serial_number
     where  peer_identity.node_id = ?
 )
 
