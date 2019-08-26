@@ -3,13 +3,15 @@
 
 <template>
     <input
+        ref="input"
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
-        @input="onInput"
-        v-model="mSearchQuery"
+        @input="processSearchQuery"
+        v-model="searchQuery"
         :placeholder="`Search ${placeHolder}`"
         :style="style"
-        type="text">
+        type="text"
+        autocomplete="off">
 </template>
 
 <script lang="ts">
@@ -28,33 +30,42 @@
         private readonly search: searchCallback;
 
         private inputWidth: string = '56px';
-        private mSearchQuery: string = '';
+        private searchQuery: string = '';
+
+        public $refs!: {
+            input: HTMLElement;
+        };
 
         public get style(): SearchStyle {
             return { width: this.inputWidth };
         }
 
-        public get searchQuery(): string {
-            return this.mSearchQuery;
+        public get searchString(): string {
+            return this.searchQuery;
         }
 
         public onMouseEnter(): void {
             this.inputWidth = '602px';
+
+            this.$refs.input.focus();
         }
 
         public onMouseLeave(): void {
-            if (!this.searchQuery) {
+            if (!this.searchString) {
                 this.inputWidth = '56px';
             }
+
+            this.$refs.input.blur();
         }
 
-        public onInput(): any {
-            this.onMouseLeave();
+        public clearSearch() {
+            this.searchQuery = '';
             this.processSearchQuery();
+            this.inputWidth = '56px';
         }
 
         private async processSearchQuery() {
-            await this.search(this.searchQuery);
+            await this.search(this.searchString);
         }
     }
 </script>
@@ -63,6 +74,7 @@
     input {
         position: absolute;
         right: 0;
+        bottom: 0;
         padding: 0 38px 0 18px;
         border: 1px solid #F2F2F2;
         box-sizing: border-box;

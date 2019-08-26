@@ -1114,6 +1114,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					ALTER COLUMN owner_id SET NOT NULL;`,
 				},
 			},
+			{
+				Description: "Remove certRecords table",
+				Version:     52,
+				Action: migrate.SQL{
+					`DROP TABLE certRecords CASCADE`,
+				},
+			},
+			{
+				Description: "Add piece_count column to nodes table",
+				Version:     53,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD piece_count BIGINT NOT NULL DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }

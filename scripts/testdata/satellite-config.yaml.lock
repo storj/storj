@@ -13,6 +13,9 @@
 # the minimum duration for downloading a share from storage nodes before timing out
 # audit.min-download-timeout: 25s
 
+# number of reservoir slots allotted for nodes, currently capped at 2
+# audit.slots: 1
+
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 
@@ -74,7 +77,7 @@
 # garbage-collection.concurrent-sends: 1
 
 # set if garbage collection is enabled or not
-# garbage-collection.enabled: false
+# garbage-collection.enabled: true
 
 # the false positive rate used for creating a garbage collection bloom filter
 # garbage-collection.false-positive-rate: 0.1
@@ -83,7 +86,7 @@
 # garbage-collection.initial-pieces: 400000
 
 # the time between each send of garbage collection filters to storage nodes
-# garbage-collection.interval: 168h0m0s
+# garbage-collection.interval: 120h0m0s
 
 # help for setup
 # help: false
@@ -240,6 +243,9 @@ kademlia.operator.wallet: ""
 
 # how long until an order expires
 # orders.expiration: 168h0m0s
+
+# how many orders to batch per transaction
+# orders.settlement-batch-size: 250
 
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100

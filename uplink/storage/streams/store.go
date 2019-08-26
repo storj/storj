@@ -37,12 +37,19 @@ type Meta struct {
 	Data       []byte
 }
 
-// convertMeta converts object metadata to stream metadata
+func numberOfSegments(stream *pb.StreamInfo, streamMeta *pb.StreamMeta) int64 {
+	if streamMeta.NumberOfSegments > 0 {
+		return streamMeta.NumberOfSegments
+	}
+	return stream.DeprecatedNumberOfSegments
+}
+
+// convertMeta converts segment metadata to stream metadata
 func convertMeta(modified, expiration time.Time, stream pb.StreamInfo, streamMeta pb.StreamMeta) Meta {
 	return Meta{
 		Modified:   modified,
 		Expiration: expiration,
-		Size:       ((stream.NumberOfSegments - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
+		Size:       ((numberOfSegments(&stream, &streamMeta) - 1) * stream.SegmentsSize) + stream.LastSegmentSize,
 		Data:       stream.Metadata,
 	}
 }
@@ -219,10 +226,10 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		}
 
 		streamInfo, err := proto.Marshal(&pb.StreamInfo{
-			NumberOfSegments: currentSegment + 1,
-			SegmentsSize:     s.segmentSize,
-			LastSegmentSize:  sizeReader.Size(),
-			Metadata:         metadata,
+			DeprecatedNumberOfSegments: currentSegment + 1,
+			SegmentsSize:               s.segmentSize,
+			LastSegmentSize:            sizeReader.Size(),
+			Metadata:                   metadata,
 		})
 		if err != nil {
 			return Meta{}, currentSegment, streamID, err
@@ -235,6 +242,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		}
 
 		streamMeta := pb.StreamMeta{
+			NumberOfSegments:    currentSegment + 1,
 			EncryptedStreamInfo: encryptedStreamInfo,
 			EncryptionType:      int32(s.cipher),
 			EncryptionBlockSize: int32(s.encBlockSize),
@@ -320,7 +328,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 	}
 
 	var rangers []ranger.Ranger
-	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
+	for i := int64(0); i < numberOfSegments(&stream, &streamMeta)-1; i++ {
 		var contentNonce storj.Nonce
 		_, err = encryption.Increment(&contentNonce, i+1)
 		if err != nil {
@@ -342,7 +350,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 	}
 
 	var contentNonce storj.Nonce
-	_, err = encryption.Increment(&contentNonce, stream.NumberOfSegments)
+	_, err = encryption.Increment(&contentNonce, numberOfSegments(&stream, &streamMeta))
 	if err != nil {
 		return nil, Meta{}, err
 	}

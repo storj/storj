@@ -30,31 +30,38 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 
 	var result []accounting.BucketTally
 
-	for _, info := range bucketTallies {
-		bucketName := dbx.BucketStorageTally_BucketName(info.BucketName)
-		projectID := dbx.BucketStorageTally_ProjectId(info.ProjectID)
-		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
-		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
-		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))
-		rSegments := dbx.BucketStorageTally_RemoteSegmentsCount(uint(info.RemoteSegments))
-		iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments))
-		objectCount := dbx.BucketStorageTally_ObjectCount(uint(info.Files))
-		meta := dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize))
-		dbxTally, err := db.db.Create_BucketStorageTally(ctx, bucketName, projectID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
-		if err != nil {
-			return nil, err
+	// TODO: see if we can send all bucket storage tallies to the db in one operation
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		for _, info := range bucketTallies {
+			bucketName := dbx.BucketStorageTally_BucketName(info.BucketName)
+			projectID := dbx.BucketStorageTally_ProjectId(info.ProjectID)
+			interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
+			inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
+			remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))
+			rSegments := dbx.BucketStorageTally_RemoteSegmentsCount(uint(info.RemoteSegments))
+			iSegments := dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments))
+			objectCount := dbx.BucketStorageTally_ObjectCount(uint(info.Files))
+			meta := dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize))
+			dbxTally, err := tx.Create_BucketStorageTally(ctx, bucketName, projectID, interval, inlineBytes, remoteBytes, rSegments, iSegments, objectCount, meta)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			tally := accounting.BucketTally{
+				BucketName:     dbxTally.BucketName,
+				ProjectID:      dbxTally.ProjectId,
+				InlineSegments: int64(dbxTally.InlineSegmentsCount),
+				RemoteSegments: int64(dbxTally.RemoteSegmentsCount),
+				Files:          int64(dbxTally.ObjectCount),
+				InlineBytes:    int64(dbxTally.Inline),
+				RemoteBytes:    int64(dbxTally.Remote),
+				MetadataSize:   int64(dbxTally.MetadataSize),
+			}
+			result = append(result, tally)
 		}
-		tally := accounting.BucketTally{
-			BucketName:     dbxTally.BucketName,
-			ProjectID:      dbxTally.ProjectId,
-			InlineSegments: int64(dbxTally.InlineSegmentsCount),
-			RemoteSegments: int64(dbxTally.RemoteSegmentsCount),
-			Files:          int64(dbxTally.ObjectCount),
-			InlineBytes:    int64(dbxTally.Inline),
-			RemoteBytes:    int64(dbxTally.Remote),
-			MetadataSize:   int64(dbxTally.MetadataSize),
-		}
-		result = append(result, tally)
+		return nil
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 	return result, nil
 }

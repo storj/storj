@@ -1,83 +1,85 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { USER_MUTATIONS } from '../mutationConstants';
-import {
-    deleteAccountRequest,
-    updateAccountRequest,
-    changePasswordRequest,
-    getUserRequest,
-} from '@/api/users';
-import { UpdatedUser, UpdatePasswordModel, User } from '@/types/users';
-import { RequestResponse } from '@/types/response';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
+import { StoreModule } from '@/store';
 
-export const usersModule = {
-    state: {
-        user: {
-            fullName: '',
-            shortName: '',
-            email: ''
-        }
-    },
-
-    mutations: {
-        [USER_MUTATIONS.SET_USER_INFO](state: any, user: User): void {
-            state.user = user;
-        },
-
-        [USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO](state: any): void {
-            state.user.fullName = '';
-            state.user.shortName = '';
-            state.user.email = '';
-        },
-
-        [USER_MUTATIONS.UPDATE_USER_INFO](state: any, user: User): void {
-            state.user = user;
-        },
-
-        [USER_MUTATIONS.CLEAR](state: any): void {
-            state.user = {
-                fullName: '',
-                shortName: '',
-                email: ''
-            };
-        },
-    },
-
-    actions: {
-        updateAccount: async function ({commit}: any, userInfo: UpdatedUser): Promise<RequestResponse<User>> {
-            let response = await updateAccountRequest(userInfo);
-            
-            if (response.isSuccess) {
-                commit(USER_MUTATIONS.UPDATE_USER_INFO, response.data);
-            }
-
-            return response;
-        },
-        changePassword: async function ({state}: any, updateModel: UpdatePasswordModel): Promise<RequestResponse<null>> {
-            return await changePasswordRequest(updateModel.oldPassword, updateModel.newPassword);
-        },
-        deleteAccount: async function ({commit, state}: any, password: string): Promise<RequestResponse<null>> {
-            return await deleteAccountRequest(password);
-        },
-        getUser: async function ({commit}: any): Promise<RequestResponse<User>> {
-            let response = await getUserRequest();
-
-            if (response.isSuccess) {
-                commit(USER_MUTATIONS.SET_USER_INFO, response.data);
-            }
-
-            return response;
-        },
-        clearUser: function({commit}: any) {
-            commit(USER_MUTATIONS.CLEAR);
-        },
-    },
-
-    getters: {
-        user: (state: any) => {
-            return state.user;
-        },
-        userName: (state: any) => state.user.shortName == '' ? state.user.fullName : state.user.shortName
-    },
+export const USER_ACTIONS = {
+    UPDATE: 'updateUser',
+    GET: 'getUser',
+    CLEAR: 'clearUser',
 };
+
+export const USER_MUTATIONS = {
+    SET_USER: 'setUser',
+    UPDATE_USER: 'updateUser',
+    CLEAR: 'clearUser',
+};
+
+const {
+    GET,
+    UPDATE,
+} = USER_ACTIONS;
+
+const {
+    SET_USER,
+    UPDATE_USER,
+    CLEAR,
+} = USER_MUTATIONS;
+
+/**
+ * creates users module with all dependencies
+ *
+ * @param api - users api
+ */
+export function makeUsersModule(api: UsersApi): StoreModule<User> {
+    return {
+        state: new User(),
+
+        mutations: {
+            [SET_USER](state: User, user: User): void {
+                state.id = user.id;
+                state.email = user.email;
+                state.shortName = user.shortName;
+                state.fullName = user.fullName;
+                state.partnerId = user.partnerId;
+            },
+
+            [CLEAR](state: User): void {
+                state.id = '';
+                state.email = '';
+                state.shortName = '';
+                state.fullName = '';
+                state.partnerId = '';
+            },
+
+            [UPDATE_USER](state: User, user: UpdatedUser): void {
+                state.fullName = user.fullName;
+                state.shortName = user.shortName;
+            },
+        },
+
+        actions: {
+            [UPDATE]: async function ({commit}: any, userInfo: UpdatedUser): Promise<void> {
+                await api.update(userInfo);
+
+                commit(UPDATE_USER, userInfo);
+            },
+            [GET]: async function ({commit}: any): Promise<User> {
+                let user = await api.get();
+
+                commit(SET_USER, user);
+
+                return user;
+            },
+            [CLEAR]: function({commit}: any) {
+                commit(CLEAR);
+            },
+        },
+
+        getters: {
+            user: (state: User): User => state,
+            userName: (state: User): string => state.getFullName(),
+        },
+    };
+}

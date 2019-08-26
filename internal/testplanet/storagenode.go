@@ -11,10 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
@@ -22,8 +25,10 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/vouchers"
 )
@@ -87,23 +92,34 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Collector: collector.Config{
 				Interval: time.Minute,
 			},
+			Nodestats: nodestats.Config{
+				MaxSleep:       0,
+				ReputationSync: 1 * time.Minute,
+				StorageSync:    1 * time.Minute,
+			},
 			Console: consoleserver.Config{
 				Address:   "127.0.0.1:0",
 				StaticDir: filepath.Join(developmentRoot, "web/operator/"),
 			},
 			Storage2: piecestore.Config{
+				CacheSyncInterval:     time.Hour,
 				ExpirationGracePeriod: 0,
 				MaxConcurrentRequests: 100,
 				OrderLimitGracePeriod: time.Hour,
-				Sender: orders.SenderConfig{
-					Interval: time.Hour,
-					Timeout:  time.Hour,
+				Orders: orders.Config{
+					SenderInterval:  time.Hour,
+					SenderTimeout:   time.Hour,
+					CleanupInterval: time.Hour,
+					ArchiveTTL:      time.Hour,
 				},
 				Monitor: monitor.Config{
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
 				},
-				RetainStatus: piecestore.RetainEnabled,
+			},
+			Retain: retain.Config{
+				RetainStatus:        retain.Enabled,
+				MaxConcurrentRetain: 5,
 			},
 			Vouchers: vouchers.Config{
 				Interval: time.Hour,
@@ -125,7 +141,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			}
 		}
 
-		verInfo := planet.NewVersionInfo()
+		verisonInfo := planet.NewVersionInfo()
 
 		storageConfig := storagenodedb.Config{
 			Storage:  config.Storage.Path,
@@ -148,7 +164,13 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			}
 		}
 
-		peer, err := storagenode.New(log, identity, db, config, verInfo)
+		revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+		if err != nil {
+			return xs, errs.Wrap(err)
+		}
+		planet.databases = append(planet.databases, revocationDB)
+
+		peer, err := storagenode.New(log, identity, db, revocationDB, config, verisonInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -157,7 +179,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		if err != nil {
 			return nil, err
 		}
-
 		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
