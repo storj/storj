@@ -39,7 +39,6 @@ import (
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
-	"storj.io/storj/storagenode/vouchers"
 )
 
 var (
@@ -61,7 +60,6 @@ type DB interface {
 	PieceSpaceUsedDB() pieces.PieceSpaceUsedDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
-	Vouchers() vouchers.DB
 	Console() console.DB
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
