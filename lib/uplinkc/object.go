@@ -230,7 +230,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 
 	objectSize := int(C.sizeof_ObjectInfo)
 	ptr := C.malloc(C.size_t(objectSize * objListLen))
-	cObjectsPtr := (*[1 << 30]C.ObjectInfo)(ptr)
+	cObjectsPtr := (*[1 << 30 / unsafe.Sizeof(C.ObjectInfo{})]C.ObjectInfo)(ptr)
 
 	for i, object := range objectList.Items {
 		object := object
@@ -415,7 +415,7 @@ func free_list_objects(objectList *C.ObjectList) {
 	C.free(unsafe.Pointer(objectList.prefix))
 	objectList.prefix = nil
 
-	items := (*[1 << 30]C.ObjectInfo)(unsafe.Pointer(objectList.items))[:objectList.length]
+	items := (*[1 << 30 / unsafe.Sizeof(C.ObjectInfo{})]C.ObjectInfo)(unsafe.Pointer(objectList.items))[:objectList.length]
 	for _, item := range items {
 		item := item
 		free_object_info((*C.ObjectInfo)(unsafe.Pointer(&item)))
