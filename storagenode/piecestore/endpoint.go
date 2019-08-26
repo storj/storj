@@ -419,7 +419,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			// v0 stores this information in SQL
 			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
 			if err != nil {
-				endpoint.log.Error("failed to close piece reader", zap.Error(err))
+				endpoint.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
 				return status.Error(codes.Internal, err.Error())
 			}
 			orderLimit = *info.OrderLimit
@@ -428,6 +428,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			//v1+ stores this information in the file
 			header, err := pieceReader.GetPieceHeader()
 			if err != nil {
+				endpoint.log.Error("error getting header from piecereader", zap.Error(err))
 				return status.Error(codes.Internal, err.Error())
 			}
 			orderLimit = header.OrderLimit
@@ -442,6 +443,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
 		if err != nil {
+			endpoint.log.Error("error sending hash and order limit", zap.Error(err))
 			return status.Error(codes.Internal, err.Error())
 		}
 	}
@@ -453,6 +455,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
 	if err != nil {
+		endpoint.log.Error("error getting available bandwidth", zap.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
 
@@ -478,12 +481,14 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			chunkData := make([]byte, chunkSize)
 			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
 			if err != nil {
+				endpoint.log.Error("error seeking on piecereader", zap.Error(err))
 				return status.Error(codes.Internal, err.Error())
 			}
 
 			// ReadFull is required to ensure we are sending the right amount of data.
 			_, err = io.ReadFull(pieceReader, chunkData)
 			if err != nil {
+				endpoint.log.Error("error reading from piecereader", zap.Error(err))
 				return status.Error(codes.Internal, err.Error())
 			}
 
