@@ -789,6 +789,18 @@ func (db *DB) Migration() *migrate.Migration {
 							return ErrDatabase.Wrap(err)
 						}
 					}
+					// VACUUM the versions database to reclaim the space used by the migrated dropped tables.
+					_, err := db.versionsDB.Exec("VACUUM;")
+					if err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					// Closing the database completes the reclaiming of the space used above in the vacuum call.
+					err = db.versionsDB.Close()
+					if err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
 					return nil
 				}),
 			},

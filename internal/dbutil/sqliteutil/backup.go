@@ -102,6 +102,14 @@ func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLi
 			}
 		}
 	}
+
+	// VACUUM the database to reclaim the space used by the dropped tables.
+	_, err = destinationDB.Exec("VACUUM;")
+	if err != nil {
+		return ErrSqlite3Backup.Wrap(err)
+	}
+
+	// Closing the database completes the reclaiming of the space used above in the vacuum call.
 	err = destinationDB.Close()
 	if err != nil {
 		return ErrSqlite3Backup.Wrap(err)
