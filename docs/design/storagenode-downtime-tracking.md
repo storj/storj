@@ -50,7 +50,9 @@ The current Satellite database has the table `nodes`. For the offline time calcu
 
 ### Detecting offline nodes
 
-An independent process runs, in a configurable interval, of time the following query:
+Per [Kademlia Removal design document](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing), any Storage Node has to ping the Satellite every hour and when it starts up. We have to contact the Storage Nodes which the Satellite hasn't registered a ping for more than one hour to determinie if they are offline or for whatever reason their ping didn't reach the Satellite.
+
+For checking those Storage Nodes, an independent process runs in a configurable interval of time the following query:
 
 ```sql
 SELECT
