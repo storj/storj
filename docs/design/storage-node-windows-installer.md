@@ -32,7 +32,7 @@ The installer shall:
   * Email
   * External address/port
   * Advertised bandwidth 
-  * Advertised Storge
+  * Advertised storage
   * Identity directory
   * Installation directory
   * Storage directory
