@@ -118,6 +118,13 @@ CREATE TABLE offers (
 	type integer NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE peer_identities (
+	node_id bytea NOT NULL,
+	leaf_serial_number bytea NOT NULL,
+	chain bytea NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE pending_audits (
 	node_id bytea NOT NULL,
 	piece_id bytea NOT NULL,
