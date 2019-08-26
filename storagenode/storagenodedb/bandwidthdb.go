@@ -19,6 +19,8 @@ import (
 // ErrBandwidth represents errors from the bandwidthdb database.
 var ErrBandwidth = errs.Class("bandwidthdb error")
 
+var BandwidthDatabaseFilename = "bandwidth.db"
+
 type bandwidthDB struct {
 	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
 	usedSpace int64

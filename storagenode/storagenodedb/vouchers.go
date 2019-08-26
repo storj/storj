@@ -18,6 +18,8 @@ import (
 // ErrVouchers represents errors from the vouchers database.
 var ErrVouchers = errs.Class("vouchersdb error")
 
+var VouchersDatabaseFilename = "vouchers.db"
+
 type vouchersDB struct {
 	location string
 	SQLDB

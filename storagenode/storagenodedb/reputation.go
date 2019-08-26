@@ -15,6 +15,8 @@ import (
 // ErrReputation represents errors from the reputation database.
 var ErrReputation = errs.Class("reputation error")
 
+var ReputationDatabaseFilename = "reputation.db"
+
 // reputation works with node reputation DB
 type reputationDB struct {
 	location string

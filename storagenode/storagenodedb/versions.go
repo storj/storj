@@ -3,6 +3,8 @@
 
 package storagenodedb
 
+var VersionsDatabaseFilename = "info.db"
+
 // versions represents the database that contains the database schema version history.
 type versionsDB struct {
 	location string

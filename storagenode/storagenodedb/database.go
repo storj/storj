@@ -11,14 +11,17 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3" // used indirectly
+	"github.com/mattn/go-sqlite3" // used indirectly
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
@@ -103,6 +106,9 @@ type DB struct {
 	vouchersDB        *vouchersDB
 
 	kdb, ndb, adb storage.KeyValueStore
+
+	conlock     sync.Mutex
+	connections map[string]*sqlite3.SQLiteConn
 }
 
 // New creates a new master database for storage node
@@ -118,12 +124,6 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		return nil, err
 	}
 
-	versionsPath := config.Info2
-	versionsDB, err := openDatabase(versionsPath)
-	if err != nil {
-		return nil, err
-	}
-
 	db := &DB{
 		log:    log,
 		pieces: pieces,
@@ -131,21 +131,26 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		ndb:    dbs[1],
 		adb:    dbs[2],
 
-		// Initialize databases. Currently shares one info.db database file but
-		// in the future these will initialize their own database connections.
-		versionsDB:        newVersionsDB(versionsDB, versionsPath),
-		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
-		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
-		consoleDB:         newConsoleDB(versionsDB),
-		ordersDB:          newOrdersDB(versionsDB, versionsPath),
-		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
-		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
-		reputationDB:      newReputationDB(versionsDB, versionsPath),
-		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
-		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
-		vouchersDB:        newVouchersDB(versionsDB, versionsPath),
+		conlock:     sync.Mutex{},
+		connections: make(map[string]*sqlite3.SQLiteConn),
 	}
 
+	// The sqlite driver is needed in order to perform backups. We use a connect hook to intercept it.
+	sql.Register(sqliteutil.Sqlite3DriverName, &sqlite3.SQLiteDriver{
+		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+			fileName := strings.ToLower(filepath.Base(conn.GetFilename("")))
+			db.conlock.Lock()
+			db.connections[fileName] = conn
+			db.conlock.Unlock()
+			return nil
+		},
+	})
+
+	databasesPath := filepath.Dir(config.Info2)
+	err = db.openDatabases(databasesPath)
+	if err != nil {
+		return nil, err
+	}
 	return db, nil
 }
 
@@ -187,18 +192,90 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 	return db, nil
 }
 
+// openDatabases opens all the SQLite3 storage node databases and returns if any fails to open successfully.
+func (db *DB) openDatabases(databasesPath string) error {
+	// We open the versions database first because this one has the DB schema versioning info
+	// we need before anything else.
+	versionsDB, err := openDatabase(filepath.Join(databasesPath, VersionsDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.versionsDB = newVersionsDB(versionsDB, "")
+
+	bandwidthDB, err := openDatabase(filepath.Join(databasesPath, BandwidthDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.bandwidthDB = newBandwidthDB(bandwidthDB, "")
+
+	// TODO: console database?
+
+	ordersDB, err := openDatabase(filepath.Join(databasesPath, OrdersDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.ordersDB = newOrdersDB(ordersDB, "")
+
+	pieceExpirationDB, err := openDatabase(filepath.Join(databasesPath, PieceExpirationDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.pieceExpirationDB = newPieceExpirationDB(pieceExpirationDB, "")
+
+	v0PieceInfoDB, err := openDatabase(filepath.Join(databasesPath, v0PieceInfoDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.v0PieceInfoDB = newV0PieceInfoDB(v0PieceInfoDB, "")
+
+	pieceSpaceUsedDB, err := openDatabase(filepath.Join(databasesPath, PieceSpacedUsedDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.pieceSpaceUsedDB = newPieceSpaceUsedDB(pieceSpaceUsedDB, "")
+
+	reputationDB, err := openDatabase(filepath.Join(databasesPath, ReputationDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.reputationDB = newReputationDB(reputationDB, "")
+
+	storageUsageDB, err := openDatabase(filepath.Join(databasesPath, StorageUsageDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.storageUsageDB = newStorageusageDB(storageUsageDB, "")
+
+	usedSerialsDB, err := openDatabase(filepath.Join(databasesPath, UsedSerialsDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.usedSerialsDB = newUsedSerialsDB(usedSerialsDB, "")
+
+	vouchersDB, err := openDatabase(filepath.Join(databasesPath, VouchersDatabaseFilename))
+	if err != nil {
+		return err
+	}
+	db.vouchersDB = newVouchersDB(vouchersDB, "")
+
+	return nil
+}
+
 // openDatabase opens or creates a database at the specified path.
 func openDatabase(path string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	db, err := sql.Open(sqliteutil.Sqlite3DriverName, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, ErrDatabase.Wrap(err)
 	}
 
 	dbutil.Configure(db, mon)
+	// TODO: This shouldn't be needed. When a database is first opened it hasn't been created on disk yet.
+	// This flushes the newly initialized database to disk.
+	db.Ping()
 	return db, nil
 }
 
@@ -238,11 +315,11 @@ func (db *DB) Close() error {
 		db.adb.Close(),
 
 		db.versionsDB.Close(),
-		db.v0PieceInfoDB.Close(),
 		db.bandwidthDB.Close(),
 		db.consoleDB.Close(),
 		db.ordersDB.Close(),
 		db.pieceExpirationDB.Close(),
+		db.v0PieceInfoDB.Close(),
 		db.pieceSpaceUsedDB.Close(),
 		db.reputationDB.Close(),
 		db.storageUsageDB.Close(),
@@ -652,6 +729,69 @@ func (db *DB) Migration() *migrate.Migration {
 					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
 					`INSERT INTO piece_space_used (total) select ifnull(sum(piece_size), 0) from pieceinfo_`,
 				},
+			},
+			{
+				Description: "Split into multiple sqlite databases",
+				Version:     18,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					// We keep database version information in the info.db but we migrate
+					// the other tables into their own individual SQLite3 databases
+					// and we drop them from the info.db.
+					ctx := context.TODO()
+
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, BandwidthDatabaseFilename, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, "certificate.db", "certificate"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, OrdersDatabaseFilename, "unsent_order, order_archive_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, PieceExpirationDatabaseFilename, "piece_expirations"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, v0PieceInfoDatabaseFilename, "pieceinfo_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, PieceSpacedUsedDatabaseFilename, "piece_space_used"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, ReputationDatabaseFilename, "reputation"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, StorageUsageDatabaseFilename, "storage_usage"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, UsedSerialsDatabaseFilename, "used_serial_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, VouchersDatabaseFilename, "vouchers"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					// Create a list of tables we have migrated to new databases
+					// that we can delete from the original database.
+					tablesToDrop := []string{
+						"vouchers",
+						"certificate",
+						"order_archive_",
+						"unsent_order",
+						"bandwidth_usage",
+						"bandwidth_usage_rollups",
+						"pieceinfo_",
+						"used_serial_",
+					}
+
+					// Delete tables we have migrated from the original database.
+					for _, tableName := range tablesToDrop {
+						_, err := db.versionsDB.Exec("DROP TABLE "+tableName+";", nil)
+						if err != nil {
+							return ErrDatabase.Wrap(err)
+						}
+					}
+					return nil
+				}),
 			},
 		},
 	}

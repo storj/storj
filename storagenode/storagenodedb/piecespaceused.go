@@ -15,6 +15,8 @@ import (
 // ErrPieceSpaceUsed represents errors from the piece spaced used database.
 var ErrPieceSpaceUsed = errs.Class("piece space used error")
 
+var PieceSpacedUsedDatabaseFilename = "piece_spaced_used.db"
+
 type pieceSpaceUsedDB struct {
 	location string
 	SQLDB

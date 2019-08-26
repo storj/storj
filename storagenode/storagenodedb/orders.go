@@ -19,6 +19,8 @@ import (
 // ErrOrders represents errors from the ordersdb database.
 var ErrOrders = errs.Class("ordersdb error")
 
+var OrdersDatabaseFilename = "orders.db"
+
 type ordersDB struct {
 	location string
 	SQLDB
