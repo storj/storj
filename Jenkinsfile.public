@@ -104,6 +104,12 @@ pipeline {
                         sh 'make test-sim-backwards-compatible'
                     }
                 }
+
+                stage('Test Build of Satellite Container Image') {
+                    steps {
+                        sh 'make satellite-image'
+                    }
+                }
             }
         }
     }
