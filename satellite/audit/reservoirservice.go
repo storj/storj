@@ -16,7 +16,7 @@ import (
 )
 
 // ReservoirService is a temp name for the service struct during the audit 2.0 refactor.
-// Once V3-2363 and V3-2364 are implemented, Service2 will replace the existing Service struct.
+// Once V3-2363 and V3-2364 are implemented, ReservoirService will replace the existing Service struct.
 type ReservoirService struct {
 	log *zap.Logger
 
@@ -35,7 +35,7 @@ func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config
 	return &ReservoirService{
 		log: log,
 
-		nodesToSelect:  config.NodesToSelect,
+		nodesToSelect:  config.NodeSelectCount,
 		reservoirSlots: config.Slots,
 		rand:           rand.New(rand.NewSource(time.Now().Unix())),
 
@@ -57,59 +57,50 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 			service.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
-		service.Reservoirs = pathCollector.Reservoirs
+
+		_, err = service.Select(ctx, pathCollector.Reservoirs)
+		if err != nil {
+			service.log.Error("error selecting reservoirs", zap.Error(err))
+			return nil
+		}
 		return nil
 	})
 }
 
 // Select randomly selects segments to audit
-func (service *ReservoirService) Select(ctx context.Context) (err error) {
+func (service *ReservoirService) Select(ctx context.Context, reservoirs map[storj.NodeID]*Reservoir) (pathsToAudit []storj.Path, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
-		defer mon.Task()(&ctx)(&err)
-
-		service.PathsToAudit = []storj.Path{}
-		if service.Reservoirs != nil {
-			// todo: is it okay that pathsToAudit could end up being less than nodesToSelect?
-			for i := 0; i < service.nodesToSelect; i++ {
-				randomReservoir, err := service.GetRandomReservoir()
-				if err != nil {
-					return err
-				}
-				if randomReservoir == nil {
-					continue
-				}
-				randomPath := GetRandomPath(randomReservoir)
-				service.PathsToAudit = append(service.PathsToAudit, randomPath)
+	if len(reservoirs) != 0 {
+		// todo: is it okay that pathsToAudit could end up being less than nodesToSelect?
+		for i := 0; i < service.nodesToSelect; i++ {
+			randomReservoir := GetRandomReservoir(reservoirs)
+			if randomReservoir == nil {
+				continue
 			}
+			randomPath := randomReservoir.GetRandomPath()
+			pathsToAudit = append(pathsToAudit, randomPath)
 		}
-		return nil
-	})
+	}
+	return pathsToAudit, nil
 }
 
 // GetRandomReservoir returns a random reservoir
-func (service *ReservoirService) GetRandomReservoir() (reservoir *Reservoir, err error) {
+func GetRandomReservoir(reservoirs map[storj.NodeID]*Reservoir) (reservoir *Reservoir) {
 	var src cryptoSource
 	rnd := rand.New(src)
 
-	if len(service.Reservoirs) == 0 {
-		return nil, Error.New("no reservoirs available")
+	var nodeIDList storj.NodeIDList
+	for nodeID := range reservoirs {
+		nodeIDList = append(nodeIDList, nodeID)
 	}
-
-	randomIndex := rnd.Intn(len(service.Reservoirs))
-	for nodeID := range service.Reservoirs {
-		if randomIndex == 0 {
-			return service.Reservoirs[nodeID], nil
-		}
-		randomIndex--
-	}
-	// todo: is it okay to return nil, nil here?
-	return nil, nil
+	randomIndex := rnd.Intn(len(nodeIDList))
+	selectedID := nodeIDList[randomIndex]
+	return reservoirs[selectedID]
 }
 
 // GetRandomPath returns a random path
-func GetRandomPath(reservoir *Reservoir) (path storj.Path) {
+func (reservoir *Reservoir) GetRandomPath() (path storj.Path) {
 	var src cryptoSource
 	rnd := rand.New(src)
 
