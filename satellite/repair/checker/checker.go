@@ -281,7 +281,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 		if len(pathElements) >= 4 {
 			project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
 			lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
-			if contains(obs.monStats.remoteSegmentInfo, lostSegInfo) == false {
+			if !contains(obs.monStats.remoteSegmentInfo, lostSegInfo) {
 				obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
 			}
 		}

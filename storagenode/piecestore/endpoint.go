@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/bloomfilter"
@@ -64,7 +65,7 @@ type Config struct {
 	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
 
 	Monitor monitor.Config
-	Sender  orders.SenderConfig
+	Orders  orders.Config
 }
 
 // Endpoint implements uploading, downloading and deleting for a storage node.
@@ -516,7 +517,11 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			// TODO: add timeout here
 			message, err = stream.Recv()
 			if err != nil {
-				// err is io.EOF when uplink closed the connection, no need to return error
+				// err is io.EOF or canceled when uplink closed the connection, no need to return error
+				if errs2.IsCanceled(err) {
+					endpoint.log.Debug("client canceled connection")
+					return nil
+				}
 				return ErrProtocol.Wrap(ignoreEOF(err))
 			}
 

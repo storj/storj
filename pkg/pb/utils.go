@@ -30,7 +30,7 @@ func Equal(msg1, msg2 proto.Message) bool {
 	if err != nil {
 		return false
 	}
-	return bytes.Compare(msg1Bytes, msg2Bytes) == 0
+	return bytes.Equal(msg1Bytes, msg2Bytes)
 }
 
 // NodesToIDs extracts Node-s into a list of ids
