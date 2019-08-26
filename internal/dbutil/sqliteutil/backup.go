@@ -15,10 +15,10 @@ import (
 var ErrSqlite3Backup = errs.Class("sqlite3_backup")
 
 // Sqlite3DriverName represents the custom Sqlite3 driver name.
-const Sqlite3DriverName = "sqlite3_custom"
+const Sqlite3DriverName = "sqlite3_custom_"
 
 // MigrateToDatabase backs up the specified Sqlite3 database and drops all tables not specified to keep in the destination database.
-func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLiteConn, sourceFileName string, destinationFileName string, tablesToKeep ...string) (err error) {
+func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLiteConn, sqliteDriverInstanceKey string, sourceFileName string, destinationFileName string, tablesToKeep ...string) (err error) {
 	sourceConn := connections[sourceFileName]
 	sourceDir := filepath.Dir(sourceConn.GetFilename(""))
 	destinationPath := filepath.Join(sourceDir, destinationFileName)
@@ -40,7 +40,7 @@ func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLi
 		}
 	}
 
-	destinationDB, err := sql.Open(Sqlite3DriverName, "file:"+destinationPath+"?_journal=WAL&_busy_timeout=10000")
+	destinationDB, err := sql.Open(sqliteDriverInstanceKey, "file:"+destinationPath+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return ErrSqlite3Backup.Wrap(err)
 	}

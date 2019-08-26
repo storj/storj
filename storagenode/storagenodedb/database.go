@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -107,8 +108,10 @@ type DB struct {
 
 	kdb, ndb, adb storage.KeyValueStore
 
-	conlock     sync.Mutex
-	connections map[string]*sqlite3.SQLiteConn
+	sqliteDriverInstanceKey string
+	registeredSQLite3Hook   bool
+	conlock                 sync.Mutex
+	connections             map[string]*sqlite3.SQLiteConn
 }
 
 // New creates a new master database for storage node
@@ -136,15 +139,21 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	}
 
 	// The sqlite driver is needed in order to perform backups. We use a connect hook to intercept it.
-	sql.Register(sqliteutil.Sqlite3DriverName, &sqlite3.SQLiteDriver{
-		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-			fileName := strings.ToLower(filepath.Base(conn.GetFilename("")))
-			db.conlock.Lock()
-			db.connections[fileName] = conn
-			db.conlock.Unlock()
-			return nil
-		},
-	})
+	db.sqliteDriverInstanceKey = sqliteutil.Sqlite3DriverName + strconv.FormatInt(rand.Int63(), 10)
+	db.conlock.Lock()
+	if db.registeredSQLite3Hook == false {
+		sql.Register(db.sqliteDriverInstanceKey, &sqlite3.SQLiteDriver{
+			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+				fileName := strings.ToLower(filepath.Base(conn.GetFilename("")))
+				db.conlock.Lock()
+				db.connections[fileName] = conn
+				db.conlock.Unlock()
+				return nil
+			},
+		})
+		db.registeredSQLite3Hook = true
+	}
+	db.conlock.Unlock()
 
 	databasesPath := filepath.Dir(config.Info2)
 	err = db.openDatabases(databasesPath)
@@ -195,13 +204,13 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 func (db *DB) openDatabases(databasesPath string) error {
 	// We open the versions database first because this one has the DB schema versioning info
 	// we need before anything else.
-	versionsDB, err := openDatabase(filepath.Join(databasesPath, VersionsDatabaseFilename))
+	versionsDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, VersionsDatabaseFilename))
 	if err != nil {
 		return err
 	}
 	db.versionsDB = newVersionsDB(versionsDB, filepath.Join(databasesPath, VersionsDatabaseFilename))
 
-	bandwidthDB, err := openDatabase(filepath.Join(databasesPath, BandwidthDatabaseFilename))
+	bandwidthDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, BandwidthDatabaseFilename))
 	if err != nil {
 		return err
 	}
@@ -209,49 +218,49 @@ func (db *DB) openDatabases(databasesPath string) error {
 
 	// TODO: console database?
 
-	ordersDB, err := openDatabase(filepath.Join(databasesPath, OrdersDatabaseFilename))
+	ordersDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, OrdersDatabaseFilename))
 	if err != nil {
 		return err
 	}
 	db.ordersDB = newOrdersDB(ordersDB)
 
-	pieceExpirationDB, err := openDatabase(filepath.Join(databasesPath, PieceExpirationDatabaseFilename))
+	pieceExpirationDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, PieceExpirationDatabaseFilename))
 	if err != nil {
 		return err
 	}
 	db.pieceExpirationDB = newPieceExpirationDB(pieceExpirationDB)
 
-	v0PieceInfoDB, err := openDatabase(filepath.Join(databasesPath, v0PieceInfoDatabaseFilename))
+	v0PieceInfoDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, v0PieceInfoDatabaseFilename))
 	if err != nil {
 		return err
 	}
 	db.v0PieceInfoDB = newV0PieceInfoDB(v0PieceInfoDB)
 
-	pieceSpaceUsedDB, err := openDatabase(filepath.Join(databasesPath, PieceSpacedUsedDatabaseFilename))
+	pieceSpaceUsedDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, PieceSpacedUsedDatabaseFilename))
 	if err != nil {
 		return err
 	}
 	db.pieceSpaceUsedDB = newPieceSpaceUsedDB(pieceSpaceUsedDB)
 
-	reputationDB, err := openDatabase(filepath.Join(databasesPath, ReputationDatabaseFilename))
+	reputationDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, ReputationDatabaseFilename))
 	if err != nil {
 		return err
 	}
 	db.reputationDB = newReputationDB(reputationDB)
 
-	storageUsageDB, err := openDatabase(filepath.Join(databasesPath, StorageUsageDatabaseFilename))
+	storageUsageDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, StorageUsageDatabaseFilename))
 	if err != nil {
 		return err
 	}
 	db.storageUsageDB = newStorageusageDB(storageUsageDB)
 
-	usedSerialsDB, err := openDatabase(filepath.Join(databasesPath, UsedSerialsDatabaseFilename))
+	usedSerialsDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, UsedSerialsDatabaseFilename))
 	if err != nil {
 		return err
 	}
 	db.usedSerialsDB = newUsedSerialsDB(usedSerialsDB)
 
-	vouchersDB, err := openDatabase(filepath.Join(databasesPath, VouchersDatabaseFilename))
+	vouchersDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, VouchersDatabaseFilename))
 	if err != nil {
 		return err
 	}
@@ -261,12 +270,12 @@ func (db *DB) openDatabases(databasesPath string) error {
 }
 
 // openDatabase opens or creates a database at the specified path.
-func openDatabase(path string) (*sql.DB, error) {
+func openDatabase(sqliteDriverInstanceKey string, path string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
 
-	db, err := sql.Open(sqliteutil.Sqlite3DriverName, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	db, err := sql.Open(sqliteDriverInstanceKey, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, ErrDatabase.Wrap(err)
 	}
@@ -315,7 +324,7 @@ func (db *DB) Close() error {
 
 		db.versionsDB.Close(),
 		db.bandwidthDB.Close(),
-		db.consoleDB.Close(),
+		// db.consoleDB.Close(),
 		db.ordersDB.Close(),
 		db.pieceExpirationDB.Close(),
 		db.v0PieceInfoDB.Close(),
@@ -738,34 +747,34 @@ func (db *DB) Migration() *migrate.Migration {
 					// and we drop them from the info.db.
 					ctx := context.TODO()
 
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, BandwidthDatabaseFilename, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, BandwidthDatabaseFilename, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, "certificate.db", "certificate"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, "certificate.db", "certificate"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, OrdersDatabaseFilename, "unsent_order, order_archive_"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, OrdersDatabaseFilename, "unsent_order, order_archive_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, PieceExpirationDatabaseFilename, "piece_expirations"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, PieceExpirationDatabaseFilename, "piece_expirations"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, v0PieceInfoDatabaseFilename, "pieceinfo_"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, v0PieceInfoDatabaseFilename, "pieceinfo_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, PieceSpacedUsedDatabaseFilename, "piece_space_used"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, PieceSpacedUsedDatabaseFilename, "piece_space_used"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, ReputationDatabaseFilename, "reputation"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, ReputationDatabaseFilename, "reputation"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, StorageUsageDatabaseFilename, "storage_usage"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, StorageUsageDatabaseFilename, "storage_usage"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, UsedSerialsDatabaseFilename, "used_serial_"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, UsedSerialsDatabaseFilename, "used_serial_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, VersionsDatabaseFilename, VouchersDatabaseFilename, "vouchers"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, VouchersDatabaseFilename, "vouchers"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -797,6 +806,12 @@ func (db *DB) Migration() *migrate.Migration {
 
 					// Closing the database completes the reclaiming of the space used above in the vacuum call.
 					err = db.versionsDB.Close()
+					if err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					// Re-open all the SQLite3 connections after executing the migration, VACUUM and close to reclaim space.
+					err = db.openDatabases(filepath.Dir(db.versionsDB.location))
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
