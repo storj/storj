@@ -9,14 +9,16 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/audit"
 )
 
+// TestRandomPaths does the following:
+// - generates 100 random reservoirs
+// - uses GetRandomReservoir and GetRandomPath to select 100 reservoirs
+// - uses a binomial test to ensure that sampling occurs randomly
 func TestRandomPaths(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -31,7 +33,7 @@ func TestRandomPaths(t *testing.T) {
 
 		// create 100 reservoirs generated from random
 		service.Reservoirs = make(map[storj.NodeID]*audit.Reservoir, 100)
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 1000; i++ {
 			path := strconv.Itoa(i)
 			nodeID := storj.NodeID{byte(i)}
 			service.Reservoirs[nodeID] = &audit.Reservoir{Paths: [2]storj.Path{path}}
@@ -44,13 +46,11 @@ func TestRandomPaths(t *testing.T) {
 		pathCounter := []pathCount{}
 
 		for i := 0; i < nodesToSelect; i++ {
-			randomReservoir, err := service.GetRandomReservoir()
-			require.NoError(t, err)
-
+			randomReservoir := audit.GetRandomReservoir(service.Reservoirs)
 			if randomReservoir == nil {
 				continue
 			}
-			randomPath := audit.GetRandomPath(randomReservoir)
+			randomPath := randomReservoir.GetRandomPath()
 			val := pathCount{path: randomPath, count: 1}
 			pathCounter = append(pathCounter, val)
 		}
