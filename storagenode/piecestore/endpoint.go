@@ -415,11 +415,21 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		var orderLimit pb.OrderLimit
 		var pieceHash pb.PieceHash
 
-		// GetPieceHeader returns BadFormatVersion err if v0
-		header, err := pieceReader.GetPieceHeader()
-		switch {
-		case err == nil:
+		if pieceReader.StorageFormatVersion() == 0 {
+			// v0 stores this information in SQL
+			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
+			if err != nil {
+				endpoint.log.Error("failed to close piece reader", zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
+			}
+			orderLimit = *info.OrderLimit
+			pieceHash = *info.UplinkPieceHash
+		} else {
 			//v1+ stores this information in the file
+			header, err := pieceReader.GetPieceHeader()
+			if err != nil {
+				return status.Error(codes.Internal, err.Error())
+			}
 			orderLimit = header.OrderLimit
 			pieceHash = pb.PieceHash{
 				PieceId:   limit.PieceId,
@@ -428,16 +438,6 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				Timestamp: header.GetCreationTime(),
 				Signature: header.GetSignature(),
 			}
-		case pieces.BadFormatVersion.Has(err):
-			// v0 stores this information in SQL
-			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
-			if err != nil {
-				return status.Error(codes.Internal, err.Error())
-			}
-			orderLimit = *info.OrderLimit
-			pieceHash = *info.UplinkPieceHash
-		default:
-			return status.Error(codes.Internal, err.Error())
 		}
 
 		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
