@@ -931,11 +931,6 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
 	defer mon.Task()(&ctx, &pieceCounts)(&err)
 
-	var nodeIDs storj.NodeIDList
-	for nodeID := range pieceCounts {
-		nodeIDs = append(nodeIDs, nodeID)
-	}
-
 	if len(pieceCounts) == 0 {
 		return nil
 	}

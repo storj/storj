@@ -4,11 +4,11 @@
 package satellitedb_test
 
 import (
-	"github.com/lib/pq"
 	"math"
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
