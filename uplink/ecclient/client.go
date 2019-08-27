@@ -145,11 +145,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	defer func() {
 		select {
 		case <-ctx.Done():
-			err = errs.Combine(
-				Error.New("upload cancelled by user"),
-				// TODO: clean up the partially uploaded segment's pieces
-				// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId),
-			)
+			err = Error.New("upload cancelled by user")
+			// TODO: clean up the partially uploaded segment's pieces
+			// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId),
 		default:
 		}
 	}()
@@ -253,10 +251,8 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	defer func() {
 		select {
 		case <-ctx.Done():
-			err = errs.Combine(
-				Error.New("repair cancelled"),
-				// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId), //TODO
-			)
+			err = Error.New("repair cancelled")
+			// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId), //TODO
 		default:
 		}
 	}()
