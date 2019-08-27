@@ -50,7 +50,6 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("audit 2.0 is starting up")
 
-	// TODO: handle context cancellation gracefully :-)
 	var group errgroup.Group
 	group.Go(func() error {
 		return service.populateQueueJob(ctx)
@@ -118,7 +117,7 @@ func (service *ReservoirService) worker(ctx context.Context) error {
 		default:
 		}
 
-		_ := service.next()
+		_ = service.next()
 		// TODO: audit the path
 	}
 }
