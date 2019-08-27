@@ -73,7 +73,7 @@ For each node, the satellite performs an _uptime check_.
     ```sql
         UPDATE nodes
         SET
-            last_contact_success = now(),
+            last_contact_success = MAX(now(), last_contact_success),
             uptime_success_count = uptime_success_count + 1,
             total_uptime_count = total_uptime_count + 1
         WHERE
@@ -131,7 +131,7 @@ For each node it performs an _uptime check_.
   ```sql
   UPDATE nodes
   SET
-    last_contact_success = now(),
+    last_contact_success = MAX(now(), last_contact_success),
     uptime_success_count = uptime_success_count + 1,
     total_uptime_count = total_uptime_count +1
   WHERE
@@ -164,7 +164,7 @@ The designed approach has the drawback that `last_contact_failure` of the `nodes
 
 The following diagram shows one of these scenarios:
 
-![missing tracking offline seconds](images/storagenode-downtime-tracking-missing-tracking-offline-seconds.png)
+![missing tracking offline seconds](images/storagenode-downtime-tracking-missing-offline-seconds.png)
 
 The solution is to restrict to this new service the updates of the `last_contact_failure`. The other satellite services will have to inform when they detect an uptime failure, but this solution increases the complexity and probably impacts the performance of those services due to the introduced indirection.
 
