@@ -20,9 +20,9 @@ import (
 // ReservoirService is a temp name for the service struct during the audit 2.0 refactor.
 // Once V3-2363 and V3-2364 are implemented, ReservoirService will replace the existing Service struct.
 type ReservoirService struct {
-	log            *zap.Logger
-	reservoirSlots int
-	rand           *rand.Rand
+	log    *zap.Logger
+	config Config
+	rand   *rand.Rand
 
 	cond  sync.Cond
 	queue []storj.Path
@@ -34,10 +34,10 @@ type ReservoirService struct {
 // NewReservoirService instantiates ReservoirService
 func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config) *ReservoirService {
 	return &ReservoirService{
-		log: log,
+		log:    log,
+		config: config,
 
-		reservoirSlots: config.Slots,
-		rand:           rand.New(rand.NewSource(time.Now().Unix())),
+		rand: rand.New(rand.NewSource(time.Now().Unix())),
 
 		MetainfoLoop: metaLoop,
 		Loop:         *sync2.NewCycle(config.Interval),
@@ -55,8 +55,7 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 		return service.populateQueueJob(ctx)
 	})
 
-	// TODO: add configurable worker count
-	for i := 0; i < 3; i++ {
+	for i := 0; i < service.config.WorkerCount; i++ {
 		group.Go(func() error {
 			return service.worker(ctx)
 		})
@@ -68,7 +67,7 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
 	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
-		pathCollector := NewPathCollector(service.reservoirSlots, service.rand)
+		pathCollector := NewPathCollector(service.config.Slots, service.rand)
 		err = service.MetainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
 			service.log.Error("error joining metainfoloop", zap.Error(err))
@@ -77,7 +76,7 @@ func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
 
 		// Add reservoir paths to queue in pseudorandom order.
 		var queue []storj.Path
-		for i := 0; i < service.reservoirSlots; i++ {
+		for i := 0; i < service.config.Slots; i++ {
 			for _, res := range pathCollector.Reservoirs {
 				queue = append(queue, res.Paths[i])
 			}
