@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/storj"
@@ -48,6 +49,23 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("audit 2.0 is starting up")
 
+	// TODO: handle context cancellation gracefully :-)
+	var group errgroup.Group
+	group.Go(func() error {
+		return service.populateQueueJob(ctx)
+	})
+
+	// TODO: add configurable worker count
+	for i := 0; i < 3; i++ {
+		group.Go(func() error {
+			return service.worker(ctx)
+		})
+	}
+
+	return group.Wait()
+}
+
+func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
 	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 		pathCollector := NewPathCollector(service.reservoirSlots, service.rand)
@@ -73,6 +91,27 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 
 		return nil
 	})
+}
+
+// worker removes an item from the queue and runs an audit.
+func (service *ReservoirService) worker(ctx context.Context) error {
+	_ := service.next()
+	// TODO: audit the path
+}
+
+// next gets the next item in the queue.
+func (service *ReservoirService) next() storj.Path {
+	service.cond.L.Lock()
+	defer service.cond.L.Unlock()
+
+	if len(service.queue) == 0 {
+		// This waits until the queue is repopulated.
+		service.cond.Wait()
+	}
+	next := service.queue[0]
+	service.queue = service.queue[1:]
+
+	return next
 }
 
 // Close halts the reservoir service loop
