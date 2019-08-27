@@ -24,10 +24,9 @@ type ReservoirService struct {
 	config Config
 	rand   *rand.Rand
 
-	cond       sync.Cond
-	queue      []storj.Path
-	queuePaths map[storj.Path]bool
-	closed     chan struct{}
+	cond   sync.Cond
+	queue  []storj.Path
+	closed chan struct{}
 
 	MetainfoLoop *metainfo.Loop
 	Loop         sync2.Cycle
@@ -86,15 +85,15 @@ func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
 		}
 
 		var queue []storj.Path
-		service.queuePaths = make(map[storj.Path]bool)
+		queuePaths := make(map[storj.Path]bool)
 
 		// Add reservoir paths to queue in pseudorandom order.
 		for i := 0; i < service.config.Slots; i++ {
 			for _, res := range pathCollector.Reservoirs {
 				path := res.Paths[i]
-				if !service.queuePaths[path] {
+				if !queuePaths[path] {
 					queue = append(queue, path)
-					service.queuePaths[path] = true
+					queuePaths[path] = true
 				}
 			}
 		}
