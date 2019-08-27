@@ -43,7 +43,7 @@ func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.Ser
 	return err
 }
 
-// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table
+// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
 func (db *ordersDB) DeleteExpiredSerials(ctx context.Context) (_ int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	count, err := db.db.Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx, dbx.SerialNumber_ExpiresAt(time.Now().UTC()))

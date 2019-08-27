@@ -16,13 +16,13 @@ import (
 )
 
 var (
-	// Error the default dbcleanup errs class
+	// Error the default dbcleanup errs class.
 	Error = errs.Class("dbcleanup error")
 
 	mon = monkit.Package()
 )
 
-// Config defines configuration struct for dbcleanup chore
+// Config defines configuration struct for dbcleanup chore.
 type Config struct {
 	SerialsInterval time.Duration `help:"how often to delete expired serial numbers" default:"24h"`
 }
@@ -45,7 +45,7 @@ func NewChore(log *zap.Logger, orders orders.DB, config Config) *Chore {
 	}
 }
 
-// Run starts the db cleanup chore
+// Run starts the db cleanup chore.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Serials.Run(ctx, chore.deleteExpiredSerials)
@@ -65,7 +65,7 @@ func (chore *Chore) deleteExpiredSerials(ctx context.Context) (err error) {
 	return nil
 }
 
-// Close stops the dbcleanup chore
+// Close stops the dbcleanup chore.
 func (chore *Chore) Close() error {
 	chore.Serials.Close()
 	return nil
