@@ -6,7 +6,6 @@ package storagenode
 import (
 	"context"
 	"net"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -40,7 +39,6 @@ import (
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
-	"storj.io/storj/storagenode/vouchers"
 )
 
 var (
@@ -62,7 +60,6 @@ type DB interface {
 	PieceSpaceUsedDB() pieces.PieceSpaceUsedDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
-	Vouchers() vouchers.DB
 	Console() console.DB
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
@@ -84,8 +81,6 @@ type Config struct {
 	Collector collector.Config
 
 	Retain retain.Config
-
-	Vouchers vouchers.Config
 
 	Nodestats nodestats.Config
 
@@ -135,8 +130,6 @@ type Peer struct {
 		Monitor       *monitor.Service
 		Orders        *orders.Service
 	}
-
-	Vouchers *vouchers.Service
 
 	Collector *collector.Service
 
@@ -323,13 +316,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust)
 	}
 
-	{ // setup vouchers
-		interval := config.Vouchers.Interval
-		buffer := interval + time.Hour
-		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Transport, peer.DB.Vouchers(),
-			peer.Storage2.Trust, interval, buffer)
-	}
-
 	{ // setup storage node operator dashboard
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
@@ -414,9 +400,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
 	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
-	})
 
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
@@ -456,9 +439,6 @@ func (peer *Peer) Close() error {
 
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
-	}
-	if peer.Vouchers != nil {
-		errlist.Add(peer.Vouchers.Close())
 	}
 	if peer.Storage2.Monitor != nil {
 		errlist.Add(peer.Storage2.Monitor.Close())
