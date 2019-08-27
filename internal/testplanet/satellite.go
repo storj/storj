@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/mailservice"
@@ -173,6 +174,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				InitialPieces:     10,
 				FalsePositiveRate: 0.1,
 				ConcurrentSends:   1,
+			},
+			DBCleanup: dbcleanup.Config{
+				SerialsInterval: time.Hour,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
