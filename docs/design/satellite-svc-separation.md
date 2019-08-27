@@ -67,7 +67,7 @@ Inspectors allow private diagnostics on certain systems. The following inspector
 #### kademlia
 Kademlia, discovery, bootstrap, and vouchers are being removed and not included in this doc. See [kademlia removal design doc](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md) for more details.
 
-#### GPRC endpoints
+#### GRPC endpoints
 The Satellite has the following GRPC endpoints:
 - Public: metainfo, nodestats, orders, overlay (currently part of kademlia, but may be added here)
 - Private: inspectors
