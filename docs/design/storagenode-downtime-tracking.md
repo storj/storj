@@ -8,7 +8,7 @@ This document describes storage node downtime tracking.
 
 [Disqualification design document](disqualification.md) describes how storage nodes get disqualified based on the reputation scores described in [node selection design document](node-selection.md).
 
-Current disqualification approach disqualified several nodes, because of their uptime stats, without clear and fair evidence. These disqualifications needed to be reverted and the disqualification system disabled. Before we can start handling disqualifications we need to more reliably track offline status of nodes.
+Current disqualification based on uptime disqualified several nodes without clear and fair evidence. These disqualifications needed to be reverted and the uptime based disqualification disabled. Before we can start handling disqualifications we need to more reliably track offline status of nodes.
 
 [Kademlia removal design document](kademia-removal.md) describes that each node will need to contact each satellite regularly every hour. This is used in the following design.
 
@@ -190,7 +190,7 @@ The disadvantages outweigh the advantages of considering that:
 
 * We want to start to track storage nodes offline time.
 * It doesn't offload the database despite being split in a different service.
-* This approach conflicts with satellite separation, or it would require to synchronize the tasks.
+* This approach conflicts with horizontally scaling satellite work and would require coordinating the tasks.
 
 <sup>1</sup> We want to reduce calls to the current database.
 
