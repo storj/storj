@@ -61,10 +61,7 @@ WHERE
     disqualified IS NULL
 ORDER BY
     last_contact_success ASC
-LIMIT 1
 ```
-
-The chore repeats the query until all nodes have been handled. It avoids selecting too many nodes at the same time.
 
 For each node, the satellite performs an _uptime check_.
 
@@ -81,7 +78,7 @@ For each node, the satellite performs an _uptime check_.
     ```
 
 * On failure, it calculates the number of offline seconds.
- 
+
   We know that storage nodes must contact the satellite every hour, hence we can estimate that it must have been at least for `now - last_contact_success - 1h` offline.
 
   ```
