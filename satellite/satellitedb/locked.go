@@ -774,6 +774,13 @@ func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj
 	return m.db.GetStorageNodeBandwidth(ctx, nodeID, from, to)
 }
 
+// ProcessOrders takes a list of order requests and processes them in a batch
+func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ProcessOrders(ctx, requests)
+}
+
 // UnuseSerialNumber removes pair serial number -> storage node id from database
 func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error {
 	m.Lock()
@@ -823,12 +830,6 @@ func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.S
 	return m.db.UseSerialNumber(ctx, serialNumber, storageNodeID)
 }
 
-func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ProcessOrders(ctx, requests)
-}
-
 // OverlayCache returns database for caching overlay information
 func (m *locked) OverlayCache() overlay.DB {
 	m.Lock()
@@ -840,6 +841,13 @@ func (m *locked) OverlayCache() overlay.DB {
 type lockedOverlayCache struct {
 	sync.Locker
 	db overlay.DB
+}
+
+// AllPieceCounts returns a map of node IDs to piece counts from the db.
+func (m *lockedOverlayCache) AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.AllPieceCounts(ctx)
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -924,6 +932,13 @@ func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.Node
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateNodeInfo(ctx, node, nodeInfo)
+}
+
+// UpdatePieceCounts sets the piece count field for the given node IDs.
+func (m *lockedOverlayCache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdatePieceCounts(ctx, pieceCounts)
 }
 
 // UpdateStats all parts of single storagenode's stats.

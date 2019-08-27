@@ -5544,6 +5544,11 @@ type Id_LastNet_Address_Protocol_Row struct {
 	Protocol int
 }
 
+type Id_PieceCount_Row struct {
+	Id         []byte
+	PieceCount int64
+}
+
 type Id_Row struct {
 	Id []byte
 }
@@ -6602,6 +6607,38 @@ func (obj *postgresImpl) Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol
 	for __rows.Next() {
 		row := &Id_LastNet_Address_Protocol_Row{}
 		err = __rows.Scan(&row.Id, &row.LastNet, &row.Address, &row.Protocol)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+	rows []*Id_PieceCount_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.piece_count != 0")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_PieceCount_Row{}
+		err = __rows.Scan(&row.Id, &row.PieceCount)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -10460,6 +10497,38 @@ func (obj *sqlite3Impl) Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol_
 
 }
 
+func (obj *sqlite3Impl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+	rows []*Id_PieceCount_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.piece_count != 0")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_PieceCount_Row{}
+		err = __rows.Scan(&row.Id, &row.PieceCount)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
 	user_email User_Email_Field) (
 	user *User, err error) {
@@ -13817,6 +13886,15 @@ func (rx *Rx) All_Node_Id(ctx context.Context) (
 	return tx.All_Node_Id(ctx)
 }
 
+func (rx *Rx) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+	rows []*Id_PieceCount_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
+}
+
 func (rx *Rx) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 	rows []*Offer, err error) {
 	var tx *Tx
@@ -15031,6 +15109,9 @@ type Methods interface {
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
+
+	All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+		rows []*Id_PieceCount_Row, err error)
 
 	All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 		rows []*Offer, err error)
