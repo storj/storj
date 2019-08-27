@@ -18,7 +18,7 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue, Prop } from 'vue-property-decorator';
+    import { Component, Vue, Prop, Watch } from 'vue-property-decorator';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import PagesBlock from '@/components/common/PagesBlock.vue';
     import { Page } from '@/types/pagination';
@@ -71,6 +71,11 @@
             return page === this.currentPageNumber;
         }
 
+        @Watch('totalPageCount')
+        public onPageCountChange(val: number, oldVal: number) {
+            this.resetPageIndex();
+        }
+
         public async onPageClick(page: number): Promise<void> {
             if (this.isLoading) {
                 return;
@@ -105,6 +110,14 @@
             this.decrementCurrentPage();
             this.reorganizePageBlocks();
             this.isLoading = false;
+        }
+
+        public resetPageIndex(): void {
+            this.pagesArray = [];
+            this.firstBlockPages = [];
+            this.setCurrentPage(1);
+
+            this.populatePagesArray();
         }
 
         private populatePagesArray(): void {

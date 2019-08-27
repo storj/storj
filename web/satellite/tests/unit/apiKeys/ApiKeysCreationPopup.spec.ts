@@ -4,24 +4,27 @@
 import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
 import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue';
-import * as apiKeysApi from '@/api/apiKeys';
 import { ApiKey } from '@/types/apiKeys';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { Project } from '@/types/projects';
-import { RequestResponse } from '@/types/response';
+import { ApiKeysApiGql } from '@/api/apiKeys';
+import { ProjectsApiGql } from '@/api/projects';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
-const apiKeysModule = makeApiKeysModule();
-const projectsModule = makeProjectsModule();
+const apiKeysApi = new ApiKeysApiGql();
+const apiKeysModule = makeApiKeysModule(apiKeysApi);
+const projectsApi = new ProjectsApiGql();
+const projectsModule = makeProjectsModule(projectsApi);
 
 const selectedProject = new Project();
 selectedProject.id = '1';
 
 projectsModule.state.selectedProject = selectedProject;
 
+const CREATE = API_KEYS_ACTIONS.CREATE;
 const store = new Vuex.Store({modules: { projectsModule, apiKeysModule }});
 
 describe('ApiKeysCreationPopup', () => {
@@ -75,11 +78,10 @@ describe('ApiKeysCreationPopup', () => {
     });
 
     it('action on onNextClick with name works correctly', async () => {
-        jest.spyOn(apiKeysApi, 'createAPIKey').mockReturnValue(
-            Promise.resolve(<RequestResponse<ApiKey>>{
-                isSuccess: true,
-                data: {id: 'testId',  secret: 'testSecret',  name: 'testName',  createdAt: 'test'}, errorMessage: ''})
-        );
+        let testApiKey = new ApiKey('testId', 'testName', 'testCreatedAt', 'test');
+
+        jest.spyOn(apiKeysApi, 'create').mockReturnValue(
+            Promise.resolve(testApiKey));
 
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
@@ -91,10 +93,10 @@ describe('ApiKeysCreationPopup', () => {
 
         wrapper.vm.onNextClick();
 
-        let result = await store.dispatch(API_KEYS_ACTIONS.CREATE, 'testName');
+        let result = await store.dispatch(CREATE, 'testName');
 
-        expect(wrapper.vm.$data.key).toBe(result.data.secret);
+        expect(wrapper.vm.$data.key).toBe(result.secret);
         expect(wrapper.vm.$data.isLoading).toBe(false);
-        expect(wrapper.emitted()).toEqual({'closePopup': [[]], 'showCopyPopup': [['testSecret']]});
+        expect(wrapper.emitted()).toEqual({'closePopup': [[]], 'showCopyPopup': [['test']]});
     });
 });

@@ -7,7 +7,7 @@
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import ROUTES from '@/utils/constants/routerConstants';
+    import { RouteConfig } from '@/router';
     import { AuthApi } from '@/api/auth';
     import { getUserId } from '@/utils/consoleLocalStorage';
 
@@ -48,7 +48,7 @@
 
         public onCloseClick(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-            this.$router.push(ROUTES.LOGIN.path);
+            this.$router.push(RouteConfig.Login.path);
         }
 
         public get isPopupShown(): boolean {

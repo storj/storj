@@ -3,14 +3,17 @@
 
 import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
+import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import { ApiKey } from '@/types/apiKeys';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { API_KEYS_MUTATIONS } from '@/store/mutationConstants';
-import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
+import { ApiKeysApiGql } from '@/api/apiKeys';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
-const apiKeysModule = makeApiKeysModule();
+const apiKeysApi = new ApiKeysApiGql();
+const apiKeysModule = makeApiKeysModule(apiKeysApi);
+const ADD = API_KEYS_MUTATIONS.ADD;
 const store = new Vuex.Store(apiKeysModule);
 
 describe('ApiKeysArea', () => {
@@ -27,7 +30,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function apiKeyList works correctly', () => {
-        store.commit(API_KEYS_MUTATIONS.ADD, apiKey);
+        store.commit(ADD, apiKey);
 
         const wrapper = mount(ApiKeysArea, {
             store,
@@ -38,14 +41,14 @@ describe('ApiKeysArea', () => {
     });
 
     it('action on toggleSelection works correctly', () => {
-        store.commit(API_KEYS_MUTATIONS.ADD, apiKey1);
+        store.commit(ADD, apiKey1);
 
         const wrapper = mount(ApiKeysArea, {
             store,
             localVue
         });
 
-        wrapper.vm.toggleSelection(apiKey1.id);
+        wrapper.vm.toggleSelection(apiKey1);
 
         expect(store.getters.selectedAPIKeys.length).toBe(1);
     });
@@ -93,7 +96,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function isEmpty works correctly', () => {
-        store.commit(API_KEYS_MUTATIONS.ADD, apiKey);
+        store.commit(ADD, apiKey);
 
         const wrapper = mount(ApiKeysArea, {
             store,
@@ -131,8 +134,8 @@ describe('ApiKeysArea', () => {
     });
 
     it('function apiKeyCountTitle with 2 keys works correctly', () => {
-        store.commit(API_KEYS_MUTATIONS.ADD, apiKey);
-        store.commit(API_KEYS_MUTATIONS.ADD, apiKey1);
+        store.commit(ADD, apiKey);
+        store.commit(ADD, apiKey1);
 
         const wrapper = mount(ApiKeysArea, {
             store,

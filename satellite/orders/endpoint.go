@@ -29,6 +29,8 @@ type DB interface {
 	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
+	// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
+	DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error)
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
@@ -48,7 +50,7 @@ type DB interface {
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 
 	// ProcessOrders takes a list of order requests and processes them in a batch
-	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*pb.SettlementResponse, err error)
+	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*ProcessOrderResponse, err error)
 }
 
 var (
@@ -64,6 +66,12 @@ var (
 type ProcessOrderRequest struct {
 	Order      *pb.Order
 	OrderLimit *pb.OrderLimit
+}
+
+// ProcessOrderResponse for batch order processing responses
+type ProcessOrderResponse struct {
+	SerialNumber storj.SerialNumber
+	Status       pb.SettlementResponse_Status
 }
 
 // Endpoint for orders receiving
@@ -102,7 +110,7 @@ func monitoredSettlementStreamSend(ctx context.Context, stream pb.Orders_Settlem
 	return stream.Send(resp)
 }
 
-// Settlement receives and handles orders.
+// Settlement receives orders and handles them in batches
 func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
@@ -210,7 +218,11 @@ func (endpoint *Endpoint) processOrders(ctx context.Context, stream pb.Orders_Se
 	}
 
 	for _, response := range responses {
-		err = monitoredSettlementStreamSend(ctx, stream, response)
+		r := &pb.SettlementResponse{
+			SerialNumber: response.SerialNumber,
+			Status:       response.Status,
+		}
+		err = monitoredSettlementStreamSend(ctx, stream, r)
 		if err != nil {
 			return err
 		}
