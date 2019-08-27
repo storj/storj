@@ -13,6 +13,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -937,6 +938,40 @@ func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.Node
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
+}
+
+// PeerIdentities returns a storage for peer identities
+func (m *locked) PeerIdentities() overlay.PeerIdentities {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedPeerIdentities{m.Locker, m.db.PeerIdentities()}
+}
+
+// lockedPeerIdentities implements locking wrapper for overlay.PeerIdentities
+type lockedPeerIdentities struct {
+	sync.Locker
+	db overlay.PeerIdentities
+}
+
+// BatchGet gets all nodes peer identities in a transaction
+func (m *lockedPeerIdentities) BatchGet(ctx context.Context, a1 storj.NodeIDList) (_ []*identity.PeerIdentity, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.BatchGet(ctx, a1)
+}
+
+// Get gets peer identity
+func (m *lockedPeerIdentities) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, a1)
+}
+
+// Set adds a peer identity entry for a node
+func (m *lockedPeerIdentities) Set(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Set(ctx, a1, a2)
 }
 
 // ProjectAccounting returns database for storing information about project data use

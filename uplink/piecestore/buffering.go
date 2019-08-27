@@ -70,6 +70,11 @@ func (download *BufferedDownload) Close() error {
 	return download.download.Close()
 }
 
+// GetHashAndLimit gets the download's hash and original order limit.
+func (download *BufferedDownload) GetHashAndLimit() (*pb.PieceHash, *pb.OrderLimit) {
+	return download.download.GetHashAndLimit()
+}
+
 // LockingUpload adds a lock around upload making it safe to use concurrently.
 // TODO: this shouldn't be needed.
 type LockingUpload struct {
@@ -119,4 +124,9 @@ func (download *LockingDownload) Close() error {
 	download.mu.Lock()
 	defer download.mu.Unlock()
 	return download.download.Close()
+}
+
+// GetHashAndLimit gets the download's hash and original order limit
+func (download *LockingDownload) GetHashAndLimit() (*pb.PieceHash, *pb.OrderLimit) {
+	return download.download.GetHashAndLimit()
 }
