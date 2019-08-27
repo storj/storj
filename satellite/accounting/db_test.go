@@ -129,7 +129,6 @@ func createRollups(nodes storj.NodeIDList) accounting.RollupStats {
 	rollups := make(accounting.RollupStats)
 	now := time.Now().UTC()
 
-	var rollupCounter int64
 	for i := 0; i < rollupsCount; i++ {
 		startDate := time.Date(now.Year(), now.Month()-1, 1+i, 0, 0, 0, 0, now.Location())
 		if rollups[startDate] == nil {
@@ -138,7 +137,6 @@ func createRollups(nodes storj.NodeIDList) accounting.RollupStats {
 
 		for _, nodeID := range nodes {
 			rollup := &accounting.Rollup{
-				ID:             rollupCounter,
 				NodeID:         nodeID,
 				StartTime:      startDate,
 				PutTotal:       testrand.Int63n(10000),
@@ -149,7 +147,6 @@ func createRollups(nodes storj.NodeIDList) accounting.RollupStats {
 				AtRestTotal:    testrand.Float64n(10000),
 			}
 
-			rollupCounter++
 			rollups[startDate][nodeID] = rollup
 		}
 	}
