@@ -55,7 +55,7 @@ func (chore *Chore) deleteExpiredSerials(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Debug("deleting expired serial numbers")
 
-	deleted, err := chore.orders.DeleteExpiredSerials(ctx)
+	deleted, err := chore.orders.DeleteExpiredSerials(ctx, time.Now().UTC())
 	if err != nil {
 		chore.log.Error("deleting expired serial numbers", zap.Error(err))
 		return nil

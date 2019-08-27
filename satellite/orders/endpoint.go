@@ -30,7 +30,7 @@ type DB interface {
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
 	// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
-	DeleteExpiredSerials(ctx context.Context) (_ int, err error)
+	DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error)
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
