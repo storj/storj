@@ -809,12 +809,7 @@ func (db *DB) Migration() *migrate.Migration {
 						return ErrDatabase.Wrap(err)
 					}
 
-					// Closing the versions database completes the reclaiming of the space used above in the vacuum call.
-					err = db.versionsDB.Close()
-					if err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
+					// Closing the databases completes the reclaiming of the space used above in the vacuum call.
 					err = db.Close()
 					if err != nil {
 						return ErrDatabase.Wrap(err)
