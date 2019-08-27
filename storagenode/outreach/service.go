@@ -22,15 +22,13 @@ var (
 // Service is the outreach service for nodes announcing themselves to their trusted satellites
 type Service struct {
 	log    *zap.Logger
-	config *Config
 	ticker *time.Ticker
 }
 
 // NewService creates a new outreach service
-func NewService(log *zap.Logger, config *Config, interval time.Duration) *Service {
+func NewService(log *zap.Logger, interval time.Duration) *Service {
 	return &Service{
 		log:    log,
-		config: config,
 		ticker: time.NewTicker(interval),
 	}
 }
@@ -64,4 +62,5 @@ func (service *Service) pingSatellites(ctx context.Context) error {
 func awaitPingback() {
 	// TODO: write a method that listens for each satellite to ping back, or it times out and receives a log message
 	//  with which satellite they failed
+	//  make sure to close the connections regardless
 }

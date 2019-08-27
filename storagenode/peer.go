@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/outreach"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
@@ -89,6 +90,8 @@ type Config struct {
 	Version version.Config
 
 	Bandwidth bandwidth.Config
+
+	Outreach outreach.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -146,6 +149,8 @@ type Peer struct {
 	}
 
 	Bandwidth *bandwidth.Service
+
+	Outreach *outreach.Service
 }
 
 // New creates a new Storage Node.
@@ -188,6 +193,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup outreach
+		peer.Outreach = outreach.NewService(peer.Log.Named("outreach"), config.Outreach.Interval)
+		// TODO: create and register a pb server
+
 	}
 
 	{ // setup kademlia
@@ -421,6 +432,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error { // TODO: unsure which order this should run in
+		return errs2.IgnoreCanceled(peer.Outreach.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -469,6 +484,7 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.NodeStats.Cache.Close())
 	}
 
+	// TODO: make sure to close any outreach connections
 	return errlist.Err()
 }
 
