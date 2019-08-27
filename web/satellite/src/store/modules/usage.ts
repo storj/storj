@@ -13,7 +13,7 @@ export const PROJECT_USAGE_ACTIONS = {
 };
 
 export const PROJECT_USAGE_MUTATIONS = {
-    FETCH: 'FETCH_PROJECT_USAGE',
+    SET_PROJECT_USAGE: 'SET_PROJECT_USAGE',
     SET_DATE: 'SET_DATE_PROJECT_USAGE',
     CLEAR: 'CLEAR_PROJECT_USAGE'
 };
@@ -30,7 +30,7 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
     return {
         state: new UsageState(),
         mutations: {
-            [PROJECT_USAGE_MUTATIONS.FETCH](state: UsageState, projectUsage: ProjectUsage) {
+            [PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE](state: UsageState, projectUsage: ProjectUsage) {
                 state.projectUsage = projectUsage;
             },
             [PROJECT_USAGE_MUTATIONS.SET_DATE](state: UsageState, dateRange: DateRange) {
@@ -50,7 +50,7 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
                 let usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
 
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, dateRange);
-                commit(PROJECT_USAGE_MUTATIONS.FETCH, usage);
+                commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, usage);
 
                 return usage;
             },
@@ -64,7 +64,7 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
                 let usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
 
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, dateRange);
-                commit(PROJECT_USAGE_MUTATIONS.FETCH, usage);
+                commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, usage);
 
                 return usage;
             },
@@ -79,7 +79,7 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
                 let usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
 
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, dateRange);
-                commit(PROJECT_USAGE_MUTATIONS.FETCH, usage);
+                commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, usage);
 
                 return usage;
             },
