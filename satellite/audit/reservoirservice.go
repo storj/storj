@@ -24,8 +24,9 @@ type ReservoirService struct {
 	config Config
 	rand   *rand.Rand
 
-	cond  sync.Cond
-	queue []storj.Path
+	cond   sync.Cond
+	queue  []storj.Path
+	closed chan struct{}
 
 	MetainfoLoop *metainfo.Loop
 	Loop         sync2.Cycle
@@ -67,6 +68,15 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
 	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
+
+		select {
+		case <-service.closed:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		pathCollector := NewPathCollector(service.config.Slots, service.rand)
 		err = service.MetainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
@@ -83,7 +93,6 @@ func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
 		}
 		service.cond.L.Lock()
 		service.queue = queue
-
 		// Notify workers that queue has been repopulated.
 		service.cond.Broadcast()
 		service.cond.L.Unlock()
@@ -94,8 +103,18 @@ func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
 
 // worker removes an item from the queue and runs an audit.
 func (service *ReservoirService) worker(ctx context.Context) error {
-	_ := service.next()
-	// TODO: audit the path
+	for {
+		select {
+		case <-service.closed:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		_ := service.next()
+		// TODO: audit the path
+	}
 }
 
 // next gets the next item in the queue.
@@ -115,6 +134,6 @@ func (service *ReservoirService) next() storj.Path {
 
 // Close halts the reservoir service loop
 func (service *ReservoirService) Close() error {
-	service.Loop.Close()
+	close(service.closed)
 	return nil
 }
