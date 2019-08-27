@@ -39,7 +39,8 @@ func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config
 		config: config,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),
 
-		cond: *sync.NewCond(&sync.Mutex{}),
+		cond:   *sync.NewCond(&sync.Mutex{}),
+		closed: make(chan struct{}),
 
 		MetainfoLoop: metaLoop,
 		Loop:         *sync2.NewCycle(config.Interval),
