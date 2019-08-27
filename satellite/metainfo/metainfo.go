@@ -1630,41 +1630,91 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		limit = listLimit
 	}
 
-	index := int64(req.CursorPosition.Index)
-	more := false
-	segmentItems := make([]*pb.SegmentListItem, 0)
-	// TODO think about better implementation
-	for {
-		path, err := CreatePath(ctx, keyInfo.ProjectID, index, streamID.Bucket, streamID.EncryptedPath)
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
+	path, err := CreatePath(ctx, keyInfo.ProjectID, lastSegment, streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	pointer, err := endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		_, err = endpoint.metainfo.Get(ctx, path)
-		if err != nil {
-			if storage.ErrKeyNotFound.Has(err) {
-				if index == lastSegment {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	streamMeta := &pb.StreamMeta{}
+	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	segmentItems := make([]*pb.SegmentListItem, 0)
+	more := false
+
+	if streamMeta.NumberOfSegments > 0 {
+		// use unencrypted number of segments
+		// TODO cleanup int32 vs int64
+		numberOfSegments := int32(streamMeta.NumberOfSegments) - req.CursorPosition.Index
+		if numberOfSegments > 0 {
+			if numberOfSegments > limit {
+				more = true
+				numberOfSegments = limit
+			} else {
+				numberOfSegments--
+			}
+			for index := int32(0); index < numberOfSegments; index++ {
+				segmentItems = append(segmentItems, &pb.SegmentListItem{
+					Position: &pb.SegmentPosition{
+						Index: index + req.CursorPosition.Index,
+					},
+				})
+			}
+			if !more {
+				segmentItems = append(segmentItems, &pb.SegmentListItem{
+					Position: &pb.SegmentPosition{
+						Index: lastSegment,
+					},
+				})
+			}
+		}
+	} else {
+		index := int64(req.CursorPosition.Index)
+		// TODO think about better implementation
+		for {
+			path, err := CreatePath(ctx, keyInfo.ProjectID, index, streamID.Bucket, streamID.EncryptedPath)
+			if err != nil {
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+			_, err = endpoint.metainfo.Get(ctx, path)
+			if err != nil {
+				if storage.ErrKeyNotFound.Has(err) {
 					break
 				}
-				index = lastSegment
-				continue
+				return nil, status.Error(codes.Internal, err.Error())
 			}
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		if limit == 0 {
-			more = true
-			break
-		}
-		segmentItems = append(segmentItems, &pb.SegmentListItem{
-			Position: &pb.SegmentPosition{
-				Index: int32(index),
-			},
-		})
+			if limit == int32(len(segmentItems)) {
+				more = true
+				break
+			}
+			segmentItems = append(segmentItems, &pb.SegmentListItem{
+				Position: &pb.SegmentPosition{
+					Index: int32(index),
+				},
+			})
 
-		if index == lastSegment {
-			break
+			index++
 		}
-		index++
-		limit--
+
+		if limit > int32(len(segmentItems)) {
+			segmentItems = append(segmentItems, &pb.SegmentListItem{
+				Position: &pb.SegmentPosition{
+					Index: lastSegment,
+				},
+			})
+		} else {
+			more = true
+		}
 	}
 
 	return &pb.SegmentListResponse{
