@@ -795,6 +795,10 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Overlay.Service.Close())
 	}
 
+	if peer.Audit.ReservoirService != nil {
+		errlist.Add(peer.Audit.ReservoirService.Close())
+	}
+
 	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil || peer.Kademlia.adb != nil {
 		errlist.Add(peer.Kademlia.kdb.Close())
 		errlist.Add(peer.Kademlia.ndb.Close())
