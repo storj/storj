@@ -2,11 +2,11 @@
 
 ## Abstract
 
-This document describes Storage Node downtime tracking.
+This document describes storage node downtime tracking.
 
 ## Background
 
-[Disqualification design document](disqualification.md) describes how Storage Nodes get disqualified based on the reputation scores described in [node selection design document](node-selection.md).
+[Disqualification design document](disqualification.md) describes how storage nodes get disqualified based on the reputation scores described in [node selection design document](node-selection.md).
 
 Current disqualification approach disqualified several nodes, because of their uptime stats, without clear and fair evidence. These disqualifications needed to be reverted and the disqualification system disabled. Before we can start handling disqualifications we need to more reliably track offline status of nodes.
 
@@ -28,7 +28,7 @@ __NOTE__ the SQL code in this section is illustrative for explaining the algorit
 
 ### Database
 
-The following new SQL database table will store Storage Nodes offline time.
+The following new SQL database table will store storage nodes offline time.
 
 ```sql
 CREATE TABLE nodes_offline_time (
@@ -166,7 +166,7 @@ The following diagram shows one of these scenarios:
 
 ![missing tracking offline seconds](images/storagenode-downtime-tracking-missing-tracking-offline-seconds.png)
 
-The solution is to restrict to this new service the updates of the `last_contact_failure`. The other Satellite services will have to inform when they detect an uptime failure, but this solution increases the complexity and probably impacts the performance of those services due to the introduced indirection.
+The solution is to restrict to this new service the updates of the `last_contact_failure`. The other satellite services will have to inform when they detect an uptime failure, but this solution increases the complexity and probably impacts the performance of those services due to the introduced indirection.
 
 The services, which update the `last_contact_failure` choose storage nodes randomly, hence we believe that these corner cases are minimal and losing some offline seconds tracking is acceptable and desirable for having a simpler solution.
 
@@ -178,7 +178,7 @@ Currently all chores and services run within a single process. Alternatively the
 
 The advantages are:
 
-* It doesn't add a new application chore to the Satellite.
+* It doesn't add a new application chore to the satellite.
 * It's easier to scale.
 
 And the disadvantages are:
@@ -196,7 +196,7 @@ The disadvantages outweigh the advantages of considering that:
 
 ### InfluxDB
 
-The designed system uses a SQL database for storing the Storage Nodes downtime. Alternatively it could use [InfluxDB time-series database](https://www.influxdata.com/).
+The designed system uses a SQL database for storing the storage nodes downtime. Alternatively it could use [InfluxDB time-series database](https://www.influxdata.com/).
 
 The advantages are:
 
