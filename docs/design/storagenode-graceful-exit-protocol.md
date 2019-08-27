@@ -53,7 +53,7 @@ The satellite verifies that the original piece hash matches the replacement piec
 When the upload has been verified the satellite will use `CompareAndSwap` to only switch the appropriate node without changing others. During the upload there may have been other things that happened:
 
 - Segment / pointer was reuploaded. We'll ignore piece transferred for the exit.
-- Segment / pointer pieces were changed, in that case we load the pointer, check whether the exiting storage node ID still needs to be replaced. If it does, then we retry `CompareAndSwap`. When the storage node at that piece number has changed, we'll ignore the piece transferred for the exit, because one of them needs to be discarded.
+- Segment / pointer pieces were changed, in that case we load the pointer and retry `CompareAndSwap`. When the storage node at that piece number has changed, we'll ignore the piece transferred for the exit, because one of them needs to be discarded.
 - Segment / pointer was deleted or is being deleted. We'll ignore the piece transferred for the exit.
 
 After changing the segment / pointer, we'll delete the piece from transfer queue, update progress, and send a `DeletePiece` to the exiting node.
