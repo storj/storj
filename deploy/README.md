@@ -4,6 +4,13 @@
 
 The purpose of this code is to learn about kubernetes and how to deploy the Satellite.
 
+Notable differences:
+- Secrets are encrypted with gpc kms key and committed to source code
+- There is an example using Kustomize instead of Helm
+- GKE cluster is used instead of Kops
+- docker images are stored on google cloud container registry
+- 
+
 ## Requirements
 
 Build Requirements:
@@ -45,15 +52,17 @@ $ gcloud sql databases create metainfo-dev --instance=k8s-the-hard-way
 - Deploy [Nginx Ingress Controller](https://github.com/helm/charts/tree/master/stable/nginx-ingress) and Helm's Tiller to the GKE cluster
 
 ```
-$ helm install stable/nginx-ingress --name nginx-ingress-ctl \
-    --namespace nginx -f infra/development/nginx.values.yaml
-
-# once nginx ingress controller is up, create a DNS record for Satellite pointing to nginx ingress loadbalancer
-
 $ kubectl -n kube-system create sa tiller
 $ kubectl create clusterrolebinding tiller --clusterrole cluster-admin \
     --serviceaccount=kube-system:tiller
 $ helm init --service-account tiller
+
+$ helm install stable/nginx-ingress --name nginx-ingress-ctl \
+    --namespace nginx -f infra/base/nginx/nginx.values.yaml
+
+# once nginx ingress controller is up, create a DNS record for 
+# Satellite pointing to nginx ingress loadbalancer
+# TODO: deploy external-dns to automate ^ this step
 ```
 
 #### Build Steps
@@ -70,7 +79,7 @@ $ docker-credential-gcr configure-docker
 $ docker build -f deploy/Dockerfile.sa \
     -t gcr.io/storj-jessica/sa-k8s-hard-way/satellite:latest .
 
-$ docker push gcr.io/storj-jessica/sa-k8s-hard-way/satellite:
+$ docker push gcr.io/storj-jessica/sa-k8s-hard-way/satellite:latest
 ```
 
 #### Deploy Steps
@@ -89,9 +98,11 @@ Deploy the Satellite with Helm or [Kustomize](https://github.com/kubernetes-sigs
 
 
 ```
+# Deploy with helm
 $ helm install deploy/charts/satellite --name satellite-dev \
     --namespace dev -f deploy/development/sa.values.yaml
 
+# Or deploy with kustomize
 $ kustomize build deploy/kustomize/overlays/dev/ | kl apply -f -
 ```
 
@@ -116,8 +127,11 @@ A couple problem I had with skaffold:
 
 I tried out using Kustomize as an alternative to Helm. Kustomize overall seemed to work great as an alternative to Helm's templating. 
 
-#### Open issues:
+## Other considerations:
+- add liveness/readiness probes to k8s deployment:
+https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+- add external-dns
 - Do we want to use terraform
-- Canary deploys?
+- CD and Canary deploys?
 - Rollbacks?
 - DR?

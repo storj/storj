@@ -5,7 +5,7 @@ metadata:
   name: satellite-deployment
   labels:
     app: satellite-dev
-    env: dev
+    env: canary
 spec:
   replicas: 1
   selector:

@@ -1,0 +1,11 @@
+# docs for more fiels: https://github.com/kubernetes-sigs/kustomize/blob/master/docs/fields.md#transformers
+nameSuffix: -dev
+namespace: dev2
+commonLabels:
+  variant: dev
+resources:
+- ../../base
+patchesStrategicMerge:
+- sa.deployment.yaml
+- sa.hpa.yaml
+- sa.service.yaml
