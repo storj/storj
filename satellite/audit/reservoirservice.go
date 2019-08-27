@@ -20,28 +20,28 @@ import (
 type ReservoirService struct {
 	log *zap.Logger
 
-	nodesToSelect  int
-	PathsToAudit   []storj.Path
-	reservoirSlots int
-	Reservoirs     map[storj.NodeID]*Reservoir
-	rand           *rand.Rand
+	nodeSelectCount int
+	PathsToAudit    []storj.Path
+	reservoirSlots  int
+	Reservoirs      map[storj.NodeID]*Reservoir
+	rand            *rand.Rand
 
 	MetainfoLoop *metainfo.Loop
 	Loop         sync2.Cycle
 }
 
-// NewReservoirService instantiates Service2
-func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config) (*ReservoirService, error) {
+// NewReservoirService instantiates ReservoirService
+func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config) *ReservoirService {
 	return &ReservoirService{
 		log: log,
 
-		nodesToSelect:  config.NodeSelectCount,
-		reservoirSlots: config.Slots,
-		rand:           rand.New(rand.NewSource(time.Now().Unix())),
+		nodeSelectCount: config.NodeSelectCount,
+		reservoirSlots:  config.Slots,
+		rand:            rand.New(rand.NewSource(time.Now().Unix())),
 
 		MetainfoLoop: metaLoop,
 		Loop:         *sync2.NewCycle(config.Interval),
-	}, nil
+	}
 }
 
 // Run runs auditing service 2.0
@@ -67,13 +67,19 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 	})
 }
 
+// Close halts the reservoir service loop
+func (service *ReservoirService) Close() error {
+	service.Loop.Close()
+	return nil
+}
+
 // Select randomly selects segments to audit
 func (service *ReservoirService) Select(ctx context.Context, reservoirs map[storj.NodeID]*Reservoir) (pathsToAudit []storj.Path, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(reservoirs) != 0 {
 		// todo: is it okay that pathsToAudit could end up being less than nodesToSelect?
-		for i := 0; i < service.nodesToSelect; i++ {
+		for i := 0; i < service.nodeSelectCount; i++ {
 			randomReservoir := GetRandomReservoir(reservoirs)
 			if randomReservoir == nil {
 				continue

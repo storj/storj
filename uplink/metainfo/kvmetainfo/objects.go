@@ -334,6 +334,11 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 		return storj.Object{}, err
 	}
 
+	numberOfSegments := streamMeta.NumberOfSegments
+	if streamMeta.NumberOfSegments == 0 {
+		numberOfSegments = stream.DeprecatedNumberOfSegments
+	}
+
 	return storj.Object{
 		Version:  0, // TODO:
 		Bucket:   bucket,
@@ -348,10 +353,10 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 		Expires:     lastSegment.Expiration, // TODO: use correct field
 
 		Stream: storj.Stream{
-			Size: stream.SegmentsSize*(stream.NumberOfSegments-1) + stream.LastSegmentSize,
+			Size: stream.SegmentsSize*(numberOfSegments-1) + stream.LastSegmentSize,
 			// Checksum: []byte(object.Checksum),
 
-			SegmentCount:     stream.NumberOfSegments,
+			SegmentCount:     numberOfSegments,
 			FixedSegmentSize: stream.SegmentsSize,
 
 			RedundancyScheme: storj.RedundancyScheme{

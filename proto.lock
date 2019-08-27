@@ -4039,6 +4039,21 @@
                 "id": 2,
                 "name": "audit_check",
                 "type": "ReputationStats"
+              },
+              {
+                "id": 3,
+                "name": "disqualified",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "true"
+                  }
+                ]
               }
             ]
           },
@@ -5052,6 +5067,16 @@
                 "id": 1,
                 "name": "chunk",
                 "type": "Chunk"
+              },
+              {
+                "id": 2,
+                "name": "hash",
+                "type": "orders.PieceHash"
+              },
+              {
+                "id": 3,
+                "name": "limit",
+                "type": "orders.OrderLimit"
               }
             ],
             "messages": [
@@ -5535,7 +5560,7 @@
             "fields": [
               {
                 "id": 1,
-                "name": "number_of_segments",
+                "name": "deprecated_number_of_segments",
                 "type": "int64"
               },
               {
@@ -5577,6 +5602,11 @@
                 "id": 4,
                 "name": "last_segment_meta",
                 "type": "SegmentMeta"
+              },
+              {
+                "id": 5,
+                "name": "number_of_segments",
+                "type": "int64"
               }
             ]
           }
