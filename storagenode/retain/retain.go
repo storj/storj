@@ -129,9 +129,6 @@ func (s *Service) Queue(req Request) bool {
 	default:
 	}
 
-	// subtract some time to leave room for clock difference between the satellite and storage node
-	req.CreatedBefore = req.CreatedBefore.Add(-s.config.MaxTimeSkew)
-
 	s.queued[req.SatelliteID] = req
 	s.cond.Broadcast()
 
@@ -352,7 +349,9 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	numDeleted := 0
 	satelliteID := req.SatelliteID
 	filter := req.Filter
-	createdBefore := req.CreatedBefore
+
+	// subtract some time to leave room for clock difference between the satellite and storage node
+	createdBefore := req.CreatedBefore.Add(-s.config.MaxTimeSkew)
 
 	s.log.Debug("Prepared to run a Retain request.",
 		zap.Time("createdBefore", createdBefore),
