@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 	"math/rand"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -18,11 +19,12 @@ import (
 // ReservoirService is a temp name for the service struct during the audit 2.0 refactor.
 // Once V3-2363 and V3-2364 are implemented, ReservoirService will replace the existing Service struct.
 type ReservoirService struct {
-	log *zap.Logger
-
+	log            *zap.Logger
 	reservoirSlots int
-	Reservoirs     map[storj.NodeID]*Reservoir
 	rand           *rand.Rand
+
+	cond  sync.Cond
+	queue []storj.Path
 
 	MetainfoLoop *metainfo.Loop
 	Loop         sync2.Cycle
@@ -54,7 +56,21 @@ func (service *ReservoirService) Run(ctx context.Context) (err error) {
 			service.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
-		service.Reservoirs = pathCollector.Reservoirs
+
+		// Add reservoir paths to queue in pseudorandom order.
+		var queue []storj.Path
+		for i := 0; i < service.reservoirSlots; i++ {
+			for _, res := range pathCollector.Reservoirs {
+				queue = append(queue, res.Paths[i])
+			}
+		}
+		service.cond.L.Lock()
+		service.queue = queue
+
+		// Notify workers that queue has been repopulated.
+		service.cond.Broadcast()
+		service.cond.L.Unlock()
+
 		return nil
 	})
 }
