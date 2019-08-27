@@ -29,7 +29,7 @@ type ReservoirService struct {
 }
 
 // NewReservoirService instantiates Service2
-func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config) (*ReservoirService, error) {
+func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config) *ReservoirService {
 	return &ReservoirService{
 		log: log,
 
@@ -38,7 +38,7 @@ func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config
 
 		MetainfoLoop: metaLoop,
 		Loop:         *sync2.NewCycle(config.Interval),
-	}, nil
+	}
 }
 
 // Run runs auditing service 2.0
