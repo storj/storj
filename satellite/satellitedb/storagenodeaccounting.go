@@ -205,22 +205,17 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 		return nil, Error.Wrap(err)
 	}
 	if lastRollup == nil {
-		return nil, Error.New("unable to find last accounting rollup timestamp")
+		return nil, nil
 	}
 
 	start, end = start.UTC(), end.UTC()
 
-	query := `SELECT SUM(at_rest_total), start_time
+	query := `SELECT at_rest_total, start_time
 				FROM (
-					SELECT r.at_rest_total, r.start_time
-					FROM (
-						SELECT MAX(id) as id
-						FROM accounting_rollups
-						WHERE node_id = ?
-						AND ? <= start_time AND start_time <= ?
-						GROUP BY start_time
-					) ids
-					INNER JOIN accounting_rollups r ON r.id = ids.id
+					SELECT at_rest_total, start_time
+					FROM accounting_rollups
+					WHERE node_id = ?
+					AND ? <= start_time AND start_time <= ?
 					UNION
 					SELECT SUM(data_total) as at_rest_total, DATE(interval_end_time) as start_time
 					FROM storagenode_storage_tallies
@@ -228,7 +223,6 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 					AND ? < interval_end_time AND interval_end_time <= ?
 					GROUP BY start_time
 				) stamps 
-				GROUP BY start_time
 				ORDER BY start_time ASC`
 
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
