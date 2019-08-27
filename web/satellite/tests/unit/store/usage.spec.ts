@@ -39,7 +39,7 @@ describe('mutations', () => {
     });
 
     it('fetch project usage', () => {
-        store.commit(PROJECT_USAGE_MUTATIONS.FETCH, testUsage);
+        store.commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, testUsage);
 
         expect(state.projectUsage.storage).toBe(2);
         expect(state.projectUsage.egress).toBe(3);
