@@ -277,6 +277,7 @@ func TestListObjectsEmpty(t *testing.T) {
 		_, err = db.ListObjects(ctx, bucket.Name, storj.ListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
 
+		// TODO for now we are supporting only storj.After
 		for _, direction := range []storj.ListDirection{
 			// storj.Before,
 			// storj.Backward,

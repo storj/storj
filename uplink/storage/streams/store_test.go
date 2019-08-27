@@ -33,21 +33,22 @@ const (
 )
 
 func TestStreamsStorePutGet(t *testing.T) {
-	for _, tt := range []struct {
-		name       string
-		path       string
-		metadata   []byte
-		expiration time.Time
-		content    []byte
-	}{
-		{"test inline put/get", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
-		{"test remote put/get", "mypath/1", []byte("remote-metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
-	} {
-		test := tt
-		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
-			bucketName := "bucket-name"
-			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
-			require.NoError(t, err)
+	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
+		bucketName := "bucket-name"
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		require.NoError(t, err)
+
+		for _, tt := range []struct {
+			name       string
+			path       string
+			metadata   []byte
+			expiration time.Time
+			content    []byte
+		}{
+			{"test inline put/get", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+			{"test remote put/get", "mypath/1", []byte("remote-metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
+		} {
+			test := tt
 
 			path := storj.JoinPaths(bucketName, test.path)
 			_, err = streamStore.Put(ctx, path, storj.EncNull, bytes.NewReader(test.content), test.metadata, test.expiration)
@@ -64,26 +65,27 @@ func TestStreamsStorePutGet(t *testing.T) {
 			require.Equal(t, test.content, content)
 
 			require.NoError(t, reader.Close(), test.name)
-		})
-	}
+		}
+	})
 }
 
 func TestStreamsStoreDelete(t *testing.T) {
-	for _, tt := range []struct {
-		name       string
-		path       string
-		metadata   []byte
-		expiration time.Time
-		content    []byte
-	}{
-		{"test inline delete", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
-		{"test remote delete", "mypath/1", []byte("remote-metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
-	} {
-		test := tt
-		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
-			bucketName := "bucket-name"
-			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
-			require.NoError(t, err)
+	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
+		bucketName := "bucket-name"
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		require.NoError(t, err)
+
+		for _, tt := range []struct {
+			name       string
+			path       string
+			metadata   []byte
+			expiration time.Time
+			content    []byte
+		}{
+			{"test inline delete", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+			{"test remote delete", "mypath/1", []byte("remote-metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
+		} {
+			test := tt
 
 			path := storj.JoinPaths(bucketName, test.path)
 			_, err = streamStore.Put(ctx, path, storj.EncNull, bytes.NewReader(test.content), test.metadata, test.expiration)
@@ -101,8 +103,8 @@ func TestStreamsStoreDelete(t *testing.T) {
 			err = streamStore.Delete(ctx, path, storj.EncNull)
 			require.Error(t, err, test.name)
 			require.True(t, storj.ErrObjectNotFound.Has(err))
-		})
-	}
+		}
+	})
 }
 
 func TestStreamStoreList(t *testing.T) {
@@ -145,7 +147,7 @@ func TestStreamStoreList(t *testing.T) {
 		require.True(t, more)
 		require.Equal(t, 2, len(items))
 
-		// // should list only prefixes
+		// should list only prefixes
 		items, more, err = streamStore.List(ctx, prefix, "", "", storj.EncNull, false, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
