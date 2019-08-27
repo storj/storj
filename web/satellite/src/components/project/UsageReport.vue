@@ -58,7 +58,7 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import ROUTES from '@/utils/constants/routerConstants';
+    import { RouteConfig } from '@/router';
     import Datepicker from '@/components/project/DatePicker.vue';
     import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
     import { toUnixTimestamp } from '@/utils/time';
@@ -72,7 +72,7 @@
         public startTime: any = {
             time: '',
         };
-        private dateRange: any;
+        private readonly dateRange: any;
 
         public constructor() {
             super();
@@ -124,7 +124,7 @@
         }
 
         public onBackClick(): void {
-            this.$router.push(ROUTES.PROJECT_OVERVIEW);
+            this.$router.push(RouteConfig.ProjectOverview.path);
         }
 
         public async onCurrentRollupClick(event: any): Promise<void> {

@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
@@ -47,10 +47,10 @@ type ExtensionMap map[string]pkix.Extension
 // NewOptions is a constructor for `tls options` given an identity, config, and
 // revocation DB. A caller may pass a nil revocation DB if the revocation
 // extension is disabled.
-func NewOptions(i *identity.FullIdentity, c Config, revDB extensions.RevocationDB) (*Options, error) {
+func NewOptions(i *identity.FullIdentity, c Config, revocationDB extensions.RevocationDB) (*Options, error) {
 	opts := &Options{
 		Config:            c,
-		RevDB:             revDB,
+		RevDB:             revocationDB,
 		Ident:             i,
 		VerificationFuncs: new(VerificationFuncs),
 	}
@@ -78,7 +78,7 @@ func NewExtensionsMap(chain ...*x509.Certificate) ExtensionMap {
 func (opts *Options) ExtensionOptions() *extensions.Options {
 	return &extensions.Options{
 		PeerCAWhitelist: opts.PeerCAWhitelist,
-		RevDB:           opts.RevDB,
+		RevocationDB:    opts.RevDB,
 		PeerIDVersions:  opts.Config.PeerIDVersions,
 	}
 }
@@ -101,7 +101,21 @@ func (opts *Options) configure() (err error) {
 		opts.VerificationFuncs.ClientAdd(peertls.VerifyCAWhitelist(opts.PeerCAWhitelist))
 	}
 
-	opts.handleExtensions(extensions.AllHandlers)
+	handlers := make(extensions.HandlerFactories, len(extensions.DefaultHandlers))
+	copy(handlers, extensions.DefaultHandlers)
+
+	if opts.Config.Extensions.Revocation {
+		handlers.Register(
+			extensions.RevocationCheckHandler,
+			extensions.RevocationUpdateHandler,
+		)
+	}
+
+	if opts.Config.Extensions.WhitelistSignedLeaf {
+		handlers.Register(extensions.CAWhitelistSignedLeafHandler)
+	}
+
+	opts.handleExtensions(handlers)
 
 	opts.Cert, err = peertls.TLSCert(opts.Ident.RawChain(), opts.Ident.Leaf, opts.Ident.Key)
 	return err

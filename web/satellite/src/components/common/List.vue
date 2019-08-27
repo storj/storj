@@ -22,11 +22,7 @@
     export default class List extends Vue {
         @Prop({default: ''})
         private readonly itemComponent: string;
-        @Prop({
-            default: () => {
-                console.error('onItemClick is not reinitialized');
-            }
-        })
+        @Prop({default: () => new Promise(() => false)})
         private readonly onItemClick: listItemClickCallback;
         @Prop({default: Array()})
         private readonly dataSet: any[];

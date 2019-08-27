@@ -69,7 +69,7 @@
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { AuthToken } from '@/utils/authToken';
-    import ROUTES from '@/utils/constants/routerConstants';
+    import { RouteConfig } from '@/router';
 
     @Component({
         components: {
@@ -102,7 +102,7 @@
                 AuthToken.remove();
 
                 this.isLoading = false;
-                this.$router.push(ROUTES.LOGIN.path);
+                this.$router.push(RouteConfig.Login.path);
             } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
                 this.isLoading = false;

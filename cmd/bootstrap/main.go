@@ -88,12 +88,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	revDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
+	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
 
-	peer, err := bootstrap.New(log, identity, db, revDB, runCfg, version.Build)
+	peer, err := bootstrap.New(log, identity, db, revocationDB, runCfg, version.Build)
 	if err != nil {
 		return err
 	}
@@ -106,7 +109,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
 	err = db.CreateTables()

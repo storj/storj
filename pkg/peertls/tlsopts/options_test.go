@@ -106,14 +106,18 @@ func TestNewOptions(t *testing.T) {
 
 	for _, c := range cases {
 		t.Log(c.testID)
-		revDB, err := revocation.NewDBFromCfg(c.config)
+
+		revocationDB, err := revocation.NewDBFromCfg(c.config)
 		require.NoError(t, err)
-		opts, err := tlsopts.NewOptions(fi, c.config, revDB)
+
+		opts, err := tlsopts.NewOptions(fi, c.config, revocationDB)
 		assert.NoError(t, err)
 		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
 		assert.Equal(t, c.config, opts.Config)
 		assert.Len(t, opts.VerificationFuncs.Client(), c.clientVerificationFuncsLen)
 		assert.Len(t, opts.VerificationFuncs.Server(), c.serverVerificationFuncsLen)
+
+		require.NoError(t, revocationDB.Close())
 	}
 }
 

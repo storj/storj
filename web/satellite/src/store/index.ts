@@ -4,18 +4,22 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
-import { makeUsersModule } from '@/store/modules/users';
-import { makeProjectsModule } from '@/store/modules/projects';
-import { projectMembersModule } from '@/store/modules/projectMembers';
-import { notificationsModule } from '@/store/modules/notifications';
+import { makeNotificationsModule } from '@/store/modules/notifications';
+import { ApiKeysApiGql } from '@/api/apiKeys';
+import { BucketsApiGql } from '@/api/buckets';
+import { CreditsApiGql } from '@/api/credits';
+import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { UsersApiGql } from '@/api/users';
 import { appStateModule } from '@/store/modules/appState';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeCreditsModule } from '@/store/modules/credits';
-import { bucketUsageModule, usageModule } from '@/store/modules/usage';
+import { makeBucketsModule } from '@/store/modules/buckets';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
-import { CreditsApiGql } from '@/api/credits';
-import { UsersApiGql } from '@/api/users';
-import { ApiKeysApiGql } from '@/api/apiKeys';
+import { makeProjectMembersModule } from '@/store/modules/projectMembers';
+import { makeProjectsModule } from '@/store/modules/projects';
+import { usageModule } from '@/store/modules/usage';
+import { makeUsersModule } from '@/store/modules/users';
+import { ProjectsApiGql } from '@/api/projects';
 
 Vue.use(Vuex);
 
@@ -30,20 +34,23 @@ export class StoreModule<S> {
 const usersApi = new UsersApiGql();
 const apiKeysApi = new ApiKeysApiGql();
 const creditsApi = new CreditsApiGql();
+const bucketsApi = new BucketsApiGql();
+const projectMembersApi = new ProjectMembersApiGql();
+const projectsApi = new ProjectsApiGql();
 
 // Satellite store (vuex)
 const store = new Vuex.Store({
     modules: {
-        usersModule: makeUsersModule(usersApi),
-        projectsModule: makeProjectsModule(),
-        projectMembersModule,
-        notificationsModule,
-        appStateModule,
+        notificationsModule: makeNotificationsModule(),
         apiKeysModule: makeApiKeysModule(apiKeysApi),
-        usageModule,
-        bucketUsageModule,
-        projectPaymentsMethodsModule,
+        appStateModule,
         creditsModule: makeCreditsModule(creditsApi),
+        projectMembersModule: makeProjectMembersModule(projectMembersApi),
+        projectPaymentsMethodsModule,
+        usersModule: makeUsersModule(usersApi),
+        projectsModule: makeProjectsModule(projectsApi),
+        usageModule,
+        bucketUsageModule: makeBucketsModule(bucketsApi),
     }
 });
 
