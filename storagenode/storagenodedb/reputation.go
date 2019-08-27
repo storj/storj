@@ -81,7 +81,21 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 	var stats reputation.Stats
 
 	row := db.QueryRowContext(ctx,
-		`SELECT * FROM reputation WHERE satellite_id = ?`,
+		`SELECT
+				satellite_id, 
+				uptime_success_count,
+				uptime_total_count,
+				uptime_reputation_alpha,
+				uptime_reputation_beta,
+				uptime_reputation_score,
+				audit_success_count,
+				audit_total_count,
+				audit_reputation_alpha,
+				audit_reputation_beta,
+				audit_reputation_score,
+				disqualified,
+				updated_at
+				FROM reputation WHERE satellite_id = ?`,
 		satelliteID,
 	)
 
