@@ -33,20 +33,20 @@ func TestDeleteExpiredSerials(t *testing.T) {
 		}
 
 		yesterday := time.Now().UTC().Add(-24 * time.Hour)
-		for i := 0; i < 5; i++ {
-			err := satellite.DB.Orders().CreateSerialInfo(ctx, expiredSerials[i], []byte("bucket"), yesterday)
+		for _, serial := range expiredSerials {
+			err := satellite.DB.Orders().CreateSerialInfo(ctx, serial, []byte("bucket"), yesterday)
 			require.NoError(t, err)
 
-			_, err = satellite.DB.Orders().UseSerialNumber(ctx, expiredSerials[i], node)
+			_, err = satellite.DB.Orders().UseSerialNumber(ctx, serial, node)
 			require.NoError(t, err)
 		}
 
 		tomorrow := yesterday.Add(48 * time.Hour)
-		for i := 0; i < 5; i++ {
-			err := satellite.DB.Orders().CreateSerialInfo(ctx, freshSerials[i], []byte("bucket"), tomorrow)
+		for _, serial := range freshSerials {
+			err := satellite.DB.Orders().CreateSerialInfo(ctx, serial, []byte("bucket"), tomorrow)
 			require.NoError(t, err)
 
-			_, err = satellite.DB.Orders().UseSerialNumber(ctx, freshSerials[i], node)
+			_, err = satellite.DB.Orders().UseSerialNumber(ctx, serial, node)
 			require.NoError(t, err)
 		}
 
@@ -54,14 +54,14 @@ func TestDeleteExpiredSerials(t *testing.T) {
 		satellite.DBCleanup.Chore.Serials.TriggerWait()
 
 		// check expired serial numbers have been deleted from serial_numbers and used_serials
-		for i := 0; i < 5; i++ {
-			_, err := satellite.DB.Orders().UseSerialNumber(ctx, expiredSerials[i], node)
+		for _, serial := range expiredSerials {
+			_, err := satellite.DB.Orders().UseSerialNumber(ctx, serial, node)
 			require.EqualError(t, err, "serial number: serial number not found")
 		}
 
 		// check fresh serial numbers have not been deleted
-		for i := 0; i < 5; i++ {
-			_, err := satellite.DB.Orders().UseSerialNumber(ctx, freshSerials[i], node)
+		for _, serial := range freshSerials {
+			_, err := satellite.DB.Orders().UseSerialNumber(ctx, serial, node)
 			require.EqualError(t, err, "serial number: serial number already used")
 		}
 	})
