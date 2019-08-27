@@ -108,12 +108,6 @@ func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLi
 	if err != nil {
 		return ErrSqlite3Backup.Wrap(err)
 	}
-
-	// Closing the database completes the reclaiming of the space used above in the vacuum call.
-	err = destinationDB.Close()
-	if err != nil {
-		return ErrSqlite3Backup.Wrap(err)
-	}
 	return nil
 }
 

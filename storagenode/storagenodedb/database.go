@@ -324,7 +324,7 @@ func (db *DB) Close() error {
 
 		db.versionsDB.Close(),
 		db.bandwidthDB.Close(),
-		// db.consoleDB.Close(),
+		// db.consoleDB.Close(), TODO: Fix this?
 		db.ordersDB.Close(),
 		db.pieceExpirationDB.Close(),
 		db.v0PieceInfoDB.Close(),
@@ -781,14 +781,18 @@ func (db *DB) Migration() *migrate.Migration {
 					// Create a list of tables we have migrated to new databases
 					// that we can delete from the original database.
 					tablesToDrop := []string{
-						"vouchers",
-						"certificate",
-						"order_archive_",
-						"unsent_order",
 						"bandwidth_usage",
 						"bandwidth_usage_rollups",
+						"certificate",
+						"unsent_order",
+						"order_archive_",
+						"piece_expirations",
 						"pieceinfo_",
+						"piece_space_used",
+						"reputation",
+						"storage_usage",
 						"used_serial_",
+						"vouchers",
 					}
 
 					// Delete tables we have migrated from the original database.
@@ -798,14 +802,20 @@ func (db *DB) Migration() *migrate.Migration {
 							return ErrDatabase.Wrap(err)
 						}
 					}
+
 					// VACUUM the versions database to reclaim the space used by the migrated dropped tables.
 					_, err := db.versionsDB.Exec("VACUUM;")
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
-					// Closing the database completes the reclaiming of the space used above in the vacuum call.
+					// Closing the versions database completes the reclaiming of the space used above in the vacuum call.
 					err = db.versionsDB.Close()
+					if err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					err = db.Close()
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
