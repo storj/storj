@@ -71,15 +71,15 @@ The process runs the query repeatable until it doesn't return records then it en
 For each node, the Satellite performs an _uptime check_.
 
 * On success
-    ```sql
-        UPDATE nodes
-        SET
-            last_contact_success = now(),
-            uptime_success_count = uptime_success_count + 1,
-            total_uptime_count = total_uptime_count +1
-        WHERE
-            id = ?
-    ```
+  ```sql
+  UPDATE nodes
+  SET
+      last_contact_success = MAX(now(), last_contact_success),
+      uptime_success_count = uptime_success_count + 1,
+      total_uptime_count = total_uptime_count +1
+  WHERE
+      id = ?
+  ```
 * On failure:
 
   It calculates the number of offline seconds. We consider that the Storage Node must contact the Satellite every hour.
@@ -133,7 +133,7 @@ For each node performs an _uptime check_.
   ```sql
   UPDATE nodes
   SET
-    last_contact_success = now(),
+    last_contact_success = MAX(now(), last_contact_success),
     uptime_success_count = uptime_success_count + 1,
     total_uptime_count = total_uptime_count +1
   WHERE
