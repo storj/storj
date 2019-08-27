@@ -7,6 +7,7 @@ package main
 
 import (
 	"go/ast"
+	"go/token"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -43,7 +44,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			if len(call.Args) == 0 {
 				pass.Reportf(call.Lparen, "no arguments for errs.Combine")
 			}
-			if len(call.Args) == 1 {
+			if len(call.Args) == 1 && call.Ellipsis == token.NoPos {
 				pass.Reportf(call.Lparen, "remove errs.Combine for one argument")
 			}
 		}
