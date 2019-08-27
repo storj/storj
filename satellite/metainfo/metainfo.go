@@ -1661,6 +1661,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 				more = true
 				numberOfSegments = limit
 			} else {
+				// remove last segment from loop
 				numberOfSegments--
 			}
 			for index := int32(0); index < numberOfSegments; index++ {
@@ -1671,6 +1672,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 				})
 			}
 			if !more {
+				// last segment is always last one
 				segmentItems = append(segmentItems, &pb.SegmentListItem{
 					Position: &pb.SegmentPosition{
 						Index: lastSegment,

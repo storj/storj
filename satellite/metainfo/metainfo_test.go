@@ -1245,7 +1245,7 @@ func TestInlineSegment(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			items, _, err = metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+			_, _, err = metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
 			require.Error(t, err)

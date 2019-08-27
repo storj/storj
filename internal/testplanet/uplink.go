@@ -210,7 +210,7 @@ func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	return nil
 }
 
-// UploadWithClientConfig uploads data to specific satellite with configured values and expiration time
+// UploadWithClientConfig uploads data to specific satellite with custom client configuration
 func (client *Uplink) UploadWithClientConfig(ctx context.Context, satellite *satellite.Peer, clientConfig uplink.Config, bucketName string, path storj.Path, data []byte) (err error) {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, clientConfig)
 	if err != nil {
