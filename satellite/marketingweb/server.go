@@ -215,6 +215,7 @@ func (s *Server) StopOffer(w http.ResponseWriter, req *http.Request) {
 	http.Redirect(w, req, "/", http.StatusSeeOther)
 }
 
+// GetBaseURL returns base url from config.
 func (s *Server) GetBaseURL() string {
 	return s.config.BaseURL
 }
