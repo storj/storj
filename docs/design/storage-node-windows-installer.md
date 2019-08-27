@@ -13,73 +13,67 @@ Similarly, Docker ends up using more resources than running natively on Windows.
 Therefore, it would be nice to be able to run Storage Node without Docker.
 
 For an easy setup process we would need an installer that:
-1. Sets up Storage Node to run in background,
-2. sets up automatic updates and
-3. ensures we log everything properly.
+1. Sets up Storage Node to run in background.
+1. Sets up automatic updates.
+1. Ensures we log everything properly.
 
 We need to take care that we:
-* avoid triggering UAC unnecessarily,
-* start storage node before logging in and
-* restart on crashes.
+* Avoid triggering UAC unnecessarily.
+* Start storage node before user login.
+* Restart on crashes.
 
 ## Design
 
-The high-level idea is to create an installer using WIX and make Storage Node a Windows service.
+The high-level idea is to create an installer using the [WiX toolset](https://wixtoolset.org) and make Storage Node a Windows service.
 
-### Installer
+The installer shall:
+* Display a GUI for collecting user configuration about:
+  * Wallet address
+  * Email
+  * External address/port
+  * Advertised bandwidth 
+  * Advertised storage
+  * Identity directory
+  * Installation directory
+  * Storage directory
+* Install the storage node binary in the installation directory.
+* Generate `config.yaml` file with the user configuration.
+* Register the storage node binary as a Windows Service: https://wixtoolset.org/documentation/manual/v3/xsd/util/serviceconfig.html
+* Create a firewall exception for port 28967: https://wixtoolset.org/documentation/manual/v3/xsd/firewall/firewallexception.html
+* Create shortcut for opening the Dashboard
+* Add installation directory to user PATH (optional)
+* Open the dashboard when the installation is complete (optional)
+* Install the auto-updater binary and run it as a Windows service (if auto-updater is implemented at this point)
 
-For creating an installer we can use WIX Toolkit.
-There is [go-msi](https://github.com/mh-cbon/go-msi), which helps to get us setup the basic template.
-We also need to ensure that we supply all the Operator information during installation.
+We must ensure that both the storage node binary and the MSI installer are signed with Storj code-sign certificate to avoid warning popups to users.
 
-To make the installer work we need to:
+## Rationale
 
-* Install [go-msi](https://github.com/mh-cbon/go-msi) on the build server.
-* Create a wix.json file like [this one](https://github.com/mh-cbon/go-msi/blob/master/wix.json)
-* Add a guid with `go-msi set-guid` to uniquely identify the process.
-* Ensure that binaries are signed before or during building the installer.
-* The wix.json should contain steps for:
-  * adding Dashboard shortcut to the desktop
-  * setting [service recovery properties](https://wixtoolset.org/documentation/manual/v3/xsd/util/serviceconfig.html)
-  * configuring Storage Node Operator information:
-       * Wallet Address
-       * Email
-       * Address/ Port
-       * Bandwidth 
-       * Storge
-       * Identity directory
-       * Storge Directory
-  * install storagenode binary
-  * register storagenode as a service
-  * adding Storage Node binary to Windows UserPath (optional)  
-  * open Dashboard at the end of the installer.
-* Run `go-msi make --msi your_program.msi --version 0.0.2` to create the installer.
-* Ensure that installer is signed by the build server.
+The initial idea was to use [go-msi](https://github.com/mh-cbon/go-msi) for creating the Windows installer. It utilizes the WiX toolset to build the actual installer.
 
-### Service
-
-We need to Storage Node to implement Windows service API, as shown in:
-
-* Modify storage node/automatic updater startup code to implement [ServiceMain](https://docs.microsoft.com/en-us/windows/win32/api/winsvc/nc-winsvc-lpservice_main_functiona).
-   * See [golang/sys](https://github.com/golang/sys/blob/master/windows/svc/example/service.go)
-* Create inbound firewall rule using the following Powershell command: `New-NetFirewallRule -DisplayName "Storj v3" -Direction Inbound –Protocol TCP –LocalPort 28967 -Action allow`
-
-This means that Windows handles starting and restarting the binary in the background.
+There are a number of reasons to use the WiX toolset directly instead of go-msi:
+* More flexibility as we can access all WiX toolset features directly instead of through the go-msi wrapper
+* One less dependency
+* The go-msi project is stall for 2 years. None of the issues and question has been answered for the last year.
+* The go-msi project lacks support for Windows Services and Firewall Rules, although the WiX toolset natively supports them.
 
 ## Implementation
 
-1) Modify the storage node startup to implement ServiceMain so that the binary is considered a Windows Service.
-2) Create script for registering binary as a Windows Background Service. (sc.exc command)
-3) Create wix.json file for building an MSI.
-4) Update the build process to include the creation of the MSI. 
-5) Ensure the windows installer is working properly
-  * Install Storage Node using msi.
-  * Ensure binaries run on Windows startup, and it runs as a background process when not logged in.
-  * Ensure UAC(s) is not triggered after installation.
-  * Ensure that storage node restarts automatically after a crash 
+1. Implement MSI installer using the WiX toolset.
+1. Update the build process to build and sign the MSI installer. 
+1. Ensure the MSI installer works properly
+   * Install Storage Node using the MSI installer.
+   * Ensure binaries run on Windows startup, and it runs as a background process when not logged in.
+   * Ensure UAC(s) is not triggered after installation.
+   * Ensure that storage node restarts automatically after a crash
+   * Verify that service writes to the logs properly
 
-## Open Issues/ Comments (if applicable)
+## Open issues
 
 * Consider writing an uninstaller.
+  * MSI package support unintsalling too. We must test to check what files are left on disk after uninstall.
 * How do we prevent UAC from triggering?
-* Consider using wix without go-msi.
+  * Hopefully, code-signing will prevent UAC.
+* Consider implementing `ServiceMain` in the storage node binary
+  * We should ensure that the storage node process shutdowns gracefully on "Stop Service" and "Restart Service" events. Otherwise, we should handle them in the ServiceMain.
+  * See [golang/sys](https://github.com/golang/sys/blob/master/windows/svc/example/service.go) for example.
