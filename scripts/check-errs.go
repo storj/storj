@@ -40,15 +40,44 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			return // not a static call
 		}
 
-		if fn.FullName() == "github.com/zeebo/errs.Combine" {
+		switch fn.FullName() {
+		case "github.com/zeebo/errs.Combine":
 			if len(call.Args) == 0 {
-				pass.Reportf(call.Lparen, "no arguments for errs.Combine")
+				pass.Reportf(call.Lparen, "errs.Combine() can be simplified to nil")
 			}
 			if len(call.Args) == 1 && call.Ellipsis == token.NoPos {
-				pass.Reportf(call.Lparen, "remove errs.Combine for one argument")
+				pass.Reportf(call.Lparen, "errs.Combine(x) can be simplified to x")
+			}
+		case "(*github.com/zeebo/errs.Class).New":
+			if len(call.Args) == 0 {
+				return
+			}
+			// Disallow things like Error.New(err.Error())
+
+			switch arg := call.Args[0].(type) {
+			case *ast.BasicLit: // allow string constants
+			case *ast.Ident: // allow string variables
+			default:
+				// allow "alpha" + "beta" + "gamma"
+				if IsConcatString(arg) {
+					return
+				}
+
+				pass.Reportf(call.Lparen, "(*errs.Class).New with non-obvious format string")
 			}
 		}
 	})
 
 	return nil, nil
+}
+
+func IsConcatString(arg ast.Expr) bool {
+	switch arg := arg.(type) {
+	case *ast.BasicLit:
+		return arg.Kind == token.STRING
+	case *ast.BinaryExpr:
+		return arg.Op == token.ADD && IsConcatString(arg.X) && IsConcatString(arg.Y)
+	default:
+		return false
+	}
 }
