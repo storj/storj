@@ -2,41 +2,39 @@
 
 ## Abstract
 
-The goal is tracking Storage Nodes downtime per Satellite.
+This document describes storage node downtime tracking.
 
 ## Background
 
-The [Disqualification design document](disqualification.md) describes when the Storage Nodes get disqualified based on the reputation scores described in the [Node Selection design document](node-selection.md).
+[Disqualification design document](disqualification.md) describes how storage nodes get disqualified based on the reputation scores described in [node selection design document](node-selection.md).
 
-The current disqualification showed to us that several Storage Nodes got disqualified because of their uptime stats without giving clear and fair evidence of it to us nor their operators. We had to take action and invalidate the uptime's part of the formula used for calculating their reputation.
+Current disqualification based on uptime disqualified several nodes without clear and fair evidence. These disqualifications needed to be reverted and the uptime based disqualification disabled. Before we can start handling disqualifications we need to more reliably track offline status of nodes.
 
-We need to enable back uptime disqualification, however before, we need to track in a fair way the amount of time Storage Nodes are offline.
+[Kademlia removal design document](kademia-removal.md) describes that each node will need to contact each satellite regularly every hour. This is used in the following design.
 
-This document presents a solution for tracking  Storage Node offline time, but it's out of the scope of this document how Storage Node reputation is affected by it.
-
-The presented solution considers the requirements imposed by the [Kademlia removal design document](kademia-removal.md), where the Storage Nodes must contact the Satellite when they start and after every hour.
+This document does not describe how the downtime affects reputation and how disqualifications will work.
 
 ## Design
 
-For tracking Storage Nodes offline time we need:
+For tracking offline duration we need:
 
-- A new SQL database table to store offline time.
-- Detecting which ones are offline.
-- Roughly estimate how long they are offline.
+- A new SQL database table to store offline duration.
+- Detecting which nodes are offline.
+- Estimate how long they are offline.
 
-An _uptime check_ referenced in this section is the connection initiated by the Satellite to any Storage Node in the same way that's described in [Network refreshing section of the Kademlia removal design document](kademia-removal.md#network-refreshing).
+An _uptime check_ referenced in this section is a connection initiated by the satellite to any storage node in the same way that's described in [network refreshing section of the Kademlia removal design document](kademia-removal.md#network-refreshing).
 
 __NOTE__ the SQL code in this section is illustrative for explaining the algorithm concisely.
 
 ### Database
 
-The following new SQL database table will store Storage Nodes offline time.
+The following new SQL database table will store storage nodes offline time.
 
 ```sql
-CREATE TABLE nodes_offline_time(
-    node_id BYTEA NOT NULL,
+CREATE TABLE nodes_offline_time (
+    node_id    BYTEA NOT NULL,
     tracked_at timestamp with time zone NOT NULL,
-    seconds integer,                                                    -- Measured number of seconds being offline
+    seconds    integer, -- Measured number of seconds being offline
     CONSTRAINT nodes_offline_time__pk PRIMARY KEY(node_id, tracked_at)
 )
 ```
@@ -50,9 +48,9 @@ The current Satellite database has the table `nodes`. For the offline time calcu
 
 ### Detecting offline nodes
 
-Per [Kademlia Removal design document](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing), any Storage Node has to ping the Satellite every hour and when it starts up. We have to contact the Storage Nodes which the Satellite hasn't registered a ping for more than one hour to determinie if they are offline or for whatever reason their ping didn't reach the Satellite.
+Per [Kademlia removal design document](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing), any storage node has to ping the satellite every hour. For storage nodes that have not pinged, we need to contact them directly.
 
-For checking those Storage Nodes, an independent process runs in a configurable interval of time the following query:
+For finding the potentially offline storage nodes, we run a chore, with the following query:
 
 ```sql
 SELECT
@@ -66,28 +64,28 @@ ORDER BY
 LIMIT 1
 ```
 
-The process runs the query repeatable until it doesn't return records then it ends and will run again in the next interval. The query only gets one record at the time for not holding a record set during the process.
+The chore repeats the query until all nodes have been handled. It avoids selecting too many nodes at the same time.
 
-For each node, the Satellite performs an _uptime check_.
+For each node, the satellite performs an _uptime check_.
 
-* On success
-  ```sql
-  UPDATE nodes
-  SET
-      last_contact_success = MAX(now(), last_contact_success),
-      uptime_success_count = uptime_success_count + 1,
-      total_uptime_count = total_uptime_count +1
-  WHERE
-      id = ?
+* On success, it updates the nodes table with the last contact information:
+
+    ```sql
+        UPDATE nodes
+        SET
+            last_contact_success = MAX(now(), last_contact_success),
+            uptime_success_count = uptime_success_count + 1,
+            total_uptime_count = total_uptime_count + 1
+        WHERE
+            id = ?
+    ```
+
+* On failure, it calculates the number of offline seconds.
+ 
+  We know that storage nodes must contact the satellite every hour, hence we can estimate that it must have been at least for `now - last_contact_success - 1h` offline.
+
   ```
-* On failure:
-
-  It calculates the number of offline seconds. We consider that the Storage Node must contact the Satellite every hour.
-
-  Because we don't know exactly at what point it has got offline, we dismiss the hour between the last contact success and the supposed next one.
-
-  ```
-  num_seconds_offline =  seconds(from: last_contact_success, to: now() - 1h)
+  num_seconds_offline = seconds(from: last_contact_success, to: now() - 1h)
   ```
 
   ```sql
@@ -106,12 +104,12 @@ For each node, the Satellite performs an _uptime check_.
 
 ### Estimating offline time
 
-Another independent process has the following configurable parameters:
+Another independent chore has the following configurable parameters:
 
-- Sleep time.
+- Interval,
 - Number of nodes to check.
 
-The process enters in a loop until it finishes, running the following query:
+The process loops all failed nodes with query:
 
 ```sql
 SELECT
@@ -124,12 +122,12 @@ ORDER BY
 LIMIT N
 ```
 
-The query uses the number of nodes parameter for limiting the records.
 It checks the configured number of nodes, then will sleep the configured amount of time and start again.
 
-For each node performs an _uptime check_.
+For each node it performs an _uptime check_.
 
-* On success:
+* On success, it updates the nodes table:
+
   ```sql
   UPDATE nodes
   SET
@@ -139,9 +137,9 @@ For each node performs an _uptime check_.
   WHERE
     id = ?
   ```
-* On failure:
 
-  Calculate the number of seconds offline from now and the last contact failure.
+* On failure, it calculates the number of seconds offline from now and the last contact failure.
+
   ```
   num_seconds_offline =  seconds(from: last_contact_failure, to: now())
   ```
@@ -155,67 +153,61 @@ For each node performs an _uptime check_.
   UPDATE nodes
   SET
     last_contact_failure = now(),
-    total_uptime_count = total_uptime_count +1
+    total_uptime_count = total_uptime_count + 1
   WHERE
     id = ?
   ```
 
 ## Rationale
 
-The designed approach has the drawback that `last_contact_failure` of the `nodes` table may get updated by other satellite services before the _estimating offline time_ subprocess reads the last value and calculates the number of offline seconds.
+The designed approach has the drawback that `last_contact_failure` of the `nodes` table may get updated by other satellite services before the _estimating offline time_ chore reads the last value and calculates the number of offline seconds.
 
 The following diagram shows one of these scenarios:
 
 ![missing tracking offline seconds](images/storagenode-downtime-tracking-missing-offline-seconds.png)
 
-The solution is to restrict to this new service the updates of the `last_contact_failure`. The other Satellite services will have to inform when they detect an uptime failure, but this solution increases the complexity and probably impacts the performance of those services due to the introduced indirection.
+The solution is to restrict to this new service the updates of the `last_contact_failure`. The other satellite services will have to inform when they detect an uptime failure, but this solution increases the complexity and probably impacts the performance of those services due to the introduced indirection.
 
-The services which update the `last_contact_failure` choose Storage Nodes randomly, hence we believe that these corner cases are minimal and losing some offline seconds tracking is acceptable and desirable for having a simpler solution.
+The services, which update the `last_contact_failure` choose storage nodes randomly, hence we believe that these corner cases are minimal and losing some offline seconds tracking is acceptable and desirable for having a simpler solution.
 
 Next, we present some alternative architectural solutions.
 
-### Independent Service
+### Independent Process
 
-The designed system runs in the Satellite single operative system process spinning up them in Goroutines. Currently, this is how all the different Satellite application processes run.
+Currently all chores and services run within a single process. Alternatively there could be an independent process for _offline downtime tracking_ as described in the [design section](#design).
 
-An alternative design is to create an independent service for running the process of the _offline downtime tracking_ described in the [design section](#design).
+The advantages are:
 
-The advantages of this alternative are:
-
-* It doesn't add a new application process to the Satellite.
+* It doesn't add a new application chore to the satellite.
 * It's easier to scale.
 
 And the disadvantages are:
 
-* It requires to expose via a wire protocol the data selected from the nodes table. This cause more work and more latency apart from not offloading the current database<sup>1</sup>.
+* It requires to expose via a wire protocol the data selected from the nodes table. This adds more work and more latency apart from not offloading the current database<sup>1</sup>.
 * It requires to update the deployment process.
 
 The disadvantages outweigh the advantages of considering that:
 
-* We want to start to track Storage Nodes offline time
+* We want to start to track storage nodes offline time.
 * It doesn't offload the database despite being split in a different service.
-* It may clash with the team working in the distributed Satellite architecture, or it would require to synchronize the tasks, hence more work and time to release.
-
+* This approach conflicts with horizontally scaling satellite work and would require coordinating the tasks.
 
 <sup>1</sup> We want to reduce calls to the current database.
 
 ### InfluxDB
 
-The designed system uses a SQL database for storing the Storage Nodes downtime.
-
-An alternative solution is to use [InfluxDB time-series database](https://www.influxdata.com/).
+The designed system uses a SQL database for storing the storage nodes downtime. Alternatively it could use [InfluxDB time-series database](https://www.influxdata.com/).
 
 The advantages are:
 
 * Data Science team is already using it for data analysis.
 
-And its disadvantages are:
+And the disadvantages are:
 
-* It requires to deploy InfluxDB for production, currently it's only used for collected metrics.
+* It requires InfluxDB for deployments, for testing and production. Currently we only use it for metrics.
 
-Unless the Data Science team manifest that InfluxDB is essential for them, this alternative doesn't outweigh the current design.
-
+Data Science could use this approach to more nicely calculate statistics however, it will complicate the deployment.
 
 ## Open issues
 
-* The estimating offline time process will infinitely check permanent offline Storage Nodes unless they are marked as disqualified.
+* The design indefinitely checks offline storage nodes until they are disqualified.
