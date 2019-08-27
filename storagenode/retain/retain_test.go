@@ -27,8 +27,6 @@ import (
 )
 
 func TestRetainPieces(t *testing.T) {
-	const pollInterval = 30 * time.Millisecond
-
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
