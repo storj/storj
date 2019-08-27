@@ -165,8 +165,8 @@ func (s *Service) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Start a goroutine that does most of the work of Close in the case the
-	// context is canceled and broadcasts to anyone waiting on the condition
+	// Start a goroutine that does most of the work of Close in the case
+	// the context is canceled and broadcasts to anyone waiting on the condition
 	// variable to check the state.
 	s.group.Go(func() error {
 		defer s.cond.Broadcast()
