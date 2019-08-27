@@ -77,6 +77,8 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
+	// PeerIdentities returns a storage for peer identities
+	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
 	// Attribution returns database for partner keys information

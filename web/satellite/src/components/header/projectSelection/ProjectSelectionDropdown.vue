@@ -23,7 +23,6 @@
 
     import {
     APP_STATE_ACTIONS,
-    PROJETS_ACTIONS,
     NOTIFICATION_ACTIONS,
     PM_ACTIONS,
     API_KEYS_ACTIONS,
@@ -32,13 +31,14 @@
     } from '@/utils/constants/actionNames';
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { Project } from '@/types/projects';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
     @Component
     export default class ProjectSelectionDropdown extends Vue {
         private FIRST_PAGE = 0;
 
         public async onProjectSelected(projectID: string): Promise<void> {
-            this.$store.dispatch(PROJETS_ACTIONS.SELECT, projectID);
+            this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 

@@ -22,7 +22,7 @@
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { DelayedNotification } from '@/types/DelayedNotification';
 
-    @Component({})
+    @Component
     export default class Notification extends Vue {
         @Prop({default: () => new DelayedNotification(new Function(), '', '')})
         private notification: DelayedNotification;

@@ -5,17 +5,17 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import HeaderlessInput from '../../components/common/HeaderlessInput.vue';
-    import RegistrationSuccessPopup from '../../components/common/RegistrationSuccessPopup.vue';
-    import { validateEmail, validatePassword } from '../../utils/validation';
-    import ROUTES from '../../utils/constants/routerConstants';
-    import EVENTS from '../../utils/constants/analyticsEventNames';
-    import { LOADING_CLASSES } from '../../utils/constants/classConstants';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '../../utils/constants/actionNames';
-    import { AuthApi } from '../../api/auth';
+    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+    import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
+    import { validateEmail, validatePassword } from '@/utils/validation';
+    import { RouteConfig } from '@/router';
+    import EVENTS from '@/utils/constants/analyticsEventNames';
+    import { LOADING_CLASSES } from '@/utils/constants/classConstants';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { AuthApi } from '@/api/auth';
     import { setUserId } from '@/utils/consoleLocalStorage';
-    import { User } from '../../types/users';
-    import InfoComponent from '../../components/common/InfoComponent.vue';
+    import { User } from '@/types/users';
+    import InfoComponent from '@/components/common/InfoComponent.vue';
 
     @Component({
         components: {
@@ -41,7 +41,6 @@
         private passwordError: string = '';
         private repeatedPasswordError: string = '';
         private isTermsAcceptedError: boolean = false;
-
 
         private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
 
@@ -86,7 +85,7 @@
         }
         public onLoginClick(): void {
             this.$segment.track(EVENTS.CLICKED_LOGIN);
-            this.$router.push(ROUTES.LOGIN.path);
+            this.$router.push(RouteConfig.Login.path);
         }
         public setEmail(value: string): void {
             this.user.email = value.trim();

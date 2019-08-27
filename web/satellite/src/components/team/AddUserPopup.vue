@@ -71,7 +71,7 @@
     import Button from '@/components/common/Button.vue';
     import { EmailInput } from '@/types/EmailInput';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import ROUTES from '@/utils/constants/routerConstants';
+    import { RouteConfig } from '@/router';
     import { validateEmail } from '@/utils/validation';
 
     @Component({
@@ -197,7 +197,7 @@
         }
 
         public get registerPath(): string {
-            return location.host + ROUTES.REGISTER.path;
+            return location.host + RouteConfig.Register.path;
         }
 
         private resetFormErrors(index): void {
