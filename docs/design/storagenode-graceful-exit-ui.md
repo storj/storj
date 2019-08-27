@@ -16,7 +16,7 @@ The storage node operator needs:
 
 Add a command `storagenode exit-satellite` to initiate a Graceful Exit.
 
-The command should present a list of satellites to exit. The user needs to type the satellite domain name to start exiting. Only satellites that we haven't exited will be displayed.
+The command should present a list of satellites to exit. The user needs to type the satellite domain name to start exiting. Only satellites that haven't been exited will be displayed.
 
 The satellite list should contain:
 - Domain name
