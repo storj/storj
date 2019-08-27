@@ -70,6 +70,7 @@ func NewService(log *zap.Logger, config Config, transport transport.Client, over
 
 // Run starts the gc loop service
 func (service *Service) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	if !service.config.Enabled {
 		return nil
