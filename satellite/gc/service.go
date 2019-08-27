@@ -75,8 +75,14 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return nil
 	}
 
-	// TODO retrieve piece counts from overlay (when there is a column for them)
-	lastPieceCounts := make(map[storj.NodeID]int)
+	// load last piece counts from overlay db
+	lastPieceCounts, err := service.overlay.AllPieceCounts(ctx)
+	if err != nil {
+		service.log.Error("error getting last piece counts", zap.Error(err))
+	}
+	if lastPieceCounts == nil {
+		lastPieceCounts = make(map[storj.NodeID]int)
+	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
@@ -90,12 +96,18 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		// save piece counts for next iteration
+		// save piece counts in memory for next iteration
 		for id := range lastPieceCounts {
 			delete(lastPieceCounts, id)
 		}
 		for id, info := range pieceTracker.retainInfos {
 			lastPieceCounts[id] = info.Count
+		}
+
+		// save piece counts to db for next satellite restart
+		err = service.overlay.UpdatePieceCounts(ctx, lastPieceCounts)
+		if err != nil {
+			service.log.Error("error updating piece counts", zap.Error(err))
 		}
 
 		// monitor information
