@@ -5,7 +5,6 @@
     <div class="satellite-selection-choice-container" id="satelliteDropdown">
         <div class="satellite-selection-overflow-container">
             <!-- loop for rendering satellites -->
-            <!-- TODO: add selection logic onclick -->
             <div class="satellite-selection-overflow-container__satellite-choice"
                 v-for="satellite in satellites" v-bind:key="satellite.id"
                 @click.stop="onSatelliteClick(satellite.id)" >
@@ -25,7 +24,8 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { NODE_ACTIONS, APPSTATE_ACTIONS } from '@/app/utils/constants';
+    import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+    import { NODE_ACTIONS } from '@/app/store/modules/node';
 
     @Component
     export default class SatelliteSelectionDropdown extends Vue {

@@ -5,12 +5,17 @@ export const KB = 1e3;
 export const MB = 1e6;
 export const GB = 1e9;
 
+/**
+ * Used to format amount from bytes to more compact unit
+ * @param bytes - holds amount of bytes
+ * @returns bytes - amount of formatted bytes with unit name
+ */
 export function formatBytes(bytes): string {
     if (bytes === 0) return '0 Bytes';
 
     const decimals = 2;
 
-    let _bytes = Math.abs(bytes);
+    const _bytes = Math.abs(bytes);
 
     switch (true) {
         case _bytes < MB:

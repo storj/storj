@@ -15,7 +15,12 @@
     import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
     import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
     import SNOFooter from '@/app/components/SNOFooter.vue';
-    import { NODE_ACTIONS } from '@/app/utils/constants';
+    import { NODE_ACTIONS } from '@/app/store/modules/node';
+
+    const {
+        GET_NODE_INFO,
+        SELECT_SATELLITE,
+    } = NODE_ACTIONS;
 
     @Component ({
         components: {
@@ -27,8 +32,8 @@
     })
     export default class Dashboard extends Vue {
         public async mounted() {
-            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+            await this.$store.dispatch(GET_NODE_INFO);
+            await this.$store.dispatch(SELECT_SATELLITE, null);
         }
     }
 </script>

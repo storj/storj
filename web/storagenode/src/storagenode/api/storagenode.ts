@@ -5,9 +5,9 @@ import { BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo, Version } from 
 import { BandwidthUsed, Egress, Ingress, Metric, Satellite, Satellites, Stamp } from '@/storagenode/satellite';
 
 /**
- *
- * @param url
- * @throws error
+ * Implementation for HTTP GET requests
+ * @param url - holds url of request target
+ * @throws Error - holds error message if request wasn't successful
  */
 async function httpGet(url): Promise<Response> {
     let response = await fetch(url);
@@ -19,10 +19,8 @@ async function httpGet(url): Promise<Response> {
     throw new Error(response.statusText);
 }
 
-
 /**
- * Implementation for HTTP GET requests
- * @param {string} url=
+ *
  */
 export class SNOApi {
     /**
@@ -81,6 +79,9 @@ export class SNOApi {
             json.bandwidthSummary, audit, uptime);
     }
 
+    /**
+     *
+     */
     public async satellites(): Promise<Satellites> {
         const json = (await (await httpGet('/api/satellites')).json() as any).data;
 

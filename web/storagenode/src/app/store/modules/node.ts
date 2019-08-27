@@ -1,13 +1,31 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { NODE_ACTIONS, NODE_MUTATIONS } from '@/app/utils/constants';
 import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
 import { BandwidthUsed, Satellite, Stamp } from '@/storagenode/satellite';
 import { SNOApi } from '@/storagenode/api/storagenode';
 
+export const NODE_MUTATIONS = {
+    POPULATE_STORE: 'POPULATE_STORE',
+    SELECT_SATELLITE: 'SELECT_SATELLITE',
+};
+
+export const NODE_ACTIONS = {
+    GET_NODE_INFO: 'GET_NODE_INFO',
+    SELECT_SATELLITE: 'SELECT_SATELLITE',
+};
+
 export const StatusOnline = 'Online';
 export const StatusOffline = 'Offline';
+
+const {
+    POPULATE_STORE,
+    SELECT_SATELLITE,
+} = NODE_MUTATIONS;
+
+const {
+    GET_NODE_INFO,
+} = NODE_ACTIONS;
 
 const statusThreshHoldMinutes = 10;
 const snoAPI = new SNOApi();
@@ -51,7 +69,7 @@ export const node = {
         },
     },
     mutations: {
-        [NODE_MUTATIONS.POPULATE_STORE](state: any, nodeInfo: Dashboard): void {
+        [POPULATE_STORE](state: any, nodeInfo: Dashboard): void {
             state.info.id = nodeInfo.nodeID;
             state.info.isLastVersion = nodeInfo.isUpToDate;
             state.info.version = nodeInfo.version;
@@ -72,7 +90,7 @@ export const node = {
                 state.info.status = StatusOnline;
             }
         },
-        [NODE_MUTATIONS.SELECT_SATELLITE](state: any, satelliteInfo: Satellite): void {
+        [SELECT_SATELLITE](state: any, satelliteInfo: Satellite): void {
             if (satelliteInfo.id) {
                 state.satellites.forEach(satellite => {
                     if (satelliteInfo.id === satellite.id) {
@@ -105,7 +123,7 @@ export const node = {
         },
     },
     actions: {
-        [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: any): Promise<any> {
+        [GET_NODE_INFO]: async function ({commit}: any): Promise<any> {
             const response = await snoAPI.dashboard();
 
             commit(NODE_MUTATIONS.POPULATE_STORE, response);

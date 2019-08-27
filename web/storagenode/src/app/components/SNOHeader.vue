@@ -22,14 +22,19 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { NODE_ACTIONS } from '@/app/utils/constants';
+    import { NODE_ACTIONS } from '@/app/store/modules/node';
+
+    const {
+        GET_NODE_INFO,
+        SELECT_SATELLITE,
+    } = NODE_ACTIONS;
 
     @Component
     export default class SNOHeader extends Vue {
         public async onRefresh(): Promise<void> {
             const selectedSatellite = this.$store.state.node.selectedSatellite.id;
-            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, selectedSatellite);
+            await this.$store.dispatch(GET_NODE_INFO);
+            await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
         }
 
         public get nodeID(): object  {

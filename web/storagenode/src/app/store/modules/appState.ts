@@ -1,17 +1,29 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { APPSTATE_ACTIONS, APPSTATE_MUTATIONS } from '@/app/utils/constants';
+export const APPSTATE_MUTATIONS = {
+    TOGGLE_SATELLITE_SELECTION: 'TOGGLE_SATELLITE_SELECTION',
+    CLOSE_ALL: 'CLOSE_ALL',
+};
+
+export const APPSTATE_ACTIONS = {
+    TOGGLE_SATELLITE_SELECTION: 'TOGGLE_SATELLITE_SELECTION',
+};
+
+const {
+    TOGGLE_SATELLITE_SELECTION,
+    CLOSE_ALL,
+} = APPSTATE_MUTATIONS;
 
 export const appStateModule = {
     state: {
         isSatelliteSelectionShown: false,
     },
     mutations: {
-        [APPSTATE_MUTATIONS.TOGGLE_SATELLITE_SELECTION](state: any): void {
+        [TOGGLE_SATELLITE_SELECTION](state: any): void {
             state.isSatelliteSelectionShown = !state.isSatelliteSelectionShown;
         },
-        [APPSTATE_MUTATIONS.CLOSE_ALL](state: any): void {
+        [CLOSE_ALL](state: any): void {
             state.isSatelliteSelectionShown = false;
         },
     },

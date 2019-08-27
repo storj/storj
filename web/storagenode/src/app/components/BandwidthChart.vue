@@ -15,11 +15,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Chart from '@/app/components/Chart.vue';
-import { ChartUtils } from '@/app/utils/chart';
-import { ChartFormatter } from '../utils/chartModule';
+import { ChartUtils } from '@/app/utils/chartUtils';
 import { formatBytes } from '@/app/utils/converter';
 import { BandwidthUsed } from '@/storagenode/satellite';
 
+/**
+ *
+ */
 class BandwidthTooltip {
     public normalEgress: string;
     public normalIngress: string;
@@ -34,7 +36,7 @@ class BandwidthTooltip {
         this.repairIngress = formatBytes(bandwidth.ingress.repair);
         this.repairEgress = formatBytes(bandwidth.egress.repair);
         this.auditEgress = formatBytes(bandwidth.egress.audit);
-        this.date = bandwidth.from.toUTCString();
+        this.date = bandwidth.from.toLocaleString();
     }
 }
 
@@ -45,7 +47,7 @@ class BandwidthTooltip {
 })
 export default class BandwidthChart extends Vue {
     private get allBandwidth(): BandwidthUsed[] {
-        const bandwidth: BandwidthUsed[] = ChartFormatter.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
+        const bandwidth: BandwidthUsed[] = ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
 
         return bandwidth;
     }
@@ -55,13 +57,13 @@ export default class BandwidthChart extends Vue {
         let data: number[] = [0];
 
         if (this.allBandwidth.length) {
-            data = ChartUtils.normalizeArray(this.allBandwidth.map((elem, index) => {
+            data = ChartUtils.normalizeChartData(this.allBandwidth.map((elem) => {
                 return elem.summary();
             }));
         }
 
         return {
-            labels: ChartUtils.xAxeOptions(new Date()),
+            labels: ChartUtils.daysDisplayedOnChart(new Date()),
             datasets: [{
                 backgroundColor: '#F2F6FC',
                 borderColor: '#1F49A3',

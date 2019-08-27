@@ -15,8 +15,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import Chart from '@/app/components/Chart.vue';
-import { ChartUtils } from '@/app/utils/chart';
-import { ChartFormatter } from '@/app/utils/chartModule';
+import { ChartUtils } from '@/app/utils/chartUtils';
 import { formatBytes } from '@/app/utils/converter';
 import { Stamp } from '@/storagenode/satellite';
 
@@ -37,19 +36,19 @@ class StampTooltip {
 })
 export default class DiskSpaceChart extends Vue {
     private get allStamps(): Stamp[] {
-        const stamps: Stamp[] = ChartFormatter.populateEmptyStamps(this.$store.state.node.storageChartData);
+        const stamps: Stamp[] = ChartUtils.populateEmptyStamps(this.$store.state.node.storageChartData);
 
         return stamps;
     }
 
     public get chartData(): any {
-        let data: number[] = ChartUtils.normalizeArray(this.allStamps.map(elem => elem.atRestTotal));
+        let data: number[] = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotal));
 
         const tillDate = new Date();
         tillDate.setDate(tillDate.getDate());
 
         const result = {
-            labels: ChartUtils.xAxeOptions(tillDate),
+            labels: ChartUtils.daysDisplayedOnChart(tillDate),
             datasets: [{
                 backgroundColor: '#F2F6FC',
                 borderColor: '#1F49A3',
@@ -81,12 +80,12 @@ export default class DiskSpaceChart extends Vue {
 
         // Set Text
         if (tooltipModel.body) {
-            const index = tooltipModel.dataPoints[0].index;
-            const point = new StampTooltip(this.allStamps[index]);
+            const dataIndex = tooltipModel.dataPoints[0].index;
+            const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
 
             tooltipEl.innerHTML = `<div class='tooltip-body'>
-                                       <p class='tooltip-body__data'><b>${point.atRestTotal}</b></p>
-                                       <p class='tooltip-body__footer'>${point.timestamp}</p>
+                                       <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}</b></p>
+                                       <p class='tooltip-body__footer'>${dataPoint.timestamp}</p>
                                    </div>`;
         }
 

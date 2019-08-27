@@ -64,6 +64,7 @@ export default class BarInfoContainer extends Vue {
 
         &__amount {
             font-size: 32px;
+            font-family: 'font_bold';
             line-height: 57px;
             color: #535F77;
         }
