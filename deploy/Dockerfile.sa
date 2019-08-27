@@ -1,6 +1,4 @@
 # build stage for web
-# TODO: build static assets as part of the CI/CD pipeline and
-# and serve assets from a CDN instead of from this container
 FROM node:11.15.0 as web-builder
 WORKDIR /app
 COPY web/satellite/ /app
