@@ -161,6 +161,10 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
+    if (to.name === 'default') {
+        next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+    }
+
     next();
 });
 

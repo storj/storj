@@ -57,12 +57,6 @@
                 </svg>`),
         ];
 
-        public togglePopup(): void {
-            if (!this.$store.getters.selectedProject.id) return;
-
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
-        }
-
         public onLogoClick(): void {
             location.reload();
         }
