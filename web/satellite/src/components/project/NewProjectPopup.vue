@@ -45,18 +45,18 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import Checkbox from '@/components/common/Checkbox.vue';
-    import Button from '@/components/common/Button.vue';
     import {
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
-        NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS,
-        PROJETS_ACTIONS,
-        BUCKET_USAGE_ACTIONS
+        NOTIFICATION_ACTIONS,
+        PROJECT_USAGE_ACTIONS,
+        PM_ACTIONS,
     } from '@/utils/constants/actionNames';
-    import { PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { RequestResponse } from '@/types/response';
+    import Button from '@/components/common/Button.vue';
+    import Checkbox from '@/components/common/Checkbox.vue';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { CreateProjectModel, Project } from '@/types/projects';
 
     @Component({
@@ -139,25 +139,27 @@
             return true;
         }
 
-        private async createProject(): Promise<boolean> {
+        private async createProject(): Promise<Project> {
             const project: CreateProjectModel = {
                 name: this.projectName,
                 description: this.description,
             };
 
-            let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, project);
-            if (!response.isSuccess) {
-                this.notifyError(response.errorMessage);
+            let newProject: Project = {} as Project;
 
-                return false;
+            try {
+                newProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
+            } catch (e) {
+                this.notifyError(e.message);
             }
-            this.createdProjectId = response.data.id;
 
-            return true;
+            this.createdProjectId = newProject.id;
+
+            return newProject;
         }
 
         private selectCreatedProject(): void {
-            this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.createdProjectId);
+            this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
 
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
         }
@@ -184,8 +186,8 @@
         }
 
         private clearBucketUsage(): void {
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.SET_SEARCH, '');
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.CLEAR);
+            this.$store.dispatch(BUCKET_ACTIONS.SET_SEARCH, '');
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         }
 
         private notifyError(message: string): void {

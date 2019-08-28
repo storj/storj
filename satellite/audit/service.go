@@ -30,6 +30,8 @@ type Config struct {
 	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"25s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
+
+	Slots int `help:"number of reservoir slots allotted for nodes, currently capped at 2" default:"1"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -61,10 +63,11 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 // Run runs auditing service
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	service.log.Info("Audit cron is starting up")
+	service.log.Info("audit 1.0 is starting up")
 
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		err := service.process(ctx)
+	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
+		defer mon.Task()(&ctx)(&err)
+		err = service.process(ctx)
 		if err != nil {
 			service.log.Error("process", zap.Error(err))
 		}

@@ -39,6 +39,7 @@ pipeline {
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
                         sh 'go run ./scripts/atomicalign.go ./...'
+                        sh 'go run ./scripts/check-errs.go ./...'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=2 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
@@ -95,11 +96,13 @@ pipeline {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
+
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
                     }
 
                     steps {
+                        sh 'psql -U postgres -c \'create database teststorj3;\''
                         sh 'make test-sim-backwards-compatible'
-
                     }
                 }
             }

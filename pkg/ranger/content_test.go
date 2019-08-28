@@ -67,7 +67,9 @@ func TestServeContentParseRange(t *testing.T) {
 	ServeContent(context.Background(), writer, req, "", time.Now().UTC(), ranger)
 
 	assert.Equal(t, http.StatusOK, writer.Code)
-	assert.Equal(t, "23", writer.Result().Header.Get("Content-Length"))
+	result := writer.Result()
+	assert.NoError(t, result.Body.Close())
+	assert.Equal(t, "23", result.Header.Get("Content-Length"))
 }
 
 func Test_isZeroTime(t *testing.T) {
@@ -97,7 +99,9 @@ func Test_setLastModified(t *testing.T) {
 		req := httptest.NewRecorder()
 		setLastModified(req, tt.modtime)
 
-		assert.Equal(t, tt.expected, req.Result().Header.Get("Last-Modified"), tt.name)
+		result := req.Result()
+		assert.NoError(t, result.Body.Close())
+		assert.Equal(t, tt.expected, result.Header.Get("Last-Modified"), tt.name)
 	}
 }
 
@@ -106,7 +110,9 @@ func Test_setLastModifiedNilWriter(t *testing.T) {
 
 	setLastModified(nil, time.Now().UTC())
 
-	assert.Equal(t, "", req.Result().Header.Get("Last-Modified"))
+	result := req.Result()
+	assert.NoError(t, result.Body.Close())
+	assert.Equal(t, "", result.Header.Get("Last-Modified"))
 }
 
 func Test_checkPreconditions(t *testing.T) {

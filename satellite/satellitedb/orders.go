@@ -43,6 +43,16 @@ func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.Ser
 	return err
 }
 
+// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
+func (db *ordersDB) DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	count, err := db.db.Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx, dbx.SerialNumber_ExpiresAt(now))
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
 // UseSerialNumber creates serial number entry in database
 func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -220,7 +230,7 @@ func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.Se
 }
 
 // ProcessOrders take a list of order requests and "settles" them in one transaction
-func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*pb.SettlementResponse, err error) {
+func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(requests) == 0 {
@@ -244,7 +254,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 
 	rejectedRequests := make(map[storj.SerialNumber]bool)
 	reject := func(serialNumber storj.SerialNumber) {
-		r := &pb.SettlementResponse{
+		r := &orders.ProcessOrderResponse{
 			SerialNumber: serialNumber,
 			Status:       pb.SettlementResponse_REJECTED,
 		}
@@ -334,7 +344,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	for _, request := range requests {
 		_, rejected := rejectedRequests[request.OrderLimit.SerialNumber]
 		if !rejected {
-			r := &pb.SettlementResponse{
+			r := &orders.ProcessOrderResponse{
 				SerialNumber: request.OrderLimit.SerialNumber,
 				Status:       pb.SettlementResponse_ACCEPTED,
 			}

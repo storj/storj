@@ -5,6 +5,7 @@ package main
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
@@ -12,6 +13,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 )
 
@@ -60,7 +62,15 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		zap.S().Fatal(err)
 	}
 
-	return config.Server.Run(ctx, zap.L(), identity, nil, config.Signer)
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	return config.Server.Run(ctx, zap.L(), identity, revocationDB, nil, config.Signer)
 }
 
 func main() {
