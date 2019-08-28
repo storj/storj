@@ -44,7 +44,6 @@ func MigrateToDatabase(ctx context.Context, connections map[string]*sqlite3.SQLi
 	if err != nil {
 		return ErrSqlite3Backup.Wrap(err)
 	}
-	// defer func() { err = errs.Combine(err, destinationDB.Close()) }()
 
 	// Required to start the sqlite3 backup process.
 	err = destinationDB.Ping()

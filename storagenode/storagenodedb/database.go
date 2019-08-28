@@ -362,6 +362,12 @@ func (db *DB) Close() error {
 		db.ndb.Close(),
 		db.adb.Close(),
 
+		db.closeDatabases(),
+	)
+}
+
+func (db *DB) closeDatabases() error {
+	return errs.Combine(
 		db.versionsDB.Close(),
 		db.bandwidthDB.Close(),
 		// db.consoleDB.Close(), TODO: Fix this?
@@ -846,7 +852,7 @@ func (db *DB) Migration() *migrate.Migration {
 					}
 
 					// Closing the databases completes the reclaiming of the space used above in the vacuum call.
-					err = db.Close()
+					err = db.closeDatabases()
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
