@@ -23,12 +23,58 @@ type ReservoirChore struct {
 	config Config
 	rand   *rand.Rand
 
-	cond   sync.Cond
-	queue  []storj.Path
-	closed chan struct{}
+	queue *queue
 
 	MetainfoLoop *metainfo.Loop
 	Loop         sync2.Cycle
+}
+
+// queue is a list of paths to audit, shared between the reservoir chore and audit workers.
+type queue struct {
+	cond   sync.Cond
+	queue  []storj.Path
+	closed chan struct{}
+}
+
+func newQueue(cond sync.Cond, closed chan struct{}) *queue {
+	return &queue{
+		cond:   cond,
+		closed: closed,
+	}
+}
+
+// swap switches the backing queue slice with a new queue slice.
+func (queue *queue) swap(newQueue []storj.Path) {
+	queue.cond.L.Lock()
+	queue.queue = newQueue
+	// Notify workers that queue has been repopulated.
+	queue.cond.Broadcast()
+	queue.cond.L.Unlock()
+}
+
+// next gets the next item in the queue.
+func (queue *queue) next(ctx context.Context) (storj.Path, error) {
+	queue.cond.L.Lock()
+	defer queue.cond.L.Unlock()
+
+	for len(queue.queue) == 0 {
+		select {
+		case <-queue.closed:
+			return "", Error.New("queue is closed")
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+		// This waits until the queue is repopulated.
+		queue.cond.Wait()
+		if len(queue.queue) > 0 {
+			break
+		}
+	}
+	next := queue.queue[0]
+	queue.queue = queue.queue[1:]
+
+	return next, nil
 }
 
 // NewReservoirChore instantiates ReservoirChore.
@@ -38,8 +84,7 @@ func NewReservoirChore(log *zap.Logger, metaLoop *metainfo.Loop, config Config) 
 		config: config,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),
 
-		cond:   *sync.NewCond(&sync.Mutex{}),
-		closed: make(chan struct{}),
+		queue: newQueue(*sync.NewCond(&sync.Mutex{}), make(chan struct{})),
 
 		MetainfoLoop: metaLoop,
 		Loop:         *sync2.NewCycle(config.Interval),
@@ -70,7 +115,7 @@ func (chore *ReservoirChore) populateQueueJob(ctx context.Context) error {
 		defer mon.Task()(&ctx)(&err)
 
 		select {
-		case <-chore.closed:
+		case <-chore.queue.closed:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
@@ -97,11 +142,7 @@ func (chore *ReservoirChore) populateQueueJob(ctx context.Context) error {
 				}
 			}
 		}
-		chore.cond.L.Lock()
-		chore.queue = queue
-		// Notify workers that queue has been repopulated.
-		chore.cond.Broadcast()
-		chore.cond.L.Unlock()
+		chore.queue.swap(queue)
 
 		return nil
 	})
@@ -110,36 +151,16 @@ func (chore *ReservoirChore) populateQueueJob(ctx context.Context) error {
 // worker removes an item from the queue and runs an audit.
 func (chore *ReservoirChore) worker(ctx context.Context) error {
 	for {
-		select {
-		case <-chore.closed:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		_, err := chore.queue.next()
+		if err != nil {
+			return err
 		}
-
-		_ = chore.next()
 		// TODO: audit the path
 	}
 }
 
-// next gets the next item in the queue.
-func (chore *ReservoirChore) next() storj.Path {
-	chore.cond.L.Lock()
-	defer chore.cond.L.Unlock()
-
-	if len(chore.queue) == 0 {
-		// This waits until the queue is repopulated.
-		chore.cond.Wait()
-	}
-	next := chore.queue[0]
-	chore.queue = chore.queue[1:]
-
-	return next
-}
-
 // Close halts the reservoir service loop.
 func (chore *ReservoirChore) Close() error {
-	close(chore.closed)
+	close(chore.queue.closed)
 	return nil
 }
