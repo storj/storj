@@ -70,7 +70,7 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
                     return projectMember;
                 });
             },
-            [CLEAR](state: ProjectMembersState) {
+            [CLEAR_SELECTION](state: ProjectMembersState) {
                 state.page.projectMembers = state.page.projectMembers.map((projectMember: ProjectMember) => {
                     projectMember.isSelected = false;
 
@@ -91,7 +91,6 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             },
             fetchProjectMembers: async function ({commit, rootGetters, state}: any, page: number): Promise<ProjectMembersPage> {
                 const projectID = rootGetters.selectedProject.id;
-                state.cursor.page = page;
 
                 commit(SET_PAGE, page);
 
