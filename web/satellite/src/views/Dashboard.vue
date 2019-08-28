@@ -37,7 +37,6 @@
     import { AuthToken } from '@/utils/authToken';
     import { Project } from '@/types/projects';
     import { RouteConfig } from '@/router';
-    import { User } from '@/types/users';
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
     import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
@@ -47,9 +46,9 @@
             try {
                 await this.$store.dispatch(USER_ACTIONS.GET);
             } catch (error) {
-                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                this.$router.push(RouteConfig.Login);
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+                await this.$router.push(RouteConfig.Login.path);
                 AuthToken.remove();
 
                 return;
@@ -67,6 +66,10 @@
 
             if (!projects.length) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+
+                if (!(this as any).isCurrentRouteIsAccount) {
+                    await this.$router.push(RouteConfig.ProjectOverview.path);
+                }
 
                 return;
             }
@@ -109,6 +112,9 @@
     computed: {
         isLoading: function() {
             return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
+        },
+        isCurrentRouteIsAccount: function(): boolean {
+            return this.$route.path.split('/').includes(RouteConfig.Account.name.toLowerCase());
         }
     },
     components: {
