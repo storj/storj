@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This design document describes auditing based on nodes rather than per segment.
+This design document describes auditing based on nodes.
 
 ## Background
 
@@ -37,23 +37,19 @@ We add to the queue the reservoir set in random order.
 When we finish a new reservoir set, we override the previous queue, rather than adding to it.
 Since the new data is more up to date and there's no downside in clearing the queue.
 
-Audit workers handle auditing as previously:
+Audit workers audit as previously:
 
-1. Pick a random stripe.
-2. Download all erasure shares.
-3. Use Berlekamp-Welch algorithm to verify correctness.
+1. Pick a segment from the queue.
+2. Pick a random stripe.
+3. Download all erasure shares.
+4. Use Berlekamp-Welch algorithm to verify correctness.
 
-The chances of selecting the same stripe are rare, but it wouldn't cause any significant harm.
+This is a simplified version that doesn't describe [containment mode](audit-containment.md). Chances of selecting the same stripe are rare, but it wouldn't cause any significant harm.
 
 To estimate appropriate settings for reservoir sampling we need to run a simulation.
-If we decide that we want to prefer nodes with less audits, then we will implement the power of two choices, in which we randomly select two nodes, then choose the one with less audits.
+If we decide that we want to prefer nodes with fewer audits, then we will implement the power of two choices, in which we randomly select two nodes, then choose the one with fewer audits.
 This would still require tracking number of audits, but it would prevent having to sort and query all nodes by audit count, which could cause undesirable behavior.
 For example, when new nodes join the network, the audit system could become stuck auditing only new nodes, and ignoring more established nodes.
-
-We are expecting 3 audits per day for unvetted nodes.
-The satellite currently issues one audit every 30 seconds, which gives us close to 3,000 audits per day.
-There are about 1,000 nodes on the network currently.
-This could mean that the default size of a reservoir should be at least three.
 
 ### Selection via Reservoir Sampling
 
@@ -64,7 +60,7 @@ Audit observer uses metainfo loop to iterate through the metainfo. It creates a 
 To increase audits for unvetted nodes, we can create a larger reservoir for unvetted nodes.
 Two configurations for reservoir sampling: number of segments per unvetted nodes, and for vetted.
 
-E.g. If nodes `n000`, `n002`, and `n003` are vetted, they will have less reservoir slots than unvetted nodes `n001` and `n004`.
+E.g. If nodes `n000`, `n002`, and `n003` are vetted, they will have fewer reservoir slots than unvetted nodes `n001` and `n004`.
 
 ```
 n000 + + + +
@@ -84,7 +80,7 @@ Algorithm:
 
 ## Rationale
 
-An audit observer on the metainfo loop, will always hit every segment on the satellite exactly once, allowing us to get the most accurate possible sample for each node.
+An audit observer using metainfo loop will always hit every segment exactly once, allowing us to get the most accurate possible sample for each node.
 
 While we initially considered integrating the audit system's random node selection process with the existing garbage collection observer,
 we decided not to do this because the difference in required interval for each observer would mean either too many bloom filters being created unnecessarily or audits occurring too slowly.
