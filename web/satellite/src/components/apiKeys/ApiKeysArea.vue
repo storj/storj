@@ -23,7 +23,7 @@
                         <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                     </div>
                     <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                        <span>Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}}</span>
+                        <span>Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}} ?</span>
                         <div class="header-after-delete-click__button-area">
                             <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
                             <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>

@@ -760,6 +760,13 @@ func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.
 	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
 }
 
+// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
+func (m *lockedOrders) DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteExpiredSerials(ctx, now)
+}
+
 // GetBucketBandwidth gets total bucket bandwidth from period of time
 func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
@@ -969,7 +976,7 @@ type lockedPeerIdentities struct {
 }
 
 // BatchGet gets all nodes peer identities in a transaction
-func (m *lockedPeerIdentities) BatchGet(ctx context.Context, a1 storj.NodeIDList) (_ []*identity.PeerIdentity, err error) {
+func (m *lockedPeerIdentities) BatchGet(ctx context.Context, a1 storj.NodeIDList) ([]*identity.PeerIdentity, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.BatchGet(ctx, a1)

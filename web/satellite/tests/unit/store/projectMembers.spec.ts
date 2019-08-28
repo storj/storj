@@ -33,6 +33,7 @@ const store = new Vuex.Store({modules: {projectsModule, projectMembersModule}});
 const state = (store.state as any).projectMembersModule;
 
 const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
+const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
 
 describe('mutations', () => {
     it('fetch project members', function () {
@@ -86,7 +87,9 @@ describe('mutations', () => {
     it('clear selection', function () {
         store.commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
 
-        expect(state.page.projectMembers.filter(member => member.isSelected)).toBe(0);
+        state.page.projectMembers.forEach((pm: ProjectMember) => {
+            expect(pm.isSelected).toBe(false);
+        });
     });
 
     it('clear store', function () {
@@ -226,7 +229,20 @@ describe('actions', async () => {
         expect(state.cursor.orderDirection).toBe(SortDirection.DESCENDING);
     });
 
-    it('toggle selection', function () {
+    it('toggle selection', async function () {
+        jest.spyOn(pmApi, 'get').mockReturnValue(
+            Promise.resolve(new ProjectMembersPage(
+                [projectMember1, projectMember2],
+                '',
+                ProjectMemberOrderBy.NAME,
+                SortDirection.ASCENDING,
+                6,
+                1,
+                1,
+                2))
+        );
+
+        await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
         store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, projectMember1.user.id);
 
         expect(state.page.projectMembers[0].isSelected).toBe(true);
@@ -235,7 +251,9 @@ describe('actions', async () => {
     it('clear selection', function () {
         store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
 
-        expect(state.page.projectMembers[0].isSelected).toBe(false);
+        state.page.projectMembers.forEach((pm: ProjectMember) => {
+            expect(pm.isSelected).toBe(false);
+        });
     });
 
     it('clear store', function () {
