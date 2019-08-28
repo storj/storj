@@ -83,6 +83,10 @@ func LoadPartnerInfos() Partners {
 			Name: "MariaDB",
 			ID:   "8ee019ef-2aae-4867-9c18-41c65ea318c4",
 		},
+		"bbd340b2-0ae4-4254-af90-eaba6c273abb": PartnerInfo{
+			Name: "MongoDB",
+			ID:   "bbd340b2-0ae4-4254-af90-eaba6c273abb",
+		},
 		"3405a882-0cb2-4f91-a6e0-21be193b80e5": PartnerInfo{
 			Name: "Netki",
 			ID:   "3405a882-0cb2-4f91-a6e0-21be193b80e5",
