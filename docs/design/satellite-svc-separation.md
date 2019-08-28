@@ -6,7 +6,6 @@
 3. [Design](#design)
 4. [Rationale](#rationale)
 4. [Implementation](#implementation)
-5. [Open Issues](#open-issues)
 
 ## Abstract
 
@@ -14,11 +13,11 @@ The goal of the design doc is to describe the work necessary to make the Satelli
 
 ## Background
 
-Currently all Satellite services run in a single binary in a single process. While this is great for development, this is bad for scaling.
+Currently all Satellite services run as a single process. While this is great for development, this is bad for scaling.
 
 ### Current Satellite design
 
-Currently the Satellite is a single binary made of up the following parts:
+Currently the Satellite runs as a single process made of up the following parts:
 
 #### overlay
 The overlay maintains critical information about nodes in the network (via the nodes table in satellite.DB). One important use of overlay is to help select which storage nodes to upload files to.
@@ -101,13 +100,13 @@ The plan is to break the Satellite into multiple processes. Each process runs in
 Currently there is only one Satellite process. We propose to add the following processes:
 
 #### satellite api
-The satellite api will handle all public GRPC and HTTP requests, this includes all public endpoints for nodestats, overlay, orders, metainfo, and console web UI. It will need all the code to successfully process these public requests, but no more than that. For example, if the console needs the mail service to succesfully complete any request, then that code should be added, but make sure to only include the necessary parts. There shouldn't be any background jobs running here nor persistent state, meaning if there are no requests coming in, the satellite api should be idle.
+The satellite api will handle all public GRPC and HTTP requests, this includes all public endpoints for nodestats, overlay, orders, metainfo, and console web UI. It will need all the code to successfully process these public requests, but no more than that. For example, if the console needs the mail service to successfully complete any request, then that code should be added, but make sure to only include the necessary parts. There shouldn't be any background jobs running here nor persistent state, meaning if there are no requests coming in, the satellite api should be idle.
 
 #### private api
-The private api binary handles all private GRPC and HTTP requests, this includes inspectors (overlay, health, irreparable), debug endpoints, and the marketing web UI. Open question: do we need the inspectors, if not should they be removed?
+The private api process handles all private GRPC and HTTP requests, this includes inspectors (overlay, health, irreparable), debug endpoints, and the marketing web UI. Open question: do we need the inspectors, if not should they be removed?
 
 #### metainfo loop and the observer system
-The metainfo loop binary iterates over all the segments in metainfoDB repeatedly on an interval. With each loop, the process can also execute the code for the observer systems that take a segment as input and performs some action with it. The observer systems currently include: audit observer, gc observer, repair checker observer, and accounting tally.
+The metainfo loop process iterates over all the segments in metainfoDB repeatedly on an interval. With each loop, the process can also execute the code for the observer systems that take a segment as input and performs some action with it. The observer systems currently include: audit observer, gc observer, repair checker observer, and accounting tally.
 
 The audit observer uses the segments from the metainfo loop to create segment reservoir samples for each storage node and saves those samples to a reservoir cache. Audit observer currently runs on a 30s interval for the release default setting. See [audit-v2 design](https://github.com/storj/storj/blob/master/docs/design/audit-v2.md) for more details.
 
@@ -132,7 +131,7 @@ Lets get rid of the irreparable loop. For one, we never expect there to be files
 The repair worker executes a repair for an item in the repair queue. We want to work through the repair queue as fast as possible so its important to be able to dispatch many workers at a time.
 
 #### audit workers
-The audit binary should be able to run many audits in parallel. For the [audit-v2 design](https://github.com/storj/storj/blob/master/docs/design/audit-v2.md) there is a reservoir cache that will need to be shared between the audit observer and the audit processes which executes the audits on a segment from the reservoir cache. It might be worthwhile to have two tables in the reservoir cache, one for vetted and one for unvetted. Then we can run two different audit processes, one for vetted and one for unvetted. The only difference between the vetted and unvetted audit processes would be 1) which cache table they read from and 2) how frequently they audit. This separation might be nice so that it's easier to keep track of and modify how many vetted vs unvetted audits are occuring.
+The audit process should be able to run many audits in parallel. For the [audit-v2 design](https://github.com/storj/storj/blob/master/docs/design/audit-v2.md) there is a reservoir cache that will need to be shared between the audit observer and the audit processes which executes the audits on a segment from the reservoir cache. It might be worthwhile to have two tables in the reservoir cache, one for vetted and one for unvetted. Then we can run two different audit processes, one for vetted and one for unvetted. The only difference between the vetted and unvetted audit processes would be 1) which cache table they read from and 2) how frequently they audit. This separation might be nice so that it's easier to keep track of and modify how many vetted vs unvetted audits are occurring.
 
 The following diagram outlines the design for the audit system once separated out of the satellite:
 
@@ -143,14 +142,14 @@ The following diagram outlines the design for the audit system once separated ou
 ***
 
 #### accounting
-The accounting binary is responsible for calculating disk usage and bandwidth usage. These calculations are used for uplink invoices and storage nodes payments. Accounting should receive storage node total stored bytes data from the tally observer running with the metainfo loop.
+The accounting process is responsible for calculating disk usage and bandwidth usage. These calculations are used for uplink invoices and storage nodes payments. Accounting should receive storage node total stored bytes data from the tally observer running with the metainfo loop.
 
 #### uptime
 The uptime process will be responsible for pinging nodes we haven't heard from in a while and updating the overlay cache with the results.
 
 ***
 
-The following diagram shows the above propsed design:
+The following diagram shows the above proposed design:
 
 ![Diagram of the above listed binaries](images/sa-separation-design.svg)
 
@@ -159,15 +158,15 @@ The following diagram shows the above propsed design:
 ## Rationale
 
 #### metainfo loop and observer system
-For database performance reasons we should only have one thing looping over the metainfo database. This is why we are combining everything into the metainfo loop observer system. There is no sense in having multiple different processes all redoing the work of iterating over the database and parsing protobufs if lots of things need to do that same work over and over. We could add functionality to this version service so that all binaries running in the new satellite system check in and provide software version compatibility details. There has been discussion about making the audit and GC observers run on differnt loops, but for performance concerns, its been decided to run all observers on the same metainfo loop (though GC will run less frequently). 
+For database performance reasons we should only have one thing looping over the metainfo database. This is why we are combining everything into the metainfo loop observer system. There is no sense in having multiple different processes all redoing the work of iterating over the database and parsing protobufs if lots of things need to do that same work over and over. We could add functionality to this version service so that all binaries running in the new satellite system check in and provide software version compatibility details. There has been discussion about making the audit and GC observers run on different loops, but for performance concerns, its been decided to run all observers on the same metainfo loop (though GC will run less frequently). 
 
 Keep in mind it's important for the GC observer that we hit every single item in the metainfoDB, otherwise the GC bloom filters could be inaccurate which could cause storage nodes to delete live data.
 
-For the metainfo loop and observer system its not critical to have high availability for these systems in the short term, therefore its ok to have all these observers depend on a single metainfo loop process.  If the need arises to have multiple concurrent metainfo loops then we can address those specific needs as they come up. In the worst case scenario, if the metainfo loop goes down we don't expect any overall sateillite system downtime, however there may be metainfo loop downtime until its fixed and back up. This should be fine for small periods of time.  We should figure out what is an acceptable amount of downtime for metainfo loop should it occur.
+For the metainfo loop and observer system its not critical to have high availability for these systems in the short term, therefore its ok to have all these observers depend on a single metainfo loop process.  If the need arises to have multiple concurrent metainfo loops then we can address those specific needs as they come up. In the worst case scenario, if the metainfo loop goes down we don't expect any overall satellite system downtime, however there may be metainfo loop downtime until its fixed and back up. This should be fine for small periods of time.  We should figure out what is an acceptable amount of downtime for metainfo loop should it occur.
 
 #### satellite api
 
-For creating the satellite api, there are two options for design. One, a single binary containing all public GRPC/HTTP endpoints **and** all code necessary to process any request to those endpoints. Or two, a single binary that contains all public GRPC/HTTP endpoints but does **not** contain the code to process requests, instead the api would act as a proxy passing along requests to the correct backend services. Here we will do the first option since it is less complex and it fullfills our need to run replicas to handle lots of traffic. In the future we can migrate to option two should the additional complexity be needed to satisfy some other need.
+For creating the satellite api, there are two options for design. One, a single process containing all public GRPC/HTTP endpoints **and** all code necessary to process any request to those endpoints. Or two, a single process that contains all public GRPC/HTTP endpoints but does **not** contain the code to process requests, instead the api would act as a proxy passing along requests to the correct backend services. Here we will do the first option since it is less complex and it fulfills our need to run replicas to handle lots of traffic. In the future we can migrate to option two should the additional complexity be needed to satisfy some other need.
 
 #### version
 
@@ -184,7 +183,7 @@ We should break out one process at a time from the Satellite.  Here are the thin
 
 We will need to add a `SatelliteSystem` in `testplanet` so that we can test continue using the same unit tests for the Satellite as we break it apart. See an example of that [here](https://github.com/storj/storj/pull/2836/files#diff-c2ce7a2c9b2f4920e2de524c0fffd2f1R70).
 
-For each new satellite binary we need to do the following steps:
+For each new satellite process we need to do the following steps:
 - create xProcess, where x is a Satellite service, e.g. RepairProcess, AccountingProcess, etc
 - update satellite binary to include a subcommand so that the new xProcess can be run like this:
 `satellite run repair`
@@ -195,8 +194,8 @@ For each new satellite binary we need to do the following steps:
 - automated deployment to staging kubernetes environment is setup and deploying
 
 A couple important notes:
-- every satellite system binary must check in with the version server to confirm it is running the righ version. The process cannot start unless it is running the correct version.
-- when creating these new satellite system binaries, is that we want to make sure we to only pull in the code necessary for the new process to accomplish its main tasks. For example, if the new satellite api binary needs to create a pointer for pointerDB, we only want to include the minimum metainfo code needed to do so.  We should not be adding any additional code like the metainfo loop or anything else unnecessary.
+- every satellite system process must check in with the version server to confirm it is running the right version. The process cannot start unless it is running the correct version.
+- when creating these new satellite system binaries, is that we want to make sure we to only pull in the code necessary for the new process to accomplish its main tasks. For example, if the new satellite api process needs to create a pointer for pointerDB, we only want to include the minimum metainfo code needed to do so.  We should not be adding any additional code like the metainfo loop or anything else unnecessary.
 
 [Here](https://github.com/storj/storj/pull/2836) is a prototype PR with an example that implements these steps (minus deployment configs) for the repair service. This is now out of date since we are adding the repair (checker) observer to the metainfo loop observer system, but this prototype is still useful as an example.
 
@@ -204,5 +203,3 @@ Other work:
 - Add support for a cache for the live accounting cache so that its not stored in memory any longer.
 - add support for postgres to revocationDB.
 - Update storj-sim to run with all the new services.
-
-## Open issues
