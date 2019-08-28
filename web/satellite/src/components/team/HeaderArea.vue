@@ -33,7 +33,6 @@
     import Button from '@/components/common/Button.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
     import { ProjectMember } from '@/types/projectMembers';
-    import { RequestResponse } from '@/types/response';
 
     declare interface ClearSearch {
         clearSearch: () => void;
