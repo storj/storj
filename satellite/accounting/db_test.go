@@ -5,6 +5,7 @@ package accounting_test
 
 import (
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -18,10 +19,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-)
-
-const (
-	rollupsCount = 25
 )
 
 func TestSaveBucketTallies(t *testing.T) {
@@ -51,7 +48,12 @@ func TestStorageNodeUsage(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
+		const (
+			days = 30
+		)
+
 		nodeID := testrand.NodeID()
+		startDate := time.Now().UTC().Add(time.Hour * 24 * -days)
 
 		var nodes storj.NodeIDList
 		nodes = append(nodes, nodeID)
@@ -59,43 +61,50 @@ func TestStorageNodeUsage(t *testing.T) {
 		nodes = append(nodes, testrand.NodeID())
 		nodes = append(nodes, testrand.NodeID())
 
+		rollups, tallies, lastDate := makeRollupsAndStorageNodeStorageTallies(nodes, startDate, days)
+
+		lastRollup := rollups[lastDate]
+		delete(rollups, lastDate)
+
 		accountingDB := db.StoragenodeAccounting()
 
 		// create last rollup timestamp
 		_, err := accountingDB.LastTimestamp(ctx, accounting.LastRollup)
 		require.NoError(t, err)
 
-		rollups := createRollups(nodes)
-
-		storageTallies := make(map[storj.NodeID]float64)
-		storageTallies[nodeID] = testrand.Float64n(10000)
-
-		now := time.Now().UTC()
-
-		// run 2 rollups for the same day
-		err = accountingDB.SaveRollup(ctx, now, rollups)
-		require.NoError(t, err)
-		err = accountingDB.SaveRollup(ctx, now.Add(-time.Hour), rollups)
-		require.NoError(t, err)
-
-		// create tallies new tallies
-		err = accountingDB.SaveTallies(ctx, now, storageTallies)
-		require.NoError(t, err)
-		err = accountingDB.SaveTallies(ctx, now.Add(time.Minute), storageTallies)
-		require.NoError(t, err)
-
-		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, time.Time{}, time.Now())
-		require.NoError(t, err)
-		assert.NotNil(t, nodeStorageUsages)
-		assert.Equal(t, rollupsCount+1, len(nodeStorageUsages))
-
-		for _, usage := range nodeStorageUsages {
-			assert.Equal(t, nodeID, usage.NodeID)
+		// save tallies
+		for latestTally, tallies := range tallies {
+			err = accountingDB.SaveTallies(ctx, latestTally, tallies)
+			require.NoError(t, err)
 		}
 
+		// save rollup
+		err = accountingDB.SaveRollup(ctx, lastDate.Add(time.Hour*-24), rollups)
+		require.NoError(t, err)
+
+		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, time.Time{}, time.Now().UTC())
+		require.NoError(t, err)
+		assert.NotNil(t, nodeStorageUsages)
+		assert.Equal(t, days, len(nodeStorageUsages))
+
+		// check usage from rollups
+		for _, usage := range nodeStorageUsages[:len(nodeStorageUsages)-1] {
+			assert.Equal(t, nodeID, usage.NodeID)
+			assert.Equal(t, rollups[usage.Timestamp.UTC()][nodeID].AtRestTotal, usage.StorageUsed)
+		}
+
+		// check last usage that calculated from tallies
+		lastUsage := nodeStorageUsages[len(nodeStorageUsages)-1]
+
 		assert.Equal(t,
-			nodeStorageUsages[len(nodeStorageUsages)-1].Timestamp.UTC(),
-			time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()))
+			nodeID,
+			lastUsage.NodeID)
+		assert.Equal(t,
+			lastRollup[nodeID].StartTime,
+			lastUsage.Timestamp.UTC())
+		assert.Equal(t,
+			lastRollup[nodeID].AtRestTotal,
+			lastUsage.StorageUsed)
 	})
 }
 
@@ -125,31 +134,43 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.Buc
 	return bucketTallies, expectedTallies, nil
 }
 
-func createRollups(nodes storj.NodeIDList) accounting.RollupStats {
+// make rollups and tallies for specified nodes and date range
+func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Time, days int) (accounting.RollupStats, map[time.Time]map[storj.NodeID]float64, time.Time) {
 	rollups := make(accounting.RollupStats)
-	now := time.Now().UTC()
+	tallies := make(map[time.Time]map[storj.NodeID]float64)
 
-	for i := 0; i < rollupsCount; i++ {
-		startDate := time.Date(now.Year(), now.Month()-1, 1+i, 0, 0, 0, 0, now.Location())
-		if rollups[startDate] == nil {
-			rollups[startDate] = make(map[storj.NodeID]*accounting.Rollup)
+	const (
+		hours = 12
+	)
+
+	for i := 0; i < days; i++ {
+		startDay := time.Date(start.Year(), start.Month(), start.Day()+i, 0, 0, 0, 0, start.Location())
+		if rollups[startDay] == nil {
+			rollups[startDay] = make(map[storj.NodeID]*accounting.Rollup)
 		}
 
-		for _, nodeID := range nodes {
+		for _, node := range nodes {
 			rollup := &accounting.Rollup{
-				NodeID:         nodeID,
-				StartTime:      startDate,
-				PutTotal:       testrand.Int63n(10000),
-				GetTotal:       testrand.Int63n(10000),
-				GetAuditTotal:  testrand.Int63n(10000),
-				GetRepairTotal: testrand.Int63n(10000),
-				PutRepairTotal: testrand.Int63n(10000),
-				AtRestTotal:    testrand.Float64n(10000),
+				NodeID:    node,
+				StartTime: startDay,
 			}
 
-			rollups[startDate][nodeID] = rollup
+			for h := 0; h < hours; h++ {
+				startTime := startDay.Add(time.Hour * time.Duration(h))
+				//fmt.Println(startTime)
+				if tallies[startTime] == nil {
+					tallies[startTime] = make(map[storj.NodeID]float64)
+				}
+
+				tallieAtRest := math.Round(testrand.Float64n(1000))
+				tallies[startTime][node] = tallieAtRest
+				rollup.AtRestTotal += tallieAtRest
+			}
+
+			rollups[startDay][node] = rollup
 		}
 	}
 
-	return rollups
+	return rollups, tallies,
+		time.Date(start.Year(), start.Month(), start.Day()+days-1, 0, 0, 0, 0, start.Location())
 }
