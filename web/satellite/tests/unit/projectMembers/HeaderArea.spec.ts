@@ -156,18 +156,13 @@ describe('error conditions', () => {
 
         actions = {
             deleteProjectMembers: async () => {
-                return {
-                    errorMessage: '',
-                    isSuccess: false,
-                    data: null
-                };
+                throw new Error('testError');
             },
             fetchProjectMembers: async () => {
-                return {
-                    errorMessage: '',
-                    isSuccess: false,
-                    data: []
-                };
+                throw new Error('testError');
+            },
+            setProjectMembersSearchQuery: () => {
+                return;
             },
             error: jest.fn()
         };
@@ -200,10 +195,6 @@ describe('error conditions', () => {
         wrapper.vm.$data.isDeleteClicked = true;
 
         await wrapper.vm.onDelete();
-
-        await store.getters.selectedProjectMembers.map((member) => {
-            return member.user.email;
-        });
 
         expect(actions.error.mock.calls).toHaveLength(1);
     });
