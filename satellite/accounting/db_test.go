@@ -52,8 +52,10 @@ func TestStorageNodeUsage(t *testing.T) {
 			days = 30
 		)
 
+		now := time.Now().UTC()
+
 		nodeID := testrand.NodeID()
-		startDate := time.Now().UTC().Add(time.Hour * 24 * -days)
+		startDate := now.Add(time.Hour * 24 * -days)
 
 		var nodes storj.NodeIDList
 		nodes = append(nodes, nodeID)
@@ -82,29 +84,52 @@ func TestStorageNodeUsage(t *testing.T) {
 		err = accountingDB.SaveRollup(ctx, lastDate.Add(time.Hour*-24), rollups)
 		require.NoError(t, err)
 
-		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, time.Time{}, time.Now().UTC())
-		require.NoError(t, err)
-		assert.NotNil(t, nodeStorageUsages)
-		assert.Equal(t, days, len(nodeStorageUsages))
+		t.Run("usage with pending tallies", func(t *testing.T) {
+			nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, time.Time{}, now)
+			require.NoError(t, err)
+			assert.NotNil(t, nodeStorageUsages)
+			assert.Equal(t, days, len(nodeStorageUsages))
 
-		// check usage from rollups
-		for _, usage := range nodeStorageUsages[:len(nodeStorageUsages)-1] {
-			assert.Equal(t, nodeID, usage.NodeID)
-			assert.Equal(t, rollups[usage.Timestamp.UTC()][nodeID].AtRestTotal, usage.StorageUsed)
-		}
+			// check usage from rollups
+			for _, usage := range nodeStorageUsages[:len(nodeStorageUsages)-1] {
+				assert.Equal(t, nodeID, usage.NodeID)
+				assert.Equal(t, rollups[usage.Timestamp.UTC()][nodeID].AtRestTotal, usage.StorageUsed)
+			}
 
-		// check last usage that calculated from tallies
-		lastUsage := nodeStorageUsages[len(nodeStorageUsages)-1]
+			// check last usage that calculated from tallies
+			lastUsage := nodeStorageUsages[len(nodeStorageUsages)-1]
 
-		assert.Equal(t,
-			nodeID,
-			lastUsage.NodeID)
-		assert.Equal(t,
-			lastRollup[nodeID].StartTime,
-			lastUsage.Timestamp.UTC())
-		assert.Equal(t,
-			lastRollup[nodeID].AtRestTotal,
-			lastUsage.StorageUsed)
+			assert.Equal(t,
+				nodeID,
+				lastUsage.NodeID)
+			assert.Equal(t,
+				lastRollup[nodeID].StartTime,
+				lastUsage.Timestamp.UTC())
+			assert.Equal(t,
+				lastRollup[nodeID].AtRestTotal,
+				lastUsage.StorageUsed)
+		})
+
+		t.Run("usage entirely from rollups", func(t *testing.T) {
+			const (
+				start = 10
+				// should be greater than 2
+				// not to include tallies into result
+				end = 2
+			)
+
+			startDate, endDate := now.Add(time.Hour*24*-start), now.Add(time.Hour*24*-end)
+
+			nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, startDate, endDate)
+			require.NoError(t, err)
+			assert.NotNil(t, nodeStorageUsages)
+			assert.Equal(t, start-end, len(nodeStorageUsages))
+
+			for _, usage := range nodeStorageUsages {
+				assert.Equal(t, nodeID, usage.NodeID)
+				assert.Equal(t, rollups[usage.Timestamp.UTC()][nodeID].AtRestTotal, usage.StorageUsed)
+			}
+		})
 	})
 }
 
