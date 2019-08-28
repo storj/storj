@@ -115,9 +115,6 @@
             return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
         },
         isCurrentRouteIsAccount: function(): boolean {
-            console.log('this.$route.path', this.$route.path.split('/'))
-            console.log('RouteConfig.Account.name.toLowerCase()', RouteConfig.Account.name.toLowerCase())
-            console.log('isCurrentRouteIsAccount', this.$route.path.split('/'))
             return this.$route.path.split('/').includes(RouteConfig.Account.name.toLowerCase());
         }
     },
