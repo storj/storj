@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
@@ -16,31 +17,32 @@ import (
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-func TestReputationDB(t *testing.T) {
+func TestReputationDBGetInsert(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
+		timestamp := time.Now().UTC()
 		reputationDB := db.Reputation()
 
 		stats := reputation.Stats{
 			SatelliteID: testrand.NodeID(),
 			Uptime: reputation.Metric{
 				TotalCount:   1,
-				SuccessCount: 1,
-				Alpha:        1,
-				Beta:         1,
-				Score:        1,
+				SuccessCount: 2,
+				Alpha:        3,
+				Beta:         4,
+				Score:        5,
 			},
 			Audit: reputation.Metric{
-				TotalCount:   2,
-				SuccessCount: 2,
-				Alpha:        2,
-				Beta:         2,
-				Score:        2,
+				TotalCount:   6,
+				SuccessCount: 7,
+				Alpha:        8,
+				Beta:         9,
+				Score:        10,
 			},
-			Disqualified: nil,
-			UpdatedAt:    time.Now().UTC(),
+			Disqualified: &timestamp,
+			UpdatedAt:    timestamp,
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -59,6 +61,62 @@ func TestReputationDB(t *testing.T) {
 			compareReputationMetric(t, &res.Uptime, &stats.Uptime)
 			compareReputationMetric(t, &res.Audit, &stats.Audit)
 		})
+	})
+}
+
+func TestReputationDBGetAll(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		reputationDB := db.Reputation()
+
+		var stats []reputation.Stats
+		for i := 0; i < 10; i++ {
+			timestamp := time.Now().UTC().Add(time.Hour * time.Duration(i))
+
+			rep := reputation.Stats{
+				SatelliteID: testrand.NodeID(),
+				Uptime: reputation.Metric{
+					TotalCount:   int64(i + 1),
+					SuccessCount: int64(i + 2),
+					Alpha:        float64(i + 3),
+					Beta:         float64(i + 4),
+					Score:        float64(i + 5),
+				},
+				Audit: reputation.Metric{
+					TotalCount:   int64(i + 6),
+					SuccessCount: int64(i + 7),
+					Alpha:        float64(i + 8),
+					Beta:         float64(i + 9),
+					Score:        float64(i + 10),
+				},
+				Disqualified: &timestamp,
+				UpdatedAt:    timestamp,
+			}
+
+			err := reputationDB.Store(ctx, rep)
+			require.NoError(t, err)
+
+			stats = append(stats, rep)
+		}
+
+		res, err := reputationDB.All(ctx)
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, len(stats), len(res))
+
+		for _, rep := range res {
+			assert.Contains(t, stats, rep)
+
+			if rep.SatelliteID == stats[0].SatelliteID {
+				assert.Equal(t, rep.Disqualified, stats[0].Disqualified)
+				assert.Equal(t, rep.UpdatedAt, stats[0].UpdatedAt)
+
+				compareReputationMetric(t, &rep.Uptime, &stats[0].Uptime)
+				compareReputationMetric(t, &rep.Audit, &stats[0].Audit)
+			}
+		}
 	})
 }
 
