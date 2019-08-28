@@ -13,14 +13,14 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-// Config2 contains configurable values for audit 2.0 service
+// Config2 contains configurable values for audit 2.0 service.
 type Config2 struct {
 	QueueInterval time.Duration `help:"how often to repopulate the audit queue" default:"30s"`
 	Slots         int           `help:"number of reservoir slots allotted for nodes, currently capped at 2" default:"1"`
 	WorkerCount   int           `help:"number of workers to run audits on paths" default:"1"`
 }
 
-// Service2 helps coordinate Cursor and Verifier to run the audit process continuously
+// Service2 contains information for populating audit queue and processing audits.
 type Service2 struct {
 	log *zap.Logger
 
@@ -29,7 +29,7 @@ type Service2 struct {
 	queue          *queue
 }
 
-// NewService instantiates a Service with access to a Cursor and Verifier
+// NewService2 instantiates Service2, ReservoirChore and workers.
 func NewService2(log *zap.Logger, config Config2, metaloop *metainfo.Loop) (*Service2, error) {
 	queue := newQueue()
 	var workers []*worker
@@ -45,7 +45,7 @@ func NewService2(log *zap.Logger, config Config2, metaloop *metainfo.Loop) (*Ser
 	}, nil
 }
 
-// Run runs auditing service
+// Run runs audit service 2.0.
 func (service *Service2) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("audit 2.0 is starting up")
