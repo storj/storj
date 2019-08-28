@@ -157,7 +157,6 @@ func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Ti
 
 			for h := 0; h < hours; h++ {
 				startTime := startDay.Add(time.Hour * time.Duration(h))
-				//fmt.Println(startTime)
 				if tallies[startTime] == nil {
 					tallies[startTime] = make(map[storj.NodeID]float64)
 				}
