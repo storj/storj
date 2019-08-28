@@ -131,15 +131,7 @@ Lets get rid of the irreparable loop. For one, we never expect there to be files
 The repair worker executes a repair for an item in the repair queue. We want to work through the repair queue as fast as possible so its important to be able to dispatch many workers at a time.
 
 #### audit workers
-The audit process should be able to run many audits in parallel. For the [audit-v2 design](https://github.com/storj/storj/blob/master/docs/design/audit-v2.md) there is a reservoir cache that will need to be shared between the audit observer and the audit processes which executes the audits on a segment from the reservoir cache. It might be worthwhile to have two tables in the reservoir cache, one for vetted and one for unvetted. Then we can run two different audit processes, one for vetted and one for unvetted. The only difference between the vetted and unvetted audit processes would be 1) which cache table they read from and 2) how frequently they audit. This separation might be nice so that it's easier to keep track of and modify how many vetted vs unvetted audits are occurring.
-
-The following diagram outlines the design for the audit system once separated out of the satellite:
-
-***
-
-![Diagram of the audit v2 system](images/audit-v2-design.svg)
-
-***
+The audit process should be able to run many audits in parallel. See the [audit-v2 design doc](https://github.com/storj/storj/blob/master/docs/design/audit-v2.md) for updates to the audit design.
 
 #### accounting
 The accounting process is responsible for calculating disk usage and bandwidth usage. These calculations are used for uplink invoices and storage nodes payments. Accounting should receive storage node total stored bytes data from the tally observer running with the metainfo loop.
