@@ -33,7 +33,7 @@ func TestLimiter(t *testing.T) {
 		assert.NotNil(t, limiter.attempts)
 	})
 
-	t.Run("should not be banned when to attack < attempts during attemptsPeriod", func(t *testing.T) {
+	t.Run("should not be banned when failed attempts < maxAttempts", func(t *testing.T) {
 		result := false
 
 		for i := 0; i < 2; i++ {
@@ -43,7 +43,7 @@ func TestLimiter(t *testing.T) {
 		assert.Equal(t, result, true)
 	})
 
-	t.Run("should be banned when attack > attempts when attemptsPeriod exceeded", func(t *testing.T) {
+	t.Run("should be banned when failed attempts > maxAttempts", func(t *testing.T) {
 		result := false
 
 		for i := 0; i <= maxAttempts; i++ {

@@ -13,15 +13,15 @@ import (
 	"storj.io/storj/internal/sync2"
 )
 
-// limited stores information about attacker entity.
+// limited stores information about limited entity.
 type limited struct {
 	limiter *rate.Limiter
 	expire  time.Time
 }
 
-// Limiter is used to store and manage a list of banned entities.
+// Limiter is used to store and manage a list of limited entities.
 type Limiter struct {
-	attackers map[string]*limited
+	limited map[string]*limited
 
 	// Attempts defines how many times attacker could perform an operation.
 	attempts     int
@@ -34,7 +34,7 @@ type Limiter struct {
 // NewLimiter is a constructor for Limiter.
 func NewLimiter(attempts int, lockInterval, clearPeriod time.Duration) *Limiter {
 	return &Limiter{
-		attackers:    map[string]*limited{},
+		limited:      map[string]*limited{},
 		attempts:     attempts,
 		lockInterval: lockInterval,
 		loop:         sync2.NewCycle(clearPeriod),
@@ -48,19 +48,19 @@ func (limiter *Limiter) Limit(key string) bool {
 
 	now := time.Now()
 
-	attacker, found := limiter.attackers[key]
+	attacker, found := limiter.limited[key]
 	if !found {
 		attacker = &limited{
 			limiter: rate.NewLimiter(rate.Every(limiter.lockInterval), limiter.attempts),
 			expire:  now.Add(limiter.lockInterval),
 		}
-		limiter.attackers[key] = attacker
+		limiter.limited[key] = attacker
 	}
 
 	return attacker.limiter.AllowN(now, 1)
 }
 
-// Run is used to clean all attackers whose ban is expired.
+// Run is used to clean all attackers whose limit is expired.
 func (limiter *Limiter) Run(ctx context.Context) error {
 	return limiter.loop.Run(ctx, func(ctx context.Context) error {
 		return limiter.cleanUp(ctx, time.Now())
@@ -71,7 +71,7 @@ func (limiter *Limiter) cleanUp(ctx context.Context, cleanUpTime time.Time) erro
 	limiter.mu.Lock()
 	defer limiter.mu.Unlock()
 
-	for key, limit := range limiter.attackers {
+	for key, limit := range limiter.limited {
 		select {
 		case <-ctx.Done():
 			limiter.loop.Close()
@@ -80,7 +80,7 @@ func (limiter *Limiter) cleanUp(ctx context.Context, cleanUpTime time.Time) erro
 		}
 
 		if cleanUpTime.After(limit.expire) {
-			delete(limiter.attackers, key)
+			delete(limiter.limited, key)
 		}
 	}
 
