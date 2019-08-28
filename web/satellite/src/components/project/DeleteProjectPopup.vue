@@ -110,18 +110,19 @@
                 return;
             }
 
+            this.isLoading = true;
+
             try {
-                this.isLoading = true;
                 await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
 
                 await this.selectProject();
-
-                this.isLoading = false;
             } catch (e) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
             }
+
+            this.isLoading = false;
 
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
         }

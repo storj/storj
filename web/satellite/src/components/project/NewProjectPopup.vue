@@ -153,8 +153,8 @@
 
             try {
                 newProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-            } catch (e) {
-                this.notifyError(e.message);
+            } catch (error) {
+                this.notifyError(error.message);
             }
 
             this.createdProjectId = newProject.id;
@@ -178,7 +178,8 @@
 
         private async fetchProjectMembers(): Promise<void> {
             await this.$store.dispatch(PM_ACTIONS.CLEAR);
-            await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+            const fistPage = 1;
+            await this.$store.dispatch(PM_ACTIONS.FETCH, fistPage);
         }
 
         private clearApiKeys(): void {
