@@ -204,6 +204,25 @@ And the disadvantages are:
 
 Data Science could use this approach to more nicely calculate statistics however, it will complicate the deployment.
 
+## Implementation
+
+1. Create a new chore implementing the logic in the [design section](#design).
+    1. Create migration to add the new database table.
+    1. Implement chore struct.
+    1. Implement [_detecting offline nodes_ part](#detecting-offline-nodes)<sup>1</sup>.
+    1. Implement [_estimating offline time_ part](#estimating-offline-time)<sup>1</sup>.
+    1. Implement integration test for overall chore<sup>2</sup>.
+
+    <sup>1</sup> These subtasks can be done in parallel.
+    <sup>2</sup> This test doesn't cover a test that each subtask requires.
+1. Wire the new chore to the `satellite.Peer`.
+1. Remove the implementation of the current uptime disqualification.
+  - `satellite/satellitedb.Overlaycache.UpdateUptime`: Remove update disqualified field due to lower uptime reputation.
+   - `satellite/satellitedb.Overlaycache.populateUpdateNodeStats`: Remove update disqualified field due to lower uptime reputation.
+   - Remove uptime reputation cutt-off configuration field (`satellite/overlay.NodeSelectionConfig.UptimeReputationDQ`).
+
 ## Open issues
 
 * The design indefinitely checks offline storage nodes until they are disqualified.
+* The implementation requires coordination with the team working in [Kademlia removal design document](kademlia-removal.md) for the "ping" functionality.
+* The implementation requires the [Kademlia removal network refreshing](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing) implemented and deployed before deploying the new chore. Use a feature flag for removing the constraint.
