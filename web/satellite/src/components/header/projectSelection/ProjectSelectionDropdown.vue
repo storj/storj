@@ -44,19 +44,19 @@
 
             try {
                 await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            } catch (err) {
+            } catch (error) {
                 await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${err.message}`);
             }
 
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (err) {
+            } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
             }
 
             try {
                 await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            } catch (err) {
+            } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${err.message}`);
             }
 
