@@ -82,19 +82,19 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 
 	row := db.QueryRowContext(ctx,
 		`SELECT
-				satellite_id, 
-				uptime_success_count,
-				uptime_total_count,
-				uptime_reputation_alpha,
-				uptime_reputation_beta,
-				uptime_reputation_score,
-				audit_success_count,
-				audit_total_count,
-				audit_reputation_alpha,
-				audit_reputation_beta,
-				audit_reputation_score,
-				disqualified,
-				updated_at
+					satellite_id, 
+					uptime_success_count,
+					uptime_total_count,
+					uptime_reputation_alpha,
+					uptime_reputation_beta,
+					uptime_reputation_score,
+					audit_success_count,
+					audit_total_count,
+					audit_reputation_alpha,
+					audit_reputation_beta,
+					audit_reputation_score,
+					disqualified,
+					updated_at
 				FROM reputation WHERE satellite_id = ?`,
 		satelliteID,
 	)
@@ -121,7 +121,23 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.QueryContext(ctx, `SELECT * FROM reputation`)
+	query := `SELECT
+				satellite_id, 
+				uptime_success_count,
+				uptime_total_count,
+				uptime_reputation_alpha,
+				uptime_reputation_beta,
+				uptime_reputation_score,
+				audit_success_count,
+				audit_total_count,
+				audit_reputation_alpha,
+				audit_reputation_beta,
+				audit_reputation_score,
+				disqualified,
+				updated_at
+			FROM reputation`
+
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -133,11 +149,20 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 		var stats reputation.Stats
 
 		err := rows.Scan(&stats.SatelliteID,
-			&stats.Uptime.SuccessCount, &stats.Uptime.TotalCount,
-			&stats.Uptime.Alpha, &stats.Uptime.Beta, &stats.Uptime.Score,
-			&stats.Audit.SuccessCount, &stats.Audit.TotalCount,
-			&stats.Audit.Alpha, &stats.Audit.Beta, &stats.Audit.Score,
-			&stats.Disqualified, &stats.UpdatedAt)
+			&stats.Uptime.SuccessCount,
+			&stats.Uptime.TotalCount,
+			&stats.Uptime.Alpha,
+			&stats.Uptime.Beta,
+			&stats.Uptime.Score,
+			&stats.Audit.SuccessCount,
+			&stats.Audit.TotalCount,
+			&stats.Audit.Alpha,
+			&stats.Audit.Beta,
+			&stats.Audit.Score,
+			&stats.Disqualified,
+			&stats.UpdatedAt,
+		)
+
 		if err != nil {
 			return nil, ErrReputation.Wrap(err)
 		}
