@@ -49,14 +49,14 @@ The current Satellite database has the table `nodes`. For the offline time calcu
 
 Per [Kademlia removal design document](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing), any storage node has to ping the satellite every hour. For storage nodes that have not pinged, we need to contact them directly.
 
-For finding the potentially offline storage nodes, we run a chore, with the following query:
+For finding the storage nodes gone offline, we run a chore, with the following query:
 
 ```sql
 SELECT
 FROM nodes
 WHERE
     last_contact_success < (now()  - 1h) AND
-    last_contact_success > last_contact_failure AND
+    last_contact_success > last_contact_failure AND -- only select nodes that were last known to be online
     disqualified IS NULL
 ORDER BY
     last_contact_success ASC
@@ -67,13 +67,13 @@ For each node, the satellite performs an _uptime check_.
 * On success, it updates the nodes table with the last contact information:
 
     ```sql
-        UPDATE nodes
-        SET
-            last_contact_success = MAX(now(), last_contact_success),
-            uptime_success_count = uptime_success_count + 1,
-            total_uptime_count = total_uptime_count + 1
-        WHERE
-            id = ?
+    UPDATE nodes
+    SET
+        last_contact_success = MAX(now(), last_contact_success),
+        uptime_success_count = uptime_success_count + 1,
+        total_uptime_count = total_uptime_count + 1
+    WHERE
+        id = ?
     ```
 
 * On failure, it calculates the number of offline seconds.
@@ -111,7 +111,7 @@ The process loops all failed nodes with query:
 SELECT
 FROM nodes
 WHERE
-    last_contact_success < last_contact_failure AND
+    last_contact_success < last_contact_failure AND -- only select nodes that were last known to be offline
     disqualified IS NULL
 ORDER BY
     last_contact_failure ASC
