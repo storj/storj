@@ -265,15 +265,27 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	// processes the insert to used serials table individually so we can handle
 	// the case where the order has already been processed.  Duplicates and previously
 	// processed orders are rejected
-	for _, request := range requests {
+	for i, request := range requests {
+		// create a savepoint so we can rollback if an order has already been used
+		_, err = tx.Exec(fmt.Sprintf("savepoint sp%d;", i))
+		if err != nil {
+			return nil, err
+		}
+
 		insert := "INSERT INTO used_serials (serial_number_id, storage_node_id) SELECT id, ? FROM serial_numbers WHERE serial_number = ?"
 		if err != nil {
 			return nil, err
 		}
+
 		_, err = tx.Exec(db.db.Rebind(insert), request.OrderLimit.StorageNodeId.Bytes(), request.OrderLimit.SerialNumber.Bytes())
 		if err != nil {
 			if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
 				reject(request.OrderLimit.SerialNumber)
+				// rollback to the savepoint before the insert failed
+				_, err = tx.Exec(fmt.Sprintf("rollback to savepoint sp%d;", i))
+				if err != nil {
+					return nil, Error.Wrap(err)
+				}
 			} else {
 				return nil, Error.Wrap(err)
 			}
