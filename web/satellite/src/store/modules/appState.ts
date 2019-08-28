@@ -21,8 +21,6 @@ export const appStateModule = {
             isSuccessfulProjectCreationPopupShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
-            deletePaymentMethodID: '',
-            setDefaultPaymentMethodID: '',
         },
     },
     mutations: {
@@ -80,12 +78,10 @@ export const appStateModule = {
         },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
-            state.appState.isProjectsDropdownShown = false;
             state.appState.isAccountDropdownShown = false;
+            state.appState.isProjectsDropdownShown = false;
             state.appState.isSortProjectMembersByPopupShown = false;
             state.appState.isSuccessfulRegistrationPopupShown = false;
-            state.appState.setDefaultPaymentMethodID = '';
-            state.appState.deletePaymentMethodID = '';
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;

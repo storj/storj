@@ -35,7 +35,7 @@
 
     @Component
     export default class ProjectSelectionDropdown extends Vue {
-        private FIRST_PAGE = 0;
+        private FIRST_PAGE = 1;
 
         public async onProjectSelected(projectID: string): Promise<void> {
             this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
@@ -48,8 +48,6 @@
                 await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${err.message}`);
             }
 
-            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
-
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (err) {
@@ -58,18 +56,14 @@
 
             try {
                 await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            } catch {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+            } catch (err) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${err.message}`);
             }
 
             try {
-                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
-            }
-
-            if (!paymentMethodsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
             }
         }
 

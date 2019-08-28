@@ -107,7 +107,11 @@
 
             this.selectCreatedProject();
 
-            this.clearProjectMembers();
+            try {
+                await this.fetchProjectMembers();
+            } catch (e) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            }
 
             this.clearApiKeys();
 
@@ -172,9 +176,9 @@
                 : this.notifySuccess('Project created successfully!');
         }
 
-        private clearProjectMembers(): void {
-            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            this.$store.dispatch(PM_ACTIONS.CLEAR);
+        private async fetchProjectMembers(): Promise<void> {
+            await this.$store.dispatch(PM_ACTIONS.CLEAR);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         }
 
         private clearApiKeys(): void {
