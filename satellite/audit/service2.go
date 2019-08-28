@@ -59,7 +59,9 @@ func (service *Service2) Run(ctx context.Context) (err error) {
 
 // Close halts the reservoir chore and audit workers.
 func (service *Service2) Close() error {
+	service.queue.cond.L.Lock()
 	service.queue.close()
+	service.queue.cond.L.Unlock()
 	return nil
 }
 
