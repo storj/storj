@@ -66,6 +66,7 @@
 
             if (!projects.length) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+                await this.$router.push(RouteConfig.ProjectOverview.path);
 
                 if (!(this as any).isCurrentRouteIsAccount) {
                     await this.$router.push(RouteConfig.ProjectOverview.path);
