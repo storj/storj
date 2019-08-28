@@ -34,8 +34,7 @@ The following new SQL database table will store storage nodes offline time.
 CREATE TABLE nodes_offline_time (
     node_id    BYTEA NOT NULL,
     tracked_at timestamp with time zone NOT NULL,
-    seconds    integer, -- Measured number of seconds being offline
-    CONSTRAINT nodes_offline_time__pk PRIMARY KEY(node_id, tracked_at)
+    seconds    integer -- Measured number of seconds being offline
 )
 ```
 
