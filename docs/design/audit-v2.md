@@ -35,7 +35,7 @@ For unvetted and vetted nodes, we can have different reservoir sizes to ensure t
 By using a separate queue, we ensure that workers can run in separate processes and simplifies selection logic.
 When we finish a new reservoir set, we override the previous queue, rather than adding to it.
 Since the new data is more up to date and there's no downside in clearing the queue.
-To have less predictability, we add the reservoir set in random node order, one segment at a time.
+To have less predictability, we add the whole reservoir set in random node order, one segment at a time, to the queue.
 
 Audit workers audit as previously:
 
