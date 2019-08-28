@@ -118,9 +118,9 @@ func TestSendingReceivingDuplicateOrders(t *testing.T) {
 
 			for _, archived := range archivedInfos {
 				if archived.Status == snorders.StatusRejected {
-					rejected += 1
+					rejected++
 				} else if archived.Status == snorders.StatusAccepted {
-					accepted += 1
+					accepted++
 				}
 			}
 		}
