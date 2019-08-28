@@ -17,18 +17,6 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-// ReservoirChore populates reservoirs and the audit queue.
-type ReservoirChore struct {
-	log    *zap.Logger
-	config Config
-	rand   *rand.Rand
-
-	queue *queue
-
-	MetainfoLoop *metainfo.Loop
-	Loop         sync2.Cycle
-}
-
 // queue is a list of paths to audit, shared between the reservoir chore and audit workers.
 type queue struct {
 	cond   sync.Cond
@@ -72,6 +60,18 @@ func (queue *queue) next(ctx context.Context) (storj.Path, error) {
 	queue.queue = queue.queue[1:]
 
 	return next, nil
+}
+
+// ReservoirChore populates reservoirs and the audit queue.
+type ReservoirChore struct {
+	log    *zap.Logger
+	config Config
+	rand   *rand.Rand
+
+	queue *queue
+
+	MetainfoLoop *metainfo.Loop
+	Loop         sync2.Cycle
 }
 
 // NewReservoirChore instantiates ReservoirChore.
