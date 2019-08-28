@@ -5,20 +5,12 @@ package audit
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/satellite/metainfo"
 )
-
-// Config2 contains configurable values for audit 2.0 service.
-type Config2 struct {
-	QueueInterval time.Duration `help:"how often to repopulate the audit queue" default:"30s"`
-	Slots         int           `help:"number of reservoir slots allotted for nodes, currently capped at 2" default:"1"`
-	WorkerCount   int           `help:"number of workers to run audits on paths" default:"1"`
-}
 
 // Service2 contains information for populating audit queue and processing audits.
 type Service2 struct {
@@ -30,7 +22,7 @@ type Service2 struct {
 }
 
 // NewService2 instantiates Service2, ReservoirChore and workers.
-func NewService2(log *zap.Logger, config Config2, metaloop *metainfo.Loop) (*Service2, error) {
+func NewService2(log *zap.Logger, config Config, metaloop *metainfo.Loop) (*Service2, error) {
 	queue := newQueue()
 	var workers []*worker
 	for i := 0; i < config.WorkerCount; i++ {
@@ -67,7 +59,7 @@ func (service *Service2) Run(ctx context.Context) (err error) {
 
 // Close halts the reservoir chore and audit workers.
 func (service *Service2) Close() error {
-	queue.close()
+	service.queue.close()
 	return nil
 }
 

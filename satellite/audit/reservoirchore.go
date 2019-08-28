@@ -18,7 +18,7 @@ import (
 // ReservoirChore populates reservoirs and the audit queue.
 type ReservoirChore struct {
 	log    *zap.Logger
-	config Config2
+	config Config
 	rand   *rand.Rand
 
 	queue *queue
@@ -28,7 +28,7 @@ type ReservoirChore struct {
 }
 
 // NewReservoirChore instantiates ReservoirChore.
-func NewReservoirChore(log *zap.Logger, auditQueue *queue, metaLoop *metainfo.Loop, config Config2) *ReservoirChore {
+func NewReservoirChore(log *zap.Logger, auditQueue *queue, metaLoop *metainfo.Loop, config Config) *ReservoirChore {
 	return &ReservoirChore{
 		log:    log,
 		config: config,
