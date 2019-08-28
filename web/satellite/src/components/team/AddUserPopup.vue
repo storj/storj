@@ -138,10 +138,17 @@
                 return;
             }
 
+            if (emailArray.includes(this.$store.state.usersModule.email)) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. You can't add yourself to the project`);
+                this.isLoading = false;
+
+                return;
+            }
+
             try {
                 await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
             } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding projectMembers members. ${err.message}`);
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. ${err.message}`);
                 this.isLoading = false;
 
                 return;
@@ -297,8 +304,7 @@
     }
 
     .text {
-        margin: 0;
-        margin-bottom: 0 !important;
+        margin: 0 !important;
         font-family: 'font_regular' !important;
         font-size: 16px;
         line-height: 25px;

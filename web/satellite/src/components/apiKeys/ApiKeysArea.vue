@@ -31,6 +31,7 @@
                     </div>
                 </HeaderComponent>
                 <div class="blur-content" v-if="isDeleteClicked"></div>
+                <div class="blur-search" v-if="isDeleteClicked"></div>
             </div>
             <div v-if="!isEmpty" class="api-keys-items">
                 <SortingHeader/>
@@ -192,7 +193,6 @@
 <style scoped lang="scss">
     .api-keys-area {
         position: relative;
-        max-width: 92.9%;
         padding: 40px 65px 55px 64px;
         height: 85vh;
 
@@ -216,6 +216,17 @@
                 height: 70vh;
                 z-index: 100;
                 opacity: 0.3;
+            }
+
+            .blur-search {
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                width: 58px;
+                height: 56px;
+                z-index: 100;
+                opacity: 0.3;
+                background-color: #F5F6FA;
             }
         }
 

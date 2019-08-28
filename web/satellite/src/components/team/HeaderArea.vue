@@ -22,6 +22,8 @@
                     </div>
                 </div>
             </HeaderComponent>
+            <div class="blur-content" v-if="isDeleteClicked"></div>
+            <div class="blur-search" v-if="isDeleteClicked"></div>
 	    </div>
     </div>
 </template>
@@ -157,6 +159,29 @@
         display: flex;
         align-items: center;
         justify-content: flex-start;
+        position: relative;
+
+        .blur-content {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #F5F6FA;
+            width: 100%;
+            height: 70vh;
+            z-index: 100;
+            opacity: 0.3;
+        }
+
+        .blur-search {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 58px;
+            height: 56px;
+            z-index: 100;
+            opacity: 0.3;
+            background-color: #F5F6FA;
+        }
     }
 
     .container.deletion {
