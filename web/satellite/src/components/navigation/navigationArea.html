@@ -24,7 +24,7 @@
         </div>
         <router-link class="navigation-area__item-container" v-bind:class="{disabled: isProjectNotSelected && navItem.path !== '/project-details'}" v-for="navItem in navigation" v-bind:key="navItem.name" :to="navItem.path">
             <div class="navigation-area__item-container__link-container" >
-                <div v-html="navItem.svg"></div>
+                <div v-html="navItem.icon"></div>
                 <h1>{{navItem.name}}</h1>
                 <div class="navigation-area__item-container__link-container__add-button" id="addTeamMemberPopupButtonSVG" v-if="navItem.name === 'Team'">
                     <div :click="togglePopup">
