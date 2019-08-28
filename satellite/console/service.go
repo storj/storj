@@ -880,6 +880,10 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			return errs.New(projectOwnerDeletionForbiddenErrMsg, user.Email)
 		}
 
+		if err.Error() == internalErrMsg {
+			return err
+		}
+
 		userIDs = append(userIDs, user.ID)
 	}
 
