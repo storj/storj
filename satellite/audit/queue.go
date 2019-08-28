@@ -17,10 +17,10 @@ type queue struct {
 	closed chan struct{}
 }
 
-func newQueue(cond sync.Cond, closed chan struct{}) *queue {
+func newQueue() *queue {
 	return &queue{
-		cond:   cond,
-		closed: closed,
+		cond:   *sync.NewCond(&sync.Mutex{}),
+		closed: make(chan struct{}),
 	}
 }
 
@@ -53,4 +53,10 @@ func (queue *queue) next(ctx context.Context) (storj.Path, error) {
 	queue.queue = queue.queue[1:]
 
 	return next, nil
+}
+
+func (queue *queue) close() {
+	close(queue.closed)
+	// Wake up workers that are waiting.
+	queue.cond.Broadcast()
 }

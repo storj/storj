@@ -5,7 +5,6 @@ package audit
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -32,7 +31,7 @@ type Service2 struct {
 
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService2(log *zap.Logger, config Config2, metaloop *metainfo.Loop) (*Service2, error) {
-	queue := newQueue(*sync.NewCond(&sync.Mutex{}), make(chan struct{}))
+	queue := newQueue()
 	var workers []*worker
 	for i := 0; i < config.WorkerCount; i++ {
 		workers = append(workers, newWorker(queue))
@@ -68,7 +67,7 @@ func (service *Service2) Run(ctx context.Context) (err error) {
 
 // Close halts the reservoir chore and audit workers.
 func (service *Service2) Close() error {
-	close(service.queue.closed)
+	queue.close()
 	return nil
 }
 
