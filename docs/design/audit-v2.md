@@ -47,9 +47,6 @@ Audit workers audit as previously:
 This is a simplified version that doesn't describe [containment mode](audit-containment.md). Chances of selecting the same stripe are rare, but it wouldn't cause any significant harm.
 
 To estimate appropriate settings for reservoir sampling, we need to run a simulation.
-If we decide that we want to prefer nodes with fewer audits, then we will implement the power of two choices, in which we randomly select two nodes, then choose the one with fewer audits.
-This would still require tracking number of audits, but it would prevent having to sort and query all nodes by audit count, which could cause undesirable behavior.
-For example, when new nodes join the network, the audit system could become stuck auditing only new nodes, and ignoring more established nodes.
 
 ### Selection via Reservoir Sampling
 
@@ -96,6 +93,10 @@ Another approach that we decided not to pursue was the a reverse method of looki
 Every time a segment is committed or deleted, that table (and every node) gets updated.
 This could simplify the garbage collection process, but complexify upload and download.
 We decided that this would increase database size too significantly to be viable.
+
+If we need fewer audits, then we could use power of two choices, in which we randomly select two nodes, then choose the one with fewer audits.
+This would require tracking number of audits, but it would prevent having to sort and query all nodes by audit count, which could cause undesirable behavior.
+For example, when new nodes join the network, the audit system could become stuck auditing only new nodes, and ignoring more established nodes.
 
 ## Implementation
 
