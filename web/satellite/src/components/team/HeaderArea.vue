@@ -126,6 +126,12 @@
         justify-content: space-between;
         height: 85px;
 
+        span {
+            font-family: 'font_medium';
+            font-size: 14px;
+            line-height: 28px;
+        }
+
         &__button-area {
             display: flex;
 
