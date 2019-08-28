@@ -28,7 +28,15 @@ fi
 
 # run aws-cli tests
 storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-sim-aws.sh
+
+echo "Uplink test for NOT encrypted content and metadata"
+export STORJ_ENC_DATA_TYPE=1
 storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink.sh
+
+echo "Uplink test for encrypted content and metadata"
+export STORJ_ENC_DATA_TYPE=2
+storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink.sh
+
 storj-sim -x --satellites 2 --host $STORJ_NETWORK_HOST4 network destroy
 
 # setup the network with ipv6
