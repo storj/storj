@@ -117,8 +117,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				},
 			},
 			Retain: retain.Config{
-				RetainStatus:        retain.Enabled,
-				MaxConcurrentRetain: 5,
+				Status:      retain.Enabled,
+				Concurrency: 5,
 			},
 			Version: planet.NewVersionConfig(),
 			Bandwidth: bandwidth.Config{

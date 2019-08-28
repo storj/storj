@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/bloomfilter"
@@ -27,9 +28,9 @@ var (
 
 // Config defines parameters for the retain service.
 type Config struct {
-	RetainTimeBuffer    time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
-	RetainStatus        Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
-	MaxConcurrentRetain int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
+	MaxTimeSkew time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
+	Status      Status        `help:"allows configuration to enable, disable, or test retain requests from the satellite. Options: (disabled/enabled/debug)" default:"disabled"`
+	Concurrency int           `help:"how many concurrent retain requests can be processed at the same time." default:"5"`
 }
 
 // Request contains all the info necessary to process a retain request.
@@ -61,13 +62,13 @@ func (v *Status) Set(s string) error {
 	case "debug":
 		*v = Debug
 	default:
-		return Error.New("invalid RetainStatus %q", s)
+		return Error.New("invalid status %q", s)
 	}
 	return nil
 }
 
 // Type implements pflag.Value.
-func (*Status) Type() string { return "storj.RetainStatus" }
+func (*Status) Type() string { return "storj.Status" }
 
 // String implements pflag.Value.
 func (v *Status) String() string {
@@ -88,12 +89,14 @@ type Service struct {
 	log    *zap.Logger
 	config Config
 
-	mu     sync.Mutex
-	queued map[storj.NodeID]Request
+	cond    sync.Cond
+	queued  map[storj.NodeID]Request
+	working map[storj.NodeID]struct{}
+	group   errgroup.Group
 
-	reqChan      chan Request
-	semaphore    chan struct{}
-	emptyTrigger chan struct{}
+	closedOnce sync.Once
+	closed     chan struct{}
+	started    bool
 
 	store *pieces.Store
 }
@@ -101,13 +104,15 @@ type Service struct {
 // NewService creates a new retain service.
 func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 	return &Service{
-		log:          log,
-		config:       config,
-		queued:       make(map[storj.NodeID]Request),
-		reqChan:      make(chan Request),
-		semaphore:    make(chan struct{}, config.MaxConcurrentRetain),
-		emptyTrigger: make(chan struct{}),
-		store:        store,
+		log:    log,
+		config: config,
+
+		cond:    *sync.NewCond(&sync.Mutex{}),
+		queued:  make(map[storj.NodeID]Request),
+		working: make(map[storj.NodeID]struct{}),
+		closed:  make(chan struct{}),
+
+		store: store,
 	}
 }
 
@@ -115,78 +120,176 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 // It discards a request for a satellite that already has a queued request.
 // true is returned if the request is queued and false is returned if it is discarded
 func (s *Service) Queue(req Request) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
 
-	// subtract some time to leave room for clock difference between the satellite and storage node
-	req.CreatedBefore = req.CreatedBefore.Add(-s.config.RetainTimeBuffer)
-
-	// only queue retain request if we do not already have one for this satellite
-	if _, ok := s.queued[req.SatelliteID]; !ok {
-		s.queued[req.SatelliteID] = req
-		go func() { s.reqChan <- req }()
-
-		return true
+	select {
+	case <-s.closed:
+		return false
+	default:
 	}
 
-	return false
+	s.queued[req.SatelliteID] = req
+	s.cond.Broadcast()
+
+	return true
 }
 
 // Run listens for queued retain requests and processes them as they come in.
 func (s *Service) Run(ctx context.Context) error {
-	for {
-		// exit if context has been canceled. Otherwise, block until an item can be added to the semaphore
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case s.semaphore <- struct{}{}:
-		}
+	// Hold the lock while we spawn the workers because a concurrent Close call
+	// can race and wait for them. We later temporarily drop the lock while we
+	// wait for the workers to exit.
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
 
-		// get the next request
-		var req Request
-		select {
-		case req = <-s.reqChan:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-
-		go func(ctx context.Context, req Request) {
-			err := s.retainPieces(ctx, req)
-			if err != nil {
-				s.log.Error("retain error", zap.Error(err))
-			}
-			s.mu.Lock()
-			delete(s.queued, req.SatelliteID)
-			queueLength := len(s.queued)
-			s.mu.Unlock()
-
-			if queueLength == 0 {
-				s.emptyTrigger <- struct{}{}
-			}
-
-			// remove item from semaphore and free up process for another retain job
-			<-s.semaphore
-		}(ctx, req)
+	// Ensure Run is only ever called once. If not, there's many subtle
+	// bugs with concurrency.
+	if s.started {
+		return Error.New("service already started")
 	}
+	s.started = true
+
+	// Ensure Run doesn't start after it's closed. Then we may leak some
+	// workers.
+	select {
+	case <-s.closed:
+		return Error.New("service Closed")
+	default:
+	}
+
+	// Create a sub-context that we can cancel.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Start a goroutine that does most of the work of Close in the case
+	// the context is canceled and broadcasts to anyone waiting on the condition
+	// variable to check the state.
+	s.group.Go(func() error {
+		defer s.cond.Broadcast()
+		defer cancel()
+
+		select {
+		case <-s.closed:
+			return nil
+
+		case <-ctx.Done():
+			s.cond.L.Lock()
+			s.closedOnce.Do(func() { close(s.closed) })
+			s.cond.L.Unlock()
+
+			return ctx.Err()
+		}
+	})
+
+	for i := 0; i < s.config.Concurrency; i++ {
+		s.group.Go(func() error {
+			// Grab lock to check things.
+			s.cond.L.Lock()
+			defer s.cond.L.Unlock()
+
+			for {
+				// If we have closed, exit.
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-s.closed:
+					return nil
+				default:
+				}
+
+				// Grab next item from queue.
+				request, ok := s.next()
+				if !ok {
+					// Nothing in queue, go to sleep and wait for
+					// things shutting down or next item.
+					s.cond.Wait()
+					continue
+				}
+
+				// Temporarily Unlock so others can work on the queue while
+				// we're working on the retain request.
+				s.cond.L.Unlock()
+
+				// Signal to anyone waiting that the queue state changed.
+				s.cond.Broadcast()
+
+				// Run retaining process.
+				err := s.retainPieces(ctx, request)
+				if err != nil {
+					s.log.Error("retain pieces failed", zap.Error(err))
+				}
+
+				// Mark the request as finished. Relock to maintain that
+				// at the top of the for loop the lock is held.
+				s.cond.L.Lock()
+				s.finish(request)
+				s.cond.Broadcast()
+			}
+		})
+	}
+
+	// Unlock while we wait for the workers to exit.
+	s.cond.L.Unlock()
+	err := s.group.Wait()
+	s.cond.L.Lock()
+
+	// Clear the queue after Wait has exited. We're sure no more entries
+	// can be added after we acquire the mutex because wait spawned a
+	// worker that ensures the closed channel is closed before it exits.
+	s.queued = nil
+	s.cond.Broadcast()
+
+	return err
 }
 
-// Wait blocks until the context is canceled or until the queue is empty.
-func (s *Service) Wait(ctx context.Context) {
-	s.mu.Lock()
-	queueLength := len(s.queued)
-	s.mu.Unlock()
-	if queueLength == 0 {
-		return
+// next returns next item from queue, requires mutex to be held
+func (s *Service) next() (Request, bool) {
+	for id, request := range s.queued {
+		// Check whether a worker is retaining this satellite,
+		// if, yes, then try to get something else from the queue.
+		if _, ok := s.working[request.SatelliteID]; ok {
+			continue
+		}
+		delete(s.queued, id)
+		// Mark this satellite as being worked on.
+		s.working[request.SatelliteID] = struct{}{}
+		return request, true
 	}
-	select {
-	case <-s.emptyTrigger:
-	case <-ctx.Done():
+	return Request{}, false
+}
+
+// finish marks the request as finished, requires mutex to be held
+func (s *Service) finish(request Request) {
+	delete(s.working, request.SatelliteID)
+}
+
+// Close causes any pending Run to exit and waits for any retain requests to
+// clean up.
+func (s *Service) Close() error {
+	s.cond.L.Lock()
+	s.closedOnce.Do(func() { close(s.closed) })
+	s.cond.L.Unlock()
+
+	s.cond.Broadcast()
+	_ = s.group.Wait()
+	return nil
+}
+
+// TestWaitUntilEmpty blocks until the queue and working is empty.
+// When Run exits, it empties the queue.
+func (s *Service) TestWaitUntilEmpty() {
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
+
+	for len(s.queued) > 0 || len(s.working) > 0 {
+		s.cond.Wait()
 	}
 }
 
 // Status returns the retain status.
 func (s *Service) Status() Status {
-	return s.config.RetainStatus
+	return s.config.Status
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -205,13 +308,13 @@ func (s *Service) Status() Status {
 // written to the filesystem _after_ the CreationTime. We make the assumption already that storage
 // nodes and satellites and uplinks have system clocks that are very roughly in sync (that is, they
 // are out of sync with each other by less than an hour of real time, or whatever is configured as
-// RetainTimeBuffer). So if an uplink is not lying about CreationTime and it uploads a piece that
+// MaxTimeSkew). So if an uplink is not lying about CreationTime and it uploads a piece that
 // makes it to a storagenode's disk as quickly as possible, even in the worst-synchronized-clocks
-// case we can assume that `ModTime > (CreationTime - RetainTimeBuffer)`. We also allow for storage
+// case we can assume that `ModTime > (CreationTime - MaxTimeSkew)`. We also allow for storage
 // node operators doing file system manipulations after a piece has been written. If piece files
 // are copied between volumes and their attributes are not preserved, it will be possible for their
 // modification times to be changed to something later in time. This still preserves the inequality
-// relationship mentioned above, `ModTime > (CreationTime - RetainTimeBuffer)`. We only stipulate
+// relationship mentioned above, `ModTime > (CreationTime - MaxTimeSkew)`. We only stipulate
 // that storage node operators must not artificially change blob file modification times to be in
 // the past.
 //
@@ -224,9 +327,9 @@ func (s *Service) Status() Status {
 // for that new piece to be garbage collected incorrectly, because it does not show up in the
 // bloom filter and the node incorrectly thinks that it was created before the bloom filter.
 // But if the uplink is not lying about CreationTime and its clock drift versus the storage node
-// is less than `RetainTimeBuffer`, and the ModTime on a blob file is correctly set from the
+// is less than `MaxTimeSkew`, and the ModTime on a blob file is correctly set from the
 // storage node system time, then it is still true that `ModTime > (CreationTime -
-// RetainTimeBuffer)`.
+// MaxTimeSkew)`.
 //
 // The rule that storage node operators need to be aware of is only this: do not artificially set
 // mtimes on blob files to be in the past. Let the filesystem manage mtimes. If blob files need to
@@ -237,7 +340,7 @@ func (s *Service) Status() Status {
 // data).
 func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	// if retain status is disabled, return immediately
-	if s.config.RetainStatus == Disabled {
+	if s.config.Status == Disabled {
 		return nil
 	}
 
@@ -246,7 +349,9 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	numDeleted := 0
 	satelliteID := req.SatelliteID
 	filter := req.Filter
-	createdBefore := req.CreatedBefore
+
+	// subtract some time to leave room for clock difference between the satellite and storage node
+	createdBefore := req.CreatedBefore.Add(-s.config.MaxTimeSkew)
 
 	s.log.Debug("Prepared to run a Retain request.",
 		zap.Time("createdBefore", createdBefore),
@@ -273,10 +378,10 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 			s.log.Debug("About to delete piece id",
 				zap.String("satellite", satelliteID.String()),
 				zap.String("pieceID", pieceID.String()),
-				zap.String("status", s.config.RetainStatus.String()))
+				zap.String("status", s.config.Status.String()))
 
 			// if retain status is enabled, delete pieceid
-			if s.config.RetainStatus == Enabled {
+			if s.config.Status == Enabled {
 				if err = s.store.Delete(ctx, satelliteID, pieceID); err != nil {
 					s.log.Warn("failed to delete piece",
 						zap.String("satellite", satelliteID.String()),
@@ -300,7 +405,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		return Error.Wrap(err)
 	}
 	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
-	s.log.Debug("Deleted pieces during retain", zap.Int("num deleted", numDeleted), zap.String("retain status", s.config.RetainStatus.String()))
+	s.log.Debug("Deleted pieces during retain", zap.Int("num deleted", numDeleted), zap.String("retain status", s.config.Status.String()))
 
 	return nil
 }
