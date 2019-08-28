@@ -86,14 +86,6 @@
     export default class ProjectMembersArea extends Vue {
         private FIRST_PAGE = 1;
 
-        public async mounted(): Promise<void> {
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${e.message}`);
-            }
-        }
-
         public onMemberClick(member: ProjectMember): void {
             this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
         }
