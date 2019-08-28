@@ -86,7 +86,7 @@
     export default class ProjectMembersArea extends Vue {
         private FIRST_PAGE = 1;
 
-        public async beforeDestroy(): Promise<void>{
+        public async beforeDestroy(): Promise<void> {
             await this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
         }
 
