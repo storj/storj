@@ -126,8 +126,8 @@ func TestSendingReceivingDuplicateOrders(t *testing.T) {
 		}
 
 		require.Zero(t, sumUnsent)
-		require.Equal(t, rejected, 1)
-		require.Equal(t, accepted, sumBeforeSend-1)
+		require.Equal(t, 1, rejected)
+		require.Equal(t, sumBeforeSend-1, accepted)
 	})
 }
 
