@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package queue_test
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-func TestRepairQueue(t *testing.T) {
+func TestUntilEmpty(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -54,7 +54,7 @@ func TestRepairQueue(t *testing.T) {
 	})
 }
 
-func TestRepairQueueOrder(t *testing.T) {
+func TestOrder(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -72,6 +72,7 @@ func TestRepairQueueOrder(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// TODO: remove dependency on *dbx.DB
 		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 		var timeConvertPrefix string
 		switch d := dbAccess.DB.Driver().(type) {
@@ -129,7 +130,7 @@ func TestRepairQueueOrder(t *testing.T) {
 	})
 }
 
-func TestRepairQueueCount(t *testing.T) {
+func TestCount(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
