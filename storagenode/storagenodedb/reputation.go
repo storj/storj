@@ -34,20 +34,20 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 	defer mon.Task()(&ctx)(&err)
 
 	query := `INSERT OR REPLACE INTO reputation (
-				satellite_id, 
-				uptime_success_count,
-				uptime_total_count,
-				uptime_reputation_alpha,
-				uptime_reputation_beta,
-				uptime_reputation_score,
-				audit_success_count,
-				audit_total_count,
-				audit_reputation_alpha,
-				audit_reputation_beta,
-				audit_reputation_score,
-				disqualified,
-				updated_at
-			) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+			satellite_id, 
+			uptime_success_count,
+			uptime_total_count,
+			uptime_reputation_alpha,
+			uptime_reputation_beta,
+			uptime_reputation_score,
+			audit_success_count,
+			audit_total_count,
+			audit_reputation_alpha,
+			audit_reputation_beta,
+			audit_reputation_score,
+			disqualified,
+			updated_at
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	// ensure we insert utc
 	if stats.Disqualified != nil {
@@ -81,21 +81,20 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 	var stats reputation.Stats
 
 	row := db.QueryRowContext(ctx,
-		`SELECT
-					satellite_id, 
-					uptime_success_count,
-					uptime_total_count,
-					uptime_reputation_alpha,
-					uptime_reputation_beta,
-					uptime_reputation_score,
-					audit_success_count,
-					audit_total_count,
-					audit_reputation_alpha,
-					audit_reputation_beta,
-					audit_reputation_score,
-					disqualified,
-					updated_at
-				FROM reputation WHERE satellite_id = ?`,
+		`SELECT satellite_id, 
+			uptime_success_count,
+			uptime_total_count,
+			uptime_reputation_alpha,
+			uptime_reputation_beta,
+			uptime_reputation_score,
+			audit_success_count,
+			audit_total_count,
+			audit_reputation_alpha,
+			audit_reputation_beta,
+			audit_reputation_score,
+			disqualified,
+			updated_at
+		FROM reputation WHERE satellite_id = ?`,
 		satelliteID,
 	)
 
@@ -121,21 +120,20 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT
-				satellite_id, 
-				uptime_success_count,
-				uptime_total_count,
-				uptime_reputation_alpha,
-				uptime_reputation_beta,
-				uptime_reputation_score,
-				audit_success_count,
-				audit_total_count,
-				audit_reputation_alpha,
-				audit_reputation_beta,
-				audit_reputation_score,
-				disqualified,
-				updated_at
-			FROM reputation`
+	query := `SELECT satellite_id, 
+			uptime_success_count,
+			uptime_total_count,
+			uptime_reputation_alpha,
+			uptime_reputation_beta,
+			uptime_reputation_score,
+			audit_success_count,
+			audit_total_count,
+			audit_reputation_alpha,
+			audit_reputation_beta,
+			audit_reputation_score,
+			disqualified,
+			updated_at
+		FROM reputation`
 
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
