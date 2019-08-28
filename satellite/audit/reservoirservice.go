@@ -57,6 +57,7 @@ func (queue *queue) next(ctx context.Context) (storj.Path, error) {
 	queue.cond.L.Lock()
 	defer queue.cond.L.Unlock()
 
+	// This waits until the queue is repopulated, closed, or context is canceled.
 	for len(queue.queue) == 0 {
 		select {
 		case <-queue.closed:
@@ -64,11 +65,7 @@ func (queue *queue) next(ctx context.Context) (storj.Path, error) {
 		case <-ctx.Done():
 			return "", ctx.Err()
 		default:
-		}
-		// This waits until the queue is repopulated.
-		queue.cond.Wait()
-		if len(queue.queue) > 0 {
-			break
+			queue.cond.Wait()
 		}
 	}
 	next := queue.queue[0]
