@@ -20,11 +20,12 @@ async function httpGet(url): Promise<Response> {
 }
 
 /**
- *
+ * used to get dashboard and satellite data from json
  */
 export class SNOApi {
     /**
-     *
+     * parses dashboard data from json
+     * @returns dashboard - new dashboard instance filled with data from json
      */
     public async dashboard(): Promise<Dashboard> {
         const json = (await (await httpGet('/api/dashboard')).json() as any).data;
@@ -41,14 +42,14 @@ export class SNOApi {
 
         const bandwidth: BandwidthInfo = new BandwidthInfo(json.diskSpace.used, json.diskSpace.available);
 
-        const dashboard = new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
+        return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
                                         new Date(json.lastPinged), new Date(json.lastQueried), version, json.upToDate);
 
-        return dashboard;
     }
 
     /**
-     *
+     * parses satellite data from json
+     * @returns satellite - new satellite instance filled with data from json
      */
     public async satellite(id: string): Promise<Satellite> {
         const url = '/api/satellite/' + id;
@@ -80,7 +81,8 @@ export class SNOApi {
     }
 
     /**
-     *
+     * parses data for all satellites from json
+     * @returns satellites - new satellites instance filled with data from json
      */
     public async satellites(): Promise<Satellites> {
         const json = (await (await httpGet('/api/satellites')).json() as any).data;

@@ -20,7 +20,7 @@ import { formatBytes } from '@/app/utils/converter';
 import { BandwidthUsed } from '@/storagenode/satellite';
 
 /**
- *
+ * stores bandwidth data for bandwidth chart's tooltip
  */
 class BandwidthTooltip {
     public normalEgress: string;

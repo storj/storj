@@ -26,7 +26,7 @@
         height: 89px;
         display: flex;
         justify-content: center;
-        background-color: #FFFFFF;
+        background-color: #F8F9FB;
         align-items: center;
         font-family: 'font_regular';
 

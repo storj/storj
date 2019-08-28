@@ -136,7 +136,11 @@ export const node = {
     },
 };
 
-// calculateSuccessRatio calculates percent of success attempts for reputation metric
+/**
+ * calculates percent of success attempts for reputation metric
+ * @param successCount - holds amount of success attempts for reputation metric
+ * @param totalCount - holds total amount of attempts for reputation metric
+ */
 function calculateSuccessRatio(successCount: number, totalCount: number) : number {
     if (totalCount == 0) {
         return 100;
@@ -145,7 +149,11 @@ function calculateSuccessRatio(successCount: number, totalCount: number) : numbe
     return successCount / totalCount * 100;
 }
 
-// getDateDiffMinutes returns difference between two dates in minutes
+/**
+ * returns difference between two dates in minutes
+ * @param d1 - holds first date
+ * @param d2 - holds second date
+ */
 function getDateDiffMinutes(d1: Date, d2: Date): number {
     const diff = d1.getTime() - d2.getTime();
 

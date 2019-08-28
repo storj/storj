@@ -19,6 +19,9 @@ import { ChartUtils } from '@/app/utils/chartUtils';
 import { formatBytes } from '@/app/utils/converter';
 import { Stamp } from '@/storagenode/satellite';
 
+/**
+ * stores stamp data for disc space chart's tooltip
+ */
 class StampTooltip {
     public atRestTotal: string;
     public timestamp: string;

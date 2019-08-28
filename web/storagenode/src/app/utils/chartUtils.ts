@@ -92,7 +92,7 @@ export class ChartUtils {
         }
 
         outer:
-        for (let i = 0; i < storageChartData.length; i++ ) {
+        for (let i = 0; i < storageChartData.length; i++) {
             const date = i + 1;
 
             for (let j = 0; j < data.length; j++) {

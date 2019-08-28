@@ -67,7 +67,7 @@
             transform: translate(-50%);
             height: auto;
             width: auto;
-            min-width: 240px;
+            min-width: 210px;
             display: flex;
             justify-content: center;
             align-items: center;

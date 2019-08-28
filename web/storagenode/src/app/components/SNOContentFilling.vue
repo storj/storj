@@ -37,7 +37,7 @@
             <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
             <div class="info-area__checks-area">
                 <ChecksAreaContainer label="Uptime Checks" :amount="checks.uptime" infoText="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."/>
-                <ChecksAreaContainer label="Audit Checks" :amount="checks.audit" infoText="Audit checks occur to make sure the file data sent to your storage node is still there and intact. This is the percentage of audit checks you’ve passed."/>
+                <ChecksAreaContainer label="Audit Checks" :amount="checks.audit" infoText="Percentage of successful pings/communication between the node & satellite."/>
             </div>
         </div>
         <div>
