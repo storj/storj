@@ -35,7 +35,7 @@
 
     @Component
     export default class ProjectSelectionDropdown extends Vue {
-        private FIRST_PAGE = 0;
+        private FIRST_PAGE = 1;
 
         public async onProjectSelected(projectID: string): Promise<void> {
             this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);

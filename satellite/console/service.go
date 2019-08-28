@@ -47,6 +47,7 @@ const (
 	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
 	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
+	projectOwnerDeletionForbiddenErrMsg  = "Project owner could not be deleted"
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
 
@@ -879,6 +880,13 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		}
 
 		userIDs = append(userIDs, user.ID)
+	}
+
+	for _, id := range userIDs {
+		err = s.isProjectOwner(ctx, id, projectID)
+		if err == nil {
+			return errs.New(projectOwnerDeletionForbiddenErrMsg)
+		}
 	}
 
 	if err = userErr.Err(); err != nil {
