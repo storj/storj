@@ -214,6 +214,7 @@ Data Science could use this approach to more nicely calculate statistics however
     1. Implement integration test for overall chore<sup>2</sup>.
 
     <sup>1</sup> These subtasks can be done in parallel.
+
     <sup>2</sup> This test doesn't cover a test that each subtask requires.
 1. Wire the new chore to the `satellite.Peer`.
 1. Remove the implementation of the current uptime disqualification.
