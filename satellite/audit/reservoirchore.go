@@ -6,11 +6,9 @@ package audit
 import (
 	"context"
 	"math/rand"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/storj"
@@ -20,7 +18,7 @@ import (
 // ReservoirChore populates reservoirs and the audit queue.
 type ReservoirChore struct {
 	log    *zap.Logger
-	config Config
+	config Config2
 	rand   *rand.Rand
 
 	queue *queue
@@ -30,36 +28,17 @@ type ReservoirChore struct {
 }
 
 // NewReservoirChore instantiates ReservoirChore.
-func NewReservoirChore(log *zap.Logger, metaLoop *metainfo.Loop, config Config) *ReservoirChore {
+func NewReservoirChore(log *zap.Logger, auditQueue *queue, metaLoop *metainfo.Loop, config Config2) *ReservoirChore {
 	return &ReservoirChore{
 		log:    log,
 		config: config,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),
 
-		queue: newQueue(*sync.NewCond(&sync.Mutex{}), make(chan struct{})),
+		queue: auditQueue,
 
 		MetainfoLoop: metaLoop,
-		Loop:         *sync2.NewCycle(config.Interval),
+		Loop:         *sync2.NewCycle(config.QueueInterval),
 	}
-}
-
-// Run runs auditing service 2.0.
-func (chore *ReservoirChore) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	chore.log.Info("audit 2.0 is starting up")
-
-	var group errgroup.Group
-	group.Go(func() error {
-		return chore.populateQueueJob(ctx)
-	})
-
-	for i := 0; i < chore.config.WorkerCount; i++ {
-		group.Go(func() error {
-			return chore.worker(ctx)
-		})
-	}
-
-	return group.Wait()
 }
 
 func (chore *ReservoirChore) populateQueueJob(ctx context.Context) error {
@@ -98,21 +77,4 @@ func (chore *ReservoirChore) populateQueueJob(ctx context.Context) error {
 
 		return nil
 	})
-}
-
-// worker removes an item from the queue and runs an audit.
-func (chore *ReservoirChore) worker(ctx context.Context) error {
-	for {
-		_, err := chore.queue.next()
-		if err != nil {
-			return err
-		}
-		// TODO: audit the path
-	}
-}
-
-// Close halts the reservoir service loop.
-func (chore *ReservoirChore) Close() error {
-	close(chore.queue.closed)
-	return nil
 }
