@@ -2,14 +2,14 @@
 
 ## Abstract
 
-This design document describes auditing based on nodes.
+This design document describes auditing based on reservoir sampling segments per node.
 
 ## Background
 
 As our network grows, it will take longer for nodes to get vetted.
 This is because every time an upload happens, we send 5% of the uploaded data to unvetted nodes and 95% to vetted nodes.
 Currently we select a random stripe from a random segment for audits.
-This correlates strongly with auditing per byte. This means we are less likely to audit an unvetted node, because only 5% gets uploaded to unvetted nodes.
+This correlates with auditing per byte. This means we are less likely to audit an unvetted node, because only 5% gets uploaded to unvetted nodes.
 It will become exponentially less likely that an unvetted node will be audited.
 
 With a satellite with one petabyte of data, new nodes will take one month to get vetted.
@@ -21,21 +21,21 @@ We want a way to select segments to audit based such that every node has equal l
 ## Design
 
 1. An audit observer iterates over the segments, and uses reservoir sampling to pick paths for each node.
-2. Once we have iterated over metainfo, we will put the segments into an audit queue.
+2. Once we have iterated over metainfo, we will put the segments from reservoirs in random order into audit queue.
 3. Audit workers pick a segment from the queue.
 4. Audit worker then picks a random stripe from the segment to audit.
 
 Using reservoir sampling means we have an equal chance to pick a segment for every node.
-However, since every segment also audits 79 other nodes, we also audit other nodes.
-The chance of a node appearing in a segment pointer is proportional to the amount of data that the node actually store.
+Since every segment also audits 79 other nodes, we also audit other nodes.
+The chance of a node appearing in a segment pointer is proportional to the amount of data that the node actually stores.
 The more data that the node stores, the more chance it will be audited.
 
-For unvetted and vetted nodes we can have different reservoir sizes to ensure that they get audited faster.
+For unvetted and vetted nodes we can have different reservoir sizes to ensure that unvetted nodes get audited faster.
 
 By using a separate queue we ensure that workers can run in separate processes and simplifies selection logic.
-We add to the queue the reservoir set in random order.
 When we finish a new reservoir set, we override the previous queue, rather than adding to it.
 Since the new data is more up to date and there's no downside in clearing the queue.
+To have less predictability we add the reservoir set in random node order, one segment at a time.
 
 Audit workers audit as previously:
 
@@ -80,7 +80,7 @@ Algorithm:
 
 ## Rationale
 
-An audit observer using metainfo loop will always hit every segment exactly once, allowing us to get the most accurate possible sample for each node.
+An audit observer using metainfo loop will hit every segment exactly once, allowing us to get the most accurate possible sample for each node.
 
 While we initially considered integrating the audit system's random node selection process with the existing garbage collection observer,
 we decided not to do this because the difference in required interval for each observer would mean either too many bloom filters being created unnecessarily or audits occurring too slowly.
