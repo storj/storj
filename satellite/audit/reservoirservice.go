@@ -85,15 +85,15 @@ func (chore *ReservoirChore) populateQueueJob(ctx context.Context) error {
 		}
 
 		var queue []storj.Path
-		queuePaths := make(map[storj.Path]bool)
+		queuePaths := make(map[storj.Path]struct{})
 
 		// Add reservoir paths to queue in pseudorandom order.
 		for i := 0; i < chore.config.Slots; i++ {
 			for _, res := range pathCollector.Reservoirs {
 				path := res.Paths[i]
-				if !queuePaths[path] {
+				if _, ok := queuePaths[path]; !ok {
 					queue = append(queue, path)
-					queuePaths[path] = true
+					queuePaths[path] = struct{}{}
 				}
 			}
 		}
