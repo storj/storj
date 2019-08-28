@@ -86,6 +86,10 @@
     export default class ProjectMembersArea extends Vue {
         private FIRST_PAGE = 1;
 
+        public async beforeDestroy(): Promise<void>{
+            await this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
+        }
+
         public onMemberClick(member: ProjectMember): void {
             this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
         }
