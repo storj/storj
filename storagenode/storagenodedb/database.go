@@ -208,13 +208,21 @@ func (db *DB) openDatabases(databasesPath string) error {
 	if err != nil {
 		return err
 	}
-	db.versionsDB = newVersionsDB(versionsDB, filepath.Join(databasesPath, VersionsDatabaseFilename))
+	if db.versionsDB == nil {
+		db.versionsDB = newVersionsDB(versionsDB, filepath.Join(databasesPath, VersionsDatabaseFilename))
+	} else {
+		db.versionsDB.SQLDB = versionsDB
+	}
 
 	bandwidthDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, BandwidthDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.bandwidthDB = newBandwidthDB(bandwidthDB)
+	if db.bandwidthDB == nil {
+		db.bandwidthDB = newBandwidthDB(bandwidthDB)
+	} else {
+		db.bandwidthDB.SQLDB = bandwidthDB
+	}
 
 	// TODO: console database?
 
@@ -222,49 +230,81 @@ func (db *DB) openDatabases(databasesPath string) error {
 	if err != nil {
 		return err
 	}
-	db.ordersDB = newOrdersDB(ordersDB)
+	if db.ordersDB == nil {
+		db.ordersDB = newOrdersDB(ordersDB)
+	} else {
+		db.ordersDB.SQLDB = ordersDB
+	}
 
 	pieceExpirationDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, PieceExpirationDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.pieceExpirationDB = newPieceExpirationDB(pieceExpirationDB)
+	if db.pieceExpirationDB == nil {
+		db.pieceExpirationDB = newPieceExpirationDB(pieceExpirationDB)
+	} else {
+		db.pieceExpirationDB.SQLDB = pieceExpirationDB
+	}
 
 	v0PieceInfoDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, v0PieceInfoDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.v0PieceInfoDB = newV0PieceInfoDB(v0PieceInfoDB)
+	if db.v0PieceInfoDB == nil {
+		db.v0PieceInfoDB = newV0PieceInfoDB(v0PieceInfoDB)
+	} else {
+		db.v0PieceInfoDB.SQLDB = v0PieceInfoDB
+	}
 
 	pieceSpaceUsedDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, PieceSpacedUsedDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.pieceSpaceUsedDB = newPieceSpaceUsedDB(pieceSpaceUsedDB)
+	if db.pieceSpaceUsedDB == nil {
+		db.pieceSpaceUsedDB = newPieceSpaceUsedDB(pieceSpaceUsedDB)
+	} else {
+		db.pieceSpaceUsedDB.SQLDB = pieceSpaceUsedDB
+	}
 
 	reputationDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, ReputationDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.reputationDB = newReputationDB(reputationDB)
+	if db.reputationDB == nil {
+		db.reputationDB = newReputationDB(reputationDB)
+	} else {
+		db.reputationDB.SQLDB = reputationDB
+	}
 
 	storageUsageDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, StorageUsageDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.storageUsageDB = newStorageusageDB(storageUsageDB)
+	if db.storageUsageDB == nil {
+		db.storageUsageDB = newStorageusageDB(storageUsageDB)
+	} else {
+		db.storageUsageDB.SQLDB = storageUsageDB
+	}
 
 	usedSerialsDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, UsedSerialsDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.usedSerialsDB = newUsedSerialsDB(usedSerialsDB)
+	if db.usedSerialsDB == nil {
+		db.usedSerialsDB = newUsedSerialsDB(usedSerialsDB)
+	} else {
+		db.usedSerialsDB.SQLDB = usedSerialsDB
+	}
 
 	vouchersDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, VouchersDatabaseFilename))
 	if err != nil {
 		return err
 	}
-	db.vouchersDB = newVouchersDB(vouchersDB)
+	if db.vouchersDB == nil {
+		db.vouchersDB = newVouchersDB(vouchersDB)
+	} else {
+		db.vouchersDB.SQLDB = vouchersDB
+	}
 
 	return nil
 }
@@ -750,10 +790,7 @@ func (db *DB) Migration() *migrate.Migration {
 					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, BandwidthDatabaseFilename, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, "certificate.db", "certificate"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, OrdersDatabaseFilename, "unsent_order, order_archive_"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, OrdersDatabaseFilename, "unsent_order", "order_archive_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, PieceExpirationDatabaseFilename, "piece_expirations"); err != nil {
@@ -783,7 +820,6 @@ func (db *DB) Migration() *migrate.Migration {
 					tablesToDrop := []string{
 						"bandwidth_usage",
 						"bandwidth_usage_rollups",
-						"certificate",
 						"unsent_order",
 						"order_archive_",
 						"piece_expirations",
