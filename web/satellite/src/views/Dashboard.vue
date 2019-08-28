@@ -69,6 +69,7 @@
 
                 if (!(this as any).isCurrentRouteIsAccount()) {
                     await this.$router.push(RouteConfig.ProjectOverview.path);
+
                     return;
                 }
 
