@@ -29,7 +29,6 @@
         APP_STATE_ACTIONS,
         NOTIFICATION_ACTIONS,
         PM_ACTIONS,
-        PROJECT_USAGE_ACTIONS,
         PROJECT_PAYMENT_METHODS_ACTIONS,
     } from '@/utils/constants/actionNames';
     import { USER_ACTIONS } from '@/store/modules/users';
@@ -37,18 +36,16 @@
     import { AppState } from '@/utils/constants/appStateEnum';
     import { AuthToken } from '@/utils/authToken';
     import { Project } from '@/types/projects';
-    import { RequestResponse } from '@/types/response';
-    import router, { RouteConfig } from '@/router';
+    import { RouteConfig } from '@/router';
     import { User } from '@/types/users';
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
     @Component({
     mounted: async function() {
         setTimeout(async () => {
-            let user: User;
-
             try {
-                user = await this.$store.dispatch(USER_ACTIONS.GET);
+                await this.$store.dispatch(USER_ACTIONS.GET);
             } catch (error) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
@@ -89,9 +86,10 @@
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
-            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            if (!usageResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            try {
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+            } catch (e) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
             }
 
             try {

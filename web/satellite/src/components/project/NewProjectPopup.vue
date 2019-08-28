@@ -49,7 +49,6 @@
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
         NOTIFICATION_ACTIONS,
-        PROJECT_USAGE_ACTIONS,
         PM_ACTIONS,
     } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
@@ -58,6 +57,7 @@
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { CreateProjectModel, Project } from '@/types/projects';
+    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
     @Component({
         components: {
