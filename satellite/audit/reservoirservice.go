@@ -17,9 +17,8 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-// ReservoirService is a temp name for the service struct during the audit 2.0 refactor.
-// Once V3-2363 and V3-2364 are implemented, ReservoirService will replace the existing Service struct.
-type ReservoirService struct {
+// ReservoirChore populates reservoirs and the audit queue.
+type ReservoirChore struct {
 	log    *zap.Logger
 	config Config
 	rand   *rand.Rand
@@ -32,9 +31,9 @@ type ReservoirService struct {
 	Loop         sync2.Cycle
 }
 
-// NewReservoirService instantiates ReservoirService
-func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config) *ReservoirService {
-	return &ReservoirService{
+// NewReservoirChore instantiates ReservoirChore.
+func NewReservoirChore(log *zap.Logger, metaLoop *metainfo.Loop, config Config) *ReservoirChore {
+	return &ReservoirChore{
 		log:    log,
 		config: config,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),
@@ -47,41 +46,41 @@ func NewReservoirService(log *zap.Logger, metaLoop *metainfo.Loop, config Config
 	}
 }
 
-// Run runs auditing service 2.0
-func (service *ReservoirService) Run(ctx context.Context) (err error) {
+// Run runs auditing service 2.0.
+func (chore *ReservoirChore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	service.log.Info("audit 2.0 is starting up")
+	chore.log.Info("audit 2.0 is starting up")
 
 	var group errgroup.Group
 	group.Go(func() error {
-		return service.populateQueueJob(ctx)
+		return chore.populateQueueJob(ctx)
 	})
 
-	for i := 0; i < service.config.WorkerCount; i++ {
+	for i := 0; i < chore.config.WorkerCount; i++ {
 		group.Go(func() error {
-			return service.worker(ctx)
+			return chore.worker(ctx)
 		})
 	}
 
 	return group.Wait()
 }
 
-func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
-	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
+func (chore *ReservoirChore) populateQueueJob(ctx context.Context) error {
+	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
 		select {
-		case <-service.closed:
+		case <-chore.closed:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		pathCollector := NewPathCollector(service.config.Slots, service.rand)
-		err = service.MetainfoLoop.Join(ctx, pathCollector)
+		pathCollector := NewPathCollector(chore.config.Slots, chore.rand)
+		err = chore.MetainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
-			service.log.Error("error joining metainfoloop", zap.Error(err))
+			chore.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
 
@@ -89,7 +88,7 @@ func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
 		queuePaths := make(map[storj.Path]bool)
 
 		// Add reservoir paths to queue in pseudorandom order.
-		for i := 0; i < service.config.Slots; i++ {
+		for i := 0; i < chore.config.Slots; i++ {
 			for _, res := range pathCollector.Reservoirs {
 				path := res.Paths[i]
 				if !queuePaths[path] {
@@ -98,49 +97,49 @@ func (service *ReservoirService) populateQueueJob(ctx context.Context) error {
 				}
 			}
 		}
-		service.cond.L.Lock()
-		service.queue = queue
+		chore.cond.L.Lock()
+		chore.queue = queue
 		// Notify workers that queue has been repopulated.
-		service.cond.Broadcast()
-		service.cond.L.Unlock()
+		chore.cond.Broadcast()
+		chore.cond.L.Unlock()
 
 		return nil
 	})
 }
 
 // worker removes an item from the queue and runs an audit.
-func (service *ReservoirService) worker(ctx context.Context) error {
+func (chore *ReservoirChore) worker(ctx context.Context) error {
 	for {
 		select {
-		case <-service.closed:
+		case <-chore.closed:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		_ = service.next()
+		_ = chore.next()
 		// TODO: audit the path
 	}
 }
 
 // next gets the next item in the queue.
-func (service *ReservoirService) next() storj.Path {
-	service.cond.L.Lock()
-	defer service.cond.L.Unlock()
+func (chore *ReservoirChore) next() storj.Path {
+	chore.cond.L.Lock()
+	defer chore.cond.L.Unlock()
 
-	if len(service.queue) == 0 {
+	if len(chore.queue) == 0 {
 		// This waits until the queue is repopulated.
-		service.cond.Wait()
+		chore.cond.Wait()
 	}
-	next := service.queue[0]
-	service.queue = service.queue[1:]
+	next := chore.queue[0]
+	chore.queue = chore.queue[1:]
 
 	return next
 }
 
-// Close halts the reservoir service loop
-func (service *ReservoirService) Close() error {
-	close(service.closed)
+// Close halts the reservoir service loop.
+func (chore *ReservoirChore) Close() error {
+	close(chore.closed)
 	return nil
 }

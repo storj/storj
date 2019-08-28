@@ -192,8 +192,8 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service          *audit.Service
-		ReservoirService *audit.ReservoirService
+		Service        *audit.Service
+		ReservoirChore *audit.ReservoirChore
 	}
 
 	GarbageCollection struct {
@@ -489,7 +489,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		// setup audit 2.0
-		peer.Audit.ReservoirService = audit.NewReservoirService(peer.Log.Named("reservoir service"),
+		peer.Audit.ReservoirChore = audit.NewReservoirChore(peer.Log.Named("reservoir chore"),
 			peer.Metainfo.Loop,
 			config,
 		)
@@ -711,7 +711,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.ReservoirService.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Audit.ReservoirChore.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
@@ -795,8 +795,8 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Overlay.Service.Close())
 	}
 
-	if peer.Audit.ReservoirService != nil {
-		errlist.Add(peer.Audit.ReservoirService.Close())
+	if peer.Audit.ReservoirChore != nil {
+		errlist.Add(peer.Audit.ReservoirChore.Close())
 	}
 
 	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil || peer.Kademlia.adb != nil {
