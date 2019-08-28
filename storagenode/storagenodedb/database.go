@@ -817,15 +817,13 @@ func (db *DB) Migration() *migrate.Migration {
 					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, UsedSerialsDatabaseFilename, "used_serial_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := sqliteutil.MigrateToDatabase(ctx, db.connections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, VouchersDatabaseFilename, "vouchers"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
 
 					// Create a list of tables we have migrated to new databases
 					// that we can delete from the original database.
 					tablesToDrop := []string{
 						"bandwidth_usage",
 						"bandwidth_usage_rollups",
+						"certificate",
 						"unsent_order",
 						"order_archive_",
 						"piece_expirations",
@@ -834,7 +832,6 @@ func (db *DB) Migration() *migrate.Migration {
 						"reputation",
 						"storage_usage",
 						"used_serial_",
-						"vouchers",
 					}
 
 					// Delete tables we have migrated from the original database.
