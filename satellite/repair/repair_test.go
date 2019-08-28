@@ -304,7 +304,6 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		require.True(t, (numStorageNodes-toDisqualify) >= numPieces)
 
 		// disqualify nodes and track lost pieces
-		var lostPieces []int32
 		nodesToDisqualify := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
 
@@ -314,7 +313,6 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 				continue
 			}
 			nodesToDisqualify[piece.NodeId] = true
-			lostPieces = append(lostPieces, piece.GetPieceNum())
 		}
 
 		for _, node := range planet.StorageNodes {

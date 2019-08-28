@@ -137,7 +137,9 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 	return nil, nil
 }
 
-// recordOfflineStatus updates nodeIDs in overlay with isup=false
+// recordOfflineStatus updates nodeIDs in overlay with isup=false. When there
+// is any error the function return the list of nodes which haven't been
+// recorded.
 func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group

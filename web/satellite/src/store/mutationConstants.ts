@@ -1,15 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-export const PROJECTS_MUTATIONS = {
-    CREATE: 'CREATE_PROJECT',
-    DELETE: 'DELETE_PROJECT',
-    UPDATE: 'UPDATE_PROJECT',
-    FETCH: 'FETCH_PROJECTS',
-    SELECT: 'SELECT_PROJECT',
-    CLEAR: 'CLEAR_PROJECTS',
-};
-
 export const API_KEYS_MUTATIONS = {
     FETCH: 'setAPIKeys',
     ADD: 'addAPIKey',
@@ -17,12 +8,6 @@ export const API_KEYS_MUTATIONS = {
     TOGGLE_SELECTION: 'toggleSelection',
     CLEAR_SELECTION: 'clearSelection',
     CLEAR: 'clear',
-};
-
-export const PROJECT_USAGE_MUTATIONS = {
-    FETCH: 'FETCH_PROJECT_USAGE',
-    SET_DATE: 'SET_DATE_PROJECT_USAGE',
-    CLEAR: 'CLEAR_PROJECT_USAGE'
 };
 
 export const NOTIFICATION_MUTATIONS = {

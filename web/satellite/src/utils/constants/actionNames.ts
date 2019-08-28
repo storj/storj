@@ -45,15 +45,6 @@ export const PM_ACTIONS = {
     CLEAR_OFFSET: 'clearProjectMembersOffset'
 };
 
-export const PROJETS_ACTIONS = {
-    FETCH: 'fetchProjects',
-    CREATE: 'createProject',
-    SELECT: 'selectProject',
-    UPDATE: 'updateProject',
-    DELETE: 'deleteProject',
-    CLEAR: 'clearProjects',
-};
-
 export const API_KEYS_ACTIONS = {
     FETCH: 'setAPIKeys',
     CREATE: 'createAPIKey',
@@ -61,13 +52,6 @@ export const API_KEYS_ACTIONS = {
     CLEAR: 'clearAPIKeys',
     TOGGLE_SELECTION: 'toggleAPIKeySelection',
     CLEAR_SELECTION: 'clearAPIKeySelection'
-};
-
-export const PROJECT_USAGE_ACTIONS = {
-    FETCH: 'fetchProjectUsage',
-    FETCH_CURRENT_ROLLUP: 'fetchCurrentProjectUsage',
-    FETCH_PREVIOUS_ROLLUP: 'fetchPreviousProjectUsage',
-    CLEAR: 'clearProjectUsage',
 };
 
 export const PROJECT_PAYMENT_METHODS_ACTIONS = {

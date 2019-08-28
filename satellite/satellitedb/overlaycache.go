@@ -353,7 +353,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 
 	node, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
 	if err == sql.ErrNoRows {
-		return nil, overlay.ErrNodeNotFound.New(id.String())
+		return nil, overlay.ErrNodeNotFound.New("%v", id)
 	}
 	if err != nil {
 		return nil, err
@@ -867,11 +867,11 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 
 		mon.Meter("uptime_update_successes").Mark(1)
 		// we have seen this node in the past 24 hours
-		if time.Now().Sub(lastContactFailure) > time.Hour*24 {
+		if time.Since(lastContactFailure) > time.Hour*24 {
 			mon.Meter("uptime_seen_24h").Mark(1)
 		}
 		// we have seen this node in the past week
-		if time.Now().Sub(lastContactFailure) > time.Hour*24*7 {
+		if time.Since(lastContactFailure) > time.Hour*24*7 {
 			mon.Meter("uptime_seen_week").Mark(1)
 		}
 	} else {
@@ -879,11 +879,11 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 
 		mon.Meter("uptime_update_failures").Mark(1)
 		// it's been over 24 hours since we've seen this node
-		if time.Now().Sub(lastContactSuccess) > time.Hour*24 {
+		if time.Since(lastContactSuccess) > time.Hour*24 {
 			mon.Meter("uptime_not_seen_24h").Mark(1)
 		}
 		// it's been over a week since we've seen this node
-		if time.Now().Sub(lastContactSuccess) > time.Hour*24*7 {
+		if time.Since(lastContactSuccess) > time.Hour*24*7 {
 			mon.Meter("uptime_not_seen_week").Mark(1)
 		}
 	}
@@ -900,6 +900,78 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	}
 
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+}
+
+// AllPieceCounts returns a map of node IDs to piece counts from the db.
+// NB: a valid, partial piece map can be returned even if node ID parsing error(s) are returned.
+func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.NodeID]int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// NB: `All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number` selects node
+	// ID and piece count from the nodes table where piece count is not zero.
+	rows, err := cache.db.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	pieceCounts := make(map[storj.NodeID]int)
+
+	nodeIDErrs := errs.Group{}
+	for _, row := range rows {
+		nodeID, err := storj.NodeIDFromBytes(row.Id)
+		if err != nil {
+			nodeIDErrs.Add(err)
+			continue
+		}
+		pieceCounts[nodeID] = int(row.PieceCount)
+	}
+	return pieceCounts, nodeIDErrs.Err()
+}
+
+func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
+	// TODO: add monkit stuff
+	defer mon.Task()(&ctx)(&err)
+
+	if len(pieceCounts) == 0 {
+		return nil
+	}
+
+	switch cache.db.Driver().(type) {
+	case *pq.Driver:
+		return Error.Wrap(cache.postgresUpdatePieceCounts(ctx, pieceCounts))
+	default:
+		return Error.Wrap(cache.sqliteUpdatePieceCounts(ctx, pieceCounts))
+	}
+}
+
+func (cache *overlaycache) postgresUpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	sqlQuery := `UPDATE nodes SET piece_count = newvals.piece_count FROM ( VALUES `
+	args := make([]interface{}, 0, len(pieceCounts)*2)
+	for nodeID, pieceCount := range pieceCounts {
+		sqlQuery += `(?::BYTEA, ?::BIGINT), `
+		args = append(args, nodeID, pieceCount)
+	}
+	sqlQuery = sqlQuery[:len(sqlQuery)-2]
+	// trim off the last comma+space
+	sqlQuery += `) newvals(nodeid, piece_count) WHERE nodes.id = newvals.nodeid`
+	_, err = cache.db.DB.ExecContext(ctx, cache.db.Rebind(sqlQuery), args...)
+	return err
+}
+
+func (cache *overlaycache) sqliteUpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var args []interface{}
+	sqlQuery := ""
+	updateSQL := "UPDATE nodes SET ( piece_count ) = ( ? ) WHERE id == ?;"
+	for nodeID, pieceCount := range pieceCounts {
+		sqlQuery += updateSQL
+		args = append(args, pieceCount, nodeID)
+	}
+	_, err = cache.db.DB.ExecContext(ctx, cache.db.Rebind(sqlQuery), args...)
+	return err
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {

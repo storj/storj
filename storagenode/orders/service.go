@@ -71,102 +71,129 @@ type DB interface {
 	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*Info, error)
 
 	// Archive marks order as being handled.
-	Archive(ctx context.Context, requests ...ArchiveRequest) error
+	Archive(ctx context.Context, archivedAt time.Time, requests ...ArchiveRequest) error
 	// ListArchived returns orders that have been sent.
 	ListArchived(ctx context.Context, limit int) ([]*ArchivedInfo, error)
 	// CleanArchive deletes all entries older than ttl
 	CleanArchive(ctx context.Context, ttl time.Duration) (int, error)
 }
 
-// SenderConfig defines configuration for sending orders.
-type SenderConfig struct {
-	Interval time.Duration `help:"duration between sending" default:"1h0m0s"`
-	Timeout  time.Duration `help:"timeout for sending" default:"1h0m0s"`
+// Config defines configuration for sending orders.
+type Config struct {
+	SenderInterval  time.Duration `help:"duration between sending" default:"1h0m0s"`
+	SenderTimeout   time.Duration `help:"timeout for sending" default:"1h0m0s"`
+	CleanupInterval time.Duration `help:"duration between archive cleanups" default:"24h0m0s"`
+	ArchiveTTL      time.Duration `help:"length of time to archive orders before deletion" default:"1080h0m0s"` // 45 days
 }
 
-// Sender sends every interval unsent orders to the satellite.
-type Sender struct {
+// Service sends every interval unsent orders to the satellite.
+type Service struct {
 	log    *zap.Logger
-	config SenderConfig
+	config Config
 
 	transport transport.Client
 	orders    DB
 	trust     *trust.Pool
 
-	Loop sync2.Cycle
+	Sender  sync2.Cycle
+	Cleanup sync2.Cycle
 }
 
-// NewSender creates an order sender.
-func NewSender(log *zap.Logger, transport transport.Client, orders DB, trust *trust.Pool, config SenderConfig) *Sender {
-	return &Sender{
+// NewService creates an order service.
+func NewService(log *zap.Logger, transport transport.Client, orders DB, trust *trust.Pool, config Config) *Service {
+	return &Service{
 		log:       log,
 		transport: transport,
 		orders:    orders,
 		config:    config,
 		trust:     trust,
 
-		Loop: *sync2.NewCycle(config.Interval),
+		Sender:  *sync2.NewCycle(config.SenderInterval),
+		Cleanup: *sync2.NewCycle(config.CleanupInterval),
 	}
 }
 
 // Run sends orders on every interval to the appropriate satellites.
-func (sender *Sender) Run(ctx context.Context) (err error) {
+func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return sender.Loop.Run(ctx, sender.runOnce)
+
+	var group errgroup.Group
+	service.Sender.Start(ctx, &group, service.sendOrders)
+	service.Cleanup.Start(ctx, &group, service.cleanArchive)
+
+	return group.Wait()
 }
 
-func (sender *Sender) runOnce(ctx context.Context) (err error) {
+func (service *Service) cleanArchive(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	sender.log.Debug("sending")
+	service.log.Debug("cleaning")
+
+	deleted, err := service.orders.CleanArchive(ctx, service.config.ArchiveTTL)
+	if err != nil {
+		service.log.Error("cleaning archive", zap.Error(err))
+		return nil
+	}
+
+	service.log.Debug("cleanup finished", zap.Int("items deleted", deleted))
+	return nil
+}
+
+func (service *Service) sendOrders(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	service.log.Debug("sending")
 
 	const batchSize = 1000
 
-	ordersBySatellite, err := sender.orders.ListUnsentBySatellite(ctx)
+	ordersBySatellite, err := service.orders.ListUnsentBySatellite(ctx)
 	if err != nil {
 		if ordersBySatellite == nil {
-			sender.log.Error("listing orders", zap.Error(err))
+			service.log.Error("listing orders", zap.Error(err))
 			return nil
 		}
 
-		sender.log.Warn("DB contains invalid marshalled orders", zap.Error(err))
+		service.log.Warn("DB contains invalid marshalled orders", zap.Error(err))
 	}
 
 	requests := make(chan ArchiveRequest, batchSize)
 	var batchGroup errgroup.Group
-	batchGroup.Go(func() error { return sender.handleBatches(ctx, requests) })
+	batchGroup.Go(func() error { return service.handleBatches(ctx, requests) })
 
 	if len(ordersBySatellite) > 0 {
 		var group errgroup.Group
-		ctx, cancel := context.WithTimeout(ctx, sender.config.Timeout)
+		ctx, cancel := context.WithTimeout(ctx, service.config.SenderTimeout)
 		defer cancel()
 
 		for satelliteID, orders := range ordersBySatellite {
 			satelliteID, orders := satelliteID, orders
 			group.Go(func() error {
-				sender.Settle(ctx, satelliteID, orders, requests)
+				service.Settle(ctx, satelliteID, orders, requests)
 				return nil
 			})
 		}
 
 		_ = group.Wait() // doesn't return errors
 	} else {
-		sender.log.Debug("no orders to send")
+		service.log.Debug("no orders to send")
 	}
 
 	close(requests)
-	return batchGroup.Wait()
+	err = batchGroup.Wait()
+	if err != nil {
+		service.log.Error("archiving orders", zap.Error(err))
+	}
+	return nil
 }
 
 // Settle uploads orders to the satellite.
-func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) {
-	log := sender.log.Named(satelliteID.String())
-	err := sender.settle(ctx, log, satelliteID, orders, requests)
+func (service *Service) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) {
+	log := service.log.Named(satelliteID.String())
+	err := service.settle(ctx, log, satelliteID, orders, requests)
 	if err != nil {
 		log.Error("failed to settle orders", zap.Error(err))
 	}
 }
 
-func (sender *Sender) handleBatches(ctx context.Context, requests chan ArchiveRequest) (err error) {
+func (service *Service) handleBatches(ctx context.Context, requests chan ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// In case anything goes wrong, discard everything from the channel.
@@ -183,29 +210,29 @@ func (sender *Sender) handleBatches(ctx context.Context, requests chan ArchiveRe
 			continue
 		}
 
-		if err := sender.orders.Archive(ctx, buffer...); err != nil {
+		if err := service.orders.Archive(ctx, time.Now().UTC(), buffer...); err != nil {
 			if !OrderNotFoundError.Has(err) {
 				return err
 			}
 
-			sender.log.Warn("some unsent order aren't in the DB", zap.Error(err))
+			service.log.Warn("some unsent order aren't in the DB", zap.Error(err))
 		}
 		buffer = buffer[:0]
 	}
 
 	if len(buffer) > 0 {
-		return sender.orders.Archive(ctx, buffer...)
+		return service.orders.Archive(ctx, time.Now().UTC(), buffer...)
 	}
 	return nil
 }
 
-func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) (err error) {
+func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	log.Info("sending", zap.Int("count", len(orders)))
 	defer log.Info("finished")
 
-	address, err := sender.trust.GetAddress(ctx, satelliteID)
+	address, err := service.trust.GetAddress(ctx, satelliteID)
 	if err != nil {
 		return OrderError.New("unable to get satellite address: %v", err)
 	}
@@ -217,7 +244,7 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 		},
 	}
 
-	conn, err := sender.transport.DialNode(ctx, &satellite)
+	conn, err := service.transport.DialNode(ctx, &satellite)
 	if err != nil {
 		return OrderError.New("unable to connect to the satellite: %v", err)
 	}
@@ -305,7 +332,8 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 }
 
 // Close stops the sending service.
-func (sender *Sender) Close() error {
-	sender.Loop.Close()
+func (service *Service) Close() error {
+	service.Sender.Close()
+	service.Cleanup.Close()
 	return nil
 }

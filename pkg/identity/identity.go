@@ -286,9 +286,7 @@ func NewFullIdentity(ctx context.Context, opts NewCAOptions) (*FullIdentity, err
 // ToChains takes a number of certificate chains and returns them as a 2d slice of chains of certificates.
 func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
 	combinedChains := make([][]*x509.Certificate, len(chains))
-	for i, chain := range chains {
-		combinedChains[i] = chain
-	}
+	copy(combinedChains, chains)
 	return combinedChains
 }
 
@@ -407,35 +405,27 @@ func (ic PeerConfig) Load() (*PeerIdentity, error) {
 	}
 	pi, err := PeerIdentityFromPEM(c)
 	if err != nil {
-		return nil, errs.New("failed to load identity %#v: %v",
-			ic.CertPath, err)
+		return nil, errs.New("failed to load identity %#v: %v", ic.CertPath, err)
 	}
 	return pi, nil
 }
 
 // Save saves a PeerIdentity according to the config
 func (ic PeerConfig) Save(peerIdent *PeerIdentity) error {
-	var (
-		certData                         bytes.Buffer
-		writeChainErr, writeChainDataErr error
-	)
-
 	chain := []*x509.Certificate{peerIdent.Leaf, peerIdent.CA}
 	chain = append(chain, peerIdent.RestChain...)
 
 	if ic.CertPath != "" {
-		writeChainErr = peertls.WriteChain(&certData, chain...)
-		writeChainDataErr = writeChainData(ic.CertPath, certData.Bytes())
+		var certData bytes.Buffer
+		err := peertls.WriteChain(&certData, chain...)
+		if err != nil {
+			return err
+		}
+
+		return writeChainData(ic.CertPath, certData.Bytes())
 	}
 
-	writeErr := errs.Combine(writeChainErr)
-	if writeErr != nil {
-		return writeErr
-	}
-
-	return errs.Combine(
-		writeChainDataErr,
-	)
+	return nil
 }
 
 // SaveBackup saves the certificate of the config with a timestamped filename
