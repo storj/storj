@@ -66,13 +66,13 @@
 
             if (!projects.length) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
-                await this.$router.push(RouteConfig.ProjectOverview.path);
 
-                if (!(this as any).isCurrentRouteIsAccount) {
+                if (!(this as any).isCurrentRouteIsAccount()) {
                     await this.$router.push(RouteConfig.ProjectOverview.path);
+                    return;
                 }
 
-                return;
+                await this.$router.push(RouteConfig.ProjectOverview.path);
             }
 
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
@@ -115,6 +115,9 @@
             return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
         },
         isCurrentRouteIsAccount: function(): boolean {
+            console.log('this.$route.path', this.$route.path.split('/'))
+            console.log('RouteConfig.Account.name.toLowerCase()', RouteConfig.Account.name.toLowerCase())
+            console.log('isCurrentRouteIsAccount', this.$route.path.split('/'))
             return this.$route.path.split('/').includes(RouteConfig.Account.name.toLowerCase());
         }
     },
