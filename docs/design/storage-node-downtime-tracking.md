@@ -10,7 +10,7 @@ This document describes storage node downtime tracking.
 
 Current disqualification based on uptime disqualified several nodes without clear and fair evidence. These disqualifications needed to be reverted and the uptime based disqualification disabled. Before we can start handling disqualifications we need to more reliably track offline status of nodes.
 
-[Kademlia removal design document](kademia-removal.md) describes that each node will need to contact each satellite regularly every hour. This is used in the following design.
+[Kademlia removal design document](kademlia-removal.md) describes that each node will need to contact each satellite regularly every hour. This is used in the following design.
 
 This document does not describe how the downtime affects reputation and how disqualifications will work.
 
@@ -22,7 +22,7 @@ For tracking offline duration we need:
 - Detecting which nodes are offline.
 - Estimate how long they are offline.
 
-An _uptime check_ referenced in this section is a connection initiated by the satellite to any storage node in the same way that's described in [network refreshing section of the Kademlia removal design document](kademia-removal.md#network-refreshing).
+An _uptime check_ referenced in this section is a connection initiated by the satellite to any storage node in the same way that's described in [network refreshing section of the Kademlia removal design document](kademlia-removal.md#network-refreshing).
 
 __NOTE__ the SQL code in this section is illustrative for explaining the algorithm concisely.
 
