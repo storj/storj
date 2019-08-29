@@ -25,6 +25,7 @@ type ReservoirChore struct {
 
 	MetainfoLoop *metainfo.Loop
 	Loop         sync2.Cycle
+	Interval     time.Duration
 }
 
 // NewReservoirChore instantiates ReservoirChore.
@@ -38,6 +39,7 @@ func NewReservoirChore(log *zap.Logger, service *Service2, metaLoop *metainfo.Lo
 
 		MetainfoLoop: metaLoop,
 		Loop:         *sync2.NewCycle(config.QueueInterval),
+		Interval:     config.ChoreInterval,
 	}
 }
 

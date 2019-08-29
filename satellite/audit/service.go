@@ -31,8 +31,8 @@ type Config struct {
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"25s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 
-	QueueInterval time.Duration `help:"how often to repopulate the audit queue" default:"30s"`
-	PollInterval  time.Duration `help:"how often a worker will attempt to take a path from the queue" default:"30s"`
+	ChoreInterval time.Duration `help:"how often to run the reservoir chore" default:"24h"`
+	QueueInterval time.Duration `help:"how often to recheck an empty audit queue" default:"30s"`
 	Slots         int           `help:"number of reservoir slots allotted for nodes, currently capped at 2" default:"1"`
 	WorkerCount   int           `help:"number of workers to run audits on paths" default:"1"`
 }

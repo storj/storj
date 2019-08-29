@@ -19,11 +19,11 @@ type queue struct {
 	pollInterval time.Duration
 }
 
-func newQueue(pollInterval time.Duration) *queue {
+func newQueue(interval time.Duration) *queue {
 	return &queue{
 		cond:         *sync.NewCond(&sync.Mutex{}),
 		closed:       make(chan struct{}),
-		pollInterval: pollInterval,
+		pollInterval: interval,
 	}
 }
 
