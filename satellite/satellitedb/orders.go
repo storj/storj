@@ -279,7 +279,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 			if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
 				reject(request.OrderLimit.SerialNumber)
 				// rollback to the savepoint before the insert failed
-				_, err = tx.Exec("rollback to savepoint sp;")
+				_, err = tx.Exec("rollback to savepoint sp")
 				if err != nil {
 					return nil, Error.Wrap(err)
 				}
