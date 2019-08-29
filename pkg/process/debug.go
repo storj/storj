@@ -84,8 +84,6 @@ func prometheus(w http.ResponseWriter, r *http.Request) {
 	// (https://prometheus.io/docs/concepts/metric_types/)
 	monkit.Default.Stats(func(name string, val float64) {
 		metric := sanitize(name)
-		_, _ = fmt.Fprintf(w, "# HELP %s %s\n%s %g\n",
-			metric, strings.ReplaceAll(name, "\n", " "),
-			metric, val)
+		_, _ = fmt.Fprintf(w, "%s %g\n", metric, val)
 	})
 }
