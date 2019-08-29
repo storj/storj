@@ -23,6 +23,13 @@ var ignoreProto = map[string]bool{
 	"gogo.proto": true,
 }
 
+var ignoreDir = map[string]bool{
+	".git":         true,
+	".build":       true,
+	"node_modules": true,
+	"dist":         true,
+}
+
 var protoc = flag.String("protoc", "protoc", "protoc location")
 
 func main() {
@@ -306,7 +313,7 @@ func listProtoFiles(root string) ([]string, error) {
 			fmt.Fprintln(os.Stderr, err)
 			return nil
 		}
-		if info.IsDir() && info.Name() == ".git" {
+		if info.IsDir() && ignoreDir[info.Name()] {
 			return filepath.SkipDir
 		}
 		if filepath.Ext(path) == ".proto" {
