@@ -163,6 +163,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MaxExcessRateOptimalThreshold: 0.05,
 			},
 			Audit: audit.Config{
+				PollInterval:       30 * time.Second,
 				MaxRetriesStatDB:   0,
 				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
