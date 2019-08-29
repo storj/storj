@@ -139,6 +139,33 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	return stamps, nil
 }
 
+// Summary returns aggregated storage usage across all satellites
+func (db *storageusageDB) Summary(ctx context.Context, from, to time.Time) (_ float64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var summary sql.NullFloat64
+
+	query := `SELECT SUM(at_rest_total) 
+				FROM storage_usage
+				WHERE ? <= timestamp AND timestamp <= ?`
+
+	err = db.QueryRowContext(ctx, query, from.UTC(), to.UTC()).Scan(&summary)
+	return summary.Float64, err
+}
+
+// SatelliteSummary returns aggregated storage usage for particular satellite
+func (db *storageusageDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ float64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var summary sql.NullFloat64
+
+	query := `SELECT SUM(at_rest_total) 
+				FROM storage_usage
+				WHERE satellite_id = ?
+				AND ? <= timestamp AND timestamp <= ?`
+
+	err = db.QueryRowContext(ctx, query, satelliteID, from.UTC(), to.UTC()).Scan(&summary)
+	return summary.Float64, err
+}
+
 // withTx is a helper method which executes callback in transaction scope
 func (db *storageusageDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
 	tx, err := db.Begin()

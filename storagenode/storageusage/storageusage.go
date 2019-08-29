@@ -20,6 +20,10 @@ type DB interface {
 	// GetDailyTotal returns daily storage usage stamps summed across all known satellites
 	// for provided time range
 	GetDailyTotal(ctx context.Context, from, to time.Time) ([]Stamp, error)
+	// Summary returns aggregated storage usage across all satellites
+	Summary(ctx context.Context, from, to time.Time) (float64, error)
+	// SatelliteSummary returns aggregated storage usage for particular satellite
+	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (float64, error)
 }
 
 // Stamp is storage usage stamp for satellite at some point in time
