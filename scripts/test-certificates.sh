@@ -70,7 +70,7 @@ done
 kill_certificates_server
 
 # Expect 10 authorizations total.
-auths=$(echo $(export_auths))
+auths=$(export_auths)
 require_lines 10 "$auths" $LINENO
 
 for i in {1..4}; do
@@ -79,11 +79,11 @@ for i in {1..4}; do
 
   # Expect number of auths for a given user to equal the identity/email number.
   # (e.g. testidentity3/testuser3@mail.example should have 3 auths)
-  match_auths=$(echo $auths | grep "$email" )
+  match_auths=$(echo "$auths" | grep "$email" )
   require_lines $i "$match_auths" $LINENO
 
   for auth in $match_auths; do
-    claimed=$(echo $auth | awk -F , '{print $3}')
+    claimed=$(echo "$auth" | awk -F , '{print $3}')
     if [[ $claimed == "true" ]]; then
       ((++claimed_auth_count))
       continue
@@ -93,7 +93,7 @@ for i in {1..4}; do
   done
 
   # Expect 4 auths (one for each user) to be claimed.
-  require_equal "4" "$claimed_auth_count" $LINENO
+  require_equal "1" "$claimed_auth_count" $LINENO
 done
 
 echo "TEST COMPLETED SUCCESSFULLY!"

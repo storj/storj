@@ -29,8 +29,8 @@ require_equal() {
 
 require_lines() {
   line_no=$3
-  # TODO: figure out why newlines in command output are spaces in bash vars
-  line_count=$(echo $2 | sed 's, ,\n,g' | wc -l)
+  string=$2
+  line_count=$(echo "$string" | wc -l)
   if [[ "$line_count" -lt "$1" ]]; then
     new_error "expected number of lines ${line_count} to be ${1}:\n$2" $line_no
   fi
