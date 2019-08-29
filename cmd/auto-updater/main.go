@@ -42,7 +42,7 @@ var (
 func init() {
 	rootCmd.AddCommand(runCmd)
 
-	runCmd.Flags().StringVar(&interval, "interval", "05s", "interval for checking the new version")
+	runCmd.Flags().StringVar(&interval, "interval", "06h", "interval for checking the new version")
 	runCmd.Flags().StringVar(&versionURL, "version-url", "https://version.storj.io/", "version server URL")
 	runCmd.Flags().StringVar(&binaryPath, "binary-path", "", "the storage node installation location")
 }
