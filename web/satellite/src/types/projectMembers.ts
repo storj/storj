@@ -14,8 +14,8 @@ export enum ProjectMemberOrderBy {
 }
 
 /**
- * Contains values of project members header component
- * used in ProjectMemebrsArea and HeaderArea.
+ * Contains values of project members header component state
+ * used in ProjectMembersArea and HeaderArea.
  */
 export enum ProjectMemberHeaderState {
     DEFAULT = 0,
