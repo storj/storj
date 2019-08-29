@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/vouchers"
 )
 
 // newStorageNodes initializes storage nodes
@@ -118,11 +117,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				},
 			},
 			Retain: retain.Config{
-				RetainStatus:        retain.Enabled,
-				MaxConcurrentRetain: 5,
-			},
-			Vouchers: vouchers.Config{
-				Interval: time.Hour,
+				Status:      retain.Enabled,
+				Concurrency: 5,
 			},
 			Version: planet.NewVersionConfig(),
 			Bandwidth: bandwidth.Config{

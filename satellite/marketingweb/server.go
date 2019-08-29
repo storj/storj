@@ -168,11 +168,11 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	offerType := mux.Vars(req)["offer_type"]
 
 	switch offerType {
-	case "referral-offer":
+	case "referral":
 		offer.Type = rewards.Referral
 	case "free-credit":
 		offer.Type = rewards.FreeCredit
-	case "partner-offer":
+	case "partner":
 		offer.Type = rewards.Partner
 	default:
 		err := errs.New("response status %d : invalid offer type", http.StatusBadRequest)

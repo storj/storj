@@ -57,7 +57,9 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT *
+	query := `SELECT satellite_id,
+					at_rest_total,
+					timestamp
 				FROM storage_usage
 				WHERE timestamp IN (
 					SELECT MAX(timestamp) 
