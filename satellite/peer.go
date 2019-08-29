@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/inspector"
@@ -77,6 +78,8 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
+	// PeerIdentities returns a storage for peer identities
+	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
 	// Attribution returns database for partner keys information
@@ -118,6 +121,8 @@ type Config struct {
 	Audit    audit.Config
 
 	GarbageCollection gc.Config
+
+	DBCleanup dbcleanup.Config
 
 	Tally          tally.Config
 	Rollup         rollup.Config
@@ -193,6 +198,10 @@ type Peer struct {
 
 	GarbageCollection struct {
 		Service *gc.Service
+	}
+
+	DBCleanup struct {
+		Chore *dbcleanup.Chore
 	}
 
 	Accounting struct {
@@ -480,13 +489,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		// setup audit 2.0
-		peer.Audit.ReservoirService, err = audit.NewReservoirService(peer.Log.Named("reservoir service"),
+		peer.Audit.ReservoirService = audit.NewReservoirService(peer.Log.Named("reservoir service"),
 			peer.Metainfo.Loop,
 			config,
 		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup garbage collection
@@ -499,6 +505,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Overlay.DB,
 			peer.Metainfo.Loop,
 		)
+	}
+
+	{ // setup db cleanup
+		log.Debug("Setting up db cleanup")
+		peer.DBCleanup.Chore = dbcleanup.NewChore(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
 	}
 
 	{ // setup accounting
@@ -719,6 +730,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.DBCleanup.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -751,6 +765,9 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+	if peer.DBCleanup.Chore != nil {
+		errlist.Add(peer.DBCleanup.Chore.Close())
+	}
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
 	}

@@ -409,6 +409,45 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		}
 	}()
 
+	// for repair traffic, send along the PieceHash and original OrderLimit for validation
+	// before sending the piece itself
+	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
+		var orderLimit pb.OrderLimit
+		var pieceHash pb.PieceHash
+
+		if pieceReader.StorageFormatVersion() == 0 {
+			// v0 stores this information in SQL
+			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
+			if err != nil {
+				endpoint.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
+			}
+			orderLimit = *info.OrderLimit
+			pieceHash = *info.UplinkPieceHash
+		} else {
+			//v1+ stores this information in the file
+			header, err := pieceReader.GetPieceHeader()
+			if err != nil {
+				endpoint.log.Error("error getting header from piecereader", zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
+			}
+			orderLimit = header.OrderLimit
+			pieceHash = pb.PieceHash{
+				PieceId:   limit.PieceId,
+				Hash:      header.GetHash(),
+				PieceSize: pieceReader.Size(),
+				Timestamp: header.GetCreationTime(),
+				Signature: header.GetSignature(),
+			}
+		}
+
+		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
+		if err != nil {
+			endpoint.log.Error("error sending hash and order limit", zap.Error(err))
+			return status.Error(codes.Internal, err.Error())
+		}
+	}
+
 	// TODO: verify chunk.Size behavior logic with regards to reading all
 	if chunk.Offset+chunk.ChunkSize > pieceReader.Size() {
 		return Error.New("requested more data than available, requesting=%v available=%v", chunk.Offset+chunk.ChunkSize, pieceReader.Size())
@@ -416,7 +455,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
 	if err != nil {
-		return ErrInternal.Wrap(err)
+		endpoint.log.Error("error getting available bandwidth", zap.Error(err))
+		return status.Error(codes.Internal, err.Error())
 	}
 
 	throttle := sync2.NewThrottle()
@@ -441,13 +481,15 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			chunkData := make([]byte, chunkSize)
 			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
 			if err != nil {
-				return ErrInternal.Wrap(err)
+				endpoint.log.Error("error seeking on piecereader", zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
 			}
 
 			// ReadFull is required to ensure we are sending the right amount of data.
 			_, err = io.ReadFull(pieceReader, chunkData)
 			if err != nil {
-				return ErrInternal.Wrap(err)
+				endpoint.log.Error("error reading from piecereader", zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
 			}
 
 			err = stream.Send(&pb.PieceDownloadResponse{
@@ -465,7 +507,6 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			currentOffset += chunkSize
 			unsentAmount -= chunkSize
 		}
-
 		return nil
 	})
 

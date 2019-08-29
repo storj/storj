@@ -20,7 +20,8 @@ type PieceTracker struct {
 	log          *zap.Logger
 	config       Config
 	creationDate time.Time
-	pieceCounts  map[storj.NodeID]int
+	// TODO: should we use int or int64 consistently for piece count (db type is int64)?
+	pieceCounts map[storj.NodeID]int
 
 	retainInfos map[storj.NodeID]*RetainInfo
 }
