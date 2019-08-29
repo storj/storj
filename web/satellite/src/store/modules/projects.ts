@@ -1,7 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { CreateProjectModel, Project, ProjectsApi, UpdateProjectModel } from '@/types/projects';
+import { ProjectsApiGql } from '@/api/projects';
+import { CreateProjectModel, Project, UpdateProjectModel } from '@/types/projects';
 import { StoreModule } from '@/store';
 
 export const PROJECTS_ACTIONS = {
@@ -47,7 +48,7 @@ const {
     CLEAR_PROJECTS,
 } = PROJECTS_MUTATIONS;
 
-export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState> {
+export function makeProjectsModule(api: ProjectsApiGql): StoreModule<ProjectsState> {
     return {
         state: new ProjectsState(),
         mutations: {
