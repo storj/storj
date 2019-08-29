@@ -489,13 +489,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		// setup audit 2.0
-		peer.Audit.ReservoirService, err = audit.NewReservoirService(peer.Log.Named("reservoir service"),
+		peer.Audit.ReservoirService = audit.NewReservoirService(peer.Log.Named("reservoir service"),
 			peer.Metainfo.Loop,
 			config,
 		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup garbage collection

@@ -15,13 +15,15 @@
                     <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                 </div>
                 <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                    <span>Are you sure you want to delete {{selectedProjectMembers}} {{userCountTitle}}</span>
+                    <span>Are you sure you want to delete {{selectedProjectMembers}} {{userCountTitle}} ?</span>
                     <div class="header-after-delete-click__button-area">
                         <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
                         <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                     </div>
                 </div>
             </HeaderComponent>
+            <div class="blur-content" v-if="isDeleteClicked"></div>
+            <div class="blur-search" v-if="isDeleteClicked"></div>
 	    </div>
     </div>
 </template>
@@ -33,7 +35,6 @@
     import Button from '@/components/common/Button.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
     import { ProjectMember } from '@/types/projectMembers';
-    import { RequestResponse } from '@/types/response';
 
     declare interface ClearSearch {
         clearSearch: () => void;
@@ -127,6 +128,12 @@
         justify-content: space-between;
         height: 85px;
 
+        span {
+            font-family: 'font_medium';
+            font-size: 14px;
+            line-height: 28px;
+        }
+
         &__button-area {
             display: flex;
 
@@ -158,6 +165,29 @@
         display: flex;
         align-items: center;
         justify-content: flex-start;
+        position: relative;
+
+        .blur-content {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #F5F6FA;
+            width: 100%;
+            height: 70vh;
+            z-index: 100;
+            opacity: 0.3;
+        }
+
+        .blur-search {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 602px;
+            height: 56px;
+            z-index: 100;
+            opacity: 0.3;
+            background-color: #F5F6FA;
+        }
     }
 
     .container.deletion {
