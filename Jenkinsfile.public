@@ -43,7 +43,7 @@ pipeline {
                         sh 'cd ./scripts; go run ./check-errs storj.io/storj/...'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=2 run'
-                        sh 'cd ./scripts; go run ./check-mod-tidy -mod ../.build/go.mod.orig'
+                        sh 'cd ./scripts; go run ./check-mod-tidy -root .. -mod .build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
                     }
                 }

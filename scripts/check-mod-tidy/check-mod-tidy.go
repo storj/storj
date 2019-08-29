@@ -10,12 +10,16 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/kylelemons/godebug/diff"
 )
 
-var modfile = flag.String("mod", "go.mod", "original mod file")
+var (
+	modfile = flag.String("mod", "go.mod", "original mod file")
+	rootDir = flag.String("root", "..", "root directory with current mod file")
+)
 
 func main() {
 	flag.Parse()
@@ -24,11 +28,12 @@ func main() {
 	checkf(err, "failed to create a temporary directory: %v\n", err)
 
 	defer func() {
-		err := os.RemoveAll(tempdir)
-		fmt.Fprintf(os.Stderr, "failed to delete temporary directory: %v\n", err)
+		if err := os.RemoveAll(tempdir); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to delete temporary directory: %v\n", err)
+		}
 	}()
 
-	err = copyDir(".", tempdir)
+	err = copyDir(*rootDir, tempdir)
 	checkf(err, "failed to copy directory: %v\n", err)
 
 	workingDir, err := os.Getwd()
@@ -86,7 +91,9 @@ func checkf(err error, format string, args ...interface{}) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintf(os.Stderr, format, args...)
+	_, file, line, _ := runtime.Caller(1)
+	fmt.Fprintf(os.Stderr, "%s:%d:\n", file, line)
+	fmt.Fprintf(os.Stderr, "\t"+format, args...)
 	os.Exit(1)
 }
 
