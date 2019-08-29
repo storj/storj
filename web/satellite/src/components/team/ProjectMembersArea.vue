@@ -4,7 +4,7 @@
 <template>
     <div class="team-area">
         <div class="team-header">
-            <HeaderArea :headerState="headerState" :selectedProjectMembers="selectedProjectMembers.length"/>
+            <HeaderArea :headerState="headerState" :selectedProjectMembersCount="selectedProjectMembers.length"/>
         </div>
         <div id="team_container" v-if="projectMembersCount > 0 || projectMembersTotalCount > 0" class="team-container">
             <div class="team-container__content">
@@ -66,14 +66,9 @@
     import HeaderArea from '@/components/team/HeaderArea.vue';
     import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
     import SortingListHeader from '@/components/team/SortingListHeader.vue';
-    import { ProjectMember, ProjectMemberOrderBy } from '@/types/projectMembers';
+    import {ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy} from "@/types/projectMembers";
     import { SortDirection } from '@/types/common';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-
-    enum HeaderState {
-        DEFAULT = 0,
-        ON_SELECT,
-    }
 
     @Component({
         components: {
@@ -116,10 +111,10 @@
 
         public get headerState(): number {
             if (this.selectedProjectMembers.length > 0) {
-                return HeaderState.ON_SELECT;
+                return ProjectMemberHeaderState.ON_SELECT;
             }
 
-            return HeaderState.DEFAULT;
+            return ProjectMemberHeaderState.DEFAULT;
         }
 
         public async onPageClick(index: number):Promise<void> {
