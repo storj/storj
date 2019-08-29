@@ -374,7 +374,6 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, HandleError(err)
 					}
 
-
 					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
 						return nil, HandleError(err)
