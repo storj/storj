@@ -36,7 +36,7 @@ type Config struct {
 // Service which monitors disk usage and updates kademlia network as necessary.
 type Service struct {
 	log                *zap.Logger
-	comm               *contact.Service
+	contact            *contact.Service
 	store              *pieces.Store
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
@@ -48,10 +48,10 @@ type Service struct {
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, communication *contact.Service, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, contact *contact.Service, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
 	return &Service{
 		log:                log,
-		comm:               communication,
+		contact:            contact,
 		store:              store,
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
@@ -150,7 +150,7 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	service.comm.UpdateSelf(&pb.NodeCapacity{
+	service.contact.UpdateSelf(&pb.NodeCapacity{
 		FreeBandwidth: service.allocatedBandwidth - usedBandwidth,
 		FreeDisk:      service.allocatedDiskSpace - usedSpace,
 	})
