@@ -4,12 +4,10 @@
 import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
 import ReferralStats from '@/components/referral/ReferralStats.vue';
-import { CreditUsage } from '@/types/credits';
-import { User } from '@/types/users';
+import { CreditsApi, CreditUsage } from '@/types/credits';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
 import { makeCreditsModule } from '@/store/modules/credits';
 import { makeUsersModule, USER_ACTIONS } from '@/store/modules/users';
-import { UsersApiMock } from '../mock/api/users';
-import { CreditsApiMock } from '../mock/api/credits';
 
 const {
     GET,
@@ -21,10 +19,24 @@ localVue.use(Vuex);
 const mockUser = new User('1', 'full name', 'short name');
 const mockCredits = new CreditUsage(1, 2, 3);
 
+class UsersApiMock implements UsersApi {
+    get(): Promise<User> {
+        return Promise.resolve(mockUser);
+    }
+
+    update(user: UpdatedUser): Promise<void> {
+        throw new Error('not implemented');
+    }
+
+}
+class CreditsApiMock implements CreditsApi {
+    get(): Promise<CreditUsage> {
+        return Promise.resolve(mockCredits);
+    }
+}
+
 const creditsApi = new CreditsApiMock();
-creditsApi.setMockCredits(mockCredits);
 const usersApi = new UsersApiMock();
-usersApi.setMockUser(mockUser);
 
 const usersModule = makeUsersModule(usersApi);
 const creditsModule = makeCreditsModule(creditsApi);

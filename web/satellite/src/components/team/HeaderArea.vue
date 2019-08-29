@@ -15,7 +15,7 @@
                     <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                 </div>
                 <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                    <span>Are you sure you want to delete {{selectedProjectMembersCount}} {{userCountTitle}}?</span>
+                    <span>Are you sure you want to delete {{selectedProjectMembers}} {{userCountTitle}} ?</span>
                     <div class="header-after-delete-click__button-area">
                         <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
                         <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
@@ -25,7 +25,6 @@
             <div class="blur-content" v-if="isDeleteClicked"></div>
             <div class="blur-search" v-if="isDeleteClicked"></div>
 	    </div>
-        <AddUserPopup v-if="isAddTeamMembersPopupShown"/>
     </div>
 </template>
 
@@ -35,8 +34,7 @@
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
-    import AddUserPopup from '@/components/team/AddUserPopup.vue';
+    import { ProjectMember } from '@/types/projectMembers';
 
     declare interface ClearSearch {
         clearSearch: () => void;
@@ -46,25 +44,24 @@
         components: {
             Button,
             HeaderComponent,
-            AddUserPopup,
         }
     })
     export default class HeaderArea extends Vue {
-        @Prop({default: ProjectMemberHeaderState.DEFAULT})
-        private readonly headerState: ProjectMemberHeaderState;
         @Prop({default: 0})
-        public readonly selectedProjectMembersCount: number;
+        private readonly headerState: number;
+        @Prop({default: 0})
+        private readonly selectedProjectMembers: number;
 
         private FIRST_PAGE = 1;
 
-        public isDeleteClicked: boolean = false;
+        private isDeleteClicked: boolean = false;
 
         public $refs!: {
             headerComponent: HeaderComponent & ClearSearch
         };
 
         public get userCountTitle(): string {
-            if (this.selectedProjectMembersCount === 1) {
+            if (this.selectedProjectMembers === 1) {
                 return 'user';
             }
 
@@ -87,7 +84,7 @@
         }
 
         public async onDelete(): Promise<void> {
-            const projectMemberEmails: string[] = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
+            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
                 return member.user.email;
             });
 
@@ -112,10 +109,6 @@
             } catch (err) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
             }
-        }
-
-        public get isAddTeamMembersPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
         }
     }
 </script>
