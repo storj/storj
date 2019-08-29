@@ -176,7 +176,7 @@
             position: absolute;
             bottom: 0;
             right: 0;
-            width: 58px;
+            width: 602px;
             height: 56px;
             z-index: 100;
             opacity: 0.3;
