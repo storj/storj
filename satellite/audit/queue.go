@@ -6,21 +6,24 @@ package audit
 import (
 	"context"
 	"sync"
+	"time"
 
 	"storj.io/storj/pkg/storj"
 )
 
 // queue is a list of paths to audit, shared between the reservoir chore and audit workers.
 type queue struct {
-	cond   sync.Cond
-	queue  []storj.Path
-	closed chan struct{}
+	cond         sync.Cond
+	queue        []storj.Path
+	closed       chan struct{}
+	pollInterval time.Duration
 }
 
-func newQueue() *queue {
+func newQueue(pollInterval time.Duration) *queue {
 	return &queue{
-		cond:   *sync.NewCond(&sync.Mutex{}),
-		closed: make(chan struct{}),
+		cond:         *sync.NewCond(&sync.Mutex{}),
+		closed:       make(chan struct{}),
+		pollInterval: pollInterval,
 	}
 }
 
@@ -38,17 +41,24 @@ func (queue *queue) next(ctx context.Context) (storj.Path, error) {
 	queue.cond.L.Lock()
 	defer queue.cond.L.Unlock()
 
+	ticker := time.NewTicker(queue.pollInterval)
+
 	// This waits until the queue is repopulated, closed, or context is canceled.
 	for len(queue.queue) == 0 {
+		queue.cond.L.Unlock()
+
 		select {
 		case <-queue.closed:
 			return "", Error.New("queue is closed")
 		case <-ctx.Done():
 			return "", ctx.Err()
-		default:
-			queue.cond.Wait()
+		case <-ticker.C:
 		}
+		queue.cond.L.Lock()
 	}
+
+	ticker.Stop()
+
 	next := queue.queue[0]
 	queue.queue = queue.queue[1:]
 

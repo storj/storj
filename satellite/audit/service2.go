@@ -20,7 +20,7 @@ type Service2 struct {
 
 // NewService2 instantiates Service2 and workers.
 func NewService2(log *zap.Logger, config Config) (*Service2, error) {
-	queue := newQueue()
+	queue := newQueue(config.PollInterval)
 	var workers []*worker
 	for i := 0; i < config.WorkerCount; i++ {
 		workers = append(workers, newWorker(queue))
