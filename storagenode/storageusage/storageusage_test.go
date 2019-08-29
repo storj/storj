@@ -35,7 +35,6 @@ func TestStorageUsage(t *testing.T) {
 	}
 
 	stamps, summary := makeStorageUsageStamps(satellites, days, now)
-	stamps = stamps
 
 	var totalSummary float64
 	for _, summ := range summary {
