@@ -105,7 +105,7 @@ func TestEmptyStorageUsage(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		var emptySummary float64 = 0
+		var emptySummary float64
 		now := time.Now().UTC()
 
 		storageUsageDB := db.StorageUsage()
