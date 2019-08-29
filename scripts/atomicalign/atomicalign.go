@@ -26,6 +26,7 @@ func main() {
 			packages.NeedTypesSizes |
 			packages.NeedSyntax |
 			packages.NeedImports |
+			packages.NeedDeps |
 			packages.NeedName,
 	}, os.Args[1:]...)
 	if err != nil {
