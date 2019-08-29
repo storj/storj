@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/contact"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -44,12 +45,10 @@ type Config struct {
 
 	Server   server.Config
 	Kademlia kademlia.Config
+	Contact  contact.Config
+	Web      bootstrapserver.Config
 
-	Web bootstrapserver.Config
-
-	Version         version.Config
-	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
-	DBPath          string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
+	Version version.Config
 }
 
 // Peer is the representation of a Bootstrap Node.
@@ -66,6 +65,11 @@ type Peer struct {
 	Version *version.Service
 
 	// services and endpoints
+	Contact struct {
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
+	}
+
 	Kademlia struct {
 		RoutingTable *kademlia.RoutingTable
 		Service      *kademlia.Kademlia
@@ -79,7 +83,6 @@ type Peer struct {
 		Service  *bootstrapweb.Service
 		Endpoint *bootstrapserver.Server
 	}
-	Self *overlay.NodeDossier
 }
 
 // New creates a new Bootstrap Node.
@@ -117,9 +120,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 		}
 	}
 
-	{ // setup self
-		if config.ExternalAddress == "" {
-			config.ExternalAddress = peer.Addr()
+	{ // setup contact
+		c := config.Contact
+		if c.ExternalAddress == "" {
+			c.ExternalAddress = peer.Addr()
 		}
 
 		pbVersion, err := versionInfo.Proto()
@@ -132,20 +136,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 				Id: peer.ID(),
 				Address: &pb.NodeAddress{
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   config.ExternalAddress,
+					Address:   config.Contact.ExternalAddress,
 				},
 			},
 			Type:     pb.NodeType_BOOTSTRAP,
 			Operator: pb.NodeOperator{},
 			Version:  *pbVersion,
 		}
-		peer.Self = self
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), c, self, peer.Transport)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service, nil)
 	}
+
 	{ // setup kademlia
 		c := config.Kademlia
-		// TODO: move this setup logic into kademlia package
-		if config.ExternalAddress == "" {
-			config.ExternalAddress = peer.Addr()
+		if config.Contact.ExternalAddress == "" {
+			config.Contact.ExternalAddress = peer.Addr()
 		}
 
 		pbVersion, err := versionInfo.Proto()
@@ -158,7 +163,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 				Id: peer.ID(),
 				Address: &pb.NodeAddress{
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   config.ExternalAddress,
+					Address:   config.Contact.ExternalAddress,
 				},
 			},
 			Type:     pb.NodeType_BOOTSTRAP,
@@ -273,7 +278,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return *peer.Self }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Contact.Service.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }

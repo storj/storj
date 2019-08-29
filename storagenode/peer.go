@@ -93,7 +93,6 @@ type Config struct {
 	Bandwidth bandwidth.Config
 
 	Operator OperatorConfig
-	DBPath   string `help:"the path for storage node db services to be created on" default:"$CONFDIR/kademlia"`
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -230,7 +229,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup kademlia
-		// TODO: move this setup logic into kademlia package
 		if config.Contact.ExternalAddress == "" {
 			config.Contact.ExternalAddress = peer.Addr()
 		}

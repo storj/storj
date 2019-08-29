@@ -132,9 +132,6 @@ type Config struct {
 	Vouchers  vouchers.Config
 
 	Version version.Config
-
-	// new values
-	DBPath string `help:"the path for storage node db services to be created on" default:"$CONFDIR/?"` //TODO
 }
 
 // Peer is the satellite
@@ -343,9 +340,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			// TODO: clean this up, should be part of database
 			log.Debug("Setting up routing table")
 			bucketIdentifier := peer.ID().String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
-			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
+			dbpath := filepath.Join(config.Kademlia.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
 
-			if err := os.MkdirAll(config.DBPath, 0777); err != nil && !os.IsExist(err) {
+			if err := os.MkdirAll(config.Kademlia.DBPath, 0777); err != nil && !os.IsExist(err) {
 				return nil, err
 			}
 

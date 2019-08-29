@@ -73,7 +73,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	db, err := bootstrapdb.New(bootstrapdb.Config{
-		Kademlia: runCfg.DBPath,
+		Kademlia: runCfg.Kademlia.DBPath,
 	})
 	if err != nil {
 		return errs.New("Error starting master database on bootstrap: %+v", err)
