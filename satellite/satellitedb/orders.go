@@ -267,7 +267,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	// processed orders are rejected
 	for _, request := range requests {
 		// create a savepoint so we can rollback if an order has already been used
-		_, err = tx.Exec("savepoint sp;")
+		_, err = tx.Exec("savepoint sp")
 		if err != nil {
 			return nil, err
 		}
