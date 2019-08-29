@@ -36,12 +36,12 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 		return nil
 	}
 
-	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, timestamp) 
+	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_start) 
 			VALUES(?,?,?)`
 
 	return db.withTx(ctx, func(tx *sql.Tx) error {
 		for _, stamp := range stamps {
-			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
+			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalStart.UTC())
 
 			if err != nil {
 				return err
@@ -59,12 +59,12 @@ func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 
 	query := `SELECT satellite_id,
 					SUM(at_rest_total),
-					timestamp
+					interval_start
 				FROM storage_usage
 				WHERE satellite_id = ?
-				AND ? <= timestamp AND timestamp <= ?
-				GROUP BY DATE(timestamp)
-				ORDER BY timestamp`
+				AND ? <= interval_start AND interval_start <= ?
+				GROUP BY DATE(interval_start)
+				ORDER BY interval_start`
 
 	rows, err := db.QueryContext(ctx, query, satelliteID, from.UTC(), to.UTC())
 	if err != nil {
@@ -79,17 +79,17 @@ func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	for rows.Next() {
 		var satellite storj.NodeID
 		var atRestTotal float64
-		var timeStamp time.Time
+		var intervalStart time.Time
 
-		err = rows.Scan(&satellite, &atRestTotal, &timeStamp)
+		err = rows.Scan(&satellite, &atRestTotal, &intervalStart)
 		if err != nil {
 			return nil, err
 		}
 
 		stamps = append(stamps, storageusage.Stamp{
-			SatelliteID: satellite,
-			AtRestTotal: atRestTotal,
-			Timestamp:   timeStamp,
+			SatelliteID:   satellite,
+			AtRestTotal:   atRestTotal,
+			IntervalStart: intervalStart,
 		})
 	}
 
@@ -101,11 +101,11 @@ func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT SUM(at_rest_total), timestamp 
+	query := `SELECT SUM(at_rest_total), interval_start 
 				FROM storage_usage
-				WHERE ? <= timestamp AND timestamp <= ?
-				GROUP BY DATE(timestamp)
-				ORDER BY timestamp`
+				WHERE ? <= interval_start AND interval_start <= ?
+				GROUP BY DATE(interval_start)
+				ORDER BY interval_start`
 
 	rows, err := db.QueryContext(ctx, query, from.UTC(), to.UTC())
 	if err != nil {
@@ -119,16 +119,16 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	var stamps []storageusage.Stamp
 	for rows.Next() {
 		var atRestTotal float64
-		var timeStamp time.Time
+		var intervalStart time.Time
 
-		err = rows.Scan(&atRestTotal, &timeStamp)
+		err = rows.Scan(&atRestTotal, &intervalStart)
 		if err != nil {
 			return nil, err
 		}
 
 		stamps = append(stamps, storageusage.Stamp{
-			AtRestTotal: atRestTotal,
-			Timestamp:   timeStamp,
+			AtRestTotal:   atRestTotal,
+			IntervalStart: intervalStart,
 		})
 	}
 
@@ -142,7 +142,7 @@ func (db *storageusageDB) Summary(ctx context.Context, from, to time.Time) (_ fl
 
 	query := `SELECT SUM(at_rest_total) 
 				FROM storage_usage
-				WHERE ? <= timestamp AND timestamp <= ?`
+				WHERE ? <= interval_start AND interval_start <= ?`
 
 	err = db.QueryRowContext(ctx, query, from.UTC(), to.UTC()).Scan(&summary)
 	return summary.Float64, nil
@@ -156,7 +156,7 @@ func (db *storageusageDB) SatelliteSummary(ctx context.Context, satelliteID stor
 	query := `SELECT SUM(at_rest_total) 
 				FROM storage_usage
 				WHERE satellite_id = ?
-				AND ? <= timestamp AND timestamp <= ?`
+				AND ? <= interval_start AND interval_start <= ?`
 
 	err = db.QueryRowContext(ctx, query, satelliteID, from.UTC(), to.UTC()).Scan(&summary)
 	return summary.Float64, err

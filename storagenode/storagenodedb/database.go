@@ -16,7 +16,7 @@ import (
 	_ "github.com/mattn/go-sqlite3" // used indirectly
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
@@ -671,6 +671,19 @@ func (db *DB) Migration() *migrate.Migration {
 						updated_at TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id)
 					);`,
+				},
+			},
+			{
+				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
+				Version:     20,
+				Action: migrate.SQL{
+					`DROP TABLE storage_usage`,
+					`CREATE TABLE storage_usage (
+						satellite_id BLOB NOT NULL,
+						at_rest_total REAL NOT NUll,
+						interval_start TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id, interval_start)
+					)`,
 				},
 			},
 		},

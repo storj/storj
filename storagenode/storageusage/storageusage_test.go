@@ -47,10 +47,10 @@ func TestStorageUsage(t *testing.T) {
 
 	for _, stamp := range stamps {
 		if stamp.SatelliteID == satelliteID {
-			dailyStamps[stamp.Timestamp] = stamp
+			dailyStamps[stamp.IntervalStart] = stamp
 		}
 
-		dailyStampsTotals[stamp.Timestamp] += stamp.AtRestTotal
+		dailyStampsTotals[stamp.IntervalStart] += stamp.AtRestTotal
 	}
 
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
@@ -72,7 +72,7 @@ func TestStorageUsage(t *testing.T) {
 
 			for _, stamp := range res {
 				assert.Equal(t, satelliteID, stamp.SatelliteID)
-				assert.Equal(t, dailyStamps[stamp.Timestamp].AtRestTotal, stamp.AtRestTotal)
+				assert.Equal(t, dailyStamps[stamp.IntervalStart].AtRestTotal, stamp.AtRestTotal)
 			}
 		})
 
@@ -83,7 +83,7 @@ func TestStorageUsage(t *testing.T) {
 			assert.Equal(t, days, len(res))
 
 			for _, stamp := range res {
-				assert.Equal(t, dailyStampsTotals[stamp.Timestamp], stamp.AtRestTotal)
+				assert.Equal(t, dailyStampsTotals[stamp.IntervalStart], stamp.AtRestTotal)
 			}
 		})
 
@@ -148,9 +148,9 @@ func makeStorageUsageStamps(satellites []storj.NodeID, days int, endDate time.Ti
 	for _, satellite := range satellites {
 		for i := 0; i < days; i++ {
 			stamp := storageusage.Stamp{
-				SatelliteID: satellite,
-				AtRestTotal: math.Round(testrand.Float64n(1000)),
-				Timestamp:   startDate.Add(time.Hour * 24 * time.Duration(i)),
+				SatelliteID:   satellite,
+				AtRestTotal:   math.Round(testrand.Float64n(1000)),
+				IntervalStart: startDate.Add(time.Hour * 24 * time.Duration(i)),
 			}
 
 			summary[satellite] += stamp.AtRestTotal
