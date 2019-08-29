@@ -15,7 +15,7 @@
                     <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                 </div>
                 <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                    <span>Are you sure you want to delete {{selectedProjectMembers}} {{userCountTitle}}</span>
+                    <span>Are you sure you want to delete {{selectedProjectMembers}} {{userCountTitle}} ?</span>
                     <div class="header-after-delete-click__button-area">
                         <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
                         <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
@@ -127,6 +127,12 @@
         flex-direction: column;
         justify-content: space-between;
         height: 85px;
+
+        span {
+            font-family: 'font_medium';
+            font-size: 14px;
+            line-height: 28px;
+        }
 
         &__button-area {
             display: flex;
