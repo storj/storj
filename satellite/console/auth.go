@@ -66,7 +66,7 @@ func GetAuth(ctx context.Context) (Authorization, error) {
 	}
 
 	if _, ok := value.(error); ok {
-		return Authorization{}, ErrConsoleInternal.New("")
+		return Authorization{}, ErrConsoleInternal.New("auth key can not be parsed")
 	}
 
 	return Authorization{}, errs.New(unauthorizedErrMsg)
