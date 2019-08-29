@@ -5,13 +5,16 @@ import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
 import ApiKeysCopyPopup from '@/components/apiKeys/ApiKeysCopyPopup.vue';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { makeNotificationsModule } from '@/store/modules/notifications';
 import { ApiKeysApiGql } from '@/api/apiKeys';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
-const store = new Vuex.Store(apiKeysModule);
+const notificationsModule = makeNotificationsModule();
+
+const store = new Vuex.Store({ modules: { notificationsModule, apiKeysModule }});
 
 describe('ApiKeysCopyPopup', () => {
     it('renders correctly', () => {

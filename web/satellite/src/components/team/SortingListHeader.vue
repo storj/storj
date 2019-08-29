@@ -82,7 +82,8 @@
         display: flex;
         flex-direction: row;
         height: 36px;
-        margin-top: 200px;
+        background-color: rgba(255, 255, 255, 0.3);
+        margin-top: 29px;
 
         p {
             font-family: 'font_medium';
