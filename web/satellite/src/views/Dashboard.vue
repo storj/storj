@@ -66,9 +66,14 @@
 
             if (!projects.length) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
-                await this.$router.push(RouteConfig.ProjectOverview.path);
 
-                return;
+                if (!(this as any).isCurrentRouteIsAccount()) {
+                    await this.$router.push(RouteConfig.ProjectOverview.path);
+
+                    return;
+                }
+
+                await this.$router.push(RouteConfig.ProjectOverview.path);
             }
 
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
@@ -109,6 +114,11 @@
     computed: {
         isLoading: function() {
             return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
+        },
+        isCurrentRouteIsAccount: function(): boolean {
+            const segments = this.$route.path.split('/').map(segment => segment.toLowerCase());
+
+            return segments.includes(RouteConfig.Account.name.toLowerCase());
         }
     },
     components: {
