@@ -105,6 +105,19 @@ pipeline {
                         sh 'make test-sim-backwards-compatible'
                     }
                 }
+
+                stage('NPM') {
+                    environment {
+                        NPM_CONFIG_CACHE = '/tmp/npm'
+                    }
+                    steps {
+                        dir("web/satellite") {
+                            sh 'npm install'
+                            sh 'npm run build'
+                            sh 'npm run lint'
+                        }
+                    }
+                }
             }
         }
     }
