@@ -19,7 +19,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:   "auto-updater",
-		Short: "auto-updater for storage node",
+		Short: "Auto-updater for storage node",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
