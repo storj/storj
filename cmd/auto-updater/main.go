@@ -24,7 +24,14 @@ var (
 	runCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Run the auto updater for storage node",
-		RunE:  cmdRun,
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			err = cmdRun(cmd, args)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			return nil
+		},
 	}
 
 	interval   string
@@ -69,5 +76,5 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func main() {
-	rootCmd.Execute()
+	_ = rootCmd.Execute()
 }
