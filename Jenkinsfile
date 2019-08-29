@@ -45,6 +45,8 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
+    slackSend color: 'bad', message: "${env.BRANCH_NAME} build failed ${env.BUILD_URL}"
+
     mail from: 'builds@storj.io',
       replyTo: 'builds@storj.io',
       to: 'builds@storj.io',

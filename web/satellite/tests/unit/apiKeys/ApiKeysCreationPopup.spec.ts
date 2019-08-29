@@ -6,6 +6,7 @@ import Vuex from 'vuex';
 import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue';
 import { ApiKey } from '@/types/apiKeys';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { Project } from '@/types/projects';
@@ -18,6 +19,7 @@ const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const projectsApi = new ProjectsApiGql();
 const projectsModule = makeProjectsModule(projectsApi);
+const notificationsModule = makeNotificationsModule();
 
 const selectedProject = new Project();
 selectedProject.id = '1';
@@ -25,7 +27,7 @@ selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;
 
 const CREATE = API_KEYS_ACTIONS.CREATE;
-const store = new Vuex.Store({modules: { projectsModule, apiKeysModule }});
+const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule, notificationsModule }});
 
 describe('ApiKeysCreationPopup', () => {
     let value = 'testValue';
