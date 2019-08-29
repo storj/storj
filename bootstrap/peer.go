@@ -145,6 +145,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), c, self, peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service, nil)
+		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup kademlia

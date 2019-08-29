@@ -36,6 +36,10 @@ func NewEndpoint(log *zap.Logger, service *Service, trust SatelliteIDVerifier) *
 	}
 }
 
+func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *pb.QueryResponse, err error) {
+	return &pb.QueryResponse{}, nil
+}
+
 // Ping provides an easy way to verify a node is online and accepting requests
 func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.PingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
