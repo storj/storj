@@ -34,17 +34,17 @@ var (
 		},
 	}
 
-	interval   string
-	versionURL string
-	binaryPath string
+	interval       string
+	versionURL     string
+	binaryLocation string
 )
 
 func init() {
 	rootCmd.AddCommand(runCmd)
 
 	runCmd.Flags().StringVar(&interval, "interval", "06h", "interval for checking the new version")
-	runCmd.Flags().StringVar(&versionURL, "version-url", "https://version.storj.io/", "version server URL")
-	runCmd.Flags().StringVar(&binaryPath, "binary-path", "", "the storage node installation location")
+	runCmd.Flags().StringVar(&versionURL, "version-url", "https://version.storj.io/release/", "version server URL")
+	runCmd.Flags().StringVar(&binaryLocation, "binary-location", "storagenode.exe", "the storage node executable binary location")
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
