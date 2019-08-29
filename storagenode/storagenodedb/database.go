@@ -37,7 +37,6 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
-	"storj.io/storj/storagenode/vouchers"
 )
 
 var (
@@ -104,7 +103,6 @@ type DB struct {
 	reputationDB      *reputationDB
 	storageUsageDB    *storageusageDB
 	usedSerialsDB     *usedSerialsDB
-	vouchersDB        *vouchersDB
 
 	kdb, ndb, adb storage.KeyValueStore
 
@@ -378,7 +376,6 @@ func (db *DB) closeDatabases() error {
 		db.reputationDB.Close(),
 		db.storageUsageDB.Close(),
 		db.usedSerialsDB.Close(),
-		db.vouchersDB.Close(),
 	)
 }
 
@@ -440,11 +437,6 @@ func (db *DB) StorageUsage() storageusage.DB {
 // UsedSerials returns the instance of the UsedSerials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials {
 	return db.usedSerialsDB
-}
-
-// Vouchers returns the instance of the Vouchers database.
-func (db *DB) Vouchers() vouchers.DB {
-	return db.vouchersDB
 }
 
 // RoutingTable returns kademlia routing table
@@ -782,6 +774,36 @@ func (db *DB) Migration() *migrate.Migration {
 					)`,
 					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
 					`INSERT INTO piece_space_used (total) select ifnull(sum(piece_size), 0) from pieceinfo_`,
+				},
+			},
+			{
+				Description: "Drop vouchers table",
+				Version:     18,
+				Action: migrate.SQL{
+					`DROP TABLE vouchers`,
+				},
+			},
+			{
+				Description: "Add disqualified field to reputation",
+				Version:     19,
+				Action: migrate.SQL{
+					`DROP TABLE reputation;`,
+					`CREATE TABLE reputation (
+						satellite_id BLOB NOT NULL,
+						uptime_success_count INTEGER NOT NULL,
+						uptime_total_count INTEGER NOT NULL,
+						uptime_reputation_alpha REAL NOT NULL,
+						uptime_reputation_beta REAL NOT NULL,
+						uptime_reputation_score REAL NOT NULL,
+						audit_success_count INTEGER NOT NULL,
+						audit_total_count INTEGER NOT NULL,
+						audit_reputation_alpha REAL NOT NULL,
+						audit_reputation_beta REAL NOT NULL,
+						audit_reputation_score REAL NOT NULL,
+						disqualified TIMESTAMP,
+						updated_at TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id)
+					);`,
 				},
 			},
 			{
