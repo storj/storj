@@ -13,7 +13,8 @@ import (
 
 // Service2 contains information for populating audit queue and processing audits.
 type Service2 struct {
-	log *zap.Logger
+	log    *zap.Logger
+	closed chan struct{}
 
 	workers []*worker
 	queue   *queue
@@ -21,13 +22,14 @@ type Service2 struct {
 
 // NewService2 instantiates Service2 and workers.
 func NewService2(log *zap.Logger, config Config) (*Service2, error) {
-	queue := newQueue()
+	queue := &queue{}
 	var workers []*worker
 	for i := 0; i < config.WorkerCount; i++ {
 		workers = append(workers, newWorker(queue, config.QueueInterval))
 	}
 	return &Service2{
-		log: log,
+		log:    log,
+		closed: make(chan struct{}),
 
 		workers: workers,
 		queue:   queue,
@@ -52,9 +54,7 @@ func (service *Service2) Run(ctx context.Context) (err error) {
 
 // Close halts the reservoir chore and audit workers.
 func (service *Service2) Close() error {
-	service.queue.mu.Lock()
-	service.queue.close()
-	service.queue.mu.Unlock()
+	close(service.closed)
 	return nil
 }
 
@@ -78,7 +78,13 @@ func (w *worker) run(ctx context.Context) error {
 	defer ticker.Stop()
 
 	for {
-		_, err := w.queue.next(ctx)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		_, err := w.queue.next()
 		if err != nil && ErrEmptyQueue.Has(err) {
 			// wait for next poll interval or until close
 			select {

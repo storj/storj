@@ -720,6 +720,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.Service2.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Chore.Run(ctx))
 	})
 	group.Go(func() error {
@@ -775,6 +778,9 @@ func (peer *Peer) Close() error {
 
 	if peer.Audit.Chore != nil {
 		errlist.Add(peer.Audit.Chore.Close())
+	}
+	if peer.Audit.Service2 != nil {
+		errlist.Add(peer.Audit.Service2.Close())
 	}
 
 	// close services in reverse initialization order

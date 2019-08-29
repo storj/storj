@@ -43,13 +43,12 @@ func NewReservoirChore(log *zap.Logger, service *Service2, metaLoop *metainfo.Lo
 	}
 }
 
+// Run starts the reservoir chore
 func (chore *ReservoirChore) Run(ctx context.Context) error {
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
 		select {
-		case <-chore.service.queue.closed:
-			return nil
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
