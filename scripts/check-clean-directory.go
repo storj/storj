@@ -25,6 +25,10 @@ func main() {
 	leftover := strings.Split(strings.TrimSpace(string(out)), "\n")
 	leftover = ignoreDir(leftover, ".build")
 
+	// there's no easy way to modify npm to use tmp folders
+	leftover = ignoreDir(leftover, "node_modules")
+	leftover = ignoreDir(leftover, "dist")
+
 	if len(leftover) != 0 {
 		fmt.Println("Files left-over after running tests:")
 		for _, file := range leftover {

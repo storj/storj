@@ -106,9 +106,9 @@ pipeline {
                     }
                 }
 
-                stage('NPM') {
+                stage('npm') {
                     environment {
-                        NPM_CONFIG_CACHE = '/tmp/npm'
+                        NPM_CONFIG_CACHE = '/tmp/npm/cache'
                     }
                     steps {
                         dir("web/satellite") {
