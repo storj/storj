@@ -6,26 +6,27 @@ TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 IDENTS_DIR=$TMPDIR/identities
 CERTS_DIR=$TMPDIR/certificates
 
-  # TODO: find a better way
+# TODO: find a better way
 kill_certificates_server() {
   killall "certificates"
 }
 
-cleanup_int() {
-  kill_certificates_server
-  exit
-}
-
-cleanup_exit() {
+cleanup() {
+  if [[ -n $(ps | grep "certificates") ]]; then
+    kill_certificates_server
+  fi
   rm -rf "$TMPDIR"
   echo "cleaned up test successfully"
 }
 
-trap cleanup_exit EXIT
-trap cleanup_int INT
+trap cleanup EXIT INT
 
 _certificates() {
-  certificates --identity-dir "$IDENTS_DIR" --config-dir "$CERTS_DIR" "$@"
+  certificates --identity-dir "$IDENTS_DIR" \
+               --config-dir "$CERTS_DIR" \
+               --signer.ca.cert-path "${IDENTS_DIR}/certificates/ca.cert" \
+               --signer.ca.key-path "${IDENTS_DIR}/certificates/ca.key" \
+                "$@"
 }
 
 _identity() {
