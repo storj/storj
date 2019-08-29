@@ -6,7 +6,6 @@ package consoleql
 import (
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/storj/satellite/console"
 )
 
