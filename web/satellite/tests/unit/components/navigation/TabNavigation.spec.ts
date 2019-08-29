@@ -17,6 +17,7 @@ const navigation: NavigationLink[] = [
 ];
 
 describe('TabNavigation', () => {
+
     it('snapshot not changed', () => {
         const wrapper = shallowMount(TabNavigation, {
             localVue,

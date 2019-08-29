@@ -8,20 +8,17 @@ import * as sinon from 'sinon';
 describe('Button.vue', () => {
 
     it('renders correctly', () => {
-        const wrapper = shallowMount(Button, {
-            propsData: {
-                onPress: new Function(),
-            },
-        });
+
+        const wrapper = shallowMount(Button);
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with isWhite prop', () => {
+
         const wrapper = shallowMount(Button, {
             propsData: {
-                isWhite: true,
-                onPress: new Function(),
+                isWhite: true
             }
         });
 
@@ -29,10 +26,10 @@ describe('Button.vue', () => {
     });
 
     it('renders correctly with isDisabled prop', () => {
+
         const wrapper = shallowMount(Button, {
             propsData: {
-                isDisabled: true,
-                onPress: new Function(),
+                isDisabled: true
             }
         });
 
@@ -45,12 +42,7 @@ describe('Button.vue', () => {
         let height = '20px';
 
         const wrapper = shallowMount(Button, {
-            propsData: {
-                label,
-                width,
-                height,
-                onPress: new Function(),
-            },
+            propsData: {label, width, height},
         });
 
         expect(wrapper.element.style.width).toMatch(width);
@@ -59,11 +51,8 @@ describe('Button.vue', () => {
     });
 
     it('renders correctly with default props', () => {
-        const wrapper = shallowMount(Button, {
-            propsData: {
-                onPress: new Function(),
-            },
-        });
+
+        const wrapper = shallowMount(Button);
 
         expect(wrapper.element.style.width).toMatch('inherit');
         expect(wrapper.element.style.height).toMatch('inherit');
