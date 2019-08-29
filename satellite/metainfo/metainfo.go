@@ -1715,28 +1715,29 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	var encryptedKeyNonce storj.Nonce
 	var encryptedKey []byte
 	if len(pointer.Metadata) != 0 {
-		segmentMeta := pb.SegmentMeta{}
+		var segmentMeta *pb.SegmentMeta
 		if req.CursorPosition.Index == lastSegment {
 			streamMeta := &pb.StreamMeta{}
 			err = proto.Unmarshal(pointer.Metadata, streamMeta)
 			if err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
-			segmentMeta = *streamMeta.LastSegmentMeta
+			segmentMeta = streamMeta.LastSegmentMeta
 		} else {
-			err = proto.Unmarshal(pointer.Metadata, &segmentMeta)
+			err = proto.Unmarshal(pointer.Metadata, segmentMeta)
 			if err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 		}
+		if segmentMeta != nil {
+			encryptedKeyNonce, err = storj.NonceFromBytes(segmentMeta.KeyNonce)
+			if err != nil {
+				endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
+				return nil, status.Error(codes.Internal, err.Error())
+			}
 
-		encryptedKeyNonce, err = storj.NonceFromBytes(segmentMeta.KeyNonce)
-		if err != nil {
-			endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
-			return nil, status.Error(codes.Internal, err.Error())
+			encryptedKey = segmentMeta.EncryptedKey
 		}
-
-		encryptedKey = segmentMeta.EncryptedKey
 	}
 
 	if pointer.Type == pb.Pointer_INLINE {

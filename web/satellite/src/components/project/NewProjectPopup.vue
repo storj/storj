@@ -49,7 +49,6 @@
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
         NOTIFICATION_ACTIONS,
-        PROJECT_USAGE_ACTIONS,
         PM_ACTIONS,
     } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
@@ -58,6 +57,7 @@
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { CreateProjectModel, Project } from '@/types/projects';
+    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
     @Component({
         components: {
@@ -107,7 +107,11 @@
 
             this.selectCreatedProject();
 
-            this.clearProjectMembers();
+            try {
+                await this.fetchProjectMembers();
+            } catch (e) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            }
 
             this.clearApiKeys();
 
@@ -149,8 +153,8 @@
 
             try {
                 newProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-            } catch (e) {
-                this.notifyError(e.message);
+            } catch (error) {
+                this.notifyError(error.message);
             }
 
             this.createdProjectId = newProject.id;
@@ -172,9 +176,10 @@
                 : this.notifySuccess('Project created successfully!');
         }
 
-        private clearProjectMembers(): void {
-            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            this.$store.dispatch(PM_ACTIONS.CLEAR);
+        private async fetchProjectMembers(): Promise<void> {
+            await this.$store.dispatch(PM_ACTIONS.CLEAR);
+            const fistPage = 1;
+            await this.$store.dispatch(PM_ACTIONS.FETCH, fistPage);
         }
 
         private clearApiKeys(): void {

@@ -204,12 +204,7 @@ func (service *Service) handleBatches(ctx context.Context, requests chan Archive
 
 	buffer := make([]ArchiveRequest, 0, cap(requests))
 
-	for request := range requests {
-		buffer = append(buffer, request)
-		if len(buffer) < cap(buffer) {
-			continue
-		}
-
+	archive := func(ctx context.Context, archivedAt time.Time, requests ...ArchiveRequest) error {
 		if err := service.orders.Archive(ctx, time.Now().UTC(), buffer...); err != nil {
 			if !OrderNotFoundError.Has(err) {
 				return err
@@ -217,12 +212,26 @@ func (service *Service) handleBatches(ctx context.Context, requests chan Archive
 
 			service.log.Warn("some unsent order aren't in the DB", zap.Error(err))
 		}
+
+		return nil
+	}
+
+	for request := range requests {
+		buffer = append(buffer, request)
+		if len(buffer) < cap(buffer) {
+			continue
+		}
+
+		if err := archive(ctx, time.Now().UTC(), buffer...); err != nil {
+			return err
+		}
 		buffer = buffer[:0]
 	}
 
 	if len(buffer) > 0 {
-		return service.orders.Archive(ctx, time.Now().UTC(), buffer...)
+		return archive(ctx, time.Now().UTC(), buffer...)
 	}
+
 	return nil
 }
 

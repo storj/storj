@@ -113,7 +113,6 @@
 
 
     .user-container.selected {
-        box-shadow: 0px 12px 24px rgba(38, 131, 255, 0.4);
         background-color: #2683FF;
 
         .checkbox {
