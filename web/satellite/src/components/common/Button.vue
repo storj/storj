@@ -29,7 +29,7 @@
         private readonly isDeletion: boolean;
         @Prop({default: false})
         private isDisabled: boolean;
-        @Prop({default: new Function()})
+        @Prop({default: () => { return; }})
         private readonly onPress: Function;
         
         public get style(): Object {
