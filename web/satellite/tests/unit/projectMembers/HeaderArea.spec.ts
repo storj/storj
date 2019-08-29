@@ -41,6 +41,8 @@ describe('Team HeaderArea', () => {
         expect(wrapper).toMatchSnapshot();
         expect(addNewTemMemberPopup.length).toBe(0);
         expect(wrapper.findAll('.header-default-state').length).toBe(1);
+        expect(wrapper.findAll('.blur-content').length).toBe(0);
+        expect(wrapper.findAll('.blur-search').length).toBe(0);
         expect(wrapper.vm.isDeleteClicked).toBe(false);
     });
 
@@ -58,6 +60,8 @@ describe('Team HeaderArea', () => {
         expect(addNewTemMemberPopup.length).toBe(1);
         expect(wrapper.findAll('.header-default-state').length).toBe(1);
         expect(wrapper.vm.isDeleteClicked).toBe(false);
+        expect(wrapper.findAll('.blur-content').length).toBe(0);
+        expect(wrapper.findAll('.blur-search').length).toBe(0);
 
         store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
     });
@@ -81,6 +85,8 @@ describe('Team HeaderArea', () => {
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.vm.selectedProjectMembersCount).toBe(selectedUsersCount);
         expect(wrapper.vm.isDeleteClicked).toBe(false);
+        expect(wrapper.findAll('.blur-content').length).toBe(0);
+        expect(wrapper.findAll('.blur-search').length).toBe(0);
     });
 
     it('renders correctly with 2 selected users and delete clicked once', () => {
@@ -103,9 +109,11 @@ describe('Team HeaderArea', () => {
         expect(wrapper.vm.selectedProjectMembersCount).toBe(selectedUsersCount);
         expect(wrapper.vm.userCountTitle).toBe('users');
         expect(wrapper.vm.isDeleteClicked).toBe(true);
+        expect(wrapper.findAll('.blur-content').length).toBe(1);
+        expect(wrapper.findAll('.blur-search').length).toBe(1);
 
         const expectedSectionRendered = wrapper.find('.header-after-delete-click');
-        expect(expectedSectionRendered.text()).toBe(`Are you sure you want to delete ${selectedUsersCount} users?`)
+        expect(expectedSectionRendered.text()).toBe(`Are you sure you want to delete ${selectedUsersCount} users?`);
     });
 
     it('renders correctly with 1 selected user and delete clicked once', () => {
@@ -128,8 +136,10 @@ describe('Team HeaderArea', () => {
         expect(wrapper.vm.selectedProjectMembersCount).toBe(selectedUsersCount);
         expect(wrapper.vm.userCountTitle).toBe('user');
         expect(wrapper.vm.isDeleteClicked).toBe(true);
+        expect(wrapper.findAll('.blur-content').length).toBe(1);
+        expect(wrapper.findAll('.blur-search').length).toBe(1);
 
         const expectedSectionRendered = wrapper.find('.header-after-delete-click');
-        expect(expectedSectionRendered.text()).toBe(`Are you sure you want to delete ${selectedUsersCount} user?`)
+        expect(expectedSectionRendered.text()).toBe(`Are you sure you want to delete ${selectedUsersCount} user?`);
     });
 });

@@ -3,7 +3,6 @@
 
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 import Vuex from 'vuex';
-
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
@@ -38,10 +37,10 @@ describe('ProjectMembersArea.vue', () => {
             localVue
         });
 
-        const emptySearchResultArea = wrapper.findAll('.empty-search-result-area');
+        const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
         expect(emptySearchResultArea.length).toBe(1);
 
-        const teamContainer = wrapper.findAll('.team-container');
+        const teamContainer = wrapper.findAll('.team-area__container');
         expect(teamContainer.length).toBe(0);
 
         expect(wrapper).toMatchSnapshot();
@@ -69,10 +68,10 @@ describe('ProjectMembersArea.vue', () => {
             localVue
         });
 
-        const emptySearchResultArea = wrapper.findAll('.empty-search-result-area');
+        const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
         expect(emptySearchResultArea.length).toBe(0);
 
-        const teamContainer = wrapper.findAll('.team-container');
+        const teamContainer = wrapper.findAll('.team-area__container');
         expect(teamContainer.length).toBe(1);
 
         const sortingListHeaderStub = wrapper.findAll('sortinglistheader-stub');

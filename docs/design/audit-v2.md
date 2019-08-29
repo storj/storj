@@ -2,73 +2,101 @@
 
 ## Abstract
 
-This design doc outlines how we will implement a Version 2 of the auditing service.
-With our current auditing service, we are auditing per segment of data.
-We propose to replace this method of auditing with a new selection process that selects by random node instead.
+This design document describes auditing based on reservoir sampling segments per node.
 
 ## Background
 
 As our network grows, it will take longer for nodes to get vetted.
 This is because every time an upload happens, we send 5% of the uploaded data to unvetted nodes and 95% to vetted nodes.
-When auditing occurs, we currently select a random stripe within a random segment.
-If we're selecting audits at random per byte, every segment has some percentage that went to vetted nodes.
-As more nodes join the network, it will become exponentially less likely that an unvetted node will be audited since most data will be stored on vetted nodes.
-With a satellite with one petabyte of data, new nodes will take one month to get vetted. However, with 12PB of data on the network, this vetting process time would take 12 months, which is much too long. We need a scalable approach.
+Currently, we select a random stripe from a random segment for audits.
+This correlates with auditing per byte. This means we are less likely to audit an unvetted node because only 5% gets uploaded to unvetted nodes.
+It will become exponentially less likely that an unvetted node will be audited.
 
-We want a way to select segments to audit based on statistically randomly selected storage nodes.
-Currently, there's not a way to select a random storage node and audit on that basis.
+With a satellite with one petabyte of data, new nodes will take one month to get vetted.
+However, with 12PB of data on the network, this vetting process time would take 12 months, which is much too long.
+We need a scalable approach.
+
+We want a way to select segments to audit based such that every node has an equal likelihood to be audited.
 
 ## Design
 
-We will create an audit observer that uses the metainfo loop, and this observer will create a reservoir sample of segments for every node. This audit observer will replace the existing method of auditing per byte. The observer will loop through all of metainfo and build a reservoir cache for each node. The audit will then pick a configurable number of random nodes, then a random segment to audit from each of the nodes' reservoirs.
+1. An audit observer iterates over the segments and uses reservoir sampling to pick paths for each node.
+2. Once we have iterated over metainfo, we will put the segments from reservoirs in random order into audit queue.
+3. Audit workers pick a segment from the queue.
+4. Audit worker then picks a random stripe from the segment to audit.
 
-If each segment generates 80 pieces on average, every time we pick a segment, we're not only auditing one specific node, we're also auditing 79 other nodes. The chance of a node appearing in a segment's pointer is proportional to the amount of data that the node actually stores. The more data that the node stores, the more chance it will be audited. We will set a minimum number of audits for unvetted nodes, and expect more audits for nodes that store more data.
+Using reservoir sampling means we have an equal chance to pick a segment for every node.
+Since every segment also audits 79 other nodes, we also audit other nodes.
+The chance of a node appearing in a segment pointer is proportional to the amount of data that the node actually stores.
+The more data that the node stores, the more chance it will be audited.
 
-After selection, the rest of the auditing process will occur the same way as it does currently: picking a random segment, picking a random stripe, downloading all erasure shares associated with that stripe and using Berlekamp-Welch algorithm (via the Infectious library) to verify that they haven't been altered.
-The chances of selecting the same stripe are rare, but it's normal/expected behavior if occasionally a stripe is audited more than once.
+For unvetted and vetted nodes, we can have different reservoir sizes to ensure that unvetted nodes get audited faster.
 
-We plan to run a simulation for this new method of auditing so we can estimate appropriate settings around reservoir sampling. If we decide that we want to prefer nodes with less audits, then we will implement the power of two choices, in which we randomly select two nodes, then choose the one with less audits.
-This would still require tracking number of audits, but it would prevent having to sort and query all nodes by audit count, which could cause undesirable behavior. For example, when new nodes join the network, the audit system could become stuck auditing only new nodes, and ignoring more established nodes.
+By using a separate queue, we ensure that workers can run in separate processes and simplifies selection logic.
+When we finish a new reservoir set, we override the previous queue, rather than adding to it.
+Since the new data is more up to date and there's no downside in clearing the queue.
+To have less predictability, we add the whole reservoir set in random node order, one segment at a time, to the queue.
 
-We are expecting close to 3 audits per day for unvetted nodes. The satellite currently issues one audit every 30 seconds, the current interval, which gives us close to 3,000 audits per day. There are about 1,000 nodes on the network currently. This could mean that the default size of a reservoir should be three, if we assume a full iteration of reservoirs in one day.
+Audit workers audit as previously:
+
+1. Pick a segment from the queue.
+2. Pick a random stripe.
+3. Download all erasure shares.
+4. Use Berlekamp-Welch algorithm to verify correctness.
+
+This is a simplified version that doesn't describe [containment mode](audit-containment.md). Chances of selecting the same stripe are rare, but it wouldn't cause any significant harm.
+
+To estimate appropriate settings for reservoir sampling, we need to run a simulation.
 
 ### Selection via Reservoir Sampling
 
 Reservoir sampling: a family of algorithms for randomly choosing a sample of items with uniform probability from a stream of data (of unknown size).
 
-As the audit observer uses the metainfo loop to iterate through the pointerdb, we're going through all segments and creating reservoirs per node, and filling the reservoirs with segments to audit.
+Audit observer uses metainfo loop to iterate through the metainfo. It creates a reservoir per node. Reservoirs are filled with segments.
 
-In order to increase the amount of audits for unvetted nodes, we can build larger reservoir samples for unvetted nodes.
+To increase audits for unvetted nodes, we can create a larger reservoir for unvetted nodes.
 Two configurations for reservoir sampling: number of segments per unvetted nodes, and for vetted.
 
-E.g. If nodes n000, n002, and n003 are vetted, they will have less reservoir slots than unvetted nodes n001 and n004.
+E.g. If nodes `n000`, `n002`, and `n003` are vetted, they will have fewer reservoir slots than unvetted nodes `n001` and `n004`.
 
+```
 n000 + + + +
 n001 + + + + + + +
 n002 + + + +
 n003 + + + +
 n004 + + + + + + +
+```
 
 Unvetted nodes should get 25,000 pieces per month. On a good day, there will be 1000 pieces added to an unvetted node, which should quickly fill the reservoir sample.
 
-+ We have a reservoir of k items and a stream of n items, where n is an unknown number.
-+ Fill the reservoir from [0...k-1] with the first k items in the stream
-+ For every item in the stream from index i=k..n-1, pick a random number j=rand(0..i), and if j<k, replace reservoir[j] with stream[i]
+Algorithm:
 
-## Rationale: Discussion of Alternate Approaches, Advantages, Disadvantages
++ We have a reservoir of `k` items and a `stream` of `n` items, where `n` is an unknown number.
++ Fill the reservoir from `[0...k-1]` with the first `k` items in the `stream`.
++ For every item in the `stream` from index `i=k..n-1`, pick a random number `j=rand(0..i)`, and if `j<k`, replace `reservoir[j]` with `stream[i]`.
 
-An audit observer on the metainfo loop, like every observer on the loop, will always hit every segment on the satellite exactly once, allowing us to get the most accurate possible sample for each node.
+## Rationale
 
-While we initially considered integrating the audit system's random node selection process with the existing garbage collection observer, we decided not to do this because the difference in required interval for each observer would mean either too many gc bloom filters being created unnecessarily or audits occurring too slowly.
+An audit observer using metainfo loop will hit every segment exactly once, allowing us to get the most accurate possible sample for each node.
+
+While we initially considered integrating the audit system's random node selection process with the existing garbage collection observer,
+we decided not to do this because the difference in required interval for each observer would mean either too many bloom filters being created unnecessarily or audits occurring too slowly.
+It also simplifies the implementation.
 
 An initial idea for implementation was to sort the nodes table for nodes with least amount of audits, then select one node randomly within that low amount of audits.
-However, we decided it may not be necessary to keep track of how many audits per storage node if we're able to randomly select across nodes. Also, as new nodes join, this method won't adequately select older nodes or nodes with more audits. This method would also require performance optimizations to account for reads from the db, and updates when audits happen.
+However, we decided it may not be necessary to keep track of how many audits per storage node if we're able to randomly select across nodes.
+Also, as new nodes join, this method won't adequately select older nodes or nodes with more audits.
+This method would also require performance optimizations to account for reads from the DB, and updates when audits happen.
 Random selection comes with an overall easier algorithm to implement with more statistical balance across the nodes.
 
 Another approach that we decided not to pursue was the a reverse method of looking up segments or pieces by node ID e.g. a table where each row is a node ID and an encrypted metainfo path.
 Every time a segment is committed or deleted, that table (and every node) gets updated.
 This could simplify the garbage collection process, but complexify upload and download.
 We decided that this would increase database size too significantly to be viable.
+
+If we need fewer audits, then we could use power of two choices, in which we randomly select two nodes, then choose the one with fewer audits.
+This would require tracking number of audits, but it would prevent having to sort and query all nodes by audit count, which could cause undesirable behavior.
+For example, when new nodes join the network, the audit system could become stuck auditing only new nodes, and ignoring more established nodes.
 
 ## Implementation
 
@@ -86,7 +114,7 @@ We decided that this would increase database size too significantly to be viable
 
 From Moby: "The main issue with integrating it into the gc observer is it means we will always be forcing the gc interval and the node audit reservoir sampling interval to be exactly the same. I don't think the performance gain of combining the two is necessarily worth the limitations created. Plus, this is the entire reason we created the metainfo loop/observer architecture."
 
-    - We want uploads to be performant with minimal db transactions, but we know that audits need to happen very frequently.
+    - We want uploads to be performant with minimal DB transactions, but we know that audits need to happen very frequently.
     - We'll create a new audit observer.
 
 2. Should we run both audit selection processes within the same loop or in separate loops? (resolved)

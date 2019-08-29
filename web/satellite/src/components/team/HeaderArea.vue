@@ -22,6 +22,8 @@
                     </div>
                 </div>
             </HeaderComponent>
+            <div class="blur-content" v-if="isDeleteClicked"></div>
+            <div class="blur-search" v-if="isDeleteClicked"></div>
 	    </div>
         <AddUserPopup v-if="isAddTeamMembersPopupShown"/>
     </div>
@@ -33,7 +35,7 @@
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import { ProjectMember, ProjectMemberHeaderState } from "@/types/projectMembers";
+    import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
     import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
     declare interface ClearSearch {
@@ -51,11 +53,11 @@
         @Prop({default: ProjectMemberHeaderState.DEFAULT})
         private readonly headerState: ProjectMemberHeaderState;
         @Prop({default: 0})
-        private readonly selectedProjectMembersCount: number;
+        public readonly selectedProjectMembersCount: number;
 
         private FIRST_PAGE = 1;
 
-        private isDeleteClicked: boolean = false;
+        public isDeleteClicked: boolean = false;
 
         public $refs!: {
             headerComponent: HeaderComponent & ClearSearch
@@ -170,6 +172,29 @@
         display: flex;
         align-items: center;
         justify-content: flex-start;
+        position: relative;
+
+        .blur-content {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #F5F6FA;
+            width: 100%;
+            height: 70vh;
+            z-index: 100;
+            opacity: 0.3;
+        }
+
+        .blur-search {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 602px;
+            height: 56px;
+            z-index: 100;
+            opacity: 0.3;
+            background-color: #F5F6FA;
+        }
     }
 
     .container.deletion {
