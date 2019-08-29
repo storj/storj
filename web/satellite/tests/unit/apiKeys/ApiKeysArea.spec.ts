@@ -6,6 +6,7 @@ import Vuex from 'vuex';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import { ApiKey } from '@/types/apiKeys';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { makeNotificationsModule } from '@/store/modules/notifications';
 import { API_KEYS_MUTATIONS } from '@/store/mutationConstants';
 import { ApiKeysApiGql } from '@/api/apiKeys';
 
@@ -13,8 +14,9 @@ const localVue = createLocalVue();
 localVue.use(Vuex);
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
+const notificationsModule = makeNotificationsModule();
 const ADD = API_KEYS_MUTATIONS.ADD;
-const store = new Vuex.Store(apiKeysModule);
+const store = new Vuex.Store({ modules: { apiKeysModule, notificationsModule }});
 
 describe('ApiKeysArea', () => {
     let apiKey = new ApiKey('testId', 'test', 'test', 'test');
