@@ -8,21 +8,18 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-
-	"storj.io/storj/satellite/metainfo"
 )
 
 // Service2 contains information for populating audit queue and processing audits.
 type Service2 struct {
 	log *zap.Logger
 
-	reservoirChore *ReservoirChore
-	workers        []*worker
-	queue          *queue
+	workers []*worker
+	queue   *queue
 }
 
-// NewService2 instantiates Service2, ReservoirChore and workers.
-func NewService2(log *zap.Logger, config Config, metaloop *metainfo.Loop) (*Service2, error) {
+// NewService2 instantiates Service2 and workers.
+func NewService2(log *zap.Logger, config Config) (*Service2, error) {
 	queue := newQueue()
 	var workers []*worker
 	for i := 0; i < config.WorkerCount; i++ {
@@ -31,9 +28,8 @@ func NewService2(log *zap.Logger, config Config, metaloop *metainfo.Loop) (*Serv
 	return &Service2{
 		log: log,
 
-		reservoirChore: NewReservoirChore(log.Named("reservoir chore"), queue, metaloop, config),
-		workers:        workers,
-		queue:          queue,
+		workers: workers,
+		queue:   queue,
 	}, nil
 }
 
@@ -43,10 +39,6 @@ func (service *Service2) Run(ctx context.Context) (err error) {
 	service.log.Info("audit 2.0 is starting up")
 
 	var group errgroup.Group
-	group.Go(func() error {
-		return service.reservoirChore.populateQueueJob(ctx)
-	})
-
 	for _, worker := range service.workers {
 		group.Go(func() error {
 			return worker.run(ctx)

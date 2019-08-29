@@ -194,6 +194,7 @@ type Peer struct {
 	Audit struct {
 		Service  *audit.Service
 		Service2 *audit.Service2
+		Chore    *audit.ReservoirChore
 	}
 
 	GarbageCollection struct {
@@ -491,11 +492,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		// setup audit 2.0
 		peer.Audit.Service2, err = audit.NewService2(peer.Log.Named("audit service 2"),
 			config,
-			peer.Metainfo.Loop,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Audit.Chore = audit.NewReservoirChore(peer.Log.Named("audit reservoir chore"),
+			peer.Audit.Service2,
+			peer.Metainfo.Loop,
+			config,
+		)
 	}
 
 	{ // setup garbage collection
@@ -714,6 +720,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.Chore.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
 	})
 	group.Go(func() error {
@@ -762,6 +771,10 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Marketing.Endpoint.Close())
 	} else if peer.Marketing.Listener != nil {
 		errlist.Add(peer.Marketing.Listener.Close())
+	}
+
+	if peer.Audit.Chore != nil {
+		errlist.Add(peer.Audit.Chore.Close())
 	}
 
 	// close services in reverse initialization order
