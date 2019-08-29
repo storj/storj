@@ -27,6 +27,7 @@ require (
 	github.com/boltdb/bolt v1.3.1
 	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b
 	github.com/djherbis/atime v1.0.0 // indirect
+	github.com/docker/docker v0.0.0-20170502054910-90d35abf7b35
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eapache/go-resiliency v1.1.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
