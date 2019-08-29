@@ -1,5 +1,7 @@
 # Storage Node Graceful Exit - Reports
 
+[Graceful Exit Overview](storagenode-graceful-exit-overview.md)
+
 ## Abstract
 
 A satellite operator needs to know that status of exiting nodes in order to process escrows. 

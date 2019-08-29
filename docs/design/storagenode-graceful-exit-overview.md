@@ -14,6 +14,8 @@ The process must also consider that the storage nodes may have limited bandwidth
 
 A storage node will no longer participate in repairs or uploads once a Graceful Exit has been initiated. In addition, bandwidth used for piece transfers should not count against bandwidth used.
 
+The exiting node must continue to respond to audit and download requests.
+
 ### Non-Goals
 
 There are scenarios that this design document does not handle:

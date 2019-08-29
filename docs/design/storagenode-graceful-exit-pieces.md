@@ -1,8 +1,10 @@
 # Storage Node Graceful Exit - Gathering Pieces
 
+[Graceful Exit Overview](storagenode-graceful-exit-overview.md)
+
 ## Abstract
 
-During [Graceful Exit](storagenode-graceful-exit-overview.md), a satellite needs to find pieces to be transferred from the exiting storage node.
+During Graceful Exit, a satellite needs to find pieces to be transferred from the exiting storage node.
 
 ## Background
 
@@ -16,7 +18,8 @@ We need a service on the satellite that finds pieces in the metainfo database th
 
 The service starts by asking overlay for all exiting nodes.
 
-Then joins a metainfo loop to iterate over all segments. For any segment that contains nodes that are exiting it will add an entry to a queue. We call this transfer queue.
+Then joins a metainfo loop to iterate over all segments. For any segment that contains nodes that are exiting it will add an entry to a queue (if durability <= optimal). We call this the transfer queue. If durability > optimal, we remove the exiting node from the segment / pointer.
+
 
 The transfer queue is stored in database. We will need batching when inserting to database to avoid excessive load.
 
@@ -38,5 +41,3 @@ The metainfo loop `Join` guarantees the observer will only receive events at the
 4. Update satellite to ignore exiting storage nodes for repairs and uploads.
 
 ## Open issues (if applicable)
-
-- Can pieces with really high durability can be ignored?

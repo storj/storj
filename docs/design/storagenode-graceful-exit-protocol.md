@@ -1,5 +1,7 @@
 # Storage Node Graceful Exit - Transferring Pieces
 
+[Graceful Exit Overview](storagenode-graceful-exit-overview.md)
+
 ## Abstract
 
 This document describes how storage node transfers its pieces during Graceful Exit.
@@ -28,10 +30,11 @@ The storage node should concurrently transfer pieces returned by the satellite. 
 
 The satellites should set the `finished_at` on success, and respond with a `DeletePiece` message. Otherwise set the `failed_at` and `failure_status_code` for reprocessing.
 
-The satellite should respond with a `ExitCompleted` message when all pieces have finished processing. 
-The storage node should store the completion receipt, stop transfer processing, and remove all remaining pieces for the satellite.
+The satellite should respond with an `ExitCompleted` message when all pieces have finished processing. 
 
-When the storage node has failed too many transfers or has sent incorrect data, the satellite will send `ExitFailed`. This indicates that the process has ended ungracefully.
+If the storage node has failed too many transfers or has sent incorrect data, the satellite will send an `ExitFailed` message. This indicates that the process has ended ungracefully.
+
+In either case, the storage node should store the completion / failure receipt, stop transfer processing, and remove all remaining pieces for the satellite.
 
 ### Transferring a Piece
 
@@ -44,7 +47,8 @@ The storage node will start a new piece upload to the replacement node similar t
 #### Verifying transfer
 
 The storage node sends the piece hash, order limit, original "uploader" signature, and piece hash signed by the replacement node to the satellite for confirmation.
-The satellite verifies that the original piece hash matches the replacement piece hash, and verifies the order limits signature. On success, the satellite will update segment / pointer information. If verification fails, the satellite will send `ExitFailed`.
+
+The satellite verifies that the original piece hash matches the replacement piece hash, and verifies the order limit's signature. On success, the satellite will update segment / pointer information. If verification fails, the satellite will send an `ExitFailed` message.
 
 ![Transfer Sequence](./images/storagenode-graceful-exit-transfer-sequence.svg)
 
@@ -56,7 +60,7 @@ When the upload has been verified the satellite will use `CompareAndSwap` to onl
 - Segment / pointer pieces were changed, in that case we load the pointer and retry `CompareAndSwap`. When the storage node at that piece number has changed, we'll ignore the piece transferred for the exit, because one of them needs to be discarded.
 - Segment / pointer was deleted or is being deleted. We'll ignore the piece transferred for the exit.
 
-After changing the segment / pointer, we'll delete the piece from transfer queue, update progress, and send a `DeletePiece` to the exiting node.
+After processing the segment / pointer, we'll delete the piece from transfer queue, update progress, and send a `DeletePiece` to the exiting node.
 
 #### Handling transfer failure
 
@@ -69,11 +73,13 @@ We could have a separate initiate graceful exit RPC, however this would complica
 ## Implementation
 
 1. Add protobuf definitions.
-2. Implement verifying a transfer on the satellite.
-3. Implement transferring a single piece on storage node.
-4. Implement swapping node in segment.
-5. Implement non-async protocol for exiting.
-6. Implement async protocol for exiting.
+2. Update node selection to ignore exiting nodes for repairs and uploads. 
+3. Update repairer to repair segments for nodes that failed an exit.
+4. Implement verifying a transfer on the satellite.
+5. Implement transferring a single piece on storage node.
+6. Implement swapping node in segment.
+7. Implement non-async protocol for exiting.
+8. Implement async protocol for exiting.
 
 ### Sketch
 
@@ -181,7 +187,7 @@ message StorageNodeMessage {
                 STORAGE_NODE_UNAVAILABLE = 1;
                 UNKNOWN = 2;
             }
-            Error error = 0;
+            Error error;
         }
     }
 }
@@ -201,9 +207,19 @@ message SatelliteMessage {
             bytes piece_id;
         }
 
-        message Completed {
+        message ExitCompleted {
             // when everything is completed
             bytes exit_complete_signature;
+        }
+
+        message ExitFailed {
+            enum Reason {
+                VERIFICATION_FAILED = 0;
+                ...
+            }
+            // on failure
+            bytes exit_failure_signature;
+            Reason reason;
         }
     }
 }

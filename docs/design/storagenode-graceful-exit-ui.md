@@ -1,5 +1,7 @@
 # Storage Node Graceful Exit - User Interface
 
+[Graceful Exit Overview](storagenode-graceful-exit-overview.md)
+
 ## Abstract
 
 A storage node operator needs the ability to request a Graceful Exit on a per satellite basis.
@@ -15,6 +17,8 @@ The storage node operator needs:
 ## Design
 
 Add a command `storagenode exit-satellite` to initiate a Graceful Exit.
+
+The command should present a message describing the consequences of starting a graceful exit. The user must confirm before continuing.
 
 The command should present a list of satellites to exit. The user needs to type the satellite domain name to start exiting. Only satellites that haven't been exited will be displayed.
 
