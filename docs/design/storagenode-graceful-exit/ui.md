@@ -1,6 +1,6 @@
 # Storage Node Graceful Exit - User Interface
 
-[Graceful Exit Overview](storagenode-graceful-exit-overview.md)
+[Graceful Exit Overview](overview.md)
 
 ## Abstract
 
@@ -48,7 +48,7 @@ For `exit-satellite` command it could stay up and show exiting progress. However
 ## Implementation
 
 - Add `storagenode exit-satellite` command to storagenode CLI, which calls `gexit.Service.InitiateExit`.
-	- Once initiated [protocol for transferring pieces](storagenode-graceful-exit-protocol.md) should start.
+	- Once initiated [protocol for transferring pieces](protocol.md) should start.
 - Add `storagenode exit-status` command to storagenode CLI. This returns completion status as described above.
 - TODO: terminating graceful exit?
 

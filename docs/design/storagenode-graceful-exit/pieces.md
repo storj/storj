@@ -1,6 +1,6 @@
 # Storage Node Graceful Exit - Gathering Pieces
 
-[Graceful Exit Overview](storagenode-graceful-exit-overview.md)
+[Graceful Exit Overview](overview.md)
 
 ## Abstract
 

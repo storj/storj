@@ -1,6 +1,6 @@
 # Storage Node Graceful Exit - Reports
 
-[Graceful Exit Overview](storagenode-graceful-exit-overview.md)
+[Graceful Exit Overview](overview.md)
 
 ## Abstract
 
@@ -41,5 +41,5 @@ GB transferred will be retrieved from a new `graceful_exit_progress` table.
 - Add "exit" fields to `nodes` table.
 - Add `cmd/satellite/reports/graceful-exit.go` with methods `GracefullyExited` and `GracefullyExiting`, adding and adjusting database interfaces, if necessary. Accepts start and end date as parameters. Dates are inclusive, ignoring time.
 - Add commands `gracefully-exited-report` and `gracefully-exiting-report` to satellite CLI.
-    - See [Protocol for transferring pieces.](storagenode-graceful-exit-protocol.md) for details on `graceful_exit_progress`.
+    - See [Protocol for transferring pieces.](protocol.md) for details on `graceful_exit_progress`.
 

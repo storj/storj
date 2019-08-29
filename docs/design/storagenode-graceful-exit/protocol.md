@@ -1,6 +1,6 @@
 # Storage Node Graceful Exit - Transferring Pieces
 
-[Graceful Exit Overview](storagenode-graceful-exit-overview.md)
+[Graceful Exit Overview](overview.md)
 
 ## Abstract
 
@@ -10,7 +10,7 @@ This document describes how storage node transfers its pieces during Graceful Ex
 
 During Graceful Exit a storage node needs to transfer pieces to other nodes. During transfering the storage node or satellite may crash, hence it needs to be able to continue after a restart. 
 
-Satellite gathers transferred pieces list asynchronously, which is described in [Gathering Pieces Document](storagenode-graceful-exit-pieces.md). This may consume a significant amount of time.
+Satellite gathers transferred pieces list asynchronously, which is described in [Gathering Pieces Document](pieces.md). This may consume a significant amount of time.
 
 Transferring a piece to another node may fail, hence we need to ensure that critical pieces get transferred. Storage nodes can be malicious and try to misreport transfer as "failed" or "completed". A storage node may also try to send incorrect data. This means we need proof that the correct piece was transferred.
 
@@ -50,7 +50,7 @@ The storage node sends the piece hash, order limit, original "uploader" signatur
 
 The satellite verifies that the original piece hash matches the replacement piece hash, and verifies the order limit's signature. On success, the satellite will update segment / pointer information. If verification fails, the satellite will send an `ExitFailed` message.
 
-![Transfer Sequence](./images/storagenode-graceful-exit-transfer-sequence.svg)
+![Transfer Sequence](./images/transfer-sequence.svg)
 
 #### Updating the Segment / Pointer
 
