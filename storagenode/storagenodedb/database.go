@@ -193,7 +193,6 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 		reputationDB:      newReputationDB(versionsDB),
 		storageUsageDB:    newStorageusageDB(versionsDB),
 		usedSerialsDB:     newUsedSerialsDB(versionsDB),
-		vouchersDB:        newVouchersDB(versionsDB),
 	}
 	return db, nil
 }
@@ -293,17 +292,6 @@ func (db *DB) openDatabases(databasesPath string) error {
 	} else {
 		db.usedSerialsDB.SQLDB = usedSerialsDB
 	}
-
-	vouchersDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, VouchersDatabaseFilename))
-	if err != nil {
-		return err
-	}
-	if db.vouchersDB == nil {
-		db.vouchersDB = newVouchersDB(vouchersDB)
-	} else {
-		db.vouchersDB.SQLDB = vouchersDB
-	}
-
 	return nil
 }
 
@@ -808,7 +796,7 @@ func (db *DB) Migration() *migrate.Migration {
 			},
 			{
 				Description: "Split into multiple sqlite databases",
-				Version:     18,
+				Version:     20,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					// We keep database version information in the info.db but we migrate
 					// the other tables into their own individual SQLite3 databases
