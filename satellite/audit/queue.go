@@ -38,15 +38,11 @@ func (queue *queue) swap(newQueue []storj.Path) {
 
 // next gets the next item in the queue.
 func (queue *queue) next(ctx context.Context) (storj.Path, error) {
-	queue.cond.L.Lock()
-	defer queue.cond.L.Unlock()
-
 	ticker := time.NewTicker(queue.pollInterval)
+	defer ticker.Stop()
 
 	// This waits until the queue is repopulated, closed, or context is canceled.
 	for len(queue.queue) == 0 {
-		queue.cond.L.Unlock()
-
 		select {
 		case <-queue.closed:
 			return "", Error.New("queue is closed")
@@ -54,10 +50,10 @@ func (queue *queue) next(ctx context.Context) (storj.Path, error) {
 			return "", ctx.Err()
 		case <-ticker.C:
 		}
-		queue.cond.L.Lock()
 	}
 
-	ticker.Stop()
+	queue.cond.L.Lock()
+	defer queue.cond.L.Unlock()
 
 	next := queue.queue[0]
 	queue.queue = queue.queue[1:]
