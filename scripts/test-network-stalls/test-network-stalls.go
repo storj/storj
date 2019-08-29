@@ -1,8 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build ignore
-
 // Tests whether the uplink tool correctly times out when one of the storage nodes it's talking to
 // suddenly stops responding. In particular, this currently tests that happening during a Delete
 // operation, because that is where we have observed indefinite hangs before.
@@ -27,8 +25,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-
-	"storj.io/storj/internal/memory"
 )
 
 var (
@@ -36,13 +32,13 @@ var (
 	bucketName    = flag.String("bucket", "bukkit", "name of bucket to use for test")
 	deleteTimeout = flag.Duration("timeout", 60*time.Second, "how long to wait for a delete to succeed or time out")
 
-	fileSize memory.Size = 5 * memory.MiB
+	fileSize int64
 
 	tryAgain = errs.New("test needs to run again")
 )
 
 func init() {
-	flag.Var(&fileSize, "file-size", "size of test file to use")
+	flag.Int64Var(&fileSize, "file-size", 5*1024*1024, "size of test file to use")
 }
 
 type randDefaultSource struct{}
@@ -51,7 +47,7 @@ func (randSource *randDefaultSource) Read(p []byte) (int, error) {
 	return rand.Read(p)
 }
 
-func makeRandomContentsFile(path string, size memory.Size) (err error) {
+func makeRandomContentsFile(path string, size int64) (err error) {
 	outFile, err := os.Create(path)
 	if err != nil {
 		return err
@@ -59,7 +55,7 @@ func makeRandomContentsFile(path string, size memory.Size) (err error) {
 	defer func() {
 		err = errs.Combine(err, outFile.Close())
 	}()
-	if _, err := io.CopyN(outFile, &randDefaultSource{}, int64(size)); err != nil {
+	if _, err := io.CopyN(outFile, &randDefaultSource{}, size); err != nil {
 		return err
 	}
 	return nil

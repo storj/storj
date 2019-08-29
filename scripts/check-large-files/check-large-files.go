@@ -1,20 +1,22 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build ignore
-
 package main
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+)
 
-	"storj.io/storj/internal/memory"
+const (
+	KB = 1e3
+	MB = 1e6
 )
 
 func main() {
-	const fileSizeLimit = 600 * memory.KB
+	const fileSizeLimit = 600 * KB
 
 	var failed int
 
@@ -27,10 +29,10 @@ func main() {
 			return filepath.SkipDir
 		}
 
-		size := memory.Size(info.Size())
+		size := info.Size()
 		if size > fileSizeLimit {
 			failed++
-			fmt.Printf("%v (%v)\n", path, size)
+			fmt.Printf("%v (%s)\n", path, formatSize(size))
 		}
 
 		return nil
@@ -40,7 +42,18 @@ func main() {
 	}
 
 	if failed > 0 {
-		fmt.Printf("some files were over size limit %v\n", fileSizeLimit)
+		fmt.Printf("some files were over size limit %s\n", formatSize(fileSizeLimit))
 		os.Exit(1)
+	}
+}
+
+func formatSize(size int64) string {
+	switch fsize := float64(size); {
+	case fsize >= MB*2/3:
+		return fmt.Sprintf("%.1f MB", fsize/MB)
+	case fsize >= KB*2/3:
+		return fmt.Sprintf("%.1f KB", fsize/KB)
+	default:
+		return strconv.FormatInt(size, 10) + " B"
 	}
 }

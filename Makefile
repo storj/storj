@@ -40,12 +40,15 @@ help:
 
 ##@ Dependencies
 
-.PHONY: build-dev-deps
-build-dev-deps: ## Install dependencies for builds
-	go get github.com/mattn/goveralls
-	go get golang.org/x/tools/cover
-	go get github.com/modocache/gover
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.1
+.PHONY: install-tools
+install-tools: ## Install dependencies for development
+	cd ./scripts; go install github.com/ckaznocha/protoc-gen-lint
+	cd ./scripts; go install github.com/gogo/protobuf/protoc-gen-gogo
+	cd ./scripts; go install github.com/nilslice/protolock/cmd/protolock
+	cd ./scripts; go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo
+	cd ./scripts; go install github.com/golangci/golangci-lint/cmd/golangci-lint
+	cd ./scripts; go install gopkg.in/spacemonkeygo/dbx.v1
+	cd ./scripts; go install github.com/go-bindata/go-bindata
 
 .PHONY: lint
 lint: check-copyrights ## Analyze and find programs in source code
@@ -55,7 +58,7 @@ lint: check-copyrights ## Analyze and find programs in source code
 .PHONY: check-copyrights
 check-copyrights: ## Check source files for copyright headers
 	@echo "Running ${@}"
-	@go run ./scripts/check-copyright.go
+	@cd ./scripts; go run ./check-copyright
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
@@ -68,15 +71,14 @@ goimports-st: ## Applies goimports to every go file in `git status` (ignores unt
 .PHONY: proto
 proto: ## Rebuild protobuf files
 	@echo "Running ${@}"
-	go run scripts/protobuf.go install
-	go run scripts/protobuf.go generate
+	cd ./scripts; go run ./protobuf generate
 
 .PHONY: build-packages
 build-packages: build-packages-race build-packages-normal ## Test docker images locally
 build-packages-race:
-	go install -v ./...
+	go build -v ./...
 build-packages-normal:
-	go install -v -race ./...
+	go build -v -race ./...
 
 ##@ Simulator
 

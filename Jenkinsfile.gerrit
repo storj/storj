@@ -27,8 +27,9 @@ pipeline {
                 sh 'cp go.mod .build/go.mod.orig'
                 // download dependencies
                 sh 'go mod download'
+                sh 'cd ./scripts; go mod download'
 
-                sh 'go install -v -race ./...'
+                sh 'make -j2 build-packages'
                 sh 'make install-sim'
 
                 sh 'service postgresql start'
@@ -39,17 +40,17 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'go run ./scripts/check-copyright.go'
-                        sh 'go run ./scripts/check-large-files.go'
-                        sh 'go run ./scripts/check-imports.go -race ./...'
-                        sh 'go run ./scripts/check-peer-constraints.go -race -fail=false'
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
-                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
-                        sh 'go run ./scripts/atomicalign.go ./...'
-                        sh 'go run ./scripts/check-errs.go ./...'
+                        sh 'cd ./scripts; go run ./check-copyright'
+                        sh 'cd ./scripts; go run ./check-large-files'
+                        sh 'cd ./scripts; go run ./check-imports -race ./...'
+                        sh 'cd ./scripts; go run ./check-peer-constraints -race'
+                        sh 'cd ./scripts; go run ./protobuf --protoc=$HOME/protoc/bin/protoc lint'
+                        sh 'cd ./scripts; go run ./protobuf --protoc=$HOME/protoc/bin/protoc check-lock'
+                        sh 'cd ./scripts; go run ./atomicalign ./...'
+                        sh 'cd ./scripts; go run ./check-errs ./...'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=2 run'
-                        sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
+                        sh 'cd ./scripts; go run ./check-mod-tidy -mod ../.build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
                     }
                 }
@@ -61,9 +62,9 @@ pipeline {
                     }
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
-                        sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'go test -vet=off $COVERFLAGS -timeout 12m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
-                        sh 'go run scripts/check-clean-directory.go'
+                        sh 'cd ./scripts; go run ./use-ports -from 1024 -to 10000 &'
+                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 12m -json -race ./... 2>&1 | tee .build/tests.json | (cd ./scripts; go run ./xunit -out ../.build/tests.xml)'
+                        sh 'cd ./scripts; go run ./check-clean-directory'
                     }
 
                     post {
@@ -74,7 +75,7 @@ pipeline {
 
                             script {
                                 if(fileExists(".build/coverprofile")){
-                                    sh script: 'go run ./scripts/cover-remove-generated.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                    sh script: 'cd ./scripts; go run ./cover-remove-generated < ../.build/coverprofile > ../.build/clean.coverprofile', returnStatus: true
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
                                     cobertura coberturaReportFile: '.build/cobertura.xml'
@@ -96,6 +97,20 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj2;\''
                         sh 'make test-sim'
+                    }
+                }
+
+                stage('Backwards Compatibility') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.3'
+                        STORJ_NETWORK_HOST6 = '127.0.0.3'
+
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj3;\''
+                        sh 'make test-sim-backwards-compatible'
                     }
                 }
             }
