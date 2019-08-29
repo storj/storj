@@ -13,7 +13,7 @@ import (
 
 // queue is a list of paths to audit, shared between the reservoir chore and audit workers.
 type queue struct {
-	cond         sync.Cond
+	mu           sync.Mutex
 	queue        []storj.Path
 	closed       chan struct{}
 	pollInterval time.Duration
@@ -21,7 +21,6 @@ type queue struct {
 
 func newQueue(interval time.Duration) *queue {
 	return &queue{
-		cond:         *sync.NewCond(&sync.Mutex{}),
 		closed:       make(chan struct{}),
 		pollInterval: interval,
 	}
@@ -29,11 +28,10 @@ func newQueue(interval time.Duration) *queue {
 
 // swap switches the backing queue slice with a new queue slice.
 func (queue *queue) swap(newQueue []storj.Path) {
-	queue.cond.L.Lock()
+	queue.mu.Lock()
 	queue.queue = newQueue
 	// Notify workers that queue has been repopulated.
-	queue.cond.Broadcast()
-	queue.cond.L.Unlock()
+	queue.mu.Unlock()
 }
 
 // next gets the next item in the queue.
@@ -52,8 +50,8 @@ func (queue *queue) next(ctx context.Context) (storj.Path, error) {
 		}
 	}
 
-	queue.cond.L.Lock()
-	defer queue.cond.L.Unlock()
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
 
 	next := queue.queue[0]
 	queue.queue = queue.queue[1:]
@@ -64,5 +62,4 @@ func (queue *queue) next(ctx context.Context) (storj.Path, error) {
 func (queue *queue) close() {
 	close(queue.closed)
 	// Wake up workers that are waiting.
-	queue.cond.Broadcast()
 }
