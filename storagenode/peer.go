@@ -440,6 +440,9 @@ func (peer *Peer) Close() error {
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
 	}
+	if peer.Storage2.RetainService != nil {
+		errlist.Add(peer.Storage2.RetainService.Close())
+	}
 	if peer.Storage2.Monitor != nil {
 		errlist.Add(peer.Storage2.Monitor.Close())
 	}
