@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -20,10 +21,10 @@ type Service2 struct {
 
 // NewService2 instantiates Service2 and workers.
 func NewService2(log *zap.Logger, config Config) (*Service2, error) {
-	queue := newQueue(config.QueueInterval)
+	queue := newQueue()
 	var workers []*worker
 	for i := 0; i < config.WorkerCount; i++ {
-		workers = append(workers, newWorker(queue))
+		workers = append(workers, newWorker(queue, config.QueueInterval))
 	}
 	return &Service2{
 		log: log,
@@ -59,23 +60,37 @@ func (service *Service2) Close() error {
 
 // worker processes items on the audit queue.
 type worker struct {
-	queue *queue
+	pollInterval time.Duration
+	queue        *queue
 }
 
 // newWorker instantiates a worker.
-func newWorker(queue *queue) *worker {
+func newWorker(queue *queue, pollInterval time.Duration) *worker {
 	return &worker{
-		queue: queue,
+		pollInterval: pollInterval,
+		queue:        queue,
 	}
 }
 
 // worker removes an item from the queue and runs an audit.
 func (w *worker) run(ctx context.Context) error {
+	ticker := time.NewTicker(w.pollInterval)
+	defer ticker.Stop()
+
 	for {
 		_, err := w.queue.next(ctx)
-		if err != nil {
+		if err != nil && ErrEmptyQueue.Has(err) {
+			// wait for next poll interval or until close
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+			}
+			continue
+		} else if err != nil {
 			return err
 		}
+
 		// TODO: audit the path
 	}
 }

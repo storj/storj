@@ -6,60 +6,60 @@ package audit
 import (
 	"context"
 	"sync"
-	"time"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/storj"
 )
 
+// ErrEmptyQueue is used to indicate that the queue is empty
+var ErrEmptyQueue = errs.Class("empty audit queue")
+
 // queue is a list of paths to audit, shared between the reservoir chore and audit workers.
 type queue struct {
-	mu           sync.Mutex
-	queue        []storj.Path
-	closed       chan struct{}
-	pollInterval time.Duration
+	mu     sync.Mutex
+	queue  []storj.Path
+	closed chan struct{}
 }
 
-func newQueue(interval time.Duration) *queue {
+func newQueue() *queue {
 	return &queue{
-		closed:       make(chan struct{}),
-		pollInterval: interval,
+		closed: make(chan struct{}),
 	}
 }
 
 // swap switches the backing queue slice with a new queue slice.
-func (queue *queue) swap(newQueue []storj.Path) {
-	queue.mu.Lock()
-	queue.queue = newQueue
-	// Notify workers that queue has been repopulated.
-	queue.mu.Unlock()
+func (q *queue) swap(newQueue []storj.Path) {
+	q.mu.Lock()
+	q.queue = newQueue
+	q.mu.Unlock()
 }
 
 // next gets the next item in the queue.
-func (queue *queue) next(ctx context.Context) (storj.Path, error) {
-	ticker := time.NewTicker(queue.pollInterval)
-	defer ticker.Stop()
-
-	// This waits until the queue is repopulated, closed, or context is canceled.
-	for len(queue.queue) == 0 {
-		select {
-		case <-queue.closed:
-			return "", Error.New("queue is closed")
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case <-ticker.C:
-		}
+func (q *queue) next(ctx context.Context) (storj.Path, error) {
+	// return error if context canceled or queue closed
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case <-q.closed:
+		return "", Error.New("queue is closed")
+	default:
 	}
 
-	queue.mu.Lock()
-	defer queue.mu.Unlock()
+	// return error if queue is empty
+	if len(q.queue) == 0 {
+		return "", ErrEmptyQueue.New("")
+	}
 
-	next := queue.queue[0]
-	queue.queue = queue.queue[1:]
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	next := q.queue[0]
+	q.queue = q.queue[1:]
 
 	return next, nil
 }
 
-func (queue *queue) close() {
-	close(queue.closed)
-	// Wake up workers that are waiting.
+func (q *queue) close() {
+	close(q.closed)
 }
