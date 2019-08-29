@@ -20,7 +20,6 @@ var (
 type Config struct {
 	Node                 NodeSelectionConfig
 	UpdateStatsBatchSize int `help:"number of update requests to process per transaction" default:"100"`
-	DialerLimit          int `help:"Semaphore size" Default:"32"`
 }
 
 // NodeSelectionConfig is a configuration struct to determine the minimum
