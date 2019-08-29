@@ -41,7 +41,7 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 
 	return db.withTx(ctx, func(tx *sql.Tx) error {
 		for _, stamp := range stamps {
-			_, err = db.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
+			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
 
 			if err != nil {
 				return err
@@ -58,16 +58,13 @@ func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT satellite_id,
-					at_rest_total,
+					SUM(at_rest_total),
 					timestamp
 				FROM storage_usage
-				WHERE timestamp IN (
-					SELECT MAX(timestamp) 
-					FROM storage_usage
-					WHERE satellite_id = ?
-					AND ? <= timestamp AND timestamp <= ?
-					GROUP BY DATE(timestamp)
-				)`
+				WHERE satellite_id = ?
+				AND ? <= timestamp AND timestamp <= ?
+				GROUP BY DATE(timestamp)
+				ORDER BY timestamp`
 
 	rows, err := db.QueryContext(ctx, query, satelliteID, from.UTC(), to.UTC())
 	if err != nil {
@@ -106,12 +103,9 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 
 	query := `SELECT SUM(at_rest_total), timestamp 
 				FROM storage_usage
-				WHERE timestamp IN (
-					SELECT MAX(timestamp)
-					FROM storage_usage
-					WHERE ? <= timestamp AND timestamp <= ?
-					GROUP BY DATE(timestamp), satellite_id
-				) GROUP BY DATE(timestamp)`
+				WHERE ? <= timestamp AND timestamp <= ?
+				GROUP BY DATE(timestamp)
+				ORDER BY timestamp`
 
 	rows, err := db.QueryContext(ctx, query, from.UTC(), to.UTC())
 	if err != nil {
@@ -151,7 +145,7 @@ func (db *storageusageDB) Summary(ctx context.Context, from, to time.Time) (_ fl
 				WHERE ? <= timestamp AND timestamp <= ?`
 
 	err = db.QueryRowContext(ctx, query, from.UTC(), to.UTC()).Scan(&summary)
-	return summary.Float64, err
+	return summary.Float64, nil
 }
 
 // SatelliteSummary returns aggregated storage usage for particular satellite
