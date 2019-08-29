@@ -3,6 +3,8 @@ set -ueo pipefail
 source $(dirname $0)/utils.sh
 
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
+IDENTS_DIR=$TMPDIR/identities
+CERTS_DIR=$TMPDIR/certificates
 
   # TODO: find a better way
 kill_certificates_server() {
@@ -23,7 +25,7 @@ trap cleanup_exit EXIT
 trap cleanup_int INT
 
 _certificates() {
-  certificates --config-dir "$CERTS_DIR" "$@"
+  certificates --identity-dir "$IDENTS_DIR" --config-dir "$CERTS_DIR" "$@"
 }
 
 _identity() {
@@ -32,20 +34,22 @@ _identity() {
   identity --log.level warn $subcommand --identity-dir "$IDENTS_DIR" "$@"
 }
 
+_identity_create() {
+  _identity create $1 --difficulty 0 --concurrency 1 >/dev/null
+}
+
 export_auths() {
   _certificates auth export
 }
 
-IDENTS_DIR=$TMPDIR/identities
-CERTS_DIR=$TMPDIR/certificates
-
+_identity_create 'certificates'
 _certificates setup --log.level warn
 
 for i in {0..4}; do
   email="testuser${i}@mail.example"
   ident_name="testidentity${i}"
 
-  _identity create $ident_name --difficulty 0 --concurrency 1 >/dev/null
+  _identity_create $ident_name
 
   if [[ i -gt 0 ]]; then
     _certificates auth create "$i" "$email"
