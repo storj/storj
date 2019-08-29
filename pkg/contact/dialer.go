@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package communication
+package contact
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 
 var mon = monkit.Package()
 
-// Dialer sends requests to communication endpoints on satellites/storage nodes
+// Dialer sends requests to contact endpoints on satellites/storage nodes
 type Dialer struct {
 	log       *zap.Logger
 	transport transport.Client

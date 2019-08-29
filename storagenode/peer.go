@@ -14,7 +14,7 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/communication"
+	"storj.io/storj/pkg/contact"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -74,7 +74,7 @@ type Config struct {
 
 	Server server.Config
 
-	Communication communication.Config
+	Communication contact.Config
 
 	// TODO: flatten storage config and only keep the new one
 	Storage   piecestore.OldConfig
@@ -116,8 +116,8 @@ type Peer struct {
 
 	// services and endpoints
 	Communication struct {
-		Service  *communication.Service
-		Endpoint *communication.Endpoint
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
 	}
 
 	Storage2 struct {
@@ -217,8 +217,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			},
 			Version: *pbVersion,
 		}
-		peer.Communication.Service = communication.NewService(peer.Log.Named("communication"), c, self, peer.Transport)
-		peer.Communication.Endpoint = communication.NewEndpoint(peer.Log.Named("communication:endpoint"), peer.Communication.Service, peer.Storage2.Trust)
+		peer.Communication.Service = contact.NewService(peer.Log.Named("communication"), c, self, peer.Transport)
+		peer.Communication.Endpoint = contact.NewEndpoint(peer.Log.Named("communication:endpoint"), peer.Communication.Service, peer.Storage2.Trust)
 	}
 
 	{ // setup storage

@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/auth/grpcauth"
-	"storj.io/storj/pkg/communication"
+	"storj.io/storj/pkg/contact"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -99,7 +99,7 @@ type DB interface {
 type Config struct {
 	Identity      identity.Config
 	Server        server.Config
-	Communication communication.Config
+	Communication contact.Config
 	Overlay       overlay.Config
 
 	Metainfo metainfo.Config
@@ -141,8 +141,8 @@ type Peer struct {
 
 	// services and endpoints
 	Communication struct {
-		Service  *communication.Service
-		Endpoint *communication.Endpoint
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
 	}
 
 	Overlay struct {
@@ -283,8 +283,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Operator: pb.NodeOperator{},
 			Version:  *pbVersion,
 		}
-		peer.Communication.Service = communication.NewService(peer.Log.Named("communication"), c, self, peer.Transport)
-		peer.Communication.Endpoint = communication.NewEndpoint(peer.Log.Named("communication:endpoint"), peer.Communication.Service, nil)
+		peer.Communication.Service = contact.NewService(peer.Log.Named("communication"), c, self, peer.Transport)
+		peer.Communication.Endpoint = contact.NewEndpoint(peer.Log.Named("communication:endpoint"), peer.Communication.Service, nil)
 	}
 
 	{ // setup live accounting

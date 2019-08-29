@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package communication
+package contact
 
 import (
 	"context"
@@ -26,7 +26,7 @@ var (
 	NodeErr = errs.Class("node error")
 )
 
-// Service is the communication service between storage nodes and satellites
+// Service is the contact service between storage nodes and satellites
 type Service struct {
 	log        *zap.Logger
 	self       *overlay.NodeDossier
@@ -35,7 +35,7 @@ type Service struct {
 	lastPinged time.Time
 }
 
-// NewService creates a new communication service
+// NewService creates a new contact service
 func NewService(log *zap.Logger, config Config, self *overlay.NodeDossier, transport transport.Client) *Service {
 	return &Service{
 		log:    log,

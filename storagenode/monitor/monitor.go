@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/communication"
+	"storj.io/storj/pkg/contact"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/pieces"
@@ -36,7 +36,7 @@ type Config struct {
 // Service which monitors disk usage and updates kademlia network as necessary.
 type Service struct {
 	log                *zap.Logger
-	comm               *communication.Service
+	comm               *contact.Service
 	store              *pieces.Store
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
@@ -48,7 +48,7 @@ type Service struct {
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, communication *communication.Service, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, communication *contact.Service, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
 	return &Service{
 		log:                log,
 		comm:               communication,
