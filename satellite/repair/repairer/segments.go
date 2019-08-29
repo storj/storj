@@ -29,7 +29,7 @@ type SegmentRepairer struct {
 	metainfo *metainfo.Service
 	orders   *orders.Service
 	overlay  *overlay.Service
-	ec       ecclient.Client
+	ec       *ECRepairer
 	timeout  time.Duration
 
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
@@ -58,7 +58,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         ec.WithForceErrorDetection(true),
+		ec:                         NewECRepairer(),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}
@@ -170,20 +170,15 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// Download the segment using just the healthy pieces
-	rr, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
+	segmentReader, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
 	if err != nil {
 		// .Get() seems to only fail from input validation, so it would keep failing
 		return true, Error.Wrap(err)
 	}
-
-	r, err := rr.Range(ctx, 0, rr.Size())
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, r.Close()) }()
+	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, r, expiration, repairer.timeout, path)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, expiration, repairer.timeout, path)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
