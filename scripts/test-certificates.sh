@@ -22,7 +22,7 @@ cleanup() {
 trap cleanup EXIT INT
 
 _certificates() {
-  certificates --identity-dir "$IDENTS_DIR" \
+  certificates --identity-dir "$IDENTS_DIR/certificates" \
                --config-dir "$CERTS_DIR" \
                --signer.ca.cert-path "${IDENTS_DIR}/certificates/ca.cert" \
                --signer.ca.key-path "${IDENTS_DIR}/certificates/ca.key" \
