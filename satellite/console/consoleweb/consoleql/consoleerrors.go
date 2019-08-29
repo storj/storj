@@ -14,14 +14,15 @@ const (
 	internalErrDetailedMsg = "It looks like we had a problem on our end. Please try again"
 )
 
-// ErrConsoleInternalDetailed describes detailed error message for internal error
-var ErrConsoleInternalDetailed = errs.New(internalErrDetailedMsg)
+// errConsoleInternalDetailed describes detailed error message for internal error
+var errConsoleInternalDetailed = errs.New(internalErrDetailedMsg)
 
 // HandleError returns detailed error if such error handles
 func HandleError(err error) error {
-	if console.ErrConsoleInternal.Has(err) {
-		return ErrConsoleInternalDetailed
+	switch {
+	case console.ErrConsoleInternal.Has(err):
+		return errConsoleInternalDetailed
+	default:
+		return err
 	}
-
-	return err
 }
