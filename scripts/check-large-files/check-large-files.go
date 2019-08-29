@@ -13,25 +13,34 @@ import (
 const (
 	KB = 1e3
 	MB = 1e6
+
+	fileSizeLimit = 600 * KB
 )
 
 func main() {
-	const fileSizeLimit = 600 * KB
+	basePath := ".."
+	if len(os.Args) > 1 {
+		basePath = os.Args[1]
+	}
 
 	var failed int
 
-	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			failed++
 			fmt.Println(err)
 			return nil
 		}
-		if info.IsDir() && info.Name() == ".git" {
+		if info.IsDir() && (info.Name() == ".git" || info.Name() == "node_modules") {
 			return filepath.SkipDir
 		}
 
 		size := info.Size()
 		if size > fileSizeLimit {
 			failed++
+			if rel, err := filepath.Rel(basePath, path); err == nil {
+				path = rel
+			}
 			fmt.Printf("%v (%s)\n", path, formatSize(size))
 		}
 

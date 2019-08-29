@@ -33,8 +33,8 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'cd ./scripts; go run ./check-copyright'
-                        sh 'cd ./scripts; go run ./check-large-files'
+                        sh 'cd ./scripts; go run ./check-copyright ../'
+                        sh 'cd ./scripts; go run ./check-large-files ../'
                         sh 'cd ./scripts; go run ./check-imports -race storj.io/storj/...'
                         sh 'cd ./scripts; go run ./check-peer-constraints -race'
                         sh 'cd ./scripts; go run ./protobuf --protoc=$HOME/protoc/bin/protoc lint'

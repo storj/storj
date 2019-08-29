@@ -19,14 +19,20 @@ var checkFiles = map[string]bool{
 }
 
 func main() {
+	basePath := ".."
+	if len(os.Args) > 1 {
+		basePath = os.Args[1]
+	}
+
 	var failed int
 
-	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			failed++
 			fmt.Println(err)
 			return nil
 		}
-		if info.IsDir() && info.Name() == ".git" {
+		if info.IsDir() && (info.Name() == ".git" || info.Name() == "node_modules") {
 			return filepath.SkipDir
 		}
 		if !checkFiles[filepath.Ext(path)] {
@@ -59,6 +65,9 @@ func main() {
 
 		if !bytes.Contains(header[:n], []byte(`Copyright `)) {
 			failed++
+			if rel, err := filepath.Rel(basePath, path); err == nil {
+				path = rel
+			}
 			fmt.Printf("missing copyright: %v\n", path)
 		}
 
