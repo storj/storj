@@ -9,7 +9,7 @@ Notable differences:
 - There is an example using Kustomize instead of Helm
 - GKE cluster is used instead of Kops
 - docker images are stored on google cloud container registry
-- 
+- There is an example CI config that automates image builds/pushes and deploys
 
 ## Requirements
 
@@ -67,7 +67,7 @@ $ helm install stable/nginx-ingress --name nginx-ingress-ctl \
 
 #### Build Steps
 
-Build the Satellite docker images and push to google cloud container registry.
+Build the Satellite docker images and push to google cloud container registry. This is also automated in the .circleci/config.yml file.
 
 ```
 # loging to gcloud
@@ -84,7 +84,7 @@ $ docker push gcr.io/storj-jessica/sa-k8s-hard-way/satellite:latest
 
 #### Deploy Steps
 
-The Satellite can be deployed using Helm or Kustomize.
+The Satellite can be deployed using Helm or Kustomize. This is also automated in the .circleci/config.yml file.
 
 The secrets that the Satellite needs are encrypted using gcp kms key and [Mozilla SOPs](https://github.com/mozilla/sops#encrypting-using-gcp-kms) and stored in github. In order to deploy the Satellite, first decrypt then create the secrets.
 
@@ -120,18 +120,18 @@ $ skaffold run
 ```
 
 A couple problem I had with skaffold:
-1. the dockerfile needed to be in root of directory called Dockerfile, I wasn't able to figure out the seettings to read from `deploy/Dockerfile.sa` instead.
+1. the dockerfile needed to be in root of directory called Dockerfile, I wasn't able to figure out the settings to read from `deploy/Dockerfile.sa` instead.
 2. there isn't the ability to provide custom scripts for deploys, therefor we can't decrypt and deploy secrets with the skaffold config
 
 #### Kustomize
 
-I tried out using Kustomize as an alternative to Helm. Kustomize overall seemed to work great as an alternative to Helm's templating. 
+I tried out using Kustomize as an alternative to Helm. Kustomize overall seemed to work great as an alternative to Helm's templating.
 
 ## Other considerations:
 - add liveness/readiness probes to k8s deployment:
 https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
 - add external-dns
 - Do we want to use terraform
-- CD and Canary deploys?
-- Rollbacks?
-- DR?
+- Should we look into canary deploys or blue/green deploys?
+- How to handle rollbacks?
+- How to handle DR?

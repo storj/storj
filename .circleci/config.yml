@@ -1,0 +1,73 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: jessgreb01/ci:latest
+    environment:
+      ENV: "dev"
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: ./setup-gcloud.sh
+      - run: ./build-push-images.sh
+  deploy-dev:
+    docker:
+      - image: jessgreb01/ci:latest
+    environment:
+      ENV: "dev"
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: ./setup-gcloud.sh
+      - run: ./deploy.sh
+  build-production:
+    environment:
+      ENV: "prod"
+    docker:
+      - image: jessgreb01/ci:latest
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: ./setup-gcloud.sh
+      - run: ./build-push-images.sh
+  hold-production-deploy:
+    type: approval
+    requires:
+      - build-production
+  deploy-production-canary:
+    docker:
+      - image: jessgreb01/ci:latest
+    environment:
+      ENV: "prod"
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: ./setup-gcloud.sh
+      - run: ./deploy.sh
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build-dev
+      - deploy-dev:
+        requires:
+          - build-dev
+        filters:
+          branches:
+            only: /.*/
+      - build-production:
+          filters:
+            tags:
+              only: /^release.*/
+            branches:
+              ignore: /.*/
+      - deploy-production-canary:
+        requires:
+          - hold-production-deploy
+        filters:
+          tags:
+            only: /^release.*/
+          branches:
+            ignore: /.*/

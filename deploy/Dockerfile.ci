@@ -1,0 +1,24 @@
+FROM golang:1.12.8
+
+RUN apt-get update && apt-get install -y curl git
+
+# install gcloud
+RUN curl -sSL https://sdk.cloud.google.com | bash
+ENV PATH $PATH:/root/google-cloud-sdk/bin
+
+# install kubectl
+ARG KUBECTL_VERSION=v1.15.1
+ENV KUBECTL_VERSION=$KUBECTL_VERSION
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
+    chmod +x ./kubectl && \
+    mv ./kubectl /usr/local/bin/kubectl
+
+# install kustomize
+RUN curl -s https://api.github.com/repos/kubernetes-sigs/kustomize/releases/latest |\
+    grep browser_download |\
+    grep linux |\
+    cut -d '"' -f 4 |\
+    xargs curl -O -L && \
+    mv kustomize_*_linux_amd64 kustomize && \
+    chmod u+x kustomize && \
+    mv ./kustomize /usr/local/bin/kustomize
