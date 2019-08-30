@@ -25,8 +25,8 @@
     export default class AccountArea extends Vue {
         public navigation: NavigationLink[] = [
             RouteConfig.Account.with(RouteConfig.Profile),
+            RouteConfig.Account.with(RouteConfig.Billing),
             RouteConfig.Account.with(RouteConfig.PaymentMethods),
-            RouteConfig.Account.with(RouteConfig.BillingHistory),
         ];
     }
 </script>
