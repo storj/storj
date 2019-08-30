@@ -104,7 +104,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	loop := sync2.NewCycle(loopInterval)
 
-	update := func(ctx context.Context) error {
+	update := func(ctx context.Context) (err error) {
 		currentVersion, err := binaryVersion(binaryLocation)
 		if err != nil {
 			return err
@@ -122,7 +122,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return errs.New("cannot create temporary archive: %v", err)
 		}
-		defer os.Remove(tempArchive.Name())
+		defer errs.Combine(err, os.Remove(tempArchive.Name()))
 
 		if currentVersion.Compare(suggestedVersion) < 0 {
 			log.Println("start downloading", downloadURL, "to", tempArchive.Name())
@@ -196,12 +196,13 @@ func suggestedVersion() (ver version.SemVer, url string, err error) {
 	return ver, suggestedVersion.URL, nil
 }
 
-func downloadArchive(ctx context.Context, file io.Writer, url string) error {
+func downloadArchive(ctx context.Context, file io.Writer, url string) (err error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+
+	defer errs.Combine(err, resp.Body.Close())
 
 	if resp.StatusCode != http.StatusOK {
 		return errs.New("bad status: %s", resp.Status)
