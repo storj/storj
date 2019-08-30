@@ -20,6 +20,12 @@ var checkFiles = map[string]bool{
 	".vue": true,
 }
 
+var ignoreFolder = map[string]bool{
+	".git":         true,
+	"node_modules": true,
+	"dist":         true,
+}
+
 func main() {
 	var failed int
 
@@ -28,7 +34,7 @@ func main() {
 			fmt.Println(err)
 			return nil
 		}
-		if info.IsDir() && info.Name() == ".git" {
+		if info.IsDir() && ignoreFolder[info.Name()] {
 			return filepath.SkipDir
 		}
 		if !checkFiles[filepath.Ext(path)] {
