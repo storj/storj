@@ -5,11 +5,9 @@
 		<MajorUpgrade DowngradeErrorMessage="A newer version of
 Storj V3 Storage Node is already installed." />
 		<MediaTemplate EmbedCab="yes" />
-		<Feature Id="ProductFeature" Title="StorjStorageNode" Level="1">
+		<Feature Id="ProductFeature" Title="Storage Node" Level="1">
 			<ComponentGroupRef Id="ProductComponents" />
 		</Feature>
-	</Product>
-	<Fragment>
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="ProgramFiles64Folder">
 				<Directory Id="StorjFolder" Name="Storj">
@@ -17,12 +15,12 @@ Storj V3 Storage Node is already installed." />
 				</Directory>
 			</Directory>
 		</Directory>
-	</Fragment>
-	<Fragment>
 		<ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
 			<Component Id="storageNodeExe" Guid="{7292F032-A37F-4896-8CF7-EF0603251DEA}">
 				<File Source="storagenode.exe" />
 			</Component>
 		</ComponentGroup>
-	</Fragment>
+		<Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
+		<UIRef Id="WixUI_InstallDir" />
+	</Product>
 </Wix>
