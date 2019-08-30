@@ -14,22 +14,22 @@ import (
 // ErrEmptyQueue is used to indicate that the queue is empty
 var ErrEmptyQueue = errs.Class("empty audit queue")
 
-// queue is a list of paths to audit, shared between the reservoir chore and audit workers.
-type queue struct {
+// Queue is a list of paths to audit, shared between the reservoir chore and audit workers.
+type Queue struct {
 	mu    sync.Mutex
 	queue []storj.Path
 }
 
-// swap switches the backing queue slice with a new queue slice.
-func (q *queue) swap(newQueue []storj.Path) {
+// Swap switches the backing queue slice with a new queue slice.
+func (q *Queue) Swap(newQueue []storj.Path) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	q.queue = newQueue
 }
 
-// next gets the next item in the queue.
-func (q *queue) next() (storj.Path, error) {
+// Next gets the next item in the queue.
+func (q *Queue) Next() (storj.Path, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 

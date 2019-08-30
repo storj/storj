@@ -5,78 +5,76 @@ package audit
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/storj"
 )
 
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
-	log    *zap.Logger
-	config Config
-
-	Limiter *sync2.Limiter
-
-	queue *queue
+	log     *zap.Logger
+	queue   *Queue
+	Loop    sync2.Cycle
+	Limiter sync2.Limiter
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, config Config) (*Worker, error) {
+func NewWorker(log *zap.Logger, queue *Queue, config Config) (*Worker, error) {
 	return &Worker{
-		log:    log,
-		config: config,
+		log: log,
 
-		Limiter: sync2.NewLimiter(config.WorkerConcurrency),
-
-		queue: &queue{},
+		queue:   queue,
+		Loop:    *sync2.NewCycle(config.QueueInterval),
+		Limiter: *sync2.NewLimiter(config.WorkerConcurrency),
 	}, nil
 }
 
 // Run runs audit service 2.0.
-func (w *Worker) Run(ctx context.Context) (err error) {
+func (worker *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	w.log.Info("audit 2.0 is starting up")
+	worker.log.Info("starting")
 
 	// wait for all audits to run
-	defer w.Limiter.Wait()
+	defer worker.Limiter.Wait()
 
-	return w.process(ctx)
+	return worker.Loop.Run(ctx, func(ctx context.Context) error {
+		err := worker.process(ctx)
+		if err != nil {
+			worker.log.Error("process", zap.Error(Error.Wrap(err)))
+		}
+		return nil
+	})
 }
 
 // Close halts the worker.
-func (w *Worker) Close() error {
+func (worker *Worker) Close() error {
 	return nil
 }
 
 // process repeatedly removes an item from the queue and runs an audit.
-func (w *Worker) process(ctx context.Context) error {
-	ticker := time.NewTicker(w.config.QueueInterval)
-	defer ticker.Stop()
-
+func (worker *Worker) process(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		_, err := w.queue.next()
-		if err != nil && ErrEmptyQueue.Has(err) {
-			// wait for next poll interval or until close
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-ticker.C:
+		path, err := worker.queue.Next()
+		if err != nil {
+			if ErrEmptyQueue.Has(err) {
+				return nil
 			}
-			continue
-		} else if err != nil {
 			return err
 		}
 
-		w.Limiter.Go(ctx, func() {
-			// TODO: audit the path
+		worker.Limiter.Go(ctx, func() {
+			err := worker.work(ctx, path)
+			if err != nil {
+				worker.log.Error("audit failed", zap.Error(err))
+			}
 		})
 	}
+}
+
+func (worker *Worker) work(ctx context.Context, path storj.Path) error {
+	// handle work
+	return nil
 }
