@@ -11,6 +11,7 @@
     ]
   },
   "rules": {
+    "function-constructor": true,
     // Enforces vertical alignment.
     "align": [true, "parameters", "statements"],
     // Enforces use of T[] if T is a simple type.

@@ -83,7 +83,7 @@ type Config struct {
 	SenderInterval  time.Duration `help:"duration between sending" default:"1h0m0s"`
 	SenderTimeout   time.Duration `help:"timeout for sending" default:"1h0m0s"`
 	CleanupInterval time.Duration `help:"duration between archive cleanups" default:"24h0m0s"`
-	ArchiveTTL      time.Duration `help:"length of time to archive orders before deletion" default:"1080h0m0s"` // 45 days
+	ArchiveTTL      time.Duration `help:"length of time to archive orders before deletion" default:"168h0m0s"` // 7 days
 }
 
 // Service sends every interval unsent orders to the satellite.
