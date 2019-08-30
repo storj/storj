@@ -5,6 +5,8 @@ source $(dirname $0)/utils.sh
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 IDENTS_DIR=$TMPDIR/identities
 CERTS_DIR=$TMPDIR/certificates
+# TODO: make port number more dynamic
+CERTS_ADDR=127.0.0.1:11000
 
 # TODO: find a better way
 kill_certificates_server() {
@@ -38,6 +40,7 @@ _certificates() {
                --config-dir "$CERTS_DIR" \
                --signer.ca.cert-path "$ca_cert_path" \
                --signer.ca.key-path "$ca_key_path" \
+               --server.address "$CERTS_ADDR" \
                 "$@"
 }
 
@@ -80,7 +83,7 @@ for i in {1..4}; do
   ident_name="testidentity${i}"
 
   token=$(echo "$exported_auths" | grep "$email" | head -n 1 | awk -F , '{print $2}')
-  _identity authorize --signer.address 127.0.0.1:7777 "$ident_name" "$token" > /dev/null
+  _identity authorize --signer.address "$CERTS_ADDR" "$ident_name" "$token" > /dev/null
 done
 
 # NB: Certificates server uses bolt by default so it must be shut down before we can export.
