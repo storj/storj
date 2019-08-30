@@ -114,7 +114,7 @@ pipeline {
                         dir("web/satellite") {
                             sh 'npm run build'
                             sh 'npm run lint'
-                            sh 'npm run audit'
+                            sh 'npm audit'
                         }
                     }
                 }
