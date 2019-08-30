@@ -9,6 +9,9 @@ pipeline {
     options {
           timeout(time: 14, unit: 'MINUTES')
     }
+    environment {
+        NPM_CONFIG_CACHE = '/tmp/npm/cache'
+    }
     stages {
         stage('Build') {
             steps {
@@ -21,7 +24,7 @@ pipeline {
                 // download dependencies
                 sh 'go mod download'
 
-                sh 'make -j2 build-packages'
+                sh 'make -j3 build-packages'
                 sh 'make install-sim'
 
                 sh 'service postgresql start'
@@ -107,14 +110,11 @@ pipeline {
                 }
 
                 stage('npm') {
-                    environment {
-                        NPM_CONFIG_CACHE = '/tmp/npm/cache'
-                    }
                     steps {
                         dir("web/satellite") {
-                            sh 'npm install'
                             sh 'npm run build'
                             sh 'npm run lint'
+                            sh 'npm run audit'
                         }
                     }
                 }
