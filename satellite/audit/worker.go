@@ -13,9 +13,7 @@ import (
 
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
-	log    *zap.Logger
-	config Config
-
+	log     *zap.Logger
 	queue   *Queue
 	Loop    sync2.Cycle
 	Limiter sync2.Limiter
@@ -35,7 +33,7 @@ func NewWorker(log *zap.Logger, queue *Queue, config Config) (*Worker, error) {
 // Run runs audit service 2.0.
 func (worker *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	worker.log.Info("audit 2.0 is starting up")
+	worker.log.Info("starting")
 
 	// wait for all audits to run
 	defer worker.Limiter.Wait()
