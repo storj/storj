@@ -31,6 +31,7 @@ _certificates() {
   ident_dir="${IDENTS_DIR}/certificates"
   ca_cert_path="${ident_dir}/ca.cert"
   ca_key_path="${ident_dir}/ca.key"
+  rev_dburl="bolt://${CERTS_DIR}/revocations.db"
 
   certificates --identity-dir "$ident_dir" \
                --config-dir "$CERTS_DIR" \
@@ -39,7 +40,7 @@ _certificates() {
                --signer.ca.key-path "$ca_key_path" \
                --server.address "$CERTS_ADDR" \
                --server.private-address "$CERTS_ADDR_PRIV" \
-               --server.revocation-dburl="bolt://$CERTS_DIR/revocations.db" \
+               --server.revocation-dburl="$rev_dburl" \
                --log.level warn \
                 "$@"
 }
@@ -47,7 +48,11 @@ _certificates() {
 _identity() {
   subcommand=$1
   shift
-  identity --identity-dir "$IDENTS_DIR" "$subcommand"  --log.level info "$@"
+  identity --identity-dir "$IDENTS_DIR" \
+           "$subcommand" \
+           --signer.tls.revocation-dburl "bolt://${IDENTS_DIR}/revocations.db" \
+           --log.level info \
+           "$@"
 }
 
 _identity_create() {
@@ -72,7 +77,6 @@ for i in {0..4}; do
   fi
 done
 
-#
 exported_auths=$(export_auths)
 _certificates run --signer.min-difficulty 0 &
 
