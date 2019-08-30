@@ -85,12 +85,12 @@
         }
     })
     export default class CurrentMonth extends Vue {
-		private areUsageChargesShown: boolean = false;
+        private areUsageChargesShown: boolean = false;
         private areReferralCreditsShown: boolean = false;
 
-		public toggleUsageChargesPopup(): void {
-		    this.areUsageChargesShown = !this.areUsageChargesShown;
-		}
+        public toggleUsageChargesPopup(): void {
+            this.areUsageChargesShown = !this.areUsageChargesShown;
+        }
 
         public toggleReferralCreditsPopup(): void {
             this.areReferralCreditsShown = !this.areReferralCreditsShown;

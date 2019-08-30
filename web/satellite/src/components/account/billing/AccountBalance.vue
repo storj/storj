@@ -26,9 +26,9 @@
         }
     })
     export default class AccountBalance extends Vue {
-		public onEarnCredits(): void {
-		    return;
-		}
+        public onEarnCredits(): void {
+            return;
+        }
     }
 </script>
 
