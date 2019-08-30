@@ -95,24 +95,31 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		return nil, err
 	}
 
-	var readErr error
 	var calculatedHash []byte
-	pieceBytes := make([]byte, pieceSize)
+	pieceBytes := make([]byte, 0, pieceSize)
+	// TODO: figure out the buffer size
+	buffer := make([]byte, 1024)
 	newHash := pkcrypto.NewHash()
 
 	for {
 		// download full piece
-		_, readErr = downloader.Read(pieceBytes)
+		n, readErr := downloader.Read(buffer)
 		if readErr == io.EOF {
-			calculatedHash = newHash.Sum(pieceBytes)
+			calculatedHash = newHash.Sum(buffer[:n])
 			break
 		}
 		if readErr != nil {
 			return nil, readErr
 		}
 
-		// hash downloaded piece
-		_, _ = newHash.Write(pieceBytes) // guaranteed not to return an error
+		// add new data to hash calculation
+		_, _ = newHash.Write(buffer[:n]) // guaranteed not to return an error
+		// add new data to piece bytes
+		pieceBytes = append(pieceBytes, buffer[:n]...)
+	}
+
+	if int64(len(pieceBytes)) != pieceSize {
+		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, len(pieceBytes))
 	}
 
 	// get signed piece hash and original order limit
@@ -124,7 +131,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		return nil, Error.New("Original order limit was not sent from storagenode.")
 	}
 
-	// verify the hashes from storagde node
+	// verify the hashes from storage node
 	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
 		return nil, err
 	}
