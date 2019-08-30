@@ -4,6 +4,7 @@
 package repairer
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/eestream"
@@ -19,15 +22,17 @@ import (
 
 // ECRepairer allows the repairer to download, verify, and upload pieces from storagenodes.
 type ECRepairer struct {
-	log       *zap.Logger
-	transport transport.Client
+	log             *zap.Logger
+	transport       transport.Client
+	satelliteSignee signing.Signee
 }
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
-func NewECRepairer(log *zap.Logger, tc transport.Client) *ECRepairer {
+func NewECRepairer(log *zap.Logger, tc transport.Client, satelliteSignee signing.Signee) *ECRepairer {
 	return &ECRepairer{
-		log:       log,
-		transport: tc,
+		log:             log,
+		transport:       tc,
+		satelliteSignee: satelliteSignee,
 	}
 }
 
@@ -90,17 +95,25 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		return nil, err
 	}
 
-	// download full piece
+	var readErr error
+	var calculatedHash []byte
 	pieceBytes := make([]byte, pieceSize)
-	n, err := io.ReadFull(downloader, pieceBytes)
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	if int64(n) != pieceSize {
-		return nil, Error.New("Did not read in full piece. Wanted %d bytes, got %d bytes", pieceSize, n)
-	}
+	newHash := pkcrypto.NewHash()
 
-	// TODO hash downloaded piece (during read if possible)
+	for {
+		// download full piece
+		_, readErr = downloader.Read(pieceBytes)
+		if readErr == io.EOF {
+			calculatedHash = newHash.Sum(pieceBytes)
+			break
+		}
+		if readErr != nil {
+			return nil, readErr
+		}
+
+		// hash downloaded piece
+		_, _ = newHash.Write(pieceBytes) // guaranteed not to return an error
+	}
 
 	// get signed piece hash and original order limit
 	hash, originalLimit := downloader.GetHashAndLimit()
@@ -111,8 +124,15 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		return nil, Error.New("Original order limit was not sent from storagenode.")
 	}
 
-	// TODO verify order limit validity
-	// TODO verify hash validity
+	// verify the hashes from storagde node
+	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
+		return nil, err
+	}
+
+	// verify order limit from storage node is signed by the satellite
+	if err := verifyOrderLimitSignature(ctx, ec.satelliteSignee, originalLimit); err != nil {
+		return nil, err
+	}
 
 	return nil, nil
 }
@@ -125,6 +145,34 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	// TODO should be almost identical to ecclient Repair (remove ecclient Repair once implemented here)
 
 	return nil, nil, nil
+}
+
+func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if limit == nil || hash == nil || len(expectedHash) == 0 {
+		return Error.New("invalid arguments")
+	}
+	if limit.PieceId != hash.PieceId {
+		return Error.New("piece id changed")
+	}
+	if !bytes.Equal(hash.Hash, expectedHash) {
+		return Error.New("hashes don't match")
+	}
+
+	if err := signing.VerifyUplinkPieceHashSignature(ctx, limit.UplinkPublicKey, hash); err != nil {
+		return Error.New("invalid piece hash signature")
+	}
+
+	return nil
+}
+
+func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, limit *pb.OrderLimit) (err error) {
+	if err := signing.VerifyOrderLimitSignature(ctx, satellite, limit); err != nil {
+		return Error.New("invalid order limit signature: %v", err)
+	}
+
+	return nil
 }
 
 func calcPadded(size int64, blockSize int) int64 {
