@@ -65,6 +65,10 @@ func (chore *ReservoirChore) Run(ctx context.Context) error {
 		// Add reservoir paths to queue in pseudorandom order.
 		for i := 0; i < chore.config.Slots; i++ {
 			for _, res := range pathCollector.Reservoirs {
+				// skip reservoir if no path at this index
+				if len(res.Paths) <= i {
+					continue
+				}
 				path := res.Paths[i]
 				if _, ok := queuePaths[path]; !ok {
 					queue = append(queue, path)
