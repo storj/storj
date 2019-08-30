@@ -122,7 +122,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return errs.New("cannot create temporary archive: %v", err)
 		}
-		defer errs.Combine(err, os.Remove(tempArchive.Name()))
+		defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
 
 		if currentVersion.Compare(suggestedVersion) < 0 {
 			log.Println("start downloading", downloadURL, "to", tempArchive.Name())
@@ -202,7 +202,7 @@ func downloadArchive(ctx context.Context, file io.Writer, url string) (err error
 		return err
 	}
 
-	defer errs.Combine(err, resp.Body.Close())
+	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
 	if resp.StatusCode != http.StatusOK {
 		return errs.New("bad status: %s", resp.Status)
