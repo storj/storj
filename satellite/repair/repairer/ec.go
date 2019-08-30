@@ -59,20 +59,29 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	paddedSize := calcPadded(size, es.StripeSize())
 	pieceSize := paddedSize / int64(es.RequiredCount())
 
-	// temp
-	limit := limits[0]
-	_, err = ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
-	if err != nil {
-		return nil, err
+	// TODO: make these steps async so we can download from multiple nodes at the same time
+	var successfulPieces, currentLimitIndex int
+	for successfulPieces < es.RequiredCount() && currentLimitIndex < len(limits) {
+		limit := limits[currentLimitIndex]
+		currentLimitIndex++
+		if limit == nil {
+			continue
+		}
+
+		_, err = ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
+		if err != nil {
+			// TODO: add error to a errgroup, return that errgroup if successfulPieces < es.RequiredCount() is true after for loop
+			continue
+		}
+
+		// TODO: save data from downloadAndVerifyPiece as an infectious share with the correct piece number
+
+	}
+	if successfulPieces < es.RequiredCount() {
+		return nil, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
 	}
 
-	// TODO (async) start a number of workers equal to the minimum number of required pieces
-	// TODO for each worker, select an unused order limit and attempt to run downloadAndVerifyPiece
-	// TODO if there is an error, select another unused order limit and re-attempt
-	// TODO if at any point there is a failure and there are no more unused order limits, cancel all workers and return an error
-
-	// TODO wait until context canceled, timeout expired, or we have downloaded and verified the minimum number of pieces
-	// TODO decode pieces into a segment and return
+	// TODO: use infectious fec.Rebuild(preferred) or fec.Decode to reconstruct original segment
 
 	return nil, nil
 }
