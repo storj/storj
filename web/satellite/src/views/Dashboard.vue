@@ -66,9 +66,14 @@
 
             if (!projects.length) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
-                await this.$router.push(RouteConfig.ProjectOverview.path);
 
-                return;
+                if (!(this as any).isCurrentRouteIsAccount()) {
+                    await this.$router.push(RouteConfig.ProjectOverview.path);
+
+                    return;
+                }
+
+                await this.$router.push(RouteConfig.ProjectOverview.path);
             }
 
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
@@ -76,20 +81,20 @@
             await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-            } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
             }
 
             try {
                 await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            } catch {
+            } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
             try {
                 await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
+            } catch (error) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
             }
 
             try {
@@ -109,6 +114,11 @@
     computed: {
         isLoading: function() {
             return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
+        },
+        isCurrentRouteIsAccount: function(): boolean {
+            const segments = this.$route.path.split('/').map(segment => segment.toLowerCase());
+
+            return segments.includes(RouteConfig.Account.name.toLowerCase());
         }
     },
     components: {
