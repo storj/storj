@@ -24,11 +24,7 @@ pipeline {
                 // download dependencies
                 sh 'go mod download'
 
-                parallel(
-                    default: { sh 'go install -v ./...' },
-                    race:    { sh 'go install -race -v ./...' },
-                    npm:     { sh 'cd web/satellite && npm install' }
-                )
+                sh 'make -j3 build-packages'
                 sh 'make install-sim'
 
                 sh 'service postgresql start'
