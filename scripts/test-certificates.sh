@@ -39,7 +39,7 @@ _certificates() {
                --signer.ca.key-path "$ca_key_path" \
                --server.address "$CERTS_ADDR" \
                --server.private-address "$CERTS_ADDR_PRIV" \
-               --server.extensions.revocation=false \
+               --server.revocation-dburl="bolt://$CERTS_DIR/revocations.db" \
                --log.level warn \
                 "$@"
 }
