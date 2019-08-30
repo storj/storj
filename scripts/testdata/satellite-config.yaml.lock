@@ -46,6 +46,9 @@
 # satellite database connection string
 # database: postgres://
 
+# how often to delete expired serial numbers
+# db-cleanup.serials-interval: 24h0m0s
+
 # Maximum Database Connection Lifetime, -1ns means the stdlib default
 # db.conn_max_lifetime: -1ns
 

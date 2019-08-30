@@ -17,7 +17,7 @@
 
     @Component
     export default class PagesBlock extends Vue {
-        @Prop({default: []})
+        @Prop({default: () => []})
         public readonly pages: Page[];
         @Prop({default: () => false})
         public readonly checkSelected: CheckSelected;
