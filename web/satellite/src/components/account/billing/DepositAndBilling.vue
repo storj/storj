@@ -29,9 +29,7 @@
             SortingHeader,
         }
     })
-    export default class DepositAndBilling extends Vue {
-
-    }
+    export default class DepositAndBilling extends Vue {}
 </script>
 
 <style scoped lang="scss">
