@@ -46,12 +46,6 @@ func (chore *ReservoirChore) Run(ctx context.Context) error {
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
 		pathCollector := NewPathCollector(chore.config.Slots, chore.rand)
 		err = chore.MetainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
