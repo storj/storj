@@ -12,7 +12,9 @@ Storj V3 Storage Node is already installed." />
 	<Fragment>
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="ProgramFiles64Folder">
-				<Directory Id="INSTALLFOLDER" Name="Storj" />
+				<Directory Id="StorjFolder" Name="Storj">
+					<Directory Id="INSTALLFOLDER" Name="Storage Node" />
+				</Directory>
 			</Directory>
 		</Directory>
 	</Fragment>
