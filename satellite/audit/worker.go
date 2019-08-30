@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/storj"
 )
 
 // Worker contains information for populating audit queue and processing audits.
@@ -56,7 +57,7 @@ func (worker *Worker) Close() error {
 func (worker *Worker) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
-		work, err := worker.queue.Next()
+		path, err := worker.queue.Next()
 		if err != nil {
 			if ErrEmptyQueue.Has(err) {
 				return nil
@@ -65,7 +66,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 		}
 
 		worker.Limiter.Go(ctx, func() {
-			err := worker.work(ctx, work)
+			err := worker.work(ctx, path)
 			if err != nil {
 				worker.log.Error("audit failed", zap.Error(err))
 			}
@@ -73,6 +74,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 	}
 }
 
-func (worker *Worker) work(ctx context.Context, work Work) error {
+func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	// handle work
+	return nil
 }

@@ -193,6 +193,7 @@ type Peer struct {
 	}
 	Audit struct {
 		Service *audit.Service
+		Queue   *audit.Queue
 		Worker  *audit.Worker
 		Chore   *audit.ReservoirChore
 	}
@@ -490,7 +491,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		// setup audit 2.0
+		peer.Audit.Queue = &audit.Queue{}
+
 		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit service 2"),
+			peer.Audit.Queue,
 			config,
 		)
 		if err != nil {
@@ -498,7 +502,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		peer.Audit.Chore = audit.NewReservoirChore(peer.Log.Named("audit reservoir chore"),
-			peer.Audit.Worker,
+			peer.Audit.Queue,
 			peer.Metainfo.Loop,
 			config,
 		)

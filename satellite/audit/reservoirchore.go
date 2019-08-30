@@ -20,24 +20,22 @@ type ReservoirChore struct {
 	log    *zap.Logger
 	config Config
 	rand   *rand.Rand
-
-	worker *Worker
+	queue  *Queue
+	Loop   sync2.Cycle
 
 	MetainfoLoop *metainfo.Loop
-	Loop         sync2.Cycle
 }
 
 // NewReservoirChore instantiates ReservoirChore.
-func NewReservoirChore(log *zap.Logger, worker *Worker, metaLoop *metainfo.Loop, config Config) *ReservoirChore {
+func NewReservoirChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, config Config) *ReservoirChore {
 	return &ReservoirChore{
 		log:    log,
 		config: config,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),
-
-		worker: worker,
+		queue:  queue,
+		Loop:   *sync2.NewCycle(config.ChoreInterval),
 
 		MetainfoLoop: metaLoop,
-		Loop:         *sync2.NewCycle(config.ChoreInterval),
 	}
 }
 
@@ -70,7 +68,7 @@ func (chore *ReservoirChore) Run(ctx context.Context) error {
 				}
 			}
 		}
-		chore.worker.queue.swap(newQueue)
+		chore.queue.Swap(newQueue)
 
 		return nil
 	})
