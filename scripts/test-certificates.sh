@@ -5,8 +5,9 @@ source $(dirname $0)/utils.sh
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 IDENTS_DIR=$TMPDIR/identities
 CERTS_DIR=$TMPDIR/certificates
-# TODO: make port number more dynamic
+# TODO: make port numbers more dynamic
 CERTS_ADDR=127.0.0.1:11000
+CERTS_ADDR_PRIV=127.0.0.1:11001
 
 # TODO: find a better way
 kill_certificates_server() {
@@ -41,6 +42,7 @@ _certificates() {
                --signer.ca.cert-path "$ca_cert_path" \
                --signer.ca.key-path "$ca_key_path" \
                --server.address "$CERTS_ADDR" \
+               --server.private-address "$CERTS_ADDR_PRIV" \
                 "$@"
 }
 
