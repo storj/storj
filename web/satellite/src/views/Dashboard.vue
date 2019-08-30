@@ -6,7 +6,7 @@
         <div v-if="isLoading" class="loading-overlay active">
             <img src="../../static/images/register/Loading.gif">
         </div>
-        <div class="dashboard-container__wrap">
+        <div v-if="!isLoading" class="dashboard-container__wrap">
             <NavigationArea />
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader />
