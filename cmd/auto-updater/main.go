@@ -172,12 +172,13 @@ func binaryVersion(location string) (ver version.SemVer, err error) {
 }
 
 func suggestedVersion() (ver version.SemVer, url string, err error) {
-	res, err := http.Get(versionURL)
+	resp, err := http.Get(versionURL)
 	if err != nil {
 		return ver, url, err
 	}
+	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return ver, url, err
 	}
