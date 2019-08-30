@@ -1660,7 +1660,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 }
 
 func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, numberOfSegments, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
-	numberOfSegments = numberOfSegments - cursorIndex
+	numberOfSegments -= cursorIndex
 
 	segmentItems := make([]*pb.SegmentListItem, 0)
 	more := false
