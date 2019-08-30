@@ -29,20 +29,18 @@ _certificates() {
   shift
 
   ident_dir="${IDENTS_DIR}/certificates"
-  ident_cert_path="${ident_dir}/identity.cert"
-  ident_key_path="${ident_dir}/identity.key"
   ca_cert_path="${ident_dir}/ca.cert"
   ca_key_path="${ident_dir}/ca.key"
 
   certificates --identity-dir "$ident_dir" \
-               "$subcommand" \
-               --identity.cert-path "$ident_cert_path" \
-               --identity.key-path "$ident_key_path" \
                --config-dir "$CERTS_DIR" \
+               "$subcommand" \
                --signer.ca.cert-path "$ca_cert_path" \
                --signer.ca.key-path "$ca_key_path" \
                --server.address "$CERTS_ADDR" \
                --server.private-address "$CERTS_ADDR_PRIV" \
+               --server.extensions.revocation=false \
+               --log.level warn \
                 "$@"
 }
 
@@ -61,7 +59,7 @@ export_auths() {
 }
 
 _identity_create 'certificates'
-_certificates setup --log.level warn
+_certificates setup
 
 for i in {0..4}; do
   email="testuser${i}@mail.example"
