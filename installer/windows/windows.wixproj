@@ -20,6 +20,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CustomInstallDir.wxs" />
+    <Compile Include="IdentityDir.wxs" />
     <Compile Include="OperatorConfig.wxs" />
     <Compile Include="Product.wxs" />
   </ItemGroup>
