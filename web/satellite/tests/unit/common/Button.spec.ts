@@ -10,7 +10,7 @@ describe('Button.vue', () => {
     it('renders correctly', () => {
         const wrapper = shallowMount(Button, {
             propsData: {
-                onPress: () => { return },
+                onPress: () => { return; },
             },
         });
 
@@ -21,7 +21,7 @@ describe('Button.vue', () => {
         const wrapper = shallowMount(Button, {
             propsData: {
                 isWhite: true,
-                onPress: () => { return },
+                onPress: () => { return; },
             }
         });
 
@@ -32,7 +32,7 @@ describe('Button.vue', () => {
         const wrapper = shallowMount(Button, {
             propsData: {
                 isDisabled: true,
-                onPress: () => { return },
+                onPress: () => { return; },
             }
         });
 
@@ -49,7 +49,7 @@ describe('Button.vue', () => {
                 label,
                 width,
                 height,
-                onPress: () => { return },
+                onPress: () => { return; },
             },
         });
 
@@ -61,7 +61,7 @@ describe('Button.vue', () => {
     it('renders correctly with default props', () => {
         const wrapper = shallowMount(Button, {
             propsData: {
-                onPress: () => { return },
+                onPress: () => { return; },
             },
         });
 
