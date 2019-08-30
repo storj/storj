@@ -1649,74 +1649,93 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	segmentItems := make([]*pb.SegmentListItem, 0)
-	more := false
-
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
 		// TODO cleanup int32 vs int64
-		numberOfSegments := int32(streamMeta.NumberOfSegments) - req.CursorPosition.Index
-		if numberOfSegments > 0 {
-			if numberOfSegments > limit {
-				more = true
-				numberOfSegments = limit
-			} else {
-				// remove last segment from loop
-				numberOfSegments--
-			}
-			for index := int32(0); index < numberOfSegments; index++ {
-				segmentItems = append(segmentItems, &pb.SegmentListItem{
-					Position: &pb.SegmentPosition{
-						Index: index + req.CursorPosition.Index,
-					},
-				})
-			}
-			if !more {
-				// last segment is always last one
-				segmentItems = append(segmentItems, &pb.SegmentListItem{
-					Position: &pb.SegmentPosition{
-						Index: lastSegment,
-					},
-				})
-			}
+		return endpoint.listSegmentsFromNumberOfSegment(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
+	}
+
+	// list segments by requesting each segment from cursor index to n until n segment is not found
+	return endpoint.listSegmentsManually(ctx, keyInfo.ProjectID, streamID, req.CursorPosition.Index, limit)
+}
+
+func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, numberOfSegments, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
+	numberOfSegments = numberOfSegments - cursorIndex
+
+	segmentItems := make([]*pb.SegmentListItem, 0)
+	more := false
+
+	if numberOfSegments > 0 {
+		if numberOfSegments > limit {
+			more = true
+			numberOfSegments = limit
+		} else {
+			// remove last segment to avoid if statements in loop to detect last segment,
+			// last segment will be added manually at the end of this block
+			numberOfSegments--
 		}
-	} else {
-		index := int64(req.CursorPosition.Index)
-		// TODO think about better implementation
-		for {
-			path, err := CreatePath(ctx, keyInfo.ProjectID, index, streamID.Bucket, streamID.EncryptedPath)
-			if err != nil {
-				return nil, status.Error(codes.Internal, err.Error())
-			}
-			_, err = endpoint.metainfo.Get(ctx, path)
-			if err != nil {
-				if storage.ErrKeyNotFound.Has(err) {
-					break
-				}
-				return nil, status.Error(codes.Internal, err.Error())
-			}
-			if limit == int32(len(segmentItems)) {
-				more = true
-				break
-			}
+		for index := int32(0); index < numberOfSegments; index++ {
 			segmentItems = append(segmentItems, &pb.SegmentListItem{
 				Position: &pb.SegmentPosition{
-					Index: int32(index),
+					Index: index + cursorIndex,
 				},
 			})
-
-			index++
 		}
-
-		if limit > int32(len(segmentItems)) {
+		if !more {
+			// last segment is always the last one
 			segmentItems = append(segmentItems, &pb.SegmentListItem{
 				Position: &pb.SegmentPosition{
 					Index: lastSegment,
 				},
 			})
-		} else {
-			more = true
 		}
+	}
+
+	return &pb.SegmentListResponse{
+		Items: segmentItems,
+		More:  more,
+	}, nil
+}
+
+func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uuid.UUID, streamID *pb.SatStreamID, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
+	index := int64(cursorIndex)
+
+	segmentItems := make([]*pb.SegmentListItem, 0)
+	more := false
+
+	for {
+		path, err := CreatePath(ctx, projectID, index, streamID.Bucket, streamID.EncryptedPath)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		_, err = endpoint.metainfo.Get(ctx, path)
+		if err != nil {
+			if storage.ErrKeyNotFound.Has(err) {
+				break
+			}
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		if limit == int32(len(segmentItems)) {
+			more = true
+			break
+		}
+		segmentItems = append(segmentItems, &pb.SegmentListItem{
+			Position: &pb.SegmentPosition{
+				Index: int32(index),
+			},
+		})
+
+		index++
+	}
+
+	if limit > int32(len(segmentItems)) {
+		segmentItems = append(segmentItems, &pb.SegmentListItem{
+			Position: &pb.SegmentPosition{
+				Index: lastSegment,
+			},
+		})
+	} else {
+		more = true
 	}
 
 	return &pb.SegmentListResponse{
