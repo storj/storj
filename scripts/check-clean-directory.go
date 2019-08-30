@@ -27,6 +27,7 @@ func main() {
 
 	// there's no easy way to modify npm to use tmp folders
 	leftover = ignorePrefix(leftover, "web/satellite/node_modules/")
+	leftover = ignorePrefix(leftover, "web/satellite/coverage/")
 	leftover = ignorePrefix(leftover, "web/satellite/dist/")
 	// TODO: shouldn't this be already up to date?
 	leftover = ignorePrefix(leftover, "web/satellite/package-lock.json")

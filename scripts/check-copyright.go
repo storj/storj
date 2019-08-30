@@ -23,6 +23,7 @@ var checkFiles = map[string]bool{
 var ignoreFolder = map[string]bool{
 	".git":         true,
 	"node_modules": true,
+	"coverage":     true,
 	"dist":         true,
 }
 

@@ -27,6 +27,7 @@ var ignoreDir = map[string]bool{
 	".git":         true,
 	".build":       true,
 	"node_modules": true,
+	"coverage":     true,
 	"dist":         true,
 }
 
