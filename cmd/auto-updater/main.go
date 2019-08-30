@@ -115,7 +115,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		downloadURL = strings.Replace(downloadURL, "{os}", "windows", 1)
+		downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
 		downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
 
 		tempArchive, err := ioutil.TempFile(os.TempDir(), "storagenode")
