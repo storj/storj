@@ -78,7 +78,7 @@ build-packages-race:
 build-packages-normal:
 	go install -v -race ./...
 build-npm:
-	cd web/satellite && npm install
+	cd web/satellite && npm ci
 
 ##@ Simulator
 

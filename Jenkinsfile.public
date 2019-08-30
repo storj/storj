@@ -116,6 +116,7 @@ pipeline {
                             sh 'npm run lint'
                             // TODO: reenable with vue4
                             sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
                         }
                     }
                 }
