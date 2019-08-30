@@ -8,24 +8,27 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
+
+	"storj.io/storj/internal/sync2"
 )
 
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
 	log    *zap.Logger
 	config Config
-	closed chan struct{}
+
+	Limiter *sync2.Limiter
 
 	queue *queue
 }
 
-// NewWorker instantiates Worker and workers.
+// NewWorker instantiates Worker.
 func NewWorker(log *zap.Logger, config Config) (*Worker, error) {
 	return &Worker{
 		log:    log,
 		config: config,
-		closed: make(chan struct{}),
+
+		Limiter: sync2.NewLimiter(config.WorkerConcurrency),
 
 		queue: &queue{},
 	}, nil
@@ -36,20 +39,14 @@ func (w *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	w.log.Info("audit 2.0 is starting up")
 
-	var group errgroup.Group
-	for i := 0; i < w.config.WorkerCount; i++ {
-		group.Go(func() error {
-			return w.process(ctx)
-		})
-	}
+	// wait for all audits to run
+	defer w.Limiter.Wait()
 
-	return group.Wait()
-
+	return w.process(ctx)
 }
 
-// Close halts the reservoir chore and audit workers.
+// Close halts the worker.
 func (w *Worker) Close() error {
-	close(w.closed)
 	return nil
 }
 
@@ -78,6 +75,8 @@ func (w *Worker) process(ctx context.Context) error {
 			return err
 		}
 
-		// TODO: audit the path
+		w.Limiter.Go(ctx, func() {
+			// TODO: audit the path
+		})
 	}
 }
