@@ -63,7 +63,6 @@ type DB interface {
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
-	Console() console.DB
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
 
@@ -333,7 +332,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup storage node operator dashboard
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			peer.DB.Console(),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
 			peer.Kademlia.Service,

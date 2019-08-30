@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	sqliteTimeLayout = "2006-01-02 15:04:05-07:00"
+	sqliteTimeLayout           = "2006-01-02 15:04:05-07:00"
+	sqliteTimeLayoutNoTimeZone = "2006-01-02 15:04:05"
 )
 
 // NullTime time helps convert nil to time.Time
@@ -32,7 +33,7 @@ func (nt *NullTime) Scan(value interface{}) error {
 		return nil
 	}
 
-	times, err := time.Parse(sqliteTimeLayout, string(date))
+	times, err := parseSqliteTimeString(string(date))
 	if err != nil {
 		return nil
 	}
@@ -47,4 +48,19 @@ func (nt NullTime) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return nt.Time, nil
+}
+
+// parseSqliteTimeString parses sqlite times string.
+// It tries to process value as string with timezone first,
+// then fallback to parsing as string without timezone.
+func parseSqliteTimeString(val string) (time.Time, error) {
+	var times time.Time
+	var err error
+
+	times, err = time.Parse(sqliteTimeLayout, val)
+	if err == nil {
+		return times, nil
+	}
+
+	return time.Parse(sqliteTimeLayoutNoTimeZone, val)
 }
