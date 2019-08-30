@@ -26,10 +26,6 @@
                     'sortTeamMemberByDropdownButton',
                     'notificationArea',
                     'successfulRegistrationPopup',
-                    'deletePaymentMethodButton',
-                    'deletePaymentMethodDialog',
-                    'makeDefaultPaymentMethodButton',
-                    'makeDefaultPaymentDialog'
                 ]
             };
         },

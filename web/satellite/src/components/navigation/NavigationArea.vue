@@ -5,16 +5,10 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import AddUserPopup from '@/components/team/AddUserPopup.vue';
     import { NavigationLink } from '@/types/navigation';
     import { RouteConfig } from '@/router';
 
-    @Component({
-        components: {
-            AddUserPopup,
-        }
-    })
+    @Component
     export default class NavigationArea extends Vue {
         // TODO: Use SvgLoaderComponent to reduce markup lines
         public readonly navigation: NavigationLink[] = [
@@ -57,18 +51,8 @@
                 </svg>`),
         ];
 
-        public togglePopup(): void {
-            if (!this.$store.getters.selectedProject.id) return;
-
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
-        }
-
         public onLogoClick(): void {
             location.reload();
-        }
-
-        public get isAddTeamMembersPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
         }
 
         public get isProjectNotSelected(): boolean {
