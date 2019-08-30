@@ -2,18 +2,18 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="account-balance-area">
-		<h1>Account Balance</h1>
-		<div class="account-balance-area__balance-area">
-			<span>Balance <b>$25.00</b></span>
-			<Button
-				class="button"
-				label="Earn Credits"
-				width="153px"
-				height="48px"
-				:onPress="onEarnCredits"/>
-		</div>
-	</div>
+    <div class="account-balance-area">
+        <h1>Account Balance</h1>
+        <div class="account-balance-area__balance-area">
+            <span>Balance <b>$25.00</b></span>
+            <Button
+                class="button"
+                label="Earn Credits"
+                width="153px"
+                height="48px"
+                :onPress="onEarnCredits"/>
+        </div>
+    </div>
 </template>
 
 <script lang="ts">
@@ -33,48 +33,48 @@
 </script>
 
 <style scoped lang="scss">
-	h1, span {
-		margin: 0;
-		color: #354049;
-	}
+    h1, span {
+        margin: 0;
+        color: #354049;
+    }
 
-	.button {
+    .button {
 
-		&:hover {
-			background-color: #0059D0;
-			box-shadow: none;
-		}
-	}
+        &:hover {
+            background-color: #0059D0;
+            box-shadow: none;
+        }
+    }
 
-	.account-balance-area {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 40px;
-		margin-bottom: 47px;
-		background-color: #FFFFFF;
-		border-radius: 8px;
-		font-family: 'font_regular';
+    .account-balance-area {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 40px;
+        margin-bottom: 47px;
+        background-color: #FFFFFF;
+        border-radius: 8px;
+        font-family: 'font_regular';
 
-		h1 {
-			font-family: 'font_bold';
-			font-size: 32px;
-			line-height: 48px;
-		}
+        h1 {
+            font-family: 'font_bold';
+            font-size: 32px;
+            line-height: 48px;
+        }
 
-		&__balance-area {
-			display: flex;
-			align-items: center;
+        &__balance-area {
+            display: flex;
+            align-items: center;
 
-			span {
-				margin-right: 27px;
-				font-size: 18px;
-				color: rgba(53, 64, 73, 0.5);
+            span {
+                margin-right: 27px;
+                font-size: 18px;
+                color: rgba(53, 64, 73, 0.5);
 
-				b {
-					color: #354049;
-				}
-			}
-		}
-	}
+                b {
+                    color: #354049;
+                }
+            }
+        }
+    }
 </style>

@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="account-billing-area">
-		<AccountBalance/>
-		<CurrentMonth/>
-		<DepositAndBilling/>
-	</div>
+    <div class="account-billing-area">
+        <AccountBalance/>
+        <CurrentMonth/>
+        <DepositAndBilling/>
+    </div>
 </template>
 
 <script lang="ts">
@@ -22,21 +22,19 @@
             DepositAndBilling,
         }
     })
-    export default class BillingArea extends Vue {
-
-    }
+    export default class BillingArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
-	::-webkit-scrollbar,
-	::-webkit-scrollbar-track,
-	::-webkit-scrollbar-thumb {
-		width: 0;
-	}
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        width: 0;
+    }
 
-	.account-billing-area {
-		margin-top: 83px;
-		overflow-y: scroll;
-		height: 75vh;
-	}
+    .account-billing-area {
+        margin-top: 83px;
+        overflow-y: scroll;
+        height: 75vh;
+    }
 </style>

@@ -2,20 +2,20 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="deposit-and-billing-area">
-		<div class="deposit-and-billing-area__header">
-			<h1>Deposit & Billing History</h1>
-			<div class="button">View All</div>
-		</div>
-		<SortingHeader />
-		<div class="divider"></div>
-		<BillingItem />
-		<div class="divider"></div>
-		<BillingItem />
-		<div class="divider"></div>
-		<BillingItem />
-		<div class="divider"></div>
-	</div>
+    <div class="deposit-and-billing-area">
+        <div class="deposit-and-billing-area__header">
+            <h1>Deposit & Billing History</h1>
+            <div class="button">View All</div>
+        </div>
+        <SortingHeader />
+        <div class="divider"></div>
+        <BillingItem />
+        <div class="divider"></div>
+        <BillingItem />
+        <div class="divider"></div>
+        <BillingItem />
+        <div class="divider"></div>
+    </div>
 </template>
 
 <script lang="ts">
@@ -35,53 +35,53 @@
 </script>
 
 <style scoped lang="scss">
-	h1, span {
-		margin: 0;
-		color: #354049;
-	}
+    h1, span {
+        margin: 0;
+        color: #354049;
+    }
 
-	.deposit-and-billing-area {
-		margin-bottom: 47px;
-		padding: 40px;
-		background-color: #FFFFFF;
-		border-radius: 8px;
-		font-family: 'font_regular';
+    .deposit-and-billing-area {
+        margin-bottom: 47px;
+        padding: 40px;
+        background-color: #FFFFFF;
+        border-radius: 8px;
+        font-family: 'font_regular';
 
-		&__header {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			margin-bottom: 40px;
-			font-family: 'font_bold';
+        &__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            font-family: 'font_bold';
 
-			h1 {
-				font-size: 32px;
-				line-height: 48px;
-			}
+            h1 {
+                font-size: 32px;
+                line-height: 48px;
+            }
 
-			.button {
-				display: flex;
-				width: 120px;
-				height: 48px;
-				border: 1px solid #AFB7C1;
-				border-radius: 8px;
-				align-items: center;
-				justify-content: center;
-				font-size: 16px;
-				color: #354049;
-				cursor: pointer;
+            .button {
+                display: flex;
+                width: 120px;
+                height: 48px;
+                border: 1px solid #AFB7C1;
+                border-radius: 8px;
+                align-items: center;
+                justify-content: center;
+                font-size: 16px;
+                color: #354049;
+                cursor: pointer;
 
-				&:hover {
-					background-color: #2683FF;
-					color: #FFFFFF;
-				}
-			}
-		}
-	}
+                &:hover {
+                    background-color: #2683FF;
+                    color: #FFFFFF;
+                }
+            }
+        }
+    }
 
-	.divider {
-		width: calc(100% - 2px);
-		opacity: 0.2;
-		border: 1px solid #A9B5C1;
-	}
+    .divider {
+        width: calc(100% - 2px);
+        opacity: 0.2;
+        border: 1px solid #A9B5C1;
+    }
 </style>
