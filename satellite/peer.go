@@ -720,7 +720,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Service2.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Chore.Run(ctx))
