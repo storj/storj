@@ -3,4 +3,5 @@
 /obj/
 *.exe
 *.msi
-*.wix*
+*.wixobj
+*.wixpdb
