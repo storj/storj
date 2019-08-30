@@ -192,9 +192,9 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service  *audit.Service
-		Service2 *audit.Service2
-		Chore    *audit.ReservoirChore
+		Service *audit.Service
+		Worker  *audit.Worker
+		Chore   *audit.ReservoirChore
 	}
 
 	GarbageCollection struct {
@@ -490,7 +490,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		// setup audit 2.0
-		peer.Audit.Service2, err = audit.NewService2(peer.Log.Named("audit service 2"),
+		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit service 2"),
 			config,
 		)
 		if err != nil {
@@ -498,7 +498,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		peer.Audit.Chore = audit.NewReservoirChore(peer.Log.Named("audit reservoir chore"),
-			peer.Audit.Service2,
+			peer.Audit.Worker,
 			peer.Metainfo.Loop,
 			config,
 		)
@@ -779,8 +779,8 @@ func (peer *Peer) Close() error {
 	if peer.Audit.Chore != nil {
 		errlist.Add(peer.Audit.Chore.Close())
 	}
-	if peer.Audit.Service2 != nil {
-		errlist.Add(peer.Audit.Service2.Close())
+	if peer.Audit.Worker != nil {
+		errlist.Add(peer.Audit.Worker.Close())
 	}
 
 	// close services in reverse initialization order

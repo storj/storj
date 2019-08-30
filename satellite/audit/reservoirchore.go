@@ -21,20 +21,20 @@ type ReservoirChore struct {
 	config Config
 	rand   *rand.Rand
 
-	service *Service2
+	worker *Worker
 
 	MetainfoLoop *metainfo.Loop
 	Loop         sync2.Cycle
 }
 
 // NewReservoirChore instantiates ReservoirChore.
-func NewReservoirChore(log *zap.Logger, service *Service2, metaLoop *metainfo.Loop, config Config) *ReservoirChore {
+func NewReservoirChore(log *zap.Logger, worker *Worker, metaLoop *metainfo.Loop, config Config) *ReservoirChore {
 	return &ReservoirChore{
 		log:    log,
 		config: config,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),
 
-		service: service,
+		worker: worker,
 
 		MetainfoLoop: metaLoop,
 		Loop:         *sync2.NewCycle(config.ChoreInterval),
@@ -59,7 +59,7 @@ func (chore *ReservoirChore) Run(ctx context.Context) error {
 			return nil
 		}
 
-		var queue []storj.Path
+		var newQueue []storj.Path
 		queuePaths := make(map[storj.Path]struct{})
 
 		// Add reservoir paths to queue in pseudorandom order.
@@ -71,12 +71,12 @@ func (chore *ReservoirChore) Run(ctx context.Context) error {
 				}
 				path := res.Paths[i]
 				if _, ok := queuePaths[path]; !ok {
-					queue = append(queue, path)
+					newQueue = append(newQueue, path)
 					queuePaths[path] = struct{}{}
 				}
 			}
 		}
-		chore.service.queue.swap(queue)
+		chore.worker.queue.swap(newQueue)
 
 		return nil
 	})
