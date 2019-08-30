@@ -33,6 +33,7 @@ _certificates() {
   ca_key_path="${ident_dir}/ca.key"
   rev_dburl="bolt://${CERTS_DIR}/revocations.db"
 
+  # NB: `--identity-dir` and `--config-dir` flags are only bound globally to subcommands
   certificates --identity-dir "$ident_dir" \
                --config-dir "$CERTS_DIR" \
                "$subcommand" \
@@ -47,20 +48,19 @@ _certificates() {
 
 _identity() {
   subcommand=$1
+  rev_dburl="bolt://${IDENTS_DIR}/revocations.db"
   shift
+
+  # NB: `--identity-dir` and `--config-dir` flags are only bound globally to subcommands
   identity --identity-dir "$IDENTS_DIR" \
            "$subcommand" \
-           --signer.tls.revocation-dburl "bolt://${IDENTS_DIR}/revocations.db" \
+           --signer.tls.revocation-dburl "$rev_dburl" \
            --log.level info \
            "$@"
 }
 
 _identity_create() {
   _identity create  $1 --difficulty 0 --concurrency 1 >/dev/null
-}
-
-export_auths() {
-  _certificates auth export
 }
 
 _identity_create 'certificates'
@@ -77,7 +77,7 @@ for i in {0..4}; do
   fi
 done
 
-exported_auths=$(export_auths)
+exported_auths=$(_certificates auth export)
 _certificates run --signer.min-difficulty 0 &
 
 sleep 1
@@ -94,7 +94,7 @@ done
 kill_certificates_server
 
 # Expect 10 authorizations total.
-auths=$(export_auths)
+auths=$(_certificates auth export)
 require_lines 10 "$auths" $LINENO
 
 for i in {1..4}; do
