@@ -1,2 +1,6 @@
+/.vs/
+/bin/
+/obj/
+*.exe
 *.msi
 *.wix*
