@@ -11,6 +11,8 @@ exports[`HeaderArea.vue renders correctly 1`] = `
       <!---->
       <!---->
     </headercomponent-stub>
+    <!---->
+    <!---->
   </div>
 </div>
 `;
