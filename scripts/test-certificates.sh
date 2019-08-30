@@ -22,13 +22,18 @@ cleanup() {
 trap cleanup EXIT INT
 
 _certificates() {
-  ident_dir="${IDENTS_DIR}/certificates/"
+  subcommand=$1
+  shift
+
+  ident_dir="${IDENTS_DIR}/certificates"
   ident_cert_path="${ident_dir}/identity.cert"
   ident_key_path="${ident_dir}/identity.key"
   ca_cert_path="${ident_dir}/ca.cert"
   ca_key_path="${ident_dir}/ca.key"
 
-  certificates --identity.cert-path "$ident_cert_path" \
+  certificates --identity-dir "$ident_dir" \
+               "$subcommand" \
+               --identity.cert-path "$ident_cert_path" \
                --identity.key-path "$ident_key_path" \
                --config-dir "$CERTS_DIR" \
                --signer.ca.cert-path "$ca_cert_path" \
@@ -39,11 +44,11 @@ _certificates() {
 _identity() {
   subcommand=$1
   shift
-  identity --log.level warn $subcommand --identity-dir "$IDENTS_DIR" "$@"
+  identity --identity-dir "$IDENTS_DIR" "$subcommand"  --log.level info "$@"
 }
 
 _identity_create() {
-  _identity create $1 --difficulty 0 --concurrency 1 >/dev/null
+  _identity create  $1 --difficulty 0 --concurrency 1 >/dev/null
 }
 
 export_auths() {
