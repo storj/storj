@@ -44,32 +44,26 @@
 
             try {
                 await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            } catch (err) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${err.message}`);
+            } catch (error) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
             }
-
-            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
 
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
             }
 
             try {
                 await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            } catch {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
             }
 
             try {
-                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
-            }
-
-            if (!paymentMethodsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
             }
         }
 
