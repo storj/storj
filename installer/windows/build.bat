@@ -1,3 +1,3 @@
-candle.exe StorageNode.wxs
+candle.exe -arch x64 storagenode.wxs
 
-light.exe StorageNode.wixobj
+light.exe storagenode.wixobj
