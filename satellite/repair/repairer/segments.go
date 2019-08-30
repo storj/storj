@@ -13,10 +13,10 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
 )
 
@@ -45,7 +45,7 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
-	overlay *overlay.Service, ec ecclient.Client, timeout time.Duration,
+	overlay *overlay.Service, tc transport.Client, timeout time.Duration,
 	excessOptimalThreshold float64,
 ) *SegmentRepairer {
 
@@ -58,7 +58,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         NewECRepairer(),
+		ec:                         NewECRepairer(log.Named("ec repairer"), tc),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}
