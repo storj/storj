@@ -118,13 +118,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		downloadURL = strings.Replace(downloadURL, "{os}", runtime.GOOS, 1)
 		downloadURL = strings.Replace(downloadURL, "{arch}", runtime.GOARCH, 1)
 
-		tempArchive, err := ioutil.TempFile(os.TempDir(), "storagenode")
-		if err != nil {
-			return errs.New("cannot create temporary archive: %v", err)
-		}
-		defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
-
 		if currentVersion.Compare(suggestedVersion) < 0 {
+			tempArchive, err := ioutil.TempFile(os.TempDir(), "storagenode")
+			if err != nil {
+				return errs.New("cannot create temporary archive: %v", err)
+			}
+			defer func() { err = errs.Combine(err, os.Remove(tempArchive.Name())) }()
+
 			log.Println("start downloading", downloadURL, "to", tempArchive.Name())
 			err = downloadArchive(ctx, tempArchive, downloadURL)
 			if err != nil {
