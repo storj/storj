@@ -6,7 +6,6 @@ package storagenode
 import (
 	"context"
 	"net"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -299,7 +298,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		// TODO workaround for custom timeout for order sending request (read/write)
 		ordersTransport := transport.NewClientWithTimeouts(options, transport.Timeouts{
-			Dial:    20 * time.Second,
 			Request: config.Storage2.Orders.SenderRequestTimeout,
 		})
 
