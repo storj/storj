@@ -6,11 +6,11 @@ This document describes storage node downtime tracking.
 
 ## Background
 
-[Disqualification design document](disqualification.md) describes how storage nodes get disqualified based on the reputation scores described in [node selection design document](node-selection.md).
+[Disqualification blueprint](disqualification.md) describes how storage nodes get disqualified based on the reputation scores described in [node selection blueprint](node-selection.md).
 
 Current disqualification based on uptime disqualified several nodes without clear and fair evidence. These disqualifications needed to be reverted and the uptime based disqualification disabled. Before we can start handling disqualifications we need to more reliably track offline status of nodes.
 
-[Kademlia removal design document](kademlia-removal.md) describes that each node will need to contact each satellite regularly every hour. This is used in the following design.
+[Kademlia removal blueprint](kademlia-removal.md) describes that each node will need to contact each satellite regularly every hour. This is used in the following design.
 
 This document does not describe how the downtime affects reputation and how disqualifications will work.
 
@@ -22,7 +22,7 @@ For tracking offline duration we need:
 - Detecting which nodes are offline.
 - Estimate how long they are offline.
 
-An _uptime check_ referenced in this section is a connection initiated by the satellite to any storage node in the same way that's described in [network refreshing section of the Kademlia removal design document](kademlia-removal.md#network-refreshing).
+An _uptime check_ referenced in this section is a connection initiated by the satellite to any storage node in the same way that's described in [network refreshing section of the Kademlia removal blueprint](kademlia-removal.md#network-refreshing).
 
 __NOTE__ the SQL code in this section is illustrative for explaining the algorithm concisely.
 
@@ -47,7 +47,7 @@ The current Satellite database has the table `nodes`. For the offline time calcu
 
 ### Detecting offline nodes
 
-Per [Kademlia removal design document](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing), any storage node has to ping the satellite every hour. For storage nodes that have not pinged, we need to contact them directly.
+Per [Kademlia removal blueprint](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing), any storage node has to ping the satellite every hour. For storage nodes that have not pinged, we need to contact them directly.
 
 For finding the storage nodes gone offline, we run a chore, with the following query:
 
@@ -222,5 +222,5 @@ Data Science could use this approach to more nicely calculate statistics however
 ## Open issues
 
 * The design indefinitely checks offline storage nodes until they are disqualified.
-* The implementation requires coordination with the team working in [Kademlia removal design document](kademlia-removal.md) for the "ping" functionality.
+* The implementation requires coordination with the team working in [Kademlia removal blueprint](kademlia-removal.md) for the "ping" functionality.
 * The implementation requires the [Kademlia removal network refreshing](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing) implemented and deployed before deploying the new chore. Use a feature flag for removing the constraint.
