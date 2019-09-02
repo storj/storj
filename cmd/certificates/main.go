@@ -17,10 +17,11 @@ import (
 	"storj.io/storj/pkg/server"
 )
 
-// BatchCfg defines configuration for batching
-type BatchCfg struct {
-	EmailsPath string `help:"optional path to a list of emails, delimited by <delimiter>, for batch processing"`
-	Delimiter  string `help:"delimiter to split emails loaded from <emails-path> on (e.g. comma, new-line)" default:"\n"`
+type CertificatesServerFlags struct {
+	Identity identity.Config
+	Server   server.Config
+
+	Signer certificates.CertServerConfig
 }
 
 var (
@@ -35,19 +36,21 @@ var (
 		RunE:  cmdRun,
 	}
 
-	config struct {
-		BatchCfg
-		CA       identity.CASetupConfig
-		Identity identity.SetupConfig
-		Server   struct { // workaround server.Config change
-			Identity identity.Config
-			server.Config
-		}
-		Signer     certificates.CertServerConfig
+	runCfg CertificatesServerFlags
+
+	setupCfg struct {
+		Overwrite bool `help:"if true ca, identity, and authorization db will be overwritten/truncated" default:"false"`
+		CertificatesServerFlags
+	}
+
+	authCfg struct {
 		All        bool   `help:"print the all authorizations for auth info/export subcommands" default:"false"`
 		Out        string `help:"output file path for auth export subcommand; if \"-\", will use STDOUT" default:"-"`
 		ShowTokens bool   `help:"if true, token strings will be printed for auth info command" default:"false"`
-		Overwrite  bool   `default:"false" help:"if true ca, identity, and authorization db will be overwritten/truncated"`
+		EmailsPath string `help:"optional path to a list of emails, delimited by <delimiter>, for batch processing"`
+		Delimiter  string `help:"delimiter to split emails loaded from <emails-path> on (e.g. comma, new-line)" default:"\n"`
+
+		CertificatesServerFlags
 	}
 
 	confDir     string
@@ -57,12 +60,12 @@ var (
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	identity, err := config.Server.Identity.Load()
+	identity, err := runCfg.Identity.Load()
 	if err != nil {
 		zap.S().Fatal(err)
 	}
 
-	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config.Config)
+	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
@@ -70,7 +73,7 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	return config.Server.Run(ctx, zap.L(), identity, revocationDB, nil, config.Signer)
+	return runCfg.Server.Run(ctx, zap.L(), identity, revocationDB, nil, runCfg.Signer)
 }
 
 func main() {
@@ -92,11 +95,11 @@ func main() {
 	authCmd.AddCommand(authInfoCmd)
 	authCmd.AddCommand(authExportCmd)
 
-	process.Bind(authCreateCmd, &config, defaults, cfgstruct.ConfDir(confDir))
-	process.Bind(authInfoCmd, &config, defaults, cfgstruct.ConfDir(confDir))
-	process.Bind(authExportCmd, &config, defaults, cfgstruct.ConfDir(confDir))
-	process.Bind(runCmd, &config, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(setupCmd, &config, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
+	process.Bind(authCreateCmd, &authCfg, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(authInfoCmd, &authCfg, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(authExportCmd, &authCfg, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(signCmd, &signCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(verifyCmd, &verifyCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(claimsExportCmd, &claimsExportCfg, defaults, cfgstruct.ConfDir(confDir))
