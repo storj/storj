@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/server"
 )
 
+// CertificatesServerFlags defines certificate server configuration
 type CertificatesServerFlags struct {
 	Identity identity.Config
 	Server   server.Config
