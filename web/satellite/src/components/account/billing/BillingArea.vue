@@ -4,21 +4,21 @@
 <template>
     <div class="account-billing-area">
         <AccountBalance/>
-        <CurrentMonth/>
+        <MonthlyBillingSummary/>
         <DepositAndBilling/>
     </div>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import CurrentMonth from '@/components/account/billing/CurrentMonth.vue';
+    import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
     import AccountBalance from '@/components/account/billing/AccountBalance.vue';
     import DepositAndBilling from '@/components/account/billing/DepositAndBilling.vue';
 
     @Component({
         components: {
             AccountBalance,
-            CurrentMonth,
+            MonthlyBillingSummary,
             DepositAndBilling,
         }
     })

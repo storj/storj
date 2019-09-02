@@ -31,9 +31,9 @@
     .container {
         display: flex;
         padding: 0 30px;
-        border-radius: 6px;
         align-items: center;
         width: calc(100% - 60px);
+        border-bottom: 1px solid rgba(169, 181, 193, 0.3);
     
         &__item {
             width: 35%;

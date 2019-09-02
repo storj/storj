@@ -3,9 +3,9 @@
 
 <template>
     <div class="account-balance-area">
-        <h1>Account Balance</h1>
+        <h1 class="account-balance-area__title">Account Balance</h1>
         <div class="account-balance-area__balance-area">
-            <span>Balance <b>$25.00</b></span>
+            <span class="account-balance-area__balance-area__balance">Balance <b>$25.00</b></span>
             <Button
                 class="button"
                 label="Earn Credits"
@@ -33,7 +33,8 @@
 </script>
 
 <style scoped lang="scss">
-    h1, span {
+    h1,
+    span {
         margin: 0;
         color: #354049;
     }
@@ -56,7 +57,7 @@
         border-radius: 8px;
         font-family: 'font_regular';
 
-        h1 {
+        &__title {
             font-family: 'font_bold';
             font-size: 32px;
             line-height: 48px;
@@ -66,7 +67,7 @@
             display: flex;
             align-items: center;
 
-            span {
+            &__balance {
                 margin-right: 27px;
                 font-size: 18px;
                 color: rgba(53, 64, 73, 0.5);

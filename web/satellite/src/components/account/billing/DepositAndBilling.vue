@@ -4,17 +4,13 @@
 <template>
     <div class="deposit-and-billing-area">
         <div class="deposit-and-billing-area__header">
-            <h1>Deposit & Billing History</h1>
+            <h1 class="deposit-and-billing-area__header__title">Deposit & Billing History</h1>
             <div class="button">View All</div>
         </div>
         <SortingHeader />
-        <div class="divider"></div>
         <BillingItem />
-        <div class="divider"></div>
         <BillingItem />
-        <div class="divider"></div>
         <BillingItem />
-        <div class="divider"></div>
     </div>
 </template>
 
@@ -33,7 +29,8 @@
 </script>
 
 <style scoped lang="scss">
-    h1, span {
+    h1,
+    span {
         margin: 0;
         color: #354049;
     }
@@ -52,7 +49,7 @@
             margin-bottom: 40px;
             font-family: 'font_bold';
 
-            h1 {
+            &__title {
                 font-size: 32px;
                 line-height: 48px;
             }
@@ -75,11 +72,5 @@
                 }
             }
         }
-    }
-
-    .divider {
-        width: calc(100% - 2px);
-        opacity: 0.2;
-        border: 1px solid #A9B5C1;
     }
 </style>

@@ -4,16 +4,16 @@
 <template>
     <div class="sort-header-container">
         <div class="sort-header-container__item">
-            <p>Date</p>
+            <p class="sort-header-container__item__name">Date</p>
         </div>
         <div class="sort-header-container__item">
-            <p>Description</p>
+            <p class="sort-header-container__item__name">Description</p>
         </div>
         <div class="sort-header-container__item status">
-            <p>Status</p>
+            <p class="sort-header-container__item__name">Status</p>
         </div>
         <div class="sort-header-container__item amount">
-            <p>Amount</p>
+            <p class="sort-header-container__item__name">Amount</p>
         </div>
         <div class="sort-header-container__item download"></div>
     </div>
@@ -32,13 +32,14 @@
         background-color: rgba(245, 246, 250, 0.5);
         width: calc(100% - 60px);
         padding: 0 30px;
+        border-bottom: 1px solid rgba(169, 181, 193, 0.3);
         
         &__item {
             text-align: left;
             width: 35%;
             margin-right: 10px;
             
-            p {
+            &__name {
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 10px;

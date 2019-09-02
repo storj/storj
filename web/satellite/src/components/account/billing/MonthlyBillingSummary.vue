@@ -5,11 +5,11 @@
     <div class="current-month-area">
         <div class="current-month-area__header">
             <div class="current-month-area__header__month-info">
-                <h1>Current Month</h1>
-                <h2>August 1 - 15 2019</h2>
+                <h1 class="current-month-area__header__month-info__title">Current Month</h1>
+                <h2 class="current-month-area__header__month-info__title-info">August 1 - 15 2019</h2>
             </div>
             <div class="current-month-area__header__usage-info" v-if="false">
-                <span>Usage <b>$12.44</b></span>
+                <span class="current-month-area__header__usage-info__data">Usage <b>$12.44</b></span>
                 <Button
                     label="Earn Credits"
                     width="153px"
@@ -18,7 +18,7 @@
         </div>
         <div class="divider"></div>
         <div class="current-month-area__content">
-            <h2>DETAILED SUMMARY</h2>
+            <h2 class="current-month-area__content__title">DETAILED SUMMARY</h2>
             <div class="current-month-area__content__usage-charges" @click="toggleUsageChargesPopup">
                 <div class="current-month-area__content__usage-charges__head">
                     <div class="current-month-area__content__usage-charges__head__name">
@@ -33,12 +33,10 @@
                     <span>Estimated total $82.44</span>
                 </div>
                 <div class="current-month-area__content__usage-charges__content" v-if="areUsageChargesShown" @click.stop>
-                    <div class="divider"></div>
                     <div class="item">
                         <span>Project 1</span>
                         <span>$21.22</span>
                     </div>
-                    <div class="divider"></div>
                     <div class="item">
                         <span>Project 2</span>
                         <span>$12.88</span>
@@ -59,12 +57,10 @@
                     <span>(+$20.00)</span>
                 </div>
                 <div class="current-month-area__content__referral-credits__content" v-if="areReferralCreditsShown" @click.stop>
-                    <div class="divider"></div>
                     <div class="item">
                         <span>Credit 1</span>
                         <span>$21.22</span>
                     </div>
-                    <div class="divider"></div>
                     <div class="item">
                         <span>Credit 2</span>
                         <span>$12.88</span>
@@ -84,7 +80,7 @@
             Button
         }
     })
-    export default class CurrentMonth extends Vue {
+    export default class MonthlyBillingSummary extends Vue {
         private areUsageChargesShown: boolean = false;
         private areReferralCreditsShown: boolean = false;
 
@@ -99,7 +95,10 @@
 </script>
 
 <style scoped lang="scss">
-    h1, h2, p, span {
+    h1,
+    h2,
+    p,
+    span {
         margin: 0;
         color: #354049;
     }
@@ -118,13 +117,13 @@
 
             &__month-info {
 
-                h1 {
+                &__title {
                     font-family: 'font_bold';
                     font-size: 32px;
                     line-height: 48px;
                 }
 
-                h2 {
+                &__title-info {
                     font-size: 18px;
                 }
             }
@@ -133,7 +132,7 @@
                 display: flex;
                 align-items: center;
 
-                span {
+                &__data {
                     margin-right: 27px;
                     color: rgba(53, 64, 73, 0.5);
                     font-size: 18px;
@@ -148,15 +147,15 @@
         &__content {
             margin-top: 20px;
 
-            h2 {
+            &__title {
                 font-size: 14px;
                 line-height: 21px;
                 color: #AFB7C1;
             }
 
             &__usage-charges {
-                margin: 18px 0 12px 0;
-                padding: 22px 19px 21px 20px;
+                margin: 18px 0 0 0;
+                padding: 20px 20px 20px 20px;
                 background-color: #F5F6FA;
                 border-radius: 12px;
                 cursor: pointer;
@@ -183,7 +182,7 @@
 
             &__referral-credits {
                 margin: 18px 0 12px 0;
-                padding: 22px 19px 21px 20px;
+                padding: 20px 20px 20px 20px;
                 background-color: #F5F6FA;
                 border-radius: 12px;
                 cursor: pointer;
@@ -210,18 +209,13 @@
         }
     }
 
-    .divider {
-        width: calc(100% - 2px);
-        opacity: 0.2;
-        border: 1px solid #A9B5C1;
-        margin-top: 20px;
-    }
-
     .item {
         font-size: 16px;
         line-height: 21px;
         display: flex;
         justify-content: space-between;
+        padding-top: 20px;
         margin-top: 20px;
+        border-top: 1px solid rgba(169, 181, 193, 0.3);
     }
 </style>
