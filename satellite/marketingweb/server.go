@@ -24,6 +24,7 @@ var Error = errs.Class("satellite marketing error")
 
 // Config contains configuration for marketingweb server
 type Config struct {
+	BaseURL   string `help:"base url for marketing Admin GUI" default:""`
 	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
 	StaticDir string `help:"path to static resources" default:""`
 }
@@ -130,24 +131,31 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "err.html"),
 	)
 
-	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
-		"referralLink": rewards.GeneratePartnerLink,
+	s.templates.home, err = template.New("home-page").Funcs(template.FuncMap{
+		"BaseURL":      s.GetBaseURL,
+		"ReferralLink": rewards.GeneratePartnerLink,
 	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	s.templates.pageNotFound, err = template.New("page-not-found").ParseFiles(pageNotFoundFiles...)
+	s.templates.pageNotFound, err = template.New("page-not-found").Funcs(template.FuncMap{
+		"BaseURL": s.GetBaseURL,
+	}).ParseFiles(pageNotFoundFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	s.templates.internalError, err = template.New("internal-server-error").ParseFiles(internalErrorFiles...)
+	s.templates.internalError, err = template.New("internal-server-error").Funcs(template.FuncMap{
+		"BaseURL": s.GetBaseURL,
+	}).ParseFiles(internalErrorFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	s.templates.badRequest, err = template.New("bad-request-error").ParseFiles(badRequestFiles...)
+	s.templates.badRequest, err = template.New("bad-request-error").Funcs(template.FuncMap{
+		"BaseURL": s.GetBaseURL,
+	}).ParseFiles(badRequestFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -205,6 +213,11 @@ func (s *Server) StopOffer(w http.ResponseWriter, req *http.Request) {
 	}
 
 	http.Redirect(w, req, "/", http.StatusSeeOther)
+}
+
+// GetBaseURL returns base url from config.
+func (s *Server) GetBaseURL() string {
+	return s.config.BaseURL
 }
 
 // serveNotFound handles 404 errors and defaults to 500 if template parsing fails.
