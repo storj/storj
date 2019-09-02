@@ -4,9 +4,23 @@
 package transport
 
 import (
+	"context"
 	"net"
 	"time"
+
+	"google.golang.org/grpc"
 )
+
+// WithRequestTimeout defines request timeout (read/write) for grpc call
+func WithRequestTimeout(timeout time.Duration) grpc.DialOption {
+	return grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+		conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+		return &timeoutConn{conn: conn, timeout: timeout}, nil
+	})
+}
 
 type timeoutConn struct {
 	conn    net.Conn

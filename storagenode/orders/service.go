@@ -254,7 +254,11 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 		},
 	}
 
-	conn, err := service.transport.DialNode(ctx, &satellite)
+	conn, err := service.transport.DialNode(
+		ctx,
+		&satellite,
+		transport.WithRequestTimeout(service.config.SenderRequestTimeout),
+	)
 	if err != nil {
 		return OrderError.New("unable to connect to the satellite: %v", err)
 	}

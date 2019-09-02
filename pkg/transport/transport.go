@@ -87,13 +87,7 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		dialOption,
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
-		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
-			if err != nil {
-				return nil, err
-			}
-			return &timeoutConn{conn: conn, timeout: transport.timeouts.Request}, nil
-		}),
+		WithRequestTimeout(transport.timeouts.Request),
 	}, opts...)
 
 	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
