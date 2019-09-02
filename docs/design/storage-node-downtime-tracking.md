@@ -219,6 +219,11 @@ Data Science could use this approach to more nicely calculate statistics however
    - `satellite/satellitedb.Overlaycache.populateUpdateNodeStats`: Remove update disqualified field due to lower uptime reputation.
    - Remove uptime reputation cutt-off configuration field (`satellite/overlay.NodeSelectionConfig.UptimeReputationDQ`).
 
+## Wraup
+
+* The team working on the implementation must archive this document once finished.
+* The new package which contains the chores implementation must have a `doc.go` file describing what each chore does and the corner case, described in the rationale section, of not tracking some offline time.
+
 ## Open issues
 
 * The design indefinitely checks offline storage nodes until they are disqualified.
