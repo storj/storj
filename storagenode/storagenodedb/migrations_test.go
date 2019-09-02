@@ -81,10 +81,13 @@ func TestMigrate(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 
+	storageDir := ctx.Dir("storage")
 	cfg := storagenodedb.Config{
-		Pieces:   ctx.Dir("storage"),
-		Info2:    ctx.Dir("storage") + "/info.db",
-		Kademlia: ctx.Dir("storage") + "/kademlia",
+		Pieces:   storageDir,
+		Storage:  storageDir,
+		Info:     filepath.Join(storageDir, "piecestore.db"),
+		Info2:    filepath.Join(storageDir, "info.db"),
+		Kademlia: filepath.Join(storageDir, "kademlia"),
 	}
 
 	// create a new satellitedb connection

@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/filestore"
-	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/console"
@@ -161,42 +160,6 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	return db, nil
 }
 
-// NewTest creates new test database for storage node.
-func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
-	piecesDir, err := filestore.NewDir(storageDir)
-	if err != nil {
-		return nil, err
-	}
-	pieces := filestore.New(log, piecesDir)
-
-	versionsDB, err := openTestDatabase()
-	if err != nil {
-		return nil, err
-	}
-
-	db := &DB{
-		log:    log,
-		pieces: pieces,
-		kdb:    teststore.New(),
-		ndb:    teststore.New(),
-		adb:    teststore.New(),
-
-		// Initialize databases. Currently shares one info.db database file but
-		// in the future these will initialize their own database connections.
-		versionsDB:        newVersionsDB(versionsDB, ""),
-		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB),
-		bandwidthDB:       newBandwidthDB(versionsDB),
-		consoleDB:         newConsoleDB(versionsDB),
-		ordersDB:          newOrdersDB(versionsDB),
-		pieceExpirationDB: newPieceExpirationDB(versionsDB),
-		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB),
-		reputationDB:      newReputationDB(versionsDB),
-		storageUsageDB:    newStorageusageDB(versionsDB),
-		usedSerialsDB:     newUsedSerialsDB(versionsDB),
-	}
-	return db, nil
-}
-
 // openDatabases opens all the SQLite3 storage node databases and returns if any fails to open successfully.
 func (db *DB) openDatabases(databasesPath string) error {
 	// We open the versions database first because this one has the DB schema versioning info
@@ -217,11 +180,11 @@ func (db *DB) openDatabases(databasesPath string) error {
 	}
 	if db.bandwidthDB == nil {
 		db.bandwidthDB = newBandwidthDB(bandwidthDB)
+		db.consoleDB = newConsoleDB(bandwidthDB)
 	} else {
 		db.bandwidthDB.SQLDB = bandwidthDB
+		db.consoleDB.SQLDB = bandwidthDB
 	}
-
-	// TODO: console database?
 
 	ordersDB, err := openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, OrdersDatabaseFilename))
 	if err != nil {
@@ -356,7 +319,6 @@ func (db *DB) closeDatabases() error {
 	return errs.Combine(
 		db.versionsDB.Close(),
 		db.bandwidthDB.Close(),
-		// db.consoleDB.Close(), TODO: Fix this?
 		db.ordersDB.Close(),
 		db.pieceExpirationDB.Close(),
 		db.v0PieceInfoDB.Close(),
