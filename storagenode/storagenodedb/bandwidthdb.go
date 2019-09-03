@@ -319,7 +319,7 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 	}
 
 	defer func() {
-		err = errs.Combine(err, rows.Close())
+		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
 	}()
 
 	var dates []time.Time
