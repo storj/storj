@@ -100,3 +100,9 @@ func (chore *Chore) sleep(ctx context.Context) error {
 
 	return nil
 }
+
+// Close stops the outreach chore
+func (chore *Chore) Close() error {
+	chore.Loop.Close()
+	return nil
+}
