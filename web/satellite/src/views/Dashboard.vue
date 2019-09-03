@@ -1,4 +1,3 @@
-import {AppState} from "../utils/constants/appStateEnum";
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -24,65 +23,84 @@ import {AppState} from "../utils/constants/appStateEnum";
     import { Component, Vue } from 'vue-property-decorator';
     import DashboardHeader from '@/components/header/Header.vue';
     import NavigationArea from '@/components/navigation/NavigationArea.vue';
-    import { AuthToken } from '@/utils/authToken';
+    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
     import {
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
         NOTIFICATION_ACTIONS,
         PM_ACTIONS,
-        PROJETS_ACTIONS,
-        USER_ACTIONS,
-        PROJECT_USAGE_ACTIONS,
-        BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
+        PROJECT_PAYMENT_METHODS_ACTIONS,
     } from '@/utils/constants/actionNames';
-    import ROUTES from '@/utils/constants/routerConstants';
-    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
-    import { AppState } from '../utils/constants/appStateEnum';
-    import { RequestResponse } from '../types/response';
-    import { User } from '../types/users';
+    import { USER_ACTIONS } from '@/store/modules/users';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+    import { AppState } from '@/utils/constants/appStateEnum';
+    import { AuthToken } from '@/utils/authToken';
     import { Project } from '@/types/projects';
+    import { RouteConfig } from '@/router';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
     @Component({
     mounted: async function() {
         setTimeout(async () => {
-            let response: RequestResponse<User> = await this.$store.dispatch(USER_ACTIONS.GET);
-            if (!response.isSuccess) {
-                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-                this.$router.push(ROUTES.LOGIN);
+            try {
+                await this.$store.dispatch(USER_ACTIONS.GET);
+            } catch (error) {
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+                await this.$router.push(RouteConfig.Login.path);
                 AuthToken.remove();
 
                 return;
             }
 
-            let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-            if (!getProjectsResponse.isSuccess || getProjectsResponse.data.length < 1) {
-                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+            let projects: Project[] = [];
+
+            try {
+                projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            } catch (error) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
                 return;
             }
 
-            await this.$store.dispatch(PROJETS_ACTIONS.SELECT, getProjectsResponse.data[0].id);
+            if (!projects.length) {
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
-            await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            const projectMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
-            if (!projectMembersResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                if (!(this as any).isCurrentRouteIsAccount()) {
+                    await this.$router.push(RouteConfig.ProjectOverview.path);
+
+                    return;
+                }
+
+                await this.$router.push(RouteConfig.ProjectOverview.path);
             }
 
-            const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            if (!keysResponse.isSuccess) {
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+
+            await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+            }
+
+            try {
+                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
-            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            if (!usageResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            try {
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+            } catch (error) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
             }
 
-            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
-            if (!bucketsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
+            try {
+                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
             }
 
             const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
@@ -96,6 +114,11 @@ import {AppState} from "../utils/constants/appStateEnum";
     computed: {
         isLoading: function() {
             return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
+        },
+        isCurrentRouteIsAccount: function(): boolean {
+            const segments = this.$route.path.split('/').map(segment => segment.toLowerCase());
+
+            return segments.includes(RouteConfig.Account.name.toLowerCase());
         }
     },
     components: {

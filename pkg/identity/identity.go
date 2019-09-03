@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -285,9 +286,7 @@ func NewFullIdentity(ctx context.Context, opts NewCAOptions) (*FullIdentity, err
 // ToChains takes a number of certificate chains and returns them as a 2d slice of chains of certificates.
 func ToChains(chains ...[]*x509.Certificate) [][]*x509.Certificate {
 	combinedChains := make([][]*x509.Certificate, len(chains))
-	for i, chain := range chains {
-		combinedChains[i] = chain
-	}
+	copy(combinedChains, chains)
 	return combinedChains
 }
 
@@ -406,35 +405,27 @@ func (ic PeerConfig) Load() (*PeerIdentity, error) {
 	}
 	pi, err := PeerIdentityFromPEM(c)
 	if err != nil {
-		return nil, errs.New("failed to load identity %#v: %v",
-			ic.CertPath, err)
+		return nil, errs.New("failed to load identity %#v: %v", ic.CertPath, err)
 	}
 	return pi, nil
 }
 
 // Save saves a PeerIdentity according to the config
 func (ic PeerConfig) Save(peerIdent *PeerIdentity) error {
-	var (
-		certData                         bytes.Buffer
-		writeChainErr, writeChainDataErr error
-	)
-
 	chain := []*x509.Certificate{peerIdent.Leaf, peerIdent.CA}
 	chain = append(chain, peerIdent.RestChain...)
 
 	if ic.CertPath != "" {
-		writeChainErr = peertls.WriteChain(&certData, chain...)
-		writeChainDataErr = writeChainData(ic.CertPath, certData.Bytes())
+		var certData bytes.Buffer
+		err := peertls.WriteChain(&certData, chain...)
+		if err != nil {
+			return err
+		}
+
+		return writeChainData(ic.CertPath, certData.Bytes())
 	}
 
-	writeErr := errs.Combine(writeChainErr)
-	if writeErr != nil {
-		return writeErr
-	}
-
-	return errs.Combine(
-		writeChainDataErr,
-	)
+	return nil
 }
 
 // SaveBackup saves the certificate of the config with a timestamped filename
@@ -526,4 +517,42 @@ func backupPath(path string) string {
 		strconv.Itoa(int(time.Now().Unix())),
 		pathExt,
 	)
+}
+
+// EncodePeerIdentity encodes the complete identity chain to bytes
+func EncodePeerIdentity(pi *PeerIdentity) []byte {
+	var chain []byte
+	chain = append(chain, pi.Leaf.Raw...)
+	chain = append(chain, pi.CA.Raw...)
+	for _, cert := range pi.RestChain {
+		chain = append(chain, cert.Raw...)
+	}
+	return chain
+}
+
+// DecodePeerIdentity Decodes the bytes into complete identity chain
+func DecodePeerIdentity(ctx context.Context, chain []byte) (_ *PeerIdentity, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var certs []*x509.Certificate
+	for len(chain) > 0 {
+		var raw asn1.RawValue
+		var err error
+
+		chain, err = asn1.Unmarshal(chain, &raw)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		cert, err := pkcrypto.CertFromDER(raw.FullBytes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		certs = append(certs, cert)
+	}
+	if len(certs) < 2 {
+		return nil, Error.New("not enough certificates")
+	}
+	return PeerIdentityFromChain(certs)
 }

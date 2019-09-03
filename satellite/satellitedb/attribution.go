@@ -127,7 +127,7 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 		dbx.ValueAttribution_BucketName(bucketName),
 	)
 	if err == sql.ErrNoRows {
-		return nil, attribution.ErrBucketNotAttributed.New(string(bucketName))
+		return nil, attribution.ErrBucketNotAttributed.New("%q", bucketName)
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -172,7 +172,7 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 	}
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-	results := make([]*attribution.CSVRow, 0, 0)
+	results := []*attribution.CSVRow{}
 	for rows.Next() {
 		r := &attribution.CSVRow{}
 		err := rows.Scan(&r.PartnerID, &r.ProjectID, &r.BucketName, &r.RemoteBytesPerHour, &r.InlineBytesPerHour, &r.EgressData)

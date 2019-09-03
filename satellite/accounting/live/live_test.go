@@ -11,7 +11,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/testrand"
@@ -26,7 +26,7 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 	config := Config{
 		StorageBackend: "plainmemory:",
 	}
-	service, err := New(zap.L().Named("live-accounting"), config)
+	service, err := New(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
 	// ensure we are using the expected underlying type
@@ -83,7 +83,7 @@ func TestResetTotals(t *testing.T) {
 	config := Config{
 		StorageBackend: "plainmemory:",
 	}
-	service, err := New(zap.L().Named("live-accounting"), config)
+	service, err := New(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
 	// ensure we are using the expected underlying type

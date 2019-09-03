@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
@@ -48,12 +48,12 @@ func TestDialNode(t *testing.T) {
 		UsePeerCAWhitelist:  true,
 		PeerCAWhitelistPath: whitelistPath,
 		PeerIDVersions:      "*",
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	unsignedClientOpts, err := tlsopts.NewOptions(unsignedIdent, tlsopts.Config{
 		PeerIDVersions: "*",
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	t.Run("DialNode with invalid targets", func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.NewCustom(
-		zap.L(),
+		zaptest.NewLogger(t),
 		testplanet.Config{
 			SatelliteCount:   0,
 			StorageNodeCount: 2,
@@ -214,7 +214,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 	opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
 		UsePeerCAWhitelist:  true,
 		PeerCAWhitelistPath: whitelistPath,
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	t.Run("DialNode with bad server certificate", func(t *testing.T) {

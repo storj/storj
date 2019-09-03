@@ -6,11 +6,11 @@ package server
 import (
 	"context"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
@@ -23,16 +23,21 @@ type Config struct {
 }
 
 // Run will run the given responsibilities with the configured identity.
-func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
+func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity, revDB extensions.RevocationDB, interceptor grpc.UnaryServerInterceptor, services ...Service) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	opts, err := tlsopts.NewOptions(identity, sc.Config)
+	// Ensure revDB is not nil, since we call Close() below we do not want a
+	// panic
+	if revDB == nil {
+		return Error.New("revDB cannot be nil in call to Run")
+	}
+
+	opts, err := tlsopts.NewOptions(identity, sc.Config, revDB)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, opts.RevDB.Close()) }()
 
-	server, err := New(opts, sc.Address, sc.PrivateAddress, interceptor, services...)
+	server, err := New(log.Named("server"), opts, sc.Address, sc.PrivateAddress, interceptor, services...)
 	if err != nil {
 		return err
 	}
@@ -40,10 +45,10 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	go func() {
 		<-ctx.Done()
 		if closeErr := server.Close(); closeErr != nil {
-			zap.S().Errorf("Failed to close server: %s", closeErr)
+			log.Sugar().Errorf("Failed to close server: %s", closeErr)
 		}
 	}()
 
-	zap.S().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
+	log.Sugar().Infof("Node %s started on %s", server.Identity().ID, sc.Address)
 	return server.Run(ctx)
 }

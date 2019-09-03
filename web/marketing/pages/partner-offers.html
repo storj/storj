@@ -13,7 +13,7 @@ See LICENSE for copying information. -->
 <div class="offers-table mt-2 mb-5 container">
     <div class="row header-row">
         <div class="col col-heading">Name</div>
-        <div class="col col-heading">Give Credit</div> 
+        <div class="col col-heading">Give Credit</div>
         <div class="col col-heading">Duration</div>
         <div class="col col-heading">Status</div>
         <div class="col col-heading">Link</div>
@@ -25,14 +25,18 @@ See LICENSE for copying information. -->
     {{if not $currentOffer.IsEmpty}}
         <div class="row data-row">
             <div class="col-2">{{$currentOffer.Name}}</div>
-            <div class="col-2">${{$currentOffer.InviteeCredit}}</div> 
+            <div class="col-2">${{$currentOffer.InviteeCredit}}</div>
             <div class="col-3">{{$currentOffer.InviteeCreditDurationDays}}</div>
             <div class="col-2 col-offset-1 stop-offer">
                 <span data-toggle="modal" data-target=".stop-partner-offer-modal-{{.Name}}">
                     <strong>Live &#183;</strong>
                 </span>
             </div>
-            <div class="col-3">https://mars.tardigrade.io/refs/{{$currentOffer.Name}}</div>  
+            <div class="col-3">
+                {{range ReferralLink $currentOffer.Name}}
+                    <span class="d-block">{{.}}</span>
+                {{end}}
+            </div>
         </div><hr>
     {{end}}
     {{template "stopPartnerOffer" .}}
@@ -45,7 +49,7 @@ See LICENSE for copying information. -->
         <div class="col-2">${{.InviteeCredit}}</div>
         <div class="col-3">{{.InviteeCreditDurationDays}}</div>
         <div class="col-2 col-offset-1">off</div>
-        <div class="col-3">https://mars.tardigrade.io/refs/{{.Name}}</div>
+        <div class="col-3"></div>
     </div><hr>
     {{end}}
 </div>

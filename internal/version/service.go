@@ -26,6 +26,7 @@ type Config struct {
 
 // Service contains the information and variables to ensure the Software is up to date
 type Service struct {
+	log     *zap.Logger
 	config  Config
 	info    Info
 	service string
@@ -38,8 +39,9 @@ type Service struct {
 }
 
 // NewService creates a Version Check Client with default configuration
-func NewService(config Config, info Info, service string) (client *Service) {
+func NewService(log *zap.Logger, config Config, info Info, service string) (client *Service) {
 	return &Service{
+		log:     log,
 		config:  config,
 		info:    info,
 		service: service,
@@ -59,9 +61,9 @@ func (srv *Service) CheckVersion(ctx context.Context) (err error) {
 
 // CheckProcessVersion is not meant to be used for peers but is meant to be
 // used for other utilities
-func CheckProcessVersion(ctx context.Context, config Config, info Info, service string) (err error) {
+func CheckProcessVersion(ctx context.Context, log *zap.Logger, config Config, info Info, service string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return NewService(config, info, service).CheckVersion(ctx)
+	return NewService(log, config, info, service).CheckVersion(ctx)
 }
 
 // Run logs the current version information
@@ -105,22 +107,22 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
 		// Log about the error, but dont crash the service and allow further operation
-		zap.S().Errorf("Failed to do periodic version check: %s", err.Error())
+		srv.log.Sugar().Errorf("Failed to do periodic version check: %s", err.Error())
 		return true
 	}
 
 	minimum := getFieldString(&accepted, srv.service)
-	zap.S().Debugf("allowed minimum version from control server is: %s", minimum.String())
+	srv.log.Sugar().Debugf("allowed minimum version from control server is: %s", minimum.String())
 
 	if minimum.String() == "" {
-		zap.S().Errorf("no version from control server, accepting to run")
+		srv.log.Sugar().Errorf("no version from control server, accepting to run")
 		return true
 	}
 	if isAcceptedVersion(srv.info.Version, minimum) {
-		zap.S().Infof("running on version %s", srv.info.Version.String())
+		srv.log.Sugar().Infof("running on version %s", srv.info.Version.String())
 		return true
 	}
-	zap.S().Errorf("running on not allowed/outdated version %s", srv.info.Version.String())
+	srv.log.Sugar().Errorf("running on not allowed/outdated version %s", srv.info.Version.String())
 	return false
 }
 
@@ -151,8 +153,18 @@ func (srv *Service) queryVersionFromControlServer(ctx context.Context) (ver Allo
 	return ver, err
 }
 
-// DebugHandler returns a json representation of the current version information for the binary
-func DebugHandler(w http.ResponseWriter, r *http.Request) {
+// DebugHandler implements version info endpoint.
+type DebugHandler struct {
+	log *zap.Logger
+}
+
+// NewDebugHandler returns new debug handler.
+func NewDebugHandler(log *zap.Logger) *DebugHandler {
+	return &DebugHandler{log}
+}
+
+// ServeHTTP returns a json representation of the current version information for the binary.
+func (server *DebugHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	j, err := Build.Marshal()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -164,7 +176,7 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(append(j, '\n'))
 	if err != nil {
-		zap.S().Errorf("error writing data to client %v", err)
+		server.log.Sugar().Errorf("error writing data to client %v", err)
 	}
 }
 

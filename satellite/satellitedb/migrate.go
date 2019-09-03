@@ -1046,6 +1046,101 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						WHERE type=1 AND status=1 AND id=2;`,
 				},
 			},
+			{
+				// This partial unique index enforces uniqueness among (id, offer_id) pairs for users that have signed up
+				// but are not yet activated (credits_earned_in_cents=0).
+				// Among users that are activated, uniqueness of (id, offer_id) pairs is not required or desirable.
+				Description: "Create partial index for user_credits table",
+				Version:     48,
+				Action: migrate.SQL{
+					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id)
+						WHERE credits_earned_in_cents=0;`,
+				},
+			},
+			{
+				Description: "Add cascade to user_id for deleting an account",
+				Version:     49,
+				Action: migrate.SQL{
+					`ALTER TABLE user_credits DROP CONSTRAINT user_credits_referred_by_fkey;
+					ALTER TABLE user_credits ADD CONSTRAINT user_credits_referred_by_fkey
+						FOREIGN KEY (referred_by) REFERENCES users(id) ON DELETE SET NULL;
+					ALTER TABLE user_credits DROP CONSTRAINT user_credits_user_id_fkey;
+					ALTER TABLE user_credits ADD CONSTRAINT user_credits_user_id_fkey
+						FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+					ALTER TABLE user_credits ADD COLUMN type text;
+					UPDATE user_credits SET type='invalid';
+					ALTER TABLE user_credits ALTER COLUMN type SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Changing the primary key constraint",
+				Version:     50,
+				Action: migrate.SQL{
+					`ALTER TABLE certRecords DROP CONSTRAINT certrecords_pkey;
+					ALTER TABLE certRecords ADD CONSTRAINT certrecords_pkey PRIMARY KEY (publickey);
+					CREATE INDEX certrecord_id_update_at ON certRecords ( id, update_at );`,
+				},
+			},
+			{
+				// Creating owner_id column for project.
+				// Removing projects without project members
+				// And populating this column with first project member id
+				Description: "Creating owner_id column for projects table",
+				Version:     51,
+				Action: migrate.SQL{
+					`ALTER TABLE projects
+					ADD COLUMN owner_id BYTEA;`,
+
+					`UPDATE projects as proj
+					SET owner_id = (
+						SELECT member_id
+						FROM project_members
+						WHERE project_id = proj.id
+						ORDER BY created_at ASC
+						LIMIT 1
+					);`,
+
+					`DELETE FROM bucket_metainfos
+					WHERE project_id in (
+						SELECT id 
+						FROM projects 
+						WHERE owner_id is null
+					);`,
+
+					`DELETE FROM projects
+					WHERE owner_id is null;`,
+
+					`ALTER TABLE projects
+					ALTER COLUMN owner_id SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Remove certRecords table",
+				Version:     52,
+				Action: migrate.SQL{
+					`DROP TABLE certRecords CASCADE`,
+				},
+			},
+			{
+				Description: "Add piece_count column to nodes table",
+				Version:     53,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD piece_count BIGINT NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Add Peer Identities table",
+				Version:     54,
+				Action: migrate.SQL{
+					`CREATE TABLE peer_identities (
+						node_id bytea NOT NULL,
+						leaf_serial_number bytea NOT NULL,
+						chain bytea NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+				},
+			},
 		},
 	}
 }

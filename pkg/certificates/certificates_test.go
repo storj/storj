@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -605,11 +606,16 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 					Address:        "127.0.0.1:0",
 					PrivateAddress: "127.0.0.1:0",
 				}
-				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config)
+
+				revocationDB, err := revocation.NewDBFromCfg(sc.Config)
+				require.NoError(t, err)
+				defer ctx.Check(revocationDB.Close)
+
+				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config, revocationDB)
 				require.NoError(t, err)
 				require.NotNil(t, serverOpts)
 
-				service, err := server.New(serverOpts, sc.Address, sc.PrivateAddress, nil, config)
+				service, err := server.New(zaptest.NewLogger(t), serverOpts, sc.Address, sc.PrivateAddress, nil, config)
 				require.NoError(t, err)
 				require.NotNil(t, service)
 
@@ -620,7 +626,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				})
 				defer ctx.Check(service.Close)
 
-				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "*"})
+				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "*"}, nil)
 				require.NoError(t, err)
 
 				clientTransport := transport.NewClient(clientOpts)
@@ -704,7 +710,7 @@ func TestNewClient(t *testing.T) {
 		}
 	})
 
-	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{})
+	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{}, nil)
 	require.NoError(t, err)
 
 	clientTransport := transport.NewClient(tlsOptions)
@@ -770,7 +776,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			}
 			peerCtx := peer.NewContext(ctx, grpcPeer)
 
-			certSigner := NewServer(zap.L(), signer, authDB, 0)
+			certSigner := NewServer(zaptest.NewLogger(t), signer, authDB, 0)
 			req := pb.SigningRequest{
 				Timestamp: time.Now().Unix(),
 				AuthToken: auths[0].Token.String(),

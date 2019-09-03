@@ -1,6 +1,4 @@
-[This is a template for Storj v3 design docs]
-
-# Title: [Title]
+# [Title]
 
 ## Abstract
 
@@ -22,7 +20,7 @@
 
 [A description of the steps in the implementation.]
 
-## Open issues (if applicable)
+## Open issues
 
 [A discussion of issues relating to this proposal for which the author does not
 know the solution. This section may be omitted if there are none.]

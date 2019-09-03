@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -75,11 +77,25 @@ func TestGrapqhlMutation(t *testing.T) {
 				FullName:  "John Roll",
 				ShortName: "Roll",
 				Email:     "test@mail.test",
-				PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
+				PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
 			},
 			Password: "123a123",
 		}
 		refUserID := ""
+
+		_, err = db.Rewards().Create(ctx, &rewards.NewOffer{
+			Name:                      "Couchbase",
+			Description:               "",
+			AwardCredit:               currency.Cents(0),
+			InviteeCredit:             currency.Cents(20),
+			RedeemableCap:             10,
+			AwardCreditDurationDays:   0,
+			InviteeCreditDurationDays: 14,
+			ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
+			Status:                    rewards.Active,
+			Type:                      rewards.Partner,
+		})
+		require.NoError(t, err)
 
 		regToken, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
@@ -102,28 +118,26 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		authCtx := console.WithAuth(ctx, sauth)
 
-		t.Run("Create user mutation", func(t *testing.T) {
+		t.Run("Create user mutation with partner id", func(t *testing.T) {
 			newUser := console.CreateUser{
 				UserInfo: console.UserInfo{
 					FullName:  "Green Mickey",
 					ShortName: "Green",
 					Email:     "u1@mail.test",
-					PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
+					PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
 				},
 				Password: "123a123",
 			}
 
-			regTokenTest, err := service.CreateRegToken(ctx, 1)
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,partnerId,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"\", referrerUserId: \"\"){id,shortName,fullName,email,partnerId,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
 				newUser.ShortName,
 				newUser.PartnerID,
-				regTokenTest.Secret,
 			)
 
 			result := graphql.Do(graphql.Params{
@@ -134,6 +148,9 @@ func TestGrapqhlMutation(t *testing.T) {
 			})
 
 			for _, err := range result.Errors {
+				if rewards.NoMatchPartnerIDErr.Has(err) {
+					assert.Error(t, err)
+				}
 				assert.NoError(t, err)
 			}
 			require.False(t, result.HasErrors())
@@ -151,6 +168,57 @@ func TestGrapqhlMutation(t *testing.T) {
 			assert.Equal(t, newUser.FullName, user.FullName)
 			assert.Equal(t, newUser.ShortName, user.ShortName)
 			assert.Equal(t, newUser.PartnerID, user.PartnerID.String())
+		})
+
+		t.Run("Create user mutation without partner id", func(t *testing.T) {
+			newUser := console.CreateUser{
+				UserInfo: console.UserInfo{
+					FullName:  "Red Mickey",
+					ShortName: "Red",
+					Email:     "u2@mail.test",
+					PartnerID: "",
+				},
+				Password: "123a123",
+			}
+
+			require.NoError(t, err)
+
+			query := fmt.Sprintf(
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"\"}, secret: \"%s\", referrerUserId: \"\"){id,shortName,fullName,email,partnerId,createdAt}}",
+				newUser.Email,
+				newUser.Password,
+				newUser.FullName,
+				newUser.ShortName,
+				regToken.Secret,
+			)
+
+			result := graphql.Do(graphql.Params{
+				Schema:        schema,
+				Context:       ctx,
+				RequestString: query,
+				RootObject:    rootObject,
+			})
+
+			for _, err := range result.Errors {
+				if rewards.NoMatchPartnerIDErr.Has(err) {
+					assert.Error(t, err)
+				}
+				assert.NoError(t, err)
+			}
+			require.False(t, result.HasErrors())
+
+			data := result.Data.(map[string]interface{})
+			usrData := data[consoleql.CreateUserMutation].(map[string]interface{})
+			idStr := usrData["id"].(string)
+
+			uID, err := uuid.Parse(idStr)
+			assert.NoError(t, err)
+
+			user, err := service.GetUser(authCtx, *uID)
+			assert.NoError(t, err)
+
+			assert.Equal(t, newUser.FullName, user.FullName)
+			assert.Equal(t, newUser.ShortName, user.ShortName)
 		})
 
 		testQuery := func(t *testing.T, query string) interface{} {
@@ -324,6 +392,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		project, err := service.GetProject(authCtx, *pID)
 		require.NoError(t, err)
+		require.Equal(t, rootUser.PartnerID, project.PartnerID)
 
 		t.Run("Update project description mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
@@ -396,7 +465,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		t.Run("Add project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(limit:50,offset:0){joinedAt}}}",
+				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
@@ -407,14 +476,17 @@ func TestGrapqhlMutation(t *testing.T) {
 			data := result.(map[string]interface{})
 			proj := data[consoleql.AddProjectMembersMutation].(map[string]interface{})
 
+			members := proj[consoleql.FieldMembers].(map[string]interface{})
+			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
+
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, 3, len(proj[consoleql.FieldMembers].([]interface{})))
+			assert.Equal(t, 3, len(projectMembers))
 		})
 
 		t.Run("Delete project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(limit:50,offset:0){user{id}}}}",
+				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{user{id}}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
@@ -425,8 +497,9 @@ func TestGrapqhlMutation(t *testing.T) {
 			data := result.(map[string]interface{})
 			proj := data[consoleql.DeleteProjectMembersMutation].(map[string]interface{})
 
-			members := proj[consoleql.FieldMembers].([]interface{})
-			rootMember := members[0].(map[string]interface{})[consoleql.UserType].(map[string]interface{})
+			members := proj[consoleql.FieldMembers].(map[string]interface{})
+			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
+			rootMember := projectMembers[0].(map[string]interface{})[consoleql.UserType].(map[string]interface{})
 
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])

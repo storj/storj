@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -166,6 +167,7 @@ func runTest(ctx context.Context, t *testing.T, apiKey, satelliteAddr string,
 	errCatch := func(fn func() error) { require.NoError(t, fn()) }
 
 	cfg := &uplink.Config{}
+	cfg.Volatile.Log = zaptest.NewLogger(t)
 	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 	ul, err := uplink.NewUplink(ctx, cfg)
@@ -213,11 +215,14 @@ func runTest(ctx context.Context, t *testing.T, apiKey, satelliteAddr string,
 
 	// Download all files, make sure they work
 	for _, path := range test.paths {
-		r, err := bu.NewReader(ctx, path)
+		r, err := bu.Download(ctx, path)
 		require.NoError(t, err)
+
 		downloaded, err := ioutil.ReadAll(r)
 		require.NoError(t, err)
 		require.Equal(t, fmt.Sprintf("%s%s", path, "hi"), string(downloaded))
+
+		require.NoError(t, r.Close())
 	}
 
 }

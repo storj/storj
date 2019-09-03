@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -72,6 +73,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 
 		t.Run("without partner id", func(t *testing.T) {
 			config := uplink.Config{}
+			config.Volatile.Log = zaptest.NewLogger(t)
 			config.Volatile.TLS.SkipPeerCAWhitelist = true
 
 			up, err := uplink.NewUplink(ctx, &config)
@@ -93,6 +95,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 
 		t.Run("open with partner id", func(t *testing.T) {
 			config := uplink.Config{}
+			config.Volatile.Log = zaptest.NewLogger(t)
 			config.Volatile.TLS.SkipPeerCAWhitelist = true
 			config.Volatile.PartnerID = partnerID.String()
 
@@ -115,6 +118,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 
 		t.Run("open with different partner id", func(t *testing.T) {
 			config := uplink.Config{}
+			config.Volatile.Log = zaptest.NewLogger(t)
 			config.Volatile.TLS.SkipPeerCAWhitelist = true
 			config.Volatile.PartnerID = testrand.UUID().String()
 

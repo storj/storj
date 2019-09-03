@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
@@ -17,10 +18,12 @@ import (
 )
 
 // Downloader is interface that can be used for downloading content.
-// It matches signature of `io.ReadCloser`.
+// It matches signature of `io.ReadCloser`, with one extra function,
+// GetHashAndLimit(), used for accessing information during GET_REPAIR.
 type Downloader interface {
 	Read([]byte) (int, error)
 	Close() error
+	GetHashAndLimit() (*pb.PieceHash, *pb.OrderLimit)
 }
 
 // Download implements downloading from a piecestore.
@@ -41,6 +44,13 @@ type Download struct {
 	allocationStep int64
 
 	unread ReadBuffer
+
+	// hash and originLimit are received in the event of a GET_REPAIR
+	hash        *pb.PieceHash
+	originLimit *pb.OrderLimit
+
+	closed       bool
+	closingError error
 }
 
 // Download starts a new download using the specified order limit at the specified offset and size.
@@ -99,17 +109,25 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, pieceP
 // Read downloads data from the storage node allocating as necessary.
 func (client *Download) Read(data []byte) (read int, err error) {
 	ctx := client.ctx
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: "+client.peer.ID.String()[0:8])(&err)
+
+	if client.closed {
+		return 0, io.ErrClosedPipe
+	}
+
 	for client.read < client.downloadSize {
 		// read from buffer
 		n, err := client.unread.Read(data)
 		client.read += int64(n)
 		read += n
 
-		// if we have an error or are pending for an error, avoid further communication
-		// however we should still finish reading the unread data.
-		if err != nil || client.unread.Errored() {
+		// if we have an error return the error
+		if err != nil {
 			return read, err
+		}
+		// if we are pending for an error, avoid further requests, but try to finish what's in unread buffer.
+		if client.unread.Errored() {
+			return read, nil
 		}
 
 		// do we need to send a new order to storagenode
@@ -133,7 +151,10 @@ func (client *Download) Read(data []byte) (read int, err error) {
 					Amount:       newAllocation,
 				})
 				if err != nil {
+					// we are signing so we shouldn't propagate this into close,
+					// however we should include this as a read error
 					client.unread.IncludeError(err)
+					client.closeWithError(nil)
 					return read, nil
 				}
 
@@ -141,16 +162,22 @@ func (client *Download) Read(data []byte) (read int, err error) {
 					Order: order,
 				})
 				if err != nil {
-					// other side doesn't want to talk to us anymore,
-					// or network went down
+					// other side doesn't want to talk to us anymore or network went down
 					client.unread.IncludeError(err)
+					// if it's a cancellation, then we'll just close with context.Canceled
+					if errs2.IsCanceled(err) {
+						client.closeWithError(err)
+						return read, err
+					}
+					// otherwise, something else happened and we should try to ask the other side
+					client.closeAndTryFetchError()
 					return read, nil
 				}
 
 				// update our allocation step
 				client.allocationStep = client.client.nextAllocationStep(client.allocationStep)
 			}
-		} // if end allocation sending
+		}
 
 		// we have data, no need to wait for a chunk
 		if read > 0 {
@@ -163,9 +190,18 @@ func (client *Download) Read(data []byte) (read int, err error) {
 			client.downloaded += int64(len(response.Chunk.Data))
 			client.unread.Fill(response.Chunk.Data)
 		}
+		// This is a GET_REPAIR because we got a piece hash and the original order limit.
+		if response != nil && response.Hash != nil && response.Limit != nil {
+			client.hash = response.Hash
+			client.originLimit = response.Limit
+		}
 
-		// we still need to continue until we have actually handled all of the errors
-		client.unread.IncludeError(err)
+		// we may have some data buffered, so we cannot immediately return the error
+		// we'll queue the error and use the received error as the closing error
+		if err != nil {
+			client.unread.IncludeError(err)
+			client.handleClosingError(err)
+		}
 	}
 
 	// all downloaded
@@ -173,6 +209,37 @@ func (client *Download) Read(data []byte) (read int, err error) {
 		return 0, io.EOF
 	}
 	return read, nil
+}
+
+// handleClosingError should be used for an error that also closed the stream.
+func (client *Download) handleClosingError(err error) {
+	if client.closed {
+		return
+	}
+	client.closed = true
+	client.closingError = err
+}
+
+// closeWithError is used when we include the err in the closing error and also close the stream.
+func (client *Download) closeWithError(err error) {
+	if client.closed {
+		return
+	}
+	client.closed = true
+	client.closingError = errs.Combine(err, client.stream.CloseSend())
+}
+
+// closeAndTryFetchError closes the stream and also tries to fetch the actual error from the stream.
+func (client *Download) closeAndTryFetchError() {
+	if client.closed {
+		return
+	}
+	client.closed = true
+
+	client.closingError = client.stream.CloseSend()
+	if client.closingError == nil || client.closingError == io.EOF {
+		_, client.closingError = client.stream.Recv()
+	}
 }
 
 // Close closes the downloading.
@@ -185,25 +252,13 @@ func (client *Download) Close() (err error) {
 		}
 	}()
 
-	alldone := client.read == client.downloadSize
+	client.closeWithError(nil)
+	return client.closingError
+}
 
-	// close our sending end
-	closeErr := client.stream.CloseSend()
-	// try to read any pending error message
-	_, recvErr := client.stream.Recv()
-
-	if alldone {
-		// if we are all done, then we expecte io.EOF, but don't care about them
-		return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
-	}
-
-	if client.unread.Errored() {
-		// something went wrong and we didn't manage to download all the content
-		return errs.Combine(client.unread.Error(), closeErr, recvErr)
-	}
-
-	// we probably closed download early, so we can ignore io.EOF-s
-	return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
+// GetHashAndLimit gets the download's hash and original order limit.
+func (client *Download) GetHashAndLimit() (*pb.PieceHash, *pb.OrderLimit) {
+	return client.hash, client.originLimit
 }
 
 // ReadBuffer implements buffered reading with an error.

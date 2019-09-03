@@ -81,9 +81,11 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
     @Component({
         components: {
@@ -104,26 +106,28 @@
                 return;
             }
 
-            this.isLoading = true;
-
             if (!this.validateProjectName()) {
                 return;
             }
 
-            if (!await this.deleteProject()) {
-                return;
+            this.isLoading = true;
+
+            try {
+                await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
+
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
+
+                await this.selectProject();
+            } catch (e) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
             }
 
-            this.$store.dispatch(PM_ACTIONS.CLEAR);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-
-            this.selectProject();
-
             this.isLoading = false;
+
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
         }
 
-        public  onCloseClick(): void {
+        public onCloseClick(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
         }
 
@@ -142,24 +146,22 @@
             return false;
         }
 
-        private async deleteProject(): Promise<boolean> {
-            let response = await this.$store.dispatch(PROJETS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-                this.isLoading = false;
-            }
-
-            return response.isSuccess;
-        }
-
-        private selectProject(): void {
+        private async selectProject(): Promise<void> {
             if (this.$store.state.projectsModule.projects.length === 0) {
+                await this.$store.dispatch(PM_ACTIONS.CLEAR);
+                await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+                await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
+
                 return;
             }
 
-            this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
-            this.$store.dispatch(PM_ACTIONS.FETCH);
-            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            // TODO: reuse select project functionality
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         }
     }
 </script>

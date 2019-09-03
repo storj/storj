@@ -12,6 +12,7 @@ import (
 
 // PieceBuffer is a synchronized buffer for storing erasure shares for a piece.
 type PieceBuffer struct {
+	log          *zap.Logger
 	buf          []byte
 	shareSize    int
 	cond         *sync.Cond
@@ -27,8 +28,9 @@ type PieceBuffer struct {
 // NewPieceBuffer creates and initializes a new PieceBuffer using buf as its
 // internal content. If new data is written to the buffer, newDataCond will be
 // notified.
-func NewPieceBuffer(buf []byte, shareSize int, newDataCond *sync.Cond) *PieceBuffer {
+func NewPieceBuffer(log *zap.Logger, buf []byte, shareSize int, newDataCond *sync.Cond) *PieceBuffer {
 	return &PieceBuffer{
+		log:         log,
 		buf:         buf,
 		shareSize:   shareSize,
 		cond:        sync.NewCond(&sync.Mutex{}),
@@ -230,8 +232,7 @@ func (b *PieceBuffer) buffered() int {
 func (b *PieceBuffer) HasShare(num int64) bool {
 	if num < b.currentShare {
 		// we should never get here!
-		zap.S().Fatalf("Checking for erasure share %d while the current erasure share is %d.",
-			num, b.currentShare)
+		b.log.Sugar().Fatalf("Checking for erasure share %d while the current erasure share is %d.", num, b.currentShare)
 	}
 
 	if b.getError() != nil {
@@ -257,8 +258,7 @@ func (b *PieceBuffer) HasShare(num int64) bool {
 func (b *PieceBuffer) ReadShare(num int64, p []byte) error {
 	if num < b.currentShare {
 		// we should never get here!
-		zap.S().Fatalf("Trying to read erasure share %d while the current erasure share is already %d.",
-			num, b.currentShare)
+		b.log.Sugar().Fatalf("Trying to read erasure share %d while the current erasure share is already %d.", num, b.currentShare)
 	}
 
 	err := b.discardUntil(num)

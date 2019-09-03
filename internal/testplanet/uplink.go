@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strconv"
 	"time"
@@ -28,7 +29,6 @@ import (
 	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/piecestore"
-	"storj.io/storj/uplink/setup"
 )
 
 // Uplink is a general purpose
@@ -64,7 +64,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{
 		PeerIDVersions: strconv.Itoa(int(planet.config.IdentityVersion.Number)),
-	})
+	}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +210,26 @@ func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	return nil
 }
 
+// UploadWithClientConfig uploads data to specific satellite with custom client configuration
+func (client *Uplink) UploadWithClientConfig(ctx context.Context, satellite *satellite.Peer, clientConfig uplink.Config, bucketName string, path storj.Path, data []byte) (err error) {
+	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, clientConfig)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, bucket.Close(), project.Close()) }()
+
+	opts := &libuplink.UploadOptions{}
+	opts.Volatile.RedundancyScheme = clientConfig.GetRedundancyScheme()
+	opts.Volatile.EncryptionParameters = clientConfig.GetEncryptionParameters()
+
+	reader := bytes.NewReader(data)
+	if err := bucket.UploadObject(ctx, path, reader, opts); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Download data from specific satellite
 func (client *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) ([]byte, error) {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
@@ -237,7 +257,7 @@ func (client *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 }
 
 // DownloadStream returns stream for downloading data
-func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) (_ libuplink.ReadSeekCloser, cleanup func() error, err error) {
+func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) (_ io.ReadCloser, cleanup func() error, err error) {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return nil, nil, err
@@ -251,7 +271,26 @@ func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.P
 		return err
 	}
 
-	downloader, err := bucket.NewReader(ctx, path)
+	downloader, err := bucket.Download(ctx, path)
+	return downloader, cleanup, err
+}
+
+// DownloadStreamRange returns stream for downloading data
+func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
+	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cleanup = func() error {
+		err = errs.Combine(err,
+			project.Close(),
+			bucket.Close(),
+		)
+		return err
+	}
+
+	downloader, err := bucket.DownloadRange(ctx, path, start, limit)
 	return downloader, cleanup, err
 }
 
@@ -295,8 +334,30 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *satellite.Pee
 // GetConfig returns a default config for a given satellite.
 func (client *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
-	config.Client.SatelliteAddr = satellite.Addr()
-	config.Client.APIKey = client.APIKey[satellite.ID()]
+
+	apiKey, err := libuplink.ParseAPIKey(client.APIKey[satellite.ID()])
+	if err != nil {
+		panic(err)
+	}
+
+	encAccess := libuplink.NewEncryptionAccess()
+	encAccess.SetDefaultKey(storj.Key{})
+
+	scopeData, err := (&libuplink.Scope{
+		SatelliteAddr:    satellite.Addr(),
+		APIKey:           apiKey,
+		EncryptionAccess: encAccess,
+	}).Serialize()
+	if err != nil {
+		panic(err)
+	}
+
+	config.Scope = scopeData
+
+	// Support some legacy stuff
+	config.Legacy.Client.APIKey = apiKey.Serialize()
+	config.Legacy.Client.SatelliteAddr = satellite.Addr()
+
 	config.Client.RequestTimeout = 10 * time.Second
 	config.Client.DialTimeout = 10 * time.Second
 
@@ -330,6 +391,7 @@ func atLeastOne(value int) int {
 func (client *Uplink) NewLibuplink(ctx context.Context) (*libuplink.Uplink, error) {
 	config := getDefaultConfig()
 	libuplinkCfg := &libuplink.Config{}
+	libuplinkCfg.Volatile.Log = client.Log
 	libuplinkCfg.Volatile.MaxInlineSize = config.Client.MaxInlineSize
 	libuplinkCfg.Volatile.MaxMemory = config.RS.MaxBufferMem
 	libuplinkCfg.Volatile.PeerIDVersion = config.TLS.PeerIDVersions
@@ -349,13 +411,12 @@ func (client *Uplink) GetProject(ctx context.Context, satellite *satellite.Peer)
 	}
 	defer func() { err = errs.Combine(err, testLibuplink.Close()) }()
 
-	clientAPIKey := client.APIKey[satellite.ID()]
-	key, err := libuplink.ParseAPIKey(clientAPIKey)
+	scope, err := client.GetConfig(satellite).GetScope()
 	if err != nil {
 		return nil, err
 	}
 
-	project, err := testLibuplink.OpenProject(ctx, satellite.Addr(), key)
+	project, err := testLibuplink.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -368,14 +429,13 @@ func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *satell
 	if err != nil {
 		return nil, nil, err
 	}
-
 	defer func() {
 		if err != nil {
 			err = errs.Combine(err, project.Close())
 		}
 	}()
 
-	access, err := setup.LoadEncryptionAccess(ctx, clientCfg.Enc)
+	scope, err := client.GetConfig(satellite).GetScope()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -393,11 +453,10 @@ func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *satell
 		}
 	}
 
-	bucket, err := project.OpenBucket(ctx, bucketName, access)
+	bucket, err := project.OpenBucket(ctx, bucketName, scope.EncryptionAccess)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return project, bucket, nil
 }
 

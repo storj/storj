@@ -18,7 +18,7 @@
                     width="100%"
                     ref="fullNameInput"
                     :error="fullNameError"
-                    :initValue="originalFullName"
+                    :initValue="userInfo.fullName"
                     @setData="setFullName" />
                 <HeaderedInput
                     class="full-input"
@@ -26,7 +26,7 @@
                     placeholder="Enter Nickname"
                     width="100%"
                     ref="shortNameInput"
-                    :initValue="originalShortName"
+                    :initValue="userInfo.shortName"
                     @setData="setShortName"/>
                 <div class="edit-profile-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true" />
@@ -46,7 +46,9 @@
     import { Component, Vue } from 'vue-property-decorator';
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import Button from '@/components/common/Button.vue';
-    import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { USER_ACTIONS } from '@/store/modules/users';
+    import { UpdatedUser } from '@/types/users';
 
     @Component({
         components: {
@@ -55,61 +57,41 @@
         }
     })
     export default class EditProfilePopup extends Vue {
-        private originalFullName: string = this.$store.getters.user.fullName;
-        private originalShortName: string = this.$store.getters.user.shortName;
-        private fullName: string = this.$store.getters.user.fullName;
-        private shortName: string = this.$store.getters.user.shortName;
         private fullNameError: string = '';
 
+        private readonly userInfo: UpdatedUser =
+            new UpdatedUser(this.$store.getters.user.fullName, this.$store.getters.user.shortName);
+
         public setFullName(value: string): void {
-            this.fullName = value.trim();
+            this.userInfo.setFullName(value);
             this.fullNameError = '';
         }
 
         public setShortName(value: string): void {
-            this.shortName = value.trim();
-        }
-
-        public cancel(): void {
-            this.fullName = this.originalFullName;
-            this.fullNameError = '';
-            this.shortName = this.originalShortName;
-
-            let fullNameInput: any = this.$refs['fullNameInput'];
-            fullNameInput.setValue(this.originalFullName);
-
-            let shortNameInput: any = this.$refs['shortNameInput'];
-            shortNameInput.setValue(this.originalShortName);
+            this.userInfo.setShortName(value);
         }
 
         public async onUpdateClick(): Promise<void> {
-            if (!this.fullName) {
+            if (!this.userInfo.isValid()) {
                 this.fullNameError = 'Full name expected';
 
                 return;
             }
 
-            let user = {
-                fullName: this.fullName,
-                shortName: this.shortName,
-            };
-
-            let response = await this.$store.dispatch(USER_ACTIONS.UPDATE, user);
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+            try {
+                await this.$store.dispatch(USER_ACTIONS.UPDATE, this.userInfo);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
                 return;
             }
 
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account info successfully updated!');
 
-            this.originalFullName = this.$store.getters.user.fullName;
-            this.originalShortName = this.$store.getters.user.shortName;
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
         }
 
         public onCloseClick(): void {
-            this.cancel();
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
         }
 

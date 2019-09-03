@@ -92,7 +92,7 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 		cfg.Volatile.MaxMemory = 0
 	}
 	if cfg.Volatile.Log == nil {
-		cfg.Volatile.Log = zap.L()
+		cfg.Volatile.Log = zap.NewNop()
 	}
 	if cfg.Volatile.DialTimeout.Seconds() == 0 {
 		cfg.Volatile.DialTimeout = defaultUplinkDialTimeout
@@ -137,7 +137,7 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 		PeerCAWhitelistPath: cfg.Volatile.TLS.PeerCAWhitelistPath,
 		PeerIDVersions:      "0",
 	}
-	tlsOpts, err := tlsopts.NewOptions(ident, tlsConfig)
+	tlsOpts, err := tlsopts.NewOptions(ident, tlsConfig, nil)
 	if err != nil {
 		return nil, err
 	}

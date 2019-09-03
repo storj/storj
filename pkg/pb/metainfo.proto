@@ -37,6 +37,8 @@ service Metainfo {
     rpc ListSegments(SegmentListRequest) returns (SegmentListResponse);
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
 
+    rpc Batch(BatchRequest) returns (BatchResponse);
+
     rpc CreateSegmentOld(SegmentWriteRequestOld) returns (SegmentWriteResponseOld);
     rpc CommitSegmentOld(SegmentCommitRequestOld) returns (SegmentCommitResponseOld);
     rpc SegmentInfoOld(SegmentInfoRequestOld) returns (SegmentInfoResponseOld);
@@ -108,7 +110,7 @@ message BucketListResponse {
 
 message BucketSetAttributionRequest {
     bytes name = 1;
-    bytes attribution_id = 2;
+    bytes partner_id = 2;
 }
 
 message BucketSetAttributionResponse {
@@ -258,9 +260,6 @@ message ObjectBeginRequest {
 
     google.protobuf.Timestamp expires_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes  encrypted_metadata_nonce = 5 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    bytes  encrypted_metadata = 6; // TODO: set maximum size limit
-
     pointerdb.RedundancyScheme      redundancy_scheme = 7; // can be zero
     encryption.EncryptionParameters encryption_parameters = 8; // can be zero
 }
@@ -278,6 +277,9 @@ message ObjectBeginResponse {
 
 message ObjectCommitRequest {
     bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+
+    bytes  encrypted_metadata_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes  encrypted_metadata = 3; // TODO: set maximum size limit
 }
 
 message ObjectCommitResponse {
@@ -297,9 +299,12 @@ message ObjectListRequest {
     bytes     bucket = 1;
     bytes     encrypted_prefix = 2;
     bytes     encrypted_cursor = 3;
-    int32     limit = 4;
+    bool      recursive = 4;
+    int32     limit = 5;
 
-    ObjectListItemIncludes object_includes = 5;
+    ObjectListItemIncludes object_includes = 6;
+
+
 }
 
 message ObjectListResponse {
@@ -351,9 +356,6 @@ message SatStreamID {
 
     google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-
-    bytes  encrypted_metadata_nonce = 7 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
-    bytes  encrypted_metadata       = 8;
 
     bytes satellite_signature = 9;
 }
@@ -450,8 +452,9 @@ message SegmentBeginDeleteRequest {
 }
 
 message SegmentBeginDeleteResponse {
-    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
-    repeated AddressedOrderLimit addressed_limits = 2;
+    bytes                           segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    repeated AddressedOrderLimit    addressed_limits = 2;
+    bytes                           private_key = 3 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
 }
 
 message SegmentFinishDeleteRequest {
@@ -488,8 +491,77 @@ message SegmentDownloadRequest {
 }
 
 message SegmentDownloadResponse {
-    bytes                        segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+
     repeated AddressedOrderLimit addressed_limits = 2;
-    bytes                        encrypted_inline_data = 3;
-    SegmentPosition              next = 4; // can be nil
+    bytes                        private_key = 3 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
+
+    bytes encrypted_inline_data = 4;
+    int64 segment_size = 5;
+    bytes encrypted_key_nonce = 6 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes encrypted_key = 7;
+
+    SegmentPosition next = 8; // can be nil
+}
+
+message BatchRequest {
+    repeated BatchRequestItem requests = 1;
+}
+
+message BatchRequestItem {
+    oneof Request {
+        BucketCreateRequest         bucket_create = 1;
+        BucketGetRequest            bucket_get = 2;
+        BucketDeleteRequest         bucket_delete = 3;
+        BucketListRequest           bucket_list = 4;
+        BucketSetAttributionRequest bucket_set_attribution = 5;
+
+        ObjectBeginRequest          object_begin = 6;
+        ObjectCommitRequest         object_commit = 7;
+        ObjectGetRequest            object_get = 8;
+        ObjectListRequest           object_list = 9;
+        ObjectBeginDeleteRequest    object_begin_delete = 10;
+        ObjectFinishDeleteRequest   object_finish_delete = 11;
+
+        SegmentBeginRequest      segment_begin = 12;
+        SegmentCommitRequest     segment_commit = 13;
+        SegmentMakeInlineRequest segment_make_inline = 14;
+
+        SegmentBeginDeleteRequest  segment_begin_delete = 15;
+        SegmentFinishDeleteRequest segment_finish_delete = 16;
+
+        SegmentListRequest     segment_list = 17;
+        SegmentDownloadRequest segment_download = 18;
+    }
+}
+
+message BatchResponse {
+    repeated BatchResponseItem responses = 1;
+}
+
+message BatchResponseItem {
+    oneof Response {
+        BucketCreateResponse         bucket_create = 1;
+        BucketGetResponse            bucket_get = 2;
+        BucketDeleteResponse         bucket_delete = 3;
+        BucketListResponse           bucket_list = 4;
+        BucketSetAttributionResponse bucket_set_attribution = 5;
+
+        ObjectBeginResponse          object_begin = 6;
+        ObjectCommitResponse         object_commit = 7;
+        ObjectGetResponse            object_get = 8;
+        ObjectListResponse           object_list = 9;
+        ObjectBeginDeleteResponse    object_begin_delete = 10;
+        ObjectFinishDeleteResponse   object_finish_delete = 11;
+
+        SegmentBeginResponse      segment_begin = 12;
+        SegmentCommitResponse     segment_commit = 13;
+        SegmentMakeInlineResponse segment_make_inline = 14;
+
+        SegmentBeginDeleteResponse  segment_begin_delete = 15;
+        SegmentFinishDeleteResponse segment_finish_delete = 16;
+
+        SegmentListResponse     segment_list = 17;
+        SegmentDownloadResponse segment_download = 18;
+    }
 }

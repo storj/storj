@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -49,12 +50,11 @@ func New(client pb.MetainfoClient) *Client {
 }
 
 // Dial dials to metainfo endpoint with the specified api key.
-func Dial(ctx context.Context, tc transport.Client, address string, apiKey string) (*Client, error) {
-	apiKeyInjector := grpcauth.NewAPIKeyInjector(apiKey)
+func Dial(ctx context.Context, tc transport.Client, address string, apikey string) (*Client, error) {
 	conn, err := tc.DialAddress(
 		ctx,
 		address,
-		grpc.WithUnaryInterceptor(apiKeyInjector),
+		grpc.WithPerRPCCredentials(grpcauth.NewAPIKeyCredentials(apikey)),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -235,29 +235,120 @@ func (client *Client) GetProjectInfo(ctx context.Context) (resp *pb.ProjectInfoR
 	return client.client.ProjectInfo(ctx, &pb.ProjectInfoRequest{})
 }
 
-// CreateBucket creates a new bucket
-func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (respBucket storj.Bucket, err error) {
-	defer mon.Task()(&ctx)(&err)
-	req, err := convertBucketToProtoRequest(bucket)
-	if err != nil {
-		return respBucket, Error.Wrap(err)
+// CreateBucketParams parameters for CreateBucket method
+type CreateBucketParams struct {
+	Name                        []byte
+	PathCipher                  storj.CipherSuite
+	PartnerID                   []byte
+	DefaultSegmentsSize         int64
+	DefaultRedundancyScheme     storj.RedundancyScheme
+	DefaultEncryptionParameters storj.EncryptionParameters
+}
+
+func (params *CreateBucketParams) toRequest() *pb.BucketCreateRequest {
+	defaultRS := params.DefaultRedundancyScheme
+	defaultEP := params.DefaultEncryptionParameters
+
+	return &pb.BucketCreateRequest{
+		Name:               params.Name,
+		PathCipher:         pb.CipherSuite(params.PathCipher),
+		PartnerId:          params.PartnerID,
+		DefaultSegmentSize: params.DefaultSegmentsSize,
+		DefaultRedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_SchemeType(defaultRS.Algorithm),
+			MinReq:           int32(defaultRS.RequiredShares),
+			Total:            int32(defaultRS.TotalShares),
+			RepairThreshold:  int32(defaultRS.RepairShares),
+			SuccessThreshold: int32(defaultRS.OptimalShares),
+			ErasureShareSize: defaultRS.ShareSize,
+		},
+		DefaultEncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(defaultEP.CipherSuite),
+			BlockSize:   int64(defaultEP.BlockSize),
+		},
 	}
-	resp, err := client.client.CreateBucket(ctx, &req)
+}
+
+// BatchItem returns single item for batch request
+func (params *CreateBucketParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketCreate{
+			BucketCreate: params.toRequest(),
+		},
+	}
+}
+
+// TODO potential names *Response/*Out/*Result
+
+// CreateBucketResponse response for CreateBucket request
+type CreateBucketResponse struct {
+	Bucket storj.Bucket
+}
+
+func newCreateBucketResponse(response *pb.BucketCreateResponse) (CreateBucketResponse, error) {
+	bucket, err := convertProtoToBucket(response.Bucket)
+	if err != nil {
+		return CreateBucketResponse{}, err
+	}
+	return CreateBucketResponse{
+		Bucket: bucket,
+	}, nil
+}
+
+// CreateBucket creates a new bucket
+func (client *Client) CreateBucket(ctx context.Context, params CreateBucketParams) (respBucket storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.CreateBucket(ctx, params.toRequest())
 	if err != nil {
 		return storj.Bucket{}, Error.Wrap(err)
 	}
 
-	respBucket, err = convertProtoToBucket(resp.Bucket)
+	respBucket, err = convertProtoToBucket(response.Bucket)
 	if err != nil {
-		return respBucket, Error.Wrap(err)
+		return storj.Bucket{}, Error.Wrap(err)
 	}
 	return respBucket, nil
 }
 
+// GetBucketParams parmaters for GetBucketParams method
+type GetBucketParams struct {
+	Name []byte
+}
+
+func (params *GetBucketParams) toRequest() *pb.BucketGetRequest {
+	return &pb.BucketGetRequest{Name: params.Name}
+}
+
+// BatchItem returns single item for batch request
+func (params *GetBucketParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketGet{
+			BucketGet: params.toRequest(),
+		},
+	}
+}
+
+// GetBucketResponse response for GetBucket request
+type GetBucketResponse struct {
+	Bucket storj.Bucket
+}
+
+func newGetBucketResponse(response *pb.BucketGetResponse) (GetBucketResponse, error) {
+	bucket, err := convertProtoToBucket(response.Bucket)
+	if err != nil {
+		return GetBucketResponse{}, err
+	}
+	return GetBucketResponse{
+		Bucket: bucket,
+	}, nil
+}
+
 // GetBucket returns a bucket
-func (client *Client) GetBucket(ctx context.Context, bucketName string) (respBucket storj.Bucket, err error) {
+func (client *Client) GetBucket(ctx context.Context, params GetBucketParams) (respBucket storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	resp, err := client.client.GetBucket(ctx, &pb.BucketGetRequest{Name: []byte(bucketName)})
+
+	resp, err := client.client.GetBucket(ctx, params.toRequest())
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
@@ -267,15 +358,33 @@ func (client *Client) GetBucket(ctx context.Context, bucketName string) (respBuc
 
 	respBucket, err = convertProtoToBucket(resp.Bucket)
 	if err != nil {
-		return respBucket, Error.Wrap(err)
+		return storj.Bucket{}, Error.Wrap(err)
 	}
 	return respBucket, nil
 }
 
+// DeleteBucketParams parmaters for DeleteBucket method
+type DeleteBucketParams struct {
+	Name []byte
+}
+
+func (params *DeleteBucketParams) toRequest() *pb.BucketDeleteRequest {
+	return &pb.BucketDeleteRequest{Name: params.Name}
+}
+
+// BatchItem returns single item for batch request
+func (params *DeleteBucketParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketDelete{
+			BucketDelete: params.toRequest(),
+		},
+	}
+}
+
 // DeleteBucket deletes a bucket
-func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err error) {
+func (client *Client) DeleteBucket(ctx context.Context, params DeleteBucketParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = client.client.DeleteBucket(ctx, &pb.BucketDeleteRequest{Name: []byte(bucketName)})
+	_, err = client.client.DeleteBucket(ctx, params.toRequest())
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return storj.ErrBucketNotFound.Wrap(err)
@@ -285,15 +394,54 @@ func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err 
 	return nil
 }
 
-// ListBuckets lists buckets
-func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketListOptions) (_ storj.BucketList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	req := &pb.BucketListRequest{
-		Cursor:    []byte(listOpts.Cursor),
-		Limit:     int32(listOpts.Limit),
-		Direction: int32(listOpts.Direction),
+// ListBucketsParams parmaters for ListBucketsParams method
+type ListBucketsParams struct {
+	ListOpts storj.BucketListOptions
+}
+
+func (params *ListBucketsParams) toRequest() *pb.BucketListRequest {
+	return &pb.BucketListRequest{
+		Cursor:    []byte(params.ListOpts.Cursor),
+		Limit:     int32(params.ListOpts.Limit),
+		Direction: int32(params.ListOpts.Direction),
 	}
-	resp, err := client.client.ListBuckets(ctx, req)
+}
+
+// BatchItem returns single item for batch request
+func (params *ListBucketsParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketList{
+			BucketList: params.toRequest(),
+		},
+	}
+}
+
+// ListBucketsResponse response for ListBucket request
+type ListBucketsResponse struct {
+	BucketList storj.BucketList
+}
+
+func newListBucketsResponse(response *pb.BucketListResponse) ListBucketsResponse {
+	bucketList := storj.BucketList{
+		More: response.More,
+	}
+	bucketList.Items = make([]storj.Bucket, len(response.Items))
+	for i, item := range response.GetItems() {
+		bucketList.Items[i] = storj.Bucket{
+			Name:    string(item.Name),
+			Created: item.CreatedAt,
+		}
+	}
+	return ListBucketsResponse{
+		BucketList: bucketList,
+	}
+}
+
+// ListBuckets lists buckets
+func (client *Client) ListBuckets(ctx context.Context, params ListBucketsParams) (_ storj.BucketList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	resp, err := client.client.ListBuckets(ctx, params.toRequest())
 	if err != nil {
 		return storj.BucketList{}, Error.Wrap(err)
 	}
@@ -308,32 +456,6 @@ func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketList
 		}
 	}
 	return resultBucketList, nil
-}
-
-func convertBucketToProtoRequest(bucket storj.Bucket) (bucketReq pb.BucketCreateRequest, err error) {
-	rs := bucket.DefaultRedundancyScheme
-	partnerID, err := bucket.PartnerID.MarshalJSON()
-	if err != nil {
-		return bucketReq, Error.Wrap(err)
-	}
-	return pb.BucketCreateRequest{
-		Name:               []byte(bucket.Name),
-		PathCipher:         pb.CipherSuite(bucket.PathCipher),
-		PartnerId:          partnerID,
-		DefaultSegmentSize: bucket.DefaultSegmentsSize,
-		DefaultRedundancyScheme: &pb.RedundancyScheme{
-			Type:             pb.RedundancyScheme_SchemeType(rs.Algorithm),
-			MinReq:           int32(rs.RequiredShares),
-			Total:            int32(rs.TotalShares),
-			RepairThreshold:  int32(rs.RepairShares),
-			SuccessThreshold: int32(rs.OptimalShares),
-			ErasureShareSize: rs.ShareSize,
-		},
-		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
-			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
-		},
-	}, nil
 }
 
 func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) {
@@ -365,29 +487,53 @@ func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) 
 	}, nil
 }
 
-// BeginObjectParams parmaters for BeginObject method
-type BeginObjectParams struct {
-	Bucket                 []byte
-	EncryptedPath          []byte
-	Version                int32
-	Redundancy             storj.RedundancyScheme
-	EncryptionParameters   storj.EncryptionParameters
-	ExpiresAt              time.Time
-	EncryptedMetadataNonce storj.Nonce
-	EncryptedMetadata      []byte
+// SetBucketAttributionParams parameters for SetBucketAttribution method
+type SetBucketAttributionParams struct {
+	Bucket    string
+	PartnerID uuid.UUID
 }
 
-// BeginObject begins object creation
-func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams) (_ storj.StreamID, err error) {
+func (params *SetBucketAttributionParams) toRequest() *pb.BucketSetAttributionRequest {
+	return &pb.BucketSetAttributionRequest{
+		Name:      []byte(params.Bucket),
+		PartnerId: params.PartnerID[:],
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *SetBucketAttributionParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_BucketSetAttribution{
+			BucketSetAttribution: params.toRequest(),
+		},
+	}
+}
+
+// SetBucketAttribution tries to set the attribution information on the bucket.
+func (client *Client) SetBucketAttribution(ctx context.Context, params SetBucketAttributionParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.BeginObject(ctx, &pb.ObjectBeginRequest{
-		Bucket:                 params.Bucket,
-		EncryptedPath:          params.EncryptedPath,
-		Version:                params.Version,
-		ExpiresAt:              params.ExpiresAt,
-		EncryptedMetadataNonce: params.EncryptedMetadataNonce,
-		EncryptedMetadata:      params.EncryptedMetadata,
+	_, err = client.client.SetBucketAttribution(ctx, params.toRequest())
+
+	return Error.Wrap(err)
+}
+
+// BeginObjectParams parmaters for BeginObject method
+type BeginObjectParams struct {
+	Bucket               []byte
+	EncryptedPath        []byte
+	Version              int32
+	Redundancy           storj.RedundancyScheme
+	EncryptionParameters storj.EncryptionParameters
+	ExpiresAt            time.Time
+}
+
+func (params *BeginObjectParams) toRequest() *pb.ObjectBeginRequest {
+	return &pb.ObjectBeginRequest{
+		Bucket:        params.Bucket,
+		EncryptedPath: params.EncryptedPath,
+		Version:       params.Version,
+		ExpiresAt:     params.ExpiresAt,
 		RedundancyScheme: &pb.RedundancyScheme{
 			Type:             pb.RedundancyScheme_SchemeType(params.Redundancy.Algorithm),
 			ErasureShareSize: params.Redundancy.ShareSize,
@@ -400,7 +546,34 @@ func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams)
 			CipherSuite: pb.CipherSuite(params.EncryptionParameters.CipherSuite),
 			BlockSize:   int64(params.EncryptionParameters.BlockSize),
 		},
-	})
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *BeginObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectBegin{
+			ObjectBegin: params.toRequest(),
+		},
+	}
+}
+
+// BeginObjectResponse response for BeginObject request
+type BeginObjectResponse struct {
+	StreamID storj.StreamID
+}
+
+func newBeginObjectResponse(response *pb.ObjectBeginResponse) BeginObjectResponse {
+	return BeginObjectResponse{
+		StreamID: response.StreamId,
+	}
+}
+
+// BeginObject begins object creation
+func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams) (_ storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginObject(ctx, params.toRequest())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -408,13 +581,37 @@ func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams)
 	return response.StreamId, nil
 }
 
+// CommitObjectParams parmaters for CommitObject method
+type CommitObjectParams struct {
+	StreamID storj.StreamID
+
+	EncryptedMetadataNonce storj.Nonce
+	EncryptedMetadata      []byte
+}
+
+func (params *CommitObjectParams) toRequest() *pb.ObjectCommitRequest {
+	return &pb.ObjectCommitRequest{
+		StreamId:               params.StreamID,
+		EncryptedMetadataNonce: params.EncryptedMetadataNonce,
+		EncryptedMetadata:      params.EncryptedMetadata,
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *CommitObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectCommit{
+			ObjectCommit: params.toRequest(),
+		},
+	}
+}
+
 // CommitObject commits created object
-func (client *Client) CommitObject(ctx context.Context, streamID storj.StreamID) (err error) {
+func (client *Client) CommitObject(ctx context.Context, params CommitObjectParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.CommitObject(ctx, &pb.ObjectCommitRequest{
-		StreamId: streamID,
-	})
+	_, err = client.client.CommitObject(ctx, params.toRequest())
+
 	return Error.Wrap(err)
 }
 
@@ -425,30 +622,79 @@ type GetObjectParams struct {
 	Version       int32
 }
 
-// GetObject gets single object
-func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.Object, _ storj.StreamID, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.GetObject(ctx, &pb.ObjectGetRequest{
+func (params *GetObjectParams) toRequest() *pb.ObjectGetRequest {
+	return &pb.ObjectGetRequest{
 		Bucket:        params.Bucket,
 		EncryptedPath: params.EncryptedPath,
 		Version:       params.Version,
-	})
-	if err != nil {
-		return storj.Object{}, storj.StreamID{}, Error.Wrap(err)
 	}
+}
 
-	object := storj.Object{
-		Bucket: storj.Bucket{
-			Name: string(response.Object.Bucket),
+// BatchItem returns single item for batch request
+func (params *GetObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectGet{
+			ObjectGet: params.toRequest(),
 		},
-		Path:    storj.Path(response.Object.EncryptedPath),
-		Created: response.Object.CreatedAt,
-		Expires: response.Object.ExpiresAt,
-		// TODO custom type for response object or modify storj.Object
+	}
+}
+
+// GetObjectResponse response for GetObject request
+type GetObjectResponse struct {
+	Info storj.ObjectInfo
+}
+
+func newGetObjectResponse(response *pb.ObjectGetResponse) GetObjectResponse {
+	object := storj.ObjectInfo{
+		Bucket: string(response.Object.Bucket),
+		Path:   storj.Path(response.Object.EncryptedPath),
+
+		StreamID: response.Object.StreamId,
+
+		Created:  response.Object.CreatedAt,
+		Modified: response.Object.CreatedAt,
+		Expires:  response.Object.ExpiresAt,
+		Metadata: response.Object.EncryptedMetadata,
+		Stream: storj.Stream{
+			Size: response.Object.TotalSize,
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.CipherSuite(response.Object.EncryptionParameters.CipherSuite),
+				BlockSize:   int32(response.Object.EncryptionParameters.BlockSize),
+			},
+		},
 	}
 
-	return object, response.Object.StreamId, nil
+	pbRS := response.Object.RedundancyScheme
+	if pbRS != nil {
+		object.Stream.RedundancyScheme = storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(pbRS.Type),
+			ShareSize:      pbRS.ErasureShareSize,
+			RequiredShares: int16(pbRS.MinReq),
+			RepairShares:   int16(pbRS.RepairThreshold),
+			OptimalShares:  int16(pbRS.SuccessThreshold),
+			TotalShares:    int16(pbRS.Total),
+		}
+	}
+	return GetObjectResponse{
+		Info: object,
+	}
+}
+
+// GetObject gets single object
+func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.ObjectInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.GetObject(ctx, params.toRequest())
+
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.ObjectInfo{}, storj.ErrObjectNotFound.Wrap(err)
+		}
+		return storj.ObjectInfo{}, Error.Wrap(err)
+	}
+
+	getResponse := newGetObjectResponse(response)
+	return getResponse.Info, nil
 }
 
 // BeginDeleteObjectParams parameters for BeginDeleteObject method
@@ -458,29 +704,75 @@ type BeginDeleteObjectParams struct {
 	Version       int32
 }
 
+func (params *BeginDeleteObjectParams) toRequest() *pb.ObjectBeginDeleteRequest {
+	return &pb.ObjectBeginDeleteRequest{
+		Bucket:        params.Bucket,
+		EncryptedPath: params.EncryptedPath,
+		Version:       params.Version,
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *BeginDeleteObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectBeginDelete{
+			ObjectBeginDelete: params.toRequest(),
+		},
+	}
+}
+
+// BeginDeleteObjectResponse response for BeginDeleteObject request
+type BeginDeleteObjectResponse struct {
+	StreamID storj.StreamID
+}
+
+func newBeginDeleteObjectResponse(response *pb.ObjectBeginDeleteResponse) BeginDeleteObjectResponse {
+	return BeginDeleteObjectResponse{
+		StreamID: response.StreamId,
+	}
+}
+
 // BeginDeleteObject begins object deletion process
 func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteObjectParams) (_ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.BeginDeleteObject(ctx, &pb.ObjectBeginDeleteRequest{
-		Bucket:        params.Bucket,
-		EncryptedPath: params.EncryptedPath,
-		Version:       params.Version,
-	})
+	response, err := client.client.BeginDeleteObject(ctx, params.toRequest())
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.StreamID{}, storj.ErrObjectNotFound.Wrap(err)
+		}
 		return storj.StreamID{}, Error.Wrap(err)
 	}
 
 	return response.StreamId, nil
 }
 
+// FinishDeleteObjectParams parameters for FinishDeleteObject method
+type FinishDeleteObjectParams struct {
+	StreamID storj.StreamID
+}
+
+func (params *FinishDeleteObjectParams) toRequest() *pb.ObjectFinishDeleteRequest {
+	return &pb.ObjectFinishDeleteRequest{
+		StreamId: params.StreamID,
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *FinishDeleteObjectParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectFinishDelete{
+			ObjectFinishDelete: params.toRequest(),
+		},
+	}
+}
+
 // FinishDeleteObject finishes object deletion process
-func (client *Client) FinishDeleteObject(ctx context.Context, streamID storj.StreamID) (err error) {
+func (client *Client) FinishDeleteObject(ctx context.Context, params FinishDeleteObjectParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.FinishDeleteObject(ctx, &pb.ObjectFinishDeleteRequest{
-		StreamId: streamID,
-	})
+	_, err = client.client.FinishDeleteObject(ctx, params.toRequest())
+
 	return Error.Wrap(err)
 }
 
@@ -491,13 +783,11 @@ type ListObjectsParams struct {
 	EncryptedCursor []byte
 	Limit           int32
 	IncludeMetadata bool
+	Recursive       bool
 }
 
-// ListObjects lists objects according to specific parameters
-func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams) (_ []storj.ObjectListItem, more bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.ListObjects(ctx, &pb.ObjectListRequest{
+func (params *ListObjectsParams) toRequest() *pb.ObjectListRequest {
+	return &pb.ObjectListRequest{
 		Bucket:          params.Bucket,
 		EncryptedPrefix: params.EncryptedPrefix,
 		EncryptedCursor: params.EncryptedCursor,
@@ -505,13 +795,34 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 		ObjectIncludes: &pb.ObjectListItemIncludes{
 			Metadata: params.IncludeMetadata,
 		},
-	})
-	if err != nil {
-		return []storj.ObjectListItem{}, false, Error.Wrap(err)
+		Recursive: params.Recursive,
 	}
+}
 
+// BatchItem returns single item for batch request
+func (params *ListObjectsParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_ObjectList{
+			ObjectList: params.toRequest(),
+		},
+	}
+}
+
+// ListObjectsResponse response for ListObjects request
+type ListObjectsResponse struct {
+	Items []storj.ObjectListItem
+	More  bool
+}
+
+func newListObjectsResponse(response *pb.ObjectListResponse, encryptedPrefix []byte, recursive bool) ListObjectsResponse {
 	objects := make([]storj.ObjectListItem, len(response.Items))
 	for i, object := range response.Items {
+		encryptedPath := object.EncryptedPath
+		isPrefix := false
+		if !recursive && len(encryptedPath) != 0 && encryptedPath[len(encryptedPath)-1] == '/' && !bytes.Equal(encryptedPath, encryptedPrefix) {
+			isPrefix = true
+		}
+
 		objects[i] = storj.ObjectListItem{
 			EncryptedPath:          object.EncryptedPath,
 			Version:                object.Version,
@@ -521,10 +832,28 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 			ExpiresAt:              object.ExpiresAt,
 			EncryptedMetadataNonce: object.EncryptedMetadataNonce,
 			EncryptedMetadata:      object.EncryptedMetadata,
+
+			IsPrefix: isPrefix,
 		}
 	}
 
-	return objects, response.More, Error.Wrap(err)
+	return ListObjectsResponse{
+		Items: objects,
+		More:  response.More,
+	}
+}
+
+// ListObjects lists objects according to specific parameters
+func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams) (_ []storj.ObjectListItem, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.ListObjects(ctx, params.toRequest())
+	if err != nil {
+		return []storj.ObjectListItem{}, false, Error.Wrap(err)
+	}
+
+	listResponse := newListObjectsResponse(response, params.EncryptedPrefix, params.Recursive)
+	return listResponse.Items, listResponse.More, Error.Wrap(err)
 }
 
 // BeginSegmentParams parameters for BeginSegment method
@@ -534,18 +863,46 @@ type BeginSegmentParams struct {
 	MaxOderLimit int64
 }
 
-// BeginSegment begins segment upload
-func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.BeginSegment(ctx, &pb.SegmentBeginRequest{
+func (params *BeginSegmentParams) toRequest() *pb.SegmentBeginRequest {
+	return &pb.SegmentBeginRequest{
 		StreamId: params.StreamID,
 		Position: &pb.SegmentPosition{
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
 		MaxOrderLimit: params.MaxOderLimit,
-	})
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *BeginSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentBegin{
+			SegmentBegin: params.toRequest(),
+		},
+	}
+}
+
+// BeginSegmentResponse response for BeginSegment request
+type BeginSegmentResponse struct {
+	SegmentID       storj.SegmentID
+	Limits          []*pb.AddressedOrderLimit
+	PiecePrivateKey storj.PiecePrivateKey
+}
+
+func newBeginSegmentResponse(response *pb.SegmentBeginResponse) BeginSegmentResponse {
+	return BeginSegmentResponse{
+		SegmentID:       response.SegmentId,
+		Limits:          response.AddressedLimits,
+		PiecePrivateKey: response.PrivateKey,
+	}
+}
+
+// BeginSegment begins segment upload
+func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginSegment(ctx, params.toRequest())
 	if err != nil {
 		return storj.SegmentID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -556,60 +913,78 @@ func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParam
 // CommitSegmentParams parameters for CommitSegment method
 type CommitSegmentParams struct {
 	SegmentID         storj.SegmentID
-	EncryptedKeyNonce storj.Nonce
-	EncryptedKey      []byte
+	Encryption        storj.SegmentEncryption
 	SizeEncryptedData int64
-	// TODO find better way for this
+
 	UploadResult []*pb.SegmentPieceUploadResult
 }
 
-// CommitSegment2 commits segment after upload
-func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentParams) (err error) {
-	// TODO method name will be changed when new methods will be fully integrated with client side
-	defer mon.Task()(&ctx)(&err)
+func (params *CommitSegmentParams) toRequest() *pb.SegmentCommitRequest {
+	return &pb.SegmentCommitRequest{
+		SegmentId: params.SegmentID,
 
-	_, err = client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
-		SegmentId:         params.SegmentID,
-		EncryptedKeyNonce: params.EncryptedKeyNonce,
-		EncryptedKey:      params.EncryptedKey,
+		EncryptedKeyNonce: params.Encryption.EncryptedKeyNonce,
+		EncryptedKey:      params.Encryption.EncryptedKey,
 		SizeEncryptedData: params.SizeEncryptedData,
 		UploadResult:      params.UploadResult,
-	})
-	if err != nil {
-		return Error.Wrap(err)
 	}
+}
 
-	return nil
+// BatchItem returns single item for batch request
+func (params *CommitSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentCommit{
+			SegmentCommit: params.toRequest(),
+		},
+	}
+}
+
+// CommitSegmentNew commits segment after upload
+func (client *Client) CommitSegmentNew(ctx context.Context, params CommitSegmentParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.CommitSegment(ctx, params.toRequest())
+
+	return Error.Wrap(err)
 }
 
 // MakeInlineSegmentParams parameters for MakeInlineSegment method
 type MakeInlineSegmentParams struct {
 	StreamID            storj.StreamID
 	Position            storj.SegmentPosition
-	EncryptedKeyNonce   storj.Nonce
-	EncryptedKey        []byte
+	Encryption          storj.SegmentEncryption
 	EncryptedInlineData []byte
+}
+
+func (params *MakeInlineSegmentParams) toRequest() *pb.SegmentMakeInlineRequest {
+	return &pb.SegmentMakeInlineRequest{
+		StreamId: params.StreamID,
+		Position: &pb.SegmentPosition{
+			PartNumber: params.Position.PartNumber,
+			Index:      params.Position.Index,
+		},
+		EncryptedKeyNonce:   params.Encryption.EncryptedKeyNonce,
+		EncryptedKey:        params.Encryption.EncryptedKey,
+		EncryptedInlineData: params.EncryptedInlineData,
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *MakeInlineSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentMakeInline{
+			SegmentMakeInline: params.toRequest(),
+		},
+	}
 }
 
 // MakeInlineSegment commits segment after upload
 func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.MakeInlineSegment(ctx, &pb.SegmentMakeInlineRequest{
-		StreamId: params.StreamID,
-		Position: &pb.SegmentPosition{
-			PartNumber: params.Position.PartNumber,
-			Index:      params.Position.Index,
-		},
-		EncryptedKeyNonce:   params.EncryptedKeyNonce,
-		EncryptedKey:        params.EncryptedKey,
-		EncryptedInlineData: params.EncryptedInlineData,
-	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	_, err = client.client.MakeInlineSegment(ctx, params.toRequest())
 
-	return nil
+	return Error.Wrap(err)
 }
 
 // BeginDeleteSegmentParams parameters for BeginDeleteSegment method
@@ -618,39 +993,81 @@ type BeginDeleteSegmentParams struct {
 	Position storj.SegmentPosition
 }
 
-// BeginDeleteSegment begins segment upload process
-func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.BeginDeleteSegment(ctx, &pb.SegmentBeginDeleteRequest{
+func (params *BeginDeleteSegmentParams) toRequest() *pb.SegmentBeginDeleteRequest {
+	return &pb.SegmentBeginDeleteRequest{
 		StreamId: params.StreamID,
 		Position: &pb.SegmentPosition{
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
-	})
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *BeginDeleteSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentBeginDelete{
+			SegmentBeginDelete: params.toRequest(),
+		},
+	}
+}
+
+// BeginDeleteSegmentResponse response for BeginDeleteSegment request
+type BeginDeleteSegmentResponse struct {
+	SegmentID       storj.SegmentID
+	Limits          []*pb.AddressedOrderLimit
+	PiecePrivateKey storj.PiecePrivateKey
+}
+
+func newBeginDeleteSegmentResponse(response *pb.SegmentBeginDeleteResponse) BeginDeleteSegmentResponse {
+	return BeginDeleteSegmentResponse{
+		SegmentID:       response.SegmentId,
+		Limits:          response.AddressedLimits,
+		PiecePrivateKey: response.PrivateKey,
+	}
+}
+
+// BeginDeleteSegment begins segment upload process
+func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginDeleteSegment(ctx, params.toRequest())
 	if err != nil {
-		return storj.SegmentID{}, nil, Error.Wrap(err)
+		return storj.SegmentID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	return response.SegmentId, response.AddressedLimits, nil
+	return response.SegmentId, response.AddressedLimits, response.PrivateKey, nil
 }
 
 // FinishDeleteSegmentParams parameters for FinishDeleteSegment method
 type FinishDeleteSegmentParams struct {
 	SegmentID storj.SegmentID
-	// TODO find better way to pass this
+
 	DeleteResults []*pb.SegmentPieceDeleteResult
+}
+
+func (params *FinishDeleteSegmentParams) toRequest() *pb.SegmentFinishDeleteRequest {
+	return &pb.SegmentFinishDeleteRequest{
+		SegmentId: params.SegmentID,
+		Results:   params.DeleteResults,
+	}
+}
+
+// BatchItem returns single item for batch request
+func (params *FinishDeleteSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentFinishDelete{
+			SegmentFinishDelete: params.toRequest(),
+		},
+	}
 }
 
 // FinishDeleteSegment finishes segment upload process
 func (client *Client) FinishDeleteSegment(ctx context.Context, params FinishDeleteSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.FinishDeleteSegment(ctx, &pb.SegmentFinishDeleteRequest{
-		SegmentId: params.SegmentID,
-		Results:   params.DeleteResults,
-	})
+	_, err = client.client.FinishDeleteSegment(ctx, params.toRequest())
+
 	return Error.Wrap(err)
 }
 
@@ -660,24 +1077,42 @@ type DownloadSegmentParams struct {
 	Position storj.SegmentPosition
 }
 
-// DownloadSegment gets info for downloading remote segment or data from inline segment
-func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmentParams) (_ storj.SegmentDownloadInfo, _ []*pb.AddressedOrderLimit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	response, err := client.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+func (params *DownloadSegmentParams) toRequest() *pb.SegmentDownloadRequest {
+	return &pb.SegmentDownloadRequest{
 		StreamId: params.StreamID,
 		CursorPosition: &pb.SegmentPosition{
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
-	})
-	if err != nil {
-		return storj.SegmentDownloadInfo{}, nil, Error.Wrap(err)
 	}
+}
 
+// BatchItem returns single item for batch request
+func (params *DownloadSegmentParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentDownload{
+			SegmentDownload: params.toRequest(),
+		},
+	}
+}
+
+// DownloadSegmentResponse response for DownloadSegment request
+type DownloadSegmentResponse struct {
+	Info storj.SegmentDownloadInfo
+
+	Limits []*pb.AddressedOrderLimit
+}
+
+func newDownloadSegmentResponse(response *pb.SegmentDownloadResponse) DownloadSegmentResponse {
 	info := storj.SegmentDownloadInfo{
 		SegmentID:           response.SegmentId,
+		Size:                response.SegmentSize,
 		EncryptedInlineData: response.EncryptedInlineData,
+		PiecePrivateKey:     response.PrivateKey,
+		SegmentEncryption: storj.SegmentEncryption{
+			EncryptedKeyNonce: response.EncryptedKeyNonce,
+			EncryptedKey:      response.EncryptedKey,
+		},
 	}
 	if response.Next != nil {
 		info.Next = storj.SegmentPosition{
@@ -686,7 +1121,28 @@ func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmen
 		}
 	}
 
-	return info, response.AddressedLimits, nil
+	for i := range response.AddressedLimits {
+		if response.AddressedLimits[i].Limit == nil {
+			response.AddressedLimits[i] = nil
+		}
+	}
+	return DownloadSegmentResponse{
+		Info:   info,
+		Limits: response.AddressedLimits,
+	}
+}
+
+// DownloadSegment gets info for downloading remote segment or data from inline segment
+func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmentParams) (_ storj.SegmentDownloadInfo, _ []*pb.AddressedOrderLimit, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.DownloadSegment(ctx, params.toRequest())
+	if err != nil {
+		return storj.SegmentDownloadInfo{}, nil, Error.Wrap(err)
+	}
+
+	downloadResponse := newDownloadSegmentResponse(response)
+	return downloadResponse.Info, downloadResponse.Limits, nil
 }
 
 // ListSegmentsParams parameters for ListSegment method
@@ -696,23 +1152,33 @@ type ListSegmentsParams struct {
 	Limit          int32
 }
 
-// ListSegments2 lists object segments
-func (client *Client) ListSegments2(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
-	// TODO method name will be changed when new methods will be fully integrated with client side
-	defer mon.Task()(&ctx)(&err)
+// ListSegmentsResponse response for ListSegments request
+type ListSegmentsResponse struct {
+	Items []storj.SegmentListItem
+	More  bool
+}
 
-	response, err := client.client.ListSegments(ctx, &pb.SegmentListRequest{
+func (params *ListSegmentsParams) toRequest() *pb.SegmentListRequest {
+	return &pb.SegmentListRequest{
 		StreamId: params.StreamID,
 		CursorPosition: &pb.SegmentPosition{
 			PartNumber: params.CursorPosition.PartNumber,
 			Index:      params.CursorPosition.Index,
 		},
 		Limit: params.Limit,
-	})
-	if err != nil {
-		return []storj.SegmentListItem{}, false, Error.Wrap(err)
 	}
+}
 
+// BatchItem returns single item for batch request
+func (params *ListSegmentsParams) BatchItem() *pb.BatchRequestItem {
+	return &pb.BatchRequestItem{
+		Request: &pb.BatchRequestItem_SegmentList{
+			SegmentList: params.toRequest(),
+		},
+	}
+}
+
+func newListSegmentsResponse(response *pb.SegmentListResponse) ListSegmentsResponse {
 	items := make([]storj.SegmentListItem, len(response.Items))
 	for i, responseItem := range response.Items {
 		items[i] = storj.SegmentListItem{
@@ -722,5 +1188,50 @@ func (client *Client) ListSegments2(ctx context.Context, params ListSegmentsPara
 			},
 		}
 	}
-	return items, response.More, Error.Wrap(err)
+	return ListSegmentsResponse{
+		Items: items,
+		More:  response.More,
+	}
+}
+
+// ListSegmentsNew lists object segments
+func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.ListSegments(ctx, params.toRequest())
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return []storj.SegmentListItem{}, false, storj.ErrObjectNotFound.Wrap(err)
+		}
+		return []storj.SegmentListItem{}, false, Error.Wrap(err)
+	}
+
+	listResponse := newListSegmentsResponse(response)
+	return listResponse.Items, listResponse.More, Error.Wrap(err)
+}
+
+// Batch sends multiple requests in one batch
+func (client *Client) Batch(ctx context.Context, requests ...BatchItem) (resp []BatchResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	batchItems := make([]*pb.BatchRequestItem, len(requests))
+	for i, request := range requests {
+		batchItems[i] = request.BatchItem()
+	}
+	response, err := client.client.Batch(ctx, &pb.BatchRequest{
+		Requests: batchItems,
+	})
+	if err != nil {
+		return []BatchResponse{}, err
+	}
+
+	resp = make([]BatchResponse, len(response.Responses))
+	for i, response := range response.Responses {
+		resp[i] = BatchResponse{
+			pbRequest:  batchItems[i].Request,
+			pbResponse: response.Response,
+		}
+	}
+
+	return resp, nil
 }

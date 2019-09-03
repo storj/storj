@@ -29,8 +29,7 @@
         private readonly isDeletion: boolean;
         @Prop({default: false})
         private isDisabled: boolean;
-        // TODO: improve default implementation
-        @Prop({default: () => console.error('onPress is not reinitialized')})
+        @Prop({default: () => { return; }})
         private readonly onPress: Function;
         
         public get style(): Object {

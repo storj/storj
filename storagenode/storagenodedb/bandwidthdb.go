@@ -11,45 +11,36 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 )
 
-type bandwidthdb struct {
+// ErrBandwidth represents errors from the bandwidthdb database.
+var ErrBandwidth = errs.Class("bandwidthdb error")
+
+type bandwidthDB struct {
 	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
 	usedSpace int64
 	usedMu    sync.RWMutex
 	usedSince time.Time
 
-	*InfoDB
-
-	loop *sync2.Cycle
+	location string
+	SQLDB
 }
 
-// Bandwidth returns table for storing bandwidth usage.
-func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
-
-// Bandwidth returns table for storing bandwidth usage.
-func (db *InfoDB) Bandwidth() bandwidth.DB { return &db.bandwidthdb }
-
-// Run starts the background process for rollups of bandwidth usage
-func (db *bandwidthdb) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return db.loop.Run(ctx, db.Bandwidth().Rollup)
-}
-
-// Close stops the background process for rollups of bandwidth usage
-func (db *bandwidthdb) Close() (err error) {
-	db.loop.Close()
-	return nil
+// newBandwidthDB returns a new instance of usedSerials initialized with the specified database.
+func newBandwidthDB(db SQLDB, location string) *bandwidthDB {
+	return &bandwidthDB{
+		location: location,
+		SQLDB:    db,
+	}
 }
 
 // Add adds bandwidth usage to the table
-func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
+func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Exec(`
+	_, err = db.Exec(`
 		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
 		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created.UTC())
@@ -69,11 +60,11 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 			db.usedSpace = usage.Total()
 		}
 	}
-	return ErrInfo.Wrap(err)
+	return ErrBandwidth.Wrap(err)
 }
 
 // MonthSummary returns summary of the current months bandwidth usages
-func (db *bandwidthdb) MonthSummary(ctx context.Context) (_ int64, err error) {
+func (db *bandwidthDB) MonthSummary(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	db.usedMu.RLock()
 	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
@@ -92,14 +83,14 @@ func (db *bandwidthdb) MonthSummary(ctx context.Context) (_ int64, err error) {
 }
 
 // Summary returns summary of bandwidth usages
-func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
+func (db *bandwidthDB) Summary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	usage := &bandwidth.Usage{}
 
 	from = from.UTC()
 	to = to.UTC()
-	rows, err := db.db.Query(`
+	rows, err := db.Query(`
 		SELECT action, sum(a) amount from(
 				SELECT action, sum(amount) a
 				FROM bandwidth_usage
@@ -116,7 +107,7 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 		if err == sql.ErrNoRows {
 			return usage, nil
 		}
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrBandwidth.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -125,23 +116,23 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 		var amount int64
 		err := rows.Scan(&action, &amount)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrBandwidth.Wrap(err)
 		}
 		usage.Include(action, amount)
 	}
 
-	return usage, ErrInfo.Wrap(rows.Err())
+	return usage, ErrBandwidth.Wrap(rows.Err())
 }
 
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
-func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storj.NodeID]*bandwidth.Usage, err error) {
+func (db *bandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storj.NodeID]*bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	entries := map[storj.NodeID]*bandwidth.Usage{}
 
 	from = from.UTC()
 	to = to.UTC()
-	rows, err := db.db.Query(`
+	rows, err := db.Query(`
 	SELECT satellite_id, action, sum(a) amount from(
 			SELECT satellite_id, action, sum(amount) a
 			FROM bandwidth_usage
@@ -158,7 +149,7 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 		if err == sql.ErrNoRows {
 			return entries, nil
 		}
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrBandwidth.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -169,7 +160,7 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 
 		err := rows.Scan(&satelliteID, &action, &amount)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrBandwidth.Wrap(err)
 		}
 
 		entry, ok := entries[satelliteID]
@@ -181,33 +172,49 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 		entry.Include(action, amount)
 	}
 
-	return entries, ErrInfo.Wrap(rows.Err())
+	return entries, ErrBandwidth.Wrap(rows.Err())
 }
 
 // Rollup bandwidth_usage data earlier than the current hour, then delete the rolled up records
-func (db *bandwidthdb) Rollup(ctx context.Context) (err error) {
+func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := time.Now().UTC()
+
 	// Go back an hour to give us room for late persists
 	hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location()).Add(-time.Hour)
 
-	result, err := db.db.Exec(`
+	tx, err := db.Begin()
+	if err != nil {
+		return ErrBandwidth.Wrap(err)
+	}
+
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			err = errs.Combine(err, tx.Rollback())
+		}
+	}()
+
+	result, err := tx.Exec(`
 		INSERT INTO bandwidth_usage_rollups (interval_start, satellite_id,  action, amount)
 		SELECT datetime(strftime('%Y-%m-%dT%H:00:00', created_at)) created_hr, satellite_id, action, SUM(amount)
 			FROM bandwidth_usage
 		WHERE datetime(created_at) < datetime(?)
-		GROUP BY created_hr, satellite_id, action;
+		GROUP BY created_hr, satellite_id, action
+		ON CONFLICT(interval_start, satellite_id,  action)
+		DO UPDATE SET amount = bandwidth_usage_rollups.amount + excluded.amount;
 
 		DELETE FROM bandwidth_usage WHERE datetime(created_at) < datetime(?);
 	`, hour, hour)
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrBandwidth.Wrap(err)
 	}
 
 	_, err = result.RowsAffected()
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrBandwidth.Wrap(err)
 	}
 
 	return nil

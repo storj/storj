@@ -45,14 +45,19 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import Checkbox from '@/components/common/Checkbox.vue';
+    import {
+        API_KEYS_ACTIONS,
+        APP_STATE_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PM_ACTIONS,
+    } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
-    import { PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { TeamMember } from '../../types/teamMembers';
-    import { RequestResponse } from '../../types/response';
+    import Checkbox from '@/components/common/Checkbox.vue';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { CreateProjectModel, Project } from '@/types/projects';
+    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
     @Component({
         components: {
@@ -102,7 +107,17 @@
 
             this.selectCreatedProject();
 
-            this.fetchProjectMembers();
+            try {
+                await this.fetchProjectMembers();
+            } catch (e) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            }
+
+            this.clearApiKeys();
+
+            this.clearUsage();
+
+            this.clearBucketUsage();
 
             this.checkIfsFirstProject();
 
@@ -128,25 +143,27 @@
             return true;
         }
 
-        private async createProject(): Promise<boolean> {
+        private async createProject(): Promise<Project> {
             const project: CreateProjectModel = {
                 name: this.projectName,
                 description: this.description,
             };
 
-            let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, project);
-            if (!response.isSuccess) {
-                this.notifyError(response.errorMessage);
+            let newProject: Project = {} as Project;
 
-                return false;
+            try {
+                newProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
+            } catch (error) {
+                this.notifyError(error.message);
             }
-            this.createdProjectId = response.data.id;
 
-            return true;
+            this.createdProjectId = newProject.id;
+
+            return newProject;
         }
 
         private selectCreatedProject(): void {
-            this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.createdProjectId);
+            this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
 
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
         }
@@ -159,13 +176,23 @@
                 : this.notifySuccess('Project created successfully!');
         }
 
-        private async fetchProjectMembers(): Promise<any> {
-            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+        private async fetchProjectMembers(): Promise<void> {
+            await this.$store.dispatch(PM_ACTIONS.CLEAR);
+            const fistPage = 1;
+            await this.$store.dispatch(PM_ACTIONS.FETCH, fistPage);
+        }
 
-            const response: RequestResponse<TeamMember[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
-            if (!response.isSuccess) {
-                this.notifyError(response.errorMessage);
-            }
+        private clearApiKeys(): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+        }
+
+        private clearUsage(): void {
+            this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
+        }
+
+        private clearBucketUsage(): void {
+            this.$store.dispatch(BUCKET_ACTIONS.SET_SEARCH, '');
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         }
 
         private notifyError(message: string): void {

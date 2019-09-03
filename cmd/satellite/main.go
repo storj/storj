@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -130,7 +131,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	peer, err := satellite.New(log, identity, db, &runCfg.Config, version.Build)
+	revocationDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	peer, err := satellite.New(log, identity, db, revocationDB, &runCfg.Config, version.Build)
 	if err != nil {
 		return err
 	}
@@ -142,8 +151,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := process.InitMetricsWithCertPath(ctx, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
 	err = db.CreateTables()
@@ -172,7 +181,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"))
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
@@ -220,6 +229,9 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.New("Invalid date format. Please use YYYY-MM-DD")
 	}
+
+	//Adding one day to properly account for the entire end day
+	end = end.Add(time.Hour * 24)
 
 	// Ensure that start date is not after end date
 	if start.After(end) {

@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-func logOnErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+func (server *Server) logOnErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	err = handler(srv, ss)
 	if err != nil {
 		// no zap errors for canceled or wrong file downloads
@@ -29,20 +29,19 @@ func logOnErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *gr
 			err == io.EOF {
 			return err
 		}
-		zap.S().Errorf("%+v", err)
+		server.log.Error("gRPC stream error response", zap.Error(err))
 	}
 	return err
 }
 
-func logOnErrorUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{},
-	err error) {
+func (server *Server) logOnErrorUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	resp, err = handler(ctx, req)
 	if err != nil {
 		// no zap errors for wrong file downloads
 		if status.Code(err) == codes.NotFound {
 			return resp, err
 		}
-		zap.S().Errorf("%+v", err)
+		server.log.Error("gRPC unary error response", zap.Error(err))
 	}
 	return resp, err
 }
@@ -92,7 +91,9 @@ func UnaryMessageLoggingInterceptor(log *zap.Logger) grpc.UnaryServerInterceptor
 		if jsonReq, err := prepareRequestLog(ctx, req, info.Server, info.FullMethod); err == nil {
 			log.Info(string(jsonReq))
 		} else {
-			log.Sugar().Errorf("Failed to marshal %q request to JSON: %v", info.FullMethod, err)
+			log.Error("Failed to marshal request to JSON.",
+				zap.String("method", info.FullMethod), zap.Error(err),
+			)
 		}
 		return handler(ctx, req)
 	}
@@ -107,7 +108,9 @@ func StreamMessageLoggingInterceptor(log *zap.Logger) grpc.StreamServerIntercept
 		if jsonReq, err := prepareRequestLog(ss.Context(), srv, nil, info.FullMethod); err == nil {
 			log.Info(string(jsonReq))
 		} else {
-			log.Sugar().Errorf("Failed to marshal %q request to JSON: %v", info.FullMethod, err)
+			log.Error("Failed to marshal request to JSON.",
+				zap.String("method", info.FullMethod), zap.Error(err),
+			)
 		}
 		return handler(srv, ss)
 	}
