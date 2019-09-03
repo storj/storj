@@ -20,7 +20,7 @@ type ReservoirChore struct {
 	log    *zap.Logger
 	config Config
 	rand   *rand.Rand
-	queue  *Queue
+	Queue  *Queue
 	Loop   sync2.Cycle
 
 	MetainfoLoop *metainfo.Loop
@@ -32,7 +32,7 @@ func NewReservoirChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, c
 		log:    log,
 		config: config,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),
-		queue:  queue,
+		Queue:  queue,
 		Loop:   *sync2.NewCycle(config.ChoreInterval),
 
 		MetainfoLoop: metaLoop,
@@ -58,18 +58,21 @@ func (chore *ReservoirChore) Run(ctx context.Context) (err error) {
 		// Add reservoir paths to queue in pseudorandom order.
 		for i := 0; i < chore.config.Slots; i++ {
 			for _, res := range pathCollector.Reservoirs {
-				// skip reservoir if no path at this index
+				// Skip reservoir if no path at this index.
 				if len(res.Paths) <= i {
 					continue
 				}
 				path := res.Paths[i]
+				if path == "" {
+					continue
+				}
 				if _, ok := queuePaths[path]; !ok {
 					newQueue = append(newQueue, path)
 					queuePaths[path] = struct{}{}
 				}
 			}
 		}
-		chore.queue.Swap(newQueue)
+		chore.Queue.Swap(newQueue)
 
 		return nil
 	})
