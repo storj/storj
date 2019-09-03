@@ -177,6 +177,18 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	return pieceBytes, nil
 }
 
+func rebuildStripe(ctx context.Context, fec *infectious.FEC, shares []infectious.Share, shareSize int) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	stripe := make([]byte, fec.Required()*shareSize)
+	err = fec.Rebuild(shares, func(share infectious.Share) {
+		copy(stripe[share.Number*shareSize:], share.Data)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return stripe, nil
+}
+
 func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -444,16 +456,4 @@ func unique(limits []*pb.AddressedOrderLimit) bool {
 	}
 
 	return true
-}
-
-func rebuildStripe(ctx context.Context, fec *infectious.FEC, shares []infectious.Share, shareSize int) (_ []byte, err error) {
-	defer mon.Task()(&ctx)(&err)
-	stripe := make([]byte, fec.Required()*shareSize)
-	err = fec.Rebuild(shares, func(share infectious.Share) {
-		copy(stripe[share.Number*shareSize:], share.Data)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return stripe, nil
 }
