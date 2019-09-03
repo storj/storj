@@ -93,7 +93,7 @@ func NewSemVer(v string) (sv SemVer, err error) {
 	return sv, nil
 }
 
-// Compare compare two versions, return -1 if compared version is greater, 0 if equal and 1 if less
+// Compare compare two versions, return -1 if compared version is greater, 0 if equal and 1 if less.
 func (sem *SemVer) Compare(version SemVer) int {
 	result := sem.Major - version.Major
 	if result > 0 {
