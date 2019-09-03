@@ -1630,27 +1630,92 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		limit = listLimit
 	}
 
-	index := int64(req.CursorPosition.Index)
-	more := false
+	path, err := CreatePath(ctx, keyInfo.ProjectID, lastSegment, streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	pointer, err := endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	streamMeta := &pb.StreamMeta{}
+	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if streamMeta.NumberOfSegments > 0 {
+		// use unencrypted number of segments
+		// TODO cleanup int32 vs int64
+		return endpoint.listSegmentsFromNumberOfSegment(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
+	}
+
+	// list segments by requesting each segment from cursor index to n until n segment is not found
+	return endpoint.listSegmentsManually(ctx, keyInfo.ProjectID, streamID, req.CursorPosition.Index, limit)
+}
+
+func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, numberOfSegments, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
+	numberOfSegments -= cursorIndex
+
 	segmentItems := make([]*pb.SegmentListItem, 0)
-	// TODO think about better implementation
+	more := false
+
+	if numberOfSegments > 0 {
+		if numberOfSegments > limit {
+			more = true
+			numberOfSegments = limit
+		} else {
+			// remove last segment to avoid if statements in loop to detect last segment,
+			// last segment will be added manually at the end of this block
+			numberOfSegments--
+		}
+		for index := int32(0); index < numberOfSegments; index++ {
+			segmentItems = append(segmentItems, &pb.SegmentListItem{
+				Position: &pb.SegmentPosition{
+					Index: index + cursorIndex,
+				},
+			})
+		}
+		if !more {
+			// last segment is always the last one
+			segmentItems = append(segmentItems, &pb.SegmentListItem{
+				Position: &pb.SegmentPosition{
+					Index: lastSegment,
+				},
+			})
+		}
+	}
+
+	return &pb.SegmentListResponse{
+		Items: segmentItems,
+		More:  more,
+	}, nil
+}
+
+func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uuid.UUID, streamID *pb.SatStreamID, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
+	index := int64(cursorIndex)
+
+	segmentItems := make([]*pb.SegmentListItem, 0)
+	more := false
+
 	for {
-		path, err := CreatePath(ctx, keyInfo.ProjectID, index, streamID.Bucket, streamID.EncryptedPath)
+		path, err := CreatePath(ctx, projectID, index, streamID.Bucket, streamID.EncryptedPath)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 		_, err = endpoint.metainfo.Get(ctx, path)
 		if err != nil {
 			if storage.ErrKeyNotFound.Has(err) {
-				if index == lastSegment {
-					break
-				}
-				index = lastSegment
-				continue
+				break
 			}
 			return nil, status.Error(codes.Internal, err.Error())
 		}
-		if limit == 0 {
+		if limit == int32(len(segmentItems)) {
 			more = true
 			break
 		}
@@ -1660,11 +1725,17 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 			},
 		})
 
-		if index == lastSegment {
-			break
-		}
 		index++
-		limit--
+	}
+
+	if limit > int32(len(segmentItems)) {
+		segmentItems = append(segmentItems, &pb.SegmentListItem{
+			Position: &pb.SegmentPosition{
+				Index: lastSegment,
+			},
+		})
+	} else {
+		more = true
 	}
 
 	return &pb.SegmentListResponse{
