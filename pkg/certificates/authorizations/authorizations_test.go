@@ -10,7 +10,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net"
-	"storj.io/storj/pkg/certificates"
 	client2 "storj.io/storj/pkg/certificates/client"
 	"testing"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
@@ -28,9 +26,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
@@ -567,125 +562,6 @@ func TestParseToken_Invalid(t *testing.T) {
 func TestToken_Equal(t *testing.T) {
 	assert.True(t, t1.Equal(&t1))
 	assert.False(t, t1.Equal(&t2))
-}
-
-// TODO: test sad path
-func TestCertificateSigner_Sign_E2E(t *testing.T) {
-	t.Skip("TODO: move to peer_test.go")
-	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, signer *identity.FullCertificateAuthority) {
-		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, serverIdent *identity.FullIdentity) {
-			testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, clientIdent *identity.FullIdentity) {
-				ctx := testcontext.New(t)
-				defer ctx.Cleanup()
-
-				caCert := ctx.File("ca.cert")
-				caKey := ctx.File("ca.key")
-				userID := "user@mail.test"
-				signerCAConfig := identity.FullCAConfig{
-					CertPath: caCert,
-					KeyPath:  caKey,
-				}
-				err := signerCAConfig.Save(signer)
-				require.NoError(t, err)
-				config := certificates.Config{
-					Authorizations: Config{
-						DBURL: "bolt://" + ctx.File("authorizations.db"),
-					},
-					CA: signerCAConfig,
-				}
-
-				authDB, err := NewDBFromCfg(config.Authorizations)
-				require.NoError(t, err)
-
-				auths, err := authDB.Create(ctx, "user@mail.test", 1)
-				require.NoError(t, err)
-				require.NotEmpty(t, auths)
-
-				err = authDB.Close()
-				require.NoError(t, err)
-
-				sc := server.Config{
-					Config: tlsopts.Config{
-						PeerIDVersions: "*",
-					},
-					Address:        "127.0.0.1:0",
-					PrivateAddress: "127.0.0.1:0",
-				}
-
-				revocationDB, err := revocation.NewDBFromCfg(sc.Config)
-				require.NoError(t, err)
-				defer ctx.Check(revocationDB.Close)
-
-				serverOpts, err := tlsopts.NewOptions(serverIdent, sc.Config, revocationDB)
-				require.NoError(t, err)
-				require.NotNil(t, serverOpts)
-
-				service, err := server.New(zaptest.NewLogger(t), serverOpts, sc.Address, sc.PrivateAddress, nil, config)
-				require.NoError(t, err)
-				require.NotNil(t, service)
-
-				ctx.Go(func() error {
-					err := service.Run(ctx)
-					assert.NoError(t, err)
-					return err
-				})
-				defer ctx.Check(service.Close)
-
-				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "*"}, nil)
-				require.NoError(t, err)
-
-				clientTransport := transport.NewClient(clientOpts)
-
-				client, err := client2.NewClient(ctx, clientTransport, service.Addr().String())
-				require.NoError(t, err)
-				require.NotNil(t, client)
-
-				signedChainBytes, err := client.Sign(ctx, auths[0].Token.String())
-				require.NoError(t, err)
-				require.NotEmpty(t, signedChainBytes)
-
-				signedChain, err := pkcrypto.CertsFromDER(signedChainBytes)
-				require.NoError(t, err)
-
-				assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
-				assert.Equal(t, signer.Cert.Raw, signedChainBytes[1])
-				// TODO: test scenario with rest chain
-				//assert.Equal(t, signingCA.RawRestChain(), signedChainBytes[1:])
-
-				err = signedChain[0].CheckSignatureFrom(signer.Cert)
-				require.NoError(t, err)
-
-				err = service.Close()
-				assert.NoError(t, err)
-
-				// NB: re-open after closing for server
-				authDB, err = NewDBFromCfg(config.Authorizations)
-				require.NoError(t, err)
-				defer ctx.Check(authDB.Close)
-				require.NotNil(t, authDB)
-
-				updatedAuths, err := authDB.Get(ctx, userID)
-				require.NoError(t, err)
-				require.NotEmpty(t, updatedAuths)
-				require.NotNil(t, updatedAuths[0].Claim)
-
-				now := time.Now().Unix()
-				claim := updatedAuths[0].Claim
-
-				listenerHost, _, err := net.SplitHostPort(service.Addr().String())
-				require.NoError(t, err)
-				claimHost, _, err := net.SplitHostPort(claim.Addr)
-				require.NoError(t, err)
-
-				assert.Equal(t, listenerHost, claimHost)
-				assert.Equal(t, signedChainBytes, claim.SignedChainBytes)
-				assert.Condition(t, func() bool {
-					return now-10 < claim.Timestamp &&
-						claim.Timestamp < now+10
-				})
-			})
-		})
-	})
 }
 
 func TestNewClient(t *testing.T) {
