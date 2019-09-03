@@ -28,7 +28,8 @@ rm "$RELEASE_DIR/internal/version/release.go"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-make -C "$RELEASE_DIR" install-sim
+GOBIN=$RELEASE_DIR/bin make -C "$RELEASE_DIR" install-sim
+GOBIN=$BRANCH_DIR/bin  make -C "$BRANCH_DIR" install-sim
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
@@ -39,17 +40,12 @@ if [ -z ${STORJ_SIM_POSTGRES} ]; then
 fi
 
 # setup the network
-storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
-
+PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 # run upload part of backward compatibility tests from the lastest release branch
-storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
-
-make -C "$BRANCH_DIR" install-sim
+PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' $STORJ_NETWORK_DIR/satellite/0/config.yaml
 
 # run download part of backward compatibility tests from the current branch
-storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
-
-storj-sim -x --host $STORJ_NETWORK_HOST4 network destroy
+PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download

@@ -80,10 +80,12 @@ type DB interface {
 
 // Config defines configuration for sending orders.
 type Config struct {
-	SenderInterval  time.Duration `help:"duration between sending" default:"1h0m0s"`
-	SenderTimeout   time.Duration `help:"timeout for sending" default:"1h0m0s"`
-	CleanupInterval time.Duration `help:"duration between archive cleanups" default:"24h0m0s"`
-	ArchiveTTL      time.Duration `help:"length of time to archive orders before deletion" default:"1080h0m0s"` // 45 days
+	SenderInterval       time.Duration `help:"duration between sending" default:"1h0m0s"`
+	SenderTimeout        time.Duration `help:"timeout for sending" default:"1h0m0s"`
+	SenderDialTimeout    time.Duration `help:"timeout for dialing satellite during sending orders" default:"1m0s"`
+	SenderRequestTimeout time.Duration `help:"timeout for read/write operations during sending" default:"1h0m0s"`
+	CleanupInterval      time.Duration `help:"duration between archive cleanups" default:"24h0m0s"`
+	ArchiveTTL           time.Duration `help:"length of time to archive orders before deletion" default:"168h0m0s"` // 7 days
 }
 
 // Service sends every interval unsent orders to the satellite.
@@ -204,12 +206,7 @@ func (service *Service) handleBatches(ctx context.Context, requests chan Archive
 
 	buffer := make([]ArchiveRequest, 0, cap(requests))
 
-	for request := range requests {
-		buffer = append(buffer, request)
-		if len(buffer) < cap(buffer) {
-			continue
-		}
-
+	archive := func(ctx context.Context, archivedAt time.Time, requests ...ArchiveRequest) error {
 		if err := service.orders.Archive(ctx, time.Now().UTC(), buffer...); err != nil {
 			if !OrderNotFoundError.Has(err) {
 				return err
@@ -217,12 +214,26 @@ func (service *Service) handleBatches(ctx context.Context, requests chan Archive
 
 			service.log.Warn("some unsent order aren't in the DB", zap.Error(err))
 		}
+
+		return nil
+	}
+
+	for request := range requests {
+		buffer = append(buffer, request)
+		if len(buffer) < cap(buffer) {
+			continue
+		}
+
+		if err := archive(ctx, time.Now().UTC(), buffer...); err != nil {
+			return err
+		}
 		buffer = buffer[:0]
 	}
 
 	if len(buffer) > 0 {
-		return service.orders.Archive(ctx, time.Now().UTC(), buffer...)
+		return archive(ctx, time.Now().UTC(), buffer...)
 	}
+
 	return nil
 }
 

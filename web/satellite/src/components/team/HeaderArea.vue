@@ -15,14 +15,17 @@
                     <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                 </div>
                 <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                    <span>Are you sure you want to delete {{selectedProjectMembers}} {{userCountTitle}}</span>
+                    <span>Are you sure you want to delete {{selectedProjectMembersCount}} {{userCountTitle}}?</span>
                     <div class="header-after-delete-click__button-area">
                         <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
                         <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                     </div>
                 </div>
             </HeaderComponent>
+            <div class="blur-content" v-if="isDeleteClicked"></div>
+            <div class="blur-search" v-if="isDeleteClicked"></div>
 	    </div>
+        <AddUserPopup v-if="isAddTeamMembersPopupShown"/>
     </div>
 </template>
 
@@ -32,8 +35,8 @@
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import Button from '@/components/common/Button.vue';
     import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import { ProjectMember } from '@/types/projectMembers';
-    import { RequestResponse } from '@/types/response';
+    import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
+    import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
     declare interface ClearSearch {
         clearSearch: () => void;
@@ -43,24 +46,25 @@
         components: {
             Button,
             HeaderComponent,
+            AddUserPopup,
         }
     })
     export default class HeaderArea extends Vue {
+        @Prop({default: ProjectMemberHeaderState.DEFAULT})
+        private readonly headerState: ProjectMemberHeaderState;
         @Prop({default: 0})
-        private readonly headerState: number;
-        @Prop({default: 0})
-        private readonly selectedProjectMembers: number;
+        public readonly selectedProjectMembersCount: number;
 
         private FIRST_PAGE = 1;
 
-        private isDeleteClicked: boolean = false;
+        public isDeleteClicked: boolean = false;
 
         public $refs!: {
             headerComponent: HeaderComponent & ClearSearch
         };
 
         public get userCountTitle(): string {
-            if (this.selectedProjectMembers === 1) {
+            if (this.selectedProjectMembersCount === 1) {
                 return 'user';
             }
 
@@ -83,7 +87,7 @@
         }
 
         public async onDelete(): Promise<void> {
-            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
+            const projectMemberEmails: string[] = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
                 return member.user.email;
             });
 
@@ -109,6 +113,10 @@
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
             }
         }
+
+        public get isAddTeamMembersPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
+        }
     }
 </script>
 
@@ -126,6 +134,12 @@
         flex-direction: column;
         justify-content: space-between;
         height: 85px;
+
+        span {
+            font-family: 'font_medium';
+            font-size: 14px;
+            line-height: 28px;
+        }
 
         &__button-area {
             display: flex;
@@ -158,6 +172,29 @@
         display: flex;
         align-items: center;
         justify-content: flex-start;
+        position: relative;
+
+        .blur-content {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #F5F6FA;
+            width: 100%;
+            height: 70vh;
+            z-index: 100;
+            opacity: 0.3;
+        }
+
+        .blur-search {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 602px;
+            height: 56px;
+            z-index: 100;
+            opacity: 0.3;
+            background-color: #F5F6FA;
+        }
     }
 
     .container.deletion {

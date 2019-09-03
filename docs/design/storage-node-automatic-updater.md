@@ -12,7 +12,7 @@ Currently we are using Docker for updates, but due to it's limitations with cert
 
 The Updater has several responsibilities:
 
-1. Figure out whether something needs to be updated with gradual rollout/
+1. Figure out whether something needs to be updated with gradual rollout.
 1. Safely download the binaries.
 1. Safely update the binaries.
 1. Safely restart the binaries.
@@ -135,7 +135,7 @@ Later we can add:
   * Update the auto-updater to check the rollout information.
   * Write document how to start and stop rollouts.
 
-## Open issues (if applicable)
+## Open issues
 
 * Should we try to update new and small nodes first to further mitigate the impact of bad releases?
   * Storage Node Operators of new nodes are expected to check their logs more frequently.
