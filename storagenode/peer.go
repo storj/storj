@@ -298,6 +298,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		// TODO workaround for custom timeout for order sending request (read/write)
 		ordersTransport := transport.NewClientWithTimeouts(options, transport.Timeouts{
+			Dial:    config.Storage2.Orders.SenderDialTimeout,
 			Request: config.Storage2.Orders.SenderRequestTimeout,
 		})
 
