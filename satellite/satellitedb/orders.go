@@ -285,7 +285,8 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 					return nil, Error.Wrap(err)
 				}
 			} else {
-				return nil, Error.Wrap(err)
+				_, rerr := tx.Exec("rollback to savepoint sp")
+				return nil, errs.Combine(Error.Wrap(err), Error.Wrap(rerr))
 			}
 		}
 		_, err = tx.Exec("release savepoint sp")
