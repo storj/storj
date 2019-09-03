@@ -296,7 +296,7 @@ func (db *bandwidthDB) GetDailySatelliteRollups(ctx context.Context, satelliteID
 }
 
 // getDailyUsageRollups returns slice of grouped by date bandwidth usage rollups
-// sorted in ascending order and applied condition if any
+// sorted in ascending order and applied condition if any.
 func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, args ...interface{}) (_ []bandwidth.UsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
