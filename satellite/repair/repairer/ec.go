@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -51,7 +52,7 @@ func (ec *ECRepairer) dialPiecestore(ctx context.Context, n *pb.Node) (*piecesto
 // It attempts to download from the minimum required number based on the redundancy scheme.
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (data io.ReadCloser, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -66,36 +67,52 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	pieceSize := paddedSize / int64(es.RequiredCount())
 
 	// TODO: make these steps async so we can download from multiple nodes at the same time
+
 	var successfulPieces, currentLimitIndex int
+	shares := make([]infectious.Share, es.RequiredCount())
 	for successfulPieces < es.RequiredCount() && currentLimitIndex < len(limits) {
 		limit := limits[currentLimitIndex]
-		currentLimitIndex++
 		if limit == nil {
+			currentLimitIndex++
 			continue
 		}
 
-		_, err = ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
+		downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
 		if err != nil {
 			// TODO: add error to a errgroup, return that errgroup if successfulPieces < es.RequiredCount() is true after for loop
+			currentLimitIndex++
 			continue
 		}
 
-		// TODO: save data from downloadAndVerifyPiece as an infectious share with the correct piece number
+		shares = append(shares, infectious.Share{
+			Number: currentLimitIndex,
+			Data:   downloadedPiece,
+		})
+		currentLimitIndex++
 
 	}
 	if successfulPieces < es.RequiredCount() {
 		return nil, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
 	}
 
-	// TODO: use infectious fec.Rebuild(preferred) or fec.Decode to reconstruct original segment
+	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return nil, nil
+	// reconstruct original stripe
+	stripeData, err := rebuildStripe(ctx, fec, shares, es.ErasureShareSize())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return ioutil.NopCloser(bytes.NewReader(stripeData)), nil
 }
 
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
-func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (data io.ReadCloser, err error) {
+func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (data []byte, err error) {
 	// contact node
 	ps, err := ec.dialPiecestore(ctx, &pb.Node{
 		Id:      limit.GetLimit().StorageNodeId,
@@ -109,6 +126,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errs.Combine(err, downloader.Close()) }()
 
 	var calculatedHash []byte
 	pieceBytes := make([]byte, 0, pieceSize)
@@ -156,7 +174,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		return nil, err
 	}
 
-	return nil, nil
+	return pieceBytes, nil
 }
 
 func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
@@ -426,4 +444,16 @@ func unique(limits []*pb.AddressedOrderLimit) bool {
 	}
 
 	return true
+}
+
+func rebuildStripe(ctx context.Context, fec *infectious.FEC, shares []infectious.Share, shareSize int) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	stripe := make([]byte, fec.Required()*shareSize)
+	err = fec.Rebuild(shares, func(share infectious.Share) {
+		copy(stripe[share.Number*shareSize:], share.Data)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return stripe, nil
 }
