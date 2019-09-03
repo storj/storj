@@ -14,10 +14,9 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/uplink"
 )
 
-func TestQueue(t *testing.T) {
+func TestChoreAndWorkerIntegration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -27,16 +26,11 @@ func TestQueue(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 
-		// upload 2 remote files with 1 segment
+		// Upload 2 remote files with 1 segment.
 		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(8 * memory.KiB)
 			path := "/some/remote/path/" + string(i)
-			err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-				MinThreshold:     3,
-				RepairThreshold:  4,
-				SuccessThreshold: 5,
-				MaxThreshold:     5,
-			}, "testbucket", path, testData)
+			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
 			require.NoError(t, err)
 		}
 
