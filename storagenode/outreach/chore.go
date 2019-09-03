@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -23,19 +24,19 @@ var (
 
 // Chore is the outreach chore for nodes announcing themselves to their trusted satellites
 type Chore struct {
-	log    *zap.Logger
-	ticker *time.Ticker
-
+	log   *zap.Logger
 	trust *trust.Pool
+
+	Loop *sync2.Cycle
 }
 
 // NewChore creates a new outreach chore
 func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool) *Chore {
 	return &Chore{
-		log:    log,
-		ticker: time.NewTicker(interval),
-
+		log:   log,
 		trust: trust,
+
+		Loop: sync2.NewCycle(interval),
 	}
 }
 
@@ -43,19 +44,14 @@ func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool) *Chore
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Info("Storagenode outreach chore starting up")
-	// TODO create jitter
-	for {
-		// TODO: update this section if needed
+
+	return chore.Loop.Run(ctx, func(ctx context.Context) error {
+		// jitter
 		if err = chore.pingSatellites(ctx); err != nil {
 			chore.log.Error("pingSatellites failed", zap.Error(err))
 		}
-		select {
-		case <-chore.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or outreach is canceled via context
-			return ctx.Err()
-		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (chore *Chore) pingSatellites(ctx context.Context) error {
