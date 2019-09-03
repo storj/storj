@@ -6,6 +6,8 @@ package dbutil
 import (
 	"database/sql/driver"
 	"time"
+
+	"github.com/zeebo/errs"
 )
 
 const (
@@ -13,7 +15,10 @@ const (
 	sqliteTimeLayoutNoTimeZone = "2006-01-02 15:04:05"
 )
 
-// NullTime time helps convert nil to time.Time
+// ErrNullTime defines error class for NullTime.
+var ErrNullTime = errs.Class("null time error")
+
+// NullTime time helps convert nil to time.Time.
 type NullTime struct {
 	time.Time
 	Valid bool
@@ -30,12 +35,12 @@ func (nt *NullTime) Scan(value interface{}) error {
 	// try to parse time from bytes which is what sqlite returns
 	date, ok := value.([]byte)
 	if !ok {
-		return nil
+		return ErrNullTime.New("sql null time: scan received unsupported value type")
 	}
 
 	times, err := parseSqliteTimeString(string(date))
 	if err != nil {
-		return nil
+		return ErrNullTime.Wrap(err)
 	}
 
 	nt.Time, nt.Valid = times, true
