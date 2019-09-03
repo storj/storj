@@ -162,7 +162,7 @@ func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.N
 
 		err := rows.Scan(&action, &amount)
 		if err != nil {
-			return nil, ErrBandwidth.Wrap(err)
+			return nil, err
 		}
 
 		usage.Include(action, amount)
