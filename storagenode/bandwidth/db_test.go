@@ -273,7 +273,7 @@ func TestBandwidthDailyRollups(t *testing.T) {
 
 			for _, rollup := range rolls {
 				expected := usageRollups[satelliteID][rollup.IntervalStart]
-				assert.Equal(t, expected, &rollup)
+				assert.Equal(t, expected, rollup)
 			}
 		})
 
@@ -285,7 +285,7 @@ func TestBandwidthDailyRollups(t *testing.T) {
 			assert.Equal(t, days, len(rolls))
 
 			for _, rollup := range rolls {
-				assert.Equal(t, totalUsageRollups[rollup.IntervalStart], &rollup)
+				assert.Equal(t, totalUsageRollups[rollup.IntervalStart], rollup)
 			}
 		})
 	})
