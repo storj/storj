@@ -51,23 +51,23 @@ var (
 	binaryLocation string
 )
 
-// Response response from version server
+// Response response from version server.
 type Response struct {
 	Processes Processes `json:"processes"`
 }
 
-// Processes describes versions for each binary
+// Processes describes versions for each binary.
 type Processes struct {
 	Storagenode Process `json:"storagenode"`
 }
 
-// Process versions for specific binary
+// Process versions for specific binary.
 type Process struct {
 	Minimum   Version `json:"minimum"`
 	Suggested Version `json:"suggested"`
 }
 
-// Version represents version and download url for binary
+// Version represents version and download URL for binary.
 type Version struct {
 	Version string `json:"version"`
 	URL     string `json:"url"`
@@ -154,10 +154,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func binaryVersion(location string) (ver version.SemVer, err error) {
+func binaryVersion(location string) (version.SemVer, error) {
 	out, err := exec.Command(location, "version").Output()
 	if err != nil {
-		return ver, err
+		return version.SemVer{}, err
 	}
 
 	scanner := bufio.NewScanner(bytes.NewReader(out))
@@ -168,7 +168,7 @@ func binaryVersion(location string) (ver version.SemVer, err error) {
 			return version.NewSemVer(line[len(prefix):])
 		}
 	}
-	return ver, nil
+	return version.SemVer{}, errs.New("unable to determine binary version")
 }
 
 func suggestedVersion() (ver version.SemVer, url string, err error) {
@@ -218,7 +218,7 @@ func fileExists(filename string) bool {
 	if os.IsNotExist(err) {
 		return false
 	}
-	return !info.IsDir()
+	return info.Mode().IsRegular()
 }
 
 func main() {
