@@ -42,7 +42,7 @@ type Usage struct {
 	Delete    int64
 }
 
-// Egress stores info about storage node egress usage
+// Egress stores info about storage node egress usage.
 type Egress struct {
 	Repair int64 `json:"repair"`
 	Audit  int64 `json:"audit"`
