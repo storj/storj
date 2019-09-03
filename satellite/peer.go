@@ -493,7 +493,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		// setup audit 2.0
 		peer.Audit.Queue = &audit.Queue{}
 
-		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit service 2"),
+		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
 			peer.Audit.Queue,
 			config,
 		)

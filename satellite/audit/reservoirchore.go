@@ -39,8 +39,9 @@ func NewReservoirChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, c
 	}
 }
 
-// Run starts the reservoir chore
-func (chore *ReservoirChore) Run(ctx context.Context) error {
+// Run starts the reservoir chore.
+func (chore *ReservoirChore) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 

@@ -11,7 +11,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// ErrEmptyQueue is used to indicate that the queue is empty
+// ErrEmptyQueue is used to indicate that the queue is empty.
 var ErrEmptyQueue = errs.Class("empty audit queue")
 
 // Queue is a list of paths to audit, shared between the reservoir chore and audit workers.

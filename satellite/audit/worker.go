@@ -34,13 +34,14 @@ func NewWorker(log *zap.Logger, queue *Queue, config Config) (*Worker, error) {
 // Run runs audit service 2.0.
 func (worker *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	worker.log.Info("starting")
+	worker.log.Debug("starting")
 
-	// wait for all audits to run
+	// Wait for all audits to run.
 	defer worker.Limiter.Wait()
 
-	return worker.Loop.Run(ctx, func(ctx context.Context) error {
-		err := worker.process(ctx)
+	return worker.Loop.Run(ctx, func(ctx context.Context) (err error) {
+		defer mon.Task()(&ctx)(&err)
+		err = worker.process(ctx)
 		if err != nil {
 			worker.log.Error("process", zap.Error(Error.Wrap(err)))
 		}
@@ -75,6 +76,6 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 }
 
 func (worker *Worker) work(ctx context.Context, path storj.Path) error {
-	// handle work
+	// TODO: handle work.
 	return nil
 }
