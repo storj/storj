@@ -12,39 +12,39 @@ import (
 )
 
 type Config struct {
-	Interval time.Duration `help:"how frequently the node outreach service should run" releaseDefault:"1h" devDefault:"30s"`
+	Interval time.Duration `help:"how frequently the node outreach chore should run" releaseDefault:"1h" devDefault:"30s"`
 }
 
 var (
 	mon = monkit.Package()
 )
 
-// Service is the outreach service for nodes announcing themselves to their trusted satellites
-type Service struct {
+// Chore is the outreach chore for nodes announcing themselves to their trusted satellites
+type Chore struct {
 	log    *zap.Logger
 	ticker *time.Ticker
 }
 
-// NewService creates a new outreach service
-func NewService(log *zap.Logger, interval time.Duration) *Service {
-	return &Service{
+// NewChore creates a new outreach chore
+func NewChore(log *zap.Logger, interval time.Duration) *Chore {
+	return &Chore{
 		log:    log,
 		ticker: time.NewTicker(interval),
 	}
 }
 
-// Run the outreach service on a regular interval with jitter
-func (service *Service) Run(ctx context.Context) (err error) {
+// Run the outreach chore on a regular interval with jitter
+func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	service.log.Info("Storagenode outreach service starting up")
+	chore.log.Info("Storagenode outreach chore starting up")
 	// TODO create jitter
 	for {
 		// TODO: update this section if needed
-		if err = service.pingSatellites(ctx); err != nil {
-			service.log.Error("pingSatellites failed", zap.Error(err))
+		if err = chore.pingSatellites(ctx); err != nil {
+			chore.log.Error("pingSatellites failed", zap.Error(err))
 		}
 		select {
-		case <-service.ticker.C: // wait for the next interval to happen
+		case <-chore.ticker.C: // wait for the next interval to happen
 		case <-ctx.Done(): // or outreach is canceled via context
 			return ctx.Err()
 		}
@@ -52,7 +52,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) pingSatellites(ctx context.Context) error {
+func (chore *Chore) pingSatellites(ctx context.Context) error {
 	// loop through the trusted satellites
 	// don't error out if an individual satellite ping fails
 	// call awaitPingback helper method

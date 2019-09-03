@@ -150,7 +150,7 @@ type Peer struct {
 
 	Bandwidth *bandwidth.Service
 
-	Outreach *outreach.Service
+	Outreach *outreach.Chore
 }
 
 // New creates a new Storage Node.
@@ -196,7 +196,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup outreach
-		peer.Outreach = outreach.NewService(peer.Log.Named("outreach"), config.Outreach.Interval)
+		peer.Outreach = outreach.NewChore(peer.Log.Named("outreach"), config.Outreach.Interval)
 		// TODO: create and register a pb server
 
 	}
