@@ -126,7 +126,7 @@ func (db *bandwidthDB) Summary(ctx context.Context, from, to time.Time) (_ *band
 	return usage, ErrBandwidth.Wrap(rows.Err())
 }
 
-// SatelliteSummary returns aggregated bandwidth usage for particular satellite
+// SatelliteSummary returns aggregated bandwidth usage for a particular satellite.
 func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
