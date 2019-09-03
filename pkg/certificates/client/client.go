@@ -1,15 +1,20 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package client
 
 import (
 	"context"
+	"time"
+
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
-	"time"
 )
 
 var mon = monkit.Package()
