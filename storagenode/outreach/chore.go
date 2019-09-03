@@ -9,6 +9,8 @@ import (
 
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/storagenode/trust"
 )
 
 type Config struct {
@@ -23,13 +25,17 @@ var (
 type Chore struct {
 	log    *zap.Logger
 	ticker *time.Ticker
+
+	trust *trust.Pool
 }
 
 // NewChore creates a new outreach chore
-func NewChore(log *zap.Logger, interval time.Duration) *Chore {
+func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool) *Chore {
 	return &Chore{
 		log:    log,
 		ticker: time.NewTicker(interval),
+
+		trust: trust,
 	}
 }
 
