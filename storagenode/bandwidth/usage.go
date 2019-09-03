@@ -25,7 +25,7 @@ type DB interface {
 	// sorted in ascending order.
 	GetDailyRollups(ctx context.Context, from, to time.Time) ([]UsageRollup, error)
 	// GetDailySatelliteRollups returns slice of daily bandwidth usage for provided time range,
-	// sorted in ascending order for particular satellite
+	// sorted in ascending order for a particular satellite.
 	GetDailySatelliteRollups(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]UsageRollup, error)
 }
 
