@@ -6,6 +6,7 @@ package repairer
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -67,6 +68,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 	// TODO: make these steps async so we can download from multiple nodes at the same time
 
+	fmt.Println("begin")
 	var successfulPieces, currentLimitIndex int
 	shares := make([]infectious.Share, 0, es.RequiredCount())
 	for successfulPieces < es.RequiredCount() && currentLimitIndex < len(limits) {
@@ -87,6 +89,10 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 			Number: currentLimitIndex,
 			Data:   downloadedPiece,
 		})
+		fmt.Println("share ", currentLimitIndex)
+		newHash := pkcrypto.NewHash()
+		calculatedHash := newHash.Sum(downloadedPiece)
+		fmt.Println("calculated hash", calculatedHash[:5])
 		currentLimitIndex++
 		successfulPieces++
 	}
@@ -99,11 +105,22 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, Error.Wrap(err)
 	}
 
+	// segment := make([]byte, int(pieceSize)*es.RequiredCount())
+	// segment, err = fec.Decode(segment, shares)
+
 	// reconstruct original stripe
 	segment, err := rebuildStripe(ctx, fec, shares, int(pieceSize))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	fmt.Println("\nencoding")
+	fec.Encode(segment, func(share infectious.Share) {
+		fmt.Println("share ", share.Number)
+		newHash := pkcrypto.NewHash()
+		calculatedHash := newHash.Sum(share.Data)
+		fmt.Println("calculated hash", calculatedHash[:5])
+	})
 
 	return ioutil.NopCloser(bytes.NewReader(segment)), nil
 }
@@ -180,6 +197,11 @@ func rebuildStripe(ctx context.Context, fec *infectious.FEC, shares []infectious
 	defer mon.Task()(&ctx)(&err)
 	stripe := make([]byte, fec.Required()*shareSize)
 	err = fec.Rebuild(shares, func(share infectious.Share) {
+		fmt.Println("fec reabuild for share number", share.Number)
+		fmt.Println("data size", len(share.Data), "share size", shareSize)
+		newHash := pkcrypto.NewHash()
+		calculatedHash := newHash.Sum(share.Data)
+		fmt.Println("calculated hash", calculatedHash[:5])
 		copy(stripe[share.Number*shareSize:], share.Data)
 	})
 	if err != nil {
