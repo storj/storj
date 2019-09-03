@@ -14,20 +14,22 @@ import (
 
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
-	log     *zap.Logger
-	queue   *Queue
-	Loop    sync2.Cycle
-	Limiter sync2.Limiter
+	log      *zap.Logger
+	queue    *Queue
+	verifier Verifier
+	Loop     sync2.Cycle
+	Limiter  sync2.Limiter
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, queue *Queue, config Config) (*Worker, error) {
+func NewWorker(log *zap.Logger, queue *Queue, verifier Verifier, config Config) (*Worker, error) {
 	return &Worker{
 		log: log,
 
-		queue:   queue,
-		Loop:    *sync2.NewCycle(config.QueueInterval),
-		Limiter: *sync2.NewLimiter(config.WorkerConcurrency),
+		queue:    queue,
+		verifier: verifier,
+		Loop:     *sync2.NewCycle(config.QueueInterval),
+		Limiter:  *sync2.NewLimiter(config.WorkerConcurrency),
 	}, nil
 }
 
@@ -77,5 +79,6 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 
 func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	// TODO: handle work.
+	// worker.verifier.Verify2(ctx, path, ...)
 	return nil
 }
