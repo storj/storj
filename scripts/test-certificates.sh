@@ -5,13 +5,11 @@ source $(dirname $0)/utils.sh
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 IDENTS_DIR=$TMPDIR/identities
 CERTS_DIR=$TMPDIR/certificates
-# TODO: make port numbers more dynamic
-CERTS_ADDR=127.0.0.1:11000
-CERTS_ADDR_PRIV=127.0.0.1:11001
+CERTS_ADDR=127.0.0.4:11000
+CERTS_ADDR_PRIV=127.0.0.4:11001
 
-# TODO: find a better way
 kill_certificates_server() {
-  killall "certificates"
+  kill $CERTS_PID
 }
 
 cleanup() {
@@ -34,7 +32,7 @@ _certificates() {
   rev_dburl="bolt://${CERTS_DIR}/revocations.db"
 
   # NB: `--identity-dir` and `--config-dir` flags are only bound globally to subcommands
-  certificates --identity-dir "$ident_dir" \
+  exec certificates --identity-dir "$ident_dir" \
                --config-dir "$CERTS_DIR" \
                "$subcommand" \
                --signer.ca.cert-path "$ca_cert_path" \
@@ -64,7 +62,8 @@ _identity_create() {
 }
 
 _identity_create 'certificates'
-_certificates setup
+_certificates setup &
+wait
 
 for i in {0..4}; do
   email="testuser${i}@mail.example"
@@ -73,12 +72,14 @@ for i in {0..4}; do
   _identity_create $ident_name
 
   if [[ i -gt 0 ]]; then
-    _certificates auth create "$i" "$email"
+    _certificates auth create "$i" "$email" &
+    wait
   fi
 done
 
 exported_auths=$(_certificates auth export)
 _certificates run --signer.min-difficulty 0 &
+CERTS_PID=$!
 
 sleep 1
 
