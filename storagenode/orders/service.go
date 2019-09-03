@@ -82,6 +82,7 @@ type DB interface {
 type Config struct {
 	SenderInterval       time.Duration `help:"duration between sending" default:"1h0m0s"`
 	SenderTimeout        time.Duration `help:"timeout for sending" default:"1h0m0s"`
+	SenderDialTimeout    time.Duration `help:"timeout for dialing satellite during sending orders" default:"1m0s"`
 	SenderRequestTimeout time.Duration `help:"timeout for read/write operations during sending" default:"1h0m0s"`
 	CleanupInterval      time.Duration `help:"duration between archive cleanups" default:"24h0m0s"`
 	ArchiveTTL           time.Duration `help:"length of time to archive orders before deletion" default:"168h0m0s"` // 7 days
