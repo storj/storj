@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/outreach"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -123,6 +124,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Version: planet.NewVersionConfig(),
 			Bandwidth: bandwidth.Config{
 				Interval: time.Hour,
+			},
+			Outreach: outreach.Config{
+				Interval: 30 * time.Second,
+				MaxSleep: 0 * time.Second,
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
