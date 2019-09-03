@@ -22,7 +22,7 @@ type DB interface {
 	GetDailyTotal(ctx context.Context, from, to time.Time) ([]Stamp, error)
 	// Summary returns aggregated storage usage across all satellites.
 	Summary(ctx context.Context, from, to time.Time) (float64, error)
-	// SatelliteSummary returns aggregated storage usage for particular satellite
+	// SatelliteSummary returns aggregated storage usage for a particular satellite.
 	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (float64, error)
 }
 
