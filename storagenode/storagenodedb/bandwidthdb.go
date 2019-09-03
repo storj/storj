@@ -268,7 +268,7 @@ func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
 }
 
 // GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
-// sorted in ascending order
+// sorted in ascending order.
 func (db *bandwidthDB) GetDailyRollups(ctx context.Context, from, to time.Time) (_ []bandwidth.UsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
