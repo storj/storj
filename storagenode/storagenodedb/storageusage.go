@@ -148,7 +148,7 @@ func (db *storageusageDB) Summary(ctx context.Context, from, to time.Time) (_ fl
 	return summary.Float64, nil
 }
 
-// SatelliteSummary returns aggregated storage usage for particular satellite
+// SatelliteSummary returns aggregated storage usage for a particular satellite.
 func (db *storageusageDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ float64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var summary sql.NullFloat64
