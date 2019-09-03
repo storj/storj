@@ -55,7 +55,7 @@ type Ingress struct {
 	Usage  int64 `json:"usage"`
 }
 
-// UsageRollup contains rolluped bandwidth usage
+// UsageRollup contains rolluped bandwidth usage.
 type UsageRollup struct {
 	Egress        Egress    `json:"egress"`
 	Ingress       Ingress   `json:"ingress"`
