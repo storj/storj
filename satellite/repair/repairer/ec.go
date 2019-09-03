@@ -63,8 +63,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
 	}
 
-	paddedSize := calcPadded(size, es.StripeSize())
-	pieceSize := paddedSize / int64(es.RequiredCount())
+	pieceSize := eestream.CalcPieceSize(size, es)
 
 	// TODO: make these steps async so we can download from multiple nodes at the same time
 
@@ -89,7 +88,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 			Data:   downloadedPiece,
 		})
 		currentLimitIndex++
-
+		successfulPieces++
 	}
 	if successfulPieces < es.RequiredCount() {
 		return nil, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
@@ -412,15 +411,6 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	}
 
 	return hash, err
-}
-
-// copied from ecclient
-func calcPadded(size int64, blockSize int) int64 {
-	mod := size % int64(blockSize)
-	if mod == 0 {
-		return size
-	}
-	return size + int64(blockSize) - mod
 }
 
 // copied from ecclient
