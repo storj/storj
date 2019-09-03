@@ -116,9 +116,16 @@
             .docs-title {
                 margin-left: 20px;
             }
+        }
+    }
 
-            .account-item {
-                margin-left: 0;
+    .account-item {
+        margin-left: 0;
+
+        &.router-link-active {
+
+            h1 {
+                color: #2683FF;
             }
         }
     }
