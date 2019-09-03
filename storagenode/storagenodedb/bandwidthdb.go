@@ -284,7 +284,7 @@ func (db *bandwidthDB) GetDailyRollups(ctx context.Context, from, to time.Time) 
 // GetDailySatelliteRollups returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order for a particular satellite.
 func (db *bandwidthDB) GetDailySatelliteRollups(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []bandwidth.UsageRollup, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 
 	since, _ := date.DayBoundary(from.UTC())
 	_, before := date.DayBoundary(to.UTC())
