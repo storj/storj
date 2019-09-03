@@ -68,7 +68,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	// TODO: make these steps async so we can download from multiple nodes at the same time
 
 	var successfulPieces, currentLimitIndex int
-	shares := make([]infectious.Share, es.RequiredCount())
+	shares := make([]infectious.Share, 0, es.RequiredCount())
 	for successfulPieces < es.RequiredCount() && currentLimitIndex < len(limits) {
 		limit := limits[currentLimitIndex]
 		if limit == nil {
