@@ -100,12 +100,12 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	}
 
 	// reconstruct original stripe
-	stripeData, err := rebuildStripe(ctx, fec, shares, es.ErasureShareSize())
+	segment, err := rebuildStripe(ctx, fec, shares, int(pieceSize))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return ioutil.NopCloser(bytes.NewReader(stripeData)), nil
+	return ioutil.NopCloser(bytes.NewReader(segment)), nil
 }
 
 // downloadAndVerifyPiece downloads a piece from a storagenode,
