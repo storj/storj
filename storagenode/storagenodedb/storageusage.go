@@ -137,7 +137,7 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 
 // Summary returns aggregated storage usage across all satellites.
 func (db *storageusageDB) Summary(ctx context.Context, from, to time.Time) (_ float64, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, from, to)(&err)
 	var summary sql.NullFloat64
 
 	query := `SELECT SUM(at_rest_total) 
