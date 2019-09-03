@@ -18,7 +18,7 @@ type DB interface {
 	MonthSummary(ctx context.Context) (int64, error)
 	Rollup(ctx context.Context) (err error)
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
-	// SatelliteSummary returns aggregated bandwidth usage for particular satellite
+	// SatelliteSummary returns aggregated bandwidth usage for a particular satellite.
 	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
 	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
 	// GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
