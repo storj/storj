@@ -1022,6 +1022,68 @@ func TestBeginCommitListSegment(t *testing.T) {
 	})
 }
 
+func TestListSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		data := testrand.Bytes(15 * memory.KiB)
+		config := uplink.GetConfig(planet.Satellites[0])
+		config.Client.SegmentSize = memory.KiB
+		err := uplink.UploadWithClientConfig(ctx, planet.Satellites[0], config, "testbucket", "test-path", data)
+		require.NoError(t, err)
+
+		// 15KiB + encryption should be uploaded into 16 segments with SegmentSize == 1KiB
+		numberOfSegments := 16
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		items, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("testbucket"),
+			Limit:  1,
+		})
+		require.NoError(t, err)
+
+		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: items[0].EncryptedPath,
+		})
+		require.NoError(t, err)
+
+		for _, test := range []struct {
+			Index  int32
+			Limit  int32
+			Result int
+			More   bool
+		}{
+			{Index: 0, Result: numberOfSegments},
+			{Index: 0, Result: numberOfSegments, Limit: int32(numberOfSegments), More: false},
+			{Index: 0, Result: 5, Limit: 5, More: true},
+			{Index: 16, Result: 0, More: false},
+			{Index: 11, Result: 5, Limit: 5, More: false},
+			{Index: 15, Result: 1, More: false},
+		} {
+			segments, more, err := metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+				StreamID: object.StreamID,
+				Limit:    test.Limit,
+				CursorPosition: storj.SegmentPosition{
+					Index: test.Index,
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, segments, test.Result)
+			require.Equal(t, test.More, more)
+			if !more && test.Result > 0 {
+				require.Equal(t, int32(-1), segments[test.Result-1].Position.Index)
+			}
+		}
+	})
+}
+
 func TestInlineSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -1183,11 +1245,11 @@ func TestInlineSegment(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			items, _, err = metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
+			_, _, err = metainfoClient.ListSegmentsNew(ctx, metainfo.ListSegmentsParams{
 				StreamID: streamID,
 			})
-			require.NoError(t, err)
-			require.Empty(t, items)
+			require.Error(t, err)
+			require.True(t, storj.ErrObjectNotFound.Has(err))
 
 			err = metainfoClient.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{
 				StreamID: streamID,

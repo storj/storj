@@ -290,9 +290,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
+		sc := config.Server
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		// TODO workaround for custom timeout for order sending request (read/write)
+		ordersTransport := transport.NewClientWithTimeouts(options, transport.Timeouts{
+			Request: config.Storage2.Orders.SenderRequestTimeout,
+		})
+
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
-			peer.Transport,
+			ordersTransport,
 			peer.DB.Orders(),
 			peer.Storage2.Trust,
 			config.Storage2.Orders,
