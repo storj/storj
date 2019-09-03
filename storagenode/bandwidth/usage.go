@@ -49,7 +49,7 @@ type Egress struct {
 	Usage  int64 `json:"usage"`
 }
 
-// Ingress stores info about storage node ingress usage
+// Ingress stores info about storage node ingress usage.
 type Ingress struct {
 	Repair int64 `json:"repair"`
 	Usage  int64 `json:"usage"`
