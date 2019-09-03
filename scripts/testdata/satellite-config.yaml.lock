@@ -184,6 +184,9 @@ kademlia.operator.wallet: ""
 # server address of the marketing Admin GUI
 # marketing.address: 127.0.0.1:8090
 
+# base url for marketing Admin GUI
+# marketing.base-url: ""
+
 # path to static resources
 # marketing.static-dir: ""
 

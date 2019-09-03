@@ -210,6 +210,26 @@ func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	return nil
 }
 
+// UploadWithClientConfig uploads data to specific satellite with custom client configuration
+func (client *Uplink) UploadWithClientConfig(ctx context.Context, satellite *satellite.Peer, clientConfig uplink.Config, bucketName string, path storj.Path, data []byte) (err error) {
+	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, clientConfig)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, bucket.Close(), project.Close()) }()
+
+	opts := &libuplink.UploadOptions{}
+	opts.Volatile.RedundancyScheme = clientConfig.GetRedundancyScheme()
+	opts.Volatile.EncryptionParameters = clientConfig.GetEncryptionParameters()
+
+	reader := bytes.NewReader(data)
+	if err := bucket.UploadObject(ctx, path, reader, opts); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Download data from specific satellite
 func (client *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) ([]byte, error) {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
