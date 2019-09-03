@@ -143,7 +143,7 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	return errs.Combine(emailErrs.Err(), printErrs.Err())
 }
 
-func writeAuthInfo(ctx context.Context, authDB *authorizations.AuthorizationDB, email string, w io.Writer) error {
+func writeAuthInfo(ctx context.Context, authDB *authorizations.DB, email string, w io.Writer) error {
 	auths, err := authDB.Get(ctx, email)
 	if err != nil {
 		return err
@@ -246,7 +246,7 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	return errs.Combine(emailErrs.Err(), csvErrs.Err())
 }
 
-func writeAuthExport(ctx context.Context, authDB *authorizations.AuthorizationDB, email string, w *csv.Writer) error {
+func writeAuthExport(ctx context.Context, authDB *authorizations.DB, email string, w *csv.Writer) error {
 	auths, err := authDB.Get(ctx, email)
 	if err != nil {
 		return err

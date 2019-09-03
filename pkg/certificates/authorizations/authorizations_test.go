@@ -57,7 +57,7 @@ func TestCertSignerConfig_NewAuthDB(t *testing.T) {
 	defer ctx.Check(authDB.Close)
 
 	assert.NotNil(t, authDB)
-	assert.NotNil(t, authDB.DB)
+	assert.NotNil(t, authDB.db)
 }
 
 func TestAuthorizationDB_Create(t *testing.T) {
@@ -110,10 +110,10 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			emailKey := storage.Key(testCase.email)
 
 			if testCase.startCount == 0 {
-				_, err = authDB.DB.Get(ctx, emailKey)
+				_, err = authDB.db.Get(ctx, emailKey)
 				assert.Error(t, err)
 			} else {
-				v, err := authDB.DB.Get(ctx, emailKey)
+				v, err := authDB.db.Get(ctx, emailKey)
 				require.NoError(t, err)
 				require.NotEmpty(t, v)
 
@@ -135,7 +135,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			}
 			assert.Len(t, expectedAuths, testCase.newCount)
 
-			v, err := authDB.DB.Get(ctx, emailKey)
+			v, err := authDB.db.Get(ctx, emailKey)
 			assert.NoError(t, err)
 			assert.NotEmpty(t, v)
 
@@ -165,7 +165,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	authsBytes, err := expectedAuths.Marshal()
 	require.NoError(t, err)
 
-	err = authDB.DB.Put(ctx, storage.Key("user@mail.test"), authsBytes)
+	err = authDB.db.Put(ctx, storage.Key("user@mail.test"), authsBytes)
 	require.NoError(t, err)
 
 	cases := []struct {
@@ -746,79 +746,7 @@ func TestNewClient(t *testing.T) {
 	})
 }
 
-func TestCertificateSigner_Sign(t *testing.T) {
-	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, ca *identity.FullCertificateAuthority) {
-		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, ident *identity.FullIdentity) {
-			ctx := testcontext.New(t)
-			defer ctx.Cleanup()
-
-			userID := "user@mail.test"
-			// TODO: test with all types of authorization DBs (bolt, redis, etc.)
-			authDB, err := NewDB("bolt://"+ctx.File("authorizations.db"), false)
-			require.NoError(t, err)
-			defer ctx.Check(authDB.Close)
-			require.NotNil(t, authDB)
-
-			auths, err := authDB.Create(ctx, userID, 1)
-			require.NoError(t, err)
-			require.NotEmpty(t, auths)
-
-			expectedAddr := &net.TCPAddr{
-				IP:   net.ParseIP("1.2.3.4"),
-				Port: 5,
-			}
-			grpcPeer := &peer.Peer{
-				Addr: expectedAddr,
-				AuthInfo: credentials.TLSInfo{
-					State: tls.ConnectionState{
-						PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
-					},
-				},
-			}
-			peerCtx := peer.NewContext(ctx, grpcPeer)
-
-			srvIdent, err := testidentity.NewTestIdentity(ctx)
-			require.NoError(t, err)
-
-			certSigner := certificates.NewCertificatesServer(zaptest.NewLogger(t), srvIdent, ca, authDB, 0)
-			req := pb.SigningRequest{
-				Timestamp: time.Now().Unix(),
-				AuthToken: auths[0].Token.String(),
-			}
-			res, err := certSigner.Sign(peerCtx, &req)
-			require.NoError(t, err)
-			require.NotNil(t, res)
-			require.NotEmpty(t, res.Chain)
-
-			signedChain, err := pkcrypto.CertsFromDER(res.Chain)
-			require.NoError(t, err)
-
-			assert.Equal(t, ident.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
-			assert.Equal(t, ca.Cert.Raw, signedChain[1].Raw)
-			// TODO: test scenario with rest chain
-			//assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
-
-			err = signedChain[0].CheckSignatureFrom(ca.Cert)
-			require.NoError(t, err)
-
-			updatedAuths, err := authDB.Get(ctx, userID)
-			require.NoError(t, err)
-			require.NotEmpty(t, updatedAuths)
-			require.NotNil(t, updatedAuths[0].Claim)
-
-			now := time.Now().Unix()
-			claim := updatedAuths[0].Claim
-			assert.Equal(t, expectedAddr.String(), claim.Addr)
-			assert.Equal(t, res.Chain, claim.SignedChainBytes)
-			assert.Condition(t, func() bool {
-				return now-MaxClaimDelaySeconds < claim.Timestamp &&
-					claim.Timestamp < now+MaxClaimDelaySeconds
-			})
-		})
-	})
-}
-
-func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {
+func newTestAuthDB(ctx *testcontext.Context) (*DB, error) {
 	dbURL := "bolt://" + ctx.File("authorizations.db")
 	return NewDB(dbURL, false)
 }

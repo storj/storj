@@ -18,12 +18,12 @@ import (
 type Certificates struct {
 	log             *zap.Logger
 	ca              *identity.FullCertificateAuthority
-	authorizationDB *authorizations.AuthorizationDB
+	authorizationDB *authorizations.DB
 	minDifficulty   uint16
 }
 
 // NewCertificatesServer creates a new certificate signing grpc server
-func NewCertificatesServer(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.AuthorizationDB, minDifficulty uint16) *Certificates {
+func NewCertificatesServer(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.DB, minDifficulty uint16) *Certificates {
 	return &Certificates{
 		log:             log,
 		ca:              ca,

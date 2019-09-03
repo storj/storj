@@ -23,7 +23,7 @@ import (
 var mon = monkit.Package()
 
 type DB interface {
-	Authorizations() *authorizations.AuthorizationDB
+	Authorizations() *authorizations.DB
 	Revocations() extensions.RevocationDB
 }
 
@@ -48,12 +48,12 @@ type Peer struct {
 
 	// services and endpoints
 	Certificates struct {
-		AuthorizationDB *authorizations.AuthorizationDB
+		AuthorizationDB *authorizations.DB
 		Service         *Certificates
 	}
 }
 
-func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.AuthorizationDB, revocationDB *revocation.DB, config *Config) (*Peer, error) {
+func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.DB, revocationDB *revocation.DB, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:             log,
 		Identity:        ident,

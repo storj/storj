@@ -18,10 +18,10 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
-// AuthorizationDB stores authorizations which may be claimed in exchange for a
+// DB stores authorizations which may be claimed in exchange for a
 // certificate signature.
-type AuthorizationDB struct {
-	DB storage.KeyValueStore
+type DB struct {
+	db storage.KeyValueStore
 }
 
 type Config struct {
@@ -29,18 +29,18 @@ type Config struct {
 	Overwrite bool   `default:"false" help:"if true, overwrites config AND authorization db is truncated" setup:"true"`
 }
 
-func NewDBFromCfg(config Config) (*AuthorizationDB, error) {
+func NewDBFromCfg(config Config) (*DB, error) {
 	return NewDB(config.DBURL, config.Overwrite)
 }
 
 // NewDB creates or opens the authorization database specified by the config
-func NewDB(dbURL string, overwrite bool) (*AuthorizationDB, error) {
+func NewDB(dbURL string, overwrite bool) (*DB, error) {
 	driver, source, err := dbutil.SplitConnstr(dbURL)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
 
-	authDB := new(AuthorizationDB)
+	authDB := new(DB)
 	switch driver {
 	case "bolt":
 		_, err := os.Stat(source)
@@ -50,7 +50,7 @@ func NewDB(dbURL string, overwrite bool) (*AuthorizationDB, error) {
 			}
 		}
 
-		authDB.DB, err = boltdb.New(source, AuthorizationsBucket)
+		authDB.db, err = boltdb.New(source, AuthorizationsBucket)
 		if err != nil {
 			return nil, ErrAuthorizationDB.Wrap(err)
 		}
@@ -66,7 +66,7 @@ func NewDB(dbURL string, overwrite bool) (*AuthorizationDB, error) {
 			}
 		}
 
-		authDB.DB = redisClient
+		authDB.db = redisClient
 	default:
 		return nil, ErrAuthorizationDB.New("database scheme not supported: %s", driver)
 	}
@@ -75,12 +75,12 @@ func NewDB(dbURL string, overwrite bool) (*AuthorizationDB, error) {
 }
 
 // Close closes the authorization database's underlying store.
-func (authDB *AuthorizationDB) Close() error {
-	return ErrAuthorizationDB.Wrap(authDB.DB.Close())
+func (authDB *DB) Close() error {
+	return ErrAuthorizationDB.Wrap(authDB.db.Close())
 }
 
 // Create creates a new authorization and adds it to the authorization database.
-func (authDB *AuthorizationDB) Create(ctx context.Context, userID string, count int) (_ Authorizations, err error) {
+func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Authorizations, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(userID) == 0 {
 		return nil, ErrAuthorizationDB.New("userID cannot be empty")
@@ -113,9 +113,9 @@ func (authDB *AuthorizationDB) Create(ctx context.Context, userID string, count 
 }
 
 // Get retrieves authorizations by user ID.
-func (authDB *AuthorizationDB) Get(ctx context.Context, userID string) (_ Authorizations, err error) {
+func (authDB *DB) Get(ctx context.Context, userID string) (_ Authorizations, err error) {
 	defer mon.Task()(&ctx)(&err)
-	authsBytes, err := authDB.DB.Get(ctx, storage.Key(userID))
+	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
@@ -131,9 +131,9 @@ func (authDB *AuthorizationDB) Get(ctx context.Context, userID string) (_ Author
 }
 
 // UserIDs returns a list of all userIDs present in the authorization database.
-func (authDB *AuthorizationDB) UserIDs(ctx context.Context) (userIDs []string, err error) {
+func (authDB *DB) UserIDs(ctx context.Context) (userIDs []string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = authDB.DB.Iterate(ctx, storage.IterateOptions{
+	err = authDB.db.Iterate(ctx, storage.IterateOptions{
 		Recurse: true,
 	}, func(ctx context.Context, iterator storage.Iterator) error {
 		var listItem storage.ListItem
@@ -146,9 +146,9 @@ func (authDB *AuthorizationDB) UserIDs(ctx context.Context) (userIDs []string, e
 }
 
 // List returns all authorizations in the database.
-func (authDB *AuthorizationDB) List(ctx context.Context) (auths Authorizations, err error) {
+func (authDB *DB) List(ctx context.Context) (auths Authorizations, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = authDB.DB.Iterate(ctx, storage.IterateOptions{
+	err = authDB.db.Iterate(ctx, storage.IterateOptions{
 		Recurse: true,
 	}, func(ctx context.Context, iterator storage.Iterator) error {
 		var listErrs errs.Group
@@ -166,7 +166,7 @@ func (authDB *AuthorizationDB) List(ctx context.Context) (auths Authorizations, 
 }
 
 // Claim marks an authorization as claimed and records claim information.
-func (authDB *AuthorizationDB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
+func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	now := time.Now().Unix()
 	if !(now-MaxClaimDelaySeconds < opts.Req.Timestamp) ||
@@ -223,7 +223,7 @@ func (authDB *AuthorizationDB) Claim(ctx context.Context, opts *ClaimOpts) (err 
 }
 
 // Unclaim removes a claim from an authorization.
-func (authDB *AuthorizationDB) Unclaim(ctx context.Context, authToken string) (err error) {
+func (authDB *DB) Unclaim(ctx context.Context, authToken string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	token, err := ParseToken(authToken)
 	if err != nil {
@@ -244,7 +244,7 @@ func (authDB *AuthorizationDB) Unclaim(ctx context.Context, authToken string) (e
 	return errs.New("token not found in authorizations DB")
 }
 
-func (authDB *AuthorizationDB) add(ctx context.Context, userID string, newAuths Authorizations) (err error) {
+func (authDB *DB) add(ctx context.Context, userID string, newAuths Authorizations) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	auths, err := authDB.Get(ctx, userID)
 	if err != nil {
@@ -255,14 +255,14 @@ func (authDB *AuthorizationDB) add(ctx context.Context, userID string, newAuths 
 	return authDB.put(ctx, userID, auths)
 }
 
-func (authDB *AuthorizationDB) put(ctx context.Context, userID string, auths Authorizations) (err error) {
+func (authDB *DB) put(ctx context.Context, userID string, auths Authorizations) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	authsBytes, err := auths.Marshal()
 	if err != nil {
 		return ErrAuthorizationDB.Wrap(err)
 	}
 
-	if err := authDB.DB.Put(ctx, storage.Key(userID), authsBytes); err != nil {
+	if err := authDB.db.Put(ctx, storage.Key(userID), authsBytes); err != nil {
 		return ErrAuthorizationDB.Wrap(err)
 	}
 	return nil
