@@ -29,10 +29,10 @@
                 <h1>{{navItem.name}}</h1>
             </div>
         </router-link>
-        <div class="navigation-area__resources-title">
+        <div class="navigation-area__resources-title" @mouseenter="toggleButtonVisibility" @mouseleave="toggleButtonVisibility">
             <p class="navigation-area__resources-title__title">RESOURCES</p>
-            <p v-if="!areItemsShown" @click="toggleItemsVisibility" class="navigation-area__resources-title__button">Show</p>
-            <p v-if="areItemsShown" @click="toggleItemsVisibility" class="navigation-area__resources-title__button">Hide</p>
+            <p v-if="!areItemsShown && isButtonShown" @click="toggleItemsVisibility" class="navigation-area__resources-title__button">Show</p>
+            <p v-if="areItemsShown && isButtonShown" @click="toggleItemsVisibility" class="navigation-area__resources-title__button">Hide</p>
         </div>
         <a v-if="areItemsShown" class="navigation-area__item-container" href="https://github.com/storj/docs/blob/master/Vanguard-Release-Setup-Instructions.md" target="_blank">
             <div class="navigation-area__item-container__link-container">

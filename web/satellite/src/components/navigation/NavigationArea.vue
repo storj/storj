@@ -11,9 +11,14 @@
     @Component
     export default class NavigationArea extends Vue {
         public areItemsShown: boolean = false;
+        public isButtonShown: boolean = false;
 
         public toggleItemsVisibility(): void {
             this.areItemsShown = !this.areItemsShown;
+        }
+
+        public toggleButtonVisibility(): void {
+            this.isButtonShown = !this.isButtonShown;
         }
 
         // TODO: Use SvgLoaderComponent to reduce markup lines
