@@ -170,6 +170,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
+				WorkerConcurrency:  1,
 			},
 			GarbageCollection: gc.Config{
 				Interval:          1 * time.Minute,

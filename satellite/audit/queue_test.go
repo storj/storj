@@ -39,8 +39,8 @@ func TestQueue(t *testing.T) {
 			}, "testbucket", path, testData)
 			require.NoError(t, err)
 		}
-		satellite.Audit.Chore.Loop.Restart()
 
+		satellite.Audit.Chore.Loop.Restart()
 		satellite.Audit.Chore.Loop.TriggerWait()
 
 		uniquePaths := make(map[storj.Path]struct{})
