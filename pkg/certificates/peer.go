@@ -42,7 +42,6 @@ type Peer struct {
 	// core dependencies
 	Log             *zap.Logger
 	Identity        *identity.FullIdentity
-	AuthorizationDB *authorizations.AuthorizationDB
 
 	Server *server.Server
 
@@ -57,7 +56,6 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	peer := &Peer{
 		Log:             log,
 		Identity:        ident,
-		AuthorizationDB: authorizationDB,
 	}
 
 	{
