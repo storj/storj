@@ -57,6 +57,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 				authDB, err := authorizations.NewDBFromCfg(config.Authorizations)
 				require.NoError(t, err)
+				require.NotNil(t, authDB)
 
 				auths, err := authDB.Create(ctx, "user@mail.test", 1)
 				require.NoError(t, err)
@@ -219,9 +220,4 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			})
 		})
 	})
-}
-
-func newTestAuthDB(ctx *testcontext.Context) (*authorizations.DB, error) {
-	dbURL := "bolt://" + ctx.File("authorizations.db")
-	return authorizations.NewDB(dbURL, false)
 }

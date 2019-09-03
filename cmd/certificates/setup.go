@@ -48,7 +48,9 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	authorizationDB.Close()
+	if err := authorizationDB.Close(); err != nil {
+		return err
+	}
 
 	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
 		process.SaveConfigWithOverrides(map[string]interface{}{

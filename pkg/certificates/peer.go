@@ -14,18 +14,12 @@ import (
 	"storj.io/storj/pkg/certificates/authorizations"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 )
 
 var mon = monkit.Package()
-
-type DB interface {
-	Authorizations() *authorizations.DB
-	Revocations() extensions.RevocationDB
-}
 
 // Config is the global certificates config
 type Config struct {
@@ -40,8 +34,8 @@ type Config struct {
 // Peer is the certificates server
 type Peer struct {
 	// core dependencies
-	Log             *zap.Logger
-	Identity        *identity.FullIdentity
+	Log      *zap.Logger
+	Identity *identity.FullIdentity
 
 	Server *server.Server
 
@@ -52,6 +46,7 @@ type Peer struct {
 	}
 }
 
+// New creates a new certificates peer.
 func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.DB, revocationDB *revocation.DB, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:             log,
@@ -80,12 +75,14 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	return peer, nil
 }
 
+// Run runs the certificates peer until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return errs2.IgnoreCanceled(peer.Server.Run(ctx))
 }
 
+// Close closes all resources.
 func (peer *Peer) Close() error {
 	var errlist errs.Group
 
@@ -96,10 +93,6 @@ func (peer *Peer) Close() error {
 	if peer.Certificates.AuthorizationDB != nil {
 		errlist.Add(peer.Certificates.AuthorizationDB.Close())
 	}
-
-	//if peer.Certificates.RevocationDB != nil {
-	//	errlist.Add(peer.Certificates.RevocationDB.Close())
-	//}
 
 	return authorizations.Error.Wrap(errlist.Err())
 }
