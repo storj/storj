@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
@@ -62,10 +63,24 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	})
 }
 
-func (chore *Chore) pingSatellites(ctx context.Context) error {
-	// loop through the trusted satellites
-	// don't error out if an individual satellite ping fails
-	// call awaitPingback helper method
+func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var group errgroup.Group
+	satellites := chore.trust.GetSatellites(ctx)
+	for _, satellite := range satellites {
+		addr, err := chore.trust.GetAddress(ctx, satellite)
+		if err != nil {
+			chore.log.Error("getting satellite address", zap.Error(err))
+			continue
+		}
+		group.Go(func() error {
+			// send message to the satellite with new grpc service, currently NI
+			chore.log.Debug("NI: pinging satellite", zap.String("address", addr))
+			return nil
+		})
+	}
+	_ = group.Wait()
 	return nil
 }
 
