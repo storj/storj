@@ -334,7 +334,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Console(),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
-			peer.Kademlia.Service,
 			peer.Version,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
@@ -342,7 +341,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			versionInfo,
 			peer.Storage2.Trust,
 			peer.DB.Reputation(),
-			peer.DB.StorageUsage())
+			peer.DB.StorageUsage(),
+			peer.Local().Id)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
