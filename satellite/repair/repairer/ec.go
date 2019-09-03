@@ -221,8 +221,6 @@ func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, li
 func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	defer mon.Task()(&ctx)(&err)
-
 	pieceCount := len(limits)
 	if pieceCount != rs.TotalCount() {
 		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", pieceCount, rs.TotalCount())
@@ -232,8 +230,9 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
-	readers, err := eestream.EncodeReader(ctx, ec.log, padded, rs)
+	// TODO remove commented code; Get() does not unpad the data so we should not need to pad it here
+	// padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
+	readers, err := eestream.EncodeReader(ctx, ec.log, ioutil.NopCloser(data), rs)
 	if err != nil {
 		return nil, nil, err
 	}
