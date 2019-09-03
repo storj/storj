@@ -315,7 +315,7 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, ErrBandwidth.Wrap(err)
 	}
 
 	defer func() {
