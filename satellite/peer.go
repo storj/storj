@@ -459,12 +459,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("repairer"),
 			peer.DB.RepairQueue(),
 			&config.Repairer,
-			config.Repairer.Interval,
-			config.Repairer.MaxRepair,
 			peer.Transport,
 			peer.Metainfo.Service,
 			peer.Orders.Service,
 			peer.Overlay.Service,
+			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
 
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())

@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -48,15 +49,15 @@ type Service struct {
 }
 
 // NewService creates repairing service
-func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Service) *Service {
-	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, transport, config.Timeout, config.MaxExcessRateOptimalThreshold)
+func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Service, satelliteSignee signing.Signee) *Service {
+	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, transport, config.Timeout, config.MaxExcessRateOptimalThreshold, satelliteSignee)
 
 	return &Service{
 		log:      log,
 		queue:    queue,
 		config:   config,
-		Limiter:  sync2.NewLimiter(concurrency),
-		Loop:     *sync2.NewCycle(interval),
+		Limiter:  sync2.NewLimiter(config.MaxRepair),
+		Loop:     *sync2.NewCycle(config.Interval),
 		repairer: repairer,
 	}
 }

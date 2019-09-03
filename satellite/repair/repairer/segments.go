@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
@@ -46,7 +47,7 @@ type SegmentRepairer struct {
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	overlay *overlay.Service, tc transport.Client, timeout time.Duration,
-	excessOptimalThreshold float64,
+	excessOptimalThreshold float64, satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -58,7 +59,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         NewECRepairer(log.Named("ec repairer"), tc),
+		ec:                         NewECRepairer(log.Named("ec repairer"), tc, satelliteSignee),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}
