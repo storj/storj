@@ -22,7 +22,7 @@ type DB interface {
 	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
 	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
 	// GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
-	// sorted in ascending order
+	// sorted in ascending order.
 	GetDailyRollups(ctx context.Context, from, to time.Time) ([]UsageRollup, error)
 	// GetDailySatelliteRollups returns slice of daily bandwidth usage for provided time range,
 	// sorted in ascending order for particular satellite
