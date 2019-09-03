@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/certificates"
+	"storj.io/storj/pkg/certificates/authorizations"
 	"storj.io/storj/pkg/process"
 )
 
@@ -70,7 +70,7 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errs.New("Count couldn't be parsed: %s", args[0])
 	}
-	authDB, err := authCfg.Signer.NewAuthDB()
+	authDB, err := authorizations.NewDBFromCfg(authCfg.Authorizations)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 
 func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
-	authDB, err := authCfg.Signer.NewAuthDB()
+	authDB, err := authorizations.NewDBFromCfg(authCfg.Authorizations)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	return errs.Combine(emailErrs.Err(), printErrs.Err())
 }
 
-func writeAuthInfo(ctx context.Context, authDB *certificates.AuthorizationDB, email string, w io.Writer) error {
+func writeAuthInfo(ctx context.Context, authDB *authorizations.AuthorizationDB, email string, w io.Writer) error {
 	auths, err := authDB.Get(ctx, email)
 	if err != nil {
 		return err
@@ -170,8 +170,8 @@ func writeAuthInfo(ctx context.Context, authDB *certificates.AuthorizationDB, em
 	return nil
 }
 
-func writeTokenInfo(claimed, open certificates.Authorizations, w io.Writer) error {
-	groups := map[string]certificates.Authorizations{
+func writeTokenInfo(claimed, open authorizations.Authorizations, w io.Writer) error {
+	groups := map[string]authorizations.Authorizations{
 		"Claimed": claimed,
 		"Open":    open,
 	}
@@ -194,7 +194,7 @@ func writeTokenInfo(claimed, open certificates.Authorizations, w io.Writer) erro
 
 func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
-	authDB, err := authCfg.Signer.NewAuthDB()
+	authDB, err := authorizations.NewDBFromCfg(authCfg.Authorizations)
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	return errs.Combine(emailErrs.Err(), csvErrs.Err())
 }
 
-func writeAuthExport(ctx context.Context, authDB *certificates.AuthorizationDB, email string, w *csv.Writer) error {
+func writeAuthExport(ctx context.Context, authDB *authorizations.AuthorizationDB, email string, w *csv.Writer) error {
 	auths, err := authDB.Get(ctx, email)
 	if err != nil {
 		return err

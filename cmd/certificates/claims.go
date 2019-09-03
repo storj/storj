@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/certificates"
+	"storj.io/storj/pkg/certificates/authorizations"
 	"storj.io/storj/pkg/process"
 )
 
@@ -33,23 +33,15 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdDeleteClaim,
 	}
-
-	claimsExportCfg struct {
-		Signer certificates.CertServerConfig
-		Raw    bool `default:"false" help:"if true, the raw data structures will be printed"`
-	}
-
-	claimsDeleteCfg struct {
-		Signer certificates.CertServerConfig
-	}
 )
 
 func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	authDB, err := claimsExportCfg.Signer.NewAuthDB()
+	authDB, err := authorizations.NewDBFromCfg(claimsExportCfg.Authorizations)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		err = errs.Combine(err, authDB.Close())
 	}()
@@ -69,7 +61,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if len(toPrint) == 0 {
-		fmt.Printf("no claims in database: %s\n", claimsExportCfg.Signer.AuthorizationDBURL)
+		fmt.Printf("no claims in database: %s\n", claimsExportCfg.Authorizations.DBURL)
 		return nil
 	}
 
@@ -84,7 +76,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 
 func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	authDB, err := claimsDeleteCfg.Signer.NewAuthDB()
+	authDB, err := authorizations.NewDBFromCfg(claimsDeleteCfg.Authorizations)
 	if err != nil {
 		return err
 	}
@@ -109,7 +101,7 @@ type printableClaim struct {
 	NodeID string
 }
 
-func toPrintableAuth(auth *certificates.Authorization) *printableAuth {
+func toPrintableAuth(auth *authorizations.Authorization) *printableAuth {
 	pAuth := new(printableAuth)
 
 	pAuth.UserID = auth.Token.UserID

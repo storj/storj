@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	certificates "storj.io/storj/pkg/certificates/client"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -16,7 +17,6 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -57,7 +57,7 @@ var (
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
-		Signer         certificates.CertClientConfig
+		Signer         certificates.ClientConfig
 		// TODO: ideally the default is the latest version; can't interpolate struct tags
 		IdentityVersion uint `default:"0" help:"identity version to use when creating an identity or CA"`
 

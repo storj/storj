@@ -10,20 +10,11 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/certificates"
+	"storj.io/storj/pkg/certificates/authorizations"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/server"
 )
-
-// CertificatesServerFlags defines certificate server configuration
-type CertificatesServerFlags struct {
-	Identity identity.Config
-	Server   server.Config
-
-	Signer certificates.CertServerConfig
-}
 
 var (
 	rootCmd = &cobra.Command{
@@ -37,11 +28,11 @@ var (
 		RunE:  cmdRun,
 	}
 
-	runCfg CertificatesServerFlags
+	runCfg certificates.Config
 
 	setupCfg struct {
 		Overwrite bool `help:"if true ca, identity, and authorization db will be overwritten/truncated" default:"false"`
-		CertificatesServerFlags
+		certificates.Config
 	}
 
 	authCfg struct {
@@ -51,8 +42,15 @@ var (
 		EmailsPath string `help:"optional path to a list of emails, delimited by <delimiter>, for batch processing"`
 		Delimiter  string `help:"delimiter to split emails loaded from <emails-path> on (e.g. comma, new-line)" default:"\n"`
 
-		CertificatesServerFlags
+		certificates.Config
 	}
+
+	claimsExportCfg struct {
+		Raw bool `default:"false" help:"if true, the raw data structures will be printed"`
+		certificates.Config
+	}
+
+	claimsDeleteCfg certificates.Config
 
 	confDir     string
 	identityDir string
@@ -61,9 +59,19 @@ var (
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	identity, err := runCfg.Identity.Load()
+	ident, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		return err
+	}
+
+	ca, err := runCfg.CA.Load()
+	if err != nil {
+		return err
+	}
+
+	authorizationDB, err := authorizations.NewDBFromCfg(runCfg.Authorizations)
+	if err != nil {
+		return errs.New("Error opening authorizations database: %+v", err)
 	}
 
 	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
@@ -74,7 +82,8 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	return runCfg.Server.Run(ctx, zap.L(), identity, revocationDB, nil, runCfg.Signer)
+	peer, err := certificates.New(zap.L(), ident, ca, authorizationDB, revocationDB, &runCfg)
+	return peer.Run(ctx)
 }
 
 func main() {

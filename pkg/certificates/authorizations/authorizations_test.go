@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package certificates
+package authorizations
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net"
+	"storj.io/storj/pkg/certificates"
+	client2 "storj.io/storj/pkg/certificates/client"
 	"testing"
 	"time"
 
@@ -569,6 +571,7 @@ func TestToken_Equal(t *testing.T) {
 
 // TODO: test sad path
 func TestCertificateSigner_Sign_E2E(t *testing.T) {
+	t.Skip("TODO: move to peer_test.go")
 	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, signer *identity.FullCertificateAuthority) {
 		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, serverIdent *identity.FullIdentity) {
 			testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, clientIdent *identity.FullIdentity) {
@@ -584,12 +587,14 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				}
 				err := signerCAConfig.Save(signer)
 				require.NoError(t, err)
-				config := CertServerConfig{
-					AuthorizationDBURL: "bolt://" + ctx.File("authorizations.db"),
-					CA:                 signerCAConfig,
+				config := certificates.Config{
+					Authorizations: Config{
+						DBURL: "bolt://" + ctx.File("authorizations.db"),
+					},
+					CA: signerCAConfig,
 				}
 
-				authDB, err := config.NewAuthDB()
+				authDB, err := NewDBFromCfg(config.Authorizations)
 				require.NoError(t, err)
 
 				auths, err := authDB.Create(ctx, "user@mail.test", 1)
@@ -631,7 +636,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 				clientTransport := transport.NewClient(clientOpts)
 
-				client, err := NewClient(ctx, clientTransport, service.Addr().String())
+				client, err := client2.NewClient(ctx, clientTransport, service.Addr().String())
 				require.NoError(t, err)
 				require.NotNil(t, client)
 
@@ -654,7 +659,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				assert.NoError(t, err)
 
 				// NB: re-open after closing for server
-				authDB, err = config.NewAuthDB()
+				authDB, err = NewDBFromCfg(config.Authorizations)
 				require.NoError(t, err)
 				defer ctx.Check(authDB.Close)
 				require.NotNil(t, authDB)
@@ -716,7 +721,7 @@ func TestNewClient(t *testing.T) {
 	clientTransport := transport.NewClient(tlsOptions)
 
 	t.Run("Basic", func(t *testing.T) {
-		client, err := NewClient(ctx, clientTransport, listener.Addr().String())
+		client, err := client2.NewClient(ctx, clientTransport, listener.Addr().String())
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 
@@ -733,7 +738,7 @@ func TestNewClient(t *testing.T) {
 		pbClient := pb.NewCertificatesClient(conn)
 		require.NotNil(t, pbClient)
 
-		client, err := NewClientFrom(pbClient)
+		client, err := client2.NewClientFrom(pbClient)
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 
@@ -742,18 +747,14 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestCertificateSigner_Sign(t *testing.T) {
-	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, signer *identity.FullCertificateAuthority) {
+	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, ca *identity.FullCertificateAuthority) {
 		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, ident *identity.FullIdentity) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
 			userID := "user@mail.test"
 			// TODO: test with all types of authorization DBs (bolt, redis, etc.)
-			config := CertServerConfig{
-				AuthorizationDBURL: "bolt://" + ctx.File("authorizations.db"),
-			}
-
-			authDB, err := config.NewAuthDB()
+			authDB, err := NewDB("bolt://"+ctx.File("authorizations.db"), false)
 			require.NoError(t, err)
 			defer ctx.Check(authDB.Close)
 			require.NotNil(t, authDB)
@@ -776,7 +777,10 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			}
 			peerCtx := peer.NewContext(ctx, grpcPeer)
 
-			certSigner := NewServer(zaptest.NewLogger(t), signer, authDB, 0)
+			srvIdent, err := testidentity.NewTestIdentity(ctx)
+			require.NoError(t, err)
+
+			certSigner := certificates.NewCertificatesServer(zaptest.NewLogger(t), srvIdent, ca, authDB, 0)
 			req := pb.SigningRequest{
 				Timestamp: time.Now().Unix(),
 				AuthToken: auths[0].Token.String(),
@@ -790,11 +794,11 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, ident.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
-			assert.Equal(t, signer.Cert.Raw, signedChain[1].Raw)
+			assert.Equal(t, ca.Cert.Raw, signedChain[1].Raw)
 			// TODO: test scenario with rest chain
 			//assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
 
-			err = signedChain[0].CheckSignatureFrom(signer.Cert)
+			err = signedChain[0].CheckSignatureFrom(ca.Cert)
 			require.NoError(t, err)
 
 			updatedAuths, err := authDB.Get(ctx, userID)
@@ -815,9 +819,6 @@ func TestCertificateSigner_Sign(t *testing.T) {
 }
 
 func newTestAuthDB(ctx *testcontext.Context) (*AuthorizationDB, error) {
-	dbPath := "bolt://" + ctx.File("authorizations.db")
-	config := CertServerConfig{
-		AuthorizationDBURL: dbPath,
-	}
-	return config.NewAuthDB()
+	dbURL := "bolt://" + ctx.File("authorizations.db")
+	return NewDB(dbURL, false)
 }

@@ -35,8 +35,8 @@ _certificates() {
   exec certificates --identity-dir "$ident_dir" \
                --config-dir "$CERTS_DIR" \
                "$subcommand" \
-               --signer.ca.cert-path "$ca_cert_path" \
-               --signer.ca.key-path "$ca_key_path" \
+               --ca.cert-path "$ca_cert_path" \
+               --ca.key-path "$ca_key_path" \
                --server.address "$CERTS_ADDR" \
                --server.private-address "$CERTS_ADDR_PRIV" \
                --server.revocation-dburl="$rev_dburl" \
@@ -78,7 +78,7 @@ for i in {0..4}; do
 done
 
 exported_auths=$(_certificates auth export)
-_certificates run --signer.min-difficulty 0 &
+_certificates run --min-difficulty 0 &
 CERTS_PID=$!
 
 sleep 1
