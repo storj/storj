@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	certificates "storj.io/storj/pkg/certificates/client"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -17,6 +16,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
+	certificates "storj.io/storj/pkg/certificates/client"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"

@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net"
-	"storj.io/storj/pkg/certificates/client"
 	"testing"
 	"time"
 
@@ -21,6 +20,7 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/certificates"
 	"storj.io/storj/pkg/certificates/authorizations"
+	"storj.io/storj/pkg/certificates/client"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
