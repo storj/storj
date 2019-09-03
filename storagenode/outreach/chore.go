@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
+// Config contains configurable parameters for outreach chore
 type Config struct {
 	Interval time.Duration `help:"how frequently the node outreach chore should run" releaseDefault:"1h" devDefault:"30s"`
 }
