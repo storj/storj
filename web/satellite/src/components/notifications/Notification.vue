@@ -24,7 +24,7 @@
 
     @Component
     export default class Notification extends Vue {
-        @Prop({default: () => new DelayedNotification(new Function(), '', '')})
+        @Prop({default: () => new DelayedNotification(() => { return; }, '', '')})
         private notification: DelayedNotification;
 
         public isClassActive = false;
