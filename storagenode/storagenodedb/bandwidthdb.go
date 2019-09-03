@@ -152,7 +152,7 @@ func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.N
 	}
 
 	defer func() {
-		err = errs.Combine(err, rows.Close())
+		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
 	}()
 
 	usage := new(bandwidth.Usage)
