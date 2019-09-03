@@ -26,7 +26,7 @@ type DB interface {
 	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (float64, error)
 }
 
-// Stamp is storage usage stamp for satellite from interval start till next interval
+// Stamp is storage usage stamp for satellite from interval start till next interval.
 type Stamp struct {
 	SatelliteID   storj.NodeID `json:"-"`
 	AtRestTotal   float64      `json:"atRestTotal"`
