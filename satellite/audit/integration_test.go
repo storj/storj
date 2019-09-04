@@ -35,7 +35,6 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		satellite.Audit.Chore.Loop.Restart()
 		satellite.Audit.Chore.Loop.TriggerWait()
 
 		assert.Len(t, satellite.Audit.Queue.queue, 2)
@@ -48,7 +47,6 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 			uniquePaths[path] = struct{}{}
 		}
 
-		satellite.Audit.Worker.Loop.Restart()
 		satellite.Audit.Worker.Loop.TriggerWait()
 
 		require.Len(t, satellite.Audit.Queue.queue, 0, "audit queue")
