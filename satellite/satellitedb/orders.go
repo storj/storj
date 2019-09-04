@@ -236,6 +236,12 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	if len(requests) == 0 {
 		return nil, err
 	}
+	sort.Slice(requests, func(i, k int) bool {
+		if requests[i].OrderLimit.StorageNodeId == requests[k].OrderLimit.StorageNodeId {
+			return requests[i].OrderLimit.SerialNumber.Less(requests[k].OrderLimit.SerialNumber)
+		}
+		return requests[i].OrderLimit.StorageNodeId.Less(requests[k].OrderLimit.StorageNodeId)
+	})
 
 	tx, err := db.db.Begin()
 	if err != nil {
