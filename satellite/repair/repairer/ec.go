@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
@@ -33,6 +33,7 @@ type ECRepairer struct {
 	log             *zap.Logger
 	transport       transport.Client
 	satelliteSignee signing.Signee
+	cond            *sync.Cond
 }
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
@@ -41,6 +42,7 @@ func NewECRepairer(log *zap.Logger, tc transport.Client, satelliteSignee signing
 		log:             log,
 		transport:       tc,
 		satelliteSignee: satelliteSignee,
+		cond:            sync.NewCond(&sync.Mutex{}),
 	}
 }
 
@@ -65,27 +67,62 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	}
 
 	pieceSize := eestream.CalcPieceSize(size, es)
+
 	pieceReaders := make(map[int]io.ReadCloser)
-	var successfulPieces, currentLimitIndex int
-	for successfulPieces < es.RequiredCount() && currentLimitIndex < len(limits) {
-		limit := limits[currentLimitIndex]
+	var successfulPieces, inProgress int
+	limiter := sync2.NewLimiter(es.RequiredCount())
+	unusedLimits := len(limits)
+
+	for currentLimitIndex, limit := range limits {
 		if limit == nil {
-			currentLimitIndex++
 			continue
 		}
 
-		downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
-		if err != nil {
-			// TODO: add error to a errgroup, return that errgroup if successfulPieces < es.RequiredCount() is true after for loop
-			currentLimitIndex++
-			continue
-		}
+		currentLimitIndex, limit := currentLimitIndex, limit
+		limiter.Go(ctx, func() {
+			ec.cond.L.Lock()
+			defer ec.cond.Signal()
+			defer ec.cond.L.Unlock()
 
-		pieceReaders[currentLimitIndex] = ioutil.NopCloser(bytes.NewReader(downloadedPiece))
+			for {
+				if successfulPieces >= es.RequiredCount() {
+					// already downloaded minimum number of pieces
+					ec.cond.Broadcast()
+					return
+				}
+				if successfulPieces+inProgress+unusedLimits < es.RequiredCount() {
+					// not enough available limits left to get required number of pieces
+					ec.cond.Broadcast()
+					return
+				}
 
-		currentLimitIndex++
-		successfulPieces++
+				if successfulPieces+inProgress >= es.RequiredCount() {
+					ec.cond.Wait()
+					continue
+				}
+
+				inProgress++
+				ec.cond.L.Unlock()
+
+				downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
+				ec.cond.L.Lock()
+				inProgress--
+				unusedLimits--
+				if err != nil {
+					ec.log.Debug("Failed to download pieces for repair.", zap.Error(err))
+					return
+				}
+
+				pieceReaders[currentLimitIndex] = ioutil.NopCloser(bytes.NewReader(downloadedPiece))
+				successfulPieces++
+
+				return
+			}
+		})
 	}
+
+	limiter.Wait()
+
 	if successfulPieces < es.RequiredCount() {
 		return nil, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
 	}
@@ -98,9 +135,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	ctx, cancel := context.WithCancel(ctx)
 	esScheme := eestream.NewUnsafeRSScheme(fec, es.ErasureShareSize())
 	expectedSize := pieceSize * int64(es.RequiredCount())
-	// TODO make maxMemory configurable
-	maxMemory := 4 * memory.MiB
-	decodeReader := eestream.DecodeReaders(ctx, cancel, ec.log.Named("decode readers"), pieceReaders, esScheme, expectedSize, int(maxMemory), false)
+
+	decodeReader := eestream.DecodeReaders(ctx, cancel, ec.log.Named("decode readers"), pieceReaders, esScheme, expectedSize, 0, false)
 
 	return decodeReader, nil
 }
@@ -215,8 +251,6 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	// TODO remove commented code; Get() does not unpad the data so we should not need to pad it here
-	// padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
 	readers, err := eestream.EncodeReader(ctx, ec.log, ioutil.NopCloser(data), rs)
 	if err != nil {
 		return nil, nil, err
