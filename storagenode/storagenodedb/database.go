@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -92,7 +91,6 @@ type DB struct {
 	versionsDB        *versionsDB
 	v0PieceInfoDB     *v0PieceInfoDB
 	bandwidthDB       *bandwidthDB
-	consoleDB         *consoleDB
 	ordersDB          *ordersDB
 	pieceExpirationDB *pieceExpirationDB
 	pieceSpaceUsedDB  *pieceSpaceUsedDB
@@ -134,7 +132,6 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		versionsDB:        newVersionsDB(versionsDB, versionsPath),
 		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
 		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
-		consoleDB:         newConsoleDB(versionsDB),
 		ordersDB:          newOrdersDB(versionsDB, versionsPath),
 		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
 		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
@@ -172,7 +169,6 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 		versionsDB:        newVersionsDB(versionsDB, versionsPath),
 		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
 		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
-		consoleDB:         newConsoleDB(versionsDB),
 		ordersDB:          newOrdersDB(versionsDB, versionsPath),
 		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
 		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
@@ -236,7 +232,6 @@ func (db *DB) Close() error {
 		db.versionsDB.Close(),
 		db.v0PieceInfoDB.Close(),
 		db.bandwidthDB.Close(),
-		db.consoleDB.Close(),
 		db.ordersDB.Close(),
 		db.pieceExpirationDB.Close(),
 		db.pieceSpaceUsedDB.Close(),
@@ -264,11 +259,6 @@ func (db *DB) V0PieceInfo() pieces.V0PieceInfoDB {
 // Bandwidth returns the instance of the Bandwidth database.
 func (db *DB) Bandwidth() bandwidth.DB {
 	return db.bandwidthDB
-}
-
-// Console returns the instance of the Console database.
-func (db *DB) Console() console.DB {
-	return db.consoleDB
 }
 
 // Orders returns the instance of the Orders database.
