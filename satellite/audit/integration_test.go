@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
@@ -37,10 +36,10 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 
 		satellite.Audit.Chore.Loop.TriggerWait()
 
-		assert.Len(t, satellite.Audit.Queue.queue, 2)
+		require.EqualValues(t, 2, satellite.Audit.Queue.Size(), "audit queue")
 
 		uniquePaths := make(map[storj.Path]struct{})
-		for _, path := range satellite.Audit.Queue.queue {
+		for _, path := range satellite.Audit.Queue.GetSlice() {
 			_, ok := uniquePaths[path]
 			require.False(t, ok, "expected unique path in chore queue")
 
@@ -49,6 +48,6 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 
 		satellite.Audit.Worker.Loop.TriggerWait()
 
-		require.Len(t, satellite.Audit.Queue.queue, 0, "audit queue")
+		require.EqualValues(t, 0, satellite.Audit.Queue.Size(), "audit queue")
 	})
 }

@@ -43,3 +43,22 @@ func (q *Queue) Next() (storj.Path, error) {
 
 	return next, nil
 }
+
+// Size returns the size of the queue.
+func (q *Queue) Size() int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	return len(q.queue)
+}
+
+// GetSlice returns a copy of the queue's backing slice.
+func (q *Queue) GetSlice() []storj.Path {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	queueCopy := make([]storj.Path, len(q.queue))
+	copy(queueCopy, q.queue)
+
+	return queueCopy
+}
