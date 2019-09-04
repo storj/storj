@@ -663,6 +663,19 @@ func (db *DB) Migration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
+				Version:     20,
+				Action: migrate.SQL{
+					`DROP TABLE storage_usage`,
+					`CREATE TABLE storage_usage (
+						satellite_id BLOB NOT NULL,
+						at_rest_total REAL NOT NUll,
+						interval_start TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id, interval_start)
+					)`,
+				},
+			},
 		},
 	}
 }
