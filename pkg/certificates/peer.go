@@ -28,8 +28,8 @@ var (
 
 // Config is the global certificates config
 type Config struct {
-	Identity       identity.Config
-	Server         server.Config
+	Identity identity.Config
+	Server   server.Config
 
 	Signer         identity.FullCAConfig
 	Authorizations authorizations.Config
