@@ -20,7 +20,7 @@ var mon = monkit.Package()
 // Service is the contact service between storage nodes and satellites
 type Service struct {
 	log       *zap.Logger
-	self      *overlay.NodeDossier
+	self      overlay.NodeDossier
 	transport transport.Client
 
 	mu               sync.Mutex
@@ -30,7 +30,7 @@ type Service struct {
 }
 
 // NewService creates a new contact service
-func NewService(log *zap.Logger, self *overlay.NodeDossier, transport transport.Client) *Service {
+func NewService(log *zap.Logger, self overlay.NodeDossier, transport transport.Client) *Service {
 	return &Service{
 		log:       log,
 		self:      self,
@@ -56,5 +56,5 @@ func (service *Service) wasPinged(when time.Time, srcNodeID storj.NodeID, srcAdd
 
 // Local returns the local node
 func (service *Service) Local() overlay.NodeDossier {
-	return *service.self
+	return service.self
 }
