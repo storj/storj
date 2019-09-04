@@ -71,18 +71,21 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 
 	authorizationDB, err := authorizations.NewDBFromCfg(runCfg.Authorizations)
 	if err != nil {
-		return errs.New("Error opening authorizations database: %+v", err)
+		return errs.New("error opening authorizations database: %+v", err)
 	}
 
 	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
 	if err != nil {
-		return errs.New("Error creating revocation database: %+v", err)
+		return errs.New("error creating revocation database: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
 	peer, err := certificates.New(zap.L(), identity, signer, authorizationDB, revocationDB, &runCfg)
+	if err != nil {
+		return err
+	}
 	return peer.Run(ctx)
 }
 
