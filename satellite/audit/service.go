@@ -33,7 +33,7 @@ type Config struct {
 
 	ChoreInterval     time.Duration `help:"how often to run the reservoir chore" default:"24h"`
 	QueueInterval     time.Duration `help:"how often to recheck an empty audit queue" default:"30s"`
-	Slots             int           `help:"number of reservoir slots allotted for nodes, currently capped at 2" default:"1"`
+	Slots             int           `help:"number of reservoir slots allotted for nodes, currently capped at 3" default:"3"`
 	WorkerConcurrency int           `help:"number of workers to run audits on paths" default:"1"`
 }
 
