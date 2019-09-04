@@ -18,9 +18,10 @@ service Node {
 }
 
 message CheckinRequest {
-    node.Node sender = 1;
-    node.NodeCapacity capacity = 2;
-    node.NodeOperator operator = 3;
+    node.NodeAddress sender = 1;
+    bytes sender_nodeid = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    node.NodeCapacity capacity = 3;
+    node.NodeOperator operator = 4;
 }
 
 message CheckinResponse {
