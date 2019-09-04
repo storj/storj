@@ -18,7 +18,15 @@ type DB interface {
 	MonthSummary(ctx context.Context) (int64, error)
 	Rollup(ctx context.Context) (err error)
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
+	// SatelliteSummary returns aggregated bandwidth usage for a particular satellite.
+	SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (*Usage, error)
 	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
+	// GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
+	// sorted in ascending order.
+	GetDailyRollups(ctx context.Context, from, to time.Time) ([]UsageRollup, error)
+	// GetDailySatelliteRollups returns slice of daily bandwidth usage for provided time range,
+	// sorted in ascending order for a particular satellite.
+	GetDailySatelliteRollups(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]UsageRollup, error)
 }
 
 // Usage contains bandwidth usage information based on the type
@@ -32,6 +40,27 @@ type Usage struct {
 	GetRepair int64
 	PutRepair int64
 	Delete    int64
+}
+
+// Egress stores info about storage node egress usage.
+type Egress struct {
+	Repair int64 `json:"repair"`
+	Audit  int64 `json:"audit"`
+	Usage  int64 `json:"usage"`
+}
+
+// Ingress stores info about storage node ingress usage.
+type Ingress struct {
+	Repair int64 `json:"repair"`
+	Usage  int64 `json:"usage"`
+}
+
+// UsageRollup contains rolluped bandwidth usage.
+type UsageRollup struct {
+	Egress        Egress    `json:"egress"`
+	Ingress       Ingress   `json:"ingress"`
+	Delete        int64     `json:"delete"`
+	IntervalStart time.Time `json:"intervalStart"`
 }
 
 // Include adds specified action to the appropriate field.
