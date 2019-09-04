@@ -194,7 +194,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken, revocationDB)
+	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
 	if err != nil {
 		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
 	}
