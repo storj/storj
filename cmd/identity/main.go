@@ -16,7 +16,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/certificates/certificates_client"
+	"storj.io/storj/pkg/certificates/certificatesclient"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -57,7 +57,7 @@ var (
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
-		Signer         certificates_client.ClientConfig
+		Signer         certificatesclient.ClientConfig
 		// TODO: ideally the default is the latest version; can't interpolate struct tags
 		IdentityVersion uint `default:"0" help:"identity version to use when creating an identity or CA"`
 

@@ -55,8 +55,8 @@ type Peer struct {
 // New creates a new certificates peer.
 func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.DB, revocationDB *revocation.DB, config *Config) (*Peer, error) {
 	peer := &Peer{
-		Log:             log,
-		Identity:        ident,
+		Log:      log,
+		Identity: ident,
 	}
 
 	{

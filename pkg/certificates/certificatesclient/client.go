@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package certificates_client
+package certificatesclient
 
 import (
 	"context"
