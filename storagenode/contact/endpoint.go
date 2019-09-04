@@ -30,8 +30,13 @@ func NewEndpoint(log *zap.Logger, service *Service) *Endpoint {
 	}
 }
 
-// Ping provides an easy way to verify a node is online and accepting requests
-func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.ContactPingRequest) (_ *pb.ContactPingResponse, err error) {
+var ( // assert that the endpoint matches the interfaces we expect
+	_ pb.ContactServer     = (*Endpoint)(nil)
+	_ pb.DRPCContactServer = (*Endpoint)(nil)
+)
+
+// PingNode provides an easy way to verify a node is online and accepting requests.
+func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingRequest) (_ *pb.ContactPingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	p, ok := peer.FromContext(ctx)
 	if !ok {
@@ -44,4 +49,9 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.ContactPingRequest) 
 	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
 	endpoint.service.wasPinged(time.Now(), peerID.ID, p.Addr.String())
 	return &pb.ContactPingResponse{}, nil
+}
+
+// DRPCPingNode is the dRPC entrypoint to the Ping RPC.
+func (endpoint *Endpoint) DRPCPingNode(ctx context.Context, req *pb.ContactPingRequest) (_ *pb.ContactPingResponse, err error) {
+	return endpoint.PingNode(ctx, req)
 }

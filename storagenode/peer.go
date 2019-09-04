@@ -245,7 +245,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup contact service
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Kademlia.RoutingTable.Local(), peer.Transport)
+
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
+		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		peer.Server.DRPC().Register(peer.Contact.Endpoint, new(pb.DRPCContactDescription))
 	}
 
 	{ // setup storage
