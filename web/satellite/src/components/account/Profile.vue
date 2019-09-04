@@ -75,7 +75,7 @@
     import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
     import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
     import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
-    import { User } from '../../types/users';
+    import { User } from '@/types/users';
 
     @Component({
         components: {
