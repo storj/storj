@@ -201,9 +201,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup outreach
-		peer.Outreach = outreach.NewChore(peer.Log.Named("outreach"), config.Outreach.Interval, config.Outreach.MaxSleep, peer.Storage2.Trust)
+		peer.Outreach = outreach.NewChore(peer.Log.Named("outreach"), config.Outreach.Interval, config.Outreach.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
 		// TODO: create and register a pb server
-
 	}
 
 	{ // setup kademlia

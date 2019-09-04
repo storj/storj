@@ -13,6 +13,9 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -29,7 +32,10 @@ type Config struct {
 
 // Chore is the outreach chore for nodes announcing themselves to their trusted satellites
 type Chore struct {
-	log   *zap.Logger
+	log       *zap.Logger
+	self      overlay.NodeDossier
+	transport transport.Client
+
 	trust *trust.Pool
 
 	maxSleep time.Duration
@@ -37,9 +43,12 @@ type Chore struct {
 }
 
 // NewChore creates a new outreach chore
-func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool) *Chore {
+func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, transport transport.Client, self overlay.NodeDossier) *Chore {
 	return &Chore{
-		log:   log,
+		log:       log,
+		self:      self,
+		transport: transport,
+
 		trust: trust,
 
 		maxSleep: maxSleep,
@@ -75,13 +84,30 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 			continue
 		}
 		group.Go(func() error {
-			// send message to the satellite with new grpc service, currently NI
-			chore.log.Debug("NI: pinging satellite", zap.String("address", addr))
-			return nil
+			conn, err := chore.transport.DialNode(ctx, &pb.Node{
+				Id: satellite,
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   addr,
+				},
+			})
+			if err != nil {
+				return err
+			}
+			_, err = pb.NewNodeClient(conn).Checkin(ctx, &pb.CheckinRequest{
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   addr,
+				},
+				Capacity: &chore.self.Capacity,
+				Operator: &chore.self.Operator,
+			})
+
+			return err
 		})
 	}
-	_ = group.Wait()
-	return nil
+
+	return group.Wait()
 }
 
 func awaitPingback() {
