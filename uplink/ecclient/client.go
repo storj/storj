@@ -82,8 +82,12 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	ec.log.Sugar().Debugf("Uploading to storage nodes using ErasureShareSize: %d StripeSize: %d RepairThreshold: %d OptimalThreshold: %d",
-		rs.ErasureShareSize(), rs.StripeSize(), rs.RepairThreshold(), rs.OptimalThreshold())
+	ec.log.Debug("Uploading to storage nodes",
+		zap.Int("Erasure Share Size", rs.ErasureShareSize()),
+		zap.Int("Stripe Size", rs.StripeSize()),
+		zap.Int("Repair Threshold", rs.RepairThreshold()),
+		zap.Int("Optimal Threshold", rs.OptimalThreshold()),
+	)
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
 	readers, err := eestream.EncodeReader(ctx, ec.log, padded, rs)
@@ -124,7 +128,10 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 			} else {
 				cancellationCount++
 			}
-			ec.log.Sugar().Debugf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
+			ec.log.Debug("Upload to storage node failed",
+				zap.String("NodeID", limits[info.i].GetLimit().StorageNodeId.String()),
+				zap.Error(info.err),
+			)
 			continue
 		}
 
@@ -137,7 +144,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		atomic.AddInt32(&successfulCount, 1)
 
 		if int(successfulCount) >= rs.OptimalThreshold() {
-			ec.log.Sugar().Infof("Success threshold (%d nodes) reached. Cancelling remaining uploads.", rs.OptimalThreshold())
+			ec.log.Info("Success threshold reached. Cancelling remaining uploads.",
+				zap.Int("Optimal Threshold", rs.OptimalThreshold()),
+			)
 			cancel()
 		}
 	}
@@ -204,14 +213,20 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
-
-	ec.log.Sugar().Infof("Starting a timer for %s for repairing %s up to %d nodes to try to have a number of pieces around the successful threshold (%d)",
-		timeout, path, nonNilCount(limits), rs.OptimalThreshold())
+	ec.log.Info("Starting a timer for repair so that the number of pieces will be closer to the success threshold",
+		zap.Duration("Timer", timeout),
+		zap.String("Path", path),
+		zap.Int("Node Count", nonNilCount(limits)),
+		zap.Int("Optimal Threshold", rs.OptimalThreshold()),
+	)
 
 	var successfulCount, failureCount, cancellationCount int32
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
-			ec.log.Sugar().Infof("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
+			ec.log.Info("Timer expired. Canceling the long tail...",
+				zap.String("Path", path),
+				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
+			)
 			cancel()
 		}
 	})
@@ -232,7 +247,11 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 			} else {
 				cancellationCount++
 			}
-			ec.log.Sugar().Debugf("Repair %s to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err)
+			ec.log.Debug("Repair to storage node failed",
+				zap.String("Path", path),
+				zap.String("NodeID", limits[info.i].GetLimit().StorageNodeId.String()),
+				zap.Error(info.err),
+			)
 			continue
 		}
 
@@ -261,7 +280,10 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		return nil, nil, Error.New("repair %v to all nodes failed", path)
 	}
 
-	ec.log.Sugar().Infof("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount))
+	ec.log.Info("Successfully repaired",
+		zap.String("Path", path),
+		zap.Int32("Success Count", atomic.LoadInt32(&successfulCount)),
+	)
 
 	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))
 	mon.IntVal("repair_segment_pieces_successful").Observe(int64(successfulCount))
@@ -292,8 +314,8 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	})
 	if err != nil {
 		ec.log.Debug("Failed dialing for putting piece to node",
-			zap.String("pieceID", pieceID.String()),
-			zap.String("nodeID", storageNodeID.String()),
+			zap.String("PieceID", pieceID.String()),
+			zap.String("NodeID", storageNodeID.String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -303,8 +325,8 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
 		ec.log.Debug("Failed requesting upload of pieces to node",
-			zap.String("pieceID", pieceID.String()),
-			zap.String("nodeID", storageNodeID.String()),
+			zap.String("PieceID", pieceID.String()),
+			zap.String("NodeID", storageNodeID.String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -325,9 +347,9 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	// to slow connection. No error logging for this case.
 	if ctx.Err() == context.Canceled {
 		if parent.Err() == context.Canceled {
-			ec.log.Sugar().Infof("Upload to node %s canceled by user.", storageNodeID)
+			ec.log.Info("Upload to node canceled by user", zap.String("NodeID", storageNodeID.String()))
 		} else {
-			ec.log.Sugar().Debugf("Node %s cut from upload due to slow connection.", storageNodeID)
+			ec.log.Debug("Node cut from upload due to slow connection", zap.String("NodeID", storageNodeID.String()))
 		}
 		err = context.Canceled
 	} else if err != nil {
@@ -337,9 +359,9 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		}
 
 		ec.log.Debug("Failed uploading piece to node",
-			zap.String("pieceID", pieceID.String()),
-			zap.String("nodeID", storageNodeID.String()),
-			zap.String("nodeAddress", nodeAddress),
+			zap.String("PieceID", pieceID.String()),
+			zap.String("NodeID", storageNodeID.String()),
+			zap.String("Node Address", nodeAddress),
 			zap.Error(err),
 		)
 	}
@@ -401,14 +423,22 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 				Address: addressedLimit.GetStorageNodeAddress(),
 			})
 			if err != nil {
-				ec.log.Sugar().Errorf("Failed dialing for deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)
+				ec.log.Debug("Failed dialing for deleting piece from node",
+					zap.String("PieceID", limit.PieceId.String()),
+					zap.String("NodeID", limit.StorageNodeId.String()),
+					zap.Error(err),
+				)
 				errch <- err
 				return
 			}
 			err = ps.Delete(ctx, limit, privateKey)
 			err = errs.Combine(err, ps.Close())
 			if err != nil {
-				ec.log.Sugar().Errorf("Failed deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)
+				ec.log.Debug("Failed deleting piece from node",
+					zap.String("PieceID", limit.PieceId.String()),
+					zap.String("NodeID", limit.StorageNodeId.String()),
+					zap.Error(err),
+				)
 			}
 			errch <- err
 		}(addressedLimit)
