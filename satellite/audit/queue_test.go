@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package audit
+package audit_test
 
 import (
 	"testing"
@@ -9,14 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/audit"
 )
 
 func TestQueue(t *testing.T) {
-	q := &Queue{
-		queue: []storj.Path{},
-	}
+	q := &audit.Queue{}
+
 	_, err := q.Next()
-	require.True(t, ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
+	require.True(t, audit.ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
 
 	testQueue1 := []storj.Path{"a", "b", "c"}
 	q.Swap(testQueue1)
@@ -44,5 +44,5 @@ func TestQueue(t *testing.T) {
 	require.EqualValues(t, testQueue2[2], path)
 
 	_, err = q.Next()
-	require.True(t, ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
+	require.True(t, audit.ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
 }
