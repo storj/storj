@@ -7,26 +7,29 @@ option go_package = "pb";
 package contact;
 
 import "gogo.proto";
+import "node.proto";
 
-service ContactNode {
-    rpc Pingback(PingbackRequest) returns (PingbackResponse);
+service Contact {
+    rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
 }
 
-service ContactSatellite {
-    rpc Ping(PingRequest) returns (PingResponse);
+service Node {
+    rpc Checkin(CheckinRequest) returns (CheckinResponse);
 }
 
-message PingRequest {
+message CheckinRequest {
     node.Node sender = 1;
     node.NodeCapacity capacity = 2;
+    node.NodeOperator operator = 3;
 }
 
-message PingResponse {
-    bool pingbackSuccess = 1;
+message CheckinResponse {
+    bool ping_node_success = 1;
+    string error_message = 2;
 }
 
-message PingbackRequest {
+message PingNodeRequest {
 }
 
-message PingbackResponse {
+message PingNodeResponse {
 }
