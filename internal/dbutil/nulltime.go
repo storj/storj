@@ -13,7 +13,7 @@ import (
 const (
 	sqliteTimeLayout           = "2006-01-02 15:04:05-07:00"
 	sqliteTimeLayoutNoTimeZone = "2006-01-02 15:04:05"
-	sqliteTimeLayoutDate = "2006-01-02"
+	sqliteTimeLayoutDate       = "2006-01-02"
 )
 
 // ErrNullTime defines error class for NullTime.
@@ -63,7 +63,7 @@ func (nt NullTime) Value() (driver.Value, error) {
 // parseSqliteTimeString parses sqlite times string.
 // It tries to process value as string with timezone first,
 // then fallback to parsing as string without timezone and
-// finally to parsing value as date
+// finally to parsing value as date.
 func parseSqliteTimeString(val string) (time.Time, error) {
 	var times time.Time
 	var err error
