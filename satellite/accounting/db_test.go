@@ -159,7 +159,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.Buc
 	return bucketTallies, expectedTallies, nil
 }
 
-// make rollups and tallies for specified nodes and date range
+// make rollups and tallies for specified nodes and date range.
 func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Time, days int) (accounting.RollupStats, map[time.Time]map[storj.NodeID]float64, time.Time) {
 	rollups := make(accounting.RollupStats)
 	tallies := make(map[time.Time]map[storj.NodeID]float64)
