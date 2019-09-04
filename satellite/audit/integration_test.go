@@ -36,7 +36,6 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		}
 
 		satellite.Audit.Chore.Loop.TriggerWait()
-
 		require.EqualValues(t, 2, satellite.Audit.Queue.Size(), "audit queue")
 
 		uniquePaths := make(map[storj.Path]struct{})
@@ -62,8 +61,8 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		satellite.Audit.Chore.Loop.TriggerWait()
 		require.EqualValues(t, 2, satellite.Audit.Queue.Size(), "audit queue")
 
+		// Make sure the worker processes all the items in the audit queue.
 		satellite.Audit.Worker.Loop.TriggerWait()
-
 		require.EqualValues(t, 0, satellite.Audit.Queue.Size(), "audit queue")
 	})
 }
