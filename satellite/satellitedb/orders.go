@@ -270,7 +270,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		// see https://www.postgresql.org/message-id/13131805-BCBB-42DF-953B-27EE36AAF213%40yahoo.com
 		_, err = tx.Exec("savepoint sp")
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 
 		insert := "INSERT INTO used_serials (serial_number_id, storage_node_id) SELECT id, ? FROM serial_numbers WHERE serial_number = ?"
@@ -285,12 +285,13 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 					return nil, Error.Wrap(err)
 				}
 			} else {
-				return nil, Error.Wrap(err)
+				_, rerr := tx.Exec("rollback to savepoint sp")
+				return nil, errs.Combine(Error.Wrap(err), Error.Wrap(rerr))
 			}
 		}
 		_, err = tx.Exec("release savepoint sp")
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 	}
 
