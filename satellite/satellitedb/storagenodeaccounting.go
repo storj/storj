@@ -211,20 +211,20 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	start, end = start.UTC(), end.UTC()
 
 	query := `WITH r AS (
-				SELECT at_rest_total, start_time
-				FROM accounting_rollups
-				WHERE node_id = ?
-				AND ? <= start_time AND start_time <= ?
-			)
-			SELECT at_rest_total, start_time from r
-				UNION
-					SELECT SUM(data_total) AS at_rest_total, DATE(interval_end_time) AS start_time
-					FROM storagenode_storage_tallies
-					WHERE node_id = ?
-					AND NOT EXISTS (SELECT 1 FROM r WHERE DATE(r.start_time) = DATE(interval_end_time))
-					AND (SELECT value FROM accounting_timestamps WHERE name = ?) < interval_end_time AND interval_end_time <= ?
-					GROUP BY start_time
-			ORDER BY start_time`
+			SELECT at_rest_total, start_time
+			FROM accounting_rollups
+			WHERE node_id = ?
+			AND ? <= start_time AND start_time <= ?
+		)
+		SELECT at_rest_total, start_time from r
+		UNION
+		SELECT SUM(data_total) AS at_rest_total, DATE(interval_end_time) AS start_time
+			FROM storagenode_storage_tallies
+			WHERE node_id = ?
+			AND NOT EXISTS (SELECT 1 FROM r WHERE DATE(r.start_time) = DATE(interval_end_time))
+			AND (SELECT value FROM accounting_timestamps WHERE name = ?) < interval_end_time AND interval_end_time <= ?
+			GROUP BY start_time
+		ORDER BY start_time`
 
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
 		nodeID, start, end,
