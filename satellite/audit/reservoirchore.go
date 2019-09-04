@@ -17,25 +17,25 @@ import (
 
 // ReservoirChore populates reservoirs and the audit queue.
 type ReservoirChore struct {
-	log    *zap.Logger
-	config Config
-	rand   *rand.Rand
-	queue  *Queue
-	Loop   sync2.Cycle
+	log   *zap.Logger
+	rand  *rand.Rand
+	queue *Queue
+	Loop  sync2.Cycle
 
 	metainfoLoop *metainfo.Loop
+	config       Config
 }
 
 // NewReservoirChore instantiates ReservoirChore.
 func NewReservoirChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, config Config) *ReservoirChore {
 	return &ReservoirChore{
-		log:    log,
-		config: config,
-		rand:   rand.New(rand.NewSource(time.Now().Unix())),
-		queue:  queue,
-		Loop:   *sync2.NewCycle(config.ChoreInterval),
+		log:   log,
+		rand:  rand.New(rand.NewSource(time.Now().Unix())),
+		queue: queue,
+		Loop:  *sync2.NewCycle(config.ChoreInterval),
 
 		metainfoLoop: metaLoop,
+		config:       config,
 	}
 }
 
