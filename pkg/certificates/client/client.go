@@ -12,7 +12,6 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/transport"
 )
@@ -55,10 +54,10 @@ func NewClientFrom(client pb.CertificatesClient) (*Client, error) {
 }
 
 // Sign submits a certificate signing request given the config
-func (c ClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string, revDB extensions.RevocationDB) (_ [][]byte, err error) {
+func (c ClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS, revDB)
+	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS, nil)
 	if err != nil {
 		return nil, err
 	}
