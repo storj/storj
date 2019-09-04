@@ -33,7 +33,6 @@ type ECRepairer struct {
 	log             *zap.Logger
 	transport       transport.Client
 	satelliteSignee signing.Signee
-	cond            *sync.Cond
 }
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
@@ -42,7 +41,6 @@ func NewECRepairer(log *zap.Logger, tc transport.Client, satelliteSignee signing
 		log:             log,
 		transport:       tc,
 		satelliteSignee: satelliteSignee,
-		cond:            sync.NewCond(&sync.Mutex{}),
 	}
 }
 
@@ -68,10 +66,12 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 	pieceSize := eestream.CalcPieceSize(size, es)
 
-	pieceReaders := make(map[int]io.ReadCloser)
 	var successfulPieces, inProgress int
-	limiter := sync2.NewLimiter(es.RequiredCount())
 	unusedLimits := len(limits)
+	pieceReaders := make(map[int]io.ReadCloser)
+
+	limiter := sync2.NewLimiter(es.RequiredCount())
+	cond := sync.NewCond(&sync.Mutex{})
 
 	for currentLimitIndex, limit := range limits {
 		if limit == nil {
@@ -80,32 +80,32 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 		currentLimitIndex, limit := currentLimitIndex, limit
 		limiter.Go(ctx, func() {
-			ec.cond.L.Lock()
-			defer ec.cond.Signal()
-			defer ec.cond.L.Unlock()
+			cond.L.Lock()
+			defer cond.Signal()
+			defer cond.L.Unlock()
 
 			for {
 				if successfulPieces >= es.RequiredCount() {
 					// already downloaded minimum number of pieces
-					ec.cond.Broadcast()
+					cond.Broadcast()
 					return
 				}
 				if successfulPieces+inProgress+unusedLimits < es.RequiredCount() {
 					// not enough available limits left to get required number of pieces
-					ec.cond.Broadcast()
+					cond.Broadcast()
 					return
 				}
 
 				if successfulPieces+inProgress >= es.RequiredCount() {
-					ec.cond.Wait()
+					cond.Wait()
 					continue
 				}
 
 				inProgress++
-				ec.cond.L.Unlock()
+				cond.L.Unlock()
 
 				downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
-				ec.cond.L.Lock()
+				cond.L.Lock()
 				inProgress--
 				unusedLimits--
 				if err != nil {
