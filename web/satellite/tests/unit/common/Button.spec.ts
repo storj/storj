@@ -8,17 +8,20 @@ import * as sinon from 'sinon';
 describe('Button.vue', () => {
 
     it('renders correctly', () => {
-
-        const wrapper = shallowMount(Button);
+        const wrapper = shallowMount(Button, {
+            propsData: {
+                onPress: () => { return; },
+            },
+        });
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with isWhite prop', () => {
-
         const wrapper = shallowMount(Button, {
             propsData: {
-                isWhite: true
+                isWhite: true,
+                onPress: () => { return; },
             }
         });
 
@@ -26,10 +29,10 @@ describe('Button.vue', () => {
     });
 
     it('renders correctly with isDisabled prop', () => {
-
         const wrapper = shallowMount(Button, {
             propsData: {
-                isDisabled: true
+                isDisabled: true,
+                onPress: () => { return; },
             }
         });
 
@@ -42,7 +45,12 @@ describe('Button.vue', () => {
         let height = '20px';
 
         const wrapper = shallowMount(Button, {
-            propsData: {label, width, height},
+            propsData: {
+                label,
+                width,
+                height,
+                onPress: () => { return; },
+            },
         });
 
         expect(wrapper.element.style.width).toMatch(width);
@@ -51,8 +59,11 @@ describe('Button.vue', () => {
     });
 
     it('renders correctly with default props', () => {
-
-        const wrapper = shallowMount(Button);
+        const wrapper = shallowMount(Button, {
+            propsData: {
+                onPress: () => { return; },
+            },
+        });
 
         expect(wrapper.element.style.width).toMatch('inherit');
         expect(wrapper.element.style.height).toMatch('inherit');

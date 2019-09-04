@@ -272,6 +272,7 @@ func (s *Service) Close() error {
 	s.cond.L.Unlock()
 
 	s.cond.Broadcast()
+	// ignoring error here, because the same error is already returned from Run.
 	_ = s.group.Wait()
 	return nil
 }
