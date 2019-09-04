@@ -17,7 +17,7 @@ var ErrEmptyQueue = errs.Class("empty audit queue")
 // Queue is a list of paths to audit, shared between the reservoir chore and audit workers.
 type Queue struct {
 	mu    sync.Mutex
-	Queue []storj.Path
+	queue []storj.Path
 }
 
 // Swap switches the backing queue slice with a new queue slice.
@@ -25,7 +25,7 @@ func (q *Queue) Swap(newQueue []storj.Path) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.Queue = newQueue
+	q.queue = newQueue
 }
 
 // Next gets the next item in the queue.
@@ -34,12 +34,12 @@ func (q *Queue) Next() (storj.Path, error) {
 	defer q.mu.Unlock()
 
 	// return error if queue is empty
-	if len(q.Queue) == 0 {
+	if len(q.queue) == 0 {
 		return "", ErrEmptyQueue.New("")
 	}
 
-	next := q.Queue[0]
-	q.Queue = q.Queue[1:]
+	next := q.queue[0]
+	q.queue = q.queue[1:]
 
 	return next, nil
 }

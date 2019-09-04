@@ -17,7 +17,7 @@ type Worker struct {
 	log     *zap.Logger
 	queue   *Queue
 	Loop    sync2.Cycle
-	Limiter sync2.Limiter
+	limiter sync2.Limiter
 }
 
 // NewWorker instantiates Worker.
@@ -27,7 +27,7 @@ func NewWorker(log *zap.Logger, queue *Queue, config Config) (*Worker, error) {
 
 		queue:   queue,
 		Loop:    *sync2.NewCycle(config.QueueInterval),
-		Limiter: *sync2.NewLimiter(config.WorkerConcurrency),
+		limiter: *sync2.NewLimiter(config.WorkerConcurrency),
 	}, nil
 }
 
@@ -37,7 +37,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 	worker.log.Debug("starting")
 
 	// Wait for all audits to run.
-	defer worker.Limiter.Wait()
+	defer worker.limiter.Wait()
 
 	return worker.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
@@ -66,7 +66,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 			return err
 		}
 
-		worker.Limiter.Go(ctx, func() {
+		worker.limiter.Go(ctx, func() {
 			err := worker.work(ctx, path)
 			if err != nil {
 				worker.log.Error("audit failed", zap.Error(err))

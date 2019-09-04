@@ -20,10 +20,10 @@ type ReservoirChore struct {
 	log    *zap.Logger
 	config Config
 	rand   *rand.Rand
-	Queue  *Queue
+	queue  *Queue
 	Loop   sync2.Cycle
 
-	MetainfoLoop *metainfo.Loop
+	metainfoLoop *metainfo.Loop
 }
 
 // NewReservoirChore instantiates ReservoirChore.
@@ -32,10 +32,10 @@ func NewReservoirChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, c
 		log:    log,
 		config: config,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),
-		Queue:  queue,
+		queue:  queue,
 		Loop:   *sync2.NewCycle(config.ChoreInterval),
 
-		MetainfoLoop: metaLoop,
+		metainfoLoop: metaLoop,
 	}
 }
 
@@ -46,7 +46,7 @@ func (chore *ReservoirChore) Run(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
 		pathCollector := NewPathCollector(chore.config.Slots, chore.rand)
-		err = chore.MetainfoLoop.Join(ctx, pathCollector)
+		err = chore.metainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
 			chore.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
@@ -72,7 +72,7 @@ func (chore *ReservoirChore) Run(ctx context.Context) (err error) {
 				}
 			}
 		}
-		chore.Queue.Swap(newQueue)
+		chore.queue.Swap(newQueue)
 
 		return nil
 	})

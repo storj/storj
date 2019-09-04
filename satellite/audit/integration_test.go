@@ -38,10 +38,10 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		satellite.Audit.Chore.Loop.Restart()
 		satellite.Audit.Chore.Loop.TriggerWait()
 
-		assert.Len(t, satellite.Audit.Queue.Queue, 2)
+		assert.Len(t, satellite.Audit.Queue.queue, 2)
 
 		uniquePaths := make(map[storj.Path]struct{})
-		for _, path := range satellite.Audit.Queue.Queue {
+		for _, path := range satellite.Audit.Queue.queue {
 			_, ok := uniquePaths[path]
 			require.False(t, ok, "expected unique path in chore queue")
 
@@ -51,6 +51,6 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		satellite.Audit.Worker.Loop.Restart()
 		satellite.Audit.Worker.Loop.TriggerWait()
 
-		require.Len(t, satellite.Audit.Queue.Queue, 0, "audit queue")
+		require.Len(t, satellite.Audit.Queue.queue, 0, "audit queue")
 	})
 }
