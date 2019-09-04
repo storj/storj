@@ -10,7 +10,7 @@ import "gogo.proto";
 import "node.proto";
 
 service Contact {
-    rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
+    rpc PingNode(ContactPingRequest) returns (ContactPingResponse);
 }
 
 service Node {
@@ -28,8 +28,8 @@ message CheckinResponse {
     string error_message = 2;
 }
 
-message PingNodeRequest {
+message ContactPingRequest {
 }
 
-message PingNodeResponse {
+message ContactPingResponse {
 }

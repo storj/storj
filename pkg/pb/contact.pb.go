@@ -6,7 +6,6 @@ package pb
 import (
 	context "context"
 	fmt "fmt"
-	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -125,95 +124,95 @@ func (m *CheckinResponse) GetErrorMessage() string {
 	return ""
 }
 
-type PingNodeRequest struct {
+type ContactPingRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *PingNodeRequest) Reset()         { *m = PingNodeRequest{} }
-func (m *PingNodeRequest) String() string { return proto.CompactTextString(m) }
-func (*PingNodeRequest) ProtoMessage()    {}
-func (*PingNodeRequest) Descriptor() ([]byte, []int) {
+func (m *ContactPingRequest) Reset()         { *m = ContactPingRequest{} }
+func (m *ContactPingRequest) String() string { return proto.CompactTextString(m) }
+func (*ContactPingRequest) ProtoMessage()    {}
+func (*ContactPingRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a5036fff2565fb15, []int{2}
 }
-func (m *PingNodeRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PingNodeRequest.Unmarshal(m, b)
+func (m *ContactPingRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ContactPingRequest.Unmarshal(m, b)
 }
-func (m *PingNodeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PingNodeRequest.Marshal(b, m, deterministic)
+func (m *ContactPingRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ContactPingRequest.Marshal(b, m, deterministic)
 }
-func (m *PingNodeRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingNodeRequest.Merge(m, src)
+func (m *ContactPingRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ContactPingRequest.Merge(m, src)
 }
-func (m *PingNodeRequest) XXX_Size() int {
-	return xxx_messageInfo_PingNodeRequest.Size(m)
+func (m *ContactPingRequest) XXX_Size() int {
+	return xxx_messageInfo_ContactPingRequest.Size(m)
 }
-func (m *PingNodeRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_PingNodeRequest.DiscardUnknown(m)
+func (m *ContactPingRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ContactPingRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_PingNodeRequest proto.InternalMessageInfo
+var xxx_messageInfo_ContactPingRequest proto.InternalMessageInfo
 
-type PingNodeResponse struct {
+type ContactPingResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *PingNodeResponse) Reset()         { *m = PingNodeResponse{} }
-func (m *PingNodeResponse) String() string { return proto.CompactTextString(m) }
-func (*PingNodeResponse) ProtoMessage()    {}
-func (*PingNodeResponse) Descriptor() ([]byte, []int) {
+func (m *ContactPingResponse) Reset()         { *m = ContactPingResponse{} }
+func (m *ContactPingResponse) String() string { return proto.CompactTextString(m) }
+func (*ContactPingResponse) ProtoMessage()    {}
+func (*ContactPingResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a5036fff2565fb15, []int{3}
 }
-func (m *PingNodeResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PingNodeResponse.Unmarshal(m, b)
+func (m *ContactPingResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ContactPingResponse.Unmarshal(m, b)
 }
-func (m *PingNodeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PingNodeResponse.Marshal(b, m, deterministic)
+func (m *ContactPingResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ContactPingResponse.Marshal(b, m, deterministic)
 }
-func (m *PingNodeResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingNodeResponse.Merge(m, src)
+func (m *ContactPingResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ContactPingResponse.Merge(m, src)
 }
-func (m *PingNodeResponse) XXX_Size() int {
-	return xxx_messageInfo_PingNodeResponse.Size(m)
+func (m *ContactPingResponse) XXX_Size() int {
+	return xxx_messageInfo_ContactPingResponse.Size(m)
 }
-func (m *PingNodeResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_PingNodeResponse.DiscardUnknown(m)
+func (m *ContactPingResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ContactPingResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_PingNodeResponse proto.InternalMessageInfo
+var xxx_messageInfo_ContactPingResponse proto.InternalMessageInfo
 
 func init() {
 	proto.RegisterType((*CheckinRequest)(nil), "contact.CheckinRequest")
 	proto.RegisterType((*CheckinResponse)(nil), "contact.CheckinResponse")
-	proto.RegisterType((*PingNodeRequest)(nil), "contact.PingNodeRequest")
-	proto.RegisterType((*PingNodeResponse)(nil), "contact.PingNodeResponse")
+	proto.RegisterType((*ContactPingRequest)(nil), "contact.ContactPingRequest")
+	proto.RegisterType((*ContactPingResponse)(nil), "contact.ContactPingResponse")
 }
 
 func init() { proto.RegisterFile("contact.proto", fileDescriptor_a5036fff2565fb15) }
 
 var fileDescriptor_a5036fff2565fb15 = []byte{
-	// 285 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0x3f, 0x4f, 0xc3, 0x30,
-	0x10, 0xc5, 0xd5, 0x52, 0x35, 0xe1, 0xa0, 0x84, 0x7a, 0x21, 0x64, 0x42, 0x61, 0x41, 0x0c, 0x19,
-	0xca, 0x8a, 0x84, 0x44, 0x98, 0x90, 0xf8, 0x23, 0xb3, 0xb1, 0x44, 0x89, 0x73, 0x0a, 0x11, 0xc2,
-	0x67, 0x6c, 0x77, 0xe0, 0x7b, 0xf0, 0x81, 0x51, 0x6c, 0x37, 0x15, 0x85, 0x2d, 0x79, 0xef, 0x77,
-	0xcf, 0xf7, 0x07, 0x16, 0x82, 0xa4, 0xad, 0x85, 0x2d, 0x94, 0x26, 0x4b, 0x2c, 0x0a, 0xbf, 0x19,
-	0x74, 0xd4, 0x91, 0x17, 0x33, 0x90, 0xd4, 0xa2, 0xff, 0xce, 0xbf, 0x27, 0x70, 0x54, 0xbe, 0xa1,
-	0x78, 0xef, 0x25, 0xc7, 0xcf, 0x35, 0x1a, 0xcb, 0x72, 0x98, 0x1b, 0x94, 0x2d, 0xea, 0x74, 0x72,
-	0x36, 0xb9, 0x38, 0x58, 0x41, 0xe1, 0xf8, 0x47, 0x6a, 0x91, 0x07, 0x87, 0x15, 0x10, 0x8b, 0x5a,
-	0xd5, 0xa2, 0xb7, 0x5f, 0xe9, 0xd4, 0x51, 0x6c, 0x4b, 0x95, 0xc1, 0xe1, 0x23, 0x33, 0xf0, 0xa4,
-	0x50, 0xd7, 0x96, 0x74, 0xba, 0xb7, 0xcb, 0x3f, 0x05, 0x87, 0x8f, 0x4c, 0xde, 0x40, 0x32, 0x76,
-	0x65, 0x14, 0x49, 0x83, 0xec, 0x12, 0x96, 0xaa, 0x97, 0x5d, 0x35, 0x94, 0x55, 0x66, 0x2d, 0x04,
-	0x1a, 0xe3, 0x3a, 0x8c, 0x79, 0x32, 0x18, 0x43, 0xd2, 0x8b, 0x97, 0xd9, 0x39, 0x2c, 0x50, 0x6b,
-	0xd2, 0xd5, 0x07, 0x1a, 0x53, 0x77, 0xe8, 0x7a, 0xdc, 0xe7, 0x87, 0x4e, 0x7c, 0xf0, 0x5a, 0xbe,
-	0x84, 0xe4, 0x39, 0xd4, 0x85, 0xd1, 0x73, 0x06, 0xc7, 0x5b, 0xc9, 0xbf, 0xbb, 0xba, 0x87, 0xa8,
-	0xf4, 0x4b, 0x64, 0x37, 0x10, 0x6f, 0x6c, 0x96, 0x16, 0x9b, 0x4d, 0xef, 0x84, 0x64, 0xa7, 0xff,
-	0x38, 0x21, 0xeb, 0x0e, 0x66, 0xae, 0xf8, 0x1a, 0xa2, 0x30, 0x1e, 0x3b, 0x19, 0xe9, 0xdf, 0x67,
-	0xc8, 0xd2, 0xbf, 0x86, 0x4f, 0xb9, 0x9d, 0xbd, 0x4e, 0x55, 0xd3, 0xcc, 0xdd, 0x01, 0xaf, 0x7e,
-	0x02, 0x00, 0x00, 0xff, 0xff, 0x77, 0xb2, 0xa2, 0xcb, 0xf2, 0x01, 0x00, 0x00,
+	// 281 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0xbd, 0x4e, 0xc3, 0x30,
+	0x14, 0x85, 0x95, 0x52, 0x35, 0xe1, 0x42, 0xa9, 0x30, 0x20, 0xa2, 0xc0, 0x80, 0xc2, 0x82, 0x18,
+	0x32, 0x94, 0x95, 0x89, 0xc0, 0x08, 0x44, 0x66, 0x63, 0x89, 0x1c, 0xe7, 0x2a, 0x44, 0x08, 0xdb,
+	0xd8, 0xee, 0xc0, 0x7b, 0xf0, 0xc0, 0x28, 0xb6, 0x49, 0x55, 0xca, 0xe8, 0x73, 0x3e, 0x9f, 0xfb,
+	0x07, 0x73, 0x2e, 0x85, 0x65, 0xdc, 0x16, 0x4a, 0x4b, 0x2b, 0x49, 0x1c, 0x9e, 0x19, 0x08, 0xd9,
+	0xa2, 0x17, 0xf3, 0xef, 0x08, 0x0e, 0xca, 0x37, 0xe4, 0xef, 0xbd, 0xa0, 0xf8, 0xb9, 0x42, 0x63,
+	0x49, 0x0e, 0x33, 0x83, 0xa2, 0x45, 0x9d, 0x46, 0x17, 0xd1, 0xd5, 0xde, 0x12, 0x0a, 0xc7, 0x3f,
+	0xc9, 0x16, 0x69, 0x70, 0x48, 0x01, 0x09, 0x67, 0x8a, 0xf1, 0xde, 0x7e, 0xa5, 0x13, 0x47, 0x91,
+	0x35, 0x55, 0x06, 0x87, 0x8e, 0xcc, 0xc0, 0x4b, 0x85, 0x9a, 0x59, 0xa9, 0xd3, 0x9d, 0xbf, 0xfc,
+	0x73, 0x70, 0xe8, 0xc8, 0xe4, 0x0d, 0x2c, 0xc6, 0xae, 0x8c, 0x92, 0xc2, 0x20, 0xb9, 0x86, 0x43,
+	0xd5, 0x8b, 0xae, 0x1e, 0xbe, 0xd5, 0x66, 0xc5, 0x39, 0x1a, 0xe3, 0x3a, 0x4c, 0xe8, 0x62, 0x30,
+	0x86, 0xa4, 0x17, 0x2f, 0x93, 0x4b, 0x98, 0xa3, 0xd6, 0x52, 0xd7, 0x1f, 0x68, 0x0c, 0xeb, 0xd0,
+	0xf5, 0xb8, 0x4b, 0xf7, 0x9d, 0xf8, 0xe8, 0xb5, 0xfc, 0x18, 0x48, 0xe9, 0x37, 0x52, 0xf5, 0xa2,
+	0x0b, 0xd3, 0xe7, 0x27, 0x70, 0xb4, 0xa1, 0xfa, 0xea, 0xcb, 0x0a, 0xe2, 0x20, 0x93, 0x07, 0x48,
+	0xaa, 0x50, 0x8f, 0x9c, 0x15, 0xbf, 0x3b, 0xde, 0x8e, 0xca, 0xce, 0xff, 0x37, 0x43, 0xe2, 0x3d,
+	0x4c, 0x5d, 0xc4, 0x2d, 0xc4, 0x61, 0x54, 0x72, 0xba, 0xfe, 0xb0, 0x71, 0x92, 0x2c, 0xdd, 0x36,
+	0x7c, 0xca, 0xdd, 0xf4, 0x75, 0xa2, 0x9a, 0x66, 0xe6, 0x8e, 0x79, 0xf3, 0x13, 0x00, 0x00, 0xff,
+	0xff, 0x9d, 0xb3, 0xa1, 0x3f, 0xf2, 0x01, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -228,7 +227,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ContactClient interface {
-	PingNode(ctx context.Context, in *PingNodeRequest, opts ...grpc.CallOption) (*PingNodeResponse, error)
+	PingNode(ctx context.Context, in *ContactPingRequest, opts ...grpc.CallOption) (*ContactPingResponse, error)
 }
 
 type contactClient struct {
@@ -239,8 +238,8 @@ func NewContactClient(cc *grpc.ClientConn) ContactClient {
 	return &contactClient{cc}
 }
 
-func (c *contactClient) PingNode(ctx context.Context, in *PingNodeRequest, opts ...grpc.CallOption) (*PingNodeResponse, error) {
-	out := new(PingNodeResponse)
+func (c *contactClient) PingNode(ctx context.Context, in *ContactPingRequest, opts ...grpc.CallOption) (*ContactPingResponse, error) {
+	out := new(ContactPingResponse)
 	err := c.cc.Invoke(ctx, "/contact.Contact/PingNode", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -250,14 +249,14 @@ func (c *contactClient) PingNode(ctx context.Context, in *PingNodeRequest, opts 
 
 // ContactServer is the server API for Contact service.
 type ContactServer interface {
-	PingNode(context.Context, *PingNodeRequest) (*PingNodeResponse, error)
+	PingNode(context.Context, *ContactPingRequest) (*ContactPingResponse, error)
 }
 
 // UnimplementedContactServer can be embedded to have forward compatible implementations.
 type UnimplementedContactServer struct {
 }
 
-func (*UnimplementedContactServer) PingNode(ctx context.Context, req *PingNodeRequest) (*PingNodeResponse, error) {
+func (*UnimplementedContactServer) PingNode(ctx context.Context, req *ContactPingRequest) (*ContactPingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PingNode not implemented")
 }
 
@@ -266,7 +265,7 @@ func RegisterContactServer(s *grpc.Server, srv ContactServer) {
 }
 
 func _Contact_PingNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PingNodeRequest)
+	in := new(ContactPingRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -278,7 +277,7 @@ func _Contact_PingNode_Handler(srv interface{}, ctx context.Context, dec func(in
 		FullMethod: "/contact.Contact/PingNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ContactServer).PingNode(ctx, req.(*PingNodeRequest))
+		return srv.(ContactServer).PingNode(ctx, req.(*ContactPingRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
