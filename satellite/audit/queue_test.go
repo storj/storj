@@ -43,6 +43,6 @@ func TestQueue(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, testQueue2[2], path)
 
-	path, err = q.Next()
+	_, err = q.Next()
 	require.True(t, ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
 }
