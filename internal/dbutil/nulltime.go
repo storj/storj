@@ -26,6 +26,10 @@ type NullTime struct {
 
 // Scan implements the Scanner interface.
 func (nt *NullTime) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+
 	// check if it's time.Time which is what postgres returns
 	// for lagged time values
 	if nt.Time, nt.Valid = value.(time.Time); nt.Valid {
