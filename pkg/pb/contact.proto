@@ -8,9 +8,12 @@ package contact;
 
 import "gogo.proto";
 
-service Contact {
+service ContactNode {
+    rpc Pingback(PingbackRequest) returns (PingbackResponse);
+}
+
+service ContactSatellite {
     rpc Ping(PingRequest) returns (PingResponse);
-    rpc PingBack(PingBackRequest) returns (PingBackResponse);
 }
 
 message PingRequest {
@@ -19,11 +22,11 @@ message PingRequest {
 }
 
 message PingResponse {
-    bool pingBackSuccess = 1;
+    bool pingbackSuccess = 1;
 }
 
-message PingBackRequest {
+message PingbackRequest {
 }
 
-message PingBackResponse {
+message PingbackResponse {
 }
