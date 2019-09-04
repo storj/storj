@@ -28,6 +28,9 @@ rm "$RELEASE_DIR/internal/version/release.go"
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+# replace unstable git.apache.org package with github
+(cd $RELEASE_DIR && go mod edit -replace git.apache.org/thrift.git=github.com/apache/thrift@v0.12.0)
+
 GOBIN=$RELEASE_DIR/bin make -C "$RELEASE_DIR" install-sim
 GOBIN=$BRANCH_DIR/bin  make -C "$BRANCH_DIR" install-sim
 
