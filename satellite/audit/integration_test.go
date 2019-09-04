@@ -4,9 +4,9 @@
 package audit_test
 
 import (
+	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/audit"
 )
 
 func TestChoreAndWorkerIntegration(t *testing.T) {
@@ -29,28 +30,39 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		// Upload 2 remote files with 1 segment.
 		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(8 * memory.KiB)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
 			require.NoError(t, err)
 		}
 
-		satellite.Audit.Chore.Loop.Restart()
 		satellite.Audit.Chore.Loop.TriggerWait()
+		require.EqualValues(t, 2, satellite.Audit.Queue.Size(), "audit queue")
 
 		uniquePaths := make(map[storj.Path]struct{})
-		assert.Len(t, satellite.Audit.Queue.Queue, 2)
-
-		for _, path := range satellite.Audit.Queue.Queue {
+		var err error
+		var path storj.Path
+		var pathCount int
+		for {
+			path, err = satellite.Audit.Queue.Next()
+			if err != nil {
+				break
+			}
+			pathCount++
 			_, ok := uniquePaths[path]
 			require.False(t, ok, "expected unique path in chore queue")
 
 			uniquePaths[path] = struct{}{}
 		}
-		require.Len(t, uniquePaths, 2)
+		require.True(t, audit.ErrEmptyQueue.Has(err))
+		require.Equal(t, 2, pathCount)
+		require.Equal(t, 0, satellite.Audit.Queue.Size())
 
-		satellite.Audit.Worker.Loop.Restart()
+		// Repopulate the queue for the worker.
+		satellite.Audit.Chore.Loop.TriggerWait()
+		require.EqualValues(t, 2, satellite.Audit.Queue.Size(), "audit queue")
+
+		// Make sure the worker processes all the items in the audit queue.
 		satellite.Audit.Worker.Loop.TriggerWait()
-
-		require.Len(t, satellite.Audit.Queue.Queue, 0)
+		require.EqualValues(t, 0, satellite.Audit.Queue.Size(), "audit queue")
 	})
 }

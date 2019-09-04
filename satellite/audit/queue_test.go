@@ -12,37 +12,37 @@ import (
 )
 
 func TestQueue(t *testing.T) {
-	queue := &Queue{
-		Queue: []storj.Path{},
+	q := &Queue{
+		queue: []storj.Path{},
 	}
-	_, err := queue.Next()
-	require.True(t, ErrEmptyQueue.Has(err))
+	_, err := q.Next()
+	require.True(t, ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
 
 	testQueue1 := []storj.Path{"a", "b", "c"}
-	queue.Swap(testQueue1)
-	path, err := queue.Next()
+	q.Swap(testQueue1)
+	path, err := q.Next()
 	require.NoError(t, err)
 	require.EqualValues(t, testQueue1[0], path)
 
-	path, err = queue.Next()
+	path, err = q.Next()
 	require.NoError(t, err)
 	require.EqualValues(t, testQueue1[1], path)
 
 	testQueue2 := []storj.Path{"0", "1", "2"}
-	queue.Swap(testQueue2)
+	q.Swap(testQueue2)
 
-	path, err = queue.Next()
+	path, err = q.Next()
 	require.NoError(t, err)
 	require.EqualValues(t, testQueue2[0], path)
 
-	path, err = queue.Next()
+	path, err = q.Next()
 	require.NoError(t, err)
 	require.EqualValues(t, testQueue2[1], path)
 
-	path, err = queue.Next()
+	path, err = q.Next()
 	require.NoError(t, err)
 	require.EqualValues(t, testQueue2[2], path)
 
-	path, err = queue.Next()
-	require.True(t, ErrEmptyQueue.Has(err))
+	_, err = q.Next()
+	require.True(t, ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
 }

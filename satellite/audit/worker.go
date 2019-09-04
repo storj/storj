@@ -16,9 +16,9 @@ import (
 type Worker struct {
 	log      *zap.Logger
 	queue    *Queue
-	verifier Verifier
+	verifier *Verifier
 	Loop     sync2.Cycle
-	Limiter  sync2.Limiter
+	limiter  sync2.Limiter
 }
 
 // NewWorker instantiates Worker.
@@ -29,7 +29,7 @@ func NewWorker(log *zap.Logger, queue *Queue, verifier Verifier, config Config) 
 		queue:    queue,
 		verifier: verifier,
 		Loop:     *sync2.NewCycle(config.QueueInterval),
-		Limiter:  *sync2.NewLimiter(config.WorkerConcurrency),
+		limiter:  *sync2.NewLimiter(config.WorkerConcurrency),
 	}, nil
 }
 
@@ -39,7 +39,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 	worker.log.Debug("starting")
 
 	// Wait for all audits to run.
-	defer worker.Limiter.Wait()
+	defer worker.limiter.Wait()
 
 	return worker.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
@@ -59,6 +59,8 @@ func (worker *Worker) Close() error {
 // process repeatedly removes an item from the queue and runs an audit.
 func (worker *Worker) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	worker.limiter.Wait()
 	for {
 		path, err := worker.queue.Next()
 		if err != nil {
@@ -68,7 +70,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 			return err
 		}
 
-		worker.Limiter.Go(ctx, func() {
+		worker.limiter.Go(ctx, func() {
 			err := worker.work(ctx, path)
 			if err != nil {
 				worker.log.Error("audit failed", zap.Error(err))
