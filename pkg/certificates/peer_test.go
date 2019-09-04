@@ -60,16 +60,13 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				require.NoError(t, err)
 				require.NotEmpty(t, auths)
 
-				err = authDB.Close()
-				require.NoError(t, err)
-
 				certificatesCfg := certificates.Config{
 					Authorizations: authorizationsCfg,
 					Signer: signerCAConfig,
 					Server: server.Config{
-						Config:          tlsopts.Config{
+						Address: "127.0.0.1:0",
+						Config: tlsopts.Config{
 							PeerIDVersions: "*",
-							UsePeerCAWhitelist: false,
 						},
 					},
 				}
@@ -85,7 +82,9 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				})
 				defer ctx.Check(peer.Close)
 
-				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{PeerIDVersions: "*"}, nil)
+				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{
+					PeerIDVersions: "*",
+				}, nil)
 				require.NoError(t, err)
 
 				clientTransport := transport.NewClient(clientOpts)
