@@ -299,6 +299,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
+		peer.Server.DRPC().Register(peer.Storage2.Endpoint, new(pb.DRPCPiecestoreDescription))
 
 		sc := config.Server
 		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)

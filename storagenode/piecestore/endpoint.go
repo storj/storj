@@ -106,7 +106,17 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 	}, nil
 }
 
+var ( // static assertions that our endpoint implements the rpc interfaces
+	_ pb.PiecestoreServer     = (*Endpoint)(nil)
+	_ pb.DRPCPiecestoreServer = (*Endpoint)(nil)
+)
+
 var monLiveRequests = mon.TaskNamed("live-request")
+
+// DRPCDelete is the dRPC entrypoint for Delete.
+func (endpoint *Endpoint) DRPCDelete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
+	return endpoint.Delete(ctx, delete)
+}
 
 // Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
@@ -138,8 +148,25 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	return &pb.PieceDeleteResponse{}, nil
 }
 
-// Upload handles uploading a piece on piece store.
+// uploadStream is the interface for a streaming upload RPC.
+type uploadStream interface {
+	Context() context.Context
+	Recv() (*pb.PieceUploadRequest, error)
+	SendAndClose(*pb.PieceUploadResponse) error
+}
+
+// Upload is the gRPC entrypoint for Upload.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
+	return endpoint.doUpload(stream)
+}
+
+// DRPCUpload is the dRPC entrypoint for Upload.
+func (endpoint *Endpoint) DRPCUpload(stream pb.DRPCPiecestore_UploadStream) (err error) {
+	return endpoint.doUpload(stream)
+}
+
+// doUpload handles uploading a piece on piece store.
+func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -326,8 +353,25 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 }
 
-// Download implements downloading a piece from piece store.
+// downloadStream is the interface for a streaming download RPC.
+type downloadStream interface {
+	Context() context.Context
+	Send(*pb.PieceDownloadResponse) error
+	Recv() (*pb.PieceDownloadRequest, error)
+}
+
+// Download is the gRPC entrypoint for Download.
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
+	return endpoint.doDownload(stream)
+}
+
+// DRPCDownload is the dRPC entrypoint for Download.
+func (endpoint *Endpoint) DRPCDownload(stream pb.DRPCPiecestore_DownloadStream) (err error) {
+	return endpoint.doDownload(stream)
+}
+
+// Download implements downloading a piece from piece store.
+func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -578,6 +622,11 @@ func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, o
 			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 		}
 	}
+}
+
+// DRPCRetain is the dRPC entrypoint for Retain.
+func (endpoint *Endpoint) DRPCRetain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
+	return endpoint.Retain(ctx, retainReq)
 }
 
 // Retain keeps only piece ids specified in the request
