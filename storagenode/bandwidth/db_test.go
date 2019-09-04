@@ -124,7 +124,7 @@ func TestEmptyBandwidthDB(t *testing.T) {
 
 		bandwidthdb := db.Bandwidth()
 
-		now := time.Now().UTC()
+		now := time.Now()
 
 		t.Run("test total summary", func(t *testing.T) {
 			usage, err := bandwidthdb.Summary(ctx, now, now)
