@@ -16,7 +16,7 @@ func TestQueue(t *testing.T) {
 		Queue: []storj.Path{},
 	}
 	_, err := queue.Next()
-	require.True(t, ErrEmptyQueue.Has(err))
+	require.True(t, ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
 
 	testQueue1 := []storj.Path{"a", "b", "c"}
 	queue.Swap(testQueue1)
@@ -44,5 +44,5 @@ func TestQueue(t *testing.T) {
 	require.EqualValues(t, testQueue2[2], path)
 
 	path, err = queue.Next()
-	require.True(t, ErrEmptyQueue.Has(err))
+	require.True(t, ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
 }

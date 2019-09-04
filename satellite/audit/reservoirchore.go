@@ -78,7 +78,7 @@ func (chore *ReservoirChore) Run(ctx context.Context) (err error) {
 	})
 }
 
-// Close closes ReservoirChore.
+// Close closes chore.
 func (chore *ReservoirChore) Close() error {
 	chore.Loop.Close()
 	return nil
