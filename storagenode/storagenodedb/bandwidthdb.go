@@ -277,7 +277,6 @@ func (db *bandwidthDB) GetDailyRollups(ctx context.Context, from, to time.Time) 
 
 	return db.getDailyUsageRollups(ctx,
 		"WHERE DATETIME(?) <= DATETIME(interval_start) AND DATETIME(interval_start) <= DATETIME(?)",
-		since, before,
 		since, before)
 }
 
@@ -291,7 +290,6 @@ func (db *bandwidthDB) GetDailySatelliteRollups(ctx context.Context, satelliteID
 
 	return db.getDailyUsageRollups(ctx,
 		"WHERE satellite_id = ? AND DATETIME(?) <= DATETIME(interval_start) AND DATETIME(interval_start) <= DATETIME(?)",
-		satelliteID, since, before,
 		satelliteID, since, before)
 }
 
@@ -312,6 +310,9 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 					GROUP BY interval_start, action
 			) GROUP BY date, action
 			ORDER BY interval_start`
+
+	// duplicate args as they are used twice
+	args = append(args, args...)
 
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
