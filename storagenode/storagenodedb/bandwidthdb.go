@@ -133,18 +133,18 @@ func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.N
 	from, to = from.UTC(), to.UTC()
 
 	query := `SELECT action, sum(a) amount from(
-					SELECT action, sum(amount) a
-						FROM bandwidth_usage
-						WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
-						AND satellite_id = ?
-						GROUP BY action
-					UNION ALL
-					SELECT action, sum(amount) a
-						FROM bandwidth_usage_rollups
-						WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
-						AND satellite_id = ?
-						GROUP BY action
-			) GROUP BY action;`
+			SELECT action, sum(amount) a
+				FROM bandwidth_usage
+				WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+				AND satellite_id = ?
+				GROUP BY action
+			UNION ALL
+			SELECT action, sum(amount) a
+				FROM bandwidth_usage_rollups
+				WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+				AND satellite_id = ?
+				GROUP BY action
+		) GROUP BY action;`
 
 	rows, err := db.QueryContext(ctx, query, from, to, satelliteID, from, to, satelliteID)
 	if err != nil {
@@ -299,17 +299,17 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT action, sum(a) as amount, DATETIME(DATE(interval_start)) as date FROM (
-				SELECT action, sum(amount) as a, created_at AS interval_start
-					FROM bandwidth_usage
-					` + cond + `
-					GROUP BY interval_start, action
-				UNION ALL
-				SELECT action, sum(amount) as a, interval_start
-					FROM bandwidth_usage_rollups
-					` + cond + `
-					GROUP BY interval_start, action
-			) GROUP BY date, action
-			ORDER BY interval_start`
+			SELECT action, sum(amount) as a, created_at AS interval_start
+				FROM bandwidth_usage
+				` + cond + `
+				GROUP BY interval_start, action
+			UNION ALL
+			SELECT action, sum(amount) as a, interval_start
+				FROM bandwidth_usage_rollups
+				` + cond + `
+				GROUP BY interval_start, action
+		) GROUP BY date, action
+		ORDER BY interval_start`
 
 	// duplicate args as they are used twice
 	args = append(args, args...)
