@@ -54,8 +54,8 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 
 	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
 		process.SaveConfigWithOverrides(map[string]interface{}{
-			"ca.cert-path":       setupCfg.CA.CertPath,
-			"ca.key-path":        setupCfg.CA.KeyPath,
+			"ca.cert-path":       setupCfg.Signer.CertPath,
+			"ca.key-path":        setupCfg.Signer.KeyPath,
 			"identity.cert-path": setupCfg.Identity.CertPath,
 			"identity.key-path":  setupCfg.Identity.KeyPath,
 		}))

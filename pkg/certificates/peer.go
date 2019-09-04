@@ -26,9 +26,9 @@ type Config struct {
 	Identity identity.Config
 	Server   server.Config
 
+	Signer         identity.FullCAConfig
 	Authorizations authorizations.Config
 	MinDifficulty  uint `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
-	CA             identity.FullCAConfig
 }
 
 // Peer is the certificates server

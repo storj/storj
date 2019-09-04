@@ -64,7 +64,7 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ca, err := runCfg.CA.Load()
+	ca, err := runCfg.Signer.Load()
 	if err != nil {
 		return err
 	}
