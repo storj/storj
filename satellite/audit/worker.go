@@ -57,6 +57,8 @@ func (worker *Worker) Close() error {
 // process repeatedly removes an item from the queue and runs an audit.
 func (worker *Worker) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	worker.limiter.Wait()
 	for {
 		path, err := worker.queue.Next()
 		if err != nil {
@@ -73,8 +75,6 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 			}
 		})
 	}
-	worker.limiter.Wait()
-	return nil
 }
 
 func (worker *Worker) work(ctx context.Context, path storj.Path) error {
