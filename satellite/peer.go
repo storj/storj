@@ -132,7 +132,6 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-	Vouchers  vouchers.Config
 
 	Version version.Config
 }
@@ -363,12 +362,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
-			peer.Log.Named("vouchers"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			peer.Overlay.Service,
-			config.Vouchers.Expiration,
-		)
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 

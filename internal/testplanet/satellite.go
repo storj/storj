@@ -35,7 +35,6 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/vouchers"
 )
 
 // newSatellites initializes satellites
@@ -205,9 +204,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Marketing: marketingweb.Config{
 				Address:   "127.0.0.1:0",
 				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
-			},
-			Vouchers: vouchers.Config{
-				Expiration: 30 * 24 * time.Hour,
 			},
 			Version: planet.NewVersionConfig(),
 		}

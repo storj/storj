@@ -18,6 +18,8 @@ exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.
 
 replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190814103321-ef17d024197d
 
+replace git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
+
 require (
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
 	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
