@@ -134,16 +134,16 @@ func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.N
 
 	query := `SELECT action, sum(a) amount from(
 					SELECT action, sum(amount) a
-					FROM bandwidth_usage
-					WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
-					AND satellite_id = ?
-					GROUP BY action
-						UNION ALL
-							SELECT action, sum(amount) a
-							FROM bandwidth_usage_rollups
-							WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
-							AND satellite_id = ?
-							GROUP BY action
+						FROM bandwidth_usage
+						WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+						AND satellite_id = ?
+						GROUP BY action
+					UNION ALL
+					SELECT action, sum(amount) a
+						FROM bandwidth_usage_rollups
+						WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+						AND satellite_id = ?
+						GROUP BY action
 			) GROUP BY action;`
 
 	rows, err := db.QueryContext(ctx, query, from, to, satelliteID, from, to, satelliteID)
@@ -270,7 +270,7 @@ func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
 // GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
 // sorted in ascending order.
 func (db *bandwidthDB) GetDailyRollups(ctx context.Context, from, to time.Time) (_ []bandwidth.UsageRollup, err error) {
-	defer mon.Task()(&ctx, from , to)(&err)
+	defer mon.Task()(&ctx, from, to)(&err)
 
 	since, _ := date.DayBoundary(from.UTC())
 	_, before := date.DayBoundary(to.UTC())
@@ -301,17 +301,17 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT action, sum(a) as amount, DATETIME(DATE(interval_start)) as date FROM (
-			SELECT action, sum(amount) as a, created_at AS interval_start
-			FROM bandwidth_usage
-			` + cond + `
-			GROUP BY interval_start, action
+				SELECT action, sum(amount) as a, created_at AS interval_start
+					FROM bandwidth_usage
+					` + cond + `
+					GROUP BY interval_start, action
 				UNION ALL
-					SELECT action, sum(amount) as a, interval_start
+				SELECT action, sum(amount) as a, interval_start
 					FROM bandwidth_usage_rollups
 					` + cond + `
 					GROUP BY interval_start, action
-		) GROUP BY date, action
-		ORDER BY interval_start`
+			) GROUP BY date, action
+			ORDER BY interval_start`
 
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
