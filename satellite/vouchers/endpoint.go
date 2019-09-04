@@ -11,10 +11,10 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-// Endpoint for issuing signed vouchers
+// Endpoint for issuing signed vouchers (DEPRECATED)
 type Endpoint struct{}
 
-// Request receives a voucher request and returns a voucher and an error
+// Request is deprecated and returns an error asking the storage node to update to the latest version.
 func (endpoint *Endpoint) Request(ctx context.Context, req *pb.VoucherRequest) (_ *pb.VoucherResponse, err error) {
 	return nil, errs.New("Vouchers endpoint is deprecated. Please upgrade your storage node to the latest version.")
 }
