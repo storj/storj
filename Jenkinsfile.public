@@ -102,7 +102,7 @@ pipeline {
 
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
-                        sh '# make test-sim-backwards-compatible'
+                        sh 'make test-sim-backwards-compatible'
                     }
                 }
             }
