@@ -74,6 +74,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 		})
 	}
 	worker.limiter.Wait()
+	return nil
 }
 
 func (worker *Worker) work(ctx context.Context, path storj.Path) error {

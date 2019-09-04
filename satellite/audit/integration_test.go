@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/audit"
 )
 
 func TestChoreAndWorkerIntegration(t *testing.T) {
@@ -39,12 +40,27 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		require.EqualValues(t, 2, satellite.Audit.Queue.Size(), "audit queue")
 
 		uniquePaths := make(map[storj.Path]struct{})
-		for _, path := range satellite.Audit.Queue.GetSlice() {
+		var err error
+		var path storj.Path
+		var pathCount int
+		for {
+			path, err = satellite.Audit.Queue.Next()
+			if err != nil {
+				break
+			}
+			pathCount++
 			_, ok := uniquePaths[path]
 			require.False(t, ok, "expected unique path in chore queue")
 
 			uniquePaths[path] = struct{}{}
 		}
+		require.True(t, audit.ErrEmptyQueue.Has(err))
+		require.Equal(t, 2, pathCount)
+		require.Equal(t, 0, satellite.Audit.Queue.Size())
+
+		// Repopulate the queue for the worker.
+		satellite.Audit.Chore.Loop.TriggerWait()
+		require.EqualValues(t, 2, satellite.Audit.Queue.Size(), "audit queue")
 
 		satellite.Audit.Worker.Loop.TriggerWait()
 

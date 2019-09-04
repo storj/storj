@@ -51,14 +51,3 @@ func (q *Queue) Size() int {
 
 	return len(q.queue)
 }
-
-// GetSlice returns a copy of the queue's backing slice.
-func (q *Queue) GetSlice() []storj.Path {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	queueCopy := make([]storj.Path, len(q.queue))
-	copy(queueCopy, q.queue)
-
-	return queueCopy
-}

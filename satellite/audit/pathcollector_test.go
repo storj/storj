@@ -56,7 +56,7 @@ func TestAuditPathCollector(t *testing.T) {
 
 		r := rand.New(rand.NewSource(time.Now().Unix()))
 		observer := audit.NewPathCollector(3, r)
-		err = audits.Chore.MetainfoLoop.Join(ctx, observer)
+		err = satellite.Metainfo.Loop.Join(ctx, observer)
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
