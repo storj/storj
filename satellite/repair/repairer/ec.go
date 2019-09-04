@@ -6,7 +6,6 @@ package repairer
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -18,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/errs2"
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
@@ -65,12 +65,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	}
 
 	pieceSize := eestream.CalcPieceSize(size, es)
-
-	// TODO: make these steps async so we can download from multiple nodes at the same time
-
-	fmt.Println("begin")
+	pieceReaders := make(map[int]io.ReadCloser)
 	var successfulPieces, currentLimitIndex int
-	shares := make([]infectious.Share, 0, es.RequiredCount())
 	for successfulPieces < es.RequiredCount() && currentLimitIndex < len(limits) {
 		limit := limits[currentLimitIndex]
 		if limit == nil {
@@ -85,14 +81,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 			continue
 		}
 
-		shares = append(shares, infectious.Share{
-			Number: currentLimitIndex,
-			Data:   downloadedPiece,
-		})
-		fmt.Println("share ", currentLimitIndex)
-		newHash := pkcrypto.NewHash()
-		calculatedHash := newHash.Sum(downloadedPiece)
-		fmt.Println("calculated hash", calculatedHash[:5])
+		pieceReaders[currentLimitIndex] = ioutil.NopCloser(bytes.NewReader(downloadedPiece))
+
 		currentLimitIndex++
 		successfulPieces++
 	}
@@ -105,24 +95,14 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, Error.Wrap(err)
 	}
 
-	// segment := make([]byte, int(pieceSize)*es.RequiredCount())
-	// segment, err = fec.Decode(segment, shares)
+	ctx, cancel := context.WithCancel(ctx)
+	esScheme := eestream.NewUnsafeRSScheme(fec, es.ErasureShareSize())
+	expectedSize := pieceSize * int64(es.RequiredCount())
+	// TODO make maxMemory configurable
+	maxMemory := 4 * memory.MiB
+	decodeReader := eestream.DecodeReaders(ctx, cancel, ec.log.Named("decode readers"), pieceReaders, esScheme, expectedSize, int(maxMemory), false)
 
-	// reconstruct original stripe
-	segment, err := rebuildStripe(ctx, fec, shares, int(pieceSize))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	fmt.Println("\nencoding")
-	fec.Encode(segment, func(share infectious.Share) {
-		fmt.Println("share ", share.Number)
-		newHash := pkcrypto.NewHash()
-		calculatedHash := newHash.Sum(share.Data)
-		fmt.Println("calculated hash", calculatedHash[:5])
-	})
-
-	return ioutil.NopCloser(bytes.NewReader(segment)), nil
+	return decodeReader, nil
 }
 
 // downloadAndVerifyPiece downloads a piece from a storagenode,
@@ -191,23 +171,6 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	}
 
 	return pieceBytes, nil
-}
-
-func rebuildStripe(ctx context.Context, fec *infectious.FEC, shares []infectious.Share, shareSize int) (_ []byte, err error) {
-	defer mon.Task()(&ctx)(&err)
-	stripe := make([]byte, fec.Required()*shareSize)
-	err = fec.Rebuild(shares, func(share infectious.Share) {
-		fmt.Println("fec reabuild for share number", share.Number)
-		fmt.Println("data size", len(share.Data), "share size", shareSize)
-		newHash := pkcrypto.NewHash()
-		calculatedHash := newHash.Sum(share.Data)
-		fmt.Println("calculated hash", calculatedHash[:5])
-		copy(stripe[share.Number*shareSize:], share.Data)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return stripe, nil
 }
 
 func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
