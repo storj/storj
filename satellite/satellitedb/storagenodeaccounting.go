@@ -226,19 +226,6 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 					GROUP BY start_time
 			ORDER BY start_time`
 
-	//query := `SELECT at_rest_total, start_time
-	//		   FROM accounting_rollups
-	//		   WHERE node_id = ?
-	//		   AND start_time BETWEEN ? AND ?
-	//		UNION
-	//		SELECT SUM(sst.data_total) as at_rest_total, DATE(sst.interval_end_time) as start_time
-	//		   FROM storagenode_storage_tallies sst
-	//		   WHERE sst.node_id = ?
-	//		   AND NOT EXISTS (SELECT 1 FROM accounting_rollups ar WHERE DATE(ar.start_time) = DATE(sst.interval_end_time))
-	//		   AND sst.interval_end_time BETWEEN (SELECT value FROM accounting_timestamps WHERE name = ?) AND ?
-	//		   GROUP BY start_time
-	//		   ORDER BY start_time ASC`
-
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
 		nodeID, start, end,
 		nodeID, accounting.LastRollup, end)
