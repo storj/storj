@@ -28,12 +28,11 @@ var (
 
 // Config is the global certificates config
 type Config struct {
-	Identity identity.Config
-	Server   server.Config
-
+	Server         server.Config
 	Signer         identity.FullCAConfig
 	Authorizations authorizations.Config
-	MinDifficulty  uint `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
+
+	MinDifficulty uint `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 }
 
 // Peer is the certificates server

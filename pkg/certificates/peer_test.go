@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net"
+	"storj.io/storj/pkg/server"
 	"testing"
 	"time"
 
@@ -25,8 +26,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
@@ -48,14 +47,12 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				}
 				err := signerCAConfig.Save(signer)
 				require.NoError(t, err)
-				config := certificates.Config{
-					Authorizations: authorizations.Config{
-						DBURL: "bolt://" + ctx.File("authorizations.db"),
-					},
-					CA: signerCAConfig,
+
+				authorizationsCfg := authorizations.Config{
+					DBURL: "bolt://" + ctx.File("authorizations.db"),
 				}
 
-				authDB, err := authorizations.NewDBFromCfg(config.Authorizations)
+				authDB, err := authorizations.NewDBFromCfg(authorizationsCfg)
 				require.NoError(t, err)
 				require.NotNil(t, authDB)
 
@@ -66,12 +63,15 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				err = authDB.Close()
 				require.NoError(t, err)
 
-				sc := server.Config{
-					Config: tlsopts.Config{
-						PeerIDVersions: "*",
+				certificatesCfg := certificates.Config{
+					Authorizations: authorizationsCfg,
+					Signer: signerCAConfig,
+					Server: server.Config{
+						Config:          tlsopts.Config{
+							PeerIDVersions: "*",
+							UsePeerCAWhitelist: false,
+						},
 					},
-					Address:        "127.0.0.1:0",
-					PrivateAddress: "127.0.0.1:0",
 				}
 
 				peer, err := certificates.New(zaptest.NewLogger(t), serverIdent, signer, authDB, nil, &certificatesCfg)
@@ -113,7 +113,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				assert.NoError(t, err)
 
 				// NB: re-open after closing for server
-				authDB, err = authorizations.NewDBFromCfg(config.Authorizations)
+				authDB, err = authorizations.NewDBFromCfg(authorizationsCfg)
 				require.NoError(t, err)
 				defer ctx.Check(authDB.Close)
 				require.NotNil(t, authDB)
