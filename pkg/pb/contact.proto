@@ -6,7 +6,6 @@ option go_package = "pb";
 
 package contact;
 
-import "gogo.proto";
 import "node.proto";
 
 service Contact {
@@ -19,7 +18,6 @@ service Node {
 
 message CheckinRequest {
     node.NodeAddress address = 1;
-    bytes id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     node.NodeCapacity capacity = 3;
     node.NodeOperator operator = 4;
 }
