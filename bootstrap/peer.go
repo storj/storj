@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
@@ -75,11 +74,6 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
-	}
-
-	Contact struct {
-		Service  *contact.Service
-		Endpoint *contact.Endpoint
 	}
 
 	// Web server with web UI
@@ -171,12 +165,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
-	}
-
-	{ // setup contact service
-		log.Debug("Setting up contact service")
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Overlay.Service, peer.Transport)
-		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
 	}
 
 	{ // setup bootstrap web ui
