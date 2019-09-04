@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+
+	"storj.io/storj/pkg/pb"
 )
 
 // Endpoint implements the contact service Endpoints.
@@ -23,18 +25,13 @@ func NewEndpoint(log *zap.Logger, service *Service) *Endpoint {
 	}
 }
 
-// These are being created in another branch; these dummy types should be removed once we can
-// switch to real protobuf types.
-type dummyCheckinRequest struct{}
-type dummyCheckinResponse struct{}
-
 // Checkin is periodically called by storage nodes to keep the satellite informed of its existence,
 // address, and operator information. In return, this satellite keeps the node informed of its
 // reachability.
-func (endpoint *Endpoint) Checkin(ctx context.Context, req *dummyCheckinRequest) (_ *dummyCheckinResponse, err error) {
+func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (_ *pb.CheckinResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: record information, pingback node here
 
-	return &dummyCheckinResponse{}, nil
+	return &pb.CheckinResponse{}, nil
 }
