@@ -164,7 +164,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Audit: audit.Config{
 				Slots:              3,
 				ChoreInterval:      30 * time.Second,
-				QueueInterval:      30 * time.Second,
+				QueueInterval:      1 * time.Hour,
 				MaxRetriesStatDB:   0,
 				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
