@@ -42,12 +42,13 @@
         font-weight: 600;
     }
 
-    &__resources-title {
+    &__resources-title,
+    &__account-title {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin: 10px 0 10px 65px;
-        padding: 25px 25px 0 0;
+        margin: 0 0 0 65px;
+        padding: 25px 25px 25px 0;
         border-top: 1px solid rgba(169, 181, 193, 0.3);
         font-weight: 600;
 
@@ -68,18 +69,12 @@
         }
     }
 
-    &__account-title {
-        border-top: 1px solid rgba(169, 181, 193, 0.3);
-        padding: 25px 0 0 0;
-        font-size: 14px;
-        line-height: 20px;
-        color: #A9B5C1;
-        margin: 25px 0 25px 65px;
-        font-weight: 600;
+    &__resources-title {
+        margin-top: 10px;
     }
 
     .custom {
-        margin: 10px 0 10px 65px;
+        padding: 25px 25px 10px 0;
     }
 
     &__item-container {
@@ -119,6 +114,10 @@
         }
     }
 
+    .support-item {
+        margin-bottom: 10px;
+    }
+
     .account-item {
         margin-left: 0;
 
@@ -142,8 +141,12 @@ a {
 }
 
 .divider {
-    margin: 10px 0 0 65px;
+    margin: 0 0 0 65px;
     border-top: 1px solid rgba(169, 181, 193, 0.3);
+}
+
+.custom-divider {
+    margin: 10px 0 0 65px;
 }
 
 @media screen and (max-width: 1024px) {
