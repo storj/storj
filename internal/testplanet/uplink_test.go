@@ -275,6 +275,7 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 		objects, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
 			Bucket: []byte("test-bucket"),
 		})
+		require.NoError(t, err)
 		require.Equal(t, 0, len(objects))
 	})
 }
