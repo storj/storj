@@ -35,8 +35,8 @@ _certificates() {
   exec certificates --identity-dir "$ident_dir" \
                --config-dir "$CERTS_DIR" \
                "$subcommand" \
-               --ca.cert-path "$ca_cert_path" \
-               --ca.key-path "$ca_key_path" \
+               --signer.cert-path "$ca_cert_path" \
+               --signer.key-path "$ca_key_path" \
                --server.address "$CERTS_ADDR" \
                --server.private-address "$CERTS_ADDR_PRIV" \
                --server.revocation-dburl="$rev_dburl" \
