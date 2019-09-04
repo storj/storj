@@ -19,7 +19,12 @@ import (
 	"storj.io/storj/pkg/server"
 )
 
-var mon = monkit.Package()
+var (
+	mon = monkit.Package()
+
+	// Error is the default error class for the certificates peer.
+	Error = errs.Class("certificates peer error")
+)
 
 // Config is the global certificates config
 type Config struct {
@@ -59,12 +64,12 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 
 		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
-			return nil, authorizations.Error.Wrap(errs.Combine(err, peer.Close()))
+			return nil, Error.Wrap(errs.Combine(err, peer.Close()))
 		}
 
 		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
-			return nil, authorizations.Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
@@ -94,5 +99,5 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Certificates.AuthorizationDB.Close())
 	}
 
-	return authorizations.Error.Wrap(errlist.Err())
+	return Error.Wrap(errlist.Err())
 }
