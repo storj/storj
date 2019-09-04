@@ -60,14 +60,16 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, Error.New("dataSize of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), es.TotalCount())
 	}
 
-	if nonNilCount(limits) < es.RequiredCount() {
+	nonNilLimits := nonNilCount(limits)
+
+	if nonNilLimits < es.RequiredCount() {
 		return nil, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
 	}
 
 	pieceSize := eestream.CalcPieceSize(dataSize, es)
 
 	var successfulPieces, inProgress int
-	unusedLimits := len(limits)
+	unusedLimits := nonNilLimits
 	pieceReaders := make(map[int]io.ReadCloser)
 
 	limiter := sync2.NewLimiter(es.RequiredCount())
@@ -101,13 +103,13 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					continue
 				}
 
+				unusedLimits--
 				inProgress++
 				cond.L.Unlock()
 
 				downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize, es.ErasureShareSize())
 				cond.L.Lock()
 				inProgress--
-				unusedLimits--
 				if err != nil {
 					ec.log.Debug("Failed to download pieces for repair.", zap.Error(err))
 					return
