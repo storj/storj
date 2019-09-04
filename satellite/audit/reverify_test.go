@@ -436,15 +436,11 @@ func TestReverifyDeletedSegment(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		// - uploads random data
-		// - uses the cursor to get a stripe
-		// - creates one pending audit for a node holding a piece for that stripe
+		// - gets a path from the audit queue
+		// - creates one pending audit for a node holding a piece for that segment
 		// - deletes the file
 		// - calls reverify on that same stripe
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
-
-		//audits := planet.Satellites[0].Audit.Service
-		//err := audits.Close()
-		//require.NoError(t, err)
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -455,9 +451,6 @@ func TestReverifyDeletedSegment(t *testing.T) {
 
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
-
-		//stripe, _, err := audits.Cursor.NextStripe(ctx)
-		//require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -481,7 +474,6 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		}
 
 		containment := planet.Satellites[0].DB.Containment()
-
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
@@ -490,7 +482,8 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		report, err := audits.Worker.Verifier.Reverify2(ctx, path)
-		require.NoError(t, err)
+		// TODO: is this desired behavior for if a segment is deleted?
+		require.True(t, audit.ErrSegmentDeleted.Has(err))
 		assert.Empty(t, report)
 
 		_, err = containment.Get(ctx, nodeID)
