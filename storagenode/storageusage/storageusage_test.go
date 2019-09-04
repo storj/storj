@@ -24,7 +24,7 @@ func TestStorageUsage(t *testing.T) {
 		days         = 30
 	)
 
-	now := time.Now().UTC()
+	now := time.Now()
 
 	var satellites []storj.NodeID
 	satelliteID := testrand.NodeID()
@@ -46,10 +46,10 @@ func TestStorageUsage(t *testing.T) {
 
 	for _, stamp := range stamps {
 		if stamp.SatelliteID == satelliteID {
-			dailyStamps[stamp.IntervalStart] = stamp
+			dailyStamps[stamp.IntervalStart.UTC()] = stamp
 		}
 
-		dailyStampsTotals[stamp.IntervalStart] += stamp.AtRestTotal
+		dailyStampsTotals[stamp.IntervalStart.UTC()] += stamp.AtRestTotal
 	}
 
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
@@ -106,7 +106,7 @@ func TestEmptyStorageUsage(t *testing.T) {
 		defer ctx.Cleanup()
 
 		var emptySummary float64
-		now := time.Now().UTC()
+		now := time.Now()
 
 		storageUsageDB := db.StorageUsage()
 
