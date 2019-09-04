@@ -53,18 +53,18 @@ func (ec *ECRepairer) dialPiecestore(ctx context.Context, n *pb.Node) (*piecesto
 // It attempts to download from the minimum required number based on the redundancy scheme.
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (_ io.ReadCloser, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
-		return nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), es.TotalCount())
+		return nil, Error.New("dataSize of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), es.TotalCount())
 	}
 
 	if nonNilCount(limits) < es.RequiredCount() {
 		return nil, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
 	}
 
-	pieceSize := eestream.CalcPieceSize(size, es)
+	pieceSize := eestream.CalcPieceSize(dataSize, es)
 
 	var successfulPieces, inProgress int
 	unusedLimits := len(limits)
@@ -104,7 +104,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				inProgress++
 				cond.L.Unlock()
 
-				downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
+				downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize, es.ErasureShareSize())
 				cond.L.Lock()
 				inProgress--
 				unusedLimits--
@@ -144,7 +144,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
-func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (data []byte, err error) {
+func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64, bufferSize int) (data []byte, err error) {
 	// contact node
 	ps, err := ec.dialPiecestore(ctx, &pb.Node{
 		Id:      limit.GetLimit().StorageNodeId,
@@ -162,8 +162,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 
 	var calculatedHash []byte
 	pieceBytes := make([]byte, 0, pieceSize)
-	// TODO: figure out the buffer size
-	buffer := make([]byte, 1024)
+	buffer := make([]byte, bufferSize)
 	newHash := pkcrypto.NewHash()
 
 	for {
