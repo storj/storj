@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
@@ -157,6 +158,10 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
+	}
+
+	Contact struct {
+		Service *contact.Service
 	}
 
 	Overlay struct {
@@ -350,6 +355,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
+	}
+
+	{ // setup contact service
+		log.Debug("Setting up contact service")
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Overlay.Service, peer.Transport)
 	}
 
 	{ // setup discovery
