@@ -3,7 +3,7 @@
 
 import Vue from 'vue';
 import AccountArea from '@/components/account/AccountArea.vue';
-import AccountBillingHistory from '@/components/account/billing/BillingArea.vue';
+import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import { AuthToken } from '@/utils/authToken';
@@ -37,10 +37,10 @@ export abstract class RouteConfig {
 
     // child paths
     public static ProjectDetails = new NavigationLink('details', 'Project Details');
-    public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     public static UsageReport = new NavigationLink('usage-report', 'Usage Report');
     public static PaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
     public static Profile = new NavigationLink('profile', 'Profile');
+    public static Billing = new NavigationLink('billing', 'Billing');
 
     // not in project yet
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
@@ -82,14 +82,14 @@ const router = new Router({
                             component: Profile,
                         },
                         {
+                            path: RouteConfig.Billing.path,
+                            name: RouteConfig.Billing.name,
+                            component: AccountBilling,
+                        },
+                        {
                             path: RouteConfig.PaymentMethods.path,
                             name: RouteConfig.PaymentMethods.name,
                             component: AccountPaymentMethods,
-                        },
-                        {
-                            path: RouteConfig.BillingHistory.path,
-                            name: RouteConfig.BillingHistory.name,
-                            component: AccountBillingHistory,
                         },
                     ]
                 },
