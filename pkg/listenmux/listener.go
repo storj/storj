@@ -26,6 +26,7 @@ func newListener(addr net.Addr) *listener {
 	}
 }
 
+// Conns returns the channel of net.Conn that the listener reads from.
 func (l *listener) Conns() chan net.Conn { return l.conns }
 
 // Accept waits for and returns the next connection to the listener.

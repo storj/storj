@@ -11,6 +11,8 @@ import (
 	"sync"
 )
 
+// Mux lets one multiplex a listener into different listeners based on the first
+// bytes sent on the connection.
 type Mux struct {
 	base      net.Listener
 	prefixLen int
@@ -25,6 +27,8 @@ type Mux struct {
 	err  error
 }
 
+// New creates a mux that reads the prefixLen bytes from any connections Accepted by the
+// passed in listener and dispatches to the appropriate route.
 func New(base net.Listener, prefixLen int) *Mux {
 	addr := base.Addr()
 	return &Mux{
@@ -43,8 +47,11 @@ func New(base net.Listener, prefixLen int) *Mux {
 // set up the routes
 //
 
+// Default returns the net.Listener that is used if no route matches.
 func (m *Mux) Default() net.Listener { return m.def }
 
+// Route returns a listener that will be used if the first bytes are the given prefix. The
+// length of the prefix must match the original passed in prefixLen.
 func (m *Mux) Route(prefix string) net.Listener {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -66,6 +73,8 @@ func (m *Mux) Route(prefix string) net.Listener {
 // run the muxer
 //
 
+// Run calls listen on the provided listener and passes connections to the routed
+// listeners.
 func (m *Mux) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
