@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net"
-	"storj.io/storj/pkg/server"
 	"testing"
 	"time"
 
@@ -26,6 +25,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
