@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -16,17 +15,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-type Config struct {
-	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
-	DialerLimit     int    `help:"Semaphore size" Default:"32"`
-}
-
-var (
-	// NodeContactErr is the class for all errors pertaining to contacting nodes
-	NodeContactErr = errs.Class("node error")
-
-	mon = monkit.Package()
-)
+var mon = monkit.Package()
 
 // Service is the contact service between storage nodes and satellites
 type Service struct {
@@ -41,7 +30,7 @@ type Service struct {
 }
 
 // NewService creates a new contact service
-func NewService(log *zap.Logger, config Config, self *overlay.NodeDossier, transport transport.Client) *Service {
+func NewService(log *zap.Logger, self *overlay.NodeDossier, transport transport.Client) *Service {
 	return &Service{
 		log:       log,
 		self:      self,
@@ -50,14 +39,14 @@ func NewService(log *zap.Logger, config Config, self *overlay.NodeDossier, trans
 }
 
 // LastPinged returns last time someone pinged this node.
-func (service *Service) LastPinged() (when time.Time, who storj.NodeID, addr string) {
+func (service *Service) whenLastPinged() (when time.Time, who storj.NodeID, addr string) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	return service.lastPinged, service.whoPingedNodeID, service.whoPingedAddress
 }
 
 // Pinged notifies the service it has been remotely pinged.
-func (service *Service) Pinged(when time.Time, srcNodeID storj.NodeID, srcAddress string) {
+func (service *Service) wasPinged(when time.Time, srcNodeID storj.NodeID, srcAddress string) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	service.lastPinged = when
