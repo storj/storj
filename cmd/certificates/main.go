@@ -59,12 +59,12 @@ var (
 func cmdRun(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	ident, err := runCfg.Identity.Load()
+	identity, err := runCfg.Identity.Load()
 	if err != nil {
 		return err
 	}
 
-	ca, err := runCfg.Signer.Load()
+	signer, err := runCfg.Signer.Load()
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := certificates.New(zap.L(), ident, ca, authorizationDB, revocationDB, &runCfg)
+	peer, err := certificates.New(zap.L(), identity, signer, authorizationDB, revocationDB, &runCfg)
 	return peer.Run(ctx)
 }
 
