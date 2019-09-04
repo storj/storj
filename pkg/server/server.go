@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	"storj.io/drpc/drpcserver"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/listenmux"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -26,11 +27,13 @@ type Service interface {
 
 type public struct {
 	listener net.Listener
+	drpc     *drpcserver.Server
 	grpc     *grpc.Server
 }
 
 type private struct {
 	listener net.Listener
+	drpc     *drpcserver.Server
 	grpc     *grpc.Server
 }
 
@@ -64,6 +67,7 @@ func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string,
 	}
 	server.public = public{
 		listener: publicListener,
+		drpc:     drpcserver.New(),
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
@@ -77,6 +81,7 @@ func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string,
 	}
 	server.private = private{
 		listener: privateListener,
+		drpc:     drpcserver.New(),
 		grpc:     grpc.NewServer(),
 	}
 
@@ -95,13 +100,20 @@ func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
 // GRPC returns the server's gRPC handle for registration purposes
 func (p *Server) GRPC() *grpc.Server { return p.public.grpc }
 
+// DRPC returns the server's dRPC handle for registration purposes
+func (p *Server) DRPC() *drpcserver.Server { return p.public.drpc }
+
 // PrivateGRPC returns the server's gRPC handle for registration purposes
 func (p *Server) PrivateGRPC() *grpc.Server { return p.private.grpc }
+
+// PrivateDRPC returns the server's dRPC handle for registration purposes
+func (p *Server) PrivateDRPC() *drpcserver.Server { return p.private.drpc }
 
 // Close shuts down the server
 func (p *Server) Close() error {
 	p.public.grpc.GracefulStop()
 	p.private.grpc.GracefulStop()
+	// TODO(jeff): have some sort of graceful stop in the drpc server
 	return nil
 }
 
@@ -120,8 +132,13 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	const drpcHeader = "DRPC!!!1"
+
 	publicMux := listenmux.New(p.public.listener, 8)
+	publicDRPCListener := publicMux.Route(drpcHeader)
+
 	privateMux := listenmux.New(p.private.listener, 8)
+	privateDRPCListener := privateMux.Route(drpcHeader)
 
 	var group errgroup.Group
 	group.Go(func() error {
@@ -140,7 +157,15 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
+		return p.public.drpc.Serve(publicDRPCListener)
+	})
+	group.Go(func() error {
+		defer cancel()
 		return p.private.grpc.Serve(privateMux.Default())
+	})
+	group.Go(func() error {
+		defer cancel()
+		return p.private.drpc.Serve(privateDRPCListener)
 	})
 
 	return group.Wait()
