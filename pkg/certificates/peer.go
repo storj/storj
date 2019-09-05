@@ -11,7 +11,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
-	"storj.io/storj/pkg/certificates/authorizations"
+	"storj.io/storj/pkg/certificates/authorization"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -32,7 +32,7 @@ type Config struct {
 	Server   server.Config
 
 	Signer         identity.FullCAConfig
-	Authorizations authorizations.Config
+	Authorizations authorization.Config
 
 	MinDifficulty uint `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 }
@@ -47,13 +47,13 @@ type Peer struct {
 
 	// services and endpoints
 	Certificates struct {
-		AuthorizationDB *authorizations.DB
+		AuthorizationDB *authorization.DB
 		Endpoint        *Endpoint
 	}
 }
 
 // New creates a new certificates peer.
-func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.DB, revocationDB *revocation.DB, config *Config) (*Peer, error) {
+func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, revocationDB *revocation.DB, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: ident,
@@ -75,7 +75,7 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	}
 
 	peer.Certificates.AuthorizationDB = authorizationDB
-	peer.Certificates.Endpoint = NewCertificatesServer(log.Named("certificates"), ident, ca, authorizationDB, uint16(config.MinDifficulty))
+	peer.Certificates.Endpoint = NewEndpoint(log.Named("certificates"), ident, ca, authorizationDB, uint16(config.MinDifficulty))
 	pb.RegisterCertificatesServer(peer.Server.GRPC(), peer.Certificates.Endpoint)
 
 	return peer, nil

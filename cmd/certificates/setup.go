@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/certificates/authorizations"
+	"storj.io/storj/pkg/certificates/authorization"
 	"storj.io/storj/pkg/process"
 )
 
@@ -44,7 +44,7 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	authorizationDB, err := authorizations.NewDBFromCfg(setupCfg.Authorizations)
+	authorizationDB, err := authorization.NewDBFromCfg(setupCfg.Authorizations)
 	if err != nil {
 		return err
 	}

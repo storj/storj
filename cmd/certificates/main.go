@@ -10,7 +10,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/certificates"
-	"storj.io/storj/pkg/certificates/authorizations"
+	"storj.io/storj/pkg/certificates/authorization"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
@@ -69,7 +69,7 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	authorizationDB, err := authorizations.NewDBFromCfg(runCfg.Authorizations)
+	authorizationDB, err := authorization.NewDBFromCfg(runCfg.Authorizations)
 	if err != nil {
 		return errs.New("error opening authorizations database: %+v", err)
 	}

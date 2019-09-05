@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/certificates/authorizations"
+	"storj.io/storj/pkg/certificates/authorization"
 	"storj.io/storj/pkg/process"
 )
 
@@ -37,7 +37,7 @@ var (
 
 func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	authDB, err := authorizations.NewDBFromCfg(claimsExportCfg.Authorizations)
+	authDB, err := authorization.NewDBFromCfg(claimsExportCfg.Authorizations)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 
 func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	authDB, err := authorizations.NewDBFromCfg(claimsDeleteCfg.Authorizations)
+	authDB, err := authorization.NewDBFromCfg(claimsDeleteCfg.Authorizations)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ type printableClaim struct {
 	NodeID string
 }
 
-func toPrintableAuth(auth *authorizations.Authorization) *printableAuth {
+func toPrintableAuth(auth *authorization.Authorization) *printableAuth {
 	pAuth := new(printableAuth)
 
 	pAuth.UserID = auth.Token.UserID

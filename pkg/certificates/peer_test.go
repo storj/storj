@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/certificates"
-	"storj.io/storj/pkg/certificates/authorizations"
+	"storj.io/storj/pkg/certificates/authorization"
 	"storj.io/storj/pkg/certificates/certificatesclient"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -48,11 +48,11 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				err := signerCAConfig.Save(signer)
 				require.NoError(t, err)
 
-				authorizationsCfg := authorizations.Config{
+				authorizationsCfg := authorization.Config{
 					DBURL: "bolt://" + ctx.File("authorizations.db"),
 				}
 
-				authDB, err := authorizations.NewDBFromCfg(authorizationsCfg)
+				authDB, err := authorization.NewDBFromCfg(authorizationsCfg)
 				require.NoError(t, err)
 				require.NotNil(t, authDB)
 
@@ -112,7 +112,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				assert.NoError(t, err)
 
 				// NB: re-open after closing for server
-				authDB, err = authorizations.NewDBFromCfg(authorizationsCfg)
+				authDB, err = authorization.NewDBFromCfg(authorizationsCfg)
 				require.NoError(t, err)
 				defer ctx.Check(authDB.Close)
 				require.NotNil(t, authDB)
@@ -149,7 +149,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 
 			userID := "user@mail.test"
 			// TODO: test with all types of authorization DBs (bolt, redis, etc.)
-			authDB, err := authorizations.NewDB("bolt://"+ctx.File("authorizations.db"), false)
+			authDB, err := authorization.NewDB("bolt://"+ctx.File("authorizations.db"), false)
 			require.NoError(t, err)
 			defer ctx.Check(authDB.Close)
 			require.NotNil(t, authDB)
@@ -175,7 +175,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			srvIdent, err := testidentity.NewTestIdentity(ctx)
 			require.NoError(t, err)
 
-			certSigner := certificates.NewCertificatesServer(zaptest.NewLogger(t), srvIdent, ca, authDB, 0)
+			certSigner := certificates.NewEndpoint(zaptest.NewLogger(t), srvIdent, ca, authDB, 0)
 			req := pb.SigningRequest{
 				Timestamp: time.Now().Unix(),
 				AuthToken: auths[0].Token.String(),
@@ -206,8 +206,8 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			assert.Equal(t, expectedAddr.String(), claim.Addr)
 			assert.Equal(t, res.Chain, claim.SignedChainBytes)
 			assert.Condition(t, func() bool {
-				return now-authorizations.MaxClaimDelaySeconds < claim.Timestamp &&
-					claim.Timestamp < now+authorizations.MaxClaimDelaySeconds
+				return now-authorization.MaxClaimDelaySeconds < claim.Timestamp &&
+					claim.Timestamp < now+authorization.MaxClaimDelaySeconds
 			})
 		})
 	})
