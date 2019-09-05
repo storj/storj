@@ -29,9 +29,9 @@ func (s *unsafeRSScheme) Encode(input []byte, output func(num int, data []byte))
 }
 
 func (s *unsafeRSScheme) Decode(out []byte, in map[int][]byte) ([]byte, error) {
-	shares := make([]infectious.Share, 0, len(in))
+	shares := make([]infectious.Share, len(in))
 	for num, data := range in {
-		shares = append(shares, infectious.Share{Number: num, Data: data})
+		shares[num] = infectious.Share{Number: num, Data: data}
 	}
 
 	stripe := make([]byte, s.RequiredCount()*s.ErasureShareSize())

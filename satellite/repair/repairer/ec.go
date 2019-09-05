@@ -57,7 +57,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
-		return nil, Error.New("dataSize of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), es.TotalCount())
+		return nil, Error.New("number of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), es.TotalCount())
 	}
 
 	nonNilLimits := nonNilCount(limits)
@@ -134,10 +134,10 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, Error.Wrap(err)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
 	esScheme := eestream.NewUnsafeRSScheme(fec, es.ErasureShareSize())
 	expectedSize := pieceSize * int64(es.RequiredCount())
 
+	ctx, cancel := context.WithCancel(ctx)
 	decodeReader := eestream.DecodeReaders(ctx, cancel, ec.log.Named("decode readers"), pieceReaders, esScheme, expectedSize, 0, false)
 
 	return decodeReader, nil
@@ -171,7 +171,8 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		// download full piece
 		n, readErr := downloader.Read(buffer)
 		if readErr == io.EOF {
-			calculatedHash = newHash.Sum(buffer[:n])
+			_, _ = newHash.Write(buffer[:n])
+			pieceBytes = append(pieceBytes, buffer[:n]...)
 			break
 		}
 		if readErr != nil {
@@ -184,6 +185,8 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		pieceBytes = append(pieceBytes, buffer[:n]...)
 	}
 
+	calculatedHash = newHash.Sum(nil)
+
 	if int64(len(pieceBytes)) != pieceSize {
 		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, len(pieceBytes))
 	}
@@ -191,19 +194,19 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	// get signed piece hash and original order limit
 	hash, originalLimit := downloader.GetHashAndLimit()
 	if hash == nil {
-		return nil, Error.New("Hash was not sent from storagenode.")
+		return nil, Error.New("hash was not sent from storagenode.")
 	}
 	if originalLimit == nil {
-		return nil, Error.New("Original order limit was not sent from storagenode.")
-	}
-
-	// verify the hashes from storage node
-	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
-		return nil, err
+		return nil, Error.New("original order limit was not sent from storagenode.")
 	}
 
 	// verify order limit from storage node is signed by the satellite
 	if err := verifyOrderLimitSignature(ctx, ec.satelliteSignee, originalLimit); err != nil {
+		return nil, err
+	}
+
+	// verify the hashes from storage node
+	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
 		return nil, err
 	}
 
@@ -238,7 +241,7 @@ func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, li
 	return nil
 }
 
-// Repair takes a provided segment, encodes it with the prolvided redundancy strategy,
+// Repair takes a provided segment, encodes it with the provided redundancy strategy,
 // and uploads the pieces in need of repair to new nodes provided by order limits.
 func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
