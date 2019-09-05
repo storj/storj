@@ -448,15 +448,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Overlay.Service,
 			config.Checker)
 
+		segmentRepairer := repairer.NewSegmentRepairer(
+			log.Named("repairer"),
+			peer.Metainfo.Service,
+			peer.Orders.Service,
+			peer.Overlay.Service,
+			peer.Transport,
+			config.Repairer.Timeout,
+			config.Repairer.MaxExcessRateOptimalThreshold,
+			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
+		)
+
 		peer.Repair.Repairer = repairer.NewService(
 			peer.Log.Named("repairer"),
 			peer.DB.RepairQueue(),
 			&config.Repairer,
-			peer.Transport,
-			peer.Metainfo.Service,
-			peer.Orders.Service,
-			peer.Overlay.Service,
-			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
+			segmentRepairer,
 		)
 
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())

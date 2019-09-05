@@ -14,11 +14,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
 )
@@ -49,9 +44,7 @@ type Service struct {
 }
 
 // NewService creates repairing service
-func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Service, satelliteSignee signing.Signee) *Service {
-	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, transport, config.Timeout, config.MaxExcessRateOptimalThreshold, satelliteSignee)
-
+func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer) *Service {
 	return &Service{
 		log:      log,
 		queue:    queue,
