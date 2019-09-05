@@ -18,8 +18,9 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { getColor } from '@/utils/avatarColorManager';
+
 import { ProjectMember } from '@/types/projectMembers';
+import { getColor } from '@/utils/avatarColorManager';
 
 @Component
 export default class ProjectMemberListItem extends Vue {

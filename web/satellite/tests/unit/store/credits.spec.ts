@@ -2,10 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
+
 import { CreditsApiGql } from '@/api/credits';
-import { CREDIT_USAGE_MUTATIONS, CREDIT_USAGE_ACTIONS, makeCreditsModule } from '@/store/modules/credits';
+import { CREDIT_USAGE_ACTIONS, CREDIT_USAGE_MUTATIONS, makeCreditsModule } from '@/store/modules/credits';
 import { CreditUsage } from '@/types/credits';
+import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const api = new CreditsApiGql();

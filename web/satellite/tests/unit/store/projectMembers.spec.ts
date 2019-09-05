@@ -1,17 +1,17 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue } from '@vue/test-utils';
 import Vuex from 'vuex';
 
 import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { ProjectsApiGql } from '@/api/projects';
+import { createLocalVue } from '@vue/test-utils';
 
 const projectsApi = new ProjectsApiGql();
 const projectsModule = makeProjectsModule(projectsApi);

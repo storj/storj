@@ -1,8 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount, shallowMount } from '@vue/test-utils';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+
+import { mount, shallowMount } from '@vue/test-utils';
 
 describe('HeaderlessInput.vue', () => {
 

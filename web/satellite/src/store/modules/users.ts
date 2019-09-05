@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { UpdatedUser, User, UsersApi } from '@/types/users';
 import { StoreModule } from '@/store';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
 
 export const USER_ACTIONS = {
     UPDATE: 'updateUser',

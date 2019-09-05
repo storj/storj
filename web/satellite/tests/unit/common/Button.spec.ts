@@ -1,9 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount, shallowMount } from '@vue/test-utils';
-import Button from '@/components/common/Button.vue';
 import * as sinon from 'sinon';
+
+import Button from '@/components/common/Button.vue';
+
+import { mount, shallowMount } from '@vue/test-utils';
 
 describe('Button.vue', () => {
 

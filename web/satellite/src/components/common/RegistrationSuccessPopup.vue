@@ -5,11 +5,13 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import Button from '@/components/common/Button.vue';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { RouteConfig } from '@/router';
+
 import { AuthApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
 import { getUserId } from '@/utils/consoleLocalStorage';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {

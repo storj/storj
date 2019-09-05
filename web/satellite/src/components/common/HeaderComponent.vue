@@ -12,6 +12,7 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+
 import SearchComponent from '@/components/common/SearchComponent.vue';
 
 declare type searchCallback = (search: string) => Promise<void>;

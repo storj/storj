@@ -17,10 +17,12 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { Project } from '@/types/projects';
+
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { Project } from '@/types/projects';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+
+import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
 
 @Component({
     components: {

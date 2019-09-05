@@ -26,9 +26,11 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { OnHeaderClickCallback, ProjectMemberOrderBy } from '@/types/projectMembers';
-import { SortDirection } from '@/types/common';
+
 import VerticalArrows from '@/components/common/VerticalArrows.vue';
+
+import { SortDirection } from '@/types/common';
+import { OnHeaderClickCallback, ProjectMemberOrderBy } from '@/types/projectMembers';
 
 @Component({
     components: {

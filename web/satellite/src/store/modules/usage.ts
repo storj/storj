@@ -3,7 +3,7 @@
 
 import { ProjectUsageApiGql } from '@/api/usage';
 import { StoreModule } from '@/store';
-import { ProjectUsage, DateRange } from '@/types/usage';
+import { DateRange, ProjectUsage } from '@/types/usage';
 
 export const PROJECT_USAGE_ACTIONS = {
     FETCH: 'fetchProjectUsage',

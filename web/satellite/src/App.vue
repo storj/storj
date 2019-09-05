@@ -10,39 +10,41 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import NotificationArea from '@/components/notifications/NotificationArea.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            NotificationArea
-        },
-    })
-    export default class App extends Vue {
-        private ids: string[] = [
-                    'accountDropdown',
-                    'accountDropdownButton',
-                    'projectDropdown',
-                    'projectDropdownButton',
-                    'sortTeamMemberByDropdown',
-                    'sortTeamMemberByDropdownButton',
-                    'notificationArea',
-                    'successfulRegistrationPopup',
-                ];
+import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
-        private onClick(e: Event): void {
-            let target: any = e.target;            
-            while (target) {
-                if (this.$data.ids.includes(target.id)) {
-                    return;
-                }
-                target = target.parentNode;
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+
+@Component({
+    components: {
+        NotificationArea
+    },
+})
+export default class App extends Vue {
+    private ids: string[] = [
+                'accountDropdown',
+                'accountDropdownButton',
+                'projectDropdown',
+                'projectDropdownButton',
+                'sortTeamMemberByDropdown',
+                'sortTeamMemberByDropdownButton',
+                'notificationArea',
+                'successfulRegistrationPopup',
+            ];
+
+    private onClick(e: Event): void {
+        let target: any = e.target;            
+        while (target) {
+            if (this.$data.ids.includes(target.id)) {
+                return;
             }
-
-            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+            target = target.parentNode;
         }
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
+}
 </script>
 
 <style lang="scss">

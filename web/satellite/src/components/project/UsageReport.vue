@@ -58,12 +58,14 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { RouteConfig } from '@/router';
+
 import Datepicker from '@/components/project/DatePicker.vue';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { toUnixTimestamp } from '@/utils/time';
+
+import { RouteConfig } from '@/router';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { DateRange } from '@/types/usage';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { toUnixTimestamp } from '@/utils/time';
 
 @Component({
     components: {

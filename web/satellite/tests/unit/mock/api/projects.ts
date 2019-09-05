@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ProjectsApi, Project, CreateProjectModel } from '@/types/projects';
+import { CreateProjectModel, Project, ProjectsApi } from '@/types/projects';
 
 /**
  * Mock for CreditsApi

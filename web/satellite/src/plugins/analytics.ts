@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import VueSegmentAnalytics from 'vue-segment-analytics';
+
 import { isDoNotTrackEnabled } from '@/utils/doNotTrack';
 
 const Analytics = {

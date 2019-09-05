@@ -15,24 +15,25 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { SortingDirectionEnum } from '@/types/sortingArrows';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class VerticalArrows extends Vue {
-        @Prop({default: false})
-        private isActive: boolean;
-        @Prop({default: SortingDirectionEnum.BOTTOM})
-        private direction: SortingDirectionEnum;
+import { SortingDirectionEnum } from '@/types/sortingArrows';
 
-        public get isTop(): boolean {
-            return this.direction === SortingDirectionEnum.TOP;
-        }
+@Component
+export default class VerticalArrows extends Vue {
+    @Prop({default: false})
+    private isActive: boolean;
+    @Prop({default: SortingDirectionEnum.BOTTOM})
+    private direction: SortingDirectionEnum;
 
-        public get isBottom(): boolean {
-            return this.direction === SortingDirectionEnum.BOTTOM;
-        }
+    public get isTop(): boolean {
+        return this.direction === SortingDirectionEnum.TOP;
     }
+
+    public get isBottom(): boolean {
+        return this.direction === SortingDirectionEnum.BOTTOM;
+    }
+}
 </script>
 
 <style scoped lang="scss">

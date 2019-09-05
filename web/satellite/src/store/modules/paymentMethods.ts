@@ -1,15 +1,15 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { PROJECT_PAYMENT_METHODS_MUTATIONS } from '@/store/mutationConstants';
-import { PROJECT_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
 import {
     addProjectPaymentMethodRequest,
     deletePaymentMethodRequest,
     fetchProjectPaymentMethods,
     setDefaultPaymentMethodRequest
 } from '@/api/paymentMethods';
+import { PROJECT_PAYMENT_METHODS_MUTATIONS } from '@/store/mutationConstants';
 import { RequestResponse } from '@/types/response';
+import { PROJECT_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
 
 export const projectPaymentsMethodsModule = {
     state: {

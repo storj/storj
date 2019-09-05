@@ -17,19 +17,20 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button
-        }
-    })
-    export default class AccountBalance extends Vue {
-        public onEarnCredits(): void {
-            return;
-        }
+import Button from '@/components/common/Button.vue';
+
+@Component({
+    components: {
+        Button
     }
+})
+export default class AccountBalance extends Vue {
+    public onEarnCredits(): void {
+        return;
+    }
+}
 </script>
 
 <style scoped lang="scss">

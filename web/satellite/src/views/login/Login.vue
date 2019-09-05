@@ -5,16 +5,18 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+
 import Button from '@/components/common/Button.vue';
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+
+import { AuthApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { AuthApi } from '@/api/auth';
-import { LOADING_CLASSES } from '@/utils/constants/classConstants';
-import { AppState } from '@/utils/constants/appStateEnum';
-import { validateEmail, validatePassword } from '@/utils/validation';
 import EVENTS from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/router';
+import { AppState } from '@/utils/constants/appStateEnum';
+import { LOADING_CLASSES } from '@/utils/constants/classConstants';
+import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component({
     components: {

@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { API_KEYS_MUTATIONS } from '../mutationConstants';
-import { ApiKey, ApiKeysApi } from '@/types/apiKeys';
 import { StoreModule } from '@/store';
+import { ApiKey, ApiKeysApi } from '@/types/apiKeys';
+
+import { API_KEYS_MUTATIONS } from '../mutationConstants';
 
 const {
     FETCH,

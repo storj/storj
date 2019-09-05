@@ -1,10 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount, shallowMount } from '@vue/test-utils';
 import * as sinon from 'sinon';
+
 import PagesBlock from '@/components/common/PagesBlock.vue';
+
 import { Page } from '@/types/pagination';
+import { mount, shallowMount } from '@vue/test-utils';
 
 describe('Pagination.vue', () => {
     it('renders correctly without props', () => {

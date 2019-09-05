@@ -1,8 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount, shallowMount } from '@vue/test-utils';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
+
+import { mount, shallowMount } from '@vue/test-utils';
 
 describe('HeaderedInput.vue', () => {
 

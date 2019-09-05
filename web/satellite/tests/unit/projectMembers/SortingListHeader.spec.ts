@@ -2,11 +2,12 @@
 // See LICENSE for copying information.
 
 import sinon from 'sinon';
-import { mount } from '@vue/test-utils';
 
 import SortingListHeader from '@/components/team/SortingListHeader.vue';
+
 import { SortDirection } from '@/types/common';
 import { ProjectMemberOrderBy } from '@/types/projectMembers';
+import { mount } from '@vue/test-utils';
 
 describe('SortingListHeader.vue', () => {
     it('should render correctly', function () {

@@ -56,19 +56,22 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
 import VueClipboards from 'vue-clipboards';
-import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
-import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
+import { Component, Vue } from 'vue-property-decorator';
+
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
+import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
 import Button from '@/components/common/Button.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
-import List from '@/components/common/List.vue';
 import HeaderComponent from '@/components/common/HeaderComponent.vue';
-import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
+import List from '@/components/common/List.vue';
+
+import { ApiKey } from '@/types/apiKeys';
 import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { ApiKey } from '@/types/apiKeys';
+
+import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
+import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
 
 Vue.use(VueClipboards);
 

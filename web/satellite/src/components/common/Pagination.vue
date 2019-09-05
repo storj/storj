@@ -18,10 +18,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue, Prop, Watch } from 'vue-property-decorator';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+
 import PagesBlock from '@/components/common/PagesBlock.vue';
+
 import { Page } from '@/types/pagination';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component({
     components: {

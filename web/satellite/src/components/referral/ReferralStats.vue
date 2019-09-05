@@ -22,9 +22,10 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+
 import { CREDIT_USAGE_ACTIONS } from '@/store/modules/credits';
 import { CreditUsage } from '@/types/credits';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 class CreditDescription {
     public title: string;

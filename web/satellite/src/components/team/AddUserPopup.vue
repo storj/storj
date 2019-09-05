@@ -67,11 +67,12 @@
 <script lang='ts'>
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import Button from '@/components/common/Button.vue';
-import { EmailInput } from '@/types/EmailInput';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+
 import { RouteConfig } from '@/router';
+import { EmailInput } from '@/types/EmailInput';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { validateEmail } from '@/utils/validation';
 
 @Component({

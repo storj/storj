@@ -32,11 +32,12 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import Button from '@/components/common/Button.vue';
 import HeaderComponent from '@/components/common/HeaderComponent.vue';
-import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
 import AddUserPopup from '@/components/team/AddUserPopup.vue';
+
+import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 declare interface ClearSearch {
     clearSearch: () => void;

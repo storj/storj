@@ -2,13 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
-import { ProjectUsageApiGql } from '@/api/usage';
-import { makeUsageModule, PROJECT_USAGE_ACTIONS, PROJECT_USAGE_MUTATIONS } from '@/store/modules/usage';
-import { DateRange, ProjectUsage } from '@/types/usage';
+
 import { ProjectsApiGql } from '@/api/projects';
+import { ProjectUsageApiGql } from '@/api/usage';
 import { makeProjectsModule } from '@/store/modules/projects';
+import { makeUsageModule, PROJECT_USAGE_ACTIONS, PROJECT_USAGE_MUTATIONS } from '@/store/modules/usage';
 import { Project } from '@/types/projects';
+import { DateRange, ProjectUsage } from '@/types/usage';
+import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const projectUsageApi = new ProjectUsageApiGql();

@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 // ProjectMember stores needed info about user info to show it on UI
-import { User } from '@/types/users';
 import { SortDirection } from '@/types/common';
+import { User } from '@/types/users';
 
 export type OnHeaderClickCallback = (sortBy: ProjectMemberOrderBy, sortDirection: SortDirection) => Promise<void>;
 

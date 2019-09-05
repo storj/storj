@@ -1,8 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount } from '@vue/test-utils';
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
+
+import { mount } from '@vue/test-utils';
 
 describe('ApiKeysItem.vue', () => {
     it('renders correctly', () => {

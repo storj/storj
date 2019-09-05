@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import gql from 'graphql-tag';
+
 import apollo from '@/utils/apollo';
 
 /**

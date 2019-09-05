@@ -45,19 +45,21 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
+import Button from '@/components/common/Button.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
+
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import { CreateProjectModel, Project } from '@/types/projects';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     NOTIFICATION_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
-import Button from '@/components/common/Button.vue';
-import Checkbox from '@/components/common/Checkbox.vue';
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { CreateProjectModel, Project } from '@/types/projects';
-import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
 @Component({
     components: {

@@ -1,17 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
+
 import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue';
-import { ApiKey } from '@/types/apiKeys';
+
+import { ApiKeysApiGql } from '@/api/apiKeys';
+import { ProjectsApiGql } from '@/api/projects';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectsModule } from '@/store/modules/projects';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { ApiKey } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
-import { ApiKeysApiGql } from '@/api/apiKeys';
-import { ProjectsApiGql } from '@/api/projects';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);

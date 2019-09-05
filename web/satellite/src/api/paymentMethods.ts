@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import apollo from '@/utils/apollo';
 import gql from 'graphql-tag';
+
 import { RequestResponse } from '@/types/response';
+import apollo from '@/utils/apollo';
 
 export async function addProjectPaymentMethodRequest(projectId: string, cardToken: string, isDefault: boolean): Promise<RequestResponse<null>> {
     const result: RequestResponse<null> = new RequestResponse<null>();

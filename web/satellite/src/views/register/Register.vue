@@ -5,17 +5,19 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import InfoComponent from '@/components/common/InfoComponent.vue';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
-import { validateEmail, validatePassword } from '@/utils/validation';
+
+import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
+import { User } from '@/types/users';
+import { setUserId } from '@/utils/consoleLocalStorage';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import EVENTS from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { AuthApi } from '@/api/auth';
-import { setUserId } from '@/utils/consoleLocalStorage';
-import { User } from '@/types/users';
-import InfoComponent from '@/components/common/InfoComponent.vue';
+import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component({
     components: {

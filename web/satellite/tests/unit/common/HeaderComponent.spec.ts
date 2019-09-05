@@ -1,9 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount, shallowMount } from '@vue/test-utils';
 import * as sinon from 'sinon';
+
 import HeaderComponent from '@/components/common/HeaderComponent.vue';
+
+import { mount, shallowMount } from '@vue/test-utils';
 
 describe('HeaderComponent.vue', () => {
     it('renders correctly', () => {

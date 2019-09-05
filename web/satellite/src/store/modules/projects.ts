@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { CreateProjectModel, Project, ProjectsApi, UpdateProjectModel } from '@/types/projects';
 import { StoreModule } from '@/store';
+import { CreateProjectModel, Project, ProjectsApi, UpdateProjectModel } from '@/types/projects';
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',

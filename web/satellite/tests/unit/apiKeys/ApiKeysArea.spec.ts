@@ -1,14 +1,16 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
+
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
-import { ApiKey } from '@/types/apiKeys';
+
+import { ApiKeysApiGql } from '@/api/apiKeys';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { API_KEYS_MUTATIONS } from '@/store/mutationConstants';
-import { ApiKeysApiGql } from '@/api/apiKeys';
+import { ApiKey } from '@/types/apiKeys';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
