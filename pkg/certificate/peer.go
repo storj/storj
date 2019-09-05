@@ -75,7 +75,7 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	}
 
 	peer.Certificates.AuthorizationDB = authorizationDB
-	peer.Certificates.Endpoint = NewEndpoint(log.Named("certificates"), ident, ca, authorizationDB, uint16(config.MinDifficulty))
+	peer.Certificates.Endpoint = NewEndpoint(log.Named("certificates"), ca, authorizationDB, uint16(config.MinDifficulty))
 	pb.RegisterCertificatesServer(peer.Server.GRPC(), peer.Certificates.Endpoint)
 
 	return peer, nil
