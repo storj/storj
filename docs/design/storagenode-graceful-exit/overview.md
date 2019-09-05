@@ -1,4 +1,4 @@
-# Storage Mode Graceful Exit Overview
+# Storage Node Graceful Exit Overview
 
 ## Abstract
 
@@ -134,8 +134,9 @@ model graceful_exit_transfer_queue (
     field durability_ratio    float64
     field queued_at           timestamp ( autoinsert ) // when the the piece info was queued
     field requested_at        timestamp ( updateable ) // when the piece info and orderlimits were requested by the storagenode
-    field failed_at           timestamp ( updateable ) // when/if it failed
-    field failed_status_code  int
+    field last_failed_at      timestamp ( updateable ) // when/if it failed
+    field last_failed_code    int
+    field failed_count        int
     field finished_at         timestamp ( updateable )
 )
 ```
@@ -162,3 +163,7 @@ model satellites (
 ```
 
 Bytes transferred could be stored in `nodes`, but since `nodes` is a heavily accessed, this would add more load. Alternatively, we could use `graceful_exit_transfer_queue`, however this would require keeping a lot of additional data in the database.
+
+## Open issues
+
+Some exiting nodes may take too long to transfer pieces, potentially causing the SNO to quit the graceful exit.  We may want to provide a way to adjust segment durability requirements for satellite and/or a specific exiting node.

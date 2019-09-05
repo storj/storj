@@ -28,11 +28,11 @@ The `worker` should continue to poll the satellite at a configurable interval un
 
 The storage node should concurrently transfer pieces returned by the satellite. The storage node should send a `TransferSucceeded` message as pieces are successfuly transfered. The Storage node should send a `TransferFailed`, with reason, on failure.
 
-The satellites should set the `finished_at` on success, and respond with a `DeletePiece` message. Otherwise set the `failed_at` and `failure_status_code` for reprocessing.
+The satellites should set the `finished_at` on success, and respond with a `DeletePiece` message. Otherwise increment `failed_count` and set the `last_failed_at` and `last_failed_code` for reprocessing.
 
 The satellite should respond with an `ExitCompleted` message when all pieces have finished processing. 
 
-If the storage node has failed too many transfers or has sent incorrect data, the satellite will send an `ExitFailed` message. This indicates that the process has ended ungracefully.
+If the storage node has failed too many transfers overall, failed the same piece over a certain threshold, or has sent incorrect data, the satellite will send an `ExitFailed` message. This indicates that the process has ended ungracefully.
 
 In either case, the storage node should store the completion / failure receipt, stop transfer processing, and remove all remaining pieces for the satellite.
 
