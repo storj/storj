@@ -26,6 +26,8 @@ var (
 
 // service is payments.Service implementation which
 // works with stripe network through stripe-go client
+//
+// architecture: Service
 type service struct {
 	log    *zap.Logger
 	client *client.API

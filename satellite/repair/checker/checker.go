@@ -46,6 +46,8 @@ type durabilityStats struct {
 }
 
 // Checker contains the information needed to do checks for missing pieces
+//
+// architecture: Chore
 type Checker struct {
 	logger          *zap.Logger
 	repairQueue     queue.RepairQueue

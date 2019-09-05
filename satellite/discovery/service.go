@@ -35,6 +35,8 @@ type Config struct {
 }
 
 // Discovery struct loads on cache, kad
+//
+// architecture: Chore
 type Discovery struct {
 	log   *zap.Logger
 	cache *overlay.Service

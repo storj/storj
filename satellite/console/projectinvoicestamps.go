@@ -11,6 +11,8 @@ import (
 )
 
 // ProjectInvoiceStamps exposes methods to manage ProjectInvoiceStamp table in database
+//
+// architecture: Database
 type ProjectInvoiceStamps interface {
 	Create(ctx context.Context, stamp ProjectInvoiceStamp) (*ProjectInvoiceStamp, error)
 	GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*ProjectInvoiceStamp, error)

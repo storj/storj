@@ -37,6 +37,8 @@ var (
 )
 
 // Kademlia is an implementation of kademlia network.
+//
+// architecture: Service
 type Kademlia struct {
 	log            *zap.Logger
 	alpha          int // alpha is a system wide concurrency parameter

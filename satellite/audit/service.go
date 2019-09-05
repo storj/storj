@@ -35,6 +35,8 @@ type Config struct {
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
+//
+// architecture: Chore
 type Service struct {
 	log *zap.Logger
 

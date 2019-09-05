@@ -11,6 +11,8 @@ import (
 )
 
 // APIKeys is interface for working with api keys store
+//
+// architecture: Database
 type APIKeys interface {
 	// GetByProjectID retrieves list of APIKeys for given projectID
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]APIKeyInfo, error)

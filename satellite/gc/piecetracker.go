@@ -16,6 +16,8 @@ import (
 )
 
 // PieceTracker implements the metainfo loop observer interface for garbage collection
+//
+// architecture: Observer
 type PieceTracker struct {
 	log          *zap.Logger
 	config       Config

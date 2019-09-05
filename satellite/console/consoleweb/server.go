@@ -62,6 +62,8 @@ type Config struct {
 }
 
 // Server represents console web server
+//
+// architecture: Endpoint
 type Server struct {
 	log *zap.Logger
 

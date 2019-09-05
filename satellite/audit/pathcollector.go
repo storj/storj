@@ -12,6 +12,8 @@ import (
 )
 
 // PathCollector uses the metainfo loop to add paths to node reservoirs
+//
+// architecture: Observer
 type PathCollector struct {
 	Reservoirs map[storj.NodeID]*Reservoir
 	slotCount  int

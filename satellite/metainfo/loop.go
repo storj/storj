@@ -23,6 +23,8 @@ var (
 )
 
 // Observer is an interface defining an observer that can subscribe to the metainfo loop.
+//
+// architecture: Observer
 type Observer interface {
 	RemoteSegment(context.Context, storj.Path, *pb.Pointer) error
 	RemoteObject(context.Context, storj.Path, *pb.Pointer) error
@@ -58,6 +60,8 @@ type LoopConfig struct {
 }
 
 // Loop is a metainfo loop service.
+//
+// architecture: Service
 type Loop struct {
 	config   LoopConfig
 	metainfo *Service

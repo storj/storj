@@ -38,6 +38,8 @@ type Config struct {
 }
 
 // Service implements the garbage collection service
+//
+// architecture: Chore
 type Service struct {
 	log    *zap.Logger
 	config Config

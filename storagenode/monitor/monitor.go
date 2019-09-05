@@ -35,7 +35,7 @@ type Config struct {
 
 // Service which monitors disk usage and updates kademlia network as necessary.
 //
-// architecture: Service
+// architecture: Chore
 type Service struct {
 	log                *zap.Logger
 	routingTable       *kademlia.RoutingTable

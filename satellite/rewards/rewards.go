@@ -20,6 +20,8 @@ var (
 )
 
 // DB holds information about offer
+//
+// architecture: Database
 type DB interface {
 	ListAll(ctx context.Context) (Offers, error)
 	GetActiveOffersByType(ctx context.Context, offerType OfferType) (Offers, error)

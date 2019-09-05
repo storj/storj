@@ -19,6 +19,8 @@ import (
 )
 
 // Service structure
+//
+// architecture: Service
 type Service struct {
 	logger    *zap.Logger
 	DB        storage.KeyValueStore

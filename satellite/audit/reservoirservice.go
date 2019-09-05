@@ -17,6 +17,8 @@ import (
 
 // ReservoirService is a temp name for the service struct during the audit 2.0 refactor.
 // Once V3-2363 and V3-2364 are implemented, ReservoirService will replace the existing Service struct.
+//
+// architecture: Chore
 type ReservoirService struct {
 	log *zap.Logger
 

@@ -91,6 +91,8 @@ type Config struct {
 }
 
 // Service sends every interval unsent orders to the satellite.
+//
+// architecture: Service
 type Service struct {
 	log    *zap.Logger
 	config Config

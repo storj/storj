@@ -10,6 +10,8 @@ import (
 )
 
 // DB contains access to different satellite databases
+//
+// architecture: Database
 type DB interface {
 	// Users is a getter for Users repository
 	Users() Users

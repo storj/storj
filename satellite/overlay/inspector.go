@@ -12,6 +12,8 @@ import (
 )
 
 // Inspector is a gRPC service for inspecting overlay internals
+//
+// architecture: Endpoint
 type Inspector struct {
 	service *Service
 }

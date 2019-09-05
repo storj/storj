@@ -9,6 +9,8 @@ import (
 )
 
 // Service is interfaces that defines behavior for working with payments
+//
+// architecture: Service
 type Service interface {
 	CreateCustomer(ctx context.Context, params CreateCustomerParams) (*Customer, error)
 	AddPaymentMethod(ctx context.Context, params AddPaymentMethodParams) (*PaymentMethod, error)

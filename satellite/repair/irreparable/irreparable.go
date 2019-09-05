@@ -10,6 +10,8 @@ import (
 )
 
 // DB stores information about repairs that have failed.
+//
+// architecture: Database
 type DB interface {
 	// IncrementRepairAttempts increments the repair attempts.
 	IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) error

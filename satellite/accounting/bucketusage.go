@@ -11,6 +11,8 @@ import (
 )
 
 // BucketUsage is bucket usage rollup repository
+//
+// architecture: Database
 type BucketUsage interface {
 	Get(ctx context.Context, id uuid.UUID) (*BucketRollup, error)
 	GetPaged(ctx context.Context, cursor *BucketRollupCursor) ([]BucketRollup, error)

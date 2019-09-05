@@ -29,6 +29,8 @@ var (
 )
 
 // ProjectUsage defines project usage
+//
+// architecture: Service
 type ProjectUsage struct {
 	projectAccountingDB ProjectAccounting
 	liveAccounting      live.Service

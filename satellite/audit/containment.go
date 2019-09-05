@@ -38,6 +38,8 @@ type PendingAudit struct {
 }
 
 // Containment holds information about pending audits for contained nodes
+//
+// architecture: Database
 type Containment interface {
 	Get(ctx context.Context, nodeID pb.NodeID) (*PendingAudit, error)
 	IncrementPending(ctx context.Context, pendingAudit *PendingAudit) error

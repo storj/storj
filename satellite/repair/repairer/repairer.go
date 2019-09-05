@@ -39,6 +39,8 @@ type Config struct {
 }
 
 // Service contains the information needed to run the repair service
+//
+// architecture: Worker
 type Service struct {
 	log      *zap.Logger
 	queue    queue.RepairQueue

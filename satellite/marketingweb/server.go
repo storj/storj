@@ -30,6 +30,8 @@ type Config struct {
 }
 
 // Server represents marketing offersweb server
+//
+// architecture: Endpoint
 type Server struct {
 	log         *zap.Logger
 	config      Config

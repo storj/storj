@@ -56,6 +56,8 @@ type RoutingTableConfig struct {
 }
 
 // RoutingTable implements the RoutingTable interface
+//
+// architecture: Database
 type RoutingTable struct {
 	log              *zap.Logger
 	self             *overlay.NodeDossier

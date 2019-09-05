@@ -12,6 +12,8 @@ import (
 )
 
 // Users exposes methods to manage User table in database.
+//
+// architecture: Database
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)

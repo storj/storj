@@ -23,7 +23,7 @@ type Config struct {
 
 // Service implements
 //
-// architecture: Service
+// architecture: Chore
 type Service struct {
 	log  *zap.Logger
 	db   DB

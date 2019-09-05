@@ -18,6 +18,8 @@ type reporter interface {
 }
 
 // Reporter records audit reports in overlay and implements the reporter interface
+//
+// architecture: Service
 type Reporter struct {
 	log              *zap.Logger
 	overlay          *overlay.Service

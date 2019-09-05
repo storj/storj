@@ -11,6 +11,8 @@ import (
 )
 
 // UserPayments is user payment infos store
+//
+// architecture: Database
 type UserPayments interface {
 	Create(ctx context.Context, info UserPayment) (*UserPayment, error)
 	Get(ctx context.Context, userID uuid.UUID) (*UserPayment, error)

@@ -19,6 +19,8 @@ var mon = monkit.Package()
 
 // LinkClicker is mailservice.Sender that click all links
 // from html msg parts
+//
+// architecture: Service
 type LinkClicker struct{}
 
 // FromAddress return empty mail address

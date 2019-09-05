@@ -12,6 +12,8 @@ import (
 )
 
 // Endpoint for issuing signed vouchers (DEPRECATED)
+//
+// architecture: Endpoint
 type Endpoint struct{}
 
 // Request is deprecated and returns an error asking the storage node to update to the latest version.

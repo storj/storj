@@ -36,6 +36,8 @@ var ErrBucketNotFound = errs.New("bucket not found")
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
 // DB implements the database for overlay.Service
+//
+// architecture: Database
 type DB interface {
 	// SelectStorageNodes looks up nodes based on criteria
 	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
@@ -142,6 +144,8 @@ type NodeStats struct {
 }
 
 // Service is used to store and handle node information
+//
+// architecture: Service
 type Service struct {
 	log    *zap.Logger
 	db     DB

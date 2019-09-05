@@ -59,6 +59,8 @@ const (
 var ErrConsoleInternal = errs.Class("internal error")
 
 // Service is handling accounts related logic
+//
+// architecture: Service
 type Service struct {
 	Signer
 

@@ -47,21 +47,29 @@ var (
 )
 
 // APIKeys is api keys store methods used by endpoint
+//
+// architecture: Database
 type APIKeys interface {
 	GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error)
 }
 
 // Revocations is the revocations store methods used by the endpoint
+//
+// architecture: Database
 type Revocations interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
 }
 
 // Containment is a copy/paste of containment interface to avoid import cycle error
+//
+// architecture: Database
 type Containment interface {
 	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
 }
 
 // Endpoint metainfo endpoint
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log              *zap.Logger
 	metainfo         *Service

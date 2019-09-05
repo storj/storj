@@ -35,11 +35,15 @@ var storjCustomer = payments.Customer{
 var internalPaymentsErr = errs.Class("internal payments error")
 
 // DB is internal payment methods storage
+//
+// architecture: Database
 type DB interface {
 	// TODO: add method to retrieve invoice information from project invoice stamp
 }
 
 // service is internal payments.Service implementation
+//
+// architecture: Service
 type service struct {
 	db DB
 }

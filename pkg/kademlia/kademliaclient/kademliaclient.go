@@ -22,6 +22,8 @@ import (
 var mon = monkit.Package()
 
 // Dialer sends requests to kademlia endpoints on storage nodes
+//
+// architecture: Service
 type Dialer struct {
 	log       *zap.Logger
 	transport transport.Client

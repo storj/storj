@@ -14,6 +14,8 @@ import (
 )
 
 // RegistrationTokens is interface for working with registration tokens
+//
+// architecture: Database
 type RegistrationTokens interface {
 	// Create creates new registration token
 	Create(ctx context.Context, projectLimit int) (*RegistrationToken, error)

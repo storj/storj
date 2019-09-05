@@ -11,6 +11,8 @@ import (
 )
 
 // Projects exposes methods to manage Project table in database.
+//
+// architecture: Database
 type Projects interface {
 	// GetAll is a method for querying all projects from the database.
 	GetAll(ctx context.Context) ([]Project, error)
