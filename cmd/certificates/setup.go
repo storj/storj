@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/pkg/certificate/authorization"
 	"storj.io/storj/pkg/process"
 )
 
@@ -43,18 +44,18 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if setupCfg.Overwrite {
-		setupCfg.Signer.Overwrite = true
+	authorizationDB, err := authorization.NewDBFromCfg(setupCfg.Authorizations)
+	if err != nil {
+		return err
 	}
-
-	if _, err := setupCfg.Signer.NewAuthDB(); err != nil {
+	if err := authorizationDB.Close(); err != nil {
 		return err
 	}
 
 	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
 		process.SaveConfigWithOverrides(map[string]interface{}{
-			"ca.cert-path":       setupCfg.Signer.CA.CertPath,
-			"ca.key-path":        setupCfg.Signer.CA.KeyPath,
+			"signer.cert-path":   setupCfg.Signer.CertPath,
+			"signer.key-path":    setupCfg.Signer.KeyPath,
 			"identity.cert-path": setupCfg.Identity.CertPath,
 			"identity.key-path":  setupCfg.Identity.KeyPath,
 		}))
