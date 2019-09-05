@@ -66,7 +66,7 @@ export function makeUsersModule(api: UsersApi): StoreModule<User> {
                 commit(UPDATE_USER, userInfo);
             },
             [GET]: async function ({commit}: any): Promise<User> {
-                let user = await api.get();
+                const user = await api.get();
 
                 commit(SET_USER, user);
 

@@ -16,7 +16,7 @@ describe('TestList.vue', () => {
     });
 
     it('should retrieve callback', function () {
-        let onPressSpy = sinon.spy();
+        const onPressSpy = sinon.spy();
 
         const wrapper = mount(TestList, {
             propsData: {

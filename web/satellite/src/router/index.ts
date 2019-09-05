@@ -177,7 +177,7 @@ router.beforeEach((to, from, next) => {
  * @param subTabRoute - default sub route of the tabNavigator
  */
 function navigateToFirstSubTab(routes: RouteRecord[], tabRoute: NavigationLink, subTabRoute: NavigationLink): boolean {
-    return routes.length == 2 && (routes[1].name as string) === tabRoute.name;
+    return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
 
 export default router;

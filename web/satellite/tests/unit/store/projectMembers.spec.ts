@@ -211,19 +211,19 @@ describe('actions', async () => {
         fail(UNREACHABLE_ERROR);
     });
 
-    it('set project members search query', async function () {
+    it('set project members search query', function () {
         store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, 'search');
 
         expect(state.cursor.search).toBe('search');
     });
 
-    it('set project members sort by', async function () {
+    it('set project members sort by', function () {
         store.dispatch(PM_ACTIONS.SET_SORT_BY, ProjectMemberOrderBy.CREATED_AT);
 
         expect(state.cursor.order).toBe(ProjectMemberOrderBy.CREATED_AT);
     });
 
-    it('set sort direction', async function () {
+    it('set sort direction', function () {
         store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, SortDirection.DESCENDING);
 
         expect(state.cursor.orderDirection).toBe(SortDirection.DESCENDING);

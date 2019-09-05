@@ -34,9 +34,9 @@ describe('Pagination.vue', () => {
         expect(wrapper.findAll('span').at(2).classes().includes('selected')).toBe(true);
     });
 
-    it('behaves correctly on page click', async () => {
+    it('behaves correctly on page click', () => {
         const callbackSpy = sinon.spy();
-        let pagesArray: Page[] = [];
+        const pagesArray: Page[] = [];
 
         for (let i = 1; i <= 3; i++) {
             pagesArray.push(new Page(i, callbackSpy));

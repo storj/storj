@@ -36,7 +36,7 @@ export function makeCreditsModule(api: CreditsApi): StoreModule<CreditUsage> {
 
         actions: {
             [FETCH]: async function({commit}: any): Promise<CreditUsage> {
-                let credits = await api.get();
+                const credits = await api.get();
 
                 commit(SET, credits);
 

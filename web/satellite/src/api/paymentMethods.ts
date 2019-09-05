@@ -6,9 +6,9 @@ import gql from 'graphql-tag';
 import { RequestResponse } from '@/types/response';
 
 export async function addProjectPaymentMethodRequest(projectId: string, cardToken: string, isDefault: boolean): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = new RequestResponse<null>();
+    const result: RequestResponse<null> = new RequestResponse<null>();
 
-    let response: any = await apollo.mutate(
+    const response: any = await apollo.mutate(
         {
             mutation: gql(`
                 mutation($projectId: String!, cardToken: String!, isDefault: Boolean!) {
@@ -39,9 +39,9 @@ export async function addProjectPaymentMethodRequest(projectId: string, cardToke
 }
 
 export async function setDefaultPaymentMethodRequest(projectId: string, paymentId: string): Promise<RequestResponse<null>> {
-   let result: RequestResponse<null> = new RequestResponse<null>();
+   const result: RequestResponse<null> = new RequestResponse<null>();
 
-   let response: any = await apollo.mutate(
+   const response: any = await apollo.mutate(
        {
            mutation: gql(`
                 mutation($projectId: String!, paymentId: String!) {
@@ -70,9 +70,9 @@ export async function setDefaultPaymentMethodRequest(projectId: string, paymentI
 }
 
 export async function deletePaymentMethodRequest(paymentId: string):Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = new RequestResponse<null>();
+    const result: RequestResponse<null> = new RequestResponse<null>();
 
-    let response: any = await apollo.mutate(
+    const response: any = await apollo.mutate(
         {
             mutation: gql(`
                 mutation($id: String!) {
@@ -100,9 +100,9 @@ export async function deletePaymentMethodRequest(paymentId: string):Promise<Requ
 
 // fetchProjectInvoices retrieves project invoices
 export async function fetchProjectPaymentMethods(projectId: string): Promise<RequestResponse<PaymentMethod[]>> {
-    let result: RequestResponse<PaymentMethod[]> = new RequestResponse<PaymentMethod[]>();
+    const result: RequestResponse<PaymentMethod[]> = new RequestResponse<PaymentMethod[]>();
 
-    let response: any = await apollo.query(
+    const response: any = await apollo.query(
         {
             query: gql(`
                 query($projectId: String!) {

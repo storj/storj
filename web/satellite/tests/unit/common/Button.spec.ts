@@ -40,9 +40,9 @@ describe('Button.vue', () => {
     });
 
     it('renders correctly with size and label props', () => {
-        let label = 'testLabel';
-        let width = '30px';
-        let height = '20px';
+        const label = 'testLabel';
+        const width = '30px';
+        const height = '20px';
 
         const wrapper = shallowMount(Button, {
             propsData: {
@@ -71,7 +71,7 @@ describe('Button.vue', () => {
     });
 
     it('trigger onPress correctly', () => {
-        let onPressSpy = sinon.spy();
+        const onPressSpy = sinon.spy();
 
         const wrapper = mount(Button, {
             propsData: {

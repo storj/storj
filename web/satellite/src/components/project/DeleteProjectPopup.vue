@@ -81,8 +81,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import { NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+    import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';    
     import { PROJECTS_ACTIONS } from '@/store/modules/projects';
     import { BUCKET_ACTIONS } from '@/store/modules/buckets';
     import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';

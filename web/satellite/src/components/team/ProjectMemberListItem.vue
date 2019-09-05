@@ -17,30 +17,30 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { getColor } from '@/utils/avatarColorManager';
-    import { ProjectMember } from '@/types/projectMembers';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import { getColor } from '@/utils/avatarColorManager';
+import { ProjectMember } from '@/types/projectMembers';
 
-    @Component
-    export default class ProjectMemberListItem extends Vue {
-        @Prop({default: new ProjectMember('', '', '', '', '')})
-        public itemData: ProjectMember;
+@Component
+export default class ProjectMemberListItem extends Vue {
+    @Prop({default: new ProjectMember('', '', '', '', '')})
+    public itemData: ProjectMember;
 
-        public get avatarData(): object {
-            let fullName: string = this.itemData.user.getFullName();
+    public get avatarData(): object {
+        const fullName: string = this.itemData.user.getFullName();
 
-            const letter = fullName.slice(0, 1).toLocaleUpperCase();
+        const letter = fullName.slice(0, 1).toLocaleUpperCase();
 
-            const style = {
-                background: getColor(letter)
-            };
+        const style = {
+            background: getColor(letter)
+        };
 
-            return {
-                letter,
-                style
-            };
-        }
+        return {
+            letter,
+            style
+        };
     }
+}
 </script>
 
 <style scoped lang="scss">

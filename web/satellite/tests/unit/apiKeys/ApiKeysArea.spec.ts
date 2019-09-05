@@ -19,8 +19,8 @@ const ADD = API_KEYS_MUTATIONS.ADD;
 const store = new Vuex.Store({ modules: { apiKeysModule, notificationsModule }});
 
 describe('ApiKeysArea', () => {
-    let apiKey = new ApiKey('testId', 'test', 'test', 'test');
-    let apiKey1 = new ApiKey('testId1', 'test1', 'test1', 'test1');
+    const apiKey = new ApiKey('testId', 'test', 'test', 'test');
+    const apiKey1 = new ApiKey('testId1', 'test1', 'test1', 'test1');
 
     it('renders correctly', () => {
         const wrapper = mount(ApiKeysArea, {
@@ -164,7 +164,7 @@ describe('ApiKeysArea', () => {
             localVue,
         });
 
-        let testSecret = 'testSecret';
+        const testSecret = 'testSecret';
 
         wrapper.vm.showCopyApiKeyPopup(testSecret);
 
@@ -183,7 +183,7 @@ describe('ApiKeysArea', () => {
         expect(wrapper.vm.$data.isCopyApiKeyPopupShown).toBe(false);
     });
 
-    it('action on onDelete with name works correctly', async () => {
+    it('action on onDelete with name works correctly', () => {
         const wrapper = mount(ApiKeysArea, {
             store,
             localVue,

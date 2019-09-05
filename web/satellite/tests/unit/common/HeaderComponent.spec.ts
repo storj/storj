@@ -20,7 +20,7 @@ describe('HeaderComponent.vue', () => {
     });
 
     it('function clearSearch works correctly', () => {
-        let clearSearchSpy = sinon.spy();
+        const clearSearchSpy = sinon.spy();
 
         const wrapper = mount(HeaderComponent);
 

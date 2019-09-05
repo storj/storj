@@ -16,7 +16,7 @@ describe('SortingListHeader.vue', () => {
     });
 
     it('should retrieve callback', function () {
-        let onPressSpy = sinon.spy();
+        const onPressSpy = sinon.spy();
 
         const wrapper = mount(SortingListHeader, {
             propsData: {
@@ -28,7 +28,7 @@ describe('SortingListHeader.vue', () => {
     });
 
     it('should change sort direction', function () {
-        let onPressSpy = sinon.spy();
+        const onPressSpy = sinon.spy();
 
         const wrapper = mount(SortingListHeader, {
             propsData: {
@@ -47,7 +47,7 @@ describe('SortingListHeader.vue', () => {
     });
 
     it('should change sort by value', function () {
-        let onPressSpy = sinon.spy();
+        const onPressSpy = sinon.spy();
 
         const wrapper = mount(SortingListHeader, {
             propsData: {

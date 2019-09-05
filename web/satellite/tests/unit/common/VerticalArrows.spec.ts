@@ -39,4 +39,3 @@ describe('VerticalArrows.vue', () => {
         expect(wrapper).toMatchSnapshot();
     });
 });
-

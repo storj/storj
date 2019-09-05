@@ -30,7 +30,7 @@ const CREATE = API_KEYS_ACTIONS.CREATE;
 const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule, notificationsModule }});
 
 describe('ApiKeysCreationPopup', () => {
-    let value = 'testValue';
+    const value = 'testValue';
 
     it('renders correctly', () => {
         const wrapper = mount(ApiKeysCreationPopup, {
@@ -80,7 +80,7 @@ describe('ApiKeysCreationPopup', () => {
     });
 
     it('action on onNextClick with name works correctly', async () => {
-        let testApiKey = new ApiKey('testId', 'testName', 'testCreatedAt', 'test');
+        const testApiKey = new ApiKey('testId', 'testName', 'testCreatedAt', 'test');
 
         jest.spyOn(apiKeysApi, 'create').mockReturnValue(
             Promise.resolve(testApiKey));
@@ -95,7 +95,7 @@ describe('ApiKeysCreationPopup', () => {
 
         wrapper.vm.onNextClick();
 
-        let result = await store.dispatch(CREATE, 'testName');
+        const result = await store.dispatch(CREATE, 'testName');
 
         expect(wrapper.vm.$data.key).toBe(result.secret);
         expect(wrapper.vm.$data.isLoading).toBe(false);

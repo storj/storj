@@ -45,7 +45,7 @@
         }
     })
     export default class Dashboard extends Vue {
-        public async mounted(): Promise<void> {
+        public mounted(): void {
             setTimeout(async () => {
                 // TODO: combine all project related requests in one
                 try {

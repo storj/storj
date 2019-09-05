@@ -4,8 +4,7 @@
 import Vuex from 'vuex';
 import { createLocalVue } from '@vue/test-utils';
 import { CreditsApiGql } from '@/api/credits';
-import { makeCreditsModule } from '@/store/modules/credits';
-import { CREDIT_USAGE_MUTATIONS, CREDIT_USAGE_ACTIONS } from '@/store/modules/credits';
+import { CREDIT_USAGE_MUTATIONS, CREDIT_USAGE_ACTIONS, makeCreditsModule } from '@/store/modules/credits';
 import { CreditUsage } from '@/types/credits';
 
 const Vue = createLocalVue();
@@ -89,4 +88,3 @@ describe('getters', () => {
         expect(credits.usedCredits).toBe(store.state.usedCredits);
     });
 });
-

@@ -125,4 +125,3 @@ export class ProjectMember {
         return new Date(this.joinedAt).toLocaleDateString();
     }
 }
-

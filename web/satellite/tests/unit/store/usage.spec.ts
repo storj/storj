@@ -20,9 +20,9 @@ const selectedProject = new Project('', '', '', '');
 selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;
 
-let testDate1 = new Date();
+const testDate1 = new Date();
 testDate1.setDate(1);
-let testDate2 = new Date();
+const testDate2 = new Date();
 testDate2.setDate(2);
 const testUsage = new ProjectUsage(2, 3, 4, testDate1, testDate2);
 const now = new Date();

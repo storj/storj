@@ -14,9 +14,9 @@ describe('HeaderlessInput.vue', () => {
     });
 
     it('renders correctly with size props', () => {
-        let placeholder = 'test';
-        let width = '30px';
-        let height = '20px';
+        const placeholder = 'test';
+        const width = '30px';
+        const height = '20px';
 
         const wrapper = shallowMount(HeaderlessInput, {
             propsData: {placeholder, width, height}
@@ -36,7 +36,7 @@ describe('HeaderlessInput.vue', () => {
     });
 
     it('emit setData on input correctly', () => {
-        let testData = 'testData';
+        const testData = 'testData';
 
         const wrapper = mount(HeaderlessInput);
 

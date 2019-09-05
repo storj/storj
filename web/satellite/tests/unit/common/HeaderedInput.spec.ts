@@ -25,10 +25,10 @@ describe('HeaderedInput.vue', () => {
     });
 
     it('renders correctly with props', () => {
-        let label = 'testLabel';
-        let additionalLabel = 'addLabel';
-        let width = '30px';
-        let height = '20px';
+        const label = 'testLabel';
+        const additionalLabel = 'addLabel';
+        const width = '30px';
+        const height = '20px';
 
         const wrapper = shallowMount(HeaderedInput, {
             propsData: {label, width, height, additionalLabel}
@@ -52,7 +52,7 @@ describe('HeaderedInput.vue', () => {
     });
 
     it('renders correctly with input error', () => {
-        let error = 'testError';
+        const error = 'testError';
 
         const wrapper = shallowMount(HeaderedInput, {
             propsData: {
@@ -65,7 +65,7 @@ describe('HeaderedInput.vue', () => {
     });
 
     it('emit setData on input correctly', () => {
-        let testData = 'testData';
+        const testData = 'testData';
 
         const wrapper = mount(HeaderedInput);
 

@@ -26,7 +26,6 @@ describe('ApiKeysCopyPopup', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-
     it('function onCloseClick works correctly', () => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,

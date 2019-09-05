@@ -13,7 +13,7 @@ const Analytics = {
             options.id = 'fake id';
         }
 
-        if ((isDoNotTrack || !hasSegmentID) && options.router != undefined) {
+        if ((isDoNotTrack || !hasSegmentID) && options.router !== undefined) {
             delete options.router;
         }
 

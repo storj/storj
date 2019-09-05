@@ -4,8 +4,7 @@
 import Vuex from 'vuex';
 import { createLocalVue } from '@vue/test-utils';
 import { BucketsApiGql } from '@/api/buckets';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { makeBucketsModule } from '@/store/modules/buckets';
+import { BUCKET_ACTIONS, makeBucketsModule } from '@/store/modules/buckets';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { Bucket, BucketCursor, BucketPage } from '@/types/buckets';
 import { Project } from '@/types/projects';

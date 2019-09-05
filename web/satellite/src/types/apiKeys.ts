@@ -48,7 +48,7 @@ export class ApiKey {
     }
 
     public formattedName(): string {
-        let name = this.name;
+        const name = this.name;
 
         if (name.length < 12) {
             return name;
