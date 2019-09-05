@@ -34,18 +34,30 @@ func TestReverifySuccess(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as a success in the audit report
 
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
+		//err := audits.Close()
+		//require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		var stripe *audit.Stripe
-		stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//var stripe *audit.Stripe
+		//stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//require.NoError(t, err)
+
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
 		orders := planet.Satellites[0].Orders.Service
@@ -55,30 +67,30 @@ func TestReverifySuccess(t *testing.T) {
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
-		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
-		pieces := stripe.Segment.GetRemote().GetRemotePieces()
-		rootPieceID := stripe.Segment.GetRemote().RootPieceId
+		pieces := pointer.GetRemote().GetRemotePieces()
+		rootPieceID := pointer.GetRemote().RootPieceId
 		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, stripe.Index, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Worker.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
 			NodeID:            pieces[0].NodeId,
 			PieceID:           rootPieceID,
-			StripeIndex:       stripe.Index,
+			StripeIndex:       randomIndex,
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Path:              stripe.SegmentPath,
+			Path:              path,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Reverify(ctx, stripe)
+		report, err := audits.Worker.Verifier.Reverify2(ctx, path)
 		require.NoError(t, err)
 
 		require.Len(t, report.Fails, 0)
@@ -102,18 +114,32 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as a fail in the audit report
 
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		//audits := planet.Satellites[0].Audit.Service
+		//err := audits.Close()
+		//require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		var stripe *audit.Stripe
-		stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//var stripe *audit.Stripe
+		//stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//require.NoError(t, err)
+
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
 		orders := planet.Satellites[0].Orders.Service
@@ -123,37 +149,37 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
-		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
-		pieces := stripe.Segment.GetRemote().GetRemotePieces()
-		rootPieceID := stripe.Segment.GetRemote().RootPieceId
+		pieces := pointer.GetRemote().GetRemotePieces()
+		rootPieceID := pointer.GetRemote().RootPieceId
 		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, stripe.Index, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Worker.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
 			NodeID:            pieces[0].NodeId,
 			PieceID:           rootPieceID,
-			StripeIndex:       stripe.Index,
+			StripeIndex:       randomIndex,
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Path:              stripe.SegmentPath,
+			Path:              path,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
 		// delete the piece from the first node
-		piece := stripe.Segment.GetRemote().GetRemotePieces()[0]
-		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		piece := pointer.GetRemote().GetRemotePieces()[0]
+		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 		node := getStorageNode(planet, piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Reverify(ctx, stripe)
+		report, err := audits.Worker.Verifier.Reverify2(ctx, path)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, 0)
@@ -176,39 +202,53 @@ func TestReverifyFailBadData(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as a fail in the audit report
 
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		//audits := planet.Satellites[0].Audit.Service
+		//err := audits.Close()
+		//require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		var stripe *audit.Stripe
-		stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//var stripe *audit.Stripe
+		//stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//require.NoError(t, err)
+
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pieces := stripe.Segment.GetRemote().GetRemotePieces()
-		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		redundancy := stripe.Segment.GetRemote().GetRedundancy()
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		pieces := pointer.GetRemote().GetRemotePieces()
+		rootPieceID := pointer.GetRemote().RootPieceId
+		redundancy := pointer.GetRemote().GetRedundancy()
 
 		pending := &audit.PendingAudit{
 			NodeID:            pieces[0].NodeId,
 			PieceID:           rootPieceID,
-			StripeIndex:       stripe.Index,
+			StripeIndex:       randomIndex,
 			ShareSize:         redundancy.ErasureShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Path:              stripe.SegmentPath,
+			Path:              path,
 		}
 
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
 		nodeID := pieces[0].NodeId
-		report, err := audits.Verifier.Reverify(ctx, stripe)
+		report, err := audits.Worker.Verifier.Reverify2(ctx, path)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, 0)
@@ -231,32 +271,46 @@ func TestReverifyOffline(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as offline in the audit report
 
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		//audits := planet.Satellites[0].Audit.Service
+		//err := audits.Close()
+		//require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		var stripe *audit.Stripe
-		stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//var stripe *audit.Stripe
+		//stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//require.NoError(t, err)
+
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pieces := stripe.Segment.GetRemote().GetRemotePieces()
-		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		redundancy := stripe.Segment.GetRemote().GetRedundancy()
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		pieces := pointer.GetRemote().GetRemotePieces()
+		rootPieceID := pointer.GetRemote().RootPieceId
+		redundancy := pointer.GetRemote().GetRedundancy()
 
 		pending := &audit.PendingAudit{
 			NodeID:            pieces[0].NodeId,
 			PieceID:           rootPieceID,
-			StripeIndex:       stripe.Index,
+			StripeIndex:       randomIndex,
 			ShareSize:         redundancy.ErasureShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Path:              stripe.SegmentPath,
+			Path:              path,
 		}
 
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
@@ -265,7 +319,7 @@ func TestReverifyOffline(t *testing.T) {
 		err = stopStorageNode(ctx, planet, pieces[0].NodeId)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Reverify(ctx, stripe)
+		report, err := audits.Worker.Verifier.Reverify2(ctx, path)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, 0)
@@ -288,18 +342,32 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as offline in the audit report
 
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		//audits := planet.Satellites[0].Audit.Service
+		//err := audits.Close()
+		//require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		var stripe *audit.Stripe
-		stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//var stripe *audit.Stripe
+		//stripe, _, err = audits.Cursor.NextStripe(ctx)
+		//require.NoError(t, err)
+
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
 		network := &transport.SimulatedNetwork{
@@ -333,25 +401,25 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			minBytesPerSecond,
 			5*time.Second)
 
-		pieces := stripe.Segment.GetRemote().GetRemotePieces()
+		pieces := pointer.GetRemote().GetRemotePieces()
 
-		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		redundancy := stripe.Segment.GetRemote().GetRedundancy()
+		rootPieceID := pointer.GetRemote().RootPieceId
+		redundancy := pointer.GetRemote().GetRedundancy()
 
 		pending := &audit.PendingAudit{
 			NodeID:            pieces[0].NodeId,
 			PieceID:           rootPieceID,
-			StripeIndex:       stripe.Index,
+			StripeIndex:       randomIndex,
 			ShareSize:         redundancy.ErasureShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Path:              stripe.SegmentPath,
+			Path:              path,
 		}
 
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		report, err := verifier.Reverify(ctx, stripe)
+		report, err := verifier.Reverify2(ctx, path)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, 0)
@@ -368,38 +436,44 @@ func TestReverifyDeletedSegment(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		// - uploads random data
-		// - uses the cursor to get a stripe
-		// - creates one pending audit for a node holding a piece for that stripe
+		// - gets a path from the audit queue
+		// - creates one pending audit for a node holding a piece for that segment
 		// - deletes the file
 		// - calls reverify on that same stripe
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
 
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
 		require.NoError(t, err)
 
-		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		nodeID := pointer.GetRemote().GetRemotePieces()[0].NodeId
 		pending := &audit.PendingAudit{
 			NodeID:            nodeID,
-			PieceID:           stripe.Segment.GetRemote().RootPieceId,
-			StripeIndex:       stripe.Index,
-			ShareSize:         stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize(),
+			PieceID:           pointer.GetRemote().RootPieceId,
+			StripeIndex:       randomIndex,
+			ShareSize:         pointer.GetRemote().GetRedundancy().GetErasureShareSize(),
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Path:              stripe.SegmentPath,
+			Path:              path,
 		}
 
 		containment := planet.Satellites[0].DB.Containment()
-
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
@@ -407,8 +481,9 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Reverify(ctx, stripe)
-		require.NoError(t, err)
+		report, err := audits.Worker.Verifier.Reverify2(ctx, path)
+		// TODO: is this desired behavior for if a segment is deleted?
+		require.True(t, audit.ErrSegmentDeleted.Has(err))
 		assert.Empty(t, report)
 
 		_, err = containment.Get(ctx, nodeID)
@@ -428,28 +503,42 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
 
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		//audits := planet.Satellites[0].Audit.Service
+		//err := audits.Close()
+		//require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		//stripe, _, err := audits.Cursor.NextStripe(ctx)
+		//require.NoError(t, err)
+
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
 		require.NoError(t, err)
 
-		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		nodeID := pointer.GetRemote().GetRemotePieces()[0].NodeId
 		pending := &audit.PendingAudit{
 			NodeID:            nodeID,
-			PieceID:           stripe.Segment.GetRemote().RootPieceId,
-			StripeIndex:       stripe.Index,
-			ShareSize:         stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize(),
+			PieceID:           pointer.GetRemote().RootPieceId,
+			StripeIndex:       randomIndex,
+			ShareSize:         pointer.GetRemote().GetRedundancy().GetErasureShareSize(),
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Path:              stripe.SegmentPath,
+			Path:              path,
 		}
 
 		containment := planet.Satellites[0].DB.Containment()
@@ -461,7 +550,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Reverify(ctx, stripe)
+		report, err := audits.Worker.Verifier.Reverify2(ctx, path)
 		require.NoError(t, err)
 		assert.Empty(t, report)
 
