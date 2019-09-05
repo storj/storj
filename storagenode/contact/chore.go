@@ -76,6 +76,7 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	var group errgroup.Group
 	satellites := chore.trust.GetSatellites(ctx)
 	for _, satellite := range satellites {
+		satellite := satellite
 		addr, err := chore.trust.GetAddress(ctx, satellite)
 		if err != nil {
 			chore.log.Error("getting satellite address", zap.Error(err))
