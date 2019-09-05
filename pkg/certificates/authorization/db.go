@@ -83,7 +83,7 @@ func (authDB *DB) Close() error {
 
 // Create creates a new authorization and adds it to the authorization database.
 func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, userID)(&err)
 	if len(userID) == 0 {
 		return nil, ErrAuthorizationDB.New("userID cannot be empty")
 	}
@@ -116,7 +116,7 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group
 
 // Get retrieves authorizations by user ID.
 func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, userID)(&err)
 	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, ErrAuthorizationDB.Wrap(err)
@@ -221,6 +221,8 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 			break
 		}
 	}
+
+	mon.Meter("authorization_claim").Mark(1)
 	return nil
 }
 
@@ -243,11 +245,11 @@ func (authDB *DB) Unclaim(ctx context.Context, authToken string) (err error) {
 			return authDB.put(ctx, token.UserID, auths)
 		}
 	}
+	mon.Meter("authorization_claim").Mark(1)
 	return errs.New("token not found in authorizations DB")
 }
 
 func (authDB *DB) add(ctx context.Context, userID string, newAuths Group) (err error) {
-	defer mon.Task()(&ctx)(&err)
 	auths, err := authDB.Get(ctx, userID)
 	if err != nil {
 		return err
@@ -258,7 +260,6 @@ func (authDB *DB) add(ctx context.Context, userID string, newAuths Group) (err e
 }
 
 func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err error) {
-	defer mon.Task()(&ctx)(&err)
 	authsBytes, err := auths.Marshal()
 	if err != nil {
 		return ErrAuthorizationDB.Wrap(err)
