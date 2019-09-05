@@ -34,8 +34,8 @@ func newClient(ctx context.Context, log *zap.Logger, transport transport.Client,
 }
 
 // pingNode pings a node
-func (client *client) pingNode(ctx context.Context, req *pb.ContactPingRequest) (*pb.ContactPingResponse, error) {
-	return client.client.PingNode(ctx, req)
+func (client *client) pingNode(ctx context.Context, req *pb.ContactPingRequest, opt grpc.CallOption) (*pb.ContactPingResponse, error) {
+	return client.client.PingNode(ctx, req, opt)
 }
 
 // close closes the connection

@@ -781,7 +781,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
-// UpdateNodeInfo updates the email and wallet for a given node ID for satellite payments.
+// UpdateNodeInfo updates the following fields for a given node ID:
+// wallet, email for node operator, free disk and bandwidth capacity, and version
 func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -900,6 +901,79 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	}
 
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+}
+
+// BatchUpdateUptime updates a list of storagenode's uptime stats in the db
+func (cache *overlaycache) BatchUpdateUptime(ctx context.Context, nodesCheckinInfos []*overlay.NodeCheckinInfo, defaults overlay.NodeSelectionConfig) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	tx, err := cache.db.Open(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, nodeInfo := range nodesCheckinInfos {
+		nodeID := nodeInfo.NodeID.Bytes()
+		dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID))
+		if err != nil {
+			return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+
+		// do not update uptime/reputation if node is disqualified
+		if dbNode.Disqualified != nil {
+			continue
+		}
+
+		updateFields := getUpdateFields(nodeInfo, dbNode, defaults)
+		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID), updateFields)
+		if err != nil {
+			return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+		// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+		// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+		// but for now we're adding a nil check to prevent a panic.
+		if dbNode == nil {
+			id, err := storj.NodeIDFromBytes(nodeID)
+			if err != nil {
+				// ??
+				return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+			}
+			failed = append(failed, id)
+		}
+	}
+	return failed, Error.Wrap(tx.Commit())
+}
+
+func getUpdateFields(nodeInfo *overlay.NodeCheckinInfo, dbNode *dbx.Node, defaults overlay.NodeSelectionConfig) dbx.Node_Update_Fields {
+	updateFields := dbx.Node_Update_Fields{}
+	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
+		nodeInfo.IsUp,
+		dbNode.UptimeReputationAlpha,
+		dbNode.UptimeReputationBeta,
+		defaults.UptimeReputationLambda,
+		defaults.UptimeReputationWeight,
+		dbNode.TotalUptimeCount,
+	)
+	updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(uptimeAlpha)
+	updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(uptimeBeta)
+	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
+	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
+	if uptimeRep <= defaults.UptimeReputationDQ {
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+	}
+
+	if nodeInfo.IsUp {
+		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
+		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
+	} else {
+		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
+	}
+
+	updateFields.Wallet = dbx.Node_Wallet(nodeInfo.OperatorWallet)
+	updateFields.Email = dbx.Node_Email(nodeInfo.OperatorEmail)
+	updateFields.FreeBandwidth = dbx.Node_FreeBandwidth(nodeInfo.FreeBandwidth)
+	updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.FreeDisk)
+	return updateFields
 }
 
 // AllPieceCounts returns a map of node IDs to piece counts from the db.

@@ -66,6 +66,8 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
+	// BatchUpdateUptime updates a list of storagenode's uptime stats in the db
+	BatchUpdateUptime(ctx context.Context, nodesCheckinInfo []*NodeCheckinInfo, defaults NodeSelectionConfig) (failed storj.NodeIDList, err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -101,6 +103,7 @@ type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditSuccess bool
 	IsUp         bool
+
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
@@ -139,6 +142,20 @@ type NodeStats struct {
 	AuditReputationBeta   float64
 	UptimeReputationBeta  float64
 	Disqualified          *time.Time
+}
+
+// NodeCheckinInfo contains all the data that needs to be update in overlay
+// when a node checkins with the satellite
+type NodeCheckinInfo struct {
+	NodeID         storj.NodeID
+	IsUp           bool
+	Lambda         float64
+	Weight         float64
+	UptimeDQ       float64
+	OperatorWallet string
+	OperatorEmail  string
+	FreeDisk       int64
+	FreeBandwidth  int64
 }
 
 // Service is used to store and handle node information
@@ -377,6 +394,12 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 	uptimeDQ := service.config.Node.UptimeReputationDQ
 
 	return service.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
+}
+
+// BatchUpdateUptime updates a single storagenode's uptime stats.
+func (service *Service) BatchUpdateUptime(ctx context.Context, nodesCheckinInfo []*NodeCheckinInfo) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.BatchUpdateUptime(ctx, nodesCheckinInfo, service.config.Node)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function

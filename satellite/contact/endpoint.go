@@ -5,14 +5,16 @@ package contact
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 )
 
 // Endpoint implements the contact service Endpoints.
@@ -37,19 +39,26 @@ func NewEndpoint(log *zap.Logger, service *Service) *Endpoint {
 func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (_ *pb.CheckinResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pingNodeSuccess, pingErrorMessage, err := pingBack(ctx, endpoint, req)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	// Update the overlay cache with new uptime info from pinging back the node
 	peerID, err := peerIDFromContext(ctx)
-	_, err = endpoint.service.overlay.UpdateUptime(ctx, peerID, pingNodeSuccess)
+	pingNodeSuccess, pingErrorMessage, err := pingBack(ctx, endpoint, req, peerID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	// Should we update the req.NodeCapacity here as well?
+	// Save this uptime update checkin in a cache so we can batch write
+	// to overlay database later
+	update := overlay.NodeCheckinInfo{
+		NodeID:         peerID,
+		IsUp:           pingNodeSuccess,
+		OperatorWallet: req.GetOperator().GetWallet(),
+		OperatorEmail:  req.GetOperator().GetEmail(),
+		FreeDisk:       req.GetCapacity().GetFreeDisk(),
+		FreeBandwidth:  req.GetCapacity().GetFreeBandwidth(),
+	}
+	err = endpoint.service.AddUpdateToCache(ctx, &update)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	return &pb.CheckinResponse{
 		PingNodeSuccess:  pingNodeSuccess,
@@ -57,26 +66,32 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	}, nil
 }
 
-func pingBack(ctx context.Context, endpoint *Endpoint, req *pb.CheckinRequest) (bool, string, error) {
+func pingBack(ctx context.Context, endpoint *Endpoint, req *pb.CheckinRequest, peerIDFromContext storj.NodeID) (bool, string, error) {
 	client, err := newClient(ctx,
 		endpoint.log,
 		endpoint.service.transport,
 		req.GetAddress(),
 	)
-	defer func() {
-		err = errs.Combine(err, client.close())
-	}()
 	if err != nil {
-		return false, "", err
+		return false, "", Error.New("couldn't connect to client at addr: %s. Error: %v.", req.GetAddress().String(), err)
 	}
 
 	pingNodeSuccess := true
 	var pingErrorMessage string
 
-	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
+	p := &peer.Peer{}
+	_, err = client.pingNode(ctx, &pb.ContactPingRequest{}, grpc.Peer(p))
 	if err != nil {
 		pingNodeSuccess = false
-		pingErrorMessage = err.Error()
+		// TODO: check common errors codes
+		pingErrorMessage = fmt.Sprintf("erroring while trying to pingNode: %v\n", err)
+	}
+	identityFromPeer, err := identity.PeerIdentityFromPeer(p)
+	if err != nil {
+		return false, "", Error.New("couldn't get identity from peer:", err)
+	}
+	if identityFromPeer.ID != peerIDFromContext {
+		return false, "", Error.New("peer ID from context, %s, does not match ID from ping request, %s.", peerIDFromContext.String(), identityFromPeer.ID.String())
 	}
 
 	return pingNodeSuccess, pingErrorMessage, nil
@@ -91,8 +106,5 @@ func peerIDFromContext(ctx context.Context) (storj.NodeID, error) {
 	if err != nil {
 		return storj.NodeID{}, err
 	}
-
-	// TODO: call DB.PeerIdentities().Set(context.Context, storj.NodeID, *identity.PeerIdentity)
-	// to verify a node's latest peer identity signed
 	return peerID.ID, nil
 }
