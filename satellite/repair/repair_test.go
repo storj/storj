@@ -231,7 +231,6 @@ func TestCorruptDataRepair(t *testing.T) {
 			if i >= toKill {
 				// this means the node will be kept alive for repair
 				// choose a node and pieceID to corrupt so repair fails
-
 				if corruptedNodeID.IsZero() || corruptedPiece.IsZero() {
 					corruptedNodeID = piece.NodeId
 					corruptedPiece = pointer.GetRemote().RootPieceId.Derive(corruptedNodeID, piece.PieceNum)
@@ -276,7 +275,7 @@ func TestCorruptDataRepair(t *testing.T) {
 		corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
 
 		// corrupt data and write back to storagenode
-		pieceData[0] = pieceData[0] + 1
+		pieceData[0] = pieceData[0] + 1 // if we don't do this, this test should fail
 		writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef, pieceSize)
 		require.NoError(t, err)
 		writer.Write(pieceData)
