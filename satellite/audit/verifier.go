@@ -42,13 +42,6 @@ var (
 	ErrSegmentDeleted = errs.Class("segment deleted during audit")
 )
 
-// Stripe keeps track of a stripe's index and its parent segment
-type Stripe struct {
-	Index       int64
-	Segment     *pb.Pointer
-	SegmentPath storj.Path
-}
-
 // Share represents required information about an audited share
 type Share struct {
 	Error    error
