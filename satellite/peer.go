@@ -113,6 +113,7 @@ type Config struct {
 	Server   server.Config
 
 	Kademlia  kademlia.Config
+	Contact   contact.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
@@ -366,15 +367,36 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup contact service
 		log.Debug("Setting up contact service")
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Overlay.Service, peer.Transport)
+		c := config.Contact
+		if c.ExternalAddress == "" {
+			c.ExternalAddress = peer.Addr()
+		}
+
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		self := overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Address: c.ExternalAddress,
+				},
+			},
+			Type:     pb.NodeType_SATELLITE,
+			Operator: pb.NodeOperator{},
+			Version:  *pbVersion,
+		}
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
-		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		// TODO pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup discovery
 		log.Debug("Setting up discovery")
 		config := config.Discovery
-		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
+		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Contact.Service, config)
 	}
 
 	{ // setup vouchers
@@ -418,7 +440,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   config.Kademlia.ExternalAddress,
+				Address:   config.Contact.ExternalAddress,
 			},
 			config.Repairer.MaxExcessRateOptimalThreshold,
 		)
@@ -855,7 +877,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Contact.Service.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
