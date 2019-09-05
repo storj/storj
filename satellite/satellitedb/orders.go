@@ -277,8 +277,6 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		var serialNumberID int64
 		var bucketID []byte
 		if err := row.Scan(&serialNumberID, &bucketID); err != nil {
-			if err == sql.ErrNoRows {
-			}
 			rejected[request.OrderLimit.SerialNumber] = true
 			continue
 		}
