@@ -62,8 +62,8 @@ func (stats *PingStats) WhenLastPinged() (when time.Time, who storj.NodeID, addr
 	return stats.lastPinged, stats.whoPingedNodeID, stats.whoPingedAddress
 }
 
-// WasPinged notifies the service it has been remotely pinged.
-func (stats *PingStats) WasPinged(when time.Time, srcNodeID storj.NodeID, srcAddress string) {
+// wasPinged notifies the service it has been remotely pinged.
+func (stats *PingStats) wasPinged(when time.Time, srcNodeID storj.NodeID, srcAddress string) {
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 	stats.lastPinged = when
