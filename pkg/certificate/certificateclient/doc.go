@@ -3,5 +3,5 @@
 
 /*
 Package certificatesclient contains the client for the certificate endpoint.
- */
+*/
 package certificateclient

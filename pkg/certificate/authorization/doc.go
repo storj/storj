@@ -4,5 +4,5 @@
 /*
 Package authorization is used for managing one-time-use certificate-signing-
 authorizations and claims.
- */
+*/
 package authorization
