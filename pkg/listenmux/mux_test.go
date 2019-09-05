@@ -66,5 +66,5 @@ func TestMux(t *testing.T) {
 	require.NoError(t, lisGroup.Wait())
 
 	cancel()
-	require.Equal(t, context.Canceled, muxGroup.Wait())
+	require.Equal(t, nil, muxGroup.Wait())
 }

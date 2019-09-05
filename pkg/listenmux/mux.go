@@ -9,7 +9,12 @@ import (
 	"io"
 	"net"
 	"sync"
+
+	"github.com/zeebo/errs"
 )
+
+// Closed is returned by routed listeners when the mux is closed.
+var Closed = errs.New("listener closed")
 
 // Mux lets one multiplex a listener into different listeners based on the first
 // bytes sent on the connection.
@@ -103,17 +108,18 @@ func (m *Mux) monitorSignal() {
 
 func (m *Mux) monitorContext(ctx context.Context) {
 	<-ctx.Done()
-	m.once.Do(func() {
-		m.err = ctx.Err()
-		close(m.done)
-	})
+	m.once.Do(func() { close(m.done) })
 }
 
 func (m *Mux) monitorListener(prefix string, lis *listener) {
 	select {
 	case <-m.done:
 		lis.once.Do(func() {
-			lis.err = m.err
+			if m.err != nil {
+				lis.err = m.err
+			} else {
+				lis.err = Closed
+			}
 			close(lis.done)
 		})
 	case <-lis.done:
