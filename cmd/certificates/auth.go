@@ -70,19 +70,19 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errs.New("Count couldn't be parsed: %s", args[0])
 	}
-	authDB, err := config.Signer.NewAuthDB()
+	authDB, err := authCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
 	}
 
 	var emails []string
 	if len(args) > 1 {
-		if config.EmailsPath != "" {
+		if authCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args[1:]
 	} else {
-		emails, err = parseEmailsList(config.EmailsPath, config.Delimiter)
+		emails, err = parseEmailsList(authCfg.EmailsPath, authCfg.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -99,26 +99,26 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 
 func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
-	authDB, err := config.Signer.NewAuthDB()
+	authDB, err := authCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
 	}
 
 	var emails []string
 	if len(args) > 0 {
-		if config.EmailsPath != "" && !config.All {
+		if authCfg.EmailsPath != "" && !authCfg.All {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args
-	} else if len(args) == 0 || config.All {
+	} else if len(args) == 0 || authCfg.All {
 		emails, err = authDB.UserIDs(ctx)
 		if err != nil {
 			return err
 		}
-	} else if _, err := os.Stat(config.EmailsPath); err != nil {
+	} else if _, err := os.Stat(authCfg.EmailsPath); err != nil {
 		return errs.New("Emails path error: %s", err)
 	} else {
-		emails, err = parseEmailsList(config.EmailsPath, config.Delimiter)
+		emails, err = parseEmailsList(authCfg.EmailsPath, authCfg.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -162,7 +162,7 @@ func writeAuthInfo(ctx context.Context, authDB *certificates.AuthorizationDB, em
 		return err
 	}
 
-	if config.ShowTokens {
+	if authCfg.ShowTokens {
 		if err := writeTokenInfo(claimed, open, w); err != nil {
 			return err
 		}
@@ -194,25 +194,25 @@ func writeTokenInfo(claimed, open certificates.Authorizations, w io.Writer) erro
 
 func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
-	authDB, err := config.Signer.NewAuthDB()
+	authDB, err := authCfg.Signer.NewAuthDB()
 	if err != nil {
 		return err
 	}
 
 	var emails []string
 	switch {
-	case len(args) > 0 && !config.All:
-		if config.EmailsPath != "" {
+	case len(args) > 0 && !authCfg.All:
+		if authCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args
-	case len(args) == 0 || config.All:
+	case len(args) == 0 || authCfg.All:
 		emails, err = authDB.UserIDs(ctx)
 		if err != nil {
 			return err
 		}
 	default:
-		emails, err = parseEmailsList(config.EmailsPath, config.Delimiter)
+		emails, err = parseEmailsList(authCfg.EmailsPath, authCfg.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -222,14 +222,14 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 		emailErrs, csvErrs errs.Group
 		output             io.Writer
 	)
-	switch config.Out {
+	switch authCfg.Out {
 	case "-":
 		output = os.Stdout
 	default:
-		if err := os.MkdirAll(filepath.Dir(config.Out), 0600); err != nil {
+		if err := os.MkdirAll(filepath.Dir(authCfg.Out), 0600); err != nil {
 			return errs.Wrap(err)
 		}
-		output, err = os.OpenFile(config.Out, os.O_CREATE, 0600)
+		output, err = os.OpenFile(authCfg.Out, os.O_CREATE, 0600)
 		if err != nil {
 			return errs.Wrap(err)
 		}
