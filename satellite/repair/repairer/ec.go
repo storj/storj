@@ -163,29 +163,11 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	defer func() { err = errs.Combine(err, downloader.Close()) }()
 
 	var calculatedHash []byte
-	pieceBytes := make([]byte, 0, pieceSize)
-	buffer := make([]byte, bufferSize)
-	newHash := pkcrypto.NewHash()
-
-	for {
-		// download full piece
-		n, readErr := downloader.Read(buffer)
-		if readErr == io.EOF {
-			_, _ = newHash.Write(buffer[:n])
-			pieceBytes = append(pieceBytes, buffer[:n]...)
-			break
-		}
-		if readErr != nil {
-			return nil, readErr
-		}
-
-		// add new data to hash calculation
-		_, _ = newHash.Write(buffer[:n]) // guaranteed not to return an error
-		// add new data to piece bytes
-		pieceBytes = append(pieceBytes, buffer[:n]...)
+	pieceBytes, err := ioutil.ReadAll(downloader)
+	if err != nil {
+		return nil, err
 	}
-
-	calculatedHash = newHash.Sum(nil)
+	calculatedHash = pkcrypto.SHA256Hash(pieceBytes)
 
 	if int64(len(pieceBytes)) != pieceSize {
 		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, len(pieceBytes))
