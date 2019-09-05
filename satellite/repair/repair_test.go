@@ -5,6 +5,7 @@ package repair_test
 
 import (
 	"context"
+	"io"
 	"math"
 	"testing"
 
@@ -19,6 +20,8 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storage"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/uplink"
 )
 
@@ -219,15 +222,29 @@ func TestCorruptDataRepair(t *testing.T) {
 		nodesToKill := make(map[storj.NodeID]bool)
 		originalNodes := make(map[storj.NodeID]bool)
 
+		var corruptedNode *storagenode.Peer
+		var corruptedNodeID storj.NodeID
+		var corruptedPiece storj.PieceID
+
 		for i, piece := range remotePieces {
 			originalNodes[piece.NodeId] = true
 			if i >= toKill {
+				// this means the node will be kept alive for repair
+				// choose a node and pieceID to corrupt so repair fails
+
+				corruptedNodeID = piece.NodeId
+				corruptedPiece = pointer.GetRemote().RootPieceId.Derive(corruptedNodeID, piece.PieceNum)
 				continue
 			}
 			nodesToKill[piece.NodeId] = true
 		}
+		require.NotNil(t, corruptedNodeID)
+		require.NotNil(t, corruptedPiece)
 
 		for _, node := range planet.StorageNodes {
+			if node.ID() == corruptedNodeID {
+				corruptedNode = node
+			}
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
@@ -235,8 +252,34 @@ func TestCorruptDataRepair(t *testing.T) {
 				require.NoError(t, err)
 			}
 		}
+		require.NotNil(t, corruptedNode)
 
 		// TODO corrupt piece (test should fail if this step is not done!!!!)
+		blobRef := storage.BlobRef{
+			Namespace: satellitePeer.ID().Bytes(),
+			Key:       corruptedPiece.Bytes(),
+		}
+
+		// get currently stored piece data from storagenode
+		reader, err := corruptedNode.Storage2.BlobsCache.Open(ctx, blobRef)
+		require.NoError(t, err)
+		pieceSize, err := reader.Size()
+		require.NoError(t, err)
+		require.True(t, pieceSize > 0)
+		pieceData := make([]byte, pieceSize)
+		n, err := io.ReadFull(reader, pieceData)
+		require.NoError(t, err)
+		require.EqualValues(t, n, pieceSize)
+
+		// delete piece data
+		corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
+
+		// corrupt data and write back to storagenode
+		pieceData[0] = pieceData[0] + 1
+		writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef, pieceSize)
+		require.NoError(t, err)
+		writer.Write(pieceData)
+		writer.Commit(ctx)
 
 		satellitePeer.Repair.Checker.Loop.Restart()
 		satellitePeer.Repair.Checker.Loop.TriggerWait()
