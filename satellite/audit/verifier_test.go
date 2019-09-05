@@ -34,14 +34,15 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -49,14 +50,21 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
 		require.NoError(t, err)
 
-		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		require.NoError(t, err)
+
+		shares, err := audits.Worker.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -78,14 +86,15 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -93,19 +102,26 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
 		require.NoError(t, err)
 
-		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
 		// stop the first node in the pointer
-		stoppedNodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		stoppedNodeID := pointer.GetRemote().GetRemotePieces()[0].NodeId
 		err = stopStorageNode(ctx, planet, stoppedNodeID)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
+		shares, err := audits.Worker.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -130,14 +146,25 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -145,18 +172,15 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
-		require.NoError(t, err)
-
 		// replace the piece id of the selected stripe with a new random one
 		// to simulate missing piece on the storage nodes
-		stripe.Segment.GetRemote().RootPieceId = storj.NewPieceID()
+		pointer.GetRemote().RootPieceId = storj.NewPieceID()
 
-		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
+		shares, err := audits.Worker.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -178,23 +202,31 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
-
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
-		require.NoError(t, err)
 
 		network := &transport.SimulatedNetwork{
 			DialLatency:    200 * time.Second,
@@ -226,11 +258,11 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			minBytesPerSecond,
 			5*time.Second)
 
-		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
-		shares, err := verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -258,14 +290,15 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		storageNodeDB := planet.StorageNodes[0].DB.(*testblobs.SlowDB)
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -273,7 +306,14 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
 		// This config value will create a very short timeframe allowed for receiving
@@ -291,15 +331,15 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			minBytesPerSecond,
 			150*time.Millisecond)
 
-		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
 		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
 
-		shares, err := verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		require.Len(t, shares, 1)
@@ -313,23 +353,28 @@ func TestVerifierHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Verify(ctx, stripe, nil)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
-		assert.Len(t, report.Successes, len(stripe.Segment.GetRemote().GetRemotePieces()))
+		report, err := audits.Worker.Verifier.Verify2(ctx, path, nil)
+		require.NoError(t, err)
+
+		assert.Len(t, report.Successes, len(pointer.GetRemote().GetRemotePieces()))
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
@@ -342,28 +387,32 @@ func TestVerifierOfflineNode(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Discovery.Service.Discovery.Pause()
 
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
 		// stop the first node in the pointer
-		stoppedNodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		stoppedNodeID := pointer.GetRemote().GetRemotePieces()[0].NodeId
 		err = stopStorageNode(ctx, planet, stoppedNodeID)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Verify(ctx, stripe, nil)
+		report, err := audits.Worker.Verifier.Verify2(ctx, path, nil)
 		require.NoError(t, err)
 
-		assert.Len(t, report.Successes, len(stripe.Segment.GetRemote().GetRemotePieces())-1)
+		assert.Len(t, report.Successes, len(pointer.GetRemote().GetRemotePieces())-1)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 1)
 		assert.Len(t, report.PendingAudits, 0)
@@ -374,28 +423,33 @@ func TestVerifierMissingPiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
 		// delete the piece from the first node
-		origNumPieces := len(stripe.Segment.GetRemote().GetRemotePieces())
-		piece := stripe.Segment.GetRemote().GetRemotePieces()[0]
-		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
+		piece := pointer.GetRemote().GetRemotePieces()[0]
+		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 		node := getStorageNode(planet, piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Verify(ctx, stripe, nil)
+		report, err := audits.Worker.Verifier.Verify2(ctx, path, nil)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, origNumPieces-1)
@@ -409,17 +463,22 @@ func TestVerifierDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
 		network := &transport.SimulatedNetwork{
@@ -452,12 +511,12 @@ func TestVerifierDialTimeout(t *testing.T) {
 			minBytesPerSecond,
 			5*time.Second)
 
-		report, err := verifier.Verify(ctx, stripe, nil)
+		report, err := verifier.Verify2(ctx, path, nil)
 		require.True(t, audit.ErrNotEnoughShares.Has(err), "unexpected error: %+v", err)
 
 		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
-		assert.Len(t, report.Offlines, len(stripe.Segment.GetRemote().GetRemotePieces()))
+		assert.Len(t, report.Offlines, len(pointer.GetRemote().GetRemotePieces()))
 		assert.Len(t, report.PendingAudits, 0)
 	})
 }
@@ -466,83 +525,95 @@ func TestVerifierDeletedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
 		require.NoError(t, err)
 
 		// delete the file
 		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Verify(ctx, stripe, nil)
+		report, err := audits.Worker.Verifier.Verify2(ctx, path, nil)
 		require.True(t, audit.ErrSegmentDeleted.Has(err))
 		assert.Empty(t, report)
 	})
 }
 
-func TestVerifierModifiedSegment(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+// TODO: Commenting this test for now because currently when we get paths from the audit queue,
+//  it doesn't seem like there's a way for us to keep track of the old pointer and compare
+//  creations dates like we did previously.
 
-		ul := planet.Uplinks[0]
-		testData := testrand.Bytes(8 * memory.KiB)
-
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
-		require.NoError(t, err)
-
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
-		require.NoError(t, err)
-
-		// replace the file
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
-		require.NoError(t, err)
-
-		report, err := audits.Verifier.Verify(ctx, stripe, nil)
-		require.True(t, audit.ErrSegmentDeleted.Has(err))
-		assert.Empty(t, report)
-	})
-}
+//func TestVerifierModifiedSegment(t *testing.T) {
+//	testplanet.Run(t, testplanet.Config{
+//		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+//	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+//
+//		audits := planet.Satellites[0].Audit
+//		queue := audits.Queue
+//		satellite := planet.Satellites[0]
+//
+//		ul := planet.Uplinks[0]
+//		testData := testrand.Bytes(8 * memory.KiB)
+//
+//		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+//		require.NoError(t, err)
+//
+//		satellite.Audit.Chore.Loop.TriggerWait()
+//		path, err := queue.Next()
+//		require.NoError(t, err)
+//
+//		// replace the file
+//		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+//		require.NoError(t, err)
+//
+//		report, err := audits.Worker.Verifier.Verify2(ctx, path, nil)
+//		require.True(t, audit.ErrSegmentDeleted.Has(err))
+//		assert.Empty(t, report)
+//	})
+//}
 
 func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
 		require.NoError(t, err)
-		require.NotNil(t, stripe)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
 
 		// delete the piece from the first node
-		origNumPieces := len(stripe.Segment.GetRemote().GetRemotePieces())
-		piece := stripe.Segment.GetRemote().GetRemotePieces()[0]
-		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
+		piece := pointer.GetRemote().GetRemotePieces()[0]
+		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 		node := getStorageNode(planet, piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Verify(ctx, stripe, nil)
+		report, err := audits.Worker.Verifier.Verify2(ctx, path, nil)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, origNumPieces-1)
@@ -551,12 +622,11 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 
-		//refetch the stripe
-		stripe, _, err = audits.Cursor.NextStripe(ctx)
-		assert.NoError(t, err)
-		require.NotNil(t, stripe)
+		// refetch the pointer
+		pointerAgain, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
 
-		report, err = audits.Verifier.Verify(ctx, stripe, nil)
+		report, err = audits.Worker.Verifier.Verify2(ctx, path, nil)
 		require.NoError(t, err)
 
 		//verify no failures because that segment is gone
@@ -565,7 +635,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 
-		for _, newPiece := range stripe.Segment.GetRemote().GetRemotePieces() {
+		for _, newPiece := range pointerAgain.GetRemote().GetRemotePieces() {
 			assert.NotEqual(t, newPiece.NodeId, piece.NodeId)
 		}
 	})
