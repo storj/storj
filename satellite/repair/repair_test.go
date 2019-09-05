@@ -232,8 +232,10 @@ func TestCorruptDataRepair(t *testing.T) {
 				// this means the node will be kept alive for repair
 				// choose a node and pieceID to corrupt so repair fails
 
-				corruptedNodeID = piece.NodeId
-				corruptedPiece = pointer.GetRemote().RootPieceId.Derive(corruptedNodeID, piece.PieceNum)
+				if corruptedNodeID.IsZero() || corruptedPiece.IsZero() {
+					corruptedNodeID = piece.NodeId
+					corruptedPiece = pointer.GetRemote().RootPieceId.Derive(corruptedNodeID, piece.PieceNum)
+				}
 				continue
 			}
 			nodesToKill[piece.NodeId] = true
@@ -254,7 +256,6 @@ func TestCorruptDataRepair(t *testing.T) {
 		}
 		require.NotNil(t, corruptedNode)
 
-		// TODO corrupt piece (test should fail if this step is not done!!!!)
 		blobRef := storage.BlobRef{
 			Namespace: satellitePeer.ID().Bytes(),
 			Key:       corruptedPiece.Bytes(),
