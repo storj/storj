@@ -329,6 +329,11 @@ test-docker-clean: ## Clean up Docker environment used in test-docker target
 
 ##@ Tooling
 
+.PHONY: diagrams
+diagrams:
+	archview -trim-prefix storj.io/storj/satellite/ -out satellite.graphml ./satellite/...
+	archview -trim-prefix storj.io/storj/storagenode/ -out storage-node.graphml ./storagenode/...
+
 .PHONY: update-satellite-config-lock
 update-satellite-config-lock: ## Update the satellite config lock file
 	@docker run -ti --rm \

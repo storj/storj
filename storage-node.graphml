@@ -1,0 +1,577 @@
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:y="http://www.yworks.com/xml/graphml" xsi:schemalocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+	<key id="label" for="node" attr.name="label" attr.type="string"></key>
+	<key id="shape" for="node" attr.name="shape" attr.type="string"></key>
+	<key id="label" for="edge" attr.name="label" attr.type="string"></key>
+	<key id="name" for="node" attr.name="name" attr.type="string"></key>
+	<key id="url" for="node" attr.name="url" attr.type="string"></key>
+	<key id="class" for="node" attr.name="class" attr.type="string"></key>
+	<key id="package" for="node" attr.name="package" attr.type="string"></key>
+	<key id="ynodelabel" for="node" yfiles.type="nodegraphics"></key>
+	<key id="yedgelabel" for="edge" yfiles.type="edgegraphics"></key>
+	<graph id="" edgedefault="directed">
+		<node id="storj_io_storj_storagenode_bandwidth_Service">
+			<data key="label">bandwidth.Service</data>
+			<data key="tooltip">Service implements&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/bandwidth#Service</data>
+			<data key="class">Chore</data>
+			<data key="package">storj.io/storj/storagenode/bandwidth</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>bandwidth.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_bandwidth_DB">
+			<data key="label">bandwidth.DB</data>
+			<data key="tooltip">DB contains information about bandwidth usage.&#xA;</data>
+			<data key="name">DB</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/bandwidth#DB</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/storagenode/bandwidth</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>bandwidth.DB</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_pieces_CacheService">
+			<data key="label">pieces.CacheService</data>
+			<data key="tooltip">CacheService updates the space used cache&#xA;</data>
+			<data key="name">CacheService</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/pieces#CacheService</data>
+			<data key="class">Chore</data>
+			<data key="package">storj.io/storj/storagenode/pieces</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>pieces.CacheService</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_pieces_PieceExpirationDB">
+			<data key="label">pieces.PieceExpirationDB</data>
+			<data key="tooltip">PieceExpirationDB stores information about pieces with expiration dates.&#xA;</data>
+			<data key="name">PieceExpirationDB</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/pieces#PieceExpirationDB</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/storagenode/pieces</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>pieces.PieceExpirationDB</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_pieces_V0PieceInfoDB">
+			<data key="label">pieces.V0PieceInfoDB</data>
+			<data key="tooltip">V0PieceInfoDB stores meta information about pieces stored with storage format V0 (where&#xA;metadata goes in the &#34;pieceinfo&#34; table in the storagenodedb). The actual pieces are stored&#xA;behind something providing the storage.Blobs interface.&#xA;</data>
+			<data key="name">V0PieceInfoDB</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/pieces#V0PieceInfoDB</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/storagenode/pieces</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>pieces.V0PieceInfoDB</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_pieces_PieceSpaceUsedDB">
+			<data key="label">pieces.PieceSpaceUsedDB</data>
+			<data key="tooltip">PieceSpaceUsedDB stores the most recent totals from the space used cache&#xA;</data>
+			<data key="name">PieceSpaceUsedDB</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/pieces#PieceSpaceUsedDB</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/storagenode/pieces</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>pieces.PieceSpaceUsedDB</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_pieces_Store">
+			<data key="label">pieces.Store</data>
+			<data key="tooltip">Store implements storing pieces onto a blob storage implementation.&#xA;</data>
+			<data key="name">Store</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/pieces#Store</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/storagenode/pieces</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>pieces.Store</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storage_Blobs">
+			<data key="label">storj.io/storj/storage.Blobs</data>
+			<data key="tooltip">Blobs is a blob storage interface.&#xA;</data>
+			<data key="name">Blobs</data>
+			<data key="url">http://godoc.org/storj.io/storj/storage#Blobs</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/storage</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/storage.Blobs</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_monitor_Service">
+			<data key="label">monitor.Service</data>
+			<data key="tooltip">Service which monitors disk usage and updates kademlia network as necessary.&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/monitor#Service</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/storagenode/monitor</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>monitor.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_pkg_kademlia_Kademlia">
+			<data key="label">storj.io/storj/pkg/kademlia.Kademlia</data>
+			<data key="tooltip">Kademlia is an implementation of kademlia network.&#xA;</data>
+			<data key="name">Kademlia</data>
+			<data key="url">http://godoc.org/storj.io/storj/pkg/kademlia#Kademlia</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/pkg/kademlia</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/pkg/kademlia.Kademlia</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_pkg_kademlia_RoutingTable">
+			<data key="label">storj.io/storj/pkg/kademlia.RoutingTable</data>
+			<data key="tooltip">RoutingTable implements the RoutingTable interface&#xA;</data>
+			<data key="name">RoutingTable</data>
+			<data key="url">http://godoc.org/storj.io/storj/pkg/kademlia#RoutingTable</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/pkg/kademlia</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/pkg/kademlia.RoutingTable</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_pkg_kademlia_kademliaclient_Dialer">
+			<data key="label">storj.io/storj/pkg/kademlia/kademliaclient.Dialer</data>
+			<data key="tooltip">Dialer sends requests to kademlia endpoints on storage nodes&#xA;</data>
+			<data key="name">Dialer</data>
+			<data key="url">http://godoc.org/storj.io/storj/pkg/kademlia/kademliaclient#Dialer</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/pkg/kademlia/kademliaclient</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/pkg/kademlia/kademliaclient.Dialer</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_satellite_overlay_CombinedCache">
+			<data key="label">storj.io/storj/satellite/overlay.CombinedCache</data>
+			<data key="tooltip">CombinedCache is a simple caching mechanism for overlaycache updates. It&#xA;provdes methods to help reduce calls to UpdateAddress and UpdateTime, but can&#xA;be extended for other calls in the future.&#xA;</data>
+			<data key="name">CombinedCache</data>
+			<data key="url">http://godoc.org/storj.io/storj/satellite/overlay#CombinedCache</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/satellite/overlay</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/satellite/overlay.CombinedCache</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_satellite_overlay_Inspector">
+			<data key="label">storj.io/storj/satellite/overlay.Inspector</data>
+			<data key="tooltip">Inspector is a gRPC service for inspecting overlay internals&#xA;</data>
+			<data key="name">Inspector</data>
+			<data key="url">http://godoc.org/storj.io/storj/satellite/overlay#Inspector</data>
+			<data key="class">Endpoint</data>
+			<data key="package">storj.io/storj/satellite/overlay</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/satellite/overlay.Inspector</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_satellite_overlay_PeerIdentities">
+			<data key="label">storj.io/storj/satellite/overlay.PeerIdentities</data>
+			<data key="tooltip">PeerIdentities stores storagenode peer identities&#xA;</data>
+			<data key="name">PeerIdentities</data>
+			<data key="url">http://godoc.org/storj.io/storj/satellite/overlay#PeerIdentities</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/satellite/overlay</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/satellite/overlay.PeerIdentities</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_satellite_overlay_DB">
+			<data key="label">storj.io/storj/satellite/overlay.DB</data>
+			<data key="tooltip">DB implements the database for overlay.Service&#xA;</data>
+			<data key="name">DB</data>
+			<data key="url">http://godoc.org/storj.io/storj/satellite/overlay#DB</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/satellite/overlay</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/satellite/overlay.DB</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_satellite_overlay_Service">
+			<data key="label">storj.io/storj/satellite/overlay.Service</data>
+			<data key="tooltip">Service is used to store and handle node information&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/satellite/overlay#Service</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/satellite/overlay</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/satellite/overlay.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_trust_Pool">
+			<data key="label">trust.Pool</data>
+			<data key="tooltip">Pool implements different peer verifications.&#xA;</data>
+			<data key="name">Pool</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/trust#Pool</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/storagenode/trust</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>trust.Pool</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_orders_DB">
+			<data key="label">orders.DB</data>
+			<data key="tooltip">DB implements storing orders for sending to the satellite.&#xA;</data>
+			<data key="name">DB</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/orders#DB</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/storagenode/orders</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>orders.DB</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_orders_Service">
+			<data key="label">orders.Service</data>
+			<data key="tooltip">Service sends every interval unsent orders to the satellite.&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/orders#Service</data>
+			<data key="class">Chore</data>
+			<data key="package">storj.io/storj/storagenode/orders</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>orders.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_retain_Service">
+			<data key="label">retain.Service</data>
+			<data key="tooltip">Service queues and processes retain requests from satellites.&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/retain#Service</data>
+			<data key="class">Worker</data>
+			<data key="package">storj.io/storj/storagenode/retain</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>retain.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_piecestore_Endpoint">
+			<data key="label">piecestore.Endpoint</data>
+			<data key="tooltip">Endpoint implements uploading, downloading and deleting for a storage node..&#xA;</data>
+			<data key="name">Endpoint</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/piecestore#Endpoint</data>
+			<data key="class">Endpoint</data>
+			<data key="package">storj.io/storj/storagenode/piecestore</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>piecestore.Endpoint</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_piecestore_UsedSerials">
+			<data key="label">piecestore.UsedSerials</data>
+			<data key="tooltip">UsedSerials is a persistent store for serial numbers.&#xA;TODO: maybe this should be in orders.UsedSerials&#xA;</data>
+			<data key="name">UsedSerials</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/piecestore#UsedSerials</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/storagenode/piecestore</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>piecestore.UsedSerials</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_collector_Service">
+			<data key="label">collector.Service</data>
+			<data key="tooltip">Service implements collecting expired pieces on the storage node.&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/collector#Service</data>
+			<data key="class">Chore</data>
+			<data key="package">storj.io/storj/storagenode/collector</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>collector.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_reputation_DB">
+			<data key="label">reputation.DB</data>
+			<data key="tooltip">DB works with reputation database&#xA;</data>
+			<data key="name">DB</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/reputation#DB</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/storagenode/reputation</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>reputation.DB</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_storageusage_DB">
+			<data key="label">storageusage.DB</data>
+			<data key="tooltip">DB works with storage usage database&#xA;</data>
+			<data key="name">DB</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/storageusage#DB</data>
+			<data key="class">Database</data>
+			<data key="package">storj.io/storj/storagenode/storageusage</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storageusage.DB</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_console_Service">
+			<data key="label">console.Service</data>
+			<data key="tooltip">Service is handling storage node operator related logic.&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/console#Service</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/storagenode/console</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>console.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_internal_version_Service">
+			<data key="label">storj.io/storj/internal/version.Service</data>
+			<data key="tooltip">Service contains the information and variables to ensure the Software is up to date&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/internal/version#Service</data>
+			<data key="class">Chore</data>
+			<data key="package">storj.io/storj/internal/version</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/internal/version.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_console_consoleserver_Server">
+			<data key="label">console/consoleserver.Server</data>
+			<data key="tooltip">Server represents storagenode console web server.&#xA;</data>
+			<data key="name">Server</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/console/consoleserver#Server</data>
+			<data key="class">Endpoint</data>
+			<data key="package">storj.io/storj/storagenode/console/consoleserver</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>console/consoleserver.Server</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_contact_Endpoint">
+			<data key="label">contact.Endpoint</data>
+			<data key="tooltip">Endpoint implements the contact service Endpoints&#xA;</data>
+			<data key="name">Endpoint</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/contact#Endpoint</data>
+			<data key="class">Endpoint</data>
+			<data key="package">storj.io/storj/storagenode/contact</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>contact.Endpoint</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_contact_Service">
+			<data key="label">contact.Service</data>
+			<data key="tooltip">Service is the contact service between storage nodes and satellites&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/contact#Service</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/storagenode/contact</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>contact.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_inspector_Endpoint">
+			<data key="label">inspector.Endpoint</data>
+			<data key="tooltip">Endpoint does inspectory things&#xA;</data>
+			<data key="name">Endpoint</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/inspector#Endpoint</data>
+			<data key="class">Endpoint</data>
+			<data key="package">storj.io/storj/storagenode/inspector</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>inspector.Endpoint</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_nodestats_Cache">
+			<data key="label">nodestats.Cache</data>
+			<data key="tooltip">Cache runs cache loop and stores reputation stats&#xA;and storage usage into db&#xA;</data>
+			<data key="name">Cache</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/nodestats#Cache</data>
+			<data key="class">Chore</data>
+			<data key="package">storj.io/storj/storagenode/nodestats</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>nodestats.Cache</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_nodestats_Client">
+			<data key="label">nodestats.Client</data>
+			<data key="tooltip">Client encapsulates NodeStatsClient with underlying connection&#xA;</data>
+			<data key="name">Client</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/nodestats#Client</data>
+			<data key="class">Client</data>
+			<data key="package">storj.io/storj/storagenode/nodestats</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>nodestats.Client</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_nodestats_Service">
+			<data key="label">nodestats.Service</data>
+			<data key="tooltip">Service retrieves info from satellites using GRPC client&#xA;</data>
+			<data key="name">Service</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode/nodestats#Service</data>
+			<data key="class">Service</data>
+			<data key="package">storj.io/storj/storagenode/nodestats</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>nodestats.Service</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_DB">
+			<data key="label">storj.io/storj/storagenode.DB</data>
+			<data key="tooltip">DB is the master database for Storage Node&#xA;</data>
+			<data key="name">DB</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode#DB</data>
+			<data key="class">Master Database</data>
+			<data key="package">storj.io/storj/storagenode</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/storagenode.DB</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<node id="storj_io_storj_storagenode_Peer">
+			<data key="label">storj.io/storj/storagenode.Peer</data>
+			<data key="tooltip">Peer is the representation of a Storage Node.&#xA;</data>
+			<data key="name">Peer</data>
+			<data key="url">http://godoc.org/storj.io/storj/storagenode#Peer</data>
+			<data key="class">Peer</data>
+			<data key="package">storj.io/storj/storagenode</data>
+			<data key="ynodelabel"><y:ShapeNode><y:NodeLabel>storj.io/storj/storagenode.Peer</y:NodeLabel></y:ShapeNode></data>
+		</node>
+		<edge source="storj_io_storj_storagenode_bandwidth_Service" target="storj_io_storj_storagenode_bandwidth_DB">
+			<data key="tooltip">db</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_pieces_CacheService" target="storj_io_storj_storage_Blobs">
+			<data key="tooltip">usageCache.Blobs</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_pieces_CacheService" target="storj_io_storj_storagenode_pieces_Store">
+			<data key="tooltip">store</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_pieces_Store" target="storj_io_storj_storage_Blobs">
+			<data key="tooltip">blobs</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_pieces_Store" target="storj_io_storj_storagenode_pieces_V0PieceInfoDB">
+			<data key="tooltip">v0PieceInfo</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_pieces_Store" target="storj_io_storj_storagenode_pieces_PieceExpirationDB">
+			<data key="tooltip">expirationInfo</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_pieces_Store" target="storj_io_storj_storagenode_pieces_PieceSpaceUsedDB">
+			<data key="tooltip">spaceUsedDB</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_monitor_Service" target="storj_io_storj_pkg_kademlia_RoutingTable">
+			<data key="tooltip">routingTable</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_monitor_Service" target="storj_io_storj_storagenode_pieces_Store">
+			<data key="tooltip">store</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_monitor_Service" target="storj_io_storj_storagenode_bandwidth_DB">
+			<data key="tooltip">usageDB</data>
+		</edge>
+		<edge source="storj_io_storj_pkg_kademlia_Kademlia" target="storj_io_storj_pkg_kademlia_RoutingTable">
+			<data key="tooltip">routingTable</data>
+		</edge>
+		<edge source="storj_io_storj_pkg_kademlia_Kademlia" target="storj_io_storj_pkg_kademlia_kademliaclient_Dialer">
+			<data key="tooltip">dialer</data>
+		</edge>
+		<edge source="storj_io_storj_satellite_overlay_CombinedCache" target="storj_io_storj_satellite_overlay_DB">
+			<data key="tooltip">DB</data>
+		</edge>
+		<edge source="storj_io_storj_satellite_overlay_Inspector" target="storj_io_storj_satellite_overlay_Service">
+			<data key="tooltip">service</data>
+		</edge>
+		<edge source="storj_io_storj_satellite_overlay_Service" target="storj_io_storj_satellite_overlay_DB">
+			<data key="tooltip">db</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_orders_Service" target="storj_io_storj_storagenode_orders_DB">
+			<data key="tooltip">orders</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_orders_Service" target="storj_io_storj_storagenode_trust_Pool">
+			<data key="tooltip">trust</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_retain_Service" target="storj_io_storj_storagenode_pieces_Store">
+			<data key="tooltip">store</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_piecestore_Endpoint" target="storj_io_storj_storagenode_trust_Pool">
+			<data key="tooltip">trust</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_piecestore_Endpoint" target="storj_io_storj_storagenode_monitor_Service">
+			<data key="tooltip">monitor</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_piecestore_Endpoint" target="storj_io_storj_storagenode_retain_Service">
+			<data key="tooltip">retain</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_piecestore_Endpoint" target="storj_io_storj_storagenode_pieces_Store">
+			<data key="tooltip">store</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_piecestore_Endpoint" target="storj_io_storj_storagenode_orders_DB">
+			<data key="tooltip">orders</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_piecestore_Endpoint" target="storj_io_storj_storagenode_bandwidth_DB">
+			<data key="tooltip">usage</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_piecestore_Endpoint" target="storj_io_storj_storagenode_piecestore_UsedSerials">
+			<data key="tooltip">usedSerials</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_collector_Service" target="storj_io_storj_storagenode_pieces_Store">
+			<data key="tooltip">pieces</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_collector_Service" target="storj_io_storj_storagenode_piecestore_UsedSerials">
+			<data key="tooltip">usedSerials</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_console_Service" target="storj_io_storj_storagenode_trust_Pool">
+			<data key="tooltip">trust</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_console_Service" target="storj_io_storj_storagenode_bandwidth_DB">
+			<data key="tooltip">bandwidthDB</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_console_Service" target="storj_io_storj_storagenode_reputation_DB">
+			<data key="tooltip">reputationDB</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_console_Service" target="storj_io_storj_storagenode_storageusage_DB">
+			<data key="tooltip">storageUsageDB</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_console_Service" target="storj_io_storj_storagenode_pieces_Store">
+			<data key="tooltip">pieceStore</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_console_Service" target="storj_io_storj_pkg_kademlia_Kademlia">
+			<data key="tooltip">kademlia</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_console_Service" target="storj_io_storj_internal_version_Service">
+			<data key="tooltip">version</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_console_consoleserver_Server" target="storj_io_storj_storagenode_console_Service">
+			<data key="tooltip">service</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_contact_Endpoint" target="storj_io_storj_storagenode_contact_Service">
+			<data key="tooltip">service</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_inspector_Endpoint" target="storj_io_storj_storagenode_pieces_Store">
+			<data key="tooltip">pieceStore</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_inspector_Endpoint" target="storj_io_storj_pkg_kademlia_Kademlia">
+			<data key="tooltip">kademlia</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_inspector_Endpoint" target="storj_io_storj_storagenode_bandwidth_DB">
+			<data key="tooltip">usageDB</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_nodestats_Cache" target="storj_io_storj_storagenode_reputation_DB">
+			<data key="tooltip">db.Reputation</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_nodestats_Cache" target="storj_io_storj_storagenode_storageusage_DB">
+			<data key="tooltip">db.StorageUsage</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_nodestats_Cache" target="storj_io_storj_storagenode_nodestats_Service">
+			<data key="tooltip">service</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_nodestats_Cache" target="storj_io_storj_storagenode_trust_Pool">
+			<data key="tooltip">trust</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_nodestats_Service" target="storj_io_storj_storagenode_trust_Pool">
+			<data key="tooltip">trust</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_DB" target="storj_io_storj_storagenode_bandwidth_DB">
+			<data key="tooltip">Bandwidth</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_DB" target="storj_io_storj_storagenode_orders_DB">
+			<data key="tooltip">Orders</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_DB" target="storj_io_storj_storagenode_pieces_PieceExpirationDB">
+			<data key="tooltip">PieceExpirationDB</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_DB" target="storj_io_storj_storagenode_pieces_PieceSpaceUsedDB">
+			<data key="tooltip">PieceSpaceUsedDB</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_DB" target="storj_io_storj_storage_Blobs">
+			<data key="tooltip">Pieces</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_DB" target="storj_io_storj_storagenode_reputation_DB">
+			<data key="tooltip">Reputation</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_DB" target="storj_io_storj_storagenode_storageusage_DB">
+			<data key="tooltip">StorageUsage</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_DB" target="storj_io_storj_storagenode_piecestore_UsedSerials">
+			<data key="tooltip">UsedSerials</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_DB" target="storj_io_storj_storagenode_pieces_V0PieceInfoDB">
+			<data key="tooltip">V0PieceInfo</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_DB">
+			<data key="tooltip">DB</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_internal_version_Service">
+			<data key="tooltip">Version</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_pkg_kademlia_RoutingTable">
+			<data key="tooltip">Kademlia.RoutingTable</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_pkg_kademlia_Kademlia">
+			<data key="tooltip">Kademlia.Service</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_pkg_kademlia_Kademlia">
+			<data key="tooltip">Kademlia.Endpoint.service</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_pkg_kademlia_RoutingTable">
+			<data key="tooltip">Kademlia.Endpoint.routingTable</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_pkg_kademlia_Kademlia">
+			<data key="tooltip">Kademlia.Inspector.kademlia</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_contact_Service">
+			<data key="tooltip">Contact.Service</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_contact_Endpoint">
+			<data key="tooltip">Contact.Endpoint</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_trust_Pool">
+			<data key="tooltip">Storage2.Trust</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_pieces_Store">
+			<data key="tooltip">Storage2.Store</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storage_Blobs">
+			<data key="tooltip">Storage2.BlobsCache.Blobs</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_pieces_CacheService">
+			<data key="tooltip">Storage2.CacheService</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_retain_Service">
+			<data key="tooltip">Storage2.RetainService</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_piecestore_Endpoint">
+			<data key="tooltip">Storage2.Endpoint</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_inspector_Endpoint">
+			<data key="tooltip">Storage2.Inspector</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_monitor_Service">
+			<data key="tooltip">Storage2.Monitor</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_orders_Service">
+			<data key="tooltip">Storage2.Orders</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_collector_Service">
+			<data key="tooltip">Collector</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_nodestats_Service">
+			<data key="tooltip">NodeStats.Service</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_nodestats_Cache">
+			<data key="tooltip">NodeStats.Cache</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_console_Service">
+			<data key="tooltip">Console.Service</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_console_consoleserver_Server">
+			<data key="tooltip">Console.Endpoint</data>
+		</edge>
+		<edge source="storj_io_storj_storagenode_Peer" target="storj_io_storj_storagenode_bandwidth_Service">
+			<data key="tooltip">Bandwidth</data>
+		</edge>
+	</graph>
+</graphml>
