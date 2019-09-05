@@ -40,17 +40,23 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 	defer mon.Task()(&ctx)(&err)
 	grpcPeer, ok := peer.FromContext(ctx)
 	if !ok {
-		return nil, internalErr(Error.New("unable to get peer from context"))
+		msg := "error getting peer from context"
+		endpoint.log.Error(msg, zap.Error(err))
+		return nil, internalErr(msg)
 	}
 
 	peerIdent, err := identity.PeerIdentityFromPeer(grpcPeer)
 	if err != nil {
-		return nil, internalErr(err)
+		msg := "error getting peer identity"
+		endpoint.log.Error(msg, zap.Error(err))
+		return nil, internalErr(msg)
 	}
 
 	signedPeerCA, err := endpoint.ca.Sign(peerIdent.CA)
 	if err != nil {
-		return nil, internalErr(err)
+		msg := "error signing peer CA"
+		endpoint.log.Error(msg, zap.Error(err))
+		return nil, internalErr(msg)
 	}
 
 	signedChainBytes := [][]byte{signedPeerCA.Raw, endpoint.ca.Cert.Raw}
@@ -62,16 +68,22 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 		MinDifficulty: endpoint.minDifficulty,
 	})
 	if err != nil {
-		return nil, internalErr(err)
+		msg := "error claiming authorization"
+		endpoint.log.Error(msg, zap.Error(err))
+		return nil, internalErr(msg)
 	}
 
 	difficulty, err := peerIdent.ID.Difficulty()
 	if err != nil {
-		return nil, internalErr(err)
+		msg := "error checking difficulty"
+		endpoint.log.Error(msg, zap.Error(err))
+		return nil, internalErr(msg)
 	}
 	token, err := authorization.ParseToken(req.AuthToken)
 	if err != nil {
-		return nil, internalErr(err)
+		msg := "error parsing auth token"
+		endpoint.log.Error(msg, zap.Error(err))
+		return nil, internalErr(msg)
 	}
 	tokenFormatter := authorization.Authorization{
 		Token: *token,
@@ -87,6 +99,6 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 	}, nil
 }
 
-func internalErr(err error) error {
-	return status.Error(codes.Internal, Error.Wrap(err).Error())
+func internalErr(msg string) error {
+	return status.Error(codes.Internal, Error.New(msg).Error())
 }
