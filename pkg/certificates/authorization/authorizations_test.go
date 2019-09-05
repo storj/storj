@@ -597,7 +597,7 @@ func TestNewClient(t *testing.T) {
 	clientTransport := transport.NewClient(tlsOptions)
 
 	t.Run("Basic", func(t *testing.T) {
-		client, err := certificatesclient.NewClient(ctx, clientTransport, listener.Addr().String())
+		client, err := certificatesclient.New(ctx, clientTransport, listener.Addr().String())
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 

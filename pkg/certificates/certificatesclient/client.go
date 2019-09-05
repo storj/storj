@@ -30,8 +30,8 @@ type Client struct {
 	client pb.CertificatesClient
 }
 
-// NewClient creates a new certificate signing grpc client.
-func NewClient(ctx context.Context, tc transport.Client, address string) (_ *Client, err error) {
+// New creates a new certificate signing grpc client.
+func New(ctx context.Context, tc transport.Client, address string) (_ *Client, err error) {
 	defer mon.Task()(&ctx, address)(&err)
 
 	conn, err := tc.DialAddress(ctx, address)
@@ -54,14 +54,14 @@ func NewClientFrom(client pb.CertificatesClient) (*Client, error) {
 }
 
 // Sign submits a certificate signing request given the config.
-func (c Config) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) (_ [][]byte, err error) {
+func (config Config) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS, nil)
+	tlsOpts, err := tlsopts.NewOptions(ident, config.TLS, nil)
 	if err != nil {
 		return nil, err
 	}
-	client, err := NewClient(ctx, transport.NewClient(tlsOpts), c.Address)
+	client, err := New(ctx, transport.NewClient(tlsOpts), config.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -71,10 +71,10 @@ func (c Config) Sign(ctx context.Context, ident *identity.FullIdentity, authToke
 
 // Sign claims an authorization using the token string and returns a signed
 // copy of the client's CA certificate.
-func (c *Client) Sign(ctx context.Context, tokenStr string) (_ [][]byte, err error) {
+func (client *Client) Sign(ctx context.Context, tokenStr string) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := c.client.Sign(ctx, &pb.SigningRequest{
+	res, err := client.client.Sign(ctx, &pb.SigningRequest{
 		AuthToken: tokenStr,
 		Timestamp: time.Now().Unix(),
 	})
@@ -86,9 +86,9 @@ func (c *Client) Sign(ctx context.Context, tokenStr string) (_ [][]byte, err err
 }
 
 // Close closes the client.
-func (c *Client) Close() error {
-	if c.conn != nil {
-		return c.conn.Close()
+func (client *Client) Close() error {
+	if client.conn != nil {
+		return client.conn.Close()
 	}
 	return nil
 }

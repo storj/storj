@@ -89,7 +89,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 				clientTransport := transport.NewClient(clientOpts)
 
-				client, err := certificatesclient.NewClient(ctx, clientTransport, peer.Server.Addr().String())
+				client, err := certificatesclient.New(ctx, clientTransport, peer.Server.Addr().String())
 				require.NoError(t, err)
 				require.NotNil(t, client)
 
