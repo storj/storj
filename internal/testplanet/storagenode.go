@@ -24,10 +24,10 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/outreach"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -125,7 +125,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Bandwidth: bandwidth.Config{
 				Interval: time.Hour,
 			},
-			Outreach: outreach.Config{
+			Contact: contact.Config{
 				Interval: 30 * time.Second,
 				MaxSleep: 0 * time.Second,
 			},

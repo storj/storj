@@ -34,7 +34,6 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/outreach"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
@@ -91,7 +90,7 @@ type Config struct {
 
 	Bandwidth bandwidth.Config
 
-	Outreach outreach.Config
+	Contact contact.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -124,6 +123,7 @@ type Peer struct {
 	Contact struct {
 		Service  *contact.Service
 		Endpoint *contact.Endpoint
+		Chore    *contact.Chore
 	}
 
 	Storage2 struct {
@@ -154,8 +154,6 @@ type Peer struct {
 	}
 
 	Bandwidth *bandwidth.Service
-
-	Outreach *outreach.Chore
 }
 
 // New creates a new Storage Node.
@@ -198,11 +196,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-	}
-
-	{ // setup outreach
-		peer.Outreach = outreach.NewChore(peer.Log.Named("outreach"), config.Outreach.Interval, config.Outreach.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
-		// TODO: create and register a pb server
 	}
 
 	{ // setup kademlia
@@ -256,6 +249,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup contact service
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Kademlia.RoutingTable.Local(), peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
 	}
 
 	{ // setup storage
@@ -452,8 +446,8 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
-	group.Go(func() error { // TODO: unsure which order this should run in
-		return errs2.IgnoreCanceled(peer.Outreach.Run(ctx))
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
 	})
 
 	return group.Wait()
@@ -472,8 +466,8 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
-	if peer.Outreach != nil {
-		errlist.Add(peer.Outreach.Close())
+	if peer.Contact.Chore != nil {
+		errlist.Add(peer.Contact.Chore.Close())
 	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
@@ -510,7 +504,7 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.NodeStats.Cache.Close())
 	}
 
-	// TODO: make sure to close any outreach connections
+	// TODO: make sure to close any contact connections
 	return errlist.Err()
 }
 
