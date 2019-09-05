@@ -247,7 +247,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup contact service
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"))
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
 	}
 
 	{ // setup storage
