@@ -26,7 +26,7 @@ var (
 	Error = errs.Class("certificates peer error")
 )
 
-// Config is the global certificates config
+// Config is the global certificates config.
 type Config struct {
 	Identity identity.Config
 	Server   server.Config
