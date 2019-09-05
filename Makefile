@@ -97,10 +97,10 @@ test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
 
-.PHONY: test-certificate-signing
-test-certificate-signing: ## Test certificate signing service and storagenode setup (jenkins)
+.PHONY: test-certificates
+test-certificates: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-certificate-signing.sh
+	@./scripts/test-certificates.sh
 
 .PHONY: test-docker
 test-docker: ## Run tests in Docker
