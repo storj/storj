@@ -26,7 +26,8 @@ func TestCleanArchive(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Service.Loop.Stop()
+		planet.Satellites[0].Audit.Chore.Loop.Stop()
+		planet.Satellites[0].Audit.Worker.Loop.Stop()
 		satellite := planet.Satellites[0].ID()
 		node := planet.StorageNodes[0]
 		service := node.Storage2.Orders
