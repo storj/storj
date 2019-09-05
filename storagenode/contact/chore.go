@@ -112,6 +112,9 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 // sleep for random interval in [0;maxSleep)
 // returns error if context was cancelled
 func (chore *Chore) sleep(ctx context.Context) error {
+	if chore.maxSleep <= 0 {
+		return nil
+	}
 	jitter := time.Duration(rand.Int63n(int64(chore.maxSleep)))
 	if !sync2.Sleep(ctx, jitter) {
 		return ctx.Err()
