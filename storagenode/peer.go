@@ -121,7 +121,6 @@ type Peer struct {
 	}
 
 	Contact struct {
-		Service  *contact.Service
 		Endpoint *contact.Endpoint
 		Chore    *contact.Chore
 	}
@@ -247,8 +246,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup contact service
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Kademlia.RoutingTable.Local(), peer.Transport)
-		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"))
 		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
 	}
 

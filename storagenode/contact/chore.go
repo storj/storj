@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
@@ -17,6 +18,8 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode/trust"
 )
+
+var mon = monkit.Package()
 
 // Config contains configurable parameters for contact chore
 // TODO: Hide MaxSleep from CLI
@@ -92,7 +95,7 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 			_, err = pb.NewNodeClient(conn).Checkin(ctx, &pb.CheckinRequest{
 				Address: &pb.NodeAddress{
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   addr,
+					Address:   chore.self.GetAddress().GetAddress(),
 				},
 				Capacity: &chore.self.Capacity,
 				Operator: &chore.self.Operator,
