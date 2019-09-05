@@ -37,18 +37,12 @@ func TestReverifySuccess(t *testing.T) {
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
 		satellite := planet.Satellites[0]
-		//err := audits.Close()
-		//require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
-
-		//var stripe *audit.Stripe
-		//stripe, _, err = audits.Cursor.NextStripe(ctx)
-		//require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -114,10 +108,6 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as a fail in the audit report
 
-		//audits := planet.Satellites[0].Audit.Service
-		//err := audits.Close()
-		//require.NoError(t, err)
-
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
 		satellite := planet.Satellites[0]
@@ -127,10 +117,6 @@ func TestReverifyFailMissingShare(t *testing.T) {
 
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
-
-		//var stripe *audit.Stripe
-		//stripe, _, err = audits.Cursor.NextStripe(ctx)
-		//require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -202,10 +188,6 @@ func TestReverifyFailBadData(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as a fail in the audit report
 
-		//audits := planet.Satellites[0].Audit.Service
-		//err := audits.Close()
-		//require.NoError(t, err)
-
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
 		satellite := planet.Satellites[0]
@@ -215,10 +197,6 @@ func TestReverifyFailBadData(t *testing.T) {
 
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
-
-		//var stripe *audit.Stripe
-		//stripe, _, err = audits.Cursor.NextStripe(ctx)
-		//require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -271,10 +249,6 @@ func TestReverifyOffline(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as offline in the audit report
 
-		//audits := planet.Satellites[0].Audit.Service
-		//err := audits.Close()
-		//require.NoError(t, err)
-
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
 		satellite := planet.Satellites[0]
@@ -284,10 +258,6 @@ func TestReverifyOffline(t *testing.T) {
 
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
-
-		//var stripe *audit.Stripe
-		//stripe, _, err = audits.Cursor.NextStripe(ctx)
-		//require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -342,10 +312,6 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as offline in the audit report
 
-		//audits := planet.Satellites[0].Audit.Service
-		//err := audits.Close()
-		//require.NoError(t, err)
-
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
 		satellite := planet.Satellites[0]
@@ -355,10 +321,6 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
-
-		//var stripe *audit.Stripe
-		//stripe, _, err = audits.Cursor.NextStripe(ctx)
-		//require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -503,10 +465,6 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
 
-		//audits := planet.Satellites[0].Audit.Service
-		//err := audits.Close()
-		//require.NoError(t, err)
-
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
 		satellite := planet.Satellites[0]
@@ -516,9 +474,6 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
-
-		//stripe, _, err := audits.Cursor.NextStripe(ctx)
-		//require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
