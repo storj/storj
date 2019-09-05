@@ -334,7 +334,6 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		select {
 		case <-ctx.Done():
 			err = Error.New("repair cancelled")
-			// ec.Delete(context.Background(), nodes, pieceID, pba.SatelliteId), //TODO
 		default:
 		}
 	}()
@@ -355,8 +354,6 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 
 	return successfulNodes, successfulHashes, nil
 }
-
-// TODO limit duplicate code with ecclient
 
 // copied from ecclient
 func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
