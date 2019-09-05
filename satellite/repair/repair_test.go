@@ -79,7 +79,7 @@ func TestDataRepair(t *testing.T) {
 		numPieces := len(remotePieces)
 		// disqualify one storage node
 		toDisqualify := 1
-		toKill := numPieces - toDisqualify - int(minReq+1)
+		toKill := numPieces - toDisqualify - int(minReq)
 		require.True(t, toKill >= 1)
 		maxNumRepairedPieces := int(
 			math.Ceil(
