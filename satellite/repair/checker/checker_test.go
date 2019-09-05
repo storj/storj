@@ -89,7 +89,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:           int32(3),
+					MinReq:           int32(4),
 					RepairThreshold:  int32(8),
 					SuccessThreshold: int32(9),
 					Total:            int32(10),

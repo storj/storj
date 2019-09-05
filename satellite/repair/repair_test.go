@@ -270,14 +270,20 @@ func TestCorruptDataRepair(t *testing.T) {
 		require.EqualValues(t, n, pieceSize)
 
 		// delete piece data
-		corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
+		err = corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
+		require.NoError(t, err)
 
 		// corrupt data and write back to storagenode
-		pieceData[0] = pieceData[0] + 1 // if we don't do this, this test should fail
+		pieceData[0]++ // if we don't do this, this test should fail
 		writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef, pieceSize)
 		require.NoError(t, err)
-		writer.Write(pieceData)
-		writer.Commit(ctx)
+
+		n, err = writer.Write(pieceData)
+		require.NoError(t, err)
+		require.EqualValues(t, n, pieceSize)
+
+		err = writer.Commit(ctx)
+		require.NoError(t, err)
 
 		satellitePeer.Repair.Checker.Loop.Restart()
 		satellitePeer.Repair.Checker.Loop.TriggerWait()
