@@ -151,7 +151,8 @@ func (a Group) Marshal() ([]byte, error) {
 	return data.Bytes(), nil
 }
 
-// Group separates a set of authorizations into a set of claimed and a set of open authorizations.
+// GroupByClaimed separates a group of authorizations into a group of claimed
+// and a group of open authorizations.
 func (a Group) GroupByClaimed() (claimed, open Group) {
 	for _, auth := range a {
 		if auth.Claim != nil {
