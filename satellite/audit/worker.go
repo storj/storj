@@ -18,6 +18,22 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
+// Error is the default audit errs class.
+var Error = errs.Class("audit error")
+
+// Config contains configurable values for audit chore and workers.
+type Config struct {
+	MaxRetriesStatDB   int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
+	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"25s"`
+	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
+
+	ChoreInterval     time.Duration `help:"how often to run the reservoir chore" default:"24h"`
+	QueueInterval     time.Duration `help:"how often to recheck an empty audit queue" default:"1h"`
+	Slots             int           `help:"number of reservoir slots allotted for nodes, currently capped at 3" default:"3"`
+	WorkerConcurrency int           `help:"number of workers to run audits on paths" default:"1"`
+}
+
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
 	log      *zap.Logger
