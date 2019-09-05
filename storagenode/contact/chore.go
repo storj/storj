@@ -22,10 +22,9 @@ import (
 var mon = monkit.Package()
 
 // Config contains configurable parameters for contact chore
-// TODO: Hide MaxSleep from CLI
 type Config struct {
 	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
-	MaxSleep time.Duration `help:"maximum duration to wait before pinging satellites" releaseDefault:"45m" devDefault:"0s"`
+	MaxSleep time.Duration `help:"maximum duration to wait before pinging satellites" releaseDefault:"45m" devDefault:"0s" hidden:"true"`
 }
 
 // Chore is the contact chore for nodes announcing themselves to their trusted satellites
