@@ -111,12 +111,10 @@ describe('actions', () => {
             Promise.resolve(testUsage)
         );
 
-        const firstDate = new Date();
-        firstDate.setMonth(firstDate.getMonth() - 1);
-        firstDate.setDate(1);
+        const date = new Date();
 
-        const secondDate = new Date();
-        secondDate.setDate(1);
+        const firstDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1, 1));
+        const secondDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 0, 23, 59, 59));
 
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
 
