@@ -22,7 +22,7 @@ type Endpoint struct {
 	minDifficulty   uint16
 }
 
-// NewCertificatesServer creates a new certificate signing grpc server
+// NewCertificatesServer creates a new certificate signing gRPC server.
 func NewCertificatesServer(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.DB, minDifficulty uint16) *Endpoint {
 	return &Endpoint{
 		log:             log,
