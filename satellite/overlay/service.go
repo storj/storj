@@ -101,7 +101,6 @@ type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditSuccess bool
 	IsUp         bool
-
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
@@ -140,20 +139,6 @@ type NodeStats struct {
 	AuditReputationBeta   float64
 	UptimeReputationBeta  float64
 	Disqualified          *time.Time
-}
-
-// NodeCheckinInfo contains all the data that needs to be update in overlay
-// when a node checkins with the satellite
-type NodeCheckinInfo struct {
-	NodeID         storj.NodeID
-	IsUp           bool
-	Lambda         float64
-	Weight         float64
-	UptimeDQ       float64
-	OperatorWallet string
-	OperatorEmail  string
-	FreeDisk       int64
-	FreeBandwidth  int64
 }
 
 // Service is used to store and handle node information
