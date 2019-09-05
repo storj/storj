@@ -246,8 +246,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup contact service
-		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"))
 		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"))
+		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup storage
@@ -502,7 +503,6 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.NodeStats.Cache.Close())
 	}
 
-	// TODO: make sure to close any contact connections
 	return errlist.Err()
 }
 
