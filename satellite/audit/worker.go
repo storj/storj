@@ -12,12 +12,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
 )
 
 // Error is the default audit errs class.
@@ -47,15 +42,13 @@ type Worker struct {
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, queue *Queue, metainfo *metainfo.Service,
-	orders *orders.Service, transport transport.Client, overlay *overlay.Service,
-	containment Containment, identity *identity.FullIdentity, config Config) (*Worker, error) {
+func NewWorker(log *zap.Logger, queue *Queue, verifier *Verifier, reporter *Reporter, config Config) (*Worker, error) {
 	return &Worker{
 		log: log,
 
 		queue:    queue,
-		Verifier: NewVerifier(log.Named("audit:verifier"), metainfo, transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
-		Reporter: NewReporter(log.Named("audit:reporter"), overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
+		Verifier: verifier,
+		Reporter: reporter,
 		Loop:     *sync2.NewCycle(config.QueueInterval),
 		limiter:  *sync2.NewLimiter(config.WorkerConcurrency),
 	}, nil

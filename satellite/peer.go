@@ -471,16 +471,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Audit.Queue = &audit.Queue{}
 
-		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
-			peer.Audit.Queue,
+		verifier := audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Service,
-			peer.Orders.Service,
 			peer.Transport,
 			peer.Overlay.Service,
 			peer.DB.Containment(),
+			peer.Orders.Service,
 			peer.Identity,
+			config.MinBytesPerSecond,
+			config.MinDownloadTimeout,
+		)
+
+		reporter := audit.NewReporter(log.Named("audit:reporter"),
+			peer.Overlay.Service,
+			peer.DB.Containment(),
+			config.MaxRetriesStatDB,
+			int32(config.MaxReverifyCount),
+		)
+
+		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
+			peer.Audit.Queue,
+			verifier,
+			reporter,
 			config,
 		)
+
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
