@@ -5,10 +5,12 @@ package audit
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
@@ -107,7 +109,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 
 func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	var errlist errs.Group
-	report, err := worker.Verifier.Reverify2(ctx, path)
+	report, err := worker.Verifier.Reverify(ctx, path)
 	if err != nil {
 		errlist.Add(err)
 	}
@@ -135,7 +137,7 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 		}
 	}
 
-	report, err = worker.Verifier.Verify2(ctx, path, skip)
+	report, err = worker.Verifier.Verify(ctx, path, skip)
 	if err != nil {
 		errlist.Add(err)
 	}

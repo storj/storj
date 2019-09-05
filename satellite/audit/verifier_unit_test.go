@@ -145,7 +145,7 @@ func TestCreatePendingAudits(t *testing.T) {
 
 	randomIndex := rand.Int63n(10)
 
-	pending, err := createPendingAudits2(ctx, contained, shares, pointer, randomIndex, "")
+	pending, err := createPendingAudits(ctx, contained, shares, pointer, randomIndex, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pending))
 	assert.Equal(t, testNodeID, pending[0].NodeID)

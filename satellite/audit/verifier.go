@@ -85,8 +85,8 @@ func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, transport transpor
 	}
 }
 
-// Verify2 downloads shares then verifies the data correctness at a random stripe.
-func (verifier *Verifier) Verify2(ctx context.Context, path storj.Path, skip map[storj.NodeID]bool) (report *Report, err error) {
+// Verify downloads shares then verifies the data correctness at a random stripe.
+func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[storj.NodeID]bool) (report *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pointer, err := verifier.checkIfSegmentDeleted(ctx, path)
@@ -242,7 +242,7 @@ func (verifier *Verifier) Verify2(ctx context.Context, path storj.Path, skip map
 	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)
 	mon.FloatVal("audit_contained_percentage").Observe(containedPercentage)
 
-	pendingAudits, err := createPendingAudits2(ctx, containedNodes, correctedShares, pointer, randomIndex, path)
+	pendingAudits, err := createPendingAudits(ctx, containedNodes, correctedShares, pointer, randomIndex, path)
 	if err != nil {
 		return &Report{
 			Successes: successNodes,
@@ -296,8 +296,8 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 	return shares, nil
 }
 
-// Reverify2 reverifies the contained nodes in the stripe
-func (verifier *Verifier) Reverify2(ctx context.Context, path storj.Path) (report *Report, err error) {
+// Reverify reverifies the contained nodes in the stripe
+func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// result status enum
@@ -672,7 +672,7 @@ func createBucketID(path storj.Path) []byte {
 	return []byte(storj.JoinPaths(comps[0], comps[2]))
 }
 
-func createPendingAudits2(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, pointer *pb.Pointer, randomIndex int64, path storj.Path) (pending []*PendingAudit, err error) {
+func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, pointer *pb.Pointer, randomIndex int64, path storj.Path) (pending []*PendingAudit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(containedNodes) == 0 {
