@@ -159,6 +159,119 @@ func TestDataRepair(t *testing.T) {
 	})
 }
 
+// TestCorruptDataRepair does the following:
+// - Uploads test data
+// - Kills all but the minimum number of nodes carrying the uploaded segment
+// - On one of the remaining nodes, corrupt the piece data being stored by that node
+// - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	 the numbers of nodes determined by the upload repair max threshold
+// - Expects that the repair failed and the pointer was not updated
+func TestCorruptDataRepair(t *testing.T) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 14,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.OnlineWindow = 0
+				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// first, upload some remote data
+		uplinkPeer := planet.Uplinks[0]
+		satellitePeer := planet.Satellites[0]
+		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
+		satellitePeer.Discovery.Service.Discovery.Stop()
+		satellitePeer.Discovery.Service.Refresh.Stop()
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellitePeer.Audit.Service.Loop.Stop()
+
+		satellitePeer.Repair.Checker.Loop.Pause()
+		satellitePeer.Repair.Repairer.Loop.Pause()
+
+		var (
+			testData         = testrand.Bytes(8 * memory.KiB)
+			minThreshold     = 3
+			successThreshold = 7
+		)
+		err := uplinkPeer.UploadWithConfig(ctx, satellitePeer, &uplink.RSConfig{
+			MinThreshold:     minThreshold,
+			RepairThreshold:  5,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     10,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		pointer, path := getRemoteSegment(t, ctx, satellitePeer)
+
+		// calculate how many storagenodes to kill
+		redundancy := pointer.GetRemote().GetRedundancy()
+		minReq := redundancy.GetMinReq()
+		remotePieces := pointer.GetRemote().GetRemotePieces()
+		numPieces := len(remotePieces)
+		toKill := numPieces - int(minReq)
+		require.True(t, toKill >= 1)
+		maxNumRepairedPieces := int(
+			math.Ceil(
+				float64(successThreshold) * (1 + RepairMaxExcessRateOptimalThreshold),
+			),
+		)
+		numStorageNodes := len(planet.StorageNodes)
+		// Ensure that there are enough storage nodes to upload repaired segments
+		require.Falsef(t,
+			(numStorageNodes-toKill) < maxNumRepairedPieces,
+			"there is not enough available nodes for repairing: need= %d, have= %d",
+			maxNumRepairedPieces, (numStorageNodes - toKill),
+		)
+
+		// kill nodes and track lost pieces
+		nodesToKill := make(map[storj.NodeID]bool)
+		nodesToKeepAlive := make(map[storj.NodeID]bool)
+		originalNodes := make(map[storj.NodeID]bool)
+
+		for i, piece := range remotePieces {
+			originalNodes[piece.NodeId] = true
+			if i >= toKill {
+				nodesToKeepAlive[piece.NodeId] = true
+				continue
+			}
+			nodesToKill[piece.NodeId] = true
+		}
+
+		for _, node := range planet.StorageNodes {
+			if nodesToKill[node.ID()] {
+				err = planet.StopPeer(node)
+				require.NoError(t, err)
+				_, err = satellitePeer.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				require.NoError(t, err)
+			}
+		}
+
+		// TODO corrupt piece (test should fail if this step is not done!!!!)
+
+		satellitePeer.Repair.Checker.Loop.Restart()
+		satellitePeer.Repair.Checker.Loop.TriggerWait()
+		satellitePeer.Repair.Checker.Loop.Pause()
+		satellitePeer.Repair.Repairer.Loop.Restart()
+		satellitePeer.Repair.Repairer.Loop.TriggerWait()
+		satellitePeer.Repair.Repairer.Loop.Pause()
+		satellitePeer.Repair.Repairer.Limiter.Wait()
+
+		// repair should fail, so segment should contain all the original nodes
+		metainfoService := satellitePeer.Metainfo.Service
+		pointer, err = metainfoService.Get(ctx, path)
+		require.NoError(t, err)
+
+		remotePieces = pointer.GetRemote().GetRemotePieces()
+		for _, piece := range remotePieces {
+			require.Contains(t, originalNodes, piece.NodeId, "there should be no new nodes in pointer")
+		}
+	})
+}
+
 // TestRemoveIrreparableSegmentFromQueue
 // - Upload tests data to 7 nodes
 // - Kill nodes so that repair threshold > online nodes > minimum threshold
