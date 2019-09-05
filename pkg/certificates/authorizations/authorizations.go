@@ -42,7 +42,7 @@ var (
 	ErrAuthorization = errs.Class("authorization error")
 	// ErrAuthorizationDB is used when an error occurs involving the authorization database.
 	ErrAuthorizationDB = errs.Class("authorization db error")
-	// ErrInvalidToken is used when a token is invalid
+	// ErrInvalidToken is used when a token is invalid.
 	ErrInvalidToken = errs.Class("invalid token error")
 	// ErrAuthorizationCount is used when attempting to create an invalid number of authorizations.
 	ErrAuthorizationCount = ErrAuthorizationDB.New("cannot add less than one authorizations")
