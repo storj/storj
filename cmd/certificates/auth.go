@@ -257,7 +257,12 @@ func writeAuthExport(ctx context.Context, authDB *certificates.AuthorizationDB, 
 
 	var authErrs errs.Group
 	for _, auth := range auths {
-		if err := w.Write([]string{email, auth.Token.String()}); err != nil {
+		isClaimed := "false"
+		if auth.Claim != nil {
+			isClaimed = "true"
+		}
+
+		if err := w.Write([]string{email, auth.Token.String(), isClaimed}); err != nil {
 			authErrs.Add(err)
 		}
 	}
