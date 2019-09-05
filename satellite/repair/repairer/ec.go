@@ -107,7 +107,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				inProgress++
 				cond.L.Unlock()
 
-				downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize, es.ErasureShareSize())
+				downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
 				cond.L.Lock()
 				inProgress--
 				if err != nil {
@@ -146,7 +146,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
-func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64, bufferSize int) (data []byte, err error) {
+func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (data []byte, err error) {
 	// contact node
 	ps, err := ec.dialPiecestore(ctx, &pb.Node{
 		Id:      limit.GetLimit().StorageNodeId,

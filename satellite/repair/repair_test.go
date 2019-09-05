@@ -214,28 +214,14 @@ func TestCorruptDataRepair(t *testing.T) {
 		numPieces := len(remotePieces)
 		toKill := numPieces - int(minReq)
 		require.True(t, toKill >= 1)
-		maxNumRepairedPieces := int(
-			math.Ceil(
-				float64(successThreshold) * (1 + RepairMaxExcessRateOptimalThreshold),
-			),
-		)
-		numStorageNodes := len(planet.StorageNodes)
-		// Ensure that there are enough storage nodes to upload repaired segments
-		require.Falsef(t,
-			(numStorageNodes-toKill) < maxNumRepairedPieces,
-			"there is not enough available nodes for repairing: need= %d, have= %d",
-			maxNumRepairedPieces, (numStorageNodes - toKill),
-		)
 
 		// kill nodes and track lost pieces
 		nodesToKill := make(map[storj.NodeID]bool)
-		nodesToKeepAlive := make(map[storj.NodeID]bool)
 		originalNodes := make(map[storj.NodeID]bool)
 
 		for i, piece := range remotePieces {
 			originalNodes[piece.NodeId] = true
 			if i >= toKill {
-				nodesToKeepAlive[piece.NodeId] = true
 				continue
 			}
 			nodesToKill[piece.NodeId] = true
