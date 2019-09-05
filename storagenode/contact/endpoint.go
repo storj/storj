@@ -51,7 +51,7 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.ContactPingRequest) 
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
-	endpoint.PingStats.WasPinged(time.Now(), peerID.ID, p.Addr.String())
+	endpoint.PingStats.wasPinged(time.Now(), peerID.ID, p.Addr.String())
 	return &pb.ContactPingResponse{}, nil
 }
 
