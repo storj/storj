@@ -236,11 +236,18 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	if len(requests) == 0 {
 		return nil, err
 	}
-	sort.Slice(requests, func(i, k int) bool {
-		if requests[i].OrderLimit.StorageNodeId == requests[k].OrderLimit.StorageNodeId {
-			return requests[i].OrderLimit.SerialNumber.Less(requests[k].OrderLimit.SerialNumber)
+
+	// check that all requests are from the same storage node
+	first := requests[0]
+	for _, req := range requests[1:] {
+		if req.OrderLimit.StorageNodeId != first.OrderLimit.StorageNodeId {
+			return nil, Error.New("requests from different different storage nodes %v and %v", first.OrderLimit.StorageNodeId, req.OrderLimit.StorageNodeId)
 		}
-		return requests[i].OrderLimit.StorageNodeId.Less(requests[k].OrderLimit.StorageNodeId)
+	}
+
+	// sort requests by serial number, all of them should be from the same storage node
+	sort.Slice(requests, func(i, k int) bool {
+		return requests[i].OrderLimit.SerialNumber.Less(requests[k].OrderLimit.SerialNumber)
 	})
 
 	tx, err := db.db.Begin()
@@ -258,46 +265,32 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	rejectedRequests := make(map[storj.SerialNumber]bool)
-	reject := func(serialNumber storj.SerialNumber) {
-		r := &orders.ProcessOrderResponse{
-			SerialNumber: serialNumber,
-			Status:       pb.SettlementResponse_REJECTED,
-		}
-		rejectedRequests[serialNumber] = true
-		responses = append(responses, r)
-	}
+	rejected := make(map[storj.SerialNumber]bool)
 
-	// processes the insert to used serials table individually so we can handle
-	// the case where the order has already been processed.  Duplicates and previously
-	// processed orders are rejected
+	// insert into used serials table
 	for _, request := range requests {
-		// avoid the PG error "current transaction is aborted, commands ignored until end of transaction block" if the below insert fails due any constraint.
-		// see https://www.postgresql.org/message-id/13131805-BCBB-42DF-953B-27EE36AAF213%40yahoo.com
-		_, err = tx.Exec("savepoint sp")
+		var result sql.Result
+		var count int64
+
+		// try to insert the serial number
+		result, err = tx.Exec(db.db.Rebind(`
+			INSERT INTO used_serials(serial_number_id, storage_node_id)
+				SELECT id, ?
+				FROM serial_numbers
+				WHERE serial_number = ?
+			ON CONFLICT DO NOTHING
+		`), request.OrderLimit.StorageNodeId, request.OrderLimit.SerialNumber)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		insert := "INSERT INTO used_serials (serial_number_id, storage_node_id) SELECT id, ? FROM serial_numbers WHERE serial_number = ?"
-
-		_, err = tx.Exec(db.db.Rebind(insert), request.OrderLimit.StorageNodeId.Bytes(), request.OrderLimit.SerialNumber.Bytes())
-		if err != nil {
-			if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
-				reject(request.OrderLimit.SerialNumber)
-				// rollback to the savepoint before the insert failed
-				_, err = tx.Exec("rollback to savepoint sp")
-				if err != nil {
-					return nil, Error.Wrap(err)
-				}
-			} else {
-				_, rerr := tx.Exec("rollback to savepoint sp")
-				return nil, errs.Combine(Error.Wrap(err), Error.Wrap(rerr))
-			}
-		}
-		_, err = tx.Exec("release savepoint sp")
+		// if we failed to insert, then it must already exist
+		count, err = result.RowsAffected()
 		if err != nil {
 			return nil, Error.Wrap(err)
+		}
+		if count == 0 {
+			rejected[request.OrderLimit.SerialNumber] = true
 		}
 	}
 
@@ -331,13 +324,12 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	// build all the bandwidth updates into one sql statement
 	var updateRollupStatement string
 	for _, request := range requests {
-		_, rejected := rejectedRequests[request.OrderLimit.SerialNumber]
-		if rejected {
+		if rejected[request.OrderLimit.SerialNumber] {
 			continue
 		}
 		bucketID, ok := bucketMap[request.OrderLimit.SerialNumber]
 		if !ok {
-			reject(request.OrderLimit.SerialNumber)
+			rejected[request.OrderLimit.SerialNumber] = true
 			continue
 		}
 		projectID, bucketName, err := orders.SplitBucketID(bucketID)
@@ -347,7 +339,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 
 		stmt, err := db.buildUpdateBucketBandwidthRollupStatements(request.OrderLimit, request.Order, projectID[:], bucketName, intervalStart)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 		updateRollupStatement += stmt
 
@@ -362,15 +354,18 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
 	for _, request := range requests {
-		_, rejected := rejectedRequests[request.OrderLimit.SerialNumber]
-		if !rejected {
-			r := &orders.ProcessOrderResponse{
+		if !rejected[request.OrderLimit.SerialNumber] {
+			responses = append(responses, &orders.ProcessOrderResponse{
 				SerialNumber: request.OrderLimit.SerialNumber,
 				Status:       pb.SettlementResponse_ACCEPTED,
-			}
-
-			responses = append(responses, r)
+			})
+		} else {
+			responses = append(responses, &orders.ProcessOrderResponse{
+				SerialNumber: request.OrderLimit.SerialNumber,
+				Status:       pb.SettlementResponse_REJECTED,
+			})
 		}
 	}
 	return responses, nil
