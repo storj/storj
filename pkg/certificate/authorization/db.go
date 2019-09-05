@@ -24,15 +24,15 @@ type DB struct {
 	db storage.KeyValueStore
 }
 
-// Config is the authorization db config.
-type Config struct {
-	DBURL     string `default:"bolt://$CONFDIR/authorizations.db" help:"url to the certificate signing authorization database"`
+// DBConfig is the authorization db config.
+type DBConfig struct {
+	URL       string `default:"bolt://$CONFDIR/authorizations.db" help:"url to the certificate signing authorization database"`
 	Overwrite bool   `default:"false" help:"if true, overwrites config AND authorization db is truncated" setup:"true"`
 }
 
 // NewDBFromCfg creates and/or opens the authorization database specified by the config.
-func NewDBFromCfg(config Config) (*DB, error) {
-	return NewDB(config.DBURL, config.Overwrite)
+func NewDBFromCfg(config DBConfig) (*DB, error) {
+	return NewDB(config.URL, config.Overwrite)
 }
 
 // NewDB creates and/or opens the authorization database.

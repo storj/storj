@@ -47,8 +47,7 @@ func TestCertSignerConfig_NewAuthDB(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	assert.NotNil(t, authDB)
@@ -59,8 +58,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	cases := []struct {
@@ -105,7 +103,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			emailKey := storage.Key(testCase.email)
 
 			if testCase.startCount == 0 {
-				_, err = authDB.db.Get(ctx, emailKey)
+				_, err := authDB.db.Get(ctx, emailKey)
 				assert.Error(t, err)
 			} else {
 				v, err := authDB.db.Get(ctx, emailKey)
@@ -146,8 +144,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	var expectedAuths Group
@@ -199,8 +196,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	userID := "user@mail.test"
@@ -262,8 +258,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	userID := "user@mail.test"
@@ -468,8 +463,7 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	var authErrs errs.Group
@@ -622,7 +616,11 @@ func TestNewClient(t *testing.T) {
 	})
 }
 
-func newTestAuthDB(ctx *testcontext.Context) (*DB, error) {
+func newTestAuthDB(t *testing.T, ctx *testcontext.Context) *DB {
 	dbURL := "bolt://" + ctx.File("authorizations.db")
-	return NewDB(dbURL, false)
+	db, err := NewDB(dbURL, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return db
 }

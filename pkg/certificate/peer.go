@@ -5,6 +5,7 @@ package certificate
 
 import (
 	"context"
+	"net"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -31,8 +32,9 @@ type Config struct {
 	Identity identity.Config
 	Server   server.Config
 
-	Signer         identity.FullCAConfig
-	Authorizations authorization.Config
+	Signer            identity.FullCAConfig
+	AuthorizationDB   authorization.DBConfig
+	AuthorizationAddr string
 
 	MinDifficulty uint `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 }
@@ -43,23 +45,28 @@ type Peer struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
 
-	Server *server.Server
+	Server          *server.Server
+	AuthorizationDB *authorization.DB
 
 	// services and endpoints
-	Certificates struct {
-		AuthorizationDB *authorization.DB
-		Endpoint        *Endpoint
+	Certificate struct {
+		Endpoint *Endpoint
+	}
+
+	Authorization struct {
+		Listener net.Listener
+		Endpoint *authorization.Endpoint
 	}
 }
 
 // New creates a new certificates peer.
-func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, revocationDB *revocation.DB, config *Config) (*Peer, error) {
+func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, revocationDB *revocation.DB, config *Config) (_ *Peer, err error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: ident,
 	}
 
-	{
+	{ // setup server
 		log.Debug("Starting listener and server")
 		sc := config.Server
 
@@ -74,9 +81,18 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 		}
 	}
 
-	peer.Certificates.AuthorizationDB = authorizationDB
-	peer.Certificates.Endpoint = NewEndpoint(log.Named("certificates"), ca, authorizationDB, uint16(config.MinDifficulty))
-	pb.RegisterCertificatesServer(peer.Server.GRPC(), peer.Certificates.Endpoint)
+	peer.AuthorizationDB = authorizationDB
+
+	peer.Certificate.Endpoint = NewEndpoint(log.Named("certificate"), ca, authorizationDB, uint16(config.MinDifficulty))
+	pb.RegisterCertificatesServer(peer.Server.GRPC(), peer.Certificate.Endpoint)
+
+	peer.Authorization.Listener, err = net.Listen("tcp", config.AuthorizationAddr)
+	if err != nil {
+		return nil, errs.Combine(err, peer.Close())
+	}
+
+	peer.Authorization.Endpoint = authorization.NewEndpoint(log.Named("authorization"), authorizationDB, peer.Authorization.Listener)
+	pb.RegisterAuthorizationsServer(peer.Server.PrivateGRPC(), peer.Authorization.Endpoint)
 
 	return peer, nil
 }
@@ -92,12 +108,16 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 func (peer *Peer) Close() error {
 	var errlist errs.Group
 
-	if peer.Server != nil {
-		errlist.Add(peer.Server.Close())
+	if peer.Authorization.Endpoint != nil {
+		peer.Authorization.Endpoint.Close()
 	}
 
-	if peer.Certificates.AuthorizationDB != nil {
-		errlist.Add(peer.Certificates.AuthorizationDB.Close())
+	if peer.AuthorizationDB != nil {
+		errlist.Add(peer.AuthorizationDB.Close())
+	}
+
+	if peer.Server != nil {
+		errlist.Add(peer.Server.Close())
 	}
 
 	return Error.Wrap(errlist.Err())
