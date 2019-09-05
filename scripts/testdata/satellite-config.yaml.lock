@@ -1,3 +1,6 @@
+# how often to run the reservoir chore
+# audit.chore-interval: 24h0m0s
+
 # how frequently segments are audited
 # audit.interval: 30s
 
@@ -13,8 +16,14 @@
 # the minimum duration for downloading a share from storage nodes before timing out
 # audit.min-download-timeout: 25s
 
-# number of reservoir slots allotted for nodes, currently capped at 2
-# audit.slots: 1
+# how often to recheck an empty audit queue
+# audit.queue-interval: 1h0m0s
+
+# number of reservoir slots allotted for nodes, currently capped at 3
+# audit.slots: 3
+
+# number of workers to run audits on paths
+# audit.worker-concurrency: 1
 
 # how frequently checker should check for bad segments
 # checker.interval: 30s
