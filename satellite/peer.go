@@ -194,7 +194,7 @@ type Peer struct {
 		Service *audit.Service
 		Queue   *audit.Queue
 		Worker  *audit.Worker
-		Chore   *audit.ReservoirChore
+		Chore   *audit.Chore
 	}
 
 	GarbageCollection struct {
@@ -494,7 +494,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Audit.Chore = audit.NewReservoirChore(peer.Log.Named("audit reservoir chore"),
+		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit reservoir chore"),
 			peer.Audit.Queue,
 			peer.Metainfo.Loop,
 			config,

@@ -15,8 +15,8 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-// ReservoirChore populates reservoirs and the audit queue.
-type ReservoirChore struct {
+// Chore populates reservoirs and the audit queue.
+type Chore struct {
 	log   *zap.Logger
 	rand  *rand.Rand
 	queue *Queue
@@ -26,9 +26,9 @@ type ReservoirChore struct {
 	config       Config
 }
 
-// NewReservoirChore instantiates ReservoirChore.
-func NewReservoirChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, config Config) *ReservoirChore {
-	return &ReservoirChore{
+// NewChore instantiates Chore.
+func NewChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, config Config) *Chore {
+	return &Chore{
 		log:   log,
 		rand:  rand.New(rand.NewSource(time.Now().Unix())),
 		queue: queue,
@@ -39,8 +39,8 @@ func NewReservoirChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, c
 	}
 }
 
-// Run starts the reservoir chore.
-func (chore *ReservoirChore) Run(ctx context.Context) (err error) {
+// Run starts the chore.
+func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
@@ -79,7 +79,7 @@ func (chore *ReservoirChore) Run(ctx context.Context) (err error) {
 }
 
 // Close closes chore.
-func (chore *ReservoirChore) Close() error {
+func (chore *Chore) Close() error {
 	chore.Loop.Close()
 	return nil
 }
