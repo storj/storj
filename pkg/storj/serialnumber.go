@@ -44,12 +44,12 @@ func (id SerialNumber) IsZero() bool {
 	return id == SerialNumber{}
 }
 
-// Less returns whether id is smaller than b in lexiographic order
-func (id SerialNumber) Less(b SerialNumber) bool {
+// Less returns whether id is smaller than other in lexicographic order
+func (id SerialNumber) Less(other SerialNumber) bool {
 	for k, v := range id {
-		if v < b[k] {
+		if v < other[k] {
 			return true
-		} else if v > b[k] {
+		} else if v > other[k] {
 			return false
 		}
 	}
