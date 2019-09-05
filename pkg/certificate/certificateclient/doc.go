@@ -2,6 +2,6 @@
 // See LICENSE for copying information.
 
 /*
-Package certificatesclient contains the client for the certificate endpoint.
+Package certificateclient contains the client for the certificate endpoint.
 */
 package certificateclient
