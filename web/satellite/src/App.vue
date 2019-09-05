@@ -15,9 +15,12 @@
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-        data: function() {
-            return {
-                ids: [
+        components: {
+            NotificationArea
+        },
+    })
+    export default class App extends Vue {
+        private ids: string[] = [
                     'accountDropdown',
                     'accountDropdownButton',
                     'projectDropdown',
@@ -26,28 +29,19 @@
                     'sortTeamMemberByDropdownButton',
                     'notificationArea',
                     'successfulRegistrationPopup',
-                ]
-            };
-        },
-        components: {
-            NotificationArea
-        },
-        methods: {
-            onClick: function(e) {
-                let target: any = e.target;
-                while (target) {
-                    if (this.$data.ids.includes(target.id)) {
-                        return;
-                    }
-                    target = target.parentNode;
+                ];
+
+        private onClick(e: Event): void {
+            let target: any = e.target;            
+            while (target) {
+                if (this.$data.ids.includes(target.id)) {
+                    return;
                 }
-
-                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+                target = target.parentNode;
             }
-        }
-    })
 
-    export default class App extends Vue {
+            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        }
     }
 </script>
 

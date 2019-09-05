@@ -51,10 +51,10 @@
     "triple-equals": true,
     "typedef": [
       true, 
-      "call-signature",
-      "arrow-call-signature",
-      "parameter",
-      "arrow-parameter",
+      //"call-signature",
+      //"arrow-call-signature",
+      //"parameter",
+      //"arrow-parameter",
       "property-declaration"
     ],
     "type-literal-delimiter": true,
