@@ -15,8 +15,10 @@
     "align": [true, "parameters", "statements"],    
     "array-type": [true, "array-simple"],  
     "arrow-return-shorthand": true,
+    "check-format": true,
     "class-name": true,
     "comment-format": [true, "check-space"],
+    "comment-type": [true, "doc", "singleline"],
     "curly": [true, "ignore-same-line"],
     "early-exit": true,
     "eofline": true,
@@ -50,11 +52,7 @@
     "static-this": true,
     "triple-equals": true,
     "typedef": [
-      true, 
-      //"call-signature",
-      //"arrow-call-signature",
-      //"parameter",
-      //"arrow-parameter",
+      true,
       "property-declaration"
     ],
     "type-literal-delimiter": true,
