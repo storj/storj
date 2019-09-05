@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/certificate"
 	"storj.io/storj/pkg/certificate/authorization"
-	"storj.io/storj/pkg/certificate/certificatesclient"
+	"storj.io/storj/pkg/certificate/certificateclient"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -89,7 +89,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 				clientTransport := transport.NewClient(clientOpts)
 
-				client, err := certificatesclient.New(ctx, clientTransport, peer.Server.Addr().String())
+				client, err := certificateclient.New(ctx, clientTransport, peer.Server.Addr().String())
 				require.NoError(t, err)
 				require.NotNil(t, client)
 

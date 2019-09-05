@@ -22,7 +22,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/pkg/certificate/certificatesclient"
+	"storj.io/storj/pkg/certificate/certificateclient"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -597,7 +597,7 @@ func TestNewClient(t *testing.T) {
 	clientTransport := transport.NewClient(tlsOptions)
 
 	t.Run("Basic", func(t *testing.T) {
-		client, err := certificatesclient.New(ctx, clientTransport, listener.Addr().String())
+		client, err := certificateclient.New(ctx, clientTransport, listener.Addr().String())
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 
@@ -614,7 +614,7 @@ func TestNewClient(t *testing.T) {
 		pbClient := pb.NewCertificatesClient(conn)
 		require.NotNil(t, pbClient)
 
-		client, err := certificatesclient.NewClientFrom(pbClient)
+		client, err := certificateclient.NewClientFrom(pbClient)
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 

@@ -131,19 +131,19 @@ func ParseToken(tokenString string) (*Token, error) {
 }
 
 // Unmarshal deserializes a set of authorizations.
-func (a *Group) Unmarshal(data []byte) error {
+func (group *Group) Unmarshal(data []byte) error {
 	decoder := gob.NewDecoder(bytes.NewBuffer(data))
-	if err := decoder.Decode(a); err != nil {
+	if err := decoder.Decode(group); err != nil {
 		return ErrAuthorization.Wrap(err)
 	}
 	return nil
 }
 
 // Marshal serializes a set of authorizations.
-func (a Group) Marshal() ([]byte, error) {
+func (group Group) Marshal() ([]byte, error) {
 	data := new(bytes.Buffer)
 	encoder := gob.NewEncoder(data)
-	err := encoder.Encode(a)
+	err := encoder.Encode(group)
 	if err != nil {
 		return nil, ErrAuthorization.Wrap(err)
 	}
@@ -153,8 +153,8 @@ func (a Group) Marshal() ([]byte, error) {
 
 // GroupByClaimed separates a group of authorizations into a group of claimed
 // and a group of open authorizations.
-func (a Group) GroupByClaimed() (claimed, open Group) {
-	for _, auth := range a {
+func (group Group) GroupByClaimed() (claimed, open Group) {
+	for _, auth := range group {
 		if auth.Claim != nil {
 			// TODO: check if claim is valid? what if not?
 			claimed = append(claimed, auth)

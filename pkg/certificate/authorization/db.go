@@ -104,7 +104,7 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group
 		newAuths = append(newAuths, auth)
 	}
 	if authErrs.Err() != nil {
-		return nil, ErrAuthorizationDB.Wrap(err)
+		return nil, ErrAuthorizationDB.Wrap(authErrs.Err())
 	}
 
 	if err := authDB.add(ctx, userID, newAuths); err != nil {
