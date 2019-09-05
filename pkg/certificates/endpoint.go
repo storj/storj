@@ -6,10 +6,10 @@ package certificates
 import (
 	"context"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/certificates/authorization"
 	"storj.io/storj/pkg/identity"
