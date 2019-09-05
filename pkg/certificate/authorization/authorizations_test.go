@@ -614,7 +614,7 @@ func TestNewClient(t *testing.T) {
 		pbClient := pb.NewCertificatesClient(conn)
 		require.NotNil(t, pbClient)
 
-		client, err := certificateclient.NewClientFrom(pbClient)
+		client := certificateclient.NewClientFrom(pbClient)
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 

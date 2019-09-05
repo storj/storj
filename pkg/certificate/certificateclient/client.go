@@ -47,10 +47,10 @@ func New(ctx context.Context, tc transport.Client, address string) (_ *Client, e
 
 // NewClientFrom creates a new certificate signing gRPC client from an existing
 // grpc cert signing client.
-func NewClientFrom(client pb.CertificatesClient) (*Client, error) {
+func NewClientFrom(client pb.CertificatesClient) *Client {
 	return &Client{
 		client: client,
-	}, nil
+	}
 }
 
 // Sign submits a certificate signing request given the config.
