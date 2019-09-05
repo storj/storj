@@ -42,7 +42,7 @@ type Service struct {
 
 	Cursor   *Cursor
 	Verifier *Verifier
-	Reporter reporter
+	Reporter *Reporter
 
 	Loop sync2.Cycle
 }

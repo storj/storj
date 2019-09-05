@@ -13,12 +13,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-//
-// architecture: Service
-type reporter interface {
-	RecordAudits(ctx context.Context, req *Report) (failed *Report, err error)
-}
-
 // Reporter records audit reports in overlay and implements the reporter interface
 //
 // architecture: Service
