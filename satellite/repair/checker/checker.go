@@ -212,6 +212,8 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 }
 
 // checkerObserver implements the metainfo loop Observer interface
+//
+// architecture: Observer
 type checkerObserver struct {
 	repairQueue queue.RepairQueue
 	irrdb       irreparable.DB
