@@ -5,6 +5,7 @@ package storagenodedb
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/zeebo/errs"
 
@@ -112,6 +113,12 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.Disqualified,
 		&stats.UpdatedAt,
 	)
+
+	if err == sql.ErrNoRows {
+		return &reputation.Stats{
+			SatelliteID: satelliteID,
+		}, nil
+	}
 
 	return &stats, ErrReputation.Wrap(err)
 }
