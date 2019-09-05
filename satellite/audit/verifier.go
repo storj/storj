@@ -718,6 +718,7 @@ func rebuildStripe(ctx context.Context, fec *infectious.FEC, corrected []infecti
 	return stripe, nil
 }
 
+// GetRandomStripe takes a pointer and returns a random stripe index within that pointer.
 func GetRandomStripe(ctx context.Context, pointer *pb.Pointer) (index int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
