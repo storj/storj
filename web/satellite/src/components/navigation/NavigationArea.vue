@@ -15,7 +15,6 @@
         public areAccountItemsShown: boolean = false;
         public isAccountButtonShown: boolean = false;
 
-
         public toggleResourceItemsVisibility(): void {
             this.areResourceItemsShown = !this.areResourceItemsShown;
         }
@@ -75,8 +74,8 @@
 
         public readonly accountNavigation: NavigationLink[] = [
             RouteConfig.Account.with(RouteConfig.Profile),
+            RouteConfig.Account.with(RouteConfig.Billing),
             RouteConfig.Account.with(RouteConfig.PaymentMethods),
-            RouteConfig.Account.with(RouteConfig.BillingHistory),
         ];
 
         public onLogoClick(): void {
