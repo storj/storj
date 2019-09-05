@@ -6,9 +6,12 @@ package audit
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"io"
+	"math/rand"
 	"time"
 
+	crand "crypto/rand"
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -26,6 +29,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -37,6 +41,13 @@ var (
 	// ErrSegmentDeleted is the errs class when the audited segment was deleted during the audit
 	ErrSegmentDeleted = errs.Class("segment deleted during audit")
 )
+
+// Stripe keeps track of a stripe's index and its parent segment
+type Stripe struct {
+	Index       int64
+	Segment     *pb.Pointer
+	SegmentPath storj.Path
+}
 
 // Share represents required information about an audited share
 type Share struct {
@@ -1099,4 +1110,41 @@ func rebuildStripe(ctx context.Context, fec *infectious.FEC, corrected []infecti
 		return nil, err
 	}
 	return stripe, nil
+}
+
+func GetRandomStripe(ctx context.Context, pointer *pb.Pointer) (index int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	if err != nil {
+		return 0, err
+	}
+
+	// the last segment could be smaller than stripe size
+	if pointer.GetSegmentSize() < int64(redundancy.StripeSize()) {
+		return 0, nil
+	}
+
+	var src cryptoSource
+	rnd := rand.New(src)
+	numStripes := pointer.GetSegmentSize() / int64(redundancy.StripeSize())
+	randomStripeIndex := rnd.Int63n(numStripes)
+
+	return randomStripeIndex, nil
+}
+
+// cryptoSource implements the math/rand Source interface using crypto/rand
+type cryptoSource struct{}
+
+func (s cryptoSource) Seed(seed int64) {}
+
+func (s cryptoSource) Int63() int64 {
+	return int64(s.Uint64() & ^uint64(1<<63))
+}
+
+func (s cryptoSource) Uint64() (v uint64) {
+	err := binary.Read(crand.Reader, binary.BigEndian, &v)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
