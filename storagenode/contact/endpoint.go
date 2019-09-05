@@ -35,12 +35,13 @@ type PingStats struct {
 // NewEndpoint returns a new contact service endpoint
 func NewEndpoint(log *zap.Logger) *Endpoint {
 	return &Endpoint{
-		log: log,
+		log:       log,
+		PingStats: &PingStats{},
 	}
 }
 
-// Ping provides an easy way to verify a node is online and accepting requests
-func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.ContactPingRequest) (_ *pb.ContactPingResponse, err error) {
+// PingNode provides an easy way to verify a node is online and accepting requests
+func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingRequest) (_ *pb.ContactPingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	p, ok := peer.FromContext(ctx)
 	if !ok {
