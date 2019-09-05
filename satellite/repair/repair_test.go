@@ -183,7 +183,6 @@ func TestCorruptDataRepair(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
 		satellitePeer := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
@@ -191,19 +190,18 @@ func TestCorruptDataRepair(t *testing.T) {
 		satellitePeer.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellitePeer.Audit.Service.Loop.Stop()
+		satellitePeer.Audit.Chore.Loop.Stop()
+		satellitePeer.Audit.Worker.Loop.Stop()
 
 		satellitePeer.Repair.Checker.Loop.Pause()
 		satellitePeer.Repair.Repairer.Loop.Pause()
 
-		var (
-			testData         = testrand.Bytes(8 * memory.KiB)
-			minThreshold     = 3
-			successThreshold = 7
-		)
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
 		err := uplinkPeer.UploadWithConfig(ctx, satellitePeer, &uplink.RSConfig{
-			MinThreshold:     minThreshold,
+			MinThreshold:     3,
 			RepairThreshold:  5,
-			SuccessThreshold: successThreshold,
+			SuccessThreshold: 7,
 			MaxThreshold:     10,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
