@@ -112,7 +112,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 				require.NoError(t, err)
 				require.NotEmpty(t, v)
 
-				var existingAuths Authorizations
+				var existingAuths Group
 				err = existingAuths.Unmarshal(v)
 				require.NoError(t, err)
 				require.Len(t, existingAuths, testCase.startCount)
@@ -134,7 +134,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotEmpty(t, v)
 
-			var actualAuths Authorizations
+			var actualAuths Group
 			err = actualAuths.Unmarshal(v)
 			assert.NoError(t, err)
 			assert.Len(t, actualAuths, testCase.endCount)
@@ -150,7 +150,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(authDB.Close)
 
-	var expectedAuths Authorizations
+	var expectedAuths Group
 	for i := 0; i < 5; i++ {
 		expectedAuths = append(expectedAuths, &Authorization{
 			Token: t1,
@@ -166,7 +166,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	cases := []struct {
 		testID,
 		email string
-		result Authorizations
+		result Group
 	}{
 		{
 			"Non-existent email",
@@ -404,7 +404,7 @@ func TestNewAuthorization(t *testing.T) {
 }
 
 func TestAuthorizations_Marshal(t *testing.T) {
-	expectedAuths := Authorizations{
+	expectedAuths := Group{
 		{Token: t1},
 		{Token: t2},
 	}
@@ -413,7 +413,7 @@ func TestAuthorizations_Marshal(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, authsBytes)
 
-	var actualAuths Authorizations
+	var actualAuths Group
 	decoder := gob.NewDecoder(bytes.NewBuffer(authsBytes))
 	err = decoder.Decode(&actualAuths)
 	assert.NoError(t, err)
@@ -422,7 +422,7 @@ func TestAuthorizations_Marshal(t *testing.T) {
 }
 
 func TestAuthorizations_Unmarshal(t *testing.T) {
-	expectedAuths := Authorizations{
+	expectedAuths := Group{
 		{Token: t1},
 		{Token: t2},
 	}
@@ -431,7 +431,7 @@ func TestAuthorizations_Unmarshal(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, authsBytes)
 
-	var actualAuths Authorizations
+	var actualAuths Group
 	err = actualAuths.Unmarshal(authsBytes)
 	assert.NoError(t, err)
 	assert.NotNil(t, actualAuths)
@@ -439,7 +439,7 @@ func TestAuthorizations_Unmarshal(t *testing.T) {
 }
 
 func TestAuthorizations_Group(t *testing.T) {
-	auths := make(Authorizations, 10)
+	auths := make(Group, 10)
 	for i := 0; i < 10; i++ {
 		if i%2 == 0 {
 			auths[i] = &Authorization{
@@ -455,7 +455,7 @@ func TestAuthorizations_Group(t *testing.T) {
 		}
 	}
 
-	claimed, open := auths.Group()
+	claimed, open := auths.GroupByClaimed()
 	for _, a := range claimed {
 		assert.NotNil(t, a.Claim)
 	}

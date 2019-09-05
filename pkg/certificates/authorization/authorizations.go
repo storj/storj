@@ -48,9 +48,9 @@ var (
 	ErrAuthorizationCount = ErrAuthorizationDB.New("cannot add less than one authorizations")
 )
 
-// Authorizations is a slice of authorizations for convenient de/serialization
+// Group is a slice of authorizations for convenient de/serialization
 // and grouping.
-type Authorizations []*Authorization
+type Group []*Authorization
 
 // Authorization represents a single-use authorization token and its status
 type Authorization struct {
@@ -131,7 +131,7 @@ func ParseToken(tokenString string) (*Token, error) {
 }
 
 // Unmarshal deserializes a set of authorizations
-func (a *Authorizations) Unmarshal(data []byte) error {
+func (a *Group) Unmarshal(data []byte) error {
 	decoder := gob.NewDecoder(bytes.NewBuffer(data))
 	if err := decoder.Decode(a); err != nil {
 		return ErrAuthorization.Wrap(err)
@@ -140,7 +140,7 @@ func (a *Authorizations) Unmarshal(data []byte) error {
 }
 
 // Marshal serializes a set of authorizations
-func (a Authorizations) Marshal() ([]byte, error) {
+func (a Group) Marshal() ([]byte, error) {
 	data := new(bytes.Buffer)
 	encoder := gob.NewEncoder(data)
 	err := encoder.Encode(a)
@@ -152,7 +152,7 @@ func (a Authorizations) Marshal() ([]byte, error) {
 }
 
 // Group separates a set of authorizations into a set of claimed and a set of open authorizations.
-func (a Authorizations) Group() (claimed, open Authorizations) {
+func (a Group) GroupByClaimed() (claimed, open Group) {
 	for _, auth := range a {
 		if auth.Claim != nil {
 			// TODO: check if claim is valid? what if not?

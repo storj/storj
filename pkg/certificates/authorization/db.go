@@ -82,7 +82,7 @@ func (authDB *DB) Close() error {
 }
 
 // Create creates a new authorization and adds it to the authorization database.
-func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Authorizations, err error) {
+func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(userID) == 0 {
 		return nil, ErrAuthorizationDB.New("userID cannot be empty")
@@ -92,7 +92,7 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Autho
 	}
 
 	var (
-		newAuths Authorizations
+		newAuths Group
 		authErrs errs.Group
 	)
 	for i := 0; i < count; i++ {
@@ -115,7 +115,7 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Autho
 }
 
 // Get retrieves authorizations by user ID.
-func (authDB *DB) Get(ctx context.Context, userID string) (_ Authorizations, err error) {
+func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 	defer mon.Task()(&ctx)(&err)
 	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
@@ -125,7 +125,7 @@ func (authDB *DB) Get(ctx context.Context, userID string) (_ Authorizations, err
 		return nil, nil
 	}
 
-	var auths Authorizations
+	var auths Group
 	if err := auths.Unmarshal(authsBytes); err != nil {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
@@ -148,7 +148,7 @@ func (authDB *DB) UserIDs(ctx context.Context) (userIDs []string, err error) {
 }
 
 // List returns all authorizations in the database.
-func (authDB *DB) List(ctx context.Context) (auths Authorizations, err error) {
+func (authDB *DB) List(ctx context.Context) (auths Group, err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = authDB.db.Iterate(ctx, storage.IterateOptions{
 		Recurse: true,
@@ -156,7 +156,7 @@ func (authDB *DB) List(ctx context.Context) (auths Authorizations, err error) {
 		var listErrs errs.Group
 		var listItem storage.ListItem
 		for iterator.Next(ctx, &listItem) {
-			var nextAuths Authorizations
+			var nextAuths Group
 			if err := nextAuths.Unmarshal(listItem.Value); err != nil {
 				listErrs.Add(err)
 			}
@@ -246,7 +246,7 @@ func (authDB *DB) Unclaim(ctx context.Context, authToken string) (err error) {
 	return errs.New("token not found in authorizations DB")
 }
 
-func (authDB *DB) add(ctx context.Context, userID string, newAuths Authorizations) (err error) {
+func (authDB *DB) add(ctx context.Context, userID string, newAuths Group) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	auths, err := authDB.Get(ctx, userID)
 	if err != nil {
@@ -257,7 +257,7 @@ func (authDB *DB) add(ctx context.Context, userID string, newAuths Authorization
 	return authDB.put(ctx, userID, auths)
 }
 
-func (authDB *DB) put(ctx context.Context, userID string, auths Authorizations) (err error) {
+func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	authsBytes, err := auths.Marshal()
 	if err != nil {

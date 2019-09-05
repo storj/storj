@@ -152,7 +152,7 @@ func writeAuthInfo(ctx context.Context, authDB *authorization.DB, email string, 
 		return nil
 	}
 
-	claimed, open := auths.Group()
+	claimed, open := auths.GroupByClaimed()
 	if _, err := fmt.Fprintf(w,
 		"%s\t%d\t%d\t\n",
 		email,
@@ -170,8 +170,8 @@ func writeAuthInfo(ctx context.Context, authDB *authorization.DB, email string, 
 	return nil
 }
 
-func writeTokenInfo(claimed, open authorization.Authorizations, w io.Writer) error {
-	groups := map[string]authorization.Authorizations{
+func writeTokenInfo(claimed, open authorization.Group, w io.Writer) error {
+	groups := map[string]authorization.Group{
 		"Claimed": claimed,
 		"Open":    open,
 	}
