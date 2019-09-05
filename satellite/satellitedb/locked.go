@@ -864,13 +864,6 @@ func (m *lockedOverlayCache) BatchUpdateStats(ctx context.Context, updateRequest
 	return m.db.BatchUpdateStats(ctx, updateRequests, batchSize)
 }
 
-// BatchUpdateUptime updates a list of storagenode's uptime stats in the db
-func (m *lockedOverlayCache) BatchUpdateUptime(ctx context.Context, nodesCheckinInfo []*overlay.NodeCheckinInfo, defaults overlay.NodeSelectionConfig) (failed storj.NodeIDList, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.BatchUpdateUptime(ctx, nodesCheckinInfo, defaults)
-}
-
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()

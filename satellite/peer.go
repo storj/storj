@@ -111,7 +111,6 @@ type Config struct {
 	Server   server.Config
 
 	Kademlia  kademlia.Config
-	Contact   contact.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
@@ -361,7 +360,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup contact service
 		log.Debug("Setting up contact service")
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), peer.Overlay.Service, peer.Transport, config.Contact.BatchSize)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), peer.Overlay.Service, peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
 	}
 

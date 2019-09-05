@@ -6,6 +6,7 @@ package contact
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -14,7 +15,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/overlay"
 )
 
 // Endpoint implements the contact service Endpoints.
@@ -45,17 +45,16 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 		return nil, Error.Wrap(err)
 	}
 
-	// Save this uptime update checkin in a cache so we can batch write
-	// to overlay database later
-	update := overlay.NodeCheckinInfo{
-		NodeID:         peerID,
-		IsUp:           pingNodeSuccess,
-		OperatorWallet: req.GetOperator().GetWallet(),
-		OperatorEmail:  req.GetOperator().GetEmail(),
-		FreeDisk:       req.GetCapacity().GetFreeDisk(),
-		FreeBandwidth:  req.GetCapacity().GetFreeBandwidth(),
+	// TODO(jg): We are making 2 requests to the database, one to update uptime and
+	// the other to update the capacity and operator info. We should combine these into
+	// one to reduce db connections. Consider adding batching and using a stored procedure.
+	_, err = endpoint.service.overlay.UpdateUptime(ctx, peerID, pingNodeSuccess)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
-	err = endpoint.service.AddUpdateToCache(ctx, &update)
+
+	nodeInfo := pb.InfoResponse{Operator: req.GetOperator(), Capacity: req.GetCapacity()}
+	_, err = endpoint.service.overlay.UpdateNodeInfo(ctx, peerID, &nodeInfo)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -73,7 +72,12 @@ func pingBack(ctx context.Context, endpoint *Endpoint, req *pb.CheckinRequest, p
 		req.GetAddress(),
 	)
 	if err != nil {
-		return false, "", Error.New("couldn't connect to client at addr: %s. Error: %v.", req.GetAddress().String(), err)
+		// if this is a network error, then return the error otherwise just report internal error
+		_, ok := err.(net.Error)
+		if ok {
+			return false, "", Error.New("couldn't connect to client at addr %s due to network error: %v.", req.GetAddress().String(), err)
+		}
+		return false, "", Error.New("couldn't connect to client at addr: %s due to internal error.", req.GetAddress().String())
 	}
 
 	pingNodeSuccess := true
@@ -83,9 +87,15 @@ func pingBack(ctx context.Context, endpoint *Endpoint, req *pb.CheckinRequest, p
 	_, err = client.pingNode(ctx, &pb.ContactPingRequest{}, grpc.Peer(p))
 	if err != nil {
 		pingNodeSuccess = false
-		// TODO: check common errors codes
-		pingErrorMessage = fmt.Sprintf("erroring while trying to pingNode: %v\n", err)
+		pingErrorMessage = "erroring while trying to pingNode due to internal error"
+		_, ok := err.(net.Error)
+		if ok {
+			pingErrorMessage = fmt.Sprintf("network erroring while trying to pingNode: %v\n", err)
+		}
 	}
+
+	// Confirm that the node ID from the initial checkin request
+	// matches that from this pingNode request
 	identityFromPeer, err := identity.PeerIdentityFromPeer(p)
 	if err != nil {
 		return false, "", Error.New("couldn't get identity from peer:", err)

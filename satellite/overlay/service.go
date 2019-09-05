@@ -66,8 +66,6 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
-	// BatchUpdateUptime updates a list of storagenode's uptime stats in the db
-	BatchUpdateUptime(ctx context.Context, nodesCheckinInfo []*NodeCheckinInfo, defaults NodeSelectionConfig) (failed storj.NodeIDList, err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -394,12 +392,6 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 	uptimeDQ := service.config.Node.UptimeReputationDQ
 
 	return service.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
-}
-
-// BatchUpdateUptime updates a single storagenode's uptime stats.
-func (service *Service) BatchUpdateUptime(ctx context.Context, nodesCheckinInfo []*NodeCheckinInfo) (failed storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.db.BatchUpdateUptime(ctx, nodesCheckinInfo, service.config.Node)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function
