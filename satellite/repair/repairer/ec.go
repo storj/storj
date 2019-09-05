@@ -162,12 +162,10 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	}
 	defer func() { err = errs.Combine(err, downloader.Close()) }()
 
-	var calculatedHash []byte
 	pieceBytes, err := ioutil.ReadAll(downloader)
 	if err != nil {
 		return nil, err
 	}
-	calculatedHash = pkcrypto.SHA256Hash(pieceBytes)
 
 	if int64(len(pieceBytes)) != pieceSize {
 		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, len(pieceBytes))
@@ -176,10 +174,10 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	// get signed piece hash and original order limit
 	hash, originalLimit := downloader.GetHashAndLimit()
 	if hash == nil {
-		return nil, Error.New("hash was not sent from storagenode.")
+		return nil, Error.New("hash was not sent from storagenode")
 	}
 	if originalLimit == nil {
-		return nil, Error.New("original order limit was not sent from storagenode.")
+		return nil, Error.New("original order limit was not sent from storagenode")
 	}
 
 	// verify order limit from storage node is signed by the satellite
@@ -188,6 +186,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	}
 
 	// verify the hashes from storage node
+	calculatedHash := pkcrypto.SHA256Hash(pieceBytes)
 	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
 		return nil, err
 	}
