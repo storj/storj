@@ -361,7 +361,11 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	}
 
 	sort.Slice(bucketUpdates, func(i, k int) bool {
-		return bytes.Compare(bucketUpdates[i].bucketID, bucketUpdates[k].bucketID) < 0
+		compare := bytes.Compare(bucketUpdates[i].bucketID, bucketUpdates[k].bucketID)
+		if compare == 0 {
+			return bucketUpdates[i].action < bucketUpdates[k].action
+		}
+		return compare < 0
 	})
 
 	// do bucket updates
