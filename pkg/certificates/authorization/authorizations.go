@@ -48,11 +48,11 @@ var (
 	ErrAuthorizationCount = ErrAuthorizationDB.New("cannot add less than one authorizations")
 )
 
-// Group is a slice of authorizations for convenient de/serialization
+// Group is a slice of authorizations for convenient de/serialization.
 // and grouping.
 type Group []*Authorization
 
-// Authorization represents a single-use authorization token and its status
+// Authorization represents a single-use authorization token and its status.
 type Authorization struct {
 	Token Token
 	Claim *Claim
@@ -66,7 +66,7 @@ type Token struct {
 	Data   [tokenDataLength]byte
 }
 
-// ClaimOpts hold parameters for claiming an authorization
+// ClaimOpts hold parameters for claiming an authorization.
 type ClaimOpts struct {
 	Req           *pb.SigningRequest
 	Peer          *peer.Peer
@@ -89,7 +89,7 @@ func init() {
 	gob.Register(elliptic.P256())
 }
 
-// NewAuthorization creates a new, unclaimed authorization with a random token value
+// NewAuthorization creates a new, unclaimed authorization with a random token value.
 func NewAuthorization(userID string) (*Authorization, error) {
 	token := Token{UserID: userID}
 	_, err := rand.Read(token.Data[:])
@@ -130,7 +130,7 @@ func ParseToken(tokenString string) (*Token, error) {
 	return t, nil
 }
 
-// Unmarshal deserializes a set of authorizations
+// Unmarshal deserializes a set of authorizations.
 func (a *Group) Unmarshal(data []byte) error {
 	decoder := gob.NewDecoder(bytes.NewBuffer(data))
 	if err := decoder.Decode(a); err != nil {
@@ -139,7 +139,7 @@ func (a *Group) Unmarshal(data []byte) error {
 	return nil
 }
 
-// Marshal serializes a set of authorizations
+// Marshal serializes a set of authorizations.
 func (a Group) Marshal() ([]byte, error) {
 	data := new(bytes.Buffer)
 	encoder := gob.NewEncoder(data)

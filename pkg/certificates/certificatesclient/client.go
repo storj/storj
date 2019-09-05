@@ -18,7 +18,7 @@ import (
 
 var mon = monkit.Package()
 
-// Config is a config struct for use with a certificate signing service client
+// Config is a config struct for use with a certificate signing service client.
 type Config struct {
 	Address string `help:"address of the certificate signing rpc service"`
 	TLS     tlsopts.Config
@@ -30,7 +30,7 @@ type Client struct {
 	client pb.CertificatesClient
 }
 
-// NewClient creates a new certificate signing grpc client
+// NewClient creates a new certificate signing grpc client.
 func NewClient(ctx context.Context, tc transport.Client, address string) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -46,14 +46,14 @@ func NewClient(ctx context.Context, tc transport.Client, address string) (_ *Cli
 }
 
 // NewClientFrom creates a new certificate signing grpc client from an existing
-// grpc cert signing client
+// grpc cert signing client.
 func NewClientFrom(client pb.CertificatesClient) (*Client, error) {
 	return &Client{
 		client: client,
 	}, nil
 }
 
-// Sign submits a certificate signing request given the config
+// Sign submits a certificate signing request given the config.
 func (c Config) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -70,7 +70,7 @@ func (c Config) Sign(ctx context.Context, ident *identity.FullIdentity, authToke
 }
 
 // Sign claims an authorization using the token string and returns a signed
-// copy of the client's CA certificate
+// copy of the client's CA certificate.
 func (c *Client) Sign(ctx context.Context, tokenStr string) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -85,7 +85,7 @@ func (c *Client) Sign(ctx context.Context, tokenStr string) (_ [][]byte, err err
 	return res.Chain, nil
 }
 
-// Close closes the client
+// Close closes the client.
 func (c *Client) Close() error {
 	if c.conn != nil {
 		return c.conn.Close()
