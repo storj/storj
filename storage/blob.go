@@ -62,7 +62,9 @@ type BlobWriter interface {
 	StorageFormatVersion() FormatVersion
 }
 
-// Blobs is a blob storage interface
+// Blobs is a blob storage interface.
+//
+// architecture: Database
 type Blobs interface {
 	// Create creates a new blob that can be written
 	// optionally takes a size argument for performance improvements, -1 is unknown size
