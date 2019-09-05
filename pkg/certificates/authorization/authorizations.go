@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	// AuthorizationsBucket is the bucket used with a bolt-backed authorizations DB.
-	AuthorizationsBucket = "authorizations"
+	// Bucket is the bucket used with a bolt-backed authorizations DB.
+	Bucket = "authorizations"
 	// MaxClaimDelaySeconds is the max duration in seconds in the past or
 	// future that a claim timestamp is allowed to have and still be valid.
 	MaxClaimDelaySeconds = 15

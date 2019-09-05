@@ -52,7 +52,7 @@ func NewDB(dbURL string, overwrite bool) (*DB, error) {
 			}
 		}
 
-		authDB.db, err = boltdb.New(source, AuthorizationsBucket)
+		authDB.db, err = boltdb.New(source, Bucket)
 		if err != nil {
 			return nil, ErrAuthorizationDB.Wrap(err)
 		}
