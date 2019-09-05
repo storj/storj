@@ -32,7 +32,7 @@ type Client struct {
 
 // NewClient creates a new certificate signing grpc client.
 func NewClient(ctx context.Context, tc transport.Client, address string) (_ *Client, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, address)(&err)
 
 	conn, err := tc.DialAddress(ctx, address)
 	if err != nil {
