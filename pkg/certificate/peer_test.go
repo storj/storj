@@ -172,10 +172,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			}
 			peerCtx := peer.NewContext(ctx, grpcPeer)
 
-			srvIdent, err := testidentity.NewTestIdentity(ctx)
-			require.NoError(t, err)
-
-			certSigner := certificate.NewEndpoint(zaptest.NewLogger(t), srvIdent, ca, authDB, 0)
+			certSigner := certificate.NewEndpoint(zaptest.NewLogger(t), ca, authDB, 0)
 			req := pb.SigningRequest{
 				Timestamp: time.Now().Unix(),
 				AuthToken: auths[0].Token.String(),

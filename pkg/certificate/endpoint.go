@@ -25,7 +25,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new certificate signing gRPC server.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, minDifficulty uint16) *Endpoint {
+func NewEndpoint(log *zap.Logger, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, minDifficulty uint16) *Endpoint {
 	return &Endpoint{
 		log:             log,
 		ca:              ca,
