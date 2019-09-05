@@ -142,5 +142,11 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 		errlist.Add(err)
 	}
 
+	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
+	_, err = worker.Reporter.RecordAudits(ctx, report)
+	if err != nil {
+		errlist.Add(err)
+	}
+
 	return errlist.Err()
 }
