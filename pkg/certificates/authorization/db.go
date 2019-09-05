@@ -250,6 +250,8 @@ func (authDB *DB) Unclaim(ctx context.Context, authToken string) (err error) {
 }
 
 func (authDB *DB) add(ctx context.Context, userID string, newAuths Group) (err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
 	auths, err := authDB.Get(ctx, userID)
 	if err != nil {
 		return err
@@ -260,6 +262,8 @@ func (authDB *DB) add(ctx context.Context, userID string, newAuths Group) (err e
 }
 
 func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
 	authsBytes, err := auths.Marshal()
 	if err != nil {
 		return ErrAuthorizationDB.Wrap(err)
