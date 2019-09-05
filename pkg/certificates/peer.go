@@ -37,7 +37,7 @@ type Config struct {
 	MinDifficulty uint `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 }
 
-// Peer is the certificates server
+// Peer is the certificates server.
 type Peer struct {
 	// core dependencies
 	Log      *zap.Logger
