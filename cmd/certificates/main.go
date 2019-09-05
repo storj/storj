@@ -9,21 +9,12 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/certificates"
+	"storj.io/storj/pkg/certificate"
+	"storj.io/storj/pkg/certificate/authorization"
 	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/server"
 )
-
-// CertificatesServerFlags defines certificate server configuration
-type CertificatesServerFlags struct {
-	Identity identity.Config
-	Server   server.Config
-
-	Signer certificates.CertServerConfig
-}
 
 var (
 	rootCmd = &cobra.Command{
@@ -37,11 +28,11 @@ var (
 		RunE:  cmdRun,
 	}
 
-	runCfg CertificatesServerFlags
+	runCfg certificate.Config
 
 	setupCfg struct {
 		Overwrite bool `help:"if true ca, identity, and authorization db will be overwritten/truncated" default:"false"`
-		CertificatesServerFlags
+		certificate.Config
 	}
 
 	authCfg struct {
@@ -51,8 +42,15 @@ var (
 		EmailsPath string `help:"optional path to a list of emails, delimited by <delimiter>, for batch processing"`
 		Delimiter  string `help:"delimiter to split emails loaded from <emails-path> on (e.g. comma, new-line)" default:"\n"`
 
-		CertificatesServerFlags
+		certificate.Config
 	}
+
+	claimsExportCfg struct {
+		Raw bool `default:"false" help:"if true, the raw data structures will be printed"`
+		certificate.Config
+	}
+
+	claimsDeleteCfg certificate.Config
 
 	confDir     string
 	identityDir string
@@ -63,18 +61,32 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		return err
+	}
+
+	signer, err := runCfg.Signer.Load()
+	if err != nil {
+		return err
+	}
+
+	authorizationDB, err := authorization.NewDBFromCfg(runCfg.Authorizations)
+	if err != nil {
+		return errs.New("error opening authorizations database: %+v", err)
 	}
 
 	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
 	if err != nil {
-		return errs.New("Error creating revocation database: %+v", err)
+		return errs.New("error creating revocation database: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	return runCfg.Server.Run(ctx, zap.L(), identity, revocationDB, nil, runCfg.Signer)
+	peer, err := certificate.New(zap.L(), identity, signer, authorizationDB, revocationDB, &runCfg)
+	if err != nil {
+		return err
+	}
+	return peer.Run(ctx)
 }
 
 func main() {
