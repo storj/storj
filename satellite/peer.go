@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
@@ -132,7 +133,6 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-	Vouchers  vouchers.Config
 
 	Version version.Config
 }
@@ -158,6 +158,10 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
+	}
+
+	Contact struct {
+		Service *contact.Service
 	}
 
 	Overlay struct {
@@ -353,6 +357,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
+	{ // setup contact service
+		log.Debug("Setting up contact service")
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Overlay.Service, peer.Transport)
+	}
+
 	{ // setup discovery
 		log.Debug("Setting up discovery")
 		config := config.Discovery
@@ -361,12 +370,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
-			peer.Log.Named("vouchers"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			peer.Overlay.Service,
-			config.Vouchers.Expiration,
-		)
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 
