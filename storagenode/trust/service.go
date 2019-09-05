@@ -23,6 +23,8 @@ var Error = errs.Class("trust:")
 var mon = monkit.Package()
 
 // Pool implements different peer verifications.
+//
+// architecture: Service
 type Pool struct {
 	mu        sync.RWMutex
 	transport transport.Client

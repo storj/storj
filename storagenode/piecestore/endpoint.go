@@ -68,7 +68,9 @@ type Config struct {
 	Orders  orders.Config
 }
 
-// Endpoint implements uploading, downloading and deleting for a storage node.
+// Endpoint implements uploading, downloading and deleting for a storage node..
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log    *zap.Logger
 	config Config

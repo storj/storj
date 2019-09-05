@@ -15,6 +15,8 @@ type SerialNumberFn func(satelliteID storj.NodeID, serialNumber storj.SerialNumb
 
 // UsedSerials is a persistent store for serial numbers.
 // TODO: maybe this should be in orders.UsedSerials
+//
+// architecture: Database
 type UsedSerials interface {
 	// Add adds a serial to the database.
 	Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) error

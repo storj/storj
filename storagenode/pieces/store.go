@@ -136,6 +136,8 @@ type StoredPieceAccess interface {
 }
 
 // Store implements storing pieces onto a blob storage implementation.
+//
+// architecture: Service
 type Store struct {
 	log            *zap.Logger
 	blobs          storage.Blobs

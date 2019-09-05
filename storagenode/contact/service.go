@@ -18,6 +18,8 @@ import (
 var mon = monkit.Package()
 
 // Service is the contact service between storage nodes and satellites
+//
+// architecture: Service
 type Service struct {
 	log       *zap.Logger
 	self      overlay.NodeDossier

@@ -16,6 +16,8 @@ import (
 )
 
 // CacheService updates the space used cache
+//
+// architecture: Service
 type CacheService struct {
 	log        *zap.Logger
 	usageCache *BlobsUsageCache

@@ -30,6 +30,8 @@ var (
 )
 
 // Endpoint does inspectory things
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log        *zap.Logger
 	pieceStore *pieces.Store
