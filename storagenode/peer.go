@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleserver"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -60,7 +61,6 @@ type DB interface {
 	PieceSpaceUsedDB() pieces.PieceSpaceUsedDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
-	Console() console.DB
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
 
@@ -116,6 +116,11 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
+	}
+
+	Contact struct {
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
 	}
 
 	Storage2 struct {
@@ -238,6 +243,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
+	{ // setup contact service
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Kademlia.RoutingTable.Local(), peer.Transport)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
+	}
+
 	{ // setup storage
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.DB.Pieces())
 
@@ -331,7 +341,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup storage node operator dashboard
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			peer.DB.Console(),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
 			peer.Version,
