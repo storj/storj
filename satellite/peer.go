@@ -191,10 +191,9 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service *audit.Service
-		Queue   *audit.Queue
-		Worker  *audit.Worker
-		Chore   *audit.ReservoirChore
+		Queue  *audit.Queue
+		Worker *audit.Worker
+		Chore  *audit.ReservoirChore
 	}
 
 	GarbageCollection struct {
@@ -470,24 +469,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		log.Debug("Setting up audits")
 		config := config.Audit
 
-		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
-			config,
+		peer.Audit.Queue = &audit.Queue{}
+
+		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
+			peer.Audit.Queue,
 			peer.Metainfo.Service,
 			peer.Orders.Service,
 			peer.Transport,
 			peer.Overlay.Service,
 			peer.DB.Containment(),
 			peer.Identity,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		// setup audit 2.0
-		peer.Audit.Queue = &audit.Queue{}
-
-		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
-			peer.Audit.Queue,
 			config,
 		)
 		if err != nil {
@@ -712,9 +703,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))
