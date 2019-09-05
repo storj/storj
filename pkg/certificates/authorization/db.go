@@ -83,7 +83,7 @@ func (authDB *DB) Close() error {
 
 // Create creates a new authorization and adds it to the authorization database.
 func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
+	defer mon.Task()(&ctx, userID, count)(&err)
 	if len(userID) == 0 {
 		return nil, ErrAuthorizationDB.New("userID cannot be empty")
 	}

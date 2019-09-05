@@ -45,7 +45,7 @@ func New(ctx context.Context, tc transport.Client, address string) (_ *Client, e
 	}, nil
 }
 
-// NewClientFrom creates a new certificate signing grpc client from an existing
+// NewClientFrom creates a new certificate signing gRPC client from an existing
 // grpc cert signing client.
 func NewClientFrom(client pb.CertificatesClient) (*Client, error) {
 	return &Client{
