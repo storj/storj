@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package certificates
+package certificate
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"storj.io/storj/pkg/certificates/authorization"
+	"storj.io/storj/pkg/certificate/authorization"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 )

@@ -9,8 +9,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/certificates"
-	"storj.io/storj/pkg/certificates/authorization"
+	"storj.io/storj/pkg/certificate"
+	"storj.io/storj/pkg/certificate/authorization"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
@@ -28,11 +28,11 @@ var (
 		RunE:  cmdRun,
 	}
 
-	runCfg certificates.Config
+	runCfg certificate.Config
 
 	setupCfg struct {
 		Overwrite bool `help:"if true ca, identity, and authorization db will be overwritten/truncated" default:"false"`
-		certificates.Config
+		certificate.Config
 	}
 
 	authCfg struct {
@@ -42,15 +42,15 @@ var (
 		EmailsPath string `help:"optional path to a list of emails, delimited by <delimiter>, for batch processing"`
 		Delimiter  string `help:"delimiter to split emails loaded from <emails-path> on (e.g. comma, new-line)" default:"\n"`
 
-		certificates.Config
+		certificate.Config
 	}
 
 	claimsExportCfg struct {
 		Raw bool `default:"false" help:"if true, the raw data structures will be printed"`
-		certificates.Config
+		certificate.Config
 	}
 
-	claimsDeleteCfg certificates.Config
+	claimsDeleteCfg certificate.Config
 
 	confDir     string
 	identityDir string
@@ -82,7 +82,7 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := certificates.New(zap.L(), identity, signer, authorizationDB, revocationDB, &runCfg)
+	peer, err := certificate.New(zap.L(), identity, signer, authorizationDB, revocationDB, &runCfg)
 	if err != nil {
 		return err
 	}

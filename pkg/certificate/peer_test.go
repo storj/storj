@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package certificates_test
+package certificate_test
 
 import (
 	"crypto/tls"
@@ -18,9 +18,9 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/pkg/certificates"
-	"storj.io/storj/pkg/certificates/authorization"
-	"storj.io/storj/pkg/certificates/certificatesclient"
+	"storj.io/storj/pkg/certificate"
+	"storj.io/storj/pkg/certificate/authorization"
+	"storj.io/storj/pkg/certificate/certificatesclient"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -60,7 +60,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				require.NoError(t, err)
 				require.NotEmpty(t, auths)
 
-				certificatesCfg := certificates.Config{
+				certificatesCfg := certificate.Config{
 					Authorizations: authorizationsCfg,
 					Signer:         signerCAConfig,
 					Server: server.Config{
@@ -71,7 +71,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 					},
 				}
 
-				peer, err := certificates.New(zaptest.NewLogger(t), serverIdent, signer, authDB, nil, &certificatesCfg)
+				peer, err := certificate.New(zaptest.NewLogger(t), serverIdent, signer, authDB, nil, &certificatesCfg)
 				require.NoError(t, err)
 				require.NotNil(t, peer)
 
@@ -175,7 +175,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			srvIdent, err := testidentity.NewTestIdentity(ctx)
 			require.NoError(t, err)
 
-			certSigner := certificates.NewEndpoint(zaptest.NewLogger(t), srvIdent, ca, authDB, 0)
+			certSigner := certificate.NewEndpoint(zaptest.NewLogger(t), srvIdent, ca, authDB, 0)
 			req := pb.SigningRequest{
 				Timestamp: time.Now().Unix(),
 				AuthToken: auths[0].Token.String(),
