@@ -15,7 +15,6 @@
                 </div>
             </div>
         </div>
-        <ProjectCreationSuccessPopup/>
     </div>
 </template>
 
@@ -23,7 +22,6 @@
     import { Component, Vue } from 'vue-property-decorator';
     import DashboardHeader from '@/components/header/Header.vue';
     import NavigationArea from '@/components/navigation/NavigationArea.vue';
-    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
     import {
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
@@ -41,94 +39,93 @@
     import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 
     @Component({
-    mounted: async function() {
-        setTimeout(async () => {
-            try {
-                await this.$store.dispatch(USER_ACTIONS.GET);
-            } catch (error) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                await this.$router.push(RouteConfig.Login.path);
-                AuthToken.remove();
-
-                return;
-            }
-
-            let projects: Project[] = [];
-
-            try {
-                projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-            } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-
-                return;
-            }
-
-            if (!projects.length) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
-
-                if (!(this as any).isCurrentRouteIsAccount()) {
-                    await this.$router.push(RouteConfig.ProjectOverview.path);
+        components: {
+            NavigationArea,
+            DashboardHeader,
+        }
+    })
+    export default class Dashboard extends Vue {
+        public async mounted(): Promise<void> {
+            setTimeout(async () => {
+                // TODO: combine all project related requests in one
+                try {
+                    await this.$store.dispatch(USER_ACTIONS.GET);
+                } catch (error) {
+                    await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+                    await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+                    await this.$router.push(RouteConfig.Login.path);
+                    AuthToken.remove();
 
                     return;
                 }
 
-                await this.$router.push(RouteConfig.ProjectOverview.path);
-            }
+                let projects: Project[] = [];
 
-            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+                try {
+                    projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+                } catch (error) {
+                    await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
-            await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
-            }
+                    return;
+                }
 
-            try {
-                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
-            }
+                if (!projects.length) {
+                    await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
-            try {
-                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
-            }
+                    if (!this.isCurrentRouteIsAccount) {
+                        await this.$router.push(RouteConfig.ProjectOverview.path);
 
-            try {
-                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
-            }
+                        return;
+                    }
 
-            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
-            if (!paymentMethodsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
-            }
+                    await this.$router.push(RouteConfig.ProjectOverview.path);
+                }
 
-            this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
-        }, 800);
-    },
-    computed: {
-        isLoading: function() {
+                await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+
+                await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+                try {
+                    await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+                } catch (error) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+                }
+
+                try {
+                    await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+                } catch (error) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+                }
+
+                try {
+                    await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+                } catch (error) {
+                    await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+                }
+
+                try {
+                    await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+                } catch (error) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
+                }
+
+                const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+                if (!paymentMethodsResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
+                }
+
+                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+            }, 800);
+        }
+
+        public get isLoading(): boolean {
             return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
-        },
-        isCurrentRouteIsAccount: function(): boolean {
+        }
+        public get isCurrentRouteIsAccount(): boolean {
             const segments = this.$route.path.split('/').map(segment => segment.toLowerCase());
 
             return segments.includes(RouteConfig.Account.name.toLowerCase());
         }
-    },
-    components: {
-        ProjectCreationSuccessPopup,
-        NavigationArea,
-        DashboardHeader
     }
-})
-export default class Dashboard extends Vue {
-}
 </script>
 
 <style scoped lang="scss">
