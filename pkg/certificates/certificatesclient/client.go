@@ -18,8 +18,8 @@ import (
 
 var mon = monkit.Package()
 
-// ClientConfig is a config struct for use with a certificate signing service client
-type ClientConfig struct {
+// Config is a config struct for use with a certificate signing service client
+type Config struct {
 	Address string `help:"address of the certificate signing rpc service"`
 	TLS     tlsopts.Config
 }
@@ -54,7 +54,7 @@ func NewClientFrom(client pb.CertificatesClient) (*Client, error) {
 }
 
 // Sign submits a certificate signing request given the config
-func (c ClientConfig) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) (_ [][]byte, err error) {
+func (c Config) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tlsOpts, err := tlsopts.NewOptions(ident, c.TLS, nil)

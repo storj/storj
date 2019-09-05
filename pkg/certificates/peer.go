@@ -48,7 +48,7 @@ type Peer struct {
 	// services and endpoints
 	Certificates struct {
 		AuthorizationDB *authorizations.DB
-		Service         *Certificates
+		Endpoint        *Endpoint
 	}
 }
 
@@ -75,8 +75,8 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	}
 
 	peer.Certificates.AuthorizationDB = authorizationDB
-	peer.Certificates.Service = NewCertificatesServer(log.Named("certificates"), ident, ca, authorizationDB, uint16(config.MinDifficulty))
-	pb.RegisterCertificatesServer(peer.Server.GRPC(), peer.Certificates.Service)
+	peer.Certificates.Endpoint = NewCertificatesServer(log.Named("certificates"), ident, ca, authorizationDB, uint16(config.MinDifficulty))
+	pb.RegisterCertificatesServer(peer.Server.GRPC(), peer.Certificates.Endpoint)
 
 	return peer, nil
 }

@@ -14,8 +14,8 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-// Certificates implements pb.CertificatesServer
-type Certificates struct {
+// Endpoint implements pb.CertificatesServer
+type Endpoint struct {
 	log             *zap.Logger
 	ca              *identity.FullCertificateAuthority
 	authorizationDB *authorizations.DB
@@ -23,8 +23,8 @@ type Certificates struct {
 }
 
 // NewCertificatesServer creates a new certificate signing grpc server
-func NewCertificatesServer(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.DB, minDifficulty uint16) *Certificates {
-	return &Certificates{
+func NewCertificatesServer(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorizations.DB, minDifficulty uint16) *Endpoint {
+	return &Endpoint{
 		log:             log,
 		ca:              ca,
 		authorizationDB: authorizationDB,
@@ -33,8 +33,8 @@ func NewCertificatesServer(log *zap.Logger, ident *identity.FullIdentity, ca *id
 }
 
 // Sign signs the CA certificate of the remote peer's identity with the `certs.ca` certificate.
-// Returns a certificate chain consisting of the remote peer's CA followed by the `certs.ca` chain.
-func (certs Certificates) Sign(ctx context.Context, req *pb.SigningRequest) (_ *pb.SigningResponse, err error) {
+// Returns a certificate chain consisting of the remote peer's CA followed by the CA chain.
+func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *pb.SigningResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	grpcPeer, ok := peer.FromContext(ctx)
 	if !ok {
@@ -46,18 +46,18 @@ func (certs Certificates) Sign(ctx context.Context, req *pb.SigningRequest) (_ *
 		return nil, err
 	}
 
-	signedPeerCA, err := certs.ca.Sign(peerIdent.CA)
+	signedPeerCA, err := endpoint.ca.Sign(peerIdent.CA)
 	if err != nil {
 		return nil, err
 	}
 
-	signedChainBytes := [][]byte{signedPeerCA.Raw, certs.ca.Cert.Raw}
-	signedChainBytes = append(signedChainBytes, certs.ca.RawRestChain()...)
-	err = certs.authorizationDB.Claim(ctx, &authorizations.ClaimOpts{
+	signedChainBytes := [][]byte{signedPeerCA.Raw, endpoint.ca.Cert.Raw}
+	signedChainBytes = append(signedChainBytes, endpoint.ca.RawRestChain()...)
+	err = endpoint.authorizationDB.Claim(ctx, &authorizations.ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,
 		ChainBytes:    signedChainBytes,
-		MinDifficulty: certs.minDifficulty,
+		MinDifficulty: endpoint.minDifficulty,
 	})
 	if err != nil {
 		return nil, err
@@ -65,16 +65,16 @@ func (certs Certificates) Sign(ctx context.Context, req *pb.SigningRequest) (_ *
 
 	difficulty, err := peerIdent.ID.Difficulty()
 	if err != nil {
-		certs.log.Error("error checking difficulty", zap.Error(err))
+		endpoint.log.Error("error checking difficulty", zap.Error(err))
 	}
 	token, err := authorizations.ParseToken(req.AuthToken)
 	if err != nil {
-		certs.log.Error("error parsing auth token", zap.Error(err))
+		endpoint.log.Error("error parsing auth token", zap.Error(err))
 	}
 	tokenFormatter := authorizations.Authorization{
 		Token: *token,
 	}
-	certs.log.Info("certificate successfully signed",
+	endpoint.log.Info("certificate successfully signed",
 		zap.Stringer("node ID", peerIdent.ID),
 		zap.Uint16("difficulty", difficulty),
 		zap.Stringer("truncated token", tokenFormatter),
