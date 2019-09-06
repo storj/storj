@@ -76,8 +76,10 @@ type Config struct {
 
 	Server   server.Config
 	Kademlia kademlia.Config
-	Operator OperatorConfig
+
 	Contact  contact.Config
+	Operator OperatorConfig
+
 	// TODO: flatten storage config and only keep the new one
 	Storage   piecestore.OldConfig
 	Storage2  piecestore.Config
@@ -92,8 +94,6 @@ type Config struct {
 	Version version.Config
 
 	Bandwidth bandwidth.Config
-
-	Contact contact.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -284,8 +284,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, self)
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
-		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service, peer.Contact.PingStats, peer.Storage2.Trust)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:Service"), self, peer.Transport)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), self, peer.Contact.PingStats, peer.Storage2.Trust)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 
