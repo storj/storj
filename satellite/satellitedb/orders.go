@@ -25,6 +25,10 @@ import (
 
 const defaultIntervalSeconds = int(time.Hour / time.Second)
 
+var (
+	ErrDifferentStorageNodes = errs.Class("different storage nodes")
+)
+
 type ordersDB struct {
 	db *dbx.DB
 }
@@ -241,7 +245,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	storageNodeID := requests[0].OrderLimit.StorageNodeId
 	for _, req := range requests[1:] {
 		if req.OrderLimit.StorageNodeId != storageNodeID {
-			return nil, Error.New("requests from different storage nodes %v and %v", storageNodeID, req.OrderLimit.StorageNodeId)
+			return nil, ErrDifferentStorageNodes.New("requests from different storage nodes %v and %v", storageNodeID, req.OrderLimit.StorageNodeId)
 		}
 	}
 
