@@ -59,6 +59,7 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 	res, err := http.Post(url, "text/plain", bytes.NewBuffer([]byte(userID)))
 	require.NoError(t, err)
 	require.NotNil(t, res)
+	defer ctx.Check(res.Body.Close)
 
 	require.Equal(t, http.StatusCreated, res.StatusCode)
 
@@ -87,7 +88,7 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 	ctx.Go(func() error {
 		return errs2.IgnoreCanceled(endpoint.Run(ctx))
 	})
-	defer ctx.Check(endpoint.Close)
+	ctx.Check(endpoint.Close)
 
 	baseURL := "http://" + listener.Addr().String()
 
@@ -141,6 +142,7 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 		res, err := client.Do(req)
 		require.NoError(t, err)
 		require.NotNil(t, res)
+		ctx.Check(res.Body.Close)
 
 		require.Equal(t, testCase.statusCode, res.StatusCode)
 	}

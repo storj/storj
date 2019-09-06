@@ -61,7 +61,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				require.NotEmpty(t, auths)
 
 				certificatesCfg := certificate.Config{
-					Signer:        signerCAConfig,
+					Signer: signerCAConfig,
 					Server: server.Config{
 						Address: "127.0.0.1:0",
 						Config: tlsopts.Config{

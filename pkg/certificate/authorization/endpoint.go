@@ -20,8 +20,10 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// ErrEndpoint is the default error class for the authorization endpoint.
 var ErrEndpoint = errs.Class("authorization endpoint error")
 
+// Endpoint implements pb.AuthorizationsServer
 type Endpoint struct {
 	log      *zap.Logger
 	db       *DB
@@ -29,6 +31,7 @@ type Endpoint struct {
 	listener net.Listener
 }
 
+// NewEndpoint creates a new authorization gRPC server.
 func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 	mux := http.NewServeMux()
 	endpoint := &Endpoint{
@@ -45,6 +48,7 @@ func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 	return endpoint
 }
 
+// Create creates an authorization from the given authorization request.
 func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationRequest) (_ *pb.AuthorizationResponse, err error) {
 	mon.Task()(&ctx, req.UserId)(&err)
 
@@ -72,6 +76,8 @@ func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationReque
 	}, nil
 }
 
+// Run starts the endpoint HTTP server and waits for the context to be
+// cancelled or for `Close` to be called.
 func (endpoint *Endpoint) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -89,6 +95,7 @@ func (endpoint *Endpoint) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
+// Close closes the endpoint HTTP server.
 func (endpoint *Endpoint) Close() error {
 	return endpoint.server.Close()
 }
