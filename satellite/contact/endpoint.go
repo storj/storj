@@ -43,7 +43,7 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	pingNodeSuccess, pingErrorMessage, err := pingBack(ctx, endpoint, req, peerID)
+	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, peerID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -68,9 +68,8 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	}, nil
 }
 
-func pingBack(ctx context.Context, endpoint *Endpoint, req *pb.CheckinRequest, peerIDFromContext storj.NodeID) (bool, string, error) {
+func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckinRequest, peerIDFromContext storj.NodeID) (bool, string, error) {
 	client, err := newClient(ctx,
-		endpoint.log,
 		endpoint.service.transport,
 		req.GetAddress(),
 	)

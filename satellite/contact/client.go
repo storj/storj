@@ -6,7 +6,6 @@ package contact
 import (
 	"context"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/pb"
@@ -14,20 +13,18 @@ import (
 )
 
 type client struct {
-	log    *zap.Logger
 	conn   *grpc.ClientConn
 	client pb.ContactClient
 }
 
 // newClient dials the target contact endpoint
-func newClient(ctx context.Context, log *zap.Logger, transport transport.Client, target *pb.NodeAddress) (*client, error) {
+func newClient(ctx context.Context, transport transport.Client, target *pb.NodeAddress) (*client, error) {
 	conn, err := transport.DialAddress(ctx, target.Address)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return &client{
-		log:    log,
 		conn:   conn,
 		client: pb.NewContactClient(conn),
 	}, nil
