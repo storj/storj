@@ -44,6 +44,18 @@ func (id SerialNumber) IsZero() bool {
 	return id == SerialNumber{}
 }
 
+// Less returns whether id is smaller than other in lexicographic order.
+func (id SerialNumber) Less(other SerialNumber) bool {
+	for k, v := range id {
+		if v < other[k] {
+			return true
+		} else if v > other[k] {
+			return false
+		}
+	}
+	return false
+}
+
 // String representation of the serial number
 func (id SerialNumber) String() string { return serialNumberEncoding.EncodeToString(id.Bytes()) }
 
