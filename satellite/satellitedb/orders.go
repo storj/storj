@@ -227,7 +227,9 @@ func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.Se
 	return err
 }
 
-// ProcessOrders take a list of order requests and "settles" them in one transaction
+// ProcessOrders take a list of order requests and "settles" them in one transaction.
+//
+// ProcessOrders requires that all orders come from the same storage node.
 func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
