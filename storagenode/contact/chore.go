@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
@@ -19,15 +18,6 @@ import (
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storagenode/trust"
 )
-
-var mon = monkit.Package()
-
-// Config contains configurable parameters for contact chore
-type Config struct {
-	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
-	// MaxSleep should remain at default value to decrease traffic congestion to satellite
-	MaxSleep time.Duration `help:"maximum duration to wait before pinging satellites" releaseDefault:"45m" devDefault:"0s" hidden:"true"`
-}
 
 // Chore is the contact chore for nodes announcing themselves to their trusted satellites
 //
