@@ -79,11 +79,12 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var stats reputation.Stats
+	stats := reputation.Stats{
+		SatelliteID: satelliteID,
+	}
 
 	row := db.QueryRowContext(ctx,
-		`SELECT satellite_id, 
-			uptime_success_count,
+		`SELECT uptime_success_count,
 			uptime_total_count,
 			uptime_reputation_alpha,
 			uptime_reputation_beta,
@@ -99,7 +100,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		satelliteID,
 	)
 
-	err = row.Scan(&stats.SatelliteID,
+	err = row.Scan(
 		&stats.Uptime.SuccessCount,
 		&stats.Uptime.TotalCount,
 		&stats.Uptime.Alpha,
@@ -115,9 +116,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 	)
 
 	if err == sql.ErrNoRows {
-		return &reputation.Stats{
-			SatelliteID: satelliteID,
-		}, nil
+		err = nil
 	}
 
 	return &stats, ErrReputation.Wrap(err)
