@@ -25,6 +25,7 @@ var mon = monkit.Package()
 // Config contains configurable parameters for contact chore
 type Config struct {
 	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
+	// MaxSleep should remain at default value to decrease traffic congestion to satellite
 	MaxSleep time.Duration `help:"maximum duration to wait before pinging satellites" releaseDefault:"45m" devDefault:"0s" hidden:"true"`
 }
 
