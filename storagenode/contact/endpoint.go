@@ -5,6 +5,7 @@ package contact
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -24,17 +25,27 @@ type SatelliteIDVerifier interface {
 
 // Endpoint implements the contact service Endpoints
 type Endpoint struct {
-	log     *zap.Logger
-	service *Service
-	trust   SatelliteIDVerifier
+	log       *zap.Logger
+	service   *Service
+	pingStats *PingStats
+	trust     SatelliteIDVerifier
+}
+
+// PingStats contains information regarding who and when the node was last pinged
+type PingStats struct {
+	mu               sync.Mutex
+	lastPinged       time.Time
+	whoPingedNodeID  storj.NodeID
+	whoPingedAddress string
 }
 
 // NewEndpoint returns a new contact service endpoint
-func NewEndpoint(log *zap.Logger, service *Service, trust SatelliteIDVerifier) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Service, pingStats *PingStats, trust SatelliteIDVerifier) *Endpoint {
 	return &Endpoint{
-		log:     log,
-		service: service,
-		trust:   trust,
+		log:       log,
+		pingStats: pingStats,
+		service:   service,
+		trust:     trust,
 	}
 }
 
@@ -82,4 +93,20 @@ func (endpoint *Endpoint) RequestInf(ctx context.Context, req *pb.InfoReq) (_ *p
 		Version:  &self.Version,
 	}, nil
 
+}
+
+// WhenLastPinged returns last time someone pinged this node.
+func (stats *PingStats) WhenLastPinged() (when time.Time, who storj.NodeID, addr string) {
+	stats.mu.Lock()
+	defer stats.mu.Unlock()
+	return stats.lastPinged, stats.whoPingedNodeID, stats.whoPingedAddress
+}
+
+// wasPinged notifies the service it has been remotely pinged.
+func (stats *PingStats) wasPinged(when time.Time, srcNodeID storj.NodeID, srcAddress string) {
+	stats.mu.Lock()
+	defer stats.mu.Unlock()
+	stats.lastPinged = when
+	stats.whoPingedNodeID = srcNodeID
+	stats.whoPingedAddress = srcAddress
 }
