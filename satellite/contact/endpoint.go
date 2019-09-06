@@ -78,8 +78,9 @@ func pingBack(ctx context.Context, endpoint *Endpoint, req *pb.CheckinRequest, p
 		// if this is a network error, then return the error otherwise just report internal error
 		_, ok := err.(net.Error)
 		if ok {
-			return false, "", Error.New("couldn't connect to client at addr %s due to network error: %v.", req.GetAddress().String(), err)
+			return false, "", Error.New("failed to connect to %s: %v", req.GetAddress().String(), err)
 		}
+		endpoint.log.Info("pingBack internal error", zap.String("error", err.Error()))
 		return false, "", Error.New("couldn't connect to client at addr: %s due to internal error.", req.GetAddress().String())
 	}
 
