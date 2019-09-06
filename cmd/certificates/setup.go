@@ -44,7 +44,7 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	authorizationDB, err := authorization.NewDBFromCfg(setupCfg.Authorization)
+	authorizationDB, err := authorization.NewDBFromCfg(setupCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
 	}
