@@ -62,7 +62,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		if err := chore.randomDurationSleep(ctx); err != nil {
 			return err
 		}
-		if err = chore.pingSatellites(ctx); err != nil {
+		if err := chore.pingSatellites(ctx); err != nil {
 			chore.log.Error("pingSatellites failed", zap.Error(err))
 		}
 		return nil
