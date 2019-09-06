@@ -43,15 +43,32 @@ var (
 	}
 )
 
-func TestCertSignerConfig_NewAuthDB(t *testing.T) {
+func TestNewDB(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB := newTestAuthDB(t, ctx)
-	defer ctx.Check(authDB.Close)
+	dbURL := "bolt://" + ctx.File("authorizations.db")
+	db, err := NewDB(dbURL, false)
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
 
-	assert.NotNil(t, authDB)
-	assert.NotNil(t, authDB.db)
+	require.NotNil(t, db)
+	require.NotNil(t, db.db)
+}
+
+func TestNewDBFromCfg(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	db, err := NewDBFromCfg(DBConfig{
+		URL:       "bolt://" + ctx.File("authorizations.db"),
+		Overwrite: false,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	require.NotNil(t, db)
+	require.NotNil(t, db.db)
 }
 
 func TestAuthorizationDB_Create(t *testing.T) {
