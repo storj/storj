@@ -76,7 +76,8 @@ type Config struct {
 
 	Server   server.Config
 	Kademlia kademlia.Config
-
+	Operator OperatorConfig
+	Contact  contact.Config
 	// TODO: flatten storage config and only keep the new one
 	Storage   piecestore.OldConfig
 	Storage2  piecestore.Config
@@ -256,9 +257,33 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup contact service
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable)
-		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
-		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		c := config.Contact
+		if c.ExternalAddress == "" {
+			c.ExternalAddress = peer.Addr()
+		}
+
+		pbVersion, err := versionInfo.Proto()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		self := overlay.NodeDossier{
+			Node: pb.Node{
+				Id: peer.ID(),
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   c.ExternalAddress,
+				},
+			},
+			Type: pb.NodeType_STORAGE,
+			Operator: pb.NodeOperator{
+				Email:  config.Operator.Email,
+				Wallet: config.Operator.Wallet,
+			},
+			Version: *pbVersion,
+		}
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), self, peer.Transport)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service, peer.Storage2.Trust)
+		// TODO pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup storage
@@ -522,7 +547,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Contact.Service.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
