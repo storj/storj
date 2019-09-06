@@ -45,6 +45,8 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Worker.Close()
+		require.NoError(t, err)
 		var (
 			satellitePeer = planet.Satellites[0]
 			nodeID        = planet.StorageNodes[0].ID()
@@ -65,7 +67,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		// failed audits.
 		iterations := 1
 		for ; ; iterations++ {
-			_, err := satellitePeer.Audit.Worker.Reporter.RecordAudits(ctx, report)
+			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
 			require.NoError(t, err)
 
 			dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
@@ -115,12 +117,14 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Worker.Close()
+		require.NoError(t, err)
 		satellitePeer := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = uplinkPeer.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
@@ -161,6 +165,8 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Worker.Close()
+		require.NoError(t, err)
 		satellitePeer := planet.Satellites[0]
 		disqualifiedNode := planet.StorageNodes[0]
 
@@ -195,12 +201,14 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Worker.Close()
+		require.NoError(t, err)
 		satellitePeer := planet.Satellites[0]
 
 		disqualifiedNode := planet.StorageNodes[0]
 		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode.ID())
 
-		_, err := satellitePeer.DB.OverlayCache().UpdateUptime(ctx, disqualifiedNode.ID(), true, 0, 1, 0)
+		_, err = satellitePeer.DB.OverlayCache().UpdateUptime(ctx, disqualifiedNode.ID(), true, 0, 1, 0)
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))

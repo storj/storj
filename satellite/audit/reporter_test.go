@@ -21,6 +21,9 @@ func TestReportPendingAudits(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Worker.Close()
+		require.NoError(t, err)
+		audits := planet.Satellites[0].Audit
 
 		nodeID := planet.StorageNodes[0].ID()
 
@@ -35,10 +38,8 @@ func TestReportPendingAudits(t *testing.T) {
 		report := audit.Report{PendingAudits: []*audit.PendingAudit{&pending}}
 		overlay := planet.Satellites[0].Overlay.Service
 		containment := planet.Satellites[0].DB.Containment()
-		log := planet.Satellites[0].Log.Named("reporter")
 
-		reporter := audit.NewReporter(log, overlay, containment, 1, 3)
-		failed, err := reporter.RecordAudits(ctx, &report)
+		failed, err := audits.Reporter.RecordAudits(ctx, &report)
 		require.NoError(t, err)
 		assert.Zero(t, failed)
 
@@ -56,19 +57,17 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Worker.Close()
+		require.NoError(t, err)
+		audits := planet.Satellites[0].Audit
 
 		nodeID := planet.StorageNodes[0].ID()
 
 		report := audit.Report{Successes: []storj.NodeID{nodeID}}
 		overlay := planet.Satellites[0].Overlay.Service
-		containment := planet.Satellites[0].DB.Containment()
-		log := planet.Satellites[0].Log.Named("reporter")
 
-		// set maxRetries to 0
-		reporter := audit.NewReporter(log, overlay, containment, 0, 3)
-
-		// expect RecordAudits to try recording at least once
-		failed, err := reporter.RecordAudits(ctx, &report)
+		// expect RecordAudits to try recording at least once (maxRetries is set to 0)
+		failed, err := audits.Reporter.RecordAudits(ctx, &report)
 		require.NoError(t, err)
 		require.Zero(t, failed)
 
