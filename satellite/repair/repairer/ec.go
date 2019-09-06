@@ -336,7 +336,6 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	return successfulNodes, successfulHashes, nil
 }
 
-// copied from ecclient
 func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
 	nodeName := "nil"
 	if limit != nil {
@@ -413,7 +412,6 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	return hash, err
 }
 
-// copied from ecclient
 func nonNilCount(limits []*pb.AddressedOrderLimit) int {
 	total := 0
 	for _, limit := range limits {
@@ -424,7 +422,6 @@ func nonNilCount(limits []*pb.AddressedOrderLimit) int {
 	return total
 }
 
-// copied from ecclient
 func unique(limits []*pb.AddressedOrderLimit) bool {
 	if len(limits) < 2 {
 		return true
