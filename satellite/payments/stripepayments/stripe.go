@@ -24,6 +24,8 @@ var (
 	mon = monkit.Package()
 )
 
+var _ payments.Service = (*service)(nil)
+
 // service is payments.Service implementation which
 // works with stripe network through stripe-go client
 //

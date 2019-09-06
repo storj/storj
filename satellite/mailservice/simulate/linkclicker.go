@@ -13,9 +13,12 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/post"
+	"storj.io/storj/satellite/mailservice"
 )
 
 var mon = monkit.Package()
+
+var _ mailservice.Sender = (*LinkClicker)(nil)
 
 // LinkClicker is mailservice.Sender that click all links
 // from html msg parts

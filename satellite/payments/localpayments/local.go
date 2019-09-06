@@ -41,6 +41,8 @@ type DB interface {
 	// TODO: add method to retrieve invoice information from project invoice stamp
 }
 
+var _ payments.Service = (*service)(nil)
+
 // service is internal payments.Service implementation
 //
 // architecture: Service
