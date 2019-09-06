@@ -126,8 +126,9 @@ type Peer struct {
 	}
 
 	Contact struct {
-		Endpoint  *contact.Endpoint
+		Service   *contact.Service
 		Chore     *contact.Chore
+		Endpoint  *contact.Endpoint
 		PingStats *contact.PingStats
 	}
 
@@ -281,9 +282,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			},
 			Version: *pbVersion,
 		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), self, peer.Transport)
-		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service, peer.Storage2.Trust)
-		// TODO pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		peer.Contact.PingStats = new(contact.PingStats)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, self)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service, peer.Contact.PingStats, peer.Storage2.Trust)
+		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup storage
@@ -481,6 +484,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
+	})
 
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
@@ -501,7 +507,6 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
-
 	if peer.Contact.Chore != nil {
 		errlist.Add(peer.Contact.Chore.Close())
 	}
