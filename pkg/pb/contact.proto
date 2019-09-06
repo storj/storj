@@ -10,6 +10,7 @@ import "node.proto";
 
 service Contact {
     rpc PingNode(ContactPingRequest) returns (ContactPingResponse);
+    rpc RequestInfo(InfoRequest) returns (InfoResponse);
 }
 
 service Node {
@@ -31,4 +32,13 @@ message ContactPingRequest {
 }
 
 message ContactPingResponse {
+}
+
+message InfoRequest {}
+
+message InfoResponse {
+    node.NodeType type = 2;
+    node.NodeOperator operator = 3;
+    node.NodeCapacity capacity = 4;
+    node.NodeVersion version = 5;
 }
