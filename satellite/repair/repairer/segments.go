@@ -101,7 +101,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	numHealthy := len(pieces) - len(missingPieces)
-	// irreparable piece, we need k+1 to detect corrupted pieces
+	// irreparable piece
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
 		return true, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
