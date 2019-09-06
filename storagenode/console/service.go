@@ -41,8 +41,9 @@ type Service struct {
 	reputationDB   reputation.DB
 	storageUsageDB storageusage.DB
 	pieceStore     *pieces.Store
-	version        *version.Service
-	pingStats      *contact.PingStats
+
+	version   *version.Service
+	pingStats *contact.PingStats
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
@@ -53,7 +54,9 @@ type Service struct {
 }
 
 // NewService returns new instance of Service.
+
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *version.Service,
+
 	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
 	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, myNodeID storj.NodeID) (*Service, error) {
 	if log == nil {
@@ -74,6 +77,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 
 	if pingStats == nil {
 		return nil, errs.New("pingStats can't be nil")
+
 	}
 
 	return &Service{
