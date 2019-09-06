@@ -30,7 +30,7 @@ func newReputationDB(db SQLDB, location string) *reputationDB {
 	}
 }
 
-// Store inserts or updates reputation stats into the db
+// Store inserts or updates reputation stats into the db.
 func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -75,7 +75,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 	return ErrReputation.Wrap(err)
 }
 
-// Get retrieves stats for specific satellite
+// Get retrieves stats for specific satellite.
 func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -123,7 +123,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 	return &stats, ErrReputation.Wrap(err)
 }
 
-// All retrieves all stats from DB
+// All retrieves all stats from DB.
 func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -90,7 +90,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 	}, nil
 }
 
-// SatelliteInfo encapsulates satellite ID and disqualification
+// SatelliteInfo encapsulates satellite ID and disqualification.
 type SatelliteInfo struct {
 	ID           storj.NodeID `json:"id"`
 	Disqualified *time.Time   `json:"disqualified"`
