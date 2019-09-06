@@ -10,6 +10,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
 	math "math"
+	drpc "storj.io/drpc"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -454,6 +455,143 @@ var fileDescriptor_61fc82527fbe24ad = []byte{
 	0xb5, 0x72, 0x4d, 0xa8, 0xec, 0xb4, 0x66, 0x5b, 0xd1, 0x6a, 0xcd, 0xb6, 0x03, 0x76, 0xd6, 0x7b,
 	0xd7, 0xc9, 0xd7, 0xeb, 0x81, 0xfe, 0x86, 0x4f, 0x7e, 0x05, 0x00, 0x00, 0xff, 0xff, 0xae, 0xb0,
 	0xad, 0x04, 0x05, 0x04, 0x00, 0x00,
+}
+
+type DRPCNodesClient interface {
+	DRPCConn() drpc.Conn
+
+	Query(ctx context.Context, in *QueryRequest) (*QueryResponse, error)
+	Ping(ctx context.Context, in *PingRequest) (*PingResponse, error)
+	RequestInfo(ctx context.Context, in *InfoRequest) (*InfoResponse, error)
+}
+
+type drpcNodesClient struct {
+	cc drpc.Conn
+}
+
+func NewDRPCNodesClient(cc drpc.Conn) DRPCNodesClient {
+	return &drpcNodesClient{cc}
+}
+
+func (c *drpcNodesClient) DRPCConn() drpc.Conn { return c.cc }
+
+func (c *drpcNodesClient) Query(ctx context.Context, in *QueryRequest) (*QueryResponse, error) {
+	out := new(QueryResponse)
+	err := c.cc.Invoke(ctx, "/overlay.Nodes/Query", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcNodesClient) Ping(ctx context.Context, in *PingRequest) (*PingResponse, error) {
+	out := new(PingResponse)
+	err := c.cc.Invoke(ctx, "/overlay.Nodes/Ping", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcNodesClient) RequestInfo(ctx context.Context, in *InfoRequest) (*InfoResponse, error) {
+	out := new(InfoResponse)
+	err := c.cc.Invoke(ctx, "/overlay.Nodes/RequestInfo", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+type DRPCNodesServer interface {
+	DRPCQuery(context.Context, *QueryRequest) (*QueryResponse, error)
+	DRPCPing(context.Context, *PingRequest) (*PingResponse, error)
+	DRPCRequestInfo(context.Context, *InfoRequest) (*InfoResponse, error)
+}
+
+type DRPCNodesDescription struct{}
+
+func (DRPCNodesDescription) NumMethods() int { return 3 }
+
+func (DRPCNodesDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
+	switch n {
+	case 0:
+		return "/overlay.Nodes/Query",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCNodesServer).
+					DRPCQuery(
+						ctx,
+						in1.(*QueryRequest),
+					)
+			}, DRPCNodesServer.DRPCQuery, true
+	case 1:
+		return "/overlay.Nodes/Ping",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCNodesServer).
+					DRPCPing(
+						ctx,
+						in1.(*PingRequest),
+					)
+			}, DRPCNodesServer.DRPCPing, true
+	case 2:
+		return "/overlay.Nodes/RequestInfo",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCNodesServer).
+					DRPCRequestInfo(
+						ctx,
+						in1.(*InfoRequest),
+					)
+			}, DRPCNodesServer.DRPCRequestInfo, true
+	default:
+		return "", nil, nil, false
+	}
+}
+
+type DRPCNodes_QueryStream interface {
+	drpc.Stream
+	SendAndClose(*QueryResponse) error
+}
+
+type drpcNodesQueryStream struct {
+	drpc.Stream
+}
+
+func (x *drpcNodesQueryStream) SendAndClose(m *QueryResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCNodes_PingStream interface {
+	drpc.Stream
+	SendAndClose(*PingResponse) error
+}
+
+type drpcNodesPingStream struct {
+	drpc.Stream
+}
+
+func (x *drpcNodesPingStream) SendAndClose(m *PingResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCNodes_RequestInfoStream interface {
+	drpc.Stream
+	SendAndClose(*InfoResponse) error
+}
+
+type drpcNodesRequestInfoStream struct {
+	drpc.Stream
+}
+
+func (x *drpcNodesRequestInfoStream) SendAndClose(m *InfoResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

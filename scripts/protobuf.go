@@ -55,18 +55,12 @@ func run(command, root string) error {
 		if err != nil {
 			return err
 		}
-
-		gogoVersion, err := versionOf("github.com/gogo/protobuf")
-		if err != nil {
-			return err
-		}
-
 		return install(
 			"github.com/ckaznocha/protoc-gen-lint@68a05858965b31eb872cbeb8d027507a94011acc",
-			// See https://github.com/gogo/protobuf#most-speed-and-most-customization
-			"github.com/gogo/protobuf/protoc-gen-gogo@"+gogoVersion,
+			"storj.io/drpc/cmd/protoc-gen-drpc@v0.0.1",
 			"github.com/nilslice/protolock/cmd/protolock@v0.12.0",
 		)
+
 	case "generate":
 		return walkdirs(root, generate)
 	case "lint":
@@ -76,8 +70,6 @@ func run(command, root string) error {
 	default:
 		return errors.New("unknown command " + command)
 	}
-
-	return nil
 }
 
 func installGoBin() error {
@@ -141,7 +133,7 @@ func generate(dir string, dirs []string, files []string) error {
 		return err
 	}
 
-	args := []string{"--gogo_out=plugins=grpc:.", "--lint_out=."}
+	args := []string{"--drpc_out=plugins=grpc+drpc:.", "--lint_out=."}
 	args = appendCommonArguments(args, dir, dirs, files)
 
 	cmd = exec.Command(*protoc, args...)
