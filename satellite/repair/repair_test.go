@@ -69,7 +69,7 @@ func TestDataRepair(t *testing.T) {
 			MinThreshold:     minThreshold,
 			RepairThreshold:  5,
 			SuccessThreshold: successThreshold,
-			MaxThreshold:     10,
+			MaxThreshold:     9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -202,7 +202,7 @@ func TestCorruptDataRepair(t *testing.T) {
 			MinThreshold:     3,
 			RepairThreshold:  5,
 			SuccessThreshold: 7,
-			MaxThreshold:     10,
+			MaxThreshold:     9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
