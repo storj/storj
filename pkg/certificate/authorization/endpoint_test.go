@@ -15,7 +15,6 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/testcontext"
-
 	"storj.io/storj/pkg/pb"
 )
 
