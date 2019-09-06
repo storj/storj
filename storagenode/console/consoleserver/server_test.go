@@ -15,38 +15,36 @@ import (
 )
 
 func TestConsole(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t,
+		testplanet.Config{
+			SatelliteCount:   1,
+			StorageNodeCount: 1,
+		},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			satellite := planet.Satellites[0]
+			console := planet.StorageNodes[0].Console
 
-	planet, err := testplanet.New(t, 1, 1, 0)
-	require.NoError(t, err)
+			t.Run("test endpoints", func(t *testing.T) {
+				addr := console.Listener.Addr()
 
-	planet.Start(ctx)
+				req, err := http.Get(fmt.Sprintf("http://%s/api/dashboard", addr))
+				require.NoError(t, err)
+				require.NotNil(t, req)
+				_ = req.Body.Close()
+				require.Equal(t, http.StatusOK, req.StatusCode)
 
-	satellite := planet.Satellites[0]
-	console := planet.StorageNodes[0].Console
+				req, err = http.Get(fmt.Sprintf("http://%s/api/satellites", addr))
+				require.NoError(t, err)
+				require.NotNil(t, req)
+				_ = req.Body.Close()
+				require.Equal(t, http.StatusOK, req.StatusCode)
 
-	t.Run("test endpoints", func(t *testing.T) {
-		addr := console.Listener.Addr()
-
-		req, err := http.Get(fmt.Sprintf("http://%s/api/dashboard", addr))
-		require.NoError(t, err)
-		require.NotNil(t, req)
-		_ = req.Body.Close()
-		require.Equal(t, http.StatusOK, req.StatusCode)
-
-		req, err = http.Get(fmt.Sprintf("http://%s/api/satellites", addr))
-		require.NoError(t, err)
-		require.NotNil(t, req)
-		_ = req.Body.Close()
-		require.Equal(t, http.StatusOK, req.StatusCode)
-
-		req, err = http.Get(fmt.Sprintf("http://%s/api/satellite/%s", addr, satellite.ID()))
-		require.NoError(t, err)
-		require.NotNil(t, req)
-		_ = req.Body.Close()
-		require.Equal(t, http.StatusOK, req.StatusCode)
-	})
-
-	require.NoError(t, planet.Shutdown())
+				req, err = http.Get(fmt.Sprintf("http://%s/api/satellite/%s", addr, satellite.ID()))
+				require.NoError(t, err)
+				require.NotNil(t, req)
+				_ = req.Body.Close()
+				require.Equal(t, http.StatusOK, req.StatusCode)
+			})
+		},
+	)
 }
