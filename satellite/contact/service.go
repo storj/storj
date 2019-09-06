@@ -64,7 +64,7 @@ func (service *Service) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.In
 		return nil, err
 	}
 
-	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{})
+	resp, err := conn.client.RequestInf(ctx, &pb.InfoReq{})
 
 	return resp, errs.Combine(err, conn.disconnect())
 }
