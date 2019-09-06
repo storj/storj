@@ -68,10 +68,11 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	}, nil
 }
 
-func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckinRequest, peerIDFromContext storj.NodeID) (bool, string, error) {
+func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckinRequest, peerID storj.NodeID) (bool, string, error) {
 	client, err := newClient(ctx,
 		endpoint.service.transport,
 		req.GetAddress(),
+		peerID,
 	)
 	if err != nil {
 		// if this is a network error, then return the error otherwise just report internal error
@@ -97,16 +98,6 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckinRequest, 
 		}
 	}
 
-	// Confirm that the node ID from the initial checkin request
-	// matches that from this pingNode request
-	identityFromPeer, err := identity.PeerIdentityFromPeer(p)
-	if err != nil {
-		return false, "", Error.New("couldn't get identity from peer: %v", err)
-	}
-	if identityFromPeer.ID != peerIDFromContext {
-		return false, "", Error.New("peer ID from context, %s, does not match ID from ping request, %s.", peerIDFromContext.String(), identityFromPeer.ID.String())
-	}
-
 	return pingNodeSuccess, pingErrorMessage, nil
 }
 
@@ -115,9 +106,9 @@ func peerIDFromContext(ctx context.Context) (storj.NodeID, error) {
 	if !ok {
 		return storj.NodeID{}, Error.New("unable to get grpc peer from contex")
 	}
-	peerID, err := identity.PeerIdentityFromPeer(p)
+	peerIdentity, err := identity.PeerIdentityFromPeer(p)
 	if err != nil {
 		return storj.NodeID{}, err
 	}
-	return peerID.ID, nil
+	return peerIdentity.ID, nil
 }

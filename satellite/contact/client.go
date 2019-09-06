@@ -9,6 +9,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -18,8 +20,10 @@ type client struct {
 }
 
 // newClient dials the target contact endpoint
-func newClient(ctx context.Context, transport transport.Client, target *pb.NodeAddress) (*client, error) {
-	conn, err := transport.DialAddress(ctx, target.Address)
+func newClient(ctx context.Context, transport transport.Client, target *pb.NodeAddress, peerIDFromContext storj.NodeID) (*client, error) {
+	opts, err := tlsopts.NewOptions(transport.Identity(), tlsopts.Config{PeerIDVersions: "latest"}, nil)
+	dialOption, err := opts.DialOption(peerIDFromContext)
+	conn, err := transport.DialAddress(ctx, target.Address, dialOption)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
