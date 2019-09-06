@@ -211,6 +211,8 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	return nil
 }
 
+var _ metainfo.Observer = (*checkerObserver)(nil)
+
 // checkerObserver implements the metainfo loop Observer interface
 //
 // architecture: Observer
