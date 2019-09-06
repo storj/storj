@@ -62,6 +62,7 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 		return nil, Error.Wrap(err)
 	}
 
+	endpoint.log.Debug("checking in", zap.String("node addr", req.GetAddress().String()), zap.Bool("ping node succes", pingNodeSuccess))
 	return &pb.CheckinResponse{
 		PingNodeSuccess:  pingNodeSuccess,
 		PingErrorMessage: pingErrorMessage,
