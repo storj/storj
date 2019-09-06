@@ -96,6 +96,15 @@ func (endpoint *Endpoint) Close() error {
 func (endpoint *Endpoint) httpCreate(writer http.ResponseWriter, httpReq *http.Request) {
 	ctx := context.Background()
 
+	if httpReq.Method != http.MethodPost {
+		fmt.Println("should error!")
+		msg := fmt.Sprintf("unsupported HTTP method: %s", httpReq.Method)
+		endpoint.log.Error(msg, zap.Error(Error.New(msg)))
+		http.Error(writer, msg, http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println("no error!")
 	userID, err := ioutil.ReadAll(httpReq.Body)
 	if err != nil || bytes.Equal([]byte{}, userID) {
 		msg := "error reading body"
