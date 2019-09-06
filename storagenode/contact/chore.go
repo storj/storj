@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -92,6 +93,11 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 			if err != nil {
 				return err
 			}
+			defer func() {
+				if cerr := conn.Close(); cerr != nil {
+					err = errs.Combine(err, cerr)
+				}
+			}()
 			_, err = pb.NewNodeClient(conn).Checkin(ctx, &pb.CheckinRequest{
 				Address: &pb.NodeAddress{
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
