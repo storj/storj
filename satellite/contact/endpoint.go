@@ -40,6 +40,9 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	defer mon.Task()(&ctx)(&err)
 
 	peerID, err := peerIDFromContext(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	pingNodeSuccess, pingErrorMessage, err := pingBack(ctx, endpoint, req, peerID)
 	if err != nil {
 		return nil, Error.Wrap(err)

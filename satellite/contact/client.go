@@ -21,7 +21,7 @@ type client struct {
 
 // newClient dials the target contact endpoint
 func newClient(ctx context.Context, log *zap.Logger, transport transport.Client, target *pb.NodeAddress) (*client, error) {
-	conn, err := transport.DialAddress(ctx, target.String())
+	conn, err := transport.DialAddress(ctx, target.Address)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
