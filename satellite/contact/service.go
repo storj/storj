@@ -26,6 +26,12 @@ type Config struct {
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 }
 
+// Conn represents a connection
+type Conn struct {
+	conn   *grpc.ClientConn
+	client pb.ContactClient
+}
+
 // Service is the contact service between storage nodes and satellites
 //
 // architecture: Service
@@ -69,14 +75,8 @@ func (service *Service) dialNode(ctx context.Context, target pb.Node) (_ *Conn, 
 	grpcconn, err := service.transport.DialNode(ctx, &target)
 	return &Conn{
 		conn:   grpcconn,
-		client: pb.NewNodeClient(grpcconn),
+		client: pb.NewContactClient(grpcconn),
 	}, err
-}
-
-// Conn represents a connection
-type Conn struct {
-	conn   *grpc.ClientConn
-	client pb.NodesClient
 }
 
 // disconnect disconnects this connection.
