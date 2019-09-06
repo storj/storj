@@ -109,7 +109,7 @@ func (peer *Peer) Close() error {
 	var errlist errs.Group
 
 	if peer.Authorization.Endpoint != nil {
-		peer.Authorization.Endpoint.Close()
+		errlist.Add(peer.Authorization.Endpoint.Close())
 	}
 
 	if peer.AuthorizationDB != nil {
