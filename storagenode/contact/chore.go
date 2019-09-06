@@ -59,7 +59,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	chore.log.Info("Storagenode contact chore starting up")
 
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		if err := chore.sleep(ctx); err != nil {
+		if err := chore.randomDurationSleep(ctx); err != nil {
 			return err
 		}
 		if err = chore.pingSatellites(ctx); err != nil {
@@ -108,9 +108,9 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-// sleep for random interval in [0;maxSleep)
+// randomDurationSleep sleeps for random interval in [0;maxSleep)
 // returns error if context was cancelled
-func (chore *Chore) sleep(ctx context.Context) error {
+func (chore *Chore) randomDurationSleep(ctx context.Context) error {
 	if chore.maxSleep <= 0 {
 		return nil
 	}
