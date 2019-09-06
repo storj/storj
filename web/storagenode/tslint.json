@@ -13,6 +13,7 @@
     "align": [true, "parameters", "statements"],
     "array-type": [true, "array-simple"],
     "arrow-return-shorthand": true,
+    "check-format": true,
     "class-name": true,
     "comment-format": [true, "check-space"],
     "comment-type": [true, "doc", "singleline"],
@@ -22,6 +23,7 @@
     "indent": [true, "spaces", 4],
     "interface-name": false,
     "import-spacing": true,
+    "no-async-without-await": true,
     "no-boolean-literal-compare": true,
     "no-conditional-assignment": true,
     "no-consecutive-blank-lines": [true, 1],
@@ -39,7 +41,25 @@
     "newline-before-return": true,
     "object-literal-sort-keys": false,
     "one-variable-per-declaration": [true, "ignore-for-loop"],
-    "ordered-imports": false,
+    "ordered-imports": [
+      true, {
+        "import-sources-order": "case-insensitive",
+        "named-imports-order": "case-insensitive",
+        "grouped-imports": true,
+        "groups": [{
+          "name": "external",
+          "match": "^[A-Za-z]",
+          "order": 1
+        }, {
+          "name": "internal components",
+          "match": "^@/components",
+          "order": 2
+        }, {
+          "name": "internal else",
+          "match": "^@",
+          "order": 3
+        }]
+      }],
     "prefer-const": true,
     "prefer-switch": [true, {"min-cases": 2}],
     "prefer-while": true,
