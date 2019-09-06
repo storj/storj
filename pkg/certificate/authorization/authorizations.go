@@ -36,8 +36,6 @@ const (
 
 var (
 	mon = monkit.Package()
-	// Error is the default authorizations error class.
-	Error = errs.Class("certificates error")
 	// ErrAuthorization is used when an error occurs involving an authorization.
 	ErrAuthorization = errs.Class("authorization error")
 	// ErrAuthorizationDB is used when an error occurs involving the authorization database.

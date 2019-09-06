@@ -99,7 +99,7 @@ func (endpoint *Endpoint) httpCreate(writer http.ResponseWriter, httpReq *http.R
 	if httpReq.Method != http.MethodPost {
 		fmt.Println("should error!")
 		msg := fmt.Sprintf("unsupported HTTP method: %s", httpReq.Method)
-		endpoint.log.Error(msg, zap.Error(Error.New(msg)))
+		endpoint.log.Error(msg, zap.Error(ErrEndpoint.New(msg)))
 		http.Error(writer, msg, http.StatusBadRequest)
 		return
 	}
