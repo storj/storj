@@ -54,8 +54,8 @@ func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingReque
 	return &pb.ContactPingResponse{}, nil
 }
 
-// RequestNodeInfo returns the node info
-func (endpoint *Endpoint) RequestNodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (_ *pb.NodeInfoResponse, err error) {
+// RequestInf returns the node info
+func (endpoint *Endpoint) RequestInf(ctx context.Context, req *pb.InfoReq) (_ *pb.InfoRes, err error) {
 	defer mon.Task()(&ctx)(&err)
 	self := endpoint.service.Local()
 
@@ -75,7 +75,7 @@ func (endpoint *Endpoint) RequestNodeInfo(ctx context.Context, req *pb.NodeInfoR
 
 	//TODO log ping stats
 
-	return &pb.NodeInfoResponse{
+	return &pb.InfoRes{
 		Type:     self.Type,
 		Operator: &self.Operator,
 		Capacity: &self.Capacity,
