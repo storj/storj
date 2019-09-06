@@ -10,7 +10,7 @@ import { BandwidthUsed, Egress, Ingress, Metric, Satellite, Satellites, Stamp } 
  * @throws Error - holds error message if request wasn't successful
  */
 async function httpGet(url): Promise<Response> {
-    let response = await fetch(url);
+    const response = await fetch(url);
 
     if (response.ok) {
         return response;
@@ -42,9 +42,10 @@ export class SNOApi {
 
         const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used, json.bandwidth.available);
 
+        console.log('dashboard json', json);
+
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
                                         new Date(json.lastPinged), new Date(json.lastQueried), version, json.upToDate);
-
     }
 
     /**
@@ -76,6 +77,8 @@ export class SNOApi {
         const uptime: Metric = new Metric(json.uptime.totalCount, json.uptime.successCount, json.uptime.alpha,
             json.uptime.beta, json.uptime.score);
 
+        console.log('satellite 1', json)
+
         return new Satellite(json.id, storageDaily, bandwidthDaily, json.storageSummary,
             json.bandwidthSummary, audit, uptime);
     }
@@ -97,6 +100,8 @@ export class SNOApi {
         const bandwidthDaily: BandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
             const egress = new Egress(bandwidth.egress.repair, bandwidth.egress.audit, bandwidth.egress.usage);
             const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
+
+            console.log('satellites json', json);
 
             return new BandwidthUsed(egress, ingress, new Date(bandwidth.from), new Date(bandwidth.to));
         });

@@ -15,8 +15,9 @@
     import { Component, Prop, Vue } from 'vue-property-decorator';
     import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
     import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+    import { SatelliteInfo } from '@/storagenode/dashboard';
 
-    @Component ({
+    @Component({
         components: {
             SatelliteSelectionDropdown,
         },
@@ -29,11 +30,11 @@
             this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
         }
 
-        public get satellites() {
+        public get satellites(): SatelliteInfo[] {
             return this.$store.state.node.satellites;
         }
 
-        public get selectedSatellite() {
+        public get selectedSatellite(): string {
             return this.$store.state.node.selectedSatellite.id;
         }
 

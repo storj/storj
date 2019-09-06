@@ -45,39 +45,58 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import InfoComponent from '@/app/components/InfoComponent.vue';
-import { StatusOnline } from '@/app/store/modules/node';
+    import { Component, Vue } from 'vue-property-decorator';
+    import InfoComponent from '@/app/components/InfoComponent.vue';
+    import { StatusOnline } from '@/app/store/modules/node';
 
-@Component ({
-    components: {
-        InfoComponent,
-    },
-})
-export default class SNOContentTitle extends Vue {
-    public get info(): object {
-        return this.$store.state.node.info;
+    /**
+     * NodeInfo class holds info for NodeInfo entity.
+     */
+    class NodeInfo {
+        public id: string;
+        public status: string;
+        public version: string;
+        public wallet: string;
+        public isLastVersion: boolean;
+
+        public constructor(id: string, status: string, version: string, wallet: string, isLastVersion: boolean) {
+            this.id = id;
+            this.status = status;
+            this.version = version;
+            this.wallet = wallet;
+            this.isLastVersion = isLastVersion;
+        }
     }
 
-    public get version(): string {
-        const version = this.$store.state.node.info.version;
+    @Component ({
+        components: {
+            InfoComponent,
+        },
+    })
+    export default class SNOContentTitle extends Vue {
+        public get info(): NodeInfo {
+            return this.$store.state.node.info;
+        }
 
-        return `v${version.major}.${version.minor}.${version.patch}`;
+        public get version(): string {
+            const version = this.$store.state.node.info.version;
+
+            return `v${version.major}.${version.minor}.${version.patch}`;
+        }
+
+        public get online(): boolean {
+            return this.$store.state.node.info.status === StatusOnline;
+        }
+
+        public get currentMonth(): string {
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+            const date = new Date();
+
+            return monthNames[date.getMonth()];
+        }
     }
-
-    public get online(): boolean {
-        return this.$store.state.node.info.status === StatusOnline;
-    }
-
-    public get currentMonth(): string {
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
-        ];
-        const date = new Date();
-
-        return monthNames[date.getMonth()];
-    }
-}
 </script>
 
 <style lang="scss">

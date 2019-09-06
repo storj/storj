@@ -142,7 +142,7 @@ export const node = {
  * @param totalCount - holds total amount of attempts for reputation metric
  */
 function calculateSuccessRatio(successCount: number, totalCount: number) : number {
-    if (totalCount == 0) {
+    if (totalCount === 0) {
         return 100;
     }
 

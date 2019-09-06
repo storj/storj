@@ -63,6 +63,20 @@
     import PayoutContainer from '@/app/components/PayoutContainer.vue';
     import SatelliteSelectionContainer from '@/app/components/SatelliteSelectionContainer.vue';
     import { formatBytes } from '@/app/utils/converter';
+    import { BandwidthInfo, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
+
+    /**
+     * Checks class holds info for Checks entity.
+     */
+    class Checks {
+        public uptime: number;
+        public audit: number;
+
+        public constructor(uptime: number, audit: number) {
+            this.uptime = uptime;
+            this.audit = audit;
+        }
+    }
 
     @Component ({
         components: {
@@ -75,7 +89,7 @@
         },
     })
     export default class SNOContentFilling extends Vue {
-        public get wallet()  {
+        public get wallet(): string {
             return this.$store.state.node.info.wallet;
         }
 
@@ -87,23 +101,23 @@
             return formatBytes(this.$store.state.node.storageSummary);
         }
 
-        public get bandwidth() {
+        public get bandwidth(): BandwidthInfo {
             return this.$store.state.node.utilization.bandwidth;
         }
 
-        public get diskSpace() {
+        public get diskSpace(): DiskSpaceInfo {
             return this.$store.state.node.utilization.diskSpace;
         }
 
-        public get checks() {
+        public get checks(): Checks {
             return this.$store.state.node.checks;
         }
 
-        public get selectedSatellite(): object {
+        public get selectedSatellite(): SatelliteInfo {
             return this.$store.state.node.selectedSatellite;
         }
 
-        public get disqualifiedSatellites(): [] {
+        public get disqualifiedSatellites(): SatelliteInfo[] {
             return this.$store.state.node.disqualifiedSatellites;
         }
 

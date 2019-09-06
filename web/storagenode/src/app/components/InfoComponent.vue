@@ -16,6 +16,10 @@
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
 
+    declare interface MessageBoxStyle {
+        bottom: string;
+    }
+
     @Component
     export default class InfoComponent extends Vue {
         private isVisible: boolean = false;
@@ -34,14 +38,12 @@
             this.isVisible = !this.isVisible;
         }
 
-        public get messageBoxStyle(): object {
-            return {
-                bottom: this.height,
-            };
+        public get messageBoxStyle(): MessageBoxStyle {
+            return { bottom: this.height };
         }
 
         public mounted(): void {
-            let infoComponent = document.querySelector('.info');
+            const infoComponent = document.querySelector('.info');
             if (infoComponent) {
                 const slots = this.$slots.default;
                 if (slots) {

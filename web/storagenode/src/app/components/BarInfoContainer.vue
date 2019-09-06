@@ -14,36 +14,36 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import Bar from '@/app/components/Bar.vue';
-import InfoComponent from '@/app/components/InfoComponent.vue';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
+    import Bar from '@/app/components/Bar.vue';
+    import InfoComponent from '@/app/components/InfoComponent.vue';
 
-@Component ({
-    components: {
-        Bar,
-        InfoComponent,
-    },
-})
-export default class BarInfoContainer extends Vue {
-    @Prop({default: ''})
-    private readonly label: string;
-    @Prop({default: ''})
-    private readonly amount: number;
-    @Prop({default: ''})
-    private readonly infoText: string;
-    @Prop({default: ''})
-    private readonly currentBarAmount: number;
-    @Prop({default: ''})
-    private readonly maxBarAmount: number;
+    @Component ({
+        components: {
+            Bar,
+            InfoComponent,
+        },
+    })
+    export default class BarInfoContainer extends Vue {
+        @Prop({default: ''})
+        private readonly label: string;
+        @Prop({default: ''})
+        private readonly amount: number;
+        @Prop({default: ''})
+        private readonly infoText: string;
+        @Prop({default: ''})
+        private readonly currentBarAmount: number;
+        @Prop({default: ''})
+        private readonly maxBarAmount: number;
 
-    public get infoMessage(): string {
-        return `${Math.floor(100 - (this.currentBarAmount / this.maxBarAmount) * 100)}% ${this.infoText}`;
+        public get infoMessage(): string {
+            return `${Math.floor(100 - (this.currentBarAmount / this.maxBarAmount) * 100)}% ${this.infoText}`;
+        }
+
+        public get remaining(): string {
+            return this.amount.toFixed(2);
+        }
     }
-
-    public get remaining(): string {
-        return this.amount.toFixed(2);
-    }
-}
 </script>
 
 <style lang="scss">

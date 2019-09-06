@@ -49,16 +49,24 @@ export class SatelliteInfo {
  * DiskSpaceInfo stores all info about storage node disk space usage
  */
 export class DiskSpaceInfo {
+    public remaining: number;
+
     public constructor(
         public used: number,
-        public available: number) {}
+        public available: number) {
+        this.remaining = available - used;
+    }
 }
 
 /**
  * BandwidthInfo stores all info about storage node bandwidth usage
  */
 export class BandwidthInfo {
+    public remaining: number;
+
     public constructor(
         public used: number,
-        public available: number) {}
+        public available: number) {
+        this.remaining = available - used;
+    }
 }

@@ -14,7 +14,7 @@
                 </svg>
             </div>
             <div class="header__content-holder__node">
-                <p><b>Node ID:</b>{{nodeID}}</p>
+                <p><b>Node ID:</b>{{this.nodeId}}</p>
             </div>
         </div>
     </div>
@@ -37,7 +37,7 @@
             await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
         }
 
-        public get nodeID(): object  {
+        public get nodeId(): string {
             return this.$store.state.node.info.id;
         }
     }

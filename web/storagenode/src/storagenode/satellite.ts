@@ -103,7 +103,6 @@ export class BandwidthUsed {
     }
 }
 
-
 /**
  * Satellites encapsulate related data of all satellites
  */

@@ -2,13 +2,26 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="bar-container" :style="params.containerStyle">
-        <div class="bar-container__fill" :style="params.fillStyle"></div>
+    <div class="bar-container">
+        <div class="bar-container__fill" :style="barFillStyle"></div>
     </div>
 </template>
 
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
+
+    /**
+     * BarFillStyle class holds info for BarFillStyle entity.
+     */
+    class BarFillStyle {
+        'background-color': string;
+        width: string;
+
+        public constructor(backgroundColor: string, width: string) {
+            this['background-color'] = backgroundColor;
+            this.width = width;
+        }
+    }
 
     @Component
     export default class Bar extends Vue {
@@ -18,20 +31,11 @@
         private readonly max: string;
         @Prop({default: '#224CA5'})
         private readonly color: string;
-        @Prop({default: '8px'})
-        private readonly height: string;
 
-        public get params(): object {
-            return {
-                fillStyle: {
-                    'background-color': this.color,
-                    'width': (parseFloat(this.current) / parseFloat(this.max)) * 100 + '%'
-                },
+        public get barFillStyle(): BarFillStyle {
+            const width = (parseFloat(this.current) / parseFloat(this.max)) * 100 + '%';
 
-                containerStyle: {
-                    height: this.height,
-                },
-            };
+            return new BarFillStyle(this.color, width);
         }
     }
 </script>
@@ -39,6 +43,7 @@
 <style scoped lang="scss">
     .bar-container {
         width: 100%;
+        height: 8px;
         margin-top: 11px;
         border-radius: 4px;
         background-color: #F4F6F9;
