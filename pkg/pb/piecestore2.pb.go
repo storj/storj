@@ -10,9 +10,8 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	math "math"
+	drpc "storj.io/drpc"
 	time "time"
 )
 
@@ -709,6 +708,239 @@ var fileDescriptor_23ff32dd550c2439 = []byte{
 	0x8a, 0x5d, 0xb7, 0x8b, 0xce, 0x06, 0x00, 0x00,
 }
 
+type DRPCPiecestoreClient interface {
+	DRPCConn() drpc.Conn
+
+	Upload(ctx context.Context) (DRPCPiecestore_UploadClient, error)
+	Download(ctx context.Context) (DRPCPiecestore_DownloadClient, error)
+	Delete(ctx context.Context, in *PieceDeleteRequest) (*PieceDeleteResponse, error)
+	Retain(ctx context.Context, in *RetainRequest) (*RetainResponse, error)
+}
+
+type drpcPiecestoreClient struct {
+	cc drpc.Conn
+}
+
+func NewDRPCPiecestoreClient(cc drpc.Conn) DRPCPiecestoreClient {
+	return &drpcPiecestoreClient{cc}
+}
+
+func (c *drpcPiecestoreClient) DRPCConn() drpc.Conn { return c.cc }
+
+func (c *drpcPiecestoreClient) Upload(ctx context.Context) (DRPCPiecestore_UploadClient, error) {
+	stream, err := c.cc.NewStream(ctx, "/piecestore.Piecestore/Upload")
+	if err != nil {
+		return nil, err
+	}
+	x := &drpcPiecestoreUploadClient{stream}
+	return x, nil
+}
+
+type DRPCPiecestore_UploadClient interface {
+	drpc.Stream
+	Send(*PieceUploadRequest) error
+	CloseAndRecv() (*PieceUploadResponse, error)
+}
+
+type drpcPiecestoreUploadClient struct {
+	drpc.Stream
+}
+
+func (x *drpcPiecestoreUploadClient) Send(m *PieceUploadRequest) error {
+	return x.MsgSend(m)
+}
+
+func (x *drpcPiecestoreUploadClient) CloseAndRecv() (*PieceUploadResponse, error) {
+	if err := x.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(PieceUploadResponse)
+	if err := x.MsgRecv(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *drpcPiecestoreClient) Download(ctx context.Context) (DRPCPiecestore_DownloadClient, error) {
+	stream, err := c.cc.NewStream(ctx, "/piecestore.Piecestore/Download")
+	if err != nil {
+		return nil, err
+	}
+	x := &drpcPiecestoreDownloadClient{stream}
+	return x, nil
+}
+
+type DRPCPiecestore_DownloadClient interface {
+	drpc.Stream
+	Send(*PieceDownloadRequest) error
+	Recv() (*PieceDownloadResponse, error)
+}
+
+type drpcPiecestoreDownloadClient struct {
+	drpc.Stream
+}
+
+func (x *drpcPiecestoreDownloadClient) Send(m *PieceDownloadRequest) error {
+	return x.MsgSend(m)
+}
+
+func (x *drpcPiecestoreDownloadClient) Recv() (*PieceDownloadResponse, error) {
+	m := new(PieceDownloadResponse)
+	if err := x.MsgRecv(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *drpcPiecestoreClient) Delete(ctx context.Context, in *PieceDeleteRequest) (*PieceDeleteResponse, error) {
+	out := new(PieceDeleteResponse)
+	err := c.cc.Invoke(ctx, "/piecestore.Piecestore/Delete", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcPiecestoreClient) Retain(ctx context.Context, in *RetainRequest) (*RetainResponse, error) {
+	out := new(RetainResponse)
+	err := c.cc.Invoke(ctx, "/piecestore.Piecestore/Retain", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+type DRPCPiecestoreServer interface {
+	DRPCUpload(DRPCPiecestore_UploadStream) error
+	DRPCDownload(DRPCPiecestore_DownloadStream) error
+	DRPCDelete(context.Context, *PieceDeleteRequest) (*PieceDeleteResponse, error)
+	DRPCRetain(context.Context, *RetainRequest) (*RetainResponse, error)
+}
+
+type DRPCPiecestoreDescription struct{}
+
+func (DRPCPiecestoreDescription) NumMethods() int { return 4 }
+
+func (DRPCPiecestoreDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
+	switch n {
+	case 0:
+		return "/piecestore.Piecestore/Upload",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return nil, srv.(DRPCPiecestoreServer).
+					DRPCUpload(
+						&drpcPiecestoreUploadStream{in1.(drpc.Stream)},
+					)
+			}, DRPCPiecestoreServer.DRPCUpload, true
+	case 1:
+		return "/piecestore.Piecestore/Download",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return nil, srv.(DRPCPiecestoreServer).
+					DRPCDownload(
+						&drpcPiecestoreDownloadStream{in1.(drpc.Stream)},
+					)
+			}, DRPCPiecestoreServer.DRPCDownload, true
+	case 2:
+		return "/piecestore.Piecestore/Delete",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCPiecestoreServer).
+					DRPCDelete(
+						ctx,
+						in1.(*PieceDeleteRequest),
+					)
+			}, DRPCPiecestoreServer.DRPCDelete, true
+	case 3:
+		return "/piecestore.Piecestore/Retain",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCPiecestoreServer).
+					DRPCRetain(
+						ctx,
+						in1.(*RetainRequest),
+					)
+			}, DRPCPiecestoreServer.DRPCRetain, true
+	default:
+		return "", nil, nil, false
+	}
+}
+
+type DRPCPiecestore_UploadStream interface {
+	drpc.Stream
+	SendAndClose(*PieceUploadResponse) error
+	Recv() (*PieceUploadRequest, error)
+}
+
+type drpcPiecestoreUploadStream struct {
+	drpc.Stream
+}
+
+func (x *drpcPiecestoreUploadStream) SendAndClose(m *PieceUploadResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+func (x *drpcPiecestoreUploadStream) Recv() (*PieceUploadRequest, error) {
+	m := new(PieceUploadRequest)
+	if err := x.MsgRecv(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+type DRPCPiecestore_DownloadStream interface {
+	drpc.Stream
+	Send(*PieceDownloadResponse) error
+	Recv() (*PieceDownloadRequest, error)
+}
+
+type drpcPiecestoreDownloadStream struct {
+	drpc.Stream
+}
+
+func (x *drpcPiecestoreDownloadStream) Send(m *PieceDownloadResponse) error {
+	return x.MsgSend(m)
+}
+
+func (x *drpcPiecestoreDownloadStream) Recv() (*PieceDownloadRequest, error) {
+	m := new(PieceDownloadRequest)
+	if err := x.MsgRecv(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+type DRPCPiecestore_DeleteStream interface {
+	drpc.Stream
+	SendAndClose(*PieceDeleteResponse) error
+}
+
+type drpcPiecestoreDeleteStream struct {
+	drpc.Stream
+}
+
+func (x *drpcPiecestoreDeleteStream) SendAndClose(m *PieceDeleteResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCPiecestore_RetainStream interface {
+	drpc.Stream
+	SendAndClose(*RetainResponse) error
+}
+
+type drpcPiecestoreRetainStream struct {
+	drpc.Stream
+}
+
+func (x *drpcPiecestoreRetainStream) SendAndClose(m *RetainResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
 var _ grpc.ClientConn
@@ -824,23 +1056,6 @@ type PiecestoreServer interface {
 	Download(Piecestore_DownloadServer) error
 	Delete(context.Context, *PieceDeleteRequest) (*PieceDeleteResponse, error)
 	Retain(context.Context, *RetainRequest) (*RetainResponse, error)
-}
-
-// UnimplementedPiecestoreServer can be embedded to have forward compatible implementations.
-type UnimplementedPiecestoreServer struct {
-}
-
-func (*UnimplementedPiecestoreServer) Upload(srv Piecestore_UploadServer) error {
-	return status.Errorf(codes.Unimplemented, "method Upload not implemented")
-}
-func (*UnimplementedPiecestoreServer) Download(srv Piecestore_DownloadServer) error {
-	return status.Errorf(codes.Unimplemented, "method Download not implemented")
-}
-func (*UnimplementedPiecestoreServer) Delete(ctx context.Context, req *PieceDeleteRequest) (*PieceDeleteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
-}
-func (*UnimplementedPiecestoreServer) Retain(ctx context.Context, req *RetainRequest) (*RetainResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Retain not implemented")
 }
 
 func RegisterPiecestoreServer(s *grpc.Server, srv PiecestoreServer) {
