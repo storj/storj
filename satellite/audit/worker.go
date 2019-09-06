@@ -35,8 +35,8 @@ type Config struct {
 type Worker struct {
 	log      *zap.Logger
 	queue    *Queue
-	Verifier *Verifier
-	Reporter reporter
+	verifier *Verifier
+	reporter reporter
 	Loop     sync2.Cycle
 	limiter  sync2.Limiter
 }
@@ -47,8 +47,8 @@ func NewWorker(log *zap.Logger, queue *Queue, verifier *Verifier, reporter *Repo
 		log: log,
 
 		queue:    queue,
-		Verifier: verifier,
-		Reporter: reporter,
+		verifier: verifier,
+		reporter: reporter,
 		Loop:     *sync2.NewCycle(config.QueueInterval),
 		limiter:  *sync2.NewLimiter(config.WorkerConcurrency),
 	}, nil
@@ -74,6 +74,7 @@ func (worker *Worker) Run(ctx context.Context) (err error) {
 
 // Close halts the worker.
 func (worker *Worker) Close() error {
+	worker.Loop.Close()
 	return nil
 }
 
@@ -102,13 +103,13 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 
 func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	var errlist errs.Group
-	report, err := worker.Verifier.Reverify(ctx, path)
+	report, err := worker.verifier.Reverify(ctx, path)
 	if err != nil {
 		errlist.Add(err)
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.Reporter.RecordAudits(ctx, report)
+	_, err = worker.reporter.RecordAudits(ctx, report)
 	if err != nil {
 		errlist.Add(err)
 	}
@@ -130,13 +131,13 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 		}
 	}
 
-	report, err = worker.Verifier.Verify(ctx, path, skip)
+	report, err = worker.verifier.Verify(ctx, path, skip)
 	if err != nil {
 		errlist.Add(err)
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.Reporter.RecordAudits(ctx, report)
+	_, err = worker.reporter.RecordAudits(ctx, report)
 	if err != nil {
 		errlist.Add(err)
 	}

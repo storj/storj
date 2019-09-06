@@ -191,9 +191,11 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Queue  *audit.Queue
-		Worker *audit.Worker
-		Chore  *audit.Chore
+		Queue    *audit.Queue
+		Worker   *audit.Worker
+		Chore    *audit.Chore
+		Verifier *audit.Verifier
+		Reporter *audit.Reporter
 	}
 
 	GarbageCollection struct {
@@ -471,7 +473,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Audit.Queue = &audit.Queue{}
 
-		verifier := audit.NewVerifier(log.Named("audit:verifier"),
+		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Service,
 			peer.Transport,
 			peer.Overlay.Service,
@@ -482,7 +484,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.MinDownloadTimeout,
 		)
 
-		reporter := audit.NewReporter(log.Named("audit:reporter"),
+		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
 			peer.Overlay.Service,
 			peer.DB.Containment(),
 			config.MaxRetriesStatDB,
@@ -491,8 +493,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
 			peer.Audit.Queue,
-			verifier,
-			reporter,
+			peer.Audit.Verifier,
+			peer.Audit.Reporter,
 			config,
 		)
 
