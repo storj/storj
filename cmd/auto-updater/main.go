@@ -4,10 +4,12 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -36,6 +39,7 @@ var (
 	runCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Run the auto updater for storage node",
+		Args:  cobra.OnlyValidArgs,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			err = cmdRun(cmd, args)
 			if err != nil {
@@ -49,6 +53,7 @@ var (
 	interval       string
 	versionURL     string
 	binaryLocation string
+	snServiceName  string
 )
 
 // Response response from version server.
@@ -79,6 +84,8 @@ func init() {
 	runCmd.Flags().StringVar(&interval, "interval", "06h", "interval for checking the new version")
 	runCmd.Flags().StringVar(&versionURL, "version-url", "https://version.storj.io/release/", "version server URL")
 	runCmd.Flags().StringVar(&binaryLocation, "binary-location", "storagenode.exe", "the storage node executable binary location")
+
+	runCmd.Flags().StringVar(&snServiceName, "service-name", "storagenode", "storage node OS service name")
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -132,11 +139,42 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 			}
 			log.Println("finished downloading", downloadURL, "to", tempArchive.Name())
 
-			// TODO next PRs
-			// * rename current binary into `storagenode.old.<release>.exe`.
-			// * unzip downloaded binary in place of current binary
-			// * compare extracted binary with version from suggested version
-			// * restart storage node service
+			extension := filepath.Ext(binaryLocation)
+			if extension != "" {
+				extension = "." + extension
+			}
+
+			dir, _ := filepath.Split(binaryLocation)
+			backupExec := filepath.Join(dir, "storagenode.old."+currentVersion.String()+extension)
+
+			if err = os.Rename(binaryLocation, backupExec); err != nil {
+				return err
+			}
+
+			err = unpackBinary(ctx, tempArchive.Name(), binaryLocation)
+			if err != nil {
+				return err
+			}
+
+			newVersion, err := binaryVersion(binaryLocation)
+			if err != nil {
+				return err
+			}
+
+			if suggestedVersion.Compare(newVersion) != 0 {
+				return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), newVersion.String())
+			}
+
+			log.Println("restarting service", snServiceName)
+			err = restartSNService(snServiceName)
+			if err != nil {
+				return errs.New("unable to restart service: %v", err)
+			}
+			log.Println("service", snServiceName, "restarted successfully")
+
+			// TODO remove old binary ??
+		} else {
+			log.Println("storage node version is up to date")
 		}
 		return nil
 	}
@@ -211,6 +249,56 @@ func downloadArchive(ctx context.Context, file io.Writer, url string) (err error
 
 	_, err = sync2.Copy(ctx, file, resp.Body)
 	return err
+}
+
+func unpackBinary(ctx context.Context, archive, target string) (err error) {
+	// TODO support different compression types e.g. tar.gz
+
+	zipReader, err := zip.OpenReader(archive)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, zipReader.Close()) }()
+
+	if len(zipReader.File) != 1 {
+		return errors.New("archive contains more than one file")
+	}
+
+	zipedExec, err := zipReader.File[0].Open()
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, zipedExec.Close()) }()
+
+	newExec, err := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.FileMode(0755))
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, newExec.Close()) }()
+
+	_, err = sync2.Copy(ctx, newExec, zipedExec)
+	if err != nil {
+		return errs.Combine(err, os.Remove(newExec.Name()))
+	}
+	return nil
+}
+
+func restartSNService(name string) error {
+	switch runtime.GOOS {
+	case "windows":
+		// TODO how run this as one command `net stop servicename && net start servicename`?
+		_, err := exec.Command("net", "stop", name).Output()
+		if err != nil {
+			return err
+		}
+		_, err = exec.Command("net", "start", name).Output()
+		if err != nil {
+			return err
+		}
+	default:
+		return nil
+	}
+	return nil
 }
 
 func fileExists(filename string) bool {
