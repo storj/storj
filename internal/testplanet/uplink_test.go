@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/metainfo"
 )
 
 func TestUplinksParallel(t *testing.T) {
@@ -243,5 +244,38 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, expectedData, data)
+	})
+}
+
+func TestDeleteWithOfflineStoragenode(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedData := testrand.Bytes(5 * memory.MiB)
+
+		config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
+		config.Client.SegmentSize = 1 * memory.MiB
+		err := planet.Uplinks[0].UploadWithClientConfig(ctx, planet.Satellites[0], config, "test-bucket", "test-file", expectedData)
+		require.NoError(t, err)
+
+		for _, node := range planet.StorageNodes {
+			err = planet.StopPeer(node)
+			require.NoError(t, err)
+		}
+
+		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test-bucket", "test-file")
+		require.Error(t, err)
+
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		objects, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("test-bucket"),
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, len(objects))
 	})
 }
