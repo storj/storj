@@ -59,13 +59,13 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 	res, err := http.Post(url, "text/plain", bytes.NewBuffer([]byte(userID)))
 	require.NoError(t, err)
 	require.NotNil(t, res)
-	defer ctx.Check(res.Body.Close)
 
 	require.Equal(t, http.StatusCreated, res.StatusCode)
 
 	tokenBytes, err := ioutil.ReadAll(res.Body)
 	require.NoError(t, err)
 	require.NotEmpty(t, tokenBytes)
+	defer ctx.Check(res.Body.Close)
 
 	token, err := ParseToken(string(tokenBytes))
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 	ctx.Go(func() error {
 		return errs2.IgnoreCanceled(endpoint.Run(ctx))
 	})
-	ctx.Check(endpoint.Close)
+	defer ctx.Check(endpoint.Close)
 
 	baseURL := "http://" + listener.Addr().String()
 
