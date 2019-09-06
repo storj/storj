@@ -121,8 +121,9 @@ type Peer struct {
 	}
 
 	Contact struct {
-		Endpoint *contact.Endpoint
-		Chore    *contact.Chore
+		Endpoint  *contact.Endpoint
+		Chore     *contact.Chore
+		PingStats *contact.PingStats
 	}
 
 	Storage2 struct {
@@ -246,8 +247,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup contact service
+		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
-		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"))
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 

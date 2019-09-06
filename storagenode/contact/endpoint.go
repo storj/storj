@@ -21,7 +21,7 @@ import (
 // Endpoint implements the contact service Endpoints
 type Endpoint struct {
 	log       *zap.Logger
-	PingStats *PingStats
+	pingStats *PingStats
 }
 
 // PingStats contains information regarding who and when the node was last pinged
@@ -33,10 +33,10 @@ type PingStats struct {
 }
 
 // NewEndpoint returns a new contact service endpoint
-func NewEndpoint(log *zap.Logger) *Endpoint {
+func NewEndpoint(log *zap.Logger, pingStats *PingStats) *Endpoint {
 	return &Endpoint{
 		log:       log,
-		PingStats: &PingStats{},
+		pingStats: pingStats,
 	}
 }
 
@@ -52,7 +52,7 @@ func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingReque
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
-	endpoint.PingStats.wasPinged(time.Now(), peerID.ID, p.Addr.String())
+	endpoint.pingStats.wasPinged(time.Now(), peerID.ID, p.Addr.String())
 	return &pb.ContactPingResponse{}, nil
 }
 

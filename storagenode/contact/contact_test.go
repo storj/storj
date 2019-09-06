@@ -18,7 +18,7 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeDossier := planet.StorageNodes[0].Local()
-		pingStats := planet.StorageNodes[0].Contact.Endpoint.PingStats
+		pingStats := planet.StorageNodes[0].Contact.PingStats
 
 		conn, err := planet.Satellites[0].Transport.DialNode(ctx, &nodeDossier.Node)
 		require.NoError(t, err)
