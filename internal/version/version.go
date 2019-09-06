@@ -60,6 +60,28 @@ type AllowedVersions struct {
 	Identity    SemVer
 }
 
+// Response response from version server.
+type Response struct {
+	Processes Processes `json:"processes"`
+}
+
+// Processes describes versions for each binary.
+type Processes struct {
+	Storagenode Process `json:"storagenode"`
+}
+
+// Process versions for specific binary.
+type Process struct {
+	Minimum   Version `json:"minimum"`
+	Suggested Version `json:"suggested"`
+}
+
+// Version represents version and download URL for binary.
+type Version struct {
+	Version string `json:"version"`
+	URL     string `json:"url"`
+}
+
 // SemVerRegex is the regular expression used to parse a semantic version.
 // https://github.com/Masterminds/semver/blob/master/LICENSE.txt
 const SemVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`

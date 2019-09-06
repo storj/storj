@@ -56,28 +56,6 @@ var (
 	snServiceName  string
 )
 
-// Response response from version server.
-type Response struct {
-	Processes Processes `json:"processes"`
-}
-
-// Processes describes versions for each binary.
-type Processes struct {
-	Storagenode Process `json:"storagenode"`
-}
-
-// Process versions for specific binary.
-type Process struct {
-	Minimum   Version `json:"minimum"`
-	Suggested Version `json:"suggested"`
-}
-
-// Version represents version and download URL for binary.
-type Version struct {
-	Version string `json:"version"`
-	URL     string `json:"url"`
-}
-
 func init() {
 	rootCmd.AddCommand(runCmd)
 
@@ -103,13 +81,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		signal.Stop(c)
 		cancel()
 	}()
-
-	loopInterval, err := time.ParseDuration(interval)
-	if err != nil {
-		return errs.New("unable to parse interval parameter: %v", err)
-	}
-
-	loop := sync2.NewCycle(loopInterval)
 
 	update := func(ctx context.Context) (err error) {
 		currentVersion, err := binaryVersion(binaryLocation)
@@ -179,13 +150,25 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	}
 
-	err = loop.Run(ctx, func(ctx context.Context) (err error) {
+	loopInterval, err := time.ParseDuration(interval)
+	if err != nil {
+		return errs.New("unable to parse interval parameter: %v", err)
+	}
+
+	loopFunc := func(ctx context.Context) (err error) {
 		if err := update(ctx); err != nil {
 			// don't finish loop in case of error just wait for another execution
 			log.Println(err)
 		}
 		return nil
-	})
+	}
+
+	if loopInterval == 0 {
+		err = loopFunc(ctx)
+	} else {
+		loop := sync2.NewCycle(loopInterval)
+		err = loop.Run(ctx, loopFunc)
+	}
 	if err != context.Canceled {
 		return err
 	}
@@ -221,7 +204,7 @@ func suggestedVersion() (ver version.SemVer, url string, err error) {
 		return ver, url, err
 	}
 
-	var response Response
+	var response version.Response
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return ver, url, err
