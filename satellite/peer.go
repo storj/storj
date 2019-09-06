@@ -390,7 +390,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
-		// TODO pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup discovery
