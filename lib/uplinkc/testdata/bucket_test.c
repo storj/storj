@@ -47,9 +47,12 @@ void handle_project(ProjectRef project) {
         }
     }
 
-    // TODO: test list options
+    // TODO: test more list options
     { // listing buckets
-        BucketList bucket_list = list_buckets(project, NULL, err);
+        BucketListOptions list_options = {
+            .direction = STORJ_FORWARD
+        };
+        BucketList bucket_list = list_buckets(project, &list_options, err);
         require_noerror(*err);
         require(bucket_list.more == 0);
         require(bucket_list.length == num_of_buckets);

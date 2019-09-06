@@ -55,8 +55,8 @@ func TestAuditPathCollector(t *testing.T) {
 		}
 
 		r := rand.New(rand.NewSource(time.Now().Unix()))
-		observer := audit.NewPathCollector(3, r)
-		err = audits.ReservoirService.MetainfoLoop.Join(ctx, observer)
+		observer := audit.NewPathCollector(4, r)
+		err = satellite.Metainfo.Loop.Join(ctx, observer)
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
@@ -64,9 +64,9 @@ func TestAuditPathCollector(t *testing.T) {
 			require.NotNil(t, observer.Reservoirs[node.ID()])
 			require.True(t, len(observer.Reservoirs[node.ID()].Paths) > 1)
 
-			// Require that len paths are <= 2 even though the PathCollector was instantiated with 3
-			// because the maxReservoirSize is currently 2.
-			require.True(t, len(observer.Reservoirs[node.ID()].Paths) <= 2)
+			// Require that len paths are <= 3 even though the PathCollector was instantiated with 4
+			// because the maxReservoirSize is currently 3.
+			require.True(t, len(observer.Reservoirs[node.ID()].Paths) <= 3)
 
 			repeats := make(map[storj.Path]bool)
 			for _, path := range observer.Reservoirs[node.ID()].Paths {
