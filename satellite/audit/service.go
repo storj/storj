@@ -31,7 +31,10 @@ type Config struct {
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"25s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 
-	Slots int `help:"number of reservoir slots allotted for nodes, currently capped at 2" default:"1"`
+	ChoreInterval     time.Duration `help:"how often to run the reservoir chore" default:"24h"`
+	QueueInterval     time.Duration `help:"how often to recheck an empty audit queue" default:"1h"`
+	Slots             int           `help:"number of reservoir slots allotted for nodes, currently capped at 3" default:"3"`
+	WorkerConcurrency int           `help:"number of workers to run audits on paths" default:"1"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
