@@ -5,7 +5,6 @@ package contact
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -18,27 +17,24 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Endpoint implements the contact service Endpoints
-//
-// architecture: Endpoint
-type Endpoint struct {
-	log       *zap.Logger
-	pingStats *PingStats
+// SatelliteIDVerifier checks if the connection is from a trusted satellite
+type SatelliteIDVerifier interface {
+	VerifySatelliteID(ctx context.Context, id storj.NodeID) error
 }
 
-// PingStats contains information regarding who and when the node was last pinged
-type PingStats struct {
-	mu               sync.Mutex
-	lastPinged       time.Time
-	whoPingedNodeID  storj.NodeID
-	whoPingedAddress string
+// Endpoint implements the contact service Endpoints
+type Endpoint struct {
+	log     *zap.Logger
+	service *Service
+	trust   SatelliteIDVerifier
 }
 
 // NewEndpoint returns a new contact service endpoint
-func NewEndpoint(log *zap.Logger, pingStats *PingStats) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Service, trust SatelliteIDVerifier) *Endpoint {
 	return &Endpoint{
-		log:       log,
-		pingStats: pingStats,
+		log:     log,
+		service: service,
+		trust:   trust,
 	}
 }
 
@@ -58,18 +54,32 @@ func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingReque
 	return &pb.ContactPingResponse{}, nil
 }
 
-// WhenLastPinged returns last time someone pinged this node.
-func (stats *PingStats) WhenLastPinged() (when time.Time, who storj.NodeID, addr string) {
-	stats.mu.Lock()
-	defer stats.mu.Unlock()
-	return stats.lastPinged, stats.whoPingedNodeID, stats.whoPingedAddress
-}
+// RequestInfo returns the node info
+func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) (_ *pb.InfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	self := endpoint.service.Local()
 
-// WasPinged notifies the service it has been remotely pinged.
-func (stats *PingStats) WasPinged(when time.Time, srcNodeID storj.NodeID, srcAddress string) {
-	stats.mu.Lock()
-	defer stats.mu.Unlock()
-	stats.lastPinged = when
-	stats.whoPingedNodeID = srcNodeID
-	stats.whoPingedAddress = srcAddress
+	if endpoint.trust == nil {
+		return nil, status.Error(codes.Internal, "missing trust")
+	}
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, status.Errorf(codes.PermissionDenied, "untrusted peer %v", peer.ID)
+	}
+
+	//TODO log ping stats
+
+	return &pb.InfoResponse{
+		Type:     self.Type,
+		Operator: &self.Operator,
+		Capacity: &self.Capacity,
+		Version:  &self.Version,
+	}, nil
+
 }
