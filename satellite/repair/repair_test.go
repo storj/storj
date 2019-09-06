@@ -63,7 +63,7 @@ func TestDataRepair(t *testing.T) {
 		var (
 			testData         = testrand.Bytes(8 * memory.KiB)
 			minThreshold     = 3
-			successThreshold = 6
+			successThreshold = 7
 		)
 		err := uplinkPeer.UploadWithConfig(ctx, satellitePeer, &uplink.RSConfig{
 			MinThreshold:     minThreshold,
