@@ -52,7 +52,6 @@ type SemVer struct {
 
 // AllowedVersions provides the Minimum SemVer per Service
 type AllowedVersions struct {
-	Bootstrap   SemVer
 	Satellite   SemVer
 	Storagenode SemVer
 	Uplink      SemVer

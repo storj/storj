@@ -15,7 +15,6 @@ services:
     image: storjlabs/satellite:${VERSION:-latest}
     environment:
     - API_KEY=abc123
-    - BOOTSTRAP_ADDR=localhost:8080
     - STORJ_CHECKER_QUEUE_ADDRESS=redis://redis:6379/?db=0
     - STORJ_DATABASE=postgres://postgres:postgres@postgres/satellite?sslmode=disable
     - STORJ_LOG_LEVEL=debug

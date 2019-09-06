@@ -332,7 +332,7 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// If we get a Node without an ID (i.e. bootstrap node)
+	// If we get a Node without an ID
 	// we don't want to add to the routing tbale
 	if nodeID.IsZero() {
 		return nil

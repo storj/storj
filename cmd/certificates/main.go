@@ -93,6 +93,7 @@ func main() {
 	defaultConfDir := fpath.ApplicationDir("storj", "cert-signing")
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "certificates")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for certificates configuration")
+	// TODO update comment?
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for bootstrap identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 

@@ -11,6 +11,7 @@ import (
 )
 
 // Error is bootstrap web error type
+// TODO is this needed any longer?
 var scanError = errs.Class("Protobuf Scanner")
 var valueError = errs.Class("Protobuf Valuer")
 

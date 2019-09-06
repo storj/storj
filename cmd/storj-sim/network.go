@@ -49,8 +49,7 @@ const (
 	satellitePeer      = 0
 	gatewayPeer        = 1
 	versioncontrolPeer = 2
-	bootstrapPeer      = 3
-	storagenodePeer    = 4
+	storagenodePeer    = 3
 
 	// Endpoint
 	publicGRPC  = 0
@@ -213,43 +212,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return readConfigString(&versioncontrol.Address, versioncontrol.Directory, "address")
 	}
 
-	bootstrap := processes.New(Info{
-		Name:       "bootstrap/0",
-		Executable: "bootstrap",
-		Directory:  filepath.Join(processes.Directory, "bootstrap", "0"),
-		Address:    net.JoinHostPort(host, port(bootstrapPeer, 0, publicGRPC)),
-	})
-
 	// gateway must wait for the versioncontrol to start up
-	bootstrap.WaitForStart(versioncontrol)
 
-	bootstrap.Arguments = withCommon(bootstrap.Directory, Arguments{
-		"setup": {
-			"--identity-dir", bootstrap.Directory,
-
-			"--web.address", net.JoinHostPort(host, port(bootstrapPeer, 0, publicHTTP)),
-
-			"--server.address", bootstrap.Address,
-			"--server.private-address", net.JoinHostPort(host, port(bootstrapPeer, 0, privateGRPC)),
-
-			"--kademlia.bootstrap-addr", bootstrap.Address,
-			"--kademlia.operator.email", "bootstrap@mail.test",
-			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
-
-			"--server.extensions.revocation=false",
-			"--server.use-peer-ca-whitelist=false",
-
-			"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
-
-			"--debug.addr", net.JoinHostPort(host, port(bootstrapPeer, 0, debugHTTP)),
-		},
-		"run": {},
-	})
-	bootstrap.ExecBefore["run"] = func(process *Process) error {
-		return readConfigString(&bootstrap.Address, bootstrap.Directory, "server.address")
-	}
-
-	// Create satellites making all satellites wait for bootstrap to start
+	// Create satellites
 	if flags.SatelliteCount > maxInstanceCount {
 		return nil, fmt.Errorf("exceeded the max instance count of %d with Satellite count of %d", maxInstanceCount, flags.SatelliteCount)
 	}
@@ -263,9 +228,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicGRPC)),
 		})
 		satellites = append(satellites, process)
-
-		// satellite must wait for bootstrap to start
-		process.WaitForStart(bootstrap)
 
 		consoleAuthToken := "secure_token"
 
@@ -434,8 +396,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Address:    net.JoinHostPort(host, port(storagenodePeer, i, publicGRPC)),
 		})
 
-		// storage node must wait for bootstrap and satellites to start
-		process.WaitForStart(bootstrap)
 		for _, satellite := range satellites {
 			process.WaitForStart(satellite)
 		}
