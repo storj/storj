@@ -17,6 +17,8 @@ type addressInfo struct {
 	transport pb.NodeTransport
 }
 
+var _ DB = (*CombinedCache)(nil)
+
 // CombinedCache is a simple caching mechanism for overlaycache updates. It
 // provdes methods to help reduce calls to UpdateAddress and UpdateTime, but can
 // be extended for other calls in the future.
