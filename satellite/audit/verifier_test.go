@@ -66,7 +66,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
-		shares, err := audits.Worker.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -125,7 +125,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		err = stopStorageNode(ctx, planet, stoppedNodeID)
 		require.NoError(t, err)
 
-		shares, err := audits.Worker.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -186,7 +186,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
-		shares, err := audits.Worker.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -383,7 +383,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, len(pointer.GetRemote().GetRemotePieces()))
@@ -423,7 +423,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 		err = stopStorageNode(ctx, planet, stoppedNodeID)
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, len(pointer.GetRemote().GetRemotePieces())-1)
@@ -465,7 +465,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, origNumPieces-1)
@@ -564,7 +564,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.True(t, audit.ErrSegmentDeleted.Has(err))
 		assert.Empty(t, report)
 	})
@@ -597,7 +597,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 //		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 //		require.NoError(t, err)
 //
-//		report, err := audits.Worker.Verifier.Verify2(ctx, path, nil)
+//		report, err := audits.Verifier.Verify2(ctx, path, nil)
 //		require.True(t, audit.ErrSegmentDeleted.Has(err))
 //		assert.Empty(t, report)
 //	})
@@ -635,7 +635,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, origNumPieces-1)
@@ -648,7 +648,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		pointerAgain, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
-		report, err = audits.Worker.Verifier.Verify(ctx, path, nil)
+		report, err = audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
 
 		//verify no failures because that segment is gone

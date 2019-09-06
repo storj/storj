@@ -70,7 +70,7 @@ func TestReverifySuccess(t *testing.T) {
 		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Worker.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -86,7 +86,7 @@ func TestReverifySuccess(t *testing.T) {
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Reverify(ctx, path)
+		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
 
 		require.Len(t, report.Fails, 0)
@@ -146,7 +146,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Worker.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -169,7 +169,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Reverify(ctx, path)
+		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, 0)
@@ -232,7 +232,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		require.NoError(t, err)
 
 		nodeID := pieces[0].NodeId
-		report, err := audits.Worker.Verifier.Reverify(ctx, path)
+		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, 0)
@@ -297,7 +297,7 @@ func TestReverifyOffline(t *testing.T) {
 		err = stopStorageNode(ctx, planet, pieces[0].NodeId)
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Reverify(ctx, path)
+		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, 0)
@@ -455,7 +455,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Reverify(ctx, path)
+		report, err := audits.Verifier.Reverify(ctx, path)
 		// TODO: is this desired behavior for if a segment is deleted?
 		require.True(t, audit.ErrSegmentDeleted.Has(err))
 		assert.Empty(t, report)
@@ -519,7 +519,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		report, err := audits.Worker.Verifier.Reverify(ctx, path)
+		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
 		assert.Empty(t, report)
 
