@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -72,8 +71,7 @@ type DB interface {
 type Config struct {
 	Identity identity.Config
 
-	Server   server.Config
-	Kademlia kademlia.Config
+	Server server.Config
 
 	// TODO: flatten storage config and only keep the new one
 	Storage   piecestore.OldConfig
@@ -94,9 +92,10 @@ type Config struct {
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
-func (config *Config) Verify(log *zap.Logger) error {
-	return config.Kademlia.Verify(log)
-}
+//TODO UPDATE
+//func (config *Config) Verify(log *zap.Logger) error {
+//	return config.Kademlia.Verify(log)
+//}
 
 // Peer is the representation of a Storage Node.
 type Peer struct {
@@ -113,13 +112,6 @@ type Peer struct {
 
 	// services and endpoints
 	// TODO: similar grouping to satellite.Peer
-	Kademlia struct {
-		RoutingTable *kademlia.RoutingTable
-		Service      *kademlia.Kademlia
-		Endpoint     *kademlia.Endpoint
-		Inspector    *kademlia.Inspector
-	}
-
 	Contact struct {
 		Endpoint  *contact.Endpoint
 		Chore     *contact.Chore
