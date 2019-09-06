@@ -26,6 +26,7 @@ import (
 const defaultIntervalSeconds = int(time.Hour / time.Second)
 
 var (
+	// ErrDifferentStorageNodes is returned when ProcessOrders gets orders from different storage nodes.
 	ErrDifferentStorageNodes = errs.Class("different storage nodes")
 )
 
