@@ -333,8 +333,13 @@ test-docker-clean: ## Clean up Docker environment used in test-docker target
 
 .PHONY: diagrams
 diagrams:
-	archview -trim-prefix storj.io/storj/satellite/ -out satellite.graphml ./satellite/...
-	archview -trim-prefix storj.io/storj/storagenode/ -out storage-node.graphml ./storagenode/...
+	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/   ./satellite/...   | dot -T svg -o satellite.svg
+	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/storagenode/ ./storagenode/... | dot -T svg -o storage-node.svg
+
+.PHONY: diagrams-graphml
+diagrams-graphml:
+	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/   -out satellite.graphml    ./satellite/...
+	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/storagenode/ -out storage-node.graphml ./storagenode/...
 
 .PHONY: update-satellite-config-lock
 update-satellite-config-lock: ## Update the satellite config lock file

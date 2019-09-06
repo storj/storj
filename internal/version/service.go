@@ -26,7 +26,7 @@ type Config struct {
 
 // Service contains the information and variables to ensure the Software is up to date
 //
-// architecture: Chore
+// architecture: Service
 type Service struct {
 	log     *zap.Logger
 	config  Config
