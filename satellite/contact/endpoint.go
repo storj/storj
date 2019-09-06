@@ -98,7 +98,7 @@ func pingBack(ctx context.Context, endpoint *Endpoint, req *pb.CheckinRequest, p
 	// matches that from this pingNode request
 	identityFromPeer, err := identity.PeerIdentityFromPeer(p)
 	if err != nil {
-		return false, "", Error.New("couldn't get identity from peer:", err)
+		return false, "", Error.New("couldn't get identity from peer: %v", err)
 	}
 	if identityFromPeer.ID != peerIDFromContext {
 		return false, "", Error.New("peer ID from context, %s, does not match ID from ping request, %s.", peerIDFromContext.String(), identityFromPeer.ID.String())
