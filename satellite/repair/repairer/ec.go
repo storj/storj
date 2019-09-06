@@ -241,11 +241,13 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		return nil, nil, err
 	}
 
+	// info contains data about a single piece transfer
 	type info struct {
 		i    int
 		err  error
 		hash *pb.PieceHash
 	}
+	// this channel is used to synchronize concurrently uploaded pieces with the overall repair
 	infos := make(chan info, pieceCount)
 
 	psCtx, cancel := context.WithCancel(ctx)
