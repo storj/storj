@@ -161,7 +161,8 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	numHealthy := int32(len(pieces) - len(missingPieces))
 	redundancy := pointer.Remote.Redundancy
 
-	// we repair when the number of healthy pieces is less than or equal to the repair threshold
+	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
+	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
@@ -239,7 +240,8 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 
 	redundancy := pointer.Remote.Redundancy
 
-	// we repair when the number of healthy pieces is less than or equal to the repair threshold
+	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
+	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
