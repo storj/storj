@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/listenmux"
 	"storj.io/storj/pkg/peertls/tlsopts"
 )
 
@@ -117,18 +118,29 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	publicMux := listenmux.New(p.public.listener, 8)
+	privateMux := listenmux.New(p.private.listener, 8)
+
 	var group errgroup.Group
+	group.Go(func() error {
+		return publicMux.Run(ctx)
+	})
+	group.Go(func() error {
+		return privateMux.Run(ctx)
+	})
 	group.Go(func() error {
 		<-ctx.Done()
 		return p.Close()
 	})
 	group.Go(func() error {
 		defer cancel()
-		return p.public.grpc.Serve(p.public.listener)
+		return p.public.grpc.Serve(publicMux.Default())
 	})
 	group.Go(func() error {
 		defer cancel()
-		return p.private.grpc.Serve(p.private.listener)
+		return p.private.grpc.Serve(privateMux.Default())
 	})
 
 	return group.Wait()
