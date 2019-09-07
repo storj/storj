@@ -70,6 +70,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 	var successfulPieces, inProgress int
 	unusedLimits := nonNilLimits
+	uplinkPieceKeys := make(map[int]storj.PiecePublicKey)
 	pieceReaders := make(map[int]io.ReadCloser)
 
 	limiter := sync2.NewLimiter(es.RequiredCount())
@@ -107,7 +108,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				inProgress++
 				cond.L.Unlock()
 
-				downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
+				downloadedPiece, currentPieceKey, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
 				cond.L.Lock()
 				inProgress--
 				if err != nil {
@@ -115,8 +116,15 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					return
 				}
 
+				uplinkPieceKeys[currentLimitIndex] = currentPieceKey
 				pieceReaders[currentLimitIndex] = ioutil.NopCloser(bytes.NewReader(downloadedPiece))
-				successfulPieces++
+
+				// get successful count
+				goodIndices, err := checkPublicPieceKeys(uplinkPieceKeys)
+				if err != nil {
+					ec.log.Warn("Failed to check uplink public keys.", zap.Error(err))
+				}
+				successfulPieces = len(goodIndices)
 
 				return
 			}
@@ -128,6 +136,17 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	if successfulPieces < es.RequiredCount() {
 		return nil, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
 	}
+
+	// get rid of bad pieces (pieces that do not share the majority uplink public key)
+	goodIndices, err := checkPublicPieceKeys(uplinkPieceKeys)
+	if err != nil {
+		ec.log.Warn("Failed to check uplink public keys.", zap.Error(err))
+	}
+	newPieceReaders := make(map[int]io.ReadCloser)
+	for _, i := range goodIndices {
+		newPieceReaders[i] = pieceReaders[i]
+	}
+	pieceReaders = newPieceReaders
 
 	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
 	if err != nil {
@@ -146,52 +165,52 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
-func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (data []byte, err error) {
+func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (data []byte, key storj.PiecePublicKey, err error) {
 	// contact node
 	ps, err := ec.dialPiecestore(ctx, &pb.Node{
 		Id:      limit.GetLimit().StorageNodeId,
 		Address: limit.GetStorageNodeAddress(),
 	})
 	if err != nil {
-		return nil, err
+		return nil, storj.PiecePublicKey{}, err
 	}
 
 	downloader, err := ps.Download(ctx, limit.GetLimit(), privateKey, 0, pieceSize)
 	if err != nil {
-		return nil, err
+		return nil, storj.PiecePublicKey{}, err
 	}
 	defer func() { err = errs.Combine(err, downloader.Close()) }()
 
 	pieceBytes, err := ioutil.ReadAll(downloader)
 	if err != nil {
-		return nil, err
+		return nil, storj.PiecePublicKey{}, err
 	}
 
 	if int64(len(pieceBytes)) != pieceSize {
-		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, len(pieceBytes))
+		return nil, storj.PiecePublicKey{}, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, len(pieceBytes))
 	}
 
 	// get signed piece hash and original order limit
 	hash, originalLimit := downloader.GetHashAndLimit()
 	if hash == nil {
-		return nil, Error.New("hash was not sent from storagenode")
+		return nil, storj.PiecePublicKey{}, Error.New("hash was not sent from storagenode")
 	}
 	if originalLimit == nil {
-		return nil, Error.New("original order limit was not sent from storagenode")
+		return nil, storj.PiecePublicKey{}, Error.New("original order limit was not sent from storagenode")
 	}
 
 	// verify order limit from storage node is signed by the satellite
 	if err := verifyOrderLimitSignature(ctx, ec.satelliteSignee, originalLimit); err != nil {
-		return nil, err
+		return nil, storj.PiecePublicKey{}, err
 	}
 
 	// verify the hashes from storage node
 	calculatedHash := pkcrypto.SHA256Hash(pieceBytes)
 	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
-		return nil, err
+		return nil, storj.PiecePublicKey{}, err
 	}
 
-	return pieceBytes, nil
+	return pieceBytes, originalLimit.UplinkPublicKey, nil
 }
 
 func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
@@ -220,6 +239,50 @@ func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, li
 	}
 
 	return nil
+}
+
+// This algorithm iterates over the map to determine which public key is the most prevalent, and returns the
+// indices of limits that use that public key.
+// keysMap correlates to the map of readclosers associated with downloaded pieces.
+// There should not be more than one public key, but we need this check in case storagenodes behave maliciously.
+func checkPublicPieceKeys(keysMap map[int]storj.PiecePublicKey) (goodIndices []int, err error) {
+	seenPubKeys := []storj.PiecePublicKey{}
+	pubKeyCounts := []int{}
+
+	for _, limitKey := range keysMap {
+		found := false
+		for i, key := range seenPubKeys {
+			if bytes.Equal(limitKey.Bytes(), key.Bytes()) {
+				pubKeyCounts[i]++
+				found = true
+				break
+			}
+		}
+		if !found {
+			seenPubKeys = append(seenPubKeys, limitKey)
+			pubKeyCounts = append(pubKeyCounts, 1)
+		}
+	}
+
+	chosenKey := storj.PiecePublicKey{}
+	maxCount := 0
+	for i, count := range pubKeyCounts {
+		if count > maxCount {
+			chosenKey = seenPubKeys[i]
+			maxCount = count
+		}
+	}
+	if bytes.Equal(chosenKey.Bytes(), storj.PiecePublicKey{}.Bytes()) {
+		return nil, Error.New("no key selected")
+	}
+
+	for i, key := range keysMap {
+		if bytes.Equal(key.Bytes(), chosenKey.Bytes()) {
+			goodIndices = append(goodIndices, i)
+		}
+	}
+
+	return goodIndices, nil
 }
 
 // Repair takes a provided segment, encodes it with the provided redundancy strategy,
