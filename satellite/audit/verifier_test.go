@@ -34,8 +34,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -44,7 +43,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -88,8 +87,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -98,7 +96,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -150,8 +148,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -160,7 +157,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -208,8 +205,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -218,7 +214,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -297,8 +293,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		storageNodeDB := planet.StorageNodes[0].DB.(*testblobs.SlowDB)
 
 		audits := planet.Satellites[0].Audit
@@ -308,7 +303,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -363,8 +358,7 @@ func TestVerifierHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -373,7 +367,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -397,8 +391,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		planet.Satellites[0].Discovery.Service.Discovery.Pause()
 
 		audits := planet.Satellites[0].Audit
@@ -408,7 +401,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -437,8 +430,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -447,7 +439,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -479,8 +471,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -489,7 +480,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -543,8 +534,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -553,7 +543,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -607,8 +597,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		audits := planet.Satellites[0].Audit
 		queue := audits.Queue
@@ -617,7 +606,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()

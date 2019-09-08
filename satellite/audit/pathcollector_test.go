@@ -34,8 +34,7 @@ func TestAuditPathCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		satellite := planet.Satellites[0]
 
 		ul := planet.Uplinks[0]
@@ -55,7 +54,7 @@ func TestAuditPathCollector(t *testing.T) {
 
 		r := rand.New(rand.NewSource(time.Now().Unix()))
 		observer := audit.NewPathCollector(4, r)
-		err = satellite.Metainfo.Loop.Join(ctx, observer)
+		err := satellite.Metainfo.Loop.Join(ctx, observer)
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {

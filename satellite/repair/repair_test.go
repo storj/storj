@@ -55,8 +55,7 @@ func TestDataRepair(t *testing.T) {
 		satellitePeer.Discovery.Service.Discovery.Stop()
 		satellitePeer.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
-		planet.Satellites[0].Audit.Chore.Loop.Stop()
-		planet.Satellites[0].Audit.Worker.Loop.Stop()
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		satellitePeer.Repair.Checker.Loop.Pause()
 		satellitePeer.Repair.Repairer.Loop.Pause()
@@ -190,9 +189,7 @@ func TestCorruptDataRepair(t *testing.T) {
 		satellitePeer.Discovery.Service.Discovery.Stop()
 		satellitePeer.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
-		satellitePeer.Audit.Service.Loop.Stop()
-		satellitePeer.Audit.Chore.Loop.Stop()
-		satellitePeer.Audit.Worker.Loop.Stop()
+		satellitePeer.Audit.Worker.Loop.Pause()
 
 		satellitePeer.Repair.Checker.Loop.Pause()
 		satellitePeer.Repair.Repairer.Loop.Pause()
@@ -326,8 +323,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellitePeer.Discovery.Service.Discovery.Stop()
 		satellitePeer.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
-		planet.Satellites[0].Audit.Chore.Loop.Stop()
-		planet.Satellites[0].Audit.Worker.Loop.Stop()
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		satellitePeer.Repair.Checker.Loop.Pause()
 		satellitePeer.Repair.Repairer.Loop.Pause()
@@ -528,8 +524,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
-		planet.Satellites[0].Audit.Chore.Loop.Stop()
-		planet.Satellites[0].Audit.Worker.Loop.Stop()
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 

@@ -25,8 +25,7 @@ func TestReverifySuccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		// This is a bulky test but all it's doing is:
 		// - uploads random data
@@ -43,7 +42,7 @@ func TestReverifySuccess(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -101,8 +100,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		// - uploads random data
 		// - uses the cursor to get a stripe
@@ -119,7 +117,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -184,8 +182,7 @@ func TestReverifyFailBadData(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		// - uploads random data
 		// - uses the cursor to get a stripe
@@ -201,7 +198,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -247,8 +244,7 @@ func TestReverifyOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		// - uploads random data
 		// - uses the cursor to get a stripe
@@ -264,7 +260,7 @@ func TestReverifyOffline(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -312,8 +308,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		// - uploads random data
 		// - uses the cursor to get a stripe
@@ -329,7 +324,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -406,8 +401,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		// - uploads random data
 		// - gets a path from the audit queue
@@ -423,7 +417,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
@@ -469,8 +463,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Worker.Close()
-		require.NoError(t, err)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		// - uploads random data
 		// - uses the cursor to get a stripe
@@ -486,7 +479,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		satellite.Audit.Chore.Loop.TriggerWait()
