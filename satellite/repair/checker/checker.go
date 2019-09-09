@@ -161,9 +161,10 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	numHealthy := int32(len(pieces) - len(missingPieces))
 	redundancy := pointer.Remote.Redundancy
 
-	// we repair when the number of healthy pieces is less than or equal to the repair threshold
+	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
+	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
+	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
 			checker.logger.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
 				zap.String("path", path),
@@ -187,9 +188,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		if err != nil {
 			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
 		}
-		// we need one additional piece for error correction. If only the minimum is remaining the file can't be repaired and is lost.
-		// except for the case when minimum and repair thresholds are the same (a case usually seen during testing)
-	} else if numHealthy <= redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
+	} else if numHealthy < redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
 
 		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
@@ -241,9 +240,10 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 
 	redundancy := pointer.Remote.Redundancy
 
-	// we repair when the number of healthy pieces is less than or equal to the repair threshold
+	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
+	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
+	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
 			obs.log.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
 				zap.String("path", path),
@@ -270,9 +270,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 			obs.log.Error("error deleting entry from irreparable db", zap.Error(err))
 			return nil
 		}
-		// we need one additional piece for error correction. If only the minimum is remaining the file can't be repaired and is lost.
-		// except for the case when minimum and repair thresholds are the same (a case usually seen during testing)
-	} else if numHealthy <= redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
+	} else if numHealthy < redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
 		pathElements := storj.SplitPath(path)
 
 		// check to make sure there are at least *4* path elements. the first three

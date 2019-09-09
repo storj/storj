@@ -24,84 +24,86 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import BucketItem from '@/components/buckets/BucketItem.vue';
-    import SortingHeader from '@/components/buckets/SortingHeader.vue';
-    import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
-    import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import Pagination from '@/components/common/Pagination.vue';
-    import List from '@/components/common/List.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-    import { Bucket } from '@/types/buckets';
+import { Component, Vue } from 'vue-property-decorator';
 
-    const {
-        FETCH,
-        SET_SEARCH,
-    } = BUCKET_ACTIONS;
+import BucketItem from '@/components/buckets/BucketItem.vue';
+import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
+import SortingHeader from '@/components/buckets/SortingHeader.vue';
+import EmptyState from '@/components/common/EmptyStateArea.vue';
+import HeaderComponent from '@/components/common/HeaderComponent.vue';
+import List from '@/components/common/List.vue';
+import Pagination from '@/components/common/Pagination.vue';
 
-    @Component({
-        components: {
-            EmptyState,
-            SortingHeader,
-            BucketItem,
-            NoBucketArea,
-            HeaderComponent,
-            Pagination,
-            List
-        }
-    })
-    export default class BucketArea extends Vue {
-        public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { Bucket } from '@/types/buckets';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-        public mounted(): void {
-            this.$store.dispatch(FETCH, 1);
-        }
+const {
+    FETCH,
+    SET_SEARCH,
+} = BUCKET_ACTIONS;
 
-        public doNothing(): void {
-            // this method is used to mock prop function of common List
-        }
+@Component({
+    components: {
+        EmptyState,
+        SortingHeader,
+        BucketItem,
+        NoBucketArea,
+        HeaderComponent,
+        Pagination,
+        List
+    }
+})
+export default class BucketArea extends Vue {
+    public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
 
-        public get totalPageCount(): number {
-            return this.$store.getters.page.pageCount;
-        }
+    public mounted(): void {
+        this.$store.dispatch(FETCH, 1);
+    }
 
-        public get totalCount(): number {
-            return this.$store.getters.page.totalCount;
-        }
+    public doNothing(): void {
+        // this method is used to mock prop function of common List
+    }
 
-        public get itemComponent() {
-            return BucketItem;
-        }
+    public get totalPageCount(): number {
+        return this.$store.getters.page.pageCount;
+    }
 
-        public get buckets(): Bucket[] {
-            return this.$store.getters.page.buckets;
-        }
+    public get totalCount(): number {
+        return this.$store.getters.page.totalCount;
+    }
 
-        public get search(): string {
-            return this.$store.getters.cursor.search;
-        }
+    public get itemComponent() {
+        return BucketItem;
+    }
 
-        public async fetch(searchQuery: string): Promise<void> {
-            await this.$store.dispatch(SET_SEARCH, searchQuery);
+    public get buckets(): Bucket[] {
+        return this.$store.getters.page.buckets;
+    }
 
-            try {
-                await this.$store.dispatch(FETCH, 1);
-            } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
-            }
-        }
+    public get search(): string {
+        return this.$store.getters.cursor.search;
+    }
 
-        public async onPageClick(page: number): Promise<void> {
-            try {
-                await this.$store.dispatch(FETCH, page);
-            } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
-            }
+    public async fetch(searchQuery: string): Promise<void> {
+        await this.$store.dispatch(SET_SEARCH, searchQuery);
+
+        try {
+            await this.$store.dispatch(FETCH, 1);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
         }
     }
+
+    public async onPageClick(page: number): Promise<void> {
+        try {
+            await this.$store.dispatch(FETCH, page);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets: ${error.message}`);
+        }
+    }
+}
 </script>
 
 <style scoped lang="scss">

@@ -9,6 +9,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
 	math "math"
+	drpc "storj.io/drpc"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -212,6 +213,136 @@ var fileDescriptor_a5036fff2565fb15 = []byte{
 	0x66, 0x74, 0xb1, 0x19, 0xd8, 0x7a, 0xa4, 0x34, 0xd9, 0x05, 0xae, 0xe5, 0x31, 0x7c, 0x1f, 0xc9,
 	0xe5, 0x72, 0xbf, 0x7b, 0xde, 0xbb, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0xb5, 0xc7, 0x98, 0x61,
 	0x04, 0x02, 0x00, 0x00,
+}
+
+type DRPCContactClient interface {
+	DRPCConn() drpc.Conn
+
+	PingNode(ctx context.Context, in *ContactPingRequest) (*ContactPingResponse, error)
+}
+
+type drpcContactClient struct {
+	cc drpc.Conn
+}
+
+func NewDRPCContactClient(cc drpc.Conn) DRPCContactClient {
+	return &drpcContactClient{cc}
+}
+
+func (c *drpcContactClient) DRPCConn() drpc.Conn { return c.cc }
+
+func (c *drpcContactClient) PingNode(ctx context.Context, in *ContactPingRequest) (*ContactPingResponse, error) {
+	out := new(ContactPingResponse)
+	err := c.cc.Invoke(ctx, "/contact.Contact/PingNode", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+type DRPCContactServer interface {
+	DRPCPingNode(context.Context, *ContactPingRequest) (*ContactPingResponse, error)
+}
+
+type DRPCContactDescription struct{}
+
+func (DRPCContactDescription) NumMethods() int { return 1 }
+
+func (DRPCContactDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
+	switch n {
+	case 0:
+		return "/contact.Contact/PingNode",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCContactServer).
+					DRPCPingNode(
+						ctx,
+						in1.(*ContactPingRequest),
+					)
+			}, DRPCContactServer.DRPCPingNode, true
+	default:
+		return "", nil, nil, false
+	}
+}
+
+type DRPCContact_PingNodeStream interface {
+	drpc.Stream
+	SendAndClose(*ContactPingResponse) error
+}
+
+type drpcContactPingNodeStream struct {
+	drpc.Stream
+}
+
+func (x *drpcContactPingNodeStream) SendAndClose(m *ContactPingResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCNodeClient interface {
+	DRPCConn() drpc.Conn
+
+	Checkin(ctx context.Context, in *CheckinRequest) (*CheckinResponse, error)
+}
+
+type drpcNodeClient struct {
+	cc drpc.Conn
+}
+
+func NewDRPCNodeClient(cc drpc.Conn) DRPCNodeClient {
+	return &drpcNodeClient{cc}
+}
+
+func (c *drpcNodeClient) DRPCConn() drpc.Conn { return c.cc }
+
+func (c *drpcNodeClient) Checkin(ctx context.Context, in *CheckinRequest) (*CheckinResponse, error) {
+	out := new(CheckinResponse)
+	err := c.cc.Invoke(ctx, "/contact.Node/Checkin", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+type DRPCNodeServer interface {
+	DRPCCheckin(context.Context, *CheckinRequest) (*CheckinResponse, error)
+}
+
+type DRPCNodeDescription struct{}
+
+func (DRPCNodeDescription) NumMethods() int { return 1 }
+
+func (DRPCNodeDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
+	switch n {
+	case 0:
+		return "/contact.Node/Checkin",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCNodeServer).
+					DRPCCheckin(
+						ctx,
+						in1.(*CheckinRequest),
+					)
+			}, DRPCNodeServer.DRPCCheckin, true
+	default:
+		return "", nil, nil, false
+	}
+}
+
+type DRPCNode_CheckinStream interface {
+	drpc.Stream
+	SendAndClose(*CheckinResponse) error
+}
+
+type drpcNodeCheckinStream struct {
+	drpc.Stream
+}
+
+func (x *drpcNodeCheckinStream) SendAndClose(m *CheckinResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
