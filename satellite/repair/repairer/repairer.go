@@ -14,13 +14,8 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
-	"storj.io/storj/uplink/ecclient"
 )
 
 // Error is a standard error class for this package.
@@ -49,16 +44,13 @@ type Service struct {
 }
 
 // NewService creates repairing service
-func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Service) *Service {
-	client := ecclient.NewClient(log.Named("ecclient"), transport, config.MaxBufferMem.Int())
-	repairer := NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, client, config.Timeout, config.MaxExcessRateOptimalThreshold)
-
+func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer) *Service {
 	return &Service{
 		log:      log,
 		queue:    queue,
 		config:   config,
-		Limiter:  sync2.NewLimiter(concurrency),
-		Loop:     *sync2.NewCycle(interval),
+		Limiter:  sync2.NewLimiter(config.MaxRepair),
+		Loop:     *sync2.NewCycle(config.Interval),
 		repairer: repairer,
 	}
 }

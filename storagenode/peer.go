@@ -89,6 +89,8 @@ type Config struct {
 	Version version.Config
 
 	Bandwidth bandwidth.Config
+
+	Contact contact.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -119,8 +121,9 @@ type Peer struct {
 	}
 
 	Contact struct {
-		Service  *contact.Service
-		Endpoint *contact.Endpoint
+		Endpoint  *contact.Endpoint
+		Chore     *contact.Chore
+		PingStats *contact.PingStats
 	}
 
 	Storage2 struct {
@@ -244,8 +247,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup contact service
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Kademlia.RoutingTable.Local(), peer.Transport)
-		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
+		peer.Contact.PingStats = new(contact.PingStats)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
+		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup storage
@@ -442,6 +447,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -458,6 +467,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.Contact.Chore != nil {
+		errlist.Add(peer.Contact.Chore.Close())
+	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
 	}

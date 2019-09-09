@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { StoreModule } from '@/store';
+import { SortDirection } from '@/types/common';
 import {
     ProjectMember,
     ProjectMemberCursor,
@@ -8,8 +10,6 @@ import {
     ProjectMembersApi,
     ProjectMembersPage,
 } from '@/types/projectMembers';
-import { SortDirection } from '@/types/common';
-import { StoreModule } from '@/store';
 
 export const PROJECT_MEMBER_MUTATIONS = {
     FETCH: 'fetchProjectMembers',

@@ -21,15 +21,16 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-    export default class SortApiKeysHeader extends Vue {
-        public arrowUp: string = EMPTY_STATE_IMAGES.ARROW_UP;
-        public arrowDown: string = EMPTY_STATE_IMAGES.ARROW_DOWN;
-    }
+@Component
+
+export default class SortApiKeysHeader extends Vue {
+    public arrowUp: string = EMPTY_STATE_IMAGES.ARROW_UP;
+    public arrowDown: string = EMPTY_STATE_IMAGES.ARROW_DOWN;
+}
 </script>
 
 <style scoped lang="scss">

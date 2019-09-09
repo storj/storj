@@ -60,18 +60,19 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Checkbox from '@/components/common/Checkbox.vue';
-    import Button from '@/components/common/Button.vue';
-    
-    @Component({
-        components: {
-            Checkbox,
-            Button,
-        }
-    })
-    
-    export default class AddStripeCardPopup extends Vue {}
+import { Component, Vue } from 'vue-property-decorator';
+
+import Button from '@/components/common/Button.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
+
+@Component({
+    components: {
+        Checkbox,
+        Button,
+    }
+})
+
+export default class AddStripeCardPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">
