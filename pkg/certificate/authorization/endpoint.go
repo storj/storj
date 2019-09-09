@@ -52,7 +52,22 @@ func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationRequest) (_ *pb.AuthorizationResponse, err error) {
 	mon.Task()(&ctx, req.UserId)(&err)
 
-	group, err := endpoint.db.Create(ctx, req.UserId, 1)
+	existingGroup, err := endpoint.db.Get(ctx, req.UserId)
+	if err != nil {
+		msg := "error getting authorizations"
+		err := ErrEndpoint.New(msg)
+		endpoint.log.Error(msg, zap.Error(err))
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if len(existingGroup) > 0 {
+		authorization := existingGroup[0]
+		return &pb.AuthorizationResponse{
+			Token: authorization.Token.String(),
+		}, nil
+	}
+
+	createdGroup, err := endpoint.db.Create(ctx, req.UserId, 1)
 	if err != nil {
 		msg := "error creating authorization"
 		err := ErrEndpoint.New(msg)
@@ -60,7 +75,7 @@ func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationReque
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	groupLen := len(group)
+	groupLen := len(createdGroup)
 	if groupLen != 1 {
 		clientMsg := "error creating authorization"
 		internalMsg := clientMsg + fmt.Sprintf("; expected 1, got %d", groupLen)
@@ -69,7 +84,7 @@ func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationReque
 		return nil, status.Error(codes.Internal, ErrEndpoint.New(clientMsg).Error())
 	}
 
-	authorization := group[0]
+	authorization := createdGroup[0]
 
 	return &pb.AuthorizationResponse{
 		Token: authorization.Token.String(),
@@ -101,19 +116,22 @@ func (endpoint *Endpoint) Close() error {
 }
 
 func (endpoint *Endpoint) httpCreate(writer http.ResponseWriter, httpReq *http.Request) {
+	var err error
 	ctx := context.Background()
+	mon.Task()(&ctx)(&err)
 
 	if httpReq.Method != http.MethodPost {
 		msg := fmt.Sprintf("unsupported HTTP method: %s", httpReq.Method)
+		err = ErrEndpoint.New(msg)
 		endpoint.log.Error(msg, zap.Error(ErrEndpoint.New(msg)))
 		http.Error(writer, msg, http.StatusBadRequest)
 		return
 	}
 
-	fmt.Println("no error!")
 	userID, err := ioutil.ReadAll(httpReq.Body)
 	if err != nil || bytes.Equal([]byte{}, userID) {
 		msg := "error reading body"
+		err = ErrEndpoint.New(msg)
 		endpoint.log.Error(msg, zap.Error(err))
 		http.Error(writer, msg, http.StatusBadRequest)
 		return
@@ -126,6 +144,7 @@ func (endpoint *Endpoint) httpCreate(writer http.ResponseWriter, httpReq *http.R
 	authorizationRes, err := endpoint.Create(ctx, authorizationReq)
 	if err != nil {
 		msg := "error creating authorization"
+		err = ErrEndpoint.New(msg)
 		endpoint.log.Error(msg, zap.Error(err))
 		http.Error(writer, msg, http.StatusInternalServerError)
 		return
@@ -134,6 +153,7 @@ func (endpoint *Endpoint) httpCreate(writer http.ResponseWriter, httpReq *http.R
 	writer.WriteHeader(http.StatusCreated)
 	if _, err = writer.Write([]byte(authorizationRes.Token)); err != nil {
 		msg := "error writing response"
+		err = ErrEndpoint.New(msg)
 		endpoint.log.Error(msg, zap.Error(err))
 		http.Error(writer, msg, http.StatusInternalServerError)
 		return

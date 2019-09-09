@@ -22,20 +22,48 @@ func TestEndpoint_Create(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	userID := "user@mail.example"
 
-	endpoint := NewEndpoint(zaptest.NewLogger(t), newTestAuthDB(t, ctx), nil)
+	authorizationDB := newTestAuthDB(t, ctx)
+	endpoint := NewEndpoint(zaptest.NewLogger(t), authorizationDB, nil)
 	require.NotNil(t, endpoint)
 
-	res, err := endpoint.Create(ctx, &pb.AuthorizationRequest{UserId: userID})
-	require.NoError(t, err)
-	require.NotNil(t, res)
+	{ // new user, no existing authorization tokens
+		userID := "new@mail.example"
+		group, err := authorizationDB.Get(ctx, userID)
+		require.NoError(t, err)
+		require.Empty(t, group)
 
-	token, err := ParseToken(res.Token)
-	require.NoError(t, err)
-	require.NotNil(t, token)
+		res, err := endpoint.Create(ctx, &pb.AuthorizationRequest{UserId: userID})
+		require.NoError(t, err)
+		require.NotNil(t, res)
 
-	require.Equal(t, userID, token.UserID)
+		token, err := ParseToken(res.Token)
+		require.NoError(t, err)
+		require.NotNil(t, token)
+
+		require.Equal(t, userID, token.UserID)
+	}
+
+	{ // existing user with unclaimed authorization token
+		userID := "old@mail.example"
+		group, err := authorizationDB.Create(ctx, userID, 1)
+		require.NoError(t, err)
+		require.NotEmpty(t, group)
+		require.Len(t, group, 1)
+
+		existingAuth := group[0]
+
+		res, err := endpoint.Create(ctx, &pb.AuthorizationRequest{UserId: userID})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+
+		token, err := ParseToken(res.Token)
+		require.NoError(t, err)
+		require.NotNil(t, token)
+
+		require.Equal(t, userID, token.UserID)
+		require.Equal(t, existingAuth.Token, *token)
+	}
 }
 
 func TestEndpoint_Run_httpSuccess(t *testing.T) {
@@ -65,7 +93,7 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 	tokenBytes, err := ioutil.ReadAll(res.Body)
 	require.NoError(t, err)
 	require.NotEmpty(t, tokenBytes)
-	defer ctx.Check(res.Body.Close)
+	require.NoError(t, res.Body.Close())
 
 	token, err := ParseToken(string(tokenBytes))
 	require.NoError(t, err)
@@ -142,7 +170,7 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 		res, err := client.Do(req)
 		require.NoError(t, err)
 		require.NotNil(t, res)
-		ctx.Check(res.Body.Close)
+		require.NoError(t, res.Body.Close())
 
 		require.Equal(t, testCase.statusCode, res.StatusCode)
 	}

@@ -34,7 +34,7 @@ type Config struct {
 
 	Signer            identity.FullCAConfig
 	AuthorizationDB   authorization.DBConfig
-	AuthorizationAddr string
+	AuthorizationAddr string `default:"127.0.0.1:9000" help:""`
 
 	MinDifficulty uint `default:"30" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 }
@@ -92,6 +92,7 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	}
 
 	peer.Authorization.Endpoint = authorization.NewEndpoint(log.Named("authorization"), authorizationDB, peer.Authorization.Listener)
+	// NB: The authorization gRPC server is not intended to be exposed publicly!
 	pb.RegisterAuthorizationsServer(peer.Server.PrivateGRPC(), peer.Authorization.Endpoint)
 
 	return peer, nil

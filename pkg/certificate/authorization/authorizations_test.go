@@ -636,8 +636,6 @@ func TestNewClient(t *testing.T) {
 func newTestAuthDB(t *testing.T, ctx *testcontext.Context) *DB {
 	dbURL := "bolt://" + ctx.File("authorizations.db")
 	db, err := NewDB(dbURL, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return db
 }
