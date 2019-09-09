@@ -65,6 +65,6 @@ PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test
 ## Ensure that old uplink works
 
 # overwrite new uplink with release branch and test the download
-cp $RELEASE_DIR/bin/uplink cp $BRANCH_DIR/bin/uplink
+cp $RELEASE_DIR/bin/uplink $BRANCH_DIR/bin/uplink
 # run download part of backward compatibility tests from the current branch
 PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
