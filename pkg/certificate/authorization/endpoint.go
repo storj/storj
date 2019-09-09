@@ -53,7 +53,11 @@ func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 // Create creates an authorization from the given authorization request.
 func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationRequest) (_ *pb.AuthorizationResponse, err error) {
 	mon.Task()(&ctx, req.UserId)(&err)
-	return endpoint.service.GetOrCreate(ctx, req)
+	token, err := endpoint.service.GetOrCreate(ctx, req.UserId)
+
+	return &pb.AuthorizationResponse{
+		Token: token.String(),
+	}, nil
 }
 
 // Run starts the endpoint HTTP server and waits for the context to be
@@ -88,7 +92,6 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 	if httpReq.Method != http.MethodPut {
 		msg := fmt.Sprintf("unsupported HTTP method: %s", httpReq.Method)
 		err = ErrEndpoint.New(msg)
-		endpoint.log.Error(msg, zap.Error(err))
 		http.Error(writer, msg, http.StatusMethodNotAllowed)
 		return
 	}

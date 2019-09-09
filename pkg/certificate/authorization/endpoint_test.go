@@ -15,59 +15,7 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/pb"
 )
-
-func TestEndpoint_Create(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	require.NotNil(t, listener)
-
-	authorizationDB := newTestAuthDB(t, ctx)
-	endpoint := NewEndpoint(zaptest.NewLogger(t), authorizationDB, listener)
-	require.NotNil(t, endpoint)
-
-	{ // new user, no existing authorization tokens
-		userID := "new@mail.test"
-		group, err := authorizationDB.Get(ctx, userID)
-		require.NoError(t, err)
-		require.Empty(t, group)
-
-		res, err := endpoint.Create(ctx, &pb.AuthorizationRequest{UserId: userID})
-		require.NoError(t, err)
-		require.NotNil(t, res)
-
-		token, err := ParseToken(res.Token)
-		require.NoError(t, err)
-		require.NotNil(t, token)
-
-		require.Equal(t, userID, token.UserID)
-	}
-
-	{ // existing user with unclaimed authorization token
-		userID := "old@mail.test"
-		group, err := authorizationDB.Create(ctx, userID, 1)
-		require.NoError(t, err)
-		require.NotEmpty(t, group)
-		require.Len(t, group, 1)
-
-		existingAuth := group[0]
-
-		res, err := endpoint.Create(ctx, &pb.AuthorizationRequest{UserId: userID})
-		require.NoError(t, err)
-		require.NotNil(t, res)
-
-		token, err := ParseToken(res.Token)
-		require.NoError(t, err)
-		require.NotNil(t, token)
-
-		require.Equal(t, userID, token.UserID)
-		require.Equal(t, existingAuth.Token, *token)
-	}
-}
 
 func TestEndpoint_Run_httpSuccess(t *testing.T) {
 	ctx := testcontext.New(t)
