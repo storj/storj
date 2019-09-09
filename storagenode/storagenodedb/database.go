@@ -810,18 +810,21 @@ func (db *DB) Migration() *migrate.Migration {
 					}
 
 					// VACUUM the versions database to reclaim the space used by the migrated dropped tables.
+					db.log.Named("migration").Info("vacuum databases")
 					_, err := db.versionsDB.Exec("VACUUM;")
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
 					// Closing the databases completes the reclaiming of the space used above in the vacuum call.
+					db.log.Named("migration").Info("closing databases")
 					err = db.closeDatabases()
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
 					// Re-open all the SQLite3 connections after executing the migration, VACUUM and close to reclaim space.
+					db.log.Named("migration").Info("re-opening databases")
 					err = db.openDatabases(filepath.Dir(db.versionsDB.location))
 					if err != nil {
 						return ErrDatabase.Wrap(err)
