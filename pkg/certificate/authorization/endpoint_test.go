@@ -22,8 +22,12 @@ func TestEndpoint_Create(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	require.NotNil(t, listener)
+
 	authorizationDB := newTestAuthDB(t, ctx)
-	endpoint := NewEndpoint(zaptest.NewLogger(t), authorizationDB, nil)
+	endpoint := NewEndpoint(zaptest.NewLogger(t), authorizationDB, listener)
 	require.NotNil(t, endpoint)
 
 	{ // new user, no existing authorization tokens
