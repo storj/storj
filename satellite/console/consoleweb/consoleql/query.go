@@ -6,8 +6,6 @@ package consoleql
 import (
 	"errors"
 	"fmt"
-	"strings"
-
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -162,8 +160,6 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					email, _ := p.Args[FieldEmail].(string)
-
-					email = strings.ToLower(email)
 
 					user, err := service.GetUserByEmail(p.Context, email)
 					if err != nil {
