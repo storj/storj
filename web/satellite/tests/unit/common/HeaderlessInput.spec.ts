@@ -6,7 +6,6 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import { mount, shallowMount } from '@vue/test-utils';
 
 describe('HeaderlessInput.vue', () => {
-
     it('renders correctly with default props', () => {
 
         const wrapper = shallowMount(HeaderlessInput);

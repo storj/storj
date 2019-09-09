@@ -24,7 +24,7 @@ import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuc
 import AccountButton from './AccountButton.vue';
 
 @Component({
-     components: {
+    components: {
         ProjectCreationSuccessPopup,
         ProjectSelectionArea,
         NewProjectArea,

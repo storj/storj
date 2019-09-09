@@ -6,7 +6,6 @@ import Checkbox from '@/components/common/Checkbox.vue';
 import { mount, shallowMount } from '@vue/test-utils';
 
 describe('Checkbox.vue', () => {
-
     it('renders correctly', () => {
 
         const wrapper = shallowMount(Checkbox);

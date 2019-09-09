@@ -6,7 +6,6 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import { mount, shallowMount } from '@vue/test-utils';
 
 describe('HeaderedInput.vue', () => {
-
     it('renders correctly with default props', () => {
 
         const wrapper = shallowMount(HeaderedInput);

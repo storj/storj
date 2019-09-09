@@ -8,7 +8,6 @@ import Button from '@/components/common/Button.vue';
 import { mount, shallowMount } from '@vue/test-utils';
 
 describe('Button.vue', () => {
-
     it('renders correctly', () => {
         const wrapper = shallowMount(Button, {
             propsData: {

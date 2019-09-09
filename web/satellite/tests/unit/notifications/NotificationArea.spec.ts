@@ -8,7 +8,6 @@ import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 import { mount, shallowMount } from '@vue/test-utils';
 
 describe('NotificationArea.vue', () => {
-
     it('renders correctly', () => {
         const wrapper = shallowMount(NotificationArea, {
             computed: {
