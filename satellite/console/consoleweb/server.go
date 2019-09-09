@@ -31,8 +31,11 @@ import (
 )
 
 const (
-	authorization = "Authorization"
-	contentType   = "Content-Type"
+	authorization         = "Authorization"
+	contentType           = "Content-Type"
+	contentSecurityPolicy = "Content-Security-Policy"
+	contentEncoding       = "Content-Encoding"
+	contentTypeOptions    = "X-Content-Type-Options"
 
 	authorizationBearer = "Bearer "
 
@@ -115,6 +118,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
+		mux.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
@@ -139,6 +143,9 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		// TODO: should it return error if some template can not be initialized or just log about it?
 		return Error.Wrap(err)
 	}
+
+	mime.AddExtensionType(".ttf", "font/ttf")
+	mime.AddExtensionType(".txt", "text/plain")
 
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
@@ -170,8 +177,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		"img-src 'self' data:",
 	}
 
-	header.Set("Content-Type", "text/html; charset=UTF-8")
-	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
+	header.Set(contentType, "text/html; charset=UTF-8")
+	header.Set(contentSecurityPolicy, strings.Join(cspValues, "; "))
+	header.Set(contentTypeOptions, "nosniff")
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.log.Error("satellite/console/server: index template could not be executed")
@@ -437,6 +445,15 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	sugar.Debug(result)
 }
 
+func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
+	header := w.Header()
+
+	header.Set(contentType, mime.TypeByExtension(".txt"))
+	header.Set(contentTypeOptions, "nosniff")
+
+	http.ServeFile(w, req, filepath.Join(server.config.StaticDir, "robots.txt"))
+}
+
 // gzipHandler is used to gzip static content to minify resources if browser support such decoding
 func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -455,6 +472,9 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		// TODO: find better solution, its a temporary fix
 		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
 
+		w.Header().Set(contentType, mime.TypeByExtension(extension))
+		w.Header().Set(contentTypeOptions, "nosniff")
+
 		// in case if old browser doesn't support gzip decoding or if file extension is not recommended to gzip
 		// just return original file
 		if !isGzipSupported || !isNeededFormatToGzip || !isFromStaticDir {
@@ -462,7 +482,6 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 			return
 		}
 
-		w.Header().Set("Content-Type", mime.TypeByExtension(extension))
 		w.Header().Set("Content-Encoding", "gzip")
 
 		// updating request URL
