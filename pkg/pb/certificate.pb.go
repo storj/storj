@@ -10,6 +10,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	grpc "google.golang.org/grpc"
 	math "math"
+	drpc "storj.io/drpc"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -128,6 +129,71 @@ var fileDescriptor_c0d34c34dd33be4b = []byte{
 	0xf3, 0x8a, 0x85, 0x8c, 0xb9, 0x58, 0x40, 0x1a, 0x85, 0x44, 0xf4, 0x40, 0x4e, 0xd4, 0x43, 0x75,
 	0x93, 0x94, 0x28, 0x9a, 0x28, 0xc4, 0x68, 0x27, 0x96, 0x28, 0xa6, 0x82, 0xa4, 0x24, 0x36, 0xb0,
 	0x4f, 0x8c, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0x3a, 0xd8, 0xc7, 0x87, 0xf0, 0x00, 0x00, 0x00,
+}
+
+type DRPCCertificatesClient interface {
+	DRPCConn() drpc.Conn
+
+	Sign(ctx context.Context, in *SigningRequest) (*SigningResponse, error)
+}
+
+type drpcCertificatesClient struct {
+	cc drpc.Conn
+}
+
+func NewDRPCCertificatesClient(cc drpc.Conn) DRPCCertificatesClient {
+	return &drpcCertificatesClient{cc}
+}
+
+func (c *drpcCertificatesClient) DRPCConn() drpc.Conn { return c.cc }
+
+func (c *drpcCertificatesClient) Sign(ctx context.Context, in *SigningRequest) (*SigningResponse, error) {
+	out := new(SigningResponse)
+	err := c.cc.Invoke(ctx, "/node.Certificates/Sign", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+type DRPCCertificatesServer interface {
+	DRPCSign(context.Context, *SigningRequest) (*SigningResponse, error)
+}
+
+type DRPCCertificatesDescription struct{}
+
+func (DRPCCertificatesDescription) NumMethods() int { return 1 }
+
+func (DRPCCertificatesDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
+	switch n {
+	case 0:
+		return "/node.Certificates/Sign",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCCertificatesServer).
+					DRPCSign(
+						ctx,
+						in1.(*SigningRequest),
+					)
+			}, DRPCCertificatesServer.DRPCSign, true
+	default:
+		return "", nil, nil, false
+	}
+}
+
+type DRPCCertificates_SignStream interface {
+	drpc.Stream
+	SendAndClose(*SigningResponse) error
+}
+
+type drpcCertificatesSignStream struct {
+	drpc.Stream
+}
+
+func (x *drpcCertificatesSignStream) SendAndClose(m *SigningResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

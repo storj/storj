@@ -21,32 +21,34 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import AccountDropdown from './AccountDropdown.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            AccountDropdown
-        }
-    })
-    export default class AccountButton extends Vue {
-        public toggleSelection(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
-        }
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-        public get avatarLetter(): string {
-            return this.$store.getters.userName.slice(0, 1).toUpperCase();
-        }
+import AccountDropdown from './AccountDropdown.vue';
 
-        public get userName(): string {
-            return this.$store.getters.userName;
-        }
-
-        public get isDropdownShown(): boolean {
-            return this.$store.state.appStateModule.appState.isAccountDropdownShown;
-        }
+@Component({
+    components: {
+        AccountDropdown
     }
+})
+export default class AccountButton extends Vue {
+    public toggleSelection(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+    }
+
+    public get avatarLetter(): string {
+        return this.$store.getters.userName.slice(0, 1).toUpperCase();
+    }
+
+    public get userName(): string {
+        return this.$store.getters.userName;
+    }
+
+    public get isDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isAccountDropdownShown;
+    }
+}
 </script>
 
 <style scoped lang="scss">

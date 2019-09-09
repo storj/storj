@@ -2,24 +2,26 @@
 // See LICENSE for copying information.
 
 import Vue from 'vue';
+import Router, { RouteRecord } from 'vue-router';
+
 import AccountArea from '@/components/account/AccountArea.vue';
-import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
+import AccountBilling from '@/components/account/billing/BillingArea.vue';
+import Profile from '@/components/account/Profile.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
-import { AuthToken } from '@/utils/authToken';
 import BucketArea from '@/components/buckets/BucketArea.vue';
+import Page404 from '@/components/errors/Page404.vue';
+import ProjectDetails from '@/components/project/ProjectDetails.vue';
+import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
+import UsageReport from '@/components/project/UsageReport.vue';
+import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+
+import { NavigationLink } from '@/types/navigation';
+import { AuthToken } from '@/utils/authToken';
 import Dashboard from '@/views/Dashboard.vue';
 import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
 import Login from '@/views/login/Login.vue';
-import Page404 from '@/components/errors/Page404.vue';
-import Profile from '@/components/account/Profile.vue';
-import ProjectDetails from '@/components/project/ProjectDetails.vue';
-import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
-import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import Register from '@/views/register/Register.vue';
-import Router, { RouteRecord } from 'vue-router';
-import UsageReport from '@/components/project/UsageReport.vue';
-import { NavigationLink } from '@/types/navigation';
 
 Vue.use(Router);
 
@@ -177,7 +179,7 @@ router.beforeEach((to, from, next) => {
  * @param subTabRoute - default sub route of the tabNavigator
  */
 function navigateToFirstSubTab(routes: RouteRecord[], tabRoute: NavigationLink, subTabRoute: NavigationLink): boolean {
-    return routes.length == 2 && (routes[1].name as string) === tabRoute.name;
+    return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
 
 export default router;

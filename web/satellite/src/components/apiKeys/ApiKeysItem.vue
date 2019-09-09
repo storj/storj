@@ -24,14 +24,15 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { ApiKey } from '@/types/apiKeys';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class ApiKeysItem extends Vue {
-        @Prop({default: () => new ApiKey('', '', '', '')})
-        private readonly itemData: ApiKey;
-    }
+import { ApiKey } from '@/types/apiKeys';
+
+@Component
+export default class ApiKeysItem extends Vue {
+    @Prop({default: () => new ApiKey('', '', '', '')})
+    private readonly itemData: ApiKey;
+}
 </script>
 
 <style scoped lang="scss">

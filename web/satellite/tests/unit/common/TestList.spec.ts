@@ -1,9 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount } from '@vue/test-utils';
-import TestList from '@/components/common/test/TestList.vue';
 import sinon from 'sinon';
+
+import TestList from '@/components/common/test/TestList.vue';
+
+import { mount } from '@vue/test-utils';
 
 describe('TestList.vue', () => {
     it('should render list of primitive types', function () {
@@ -16,7 +18,7 @@ describe('TestList.vue', () => {
     });
 
     it('should retrieve callback', function () {
-        let onPressSpy = sinon.spy();
+        const onPressSpy = sinon.spy();
 
         const wrapper = mount(TestList, {
             propsData: {

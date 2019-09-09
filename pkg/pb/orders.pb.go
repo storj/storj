@@ -11,6 +11,7 @@ import (
 	_ "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
 	math "math"
+	drpc "storj.io/drpc"
 	time "time"
 )
 
@@ -714,6 +715,98 @@ var fileDescriptor_e0f5d4cf0fc9e41b = []byte{
 	0x00, 0x65, 0x2b, 0xf4, 0xad, 0xdb, 0xda, 0xc3, 0x51, 0xf5, 0x7a, 0xaf, 0xee, 0xbc, 0xbf, 0x33,
 	0x20, 0x1f, 0x92, 0x49, 0xf5, 0x8b, 0xdd, 0x68, 0xb5, 0xd2, 0x90, 0x2a, 0x1f, 0xfd, 0x1e, 0x00,
 	0x00, 0xff, 0xff, 0x87, 0x49, 0x03, 0x47, 0xfa, 0x0a, 0x00, 0x00,
+}
+
+type DRPCOrdersClient interface {
+	DRPCConn() drpc.Conn
+
+	Settlement(ctx context.Context) (DRPCOrders_SettlementClient, error)
+}
+
+type drpcOrdersClient struct {
+	cc drpc.Conn
+}
+
+func NewDRPCOrdersClient(cc drpc.Conn) DRPCOrdersClient {
+	return &drpcOrdersClient{cc}
+}
+
+func (c *drpcOrdersClient) DRPCConn() drpc.Conn { return c.cc }
+
+func (c *drpcOrdersClient) Settlement(ctx context.Context) (DRPCOrders_SettlementClient, error) {
+	stream, err := c.cc.NewStream(ctx, "/orders.Orders/Settlement")
+	if err != nil {
+		return nil, err
+	}
+	x := &drpcOrdersSettlementClient{stream}
+	return x, nil
+}
+
+type DRPCOrders_SettlementClient interface {
+	drpc.Stream
+	Send(*SettlementRequest) error
+	Recv() (*SettlementResponse, error)
+}
+
+type drpcOrdersSettlementClient struct {
+	drpc.Stream
+}
+
+func (x *drpcOrdersSettlementClient) Send(m *SettlementRequest) error {
+	return x.MsgSend(m)
+}
+
+func (x *drpcOrdersSettlementClient) Recv() (*SettlementResponse, error) {
+	m := new(SettlementResponse)
+	if err := x.MsgRecv(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+type DRPCOrdersServer interface {
+	DRPCSettlement(DRPCOrders_SettlementStream) error
+}
+
+type DRPCOrdersDescription struct{}
+
+func (DRPCOrdersDescription) NumMethods() int { return 1 }
+
+func (DRPCOrdersDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
+	switch n {
+	case 0:
+		return "/orders.Orders/Settlement",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return nil, srv.(DRPCOrdersServer).
+					DRPCSettlement(
+						&drpcOrdersSettlementStream{in1.(drpc.Stream)},
+					)
+			}, DRPCOrdersServer.DRPCSettlement, true
+	default:
+		return "", nil, nil, false
+	}
+}
+
+type DRPCOrders_SettlementStream interface {
+	drpc.Stream
+	Send(*SettlementResponse) error
+	Recv() (*SettlementRequest, error)
+}
+
+type drpcOrdersSettlementStream struct {
+	drpc.Stream
+}
+
+func (x *drpcOrdersSettlementStream) Send(m *SettlementResponse) error {
+	return x.MsgSend(m)
+}
+
+func (x *drpcOrdersSettlementStream) Recv() (*SettlementRequest, error) {
+	m := new(SettlementRequest)
+	if err := x.MsgRecv(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

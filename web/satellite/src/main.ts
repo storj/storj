@@ -2,10 +2,11 @@
 // See LICENSE for copying information.
 
 import Vue from 'vue';
+
 import App from './App.vue';
+import Analytics from './plugins/analytics';
 import router from './router';
 import store from './store';
-import Analytics from './plugins/analytics';
 
 Vue.config.devtools = true;
 Vue.config.performance = true;

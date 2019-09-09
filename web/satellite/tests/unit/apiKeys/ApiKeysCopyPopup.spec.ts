@@ -1,12 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
+
 import ApiKeysCopyPopup from '@/components/apiKeys/ApiKeysCopyPopup.vue';
+
+import { ApiKeysApiGql } from '@/api/apiKeys';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeNotificationsModule } from '@/store/modules/notifications';
-import { ApiKeysApiGql } from '@/api/apiKeys';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -25,7 +27,6 @@ describe('ApiKeysCopyPopup', () => {
 
         expect(wrapper).toMatchSnapshot();
     });
-
 
     it('function onCloseClick works correctly', () => {
         const wrapper = mount(ApiKeysCopyPopup, {
