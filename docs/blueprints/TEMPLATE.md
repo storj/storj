@@ -2,7 +2,7 @@
 
 ## Abstract
 
-[A short summary of what this design doc accomplishes at a high level.]
+[A short summary of what this blueprint accomplishes at a high level.]
 
 ## Background
 
@@ -19,6 +19,10 @@
 ## Implementation
 
 [A description of the steps in the implementation.]
+
+## Wrapup
+
+[Who will archive the blueprint when completed? What documentation needs to be updated to preserve the relevant information from the blueprint?]
 
 ## Open issues
 
