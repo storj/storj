@@ -10,19 +10,20 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
-    import AccountBalance from '@/components/account/billing/AccountBalance.vue';
-    import DepositAndBilling from '@/components/account/billing/DepositAndBilling.vue';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            AccountBalance,
-            MonthlyBillingSummary,
-            DepositAndBilling,
-        }
-    })
-    export default class BillingArea extends Vue {}
+import AccountBalance from '@/components/account/billing/AccountBalance.vue';
+import DepositAndBilling from '@/components/account/billing/DepositAndBilling.vue';
+import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
+
+@Component({
+    components: {
+        AccountBalance,
+        MonthlyBillingSummary,
+        DepositAndBilling,
+    }
+})
+export default class BillingArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
