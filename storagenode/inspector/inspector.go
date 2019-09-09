@@ -33,7 +33,7 @@ var (
 type Endpoint struct {
 	log        *zap.Logger
 	pieceStore *pieces.Store
-	kademlia   *kademlia.Kademlia
+	kademlia   *kademlia.Kademlia // TODO Update
 	usageDB    bandwidth.DB
 
 	startTime        time.Time

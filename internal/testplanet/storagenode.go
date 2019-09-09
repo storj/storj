@@ -8,13 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
@@ -70,16 +68,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
-				},
-			},
-			Kademlia: kademlia.Config{
-				BootstrapBackoffBase: 500 * time.Millisecond,
-				BootstrapBackoffMax:  2 * time.Second,
-				Alpha:                5,
-				DBPath:               filepath.Join(storageDir, "kademlia/"),
-				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@mail.test",
-					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
 			Storage: piecestore.OldConfig{
@@ -149,7 +137,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
 			Info2:    filepath.Join(config.Storage.Path, "info.db"),
 			Pieces:   config.Storage.Path,
-			Kademlia: config.Kademlia.DBPath,
+			Kademlia: config.Kademlia.DBPath, // TODO update
 		}
 
 		var db storagenode.DB

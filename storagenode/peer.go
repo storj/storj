@@ -62,9 +62,6 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
-
-	// TODO: use better interfaces
-	RoutingTable() (kdb, ndb, adb storage.KeyValueStore)
 }
 
 // Config is all the configuration parameters for a Storage Node

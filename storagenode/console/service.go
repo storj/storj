@@ -39,7 +39,7 @@ type Service struct {
 	reputationDB   reputation.DB
 	storageUsageDB storageusage.DB
 	pieceStore     *pieces.Store
-	kademlia       *kademlia.Kademlia
+	kademlia       *kademlia.Kademlia // Todo update
 	version        *version.Service
 
 	allocatedBandwidth memory.Size

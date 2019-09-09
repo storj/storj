@@ -36,7 +36,7 @@ type Config struct {
 // Service which monitors disk usage and updates kademlia network as necessary.
 type Service struct {
 	log                *zap.Logger
-	routingTable       *kademlia.RoutingTable
+	routingTable       *kademlia.RoutingTable // todo update
 	store              *pieces.Store
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
