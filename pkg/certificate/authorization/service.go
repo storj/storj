@@ -18,11 +18,13 @@ import (
 // ErrService is the default error class for the authorization service.
 var ErrService = errs.Class("authorization service error")
 
+// Service is the authorization service.
 type Service struct {
 	log *zap.Logger
 	db  *DB
 }
 
+// NewService creates a new authorization service.
 func NewService(log *zap.Logger, db *DB) *Service {
 	return &Service{
 		log: log,
@@ -30,6 +32,7 @@ func NewService(log *zap.Logger, db *DB) *Service {
 	}
 }
 
+// GetOrCreate will return an authorization for the given user ID
 func (service *Service) GetOrCreate(ctx context.Context, req *pb.AuthorizationRequest) (_ *pb.AuthorizationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
