@@ -19,6 +19,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
@@ -475,22 +476,22 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		for _, piece := range remote.RemotePieces {
 			nodeIDList = append(nodeIDList, piece.NodeId)
 		}
-		// TODO determine if peerIDList has a 1:1 mapping with nodeIDList
 		peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		if len(peerIDList) != len(nodeIDList) {
-			return Error.New("size of peer ID list and node ID list do not match")
+		peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
+		for _, peerID := range peerIDList {
+			peerIDMap[peerID.ID] = peerID
 		}
 
 		var remotePieces []*pb.RemotePiece
 		allSizesValid := true
 		lastPieceSize := int64(0)
-		for i, piece := range remote.RemotePieces {
+		for _, piece := range remote.RemotePieces {
 
 			// Verify storagenode signature on piecehash
-			peerID := peerIDList[i]
+			peerID := peerIDMap[piece.NodeId]
 			if peerID == nil {
 				endpoint.log.Warn("Peer ID is nil for node", zap.String("nodeID", piece.NodeId.String()))
 			}
