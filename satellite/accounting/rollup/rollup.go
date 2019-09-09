@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
@@ -27,7 +28,7 @@ type Config struct {
 // architecture: Chore
 type Service struct {
 	logger        *zap.Logger
-	ticker        *time.Ticker
+	Loop          sync2.Cycle
 	sdb           accounting.StoragenodeAccounting
 	deleteTallies bool
 }
@@ -36,7 +37,7 @@ type Service struct {
 func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time.Duration, deleteTallies bool) *Service {
 	return &Service{
 		logger:        logger,
-		ticker:        time.NewTicker(interval),
+		Loop:          *sync2.NewCycle(interval),
 		sdb:           sdb,
 		deleteTallies: deleteTallies,
 	}
@@ -46,17 +47,19 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time
 func (r *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	r.logger.Info("Rollup service starting up")
-	for {
-		err = r.Rollup(ctx)
+	return r.Loop.Run(ctx, func(ctx context.Context) error {
+		err := r.Rollup(ctx)
 		if err != nil {
-			r.logger.Error("Query failed", zap.Error(err))
+			r.logger.Error("rollup failed", zap.Error(err))
 		}
-		select {
-		case <-r.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the Rollup is canceled via context
-			return ctx.Err()
-		}
-	}
+		return nil
+	})
+}
+
+// Close stops the service and releases any resources.
+func (r *Service) Close() error {
+	r.Loop.Close()
+	return nil
 }
 
 // Rollup aggregates storage and bandwidth amounts for the time interval
