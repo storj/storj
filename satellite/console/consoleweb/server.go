@@ -31,11 +31,8 @@ import (
 )
 
 const (
-	authorization         = "Authorization"
-	contentType           = "Content-Type"
-	contentSecurityPolicy = "Content-Security-Policy"
-	contentEncoding       = "Content-Encoding"
-	contentTypeOptions    = "X-Content-Type-Options"
+	authorization = "Authorization"
+	contentType   = "Content-Type"
 
 	authorizationBearer = "Bearer "
 
@@ -144,9 +141,6 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	mime.AddExtensionType(".ttf", "font/ttf")
-	mime.AddExtensionType(".txt", "text/plain")
-
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 	group.Go(func() error {
@@ -178,8 +172,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
-	header.Set(contentSecurityPolicy, strings.Join(cspValues, "; "))
-	header.Set(contentTypeOptions, "nosniff")
+	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
+	header.Set("X-Content-Type-Options", "nosniff")
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.log.Error("satellite/console/server: index template could not be executed")
@@ -445,13 +439,17 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	sugar.Debug(result)
 }
 
+// seoHandler used to communicate with web crawlers and other web robots
 func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	header := w.Header()
 
 	header.Set(contentType, mime.TypeByExtension(".txt"))
-	header.Set(contentTypeOptions, "nosniff")
+	header.Set("X-Content-Type-Options", "nosniff")
 
-	http.ServeFile(w, req, filepath.Join(server.config.StaticDir, "robots.txt"))
+	_, err := w.Write([]byte("User-agent: *\nDisallow: \nDisallow: /cgi-bin/)"))
+	if err != nil {
+		server.log.Error(err.Error())
+	}
 }
 
 // gzipHandler is used to gzip static content to minify resources if browser support such decoding
@@ -473,7 +471,7 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
 
 		w.Header().Set(contentType, mime.TypeByExtension(extension))
-		w.Header().Set(contentTypeOptions, "nosniff")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 
 		// in case if old browser doesn't support gzip decoding or if file extension is not recommended to gzip
 		// just return original file
