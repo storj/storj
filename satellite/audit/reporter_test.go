@@ -21,7 +21,7 @@ func TestReportPendingAudits(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Service.Close()
+		err := planet.Satellites[0].Audit.Service.Stop()
 		require.NoError(t, err)
 
 		nodeID := planet.StorageNodes[0].ID()
@@ -58,7 +58,7 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Service.Close()
+		err := planet.Satellites[0].Audit.Service.Stop()
 		require.NoError(t, err)
 
 		nodeID := planet.StorageNodes[0].ID()

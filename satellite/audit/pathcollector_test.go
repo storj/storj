@@ -36,7 +36,7 @@ func TestAuditPathCollector(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit
 		satellite := planet.Satellites[0]
-		err := audits.Service.Close()
+		err := audits.Service.Stop()
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]

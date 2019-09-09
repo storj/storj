@@ -45,7 +45,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Service.Close()
+		err := planet.Satellites[0].Audit.Service.Stop()
 		require.NoError(t, err)
 
 		var (
@@ -121,7 +121,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		satellitePeer := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
 
-		err := satellitePeer.Audit.Service.Close()
+		err := satellitePeer.Audit.Service.Stop()
 		require.NoError(t, err)
 
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -170,7 +170,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		satellitePeer := planet.Satellites[0]
 		disqualifiedNode := planet.StorageNodes[0]
 
-		err := satellitePeer.Audit.Service.Close()
+		err := satellitePeer.Audit.Service.Stop()
 		require.NoError(t, err)
 
 		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode.ID())
@@ -206,7 +206,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
 
-		err := satellitePeer.Audit.Service.Close()
+		err := satellitePeer.Audit.Service.Stop()
 		require.NoError(t, err)
 
 		disqualifiedNode := planet.StorageNodes[0]
