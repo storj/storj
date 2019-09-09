@@ -447,9 +447,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
-	// group.Go(func() error {
-	// 	return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
-	// })
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
