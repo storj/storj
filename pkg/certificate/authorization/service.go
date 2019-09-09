@@ -6,8 +6,8 @@ package authorization
 import (
 	"context"
 	"fmt"
-	"github.com/zeebo/errs"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

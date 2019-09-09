@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
 	"storj.io/storj/pkg/pb"
 )
 
