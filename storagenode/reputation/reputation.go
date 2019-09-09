@@ -16,6 +16,8 @@ type DB interface {
 	Store(ctx context.Context, stats Stats) error
 	// Get retrieves stats for specific satellite
 	Get(ctx context.Context, satelliteID storj.NodeID) (*Stats, error)
+	// All retrieves all stats from DB
+	All(ctx context.Context) ([]Stats, error)
 }
 
 // Stats consist of reputation metrics
@@ -24,6 +26,8 @@ type Stats struct {
 
 	Uptime Metric
 	Audit  Metric
+
+	Disqualified *time.Time
 
 	UpdatedAt time.Time
 }

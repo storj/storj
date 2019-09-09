@@ -190,6 +190,11 @@ read limitoffset (
 	orderby asc node.id
 )
 
+read all (
+    select node.id node.piece_count
+    where node.piece_count != 0
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (

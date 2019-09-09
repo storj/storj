@@ -1200,6 +1200,9 @@ func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsPa
 
 	response, err := client.client.ListSegments(ctx, params.toRequest())
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return []storj.SegmentListItem{}, false, storj.ErrObjectNotFound.Wrap(err)
+		}
 		return []storj.SegmentListItem{}, false, Error.Wrap(err)
 	}
 

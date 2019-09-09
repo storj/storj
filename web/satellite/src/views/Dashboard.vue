@@ -6,7 +6,7 @@
         <div v-if="isLoading" class="loading-overlay active">
             <img src="../../static/images/register/Loading.gif">
         </div>
-        <div class="dashboard-container__wrap">
+        <div v-if="!isLoading" class="dashboard-container__wrap">
             <NavigationArea />
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader />
@@ -15,44 +15,47 @@
                 </div>
             </div>
         </div>
-        <ProjectCreationSuccessPopup/>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import DashboardHeader from '@/components/header/Header.vue';
-    import NavigationArea from '@/components/navigation/NavigationArea.vue';
-    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
-    import {
-        API_KEYS_ACTIONS,
-        APP_STATE_ACTIONS,
-        NOTIFICATION_ACTIONS,
-        PM_ACTIONS,
-        PROJECT_USAGE_ACTIONS,
-        PROJECT_PAYMENT_METHODS_ACTIONS,
-    } from '@/utils/constants/actionNames';
-    import { USER_ACTIONS } from '@/store/modules/users';
-    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-    import { AppState } from '@/utils/constants/appStateEnum';
-    import { AuthToken } from '@/utils/authToken';
-    import { Project } from '@/types/projects';
-    import { RequestResponse } from '@/types/response';
-    import router, { RouteConfig } from '@/router';
-    import { User } from '@/types/users';
-    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-    mounted: async function() {
+import DashboardHeader from '@/components/header/Header.vue';
+import NavigationArea from '@/components/navigation/NavigationArea.vue';
+
+import { RouteConfig } from '@/router';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { Project } from '@/types/projects';
+import { AuthToken } from '@/utils/authToken';
+import {
+    API_KEYS_ACTIONS,
+    APP_STATE_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PM_ACTIONS,
+    PROJECT_PAYMENT_METHODS_ACTIONS,
+} from '@/utils/constants/actionNames';
+import { AppState } from '@/utils/constants/appStateEnum';
+
+@Component({
+    components: {
+        NavigationArea,
+        DashboardHeader,
+    }
+})
+export default class Dashboard extends Vue {
+    public mounted(): void {
         setTimeout(async () => {
-            let user: User;
-
+            // TODO: combine all project related requests in one
             try {
-                user = await this.$store.dispatch(USER_ACTIONS.GET);
+                await this.$store.dispatch(USER_ACTIONS.GET);
             } catch (error) {
-                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                this.$router.push(RouteConfig.Login);
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+                await this.$router.push(RouteConfig.Login.path);
                 AuthToken.remove();
 
                 return;
@@ -71,7 +74,13 @@
             if (!projects.length) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
-                return;
+                if (!this.isCurrentRouteIsAccount) {
+                    await this.$router.push(RouteConfig.ProjectOverview.path);
+
+                    return;
+                }
+
+                await this.$router.push(RouteConfig.ProjectOverview.path);
             }
 
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
@@ -79,19 +88,20 @@
             await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-            } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
+            } catch (error) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
             }
 
             try {
                 await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            } catch {
+            } catch (error) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
-            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            if (!usageResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            try {
+                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+            } catch (error) {
+                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
             }
 
             try {
@@ -107,19 +117,16 @@
 
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
         }, 800);
-    },
-    computed: {
-        isLoading: function() {
-            return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
-        }
-    },
-    components: {
-        ProjectCreationSuccessPopup,
-        NavigationArea,
-        DashboardHeader
     }
-})
-export default class Dashboard extends Vue {
+
+    public get isLoading(): boolean {
+        return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
+    }
+    public get isCurrentRouteIsAccount(): boolean {
+        const segments = this.$route.path.split('/').map(segment => segment.toLowerCase());
+
+        return segments.includes(RouteConfig.Account.name.toLowerCase());
+    }
 }
 </script>
 

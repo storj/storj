@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	snorders "storj.io/storj/storagenode/orders"
 	"storj.io/storj/uplink"
 )
 
@@ -66,6 +67,67 @@ func TestSendingReceivingOrders(t *testing.T) {
 
 		require.Zero(t, sumUnsent)
 		require.Equal(t, sumBeforeSend, sumArchived)
+	})
+}
+
+func TestSendingReceivingDuplicateOrders(t *testing.T) {
+	// test happy path
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Audit.Service.Loop.Stop()
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.Sender.Pause()
+		}
+
+		expectedData := testrand.Bytes(50 * memory.KiB)
+
+		redundancy := noLongTailRedundancy(planet)
+		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		require.NoError(t, err)
+
+		sumBeforeSend := 0
+		usedOne := false
+		for _, storageNode := range planet.StorageNodes {
+			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
+			require.NoError(t, err)
+			sumBeforeSend += len(infos)
+
+			if len(infos) > 0 && !usedOne {
+				_, err := planet.Satellites[0].DB.Orders().UseSerialNumber(ctx, infos[0].Order.SerialNumber, infos[0].Limit.StorageNodeId)
+				require.NoError(t, err)
+				usedOne = true
+			}
+
+		}
+		require.NotZero(t, sumBeforeSend)
+
+		sumUnsent := 0
+		rejected := 0
+		accepted := 0
+
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.Sender.TriggerWait()
+
+			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
+			require.NoError(t, err)
+			sumUnsent += len(infos)
+
+			archivedInfos, err := storageNode.DB.Orders().ListArchived(ctx, sumBeforeSend)
+			require.NoError(t, err)
+
+			for _, archived := range archivedInfos {
+				if archived.Status == snorders.StatusRejected {
+					rejected++
+				} else if archived.Status == snorders.StatusAccepted {
+					accepted++
+				}
+			}
+		}
+
+		require.Zero(t, sumUnsent)
+		require.Equal(t, 1, rejected)
+		require.Equal(t, sumBeforeSend-1, accepted)
 	})
 }
 

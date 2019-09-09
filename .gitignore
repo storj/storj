@@ -27,7 +27,6 @@ debug
 
 /release/
 *.swp
-*.svg
 /bin
 resource.syso
 

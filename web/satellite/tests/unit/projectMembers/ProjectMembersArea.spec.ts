@@ -1,13 +1,15 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 import Vuex from 'vuex';
 
-import { ProjectMembersApiGql } from '@/api/projectMembers';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+
+import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { appStateModule } from '@/store/modules/appState';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 
@@ -20,13 +22,28 @@ describe('ProjectMembersArea.vue', () => {
     const pmApi = new ProjectMembersApiGql();
     const projectMembersModule = makeProjectMembersModule(pmApi);
 
-    const store = new Vuex.Store({modules: { projectMembersModule }});
+    const store = new Vuex.Store({modules: { projectMembersModule, appStateModule }});
 
     it('renders correctly', () => {
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue
         });
+
+        expect(wrapper).toMatchSnapshot();
+    });
+
+    it('empty search result area render correctly', function () {
+        const wrapper = shallowMount(ProjectMembersArea, {
+            store,
+            localVue
+        });
+
+        const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
+        expect(emptySearchResultArea.length).toBe(1);
+
+        const teamContainer = wrapper.findAll('.team-area__container');
+        expect(teamContainer.length).toBe(0);
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -39,33 +56,39 @@ describe('ProjectMembersArea.vue', () => {
 
         store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
-        const wrapper = mount(ProjectMembersArea, {
+        const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
-            mocks: {
-                $route: {
-                    query: {
-                        pageNumber: null
-                    }
-                },
-                $router: {
-                    replace: () => false
-                }
-            }
         });
 
         expect(wrapper.vm.projectMembers.length).toBe(1);
     });
 
+    it('team area renders correctly', function () {
+        const wrapper = shallowMount(ProjectMembersArea, {
+            store,
+            localVue
+        });
+
+        const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
+        expect(emptySearchResultArea.length).toBe(0);
+
+        const teamContainer = wrapper.findAll('.team-area__container');
+        expect(teamContainer.length).toBe(1);
+
+        const sortingListHeaderStub = wrapper.findAll('sortinglistheader-stub');
+        expect(sortingListHeaderStub.length).toBe(1);
+
+        const listStub = wrapper.findAll('list-stub');
+        expect(listStub.length).toBe(1);
+
+        expect(wrapper).toMatchSnapshot();
+    });
+
     it('action on toggle works correctly', () => {
-        const wrapper = mount(ProjectMembersArea, {
+        const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
-            mocks: {
-                $route: {
-                    query: {}
-                }
-            }
         });
 
         wrapper.vm.onMemberClick(projectMember1);
@@ -74,14 +97,9 @@ describe('ProjectMembersArea.vue', () => {
     });
 
     it('clear selection works correctly', () => {
-        const wrapper = mount(ProjectMembersArea, {
+        const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
-            mocks: {
-                $route: {
-                    query: {}
-                }
-            }
         });
 
         wrapper.vm.onMemberClick(projectMember1);
@@ -97,14 +115,9 @@ describe('ProjectMembersArea.vue', () => {
 
         store.commit(PROJECT_MEMBER_MUTATIONS.FETCH, testProjectMembersPage);
 
-        const wrapper = mount(ProjectMembersArea, {
+        const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
-            mocks: {
-                $route: {
-                    query: {}
-                }
-            }
         });
 
         expect(wrapper.vm.projectMembers[0].user.id).toBe(projectMember1.user.id);

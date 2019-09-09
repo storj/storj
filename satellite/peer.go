@@ -40,6 +40,8 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/inspector"
@@ -121,6 +123,8 @@ type Config struct {
 
 	GarbageCollection gc.Config
 
+	DBCleanup dbcleanup.Config
+
 	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
@@ -129,7 +133,6 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-	Vouchers  vouchers.Config
 
 	Version version.Config
 }
@@ -155,6 +158,11 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
+	}
+
+	Contact struct {
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
 	}
 
 	Overlay struct {
@@ -189,12 +197,18 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service          *audit.Service
-		ReservoirService *audit.ReservoirService
+		Service *audit.Service
+		Queue   *audit.Queue
+		Worker  *audit.Worker
+		Chore   *audit.Chore
 	}
 
 	GarbageCollection struct {
 		Service *gc.Service
+	}
+
+	DBCleanup struct {
+		Chore *dbcleanup.Chore
 	}
 
 	Accounting struct {
@@ -346,6 +360,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
+	{ // setup contact service
+		log.Debug("Setting up contact service")
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Overlay.Service, peer.Transport)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
+		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+	}
+
 	{ // setup discovery
 		log.Debug("Setting up discovery")
 		config := config.Discovery
@@ -354,12 +375,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
-			peer.Log.Named("vouchers"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			peer.Overlay.Service,
-			config.Vouchers.Expiration,
-		)
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 
@@ -448,16 +463,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Overlay.Service,
 			config.Checker)
 
+		segmentRepairer := repairer.NewSegmentRepairer(
+			log.Named("repairer"),
+			peer.Metainfo.Service,
+			peer.Orders.Service,
+			peer.Overlay.Service,
+			peer.Transport,
+			config.Repairer.Timeout,
+			config.Repairer.MaxExcessRateOptimalThreshold,
+			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
+		)
+
 		peer.Repair.Repairer = repairer.NewService(
 			peer.Log.Named("repairer"),
 			peer.DB.RepairQueue(),
 			&config.Repairer,
-			config.Repairer.Interval,
-			config.Repairer.MaxRepair,
-			peer.Transport,
-			peer.Metainfo.Service,
-			peer.Orders.Service,
-			peer.Overlay.Service,
+			segmentRepairer,
 		)
 
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
@@ -482,13 +503,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		// setup audit 2.0
-		peer.Audit.ReservoirService, err = audit.NewReservoirService(peer.Log.Named("reservoir service"),
-			peer.Metainfo.Loop,
+		peer.Audit.Queue = &audit.Queue{}
+
+		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
+			peer.Audit.Queue,
 			config,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit reservoir chore"),
+			peer.Audit.Queue,
+			peer.Metainfo.Loop,
+			config,
+		)
 	}
 
 	{ // setup garbage collection
@@ -503,9 +532,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 	}
 
+	{ // setup db cleanup
+		log.Debug("Setting up db cleanup")
+		peer.DBCleanup.Chore = dbcleanup.NewChore(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
+	}
+
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
@@ -693,6 +727,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.DBCleanup.Chore.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
@@ -702,7 +739,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.ReservoirService.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.Chore.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
@@ -753,6 +793,24 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+
+	if peer.Audit.Chore != nil {
+		errlist.Add(peer.Audit.Chore.Close())
+	}
+	if peer.Audit.Worker != nil {
+		errlist.Add(peer.Audit.Worker.Close())
+	}
+
+	if peer.Accounting.Rollup != nil {
+		errlist.Add(peer.Accounting.Rollup.Close())
+	}
+	if peer.Accounting.Tally != nil {
+		errlist.Add(peer.Accounting.Tally.Close())
+	}
+
+	if peer.DBCleanup.Chore != nil {
+		errlist.Add(peer.DBCleanup.Chore.Close())
+	}
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
 	}

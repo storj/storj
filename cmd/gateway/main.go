@@ -137,7 +137,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 
 	if err := process.InitMetrics(ctx, zap.L(), nil, ""); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
 	err = version.CheckProcessVersion(ctx, zap.L(), runCfg.Version, version.Build, "Gateway")

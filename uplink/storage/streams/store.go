@@ -437,19 +437,24 @@ func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.Ci
 		return err
 	}
 
+	var errlist errs.Group
 	for i := 0; i < int(numberOfSegments(&stream, &streamMeta)-1); i++ {
 		currentPath, err := createSegmentPath(ctx, int64(i), path.Bucket(), encPath)
 		if err != nil {
-			return err
+			errlist.Add(err)
+			continue
 		}
 
 		err = s.segments.Delete(ctx, currentPath)
 		if err != nil {
-			return err
+			errlist.Add(err)
+			continue
 		}
 	}
 
-	return s.segments.Delete(ctx, lastSegmentPath)
+	errlist.Add(s.segments.Delete(ctx, lastSegmentPath))
+
+	return errlist.Err()
 }
 
 // ListItem is a single item in a listing

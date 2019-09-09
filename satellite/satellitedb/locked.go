@@ -760,6 +760,13 @@ func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.
 	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
 }
 
+// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
+func (m *lockedOrders) DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteExpiredSerials(ctx, now)
+}
+
 // GetBucketBandwidth gets total bucket bandwidth from period of time
 func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
@@ -772,6 +779,13 @@ func (m *lockedOrders) GetStorageNodeBandwidth(ctx context.Context, nodeID storj
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetStorageNodeBandwidth(ctx, nodeID, from, to)
+}
+
+// ProcessOrders takes a list of order requests and processes them in a batch
+func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ProcessOrders(ctx, requests)
 }
 
 // UnuseSerialNumber removes pair serial number -> storage node id from database
@@ -823,12 +837,6 @@ func (m *lockedOrders) UseSerialNumber(ctx context.Context, serialNumber storj.S
 	return m.db.UseSerialNumber(ctx, serialNumber, storageNodeID)
 }
 
-func (m *lockedOrders) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ProcessOrders(ctx, requests)
-}
-
 // OverlayCache returns database for caching overlay information
 func (m *locked) OverlayCache() overlay.DB {
 	m.Lock()
@@ -840,6 +848,13 @@ func (m *locked) OverlayCache() overlay.DB {
 type lockedOverlayCache struct {
 	sync.Locker
 	db overlay.DB
+}
+
+// AllPieceCounts returns a map of node IDs to piece counts from the db.
+func (m *lockedOverlayCache) AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.AllPieceCounts(ctx)
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -926,6 +941,13 @@ func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.Node
 	return m.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
+// UpdatePieceCounts sets the piece count field for the given node IDs.
+func (m *lockedOverlayCache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdatePieceCounts(ctx, pieceCounts)
+}
+
 // UpdateStats all parts of single storagenode's stats.
 func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
 	m.Lock()
@@ -954,7 +976,7 @@ type lockedPeerIdentities struct {
 }
 
 // BatchGet gets all nodes peer identities in a transaction
-func (m *lockedPeerIdentities) BatchGet(ctx context.Context, a1 storj.NodeIDList) (_ []*identity.PeerIdentity, err error) {
+func (m *lockedPeerIdentities) BatchGet(ctx context.Context, a1 storj.NodeIDList) ([]*identity.PeerIdentity, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.BatchGet(ctx, a1)

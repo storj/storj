@@ -68,8 +68,8 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
         };
 
         const response = await this.mutate(query, variables);
-        let key: any = response.data.createAPIKey.keyInfo;
-        let secret: string = response.data.createAPIKey.key;
+        const key: any = response.data.createAPIKey.keyInfo;
+        const secret: string = response.data.createAPIKey.key;
 
         return new ApiKey(key.id, key.name, key.createdAt, secret);
     }
