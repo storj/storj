@@ -82,8 +82,13 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 	defer ctx.Check(endpoint.Close)
 
 	userID := "user@mail.example"
-	url := "http://" + listener.Addr().String() + "/v1/authorization/create"
-	res, err := http.Post(url, "text/plain", bytes.NewBuffer([]byte(userID)))
+	url := "http://" + listener.Addr().String() + "/v1/authorization"
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBufferString(userID))
+	require.NoError(t, err)
+	require.NotNil(t, req)
+
+	client := http.Client{}
+	res, err := client.Do(req)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
@@ -129,43 +134,43 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 		{
 			"missing user ID",
 			"",
-			"/v1/authorization/create",
-			http.MethodPost,
-			400,
+			"/v1/authorization",
+			http.MethodPut,
+			http.StatusUnprocessableEntity,
 		},
 		{
-			"invalid http method (GET)",
+			"unsupported http method (GET)",
 			"user@mail.example",
-			"/v1/authorization/create",
+			"/v1/authorization",
 			http.MethodGet,
-			400,
+			http.StatusMethodNotAllowed,
 		},
 		{
 			"unsupported http method (PUT)",
 			"user@mail.example",
-			"/v1/authorization/create",
-			http.MethodPut,
-			400,
+			"/v1/authorization",
+			http.MethodPost,
+			http.StatusMethodNotAllowed,
 		},
 		{
 			"not found",
 			"",
 			"/",
-			http.MethodPost,
-			404,
+			http.MethodPut,
+			http.StatusNotFound,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Log(testCase.name)
 		url := baseURL + testCase.urlPath
-		client := http.Client{}
 		req, err := http.NewRequest(
 			testCase.httpMethod, url,
-			bytes.NewBuffer([]byte(testCase.userID)),
+			bytes.NewBufferString(testCase.userID),
 		)
 		require.NoError(t, err)
 
+		client := http.Client{}
 		res, err := client.Do(req)
 		require.NoError(t, err)
 		require.NotNil(t, res)

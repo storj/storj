@@ -23,7 +23,7 @@ import (
 // ErrEndpoint is the default error class for the authorization endpoint.
 var ErrEndpoint = errs.Class("authorization endpoint error")
 
-// Endpoint implements pb.AuthorizationsServer
+// Endpoint implements pb.AuthorizationsServer.
 type Endpoint struct {
 	log      *zap.Logger
 	db       *DB
@@ -31,7 +31,7 @@ type Endpoint struct {
 	listener net.Listener
 }
 
-// NewEndpoint creates a new authorization gRPC server.
+// NewEndpoint creates a new http proxy for an authorization service.
 func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 	mux := http.NewServeMux()
 	endpoint := &Endpoint{
@@ -43,7 +43,7 @@ func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 		},
 	}
 
-	mux.HandleFunc("/v1/authorization/create", endpoint.httpCreate)
+	mux.HandleFunc("/v1/authorization", endpoint.handleAuthorization)
 
 	return endpoint
 }
@@ -55,9 +55,9 @@ func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationReque
 	existingGroup, err := endpoint.db.Get(ctx, req.UserId)
 	if err != nil {
 		msg := "error getting authorizations"
-		err := ErrEndpoint.New(msg)
+		err = ErrEndpoint.Wrap(err)
 		endpoint.log.Error(msg, zap.Error(err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, msg)
 	}
 
 	if len(existingGroup) > 0 {
@@ -70,9 +70,9 @@ func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationReque
 	createdGroup, err := endpoint.db.Create(ctx, req.UserId, 1)
 	if err != nil {
 		msg := "error creating authorization"
-		err := ErrEndpoint.New(msg)
+		err = ErrEndpoint.Wrap(err)
 		endpoint.log.Error(msg, zap.Error(err))
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, msg)
 	}
 
 	groupLen := len(createdGroup)
@@ -115,32 +115,31 @@ func (endpoint *Endpoint) Close() error {
 	return endpoint.server.Close()
 }
 
-func (endpoint *Endpoint) httpCreate(writer http.ResponseWriter, httpReq *http.Request) {
+
+func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpReq *http.Request) {
 	var err error
-	ctx := context.Background()
+	ctx := httpReq.Context()
 	mon.Task()(&ctx)(&err)
 
-	if httpReq.Method != http.MethodPost {
+	if httpReq.Method != http.MethodPut {
 		msg := fmt.Sprintf("unsupported HTTP method: %s", httpReq.Method)
 		err = ErrEndpoint.New(msg)
-		endpoint.log.Error(msg, zap.Error(ErrEndpoint.New(msg)))
-		http.Error(writer, msg, http.StatusBadRequest)
+		endpoint.log.Error(msg, zap.Error(err))
+		http.Error(writer, msg, http.StatusMethodNotAllowed)
 		return
 	}
 
 	userID, err := ioutil.ReadAll(httpReq.Body)
-	if bytes.Equal([]byte{}, userID) {
-		msg := "missing user ID body"
-		err = ErrEndpoint.Wrap(err)
-		endpoint.log.Error(msg, zap.Error(err))
-		http.Error(writer, msg, http.StatusBadRequest)
-		return
-	}
 	if err != nil {
 		msg := "error reading body"
 		err = ErrEndpoint.Wrap(err)
 		endpoint.log.Error(msg, zap.Error(err))
 		http.Error(writer, msg, http.StatusInternalServerError)
+		return
+	}
+	if bytes.Equal([]byte{}, userID) {
+		msg := "missing user ID body"
+		http.Error(writer, msg, http.StatusUnprocessableEntity)
 		return
 	}
 
