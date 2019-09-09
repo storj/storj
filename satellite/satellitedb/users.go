@@ -97,10 +97,11 @@ func (users *users) Update(ctx context.Context, user *console.User) (err error) 
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable
 func toUpdateUser(user *console.User) dbx.User_Update_Fields {
 	update := dbx.User_Update_Fields{
-		FullName:  dbx.User_FullName(user.FullName),
-		ShortName: dbx.User_ShortName(user.ShortName),
-		Email:     dbx.User_Email(user.Email),
-		Status:    dbx.User_Status(int(user.Status)),
+		FullName:        dbx.User_FullName(user.FullName),
+		ShortName:       dbx.User_ShortName(user.ShortName),
+		Email:           dbx.User_Email(user.Email),
+		NormalizedEmail: dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
+		Status:          dbx.User_Status(int(user.Status)),
 	}
 
 	// extra password check to update only calculated hash from service
