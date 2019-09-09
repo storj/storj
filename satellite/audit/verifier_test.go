@@ -35,12 +35,13 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -78,12 +79,13 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -129,12 +131,13 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -176,12 +179,13 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -255,12 +259,13 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		storageNodeDB := planet.StorageNodes[0].DB.(*testblobs.SlowDB)
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -309,12 +314,13 @@ func TestVerifierHappyPath(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		stripe, _, err := audits.Cursor.NextStripe(ctx)
@@ -337,12 +343,13 @@ func TestVerifierOfflineNode(t *testing.T) {
 		planet.Satellites[0].Discovery.Service.Discovery.Pause()
 
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		stripe, _, err := audits.Cursor.NextStripe(ctx)
@@ -368,12 +375,13 @@ func TestVerifierMissingPiece(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		stripe, _, err := audits.Cursor.NextStripe(ctx)
@@ -402,12 +410,13 @@ func TestVerifierDialTimeout(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		stripe, _, err := audits.Cursor.NextStripe(ctx)
@@ -458,12 +467,13 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		stripe, _, err := audits.Cursor.NextStripe(ctx)
@@ -484,12 +494,13 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		stripe, _, err := audits.Cursor.NextStripe(ctx)
@@ -510,12 +521,13 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		audits := planet.Satellites[0].Audit.Service
-		audits.Loop.Stop()
+		err := audits.Close()
+		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		stripe, _, err := audits.Cursor.NextStripe(ctx)

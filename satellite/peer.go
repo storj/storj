@@ -800,9 +800,6 @@ func (peer *Peer) Close() error {
 	if peer.Audit.Worker != nil {
 		errlist.Add(peer.Audit.Worker.Close())
 	}
-	if peer.Audit.Service != nil {
-		errlist.Add(peer.Audit.Service.Close())
-	}
 
 	if peer.Accounting.Rollup != nil {
 		errlist.Add(peer.Accounting.Rollup.Close())
