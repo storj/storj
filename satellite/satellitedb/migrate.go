@@ -1145,9 +1145,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Added normalized_email column to users table",
 				Version:     55,
 				Action: migrate.SQL{
-					`ALTER TABLE users ADD normalized_email TEXT`,
+					`ALTER TABLE users ADD normalized_email TEXT;`,
 					`UPDATE users SET normalized_email=UPPER(email);`,
-					`ALTER TABLE users ALTER COLUMN normalized_email SET NOT NULL`,
+					`ALTER TABLE users ALTER COLUMN normalized_email SET NOT NULL;`,
 				},
 			},
 		},

@@ -200,18 +200,17 @@ CREATE TABLE storagenode_storage_tallies
   data_total        double precision         NOT NULL,
   PRIMARY KEY (id)
 );
-CREATE TABLE users
-(
-  id               BLOB      NOT NULL,
-  email            TEXT      NOT NULL,
-  normalized_email TEXT      NOT NULL,
-  full_name        TEXT      NOT NULL,
-  short_name       TEXT,
-  password_hash    BLOB      NOT NULL,
-  status           INTEGER   NOT NULL,
-  partner_id       BLOB,
-  created_at       TIMESTAMP NOT NULL,
-  PRIMARY KEY (id)
+CREATE TABLE users (
+  id bytea NOT NULL,
+  email text NOT NULL,
+  normalized_email text NOT NULL,
+  full_name text NOT NULL,
+  short_name text,
+  password_hash bytea NOT NULL,
+  status integer NOT NULL,
+  partner_id bytea,
+  created_at timestamp with time zone NOT NULL,
+  PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions
 (
