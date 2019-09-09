@@ -26,7 +26,7 @@ const {
     SET_SEARCH,
     CLEAR,
 } = BUCKET_MUTATIONS;
-const bucketPageLimit = 8;
+const bucketPageLimit = 7;
 const firstPage = 1;
 
 class BucketsState {

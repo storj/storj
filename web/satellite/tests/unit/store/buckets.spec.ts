@@ -27,7 +27,7 @@ Vue.use(Vuex);
 const store = new Vuex.Store({modules: { projectsModule, bucketsModule } });
 const state = (store.state as any).bucketsModule;
 const bucket = new Bucket('test', 10, 10, 1, new Date(), new Date());
-const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 8, search: 'test', totalCount: 1 };
+const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 7, search: 'test', totalCount: 1 };
 
 describe('actions', () => {
     beforeEach(() => {
@@ -64,13 +64,13 @@ describe('actions', () => {
     it('success clear', () => {
         store.dispatch(CLEAR);
 
-        expect(state.cursor).toEqual(new BucketCursor('', 8, 1));
-        expect(state.page).toEqual(new BucketPage([], '', 8, 0, 1, 1, 0));
+        expect(state.cursor).toEqual(new BucketCursor('', 7, 1));
+        expect(state.page).toEqual(new BucketPage([], '', 7, 0, 1, 1, 0));
     });
 });
 
 describe('getters', () => {
-    const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 8, search: 'test', totalCount: 1 };
+    const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 7, search: 'test', totalCount: 1 };
 
     it('page of buckets', async () => {
         jest.spyOn(bucketsApi, 'get').mockReturnValue(
@@ -89,6 +89,6 @@ describe('getters', () => {
 
         const cursor = store.getters.cursor;
 
-        expect(cursor).toEqual(new BucketCursor('', 8, 1));
+        expect(cursor).toEqual(new BucketCursor('', 7, 1));
     });
 });
