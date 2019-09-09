@@ -110,7 +110,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			"authorization error",
 			"user2@mail.test",
 			5, -1, 0, 5,
-			&ErrAuthorizationDB, ErrAuthorizationCount,
+			&ErrDB, ErrCount,
 		},
 	}
 
@@ -337,7 +337,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, ErrAuthorization.Has(err))
+			assert.True(t, Error.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[claimedIndex].Token.String())
 		}
@@ -366,7 +366,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, ErrAuthorization.Has(err))
+			assert.True(t, Error.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
@@ -390,7 +390,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2 + 1,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, ErrAuthorization.Has(err))
+			assert.True(t, Error.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}

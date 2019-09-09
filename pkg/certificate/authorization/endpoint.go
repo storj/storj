@@ -14,9 +14,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"storj.io/storj/pkg/pb"
 )
 
@@ -27,17 +24,20 @@ var ErrEndpoint = errs.Class("authorization endpoint error")
 type Endpoint struct {
 	log      *zap.Logger
 	db       *DB
+	service  *Service
 	server   http.Server
 	listener net.Listener
 }
 
 // NewEndpoint creates a new http proxy for an authorization service.
 func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
+	service := NewService(log, db)
 	mux := http.NewServeMux()
 	endpoint := &Endpoint{
 		log:      log,
 		db:       db,
 		listener: listener,
+		service:  service,
 		server: http.Server{
 			Handler: mux,
 		},
@@ -51,44 +51,7 @@ func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 // Create creates an authorization from the given authorization request.
 func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationRequest) (_ *pb.AuthorizationResponse, err error) {
 	mon.Task()(&ctx, req.UserId)(&err)
-
-	existingGroup, err := endpoint.db.Get(ctx, req.UserId)
-	if err != nil {
-		msg := "error getting authorizations"
-		err = ErrEndpoint.Wrap(err)
-		endpoint.log.Error(msg, zap.Error(err))
-		return nil, status.Error(codes.Internal, msg)
-	}
-
-	if len(existingGroup) > 0 {
-		authorization := existingGroup[0]
-		return &pb.AuthorizationResponse{
-			Token: authorization.Token.String(),
-		}, nil
-	}
-
-	createdGroup, err := endpoint.db.Create(ctx, req.UserId, 1)
-	if err != nil {
-		msg := "error creating authorization"
-		err = ErrEndpoint.Wrap(err)
-		endpoint.log.Error(msg, zap.Error(err))
-		return nil, status.Error(codes.Internal, msg)
-	}
-
-	groupLen := len(createdGroup)
-	if groupLen != 1 {
-		clientMsg := "error creating authorization"
-		internalMsg := clientMsg + fmt.Sprintf("; expected 1, got %d", groupLen)
-
-		endpoint.log.Error(internalMsg)
-		return nil, status.Error(codes.Internal, ErrEndpoint.New(clientMsg).Error())
-	}
-
-	authorization := createdGroup[0]
-
-	return &pb.AuthorizationResponse{
-		Token: authorization.Token.String(),
-	}, nil
+	return endpoint.service.GetOrCreate(ctx, req)
 }
 
 // Run starts the endpoint HTTP server and waits for the context to be
@@ -114,7 +77,6 @@ func (endpoint *Endpoint) Run(ctx context.Context) (err error) {
 func (endpoint *Endpoint) Close() error {
 	return endpoint.server.Close()
 }
-
 
 func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpReq *http.Request) {
 	var err error
@@ -161,7 +123,8 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 		msg := "error writing response"
 		err = ErrEndpoint.Wrap(err)
 		endpoint.log.Error(msg, zap.Error(err))
-		http.Error(writer, msg, http.StatusInternalServerError)
+		// NB: status cannot be changed and the resource *was* created.
+		http.Error(writer, msg, http.StatusCreated)
 		return
 	}
 }

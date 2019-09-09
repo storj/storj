@@ -27,7 +27,7 @@ func TestEndpoint_Create(t *testing.T) {
 	require.NotNil(t, endpoint)
 
 	{ // new user, no existing authorization tokens
-		userID := "new@mail.example"
+		userID := "new@mail.test"
 		group, err := authorizationDB.Get(ctx, userID)
 		require.NoError(t, err)
 		require.Empty(t, group)
@@ -44,7 +44,7 @@ func TestEndpoint_Create(t *testing.T) {
 	}
 
 	{ // existing user with unclaimed authorization token
-		userID := "old@mail.example"
+		userID := "old@mail.test"
 		group, err := authorizationDB.Create(ctx, userID, 1)
 		require.NoError(t, err)
 		require.NotEmpty(t, group)
@@ -81,7 +81,7 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 	})
 	defer ctx.Check(endpoint.Close)
 
-	userID := "user@mail.example"
+	userID := "user@mail.test"
 	url := "http://" + listener.Addr().String() + "/v1/authorization"
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBufferString(userID))
 	require.NoError(t, err)
@@ -140,14 +140,14 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 		},
 		{
 			"unsupported http method (GET)",
-			"user@mail.example",
+			"user@mail.test",
 			"/v1/authorization",
 			http.MethodGet,
 			http.StatusMethodNotAllowed,
 		},
 		{
 			"unsupported http method (PUT)",
-			"user@mail.example",
+			"user@mail.test",
 			"/v1/authorization",
 			http.MethodPost,
 			http.StatusMethodNotAllowed,
