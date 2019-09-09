@@ -35,8 +35,7 @@ func TestReverifySuccess(t *testing.T) {
 		// - expects one storage node to be marked as a success in the audit report
 
 		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -103,8 +102,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		// - expects one storage node to be marked as a fail in the audit report
 
 		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -177,8 +175,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		// - expects one storage node to be marked as a fail in the audit report
 
 		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -232,8 +229,7 @@ func TestReverifyOffline(t *testing.T) {
 		// - expects one storage node to be marked as offline in the audit report
 
 		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -289,8 +285,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		// - expects one storage node to be marked as offline in the audit report
 
 		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -375,8 +370,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
 
 		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -429,13 +423,12 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
 
 		audits := planet.Satellites[0].Audit.Service
-		err := audits.Close()
-		require.NoError(t, err)
+		audits.Loop.Stop()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		stripe, _, err := audits.Cursor.NextStripe(ctx)
