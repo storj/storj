@@ -6,13 +6,20 @@ package dbutil
 import (
 	"database/sql/driver"
 	"time"
+
+	"github.com/zeebo/errs"
 )
 
 const (
-	sqliteTimeLayout = "2006-01-02 15:04:05-07:00"
+	sqliteTimeLayout           = "2006-01-02 15:04:05-07:00"
+	sqliteTimeLayoutNoTimeZone = "2006-01-02 15:04:05"
+	sqliteTimeLayoutDate       = "2006-01-02"
 )
 
-// NullTime time helps convert nil to time.Time
+// ErrNullTime defines error class for NullTime.
+var ErrNullTime = errs.Class("null time error")
+
+// NullTime time helps convert nil to time.Time.
 type NullTime struct {
 	time.Time
 	Valid bool
@@ -20,6 +27,10 @@ type NullTime struct {
 
 // Scan implements the Scanner interface.
 func (nt *NullTime) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+
 	// check if it's time.Time which is what postgres returns
 	// for lagged time values
 	if nt.Time, nt.Valid = value.(time.Time); nt.Valid {
@@ -29,12 +40,12 @@ func (nt *NullTime) Scan(value interface{}) error {
 	// try to parse time from bytes which is what sqlite returns
 	date, ok := value.([]byte)
 	if !ok {
-		return nil
+		return ErrNullTime.New("sql null time: scan received unsupported value type")
 	}
 
-	times, err := time.Parse(sqliteTimeLayout, string(date))
+	times, err := parseSqliteTimeString(string(date))
 	if err != nil {
-		return nil
+		return ErrNullTime.Wrap(err)
 	}
 
 	nt.Time, nt.Valid = times, true
@@ -47,4 +58,25 @@ func (nt NullTime) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return nt.Time, nil
+}
+
+// parseSqliteTimeString parses sqlite times string.
+// It tries to process value as string with timezone first,
+// then fallback to parsing as string without timezone and
+// finally to parsing value as date.
+func parseSqliteTimeString(val string) (time.Time, error) {
+	var times time.Time
+	var err error
+
+	times, err = time.Parse(sqliteTimeLayout, val)
+	if err == nil {
+		return times, nil
+	}
+
+	times, err = time.Parse(sqliteTimeLayoutNoTimeZone, val)
+	if err == nil {
+		return times, nil
+	}
+
+	return time.Parse(sqliteTimeLayoutDate, val)
 }

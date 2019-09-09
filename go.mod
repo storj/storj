@@ -18,6 +18,8 @@ exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.
 
 replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190814103321-ef17d024197d
 
+replace git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
+
 require (
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
 	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
@@ -105,7 +107,7 @@ require (
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb // indirect
 	github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c
-	github.com/zeebo/errs v1.2.1-0.20190617123220-06a113fed680
+	github.com/zeebo/errs v1.2.2
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/structs v1.0.2
@@ -124,4 +126,5 @@ require (
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
 	gopkg.in/yaml.v2 v2.2.2
+	storj.io/drpc v0.0.1
 )

@@ -35,7 +35,6 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/vouchers"
 )
 
 // newSatellites initializes satellites
@@ -167,6 +166,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
+				MaxReverifyCount:   3,
+				ChoreInterval:      30 * time.Second,
+				QueueInterval:      1 * time.Hour,
+				Slots:              3,
+				WorkerConcurrency:  1,
 			},
 			GarbageCollection: gc.Config{
 				Interval:          1 * time.Minute,
@@ -201,9 +205,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Marketing: marketingweb.Config{
 				Address:   "127.0.0.1:0",
 				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
-			},
-			Vouchers: vouchers.Config{
-				Expiration: 30 * 24 * time.Hour,
 			},
 			Version: planet.NewVersionConfig(),
 		}

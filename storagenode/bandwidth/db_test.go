@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -39,7 +40,7 @@ var (
 	}
 )
 
-func TestDB(t *testing.T) {
+func TestBandwidthDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -50,15 +51,6 @@ func TestDB(t *testing.T) {
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
 
 		now := time.Now()
-
-		// ensure zero queries work
-		usage, err := bandwidthdb.Summary(ctx, now, now)
-		require.NoError(t, err)
-		require.Equal(t, &bandwidth.Usage{}, usage)
-
-		usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now, now)
-		require.NoError(t, err)
-		require.Equal(t, map[storj.NodeID]*bandwidth.Usage{}, usageBySatellite)
 
 		expectedUsage := &bandwidth.Usage{}
 		expectedUsageTotal := &bandwidth.Usage{}
@@ -75,35 +67,227 @@ func TestDB(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// test summarizing
-		usage, err = bandwidthdb.Summary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
-		require.NoError(t, err)
-		require.Equal(t, expectedUsageTotal, usage)
-
 		expectedUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
 			satellite0: expectedUsage,
 			satellite1: expectedUsage,
 		}
-		usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
-		require.NoError(t, err)
-		require.Equal(t, expectedUsageBySatellite, usageBySatellite)
 
-		// only range capturing second satellite
-		usage, err = bandwidthdb.Summary(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
-		require.NoError(t, err)
-		require.Equal(t, expectedUsage, usage)
+		// test summarizing
+		t.Run("test total summary", func(t *testing.T) {
+			usage, err := bandwidthdb.Summary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedUsageTotal, usage)
 
-		cachedBandwidthUsage, err := bandwidthdb.MonthSummary(ctx)
-		require.NoError(t, err)
-		require.Equal(t, expectedUsageTotal.Total(), cachedBandwidthUsage)
+			// only range capturing second satellite
+			usage, err = bandwidthdb.Summary(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedUsage, usage)
+		})
 
-		// only range capturing second satellite
-		expectedUsageBySatellite = map[storj.NodeID]*bandwidth.Usage{
-			satellite1: expectedUsage,
+		t.Run("test summary by satellite", func(t *testing.T) {
+			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedUsageBySatellite, usageBySatellite)
+
+			// only range capturing second satellite
+			expectedUsageBySatellite := map[storj.NodeID]*bandwidth.Usage{
+				satellite1: expectedUsage,
+			}
+
+			usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedUsageBySatellite, usageBySatellite)
+		})
+
+		t.Run("test satellite summary", func(t *testing.T) {
+			usage, err := bandwidthdb.SatelliteSummary(ctx, satellite0, time.Time{}, now)
+			require.NoError(t, err)
+			require.Equal(t, expectedUsageBySatellite[satellite0], usage)
+
+			usage, err = bandwidthdb.SatelliteSummary(ctx, satellite1, time.Time{}, now.Add(10*time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, expectedUsageBySatellite[satellite1], usage)
+		})
+
+		t.Run("test cached bandwidth usage", func(t *testing.T) {
+			cachedBandwidthUsage, err := bandwidthdb.MonthSummary(ctx)
+			require.NoError(t, err)
+			require.Equal(t, expectedUsageTotal.Total(), cachedBandwidthUsage)
+		})
+	})
+}
+
+func TestEmptyBandwidthDB(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		bandwidthdb := db.Bandwidth()
+
+		now := time.Now()
+
+		t.Run("test total summary", func(t *testing.T) {
+			usage, err := bandwidthdb.Summary(ctx, now, now)
+			require.NoError(t, err)
+			require.Equal(t, &bandwidth.Usage{}, usage)
+		})
+
+		t.Run("test summary by satellite", func(t *testing.T) {
+			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now, now)
+			require.NoError(t, err)
+			require.Equal(t, map[storj.NodeID]*bandwidth.Usage{}, usageBySatellite)
+		})
+
+		t.Run("test satellite summary", func(t *testing.T) {
+			usage, err := bandwidthdb.SatelliteSummary(ctx, storj.NodeID{}, now, now)
+			require.NoError(t, err)
+			require.Equal(t, &bandwidth.Usage{}, usage)
+		})
+
+		t.Run("test get daily rollups", func(t *testing.T) {
+			rollups, err := bandwidthdb.GetDailyRollups(ctx, now, now)
+			require.NoError(t, err)
+			require.Equal(t, []bandwidth.UsageRollup(nil), rollups)
+		})
+
+		t.Run("test get satellite daily rollups", func(t *testing.T) {
+			rollups, err := bandwidthdb.GetDailySatelliteRollups(ctx, storj.NodeID{}, now, now)
+			require.NoError(t, err)
+			require.Equal(t, []bandwidth.UsageRollup(nil), rollups)
+		})
+	})
+}
+
+func TestBandwidthDailyRollups(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		const (
+			numSatellites = 5
+			days          = 30
+			hours         = 12
+		)
+
+		now := time.Now().UTC()
+		startDate := time.Date(now.Year(), now.Month(), now.Day()-days, 0, 0, 0, 0, now.Location())
+
+		bandwidthDB := db.Bandwidth()
+
+		totalUsageRollups := make(map[time.Time]*bandwidth.UsageRollup)
+
+		addBandwidth := func(day time.Time, satellite storj.NodeID, r *bandwidth.UsageRollup) {
+			if totalUsageRollups[day] == nil {
+				totalUsageRollups[day] = &bandwidth.UsageRollup{
+					IntervalStart: day,
+				}
+			}
+
+			for h := 0; h < hours; h++ {
+				get := testrand.Int63n(1000)
+				getRepair := testrand.Int63n(1000)
+				getAudit := testrand.Int63n(1000)
+				put := testrand.Int63n(1000)
+				putRepair := testrand.Int63n(1000)
+				_delete := testrand.Int63n(1000)
+
+				// add bandwidth
+				err := bandwidthDB.Add(ctx, satellite, pb.PieceAction_GET, get, day.Add(time.Hour*time.Duration(h)))
+				require.NoError(t, err)
+				err = bandwidthDB.Add(ctx, satellite, pb.PieceAction_GET_REPAIR, getRepair, day.Add(time.Hour*time.Duration(h)))
+				require.NoError(t, err)
+				err = bandwidthDB.Add(ctx, satellite, pb.PieceAction_GET_AUDIT, getAudit, day.Add(time.Hour*time.Duration(h)))
+				require.NoError(t, err)
+				err = bandwidthDB.Add(ctx, satellite, pb.PieceAction_PUT, put, day.Add(time.Hour*time.Duration(h)))
+				require.NoError(t, err)
+				err = bandwidthDB.Add(ctx, satellite, pb.PieceAction_PUT_REPAIR, putRepair, day.Add(time.Hour*time.Duration(h)))
+				require.NoError(t, err)
+				err = bandwidthDB.Add(ctx, satellite, pb.PieceAction_DELETE, _delete, day.Add(time.Hour*time.Duration(h)))
+				require.NoError(t, err)
+
+				r.Egress.Usage += get
+				r.Egress.Repair += getRepair
+				r.Egress.Audit += getAudit
+				r.Ingress.Usage += put
+				r.Ingress.Repair += putRepair
+				r.Delete += _delete
+
+				totalUsageRollups[day].Egress.Usage += get
+				totalUsageRollups[day].Egress.Repair += getRepair
+				totalUsageRollups[day].Egress.Audit += getAudit
+				totalUsageRollups[day].Ingress.Usage += put
+				totalUsageRollups[day].Ingress.Repair += putRepair
+				totalUsageRollups[day].Delete += _delete
+			}
 		}
-		usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
+
+		satelliteID := testrand.NodeID()
+
+		var satellites []storj.NodeID
+		satellites = append(satellites, satelliteID)
+
+		for i := 0; i < numSatellites-1; i++ {
+			satellites = append(satellites, testrand.NodeID())
+		}
+
+		usageRollups := make(map[storj.NodeID]map[time.Time]*bandwidth.UsageRollup)
+
+		for _, satellite := range satellites {
+			usageRollups[satellite] = make(map[time.Time]*bandwidth.UsageRollup)
+
+			for d := 0; d < days-1; d++ {
+				day := startDate.Add(time.Hour * 24 * time.Duration(d))
+
+				usageRollup := &bandwidth.UsageRollup{
+					IntervalStart: day,
+				}
+
+				addBandwidth(day, satellite, usageRollup)
+				usageRollups[satellite][day] = usageRollup
+			}
+
+		}
+
+		// perform rollup for but last day
+		err := bandwidthDB.Rollup(ctx)
 		require.NoError(t, err)
-		require.Equal(t, expectedUsageBySatellite, usageBySatellite)
+
+		// last day add bandwidth that won't be rolled up
+		day := startDate.Add(time.Hour * 24 * time.Duration(days-1))
+
+		for _, satellite := range satellites {
+			usageRollup := &bandwidth.UsageRollup{
+				IntervalStart: day,
+			}
+
+			addBandwidth(day, satellite, usageRollup)
+			usageRollups[satellite][day] = usageRollup
+		}
+
+		t.Run("test satellite daily usage rollups", func(t *testing.T) {
+			rolls, err := bandwidthDB.GetDailySatelliteRollups(ctx, satelliteID, time.Time{}, now)
+
+			assert.NoError(t, err)
+			assert.NotNil(t, rolls)
+			assert.Equal(t, days, len(rolls))
+
+			for _, rollup := range rolls {
+				expected := *usageRollups[satelliteID][rollup.IntervalStart]
+				assert.Equal(t, expected, rollup)
+			}
+		})
+
+		t.Run("test daily usage rollups", func(t *testing.T) {
+			rolls, err := bandwidthDB.GetDailyRollups(ctx, time.Time{}, now)
+
+			assert.NoError(t, err)
+			assert.NotNil(t, rolls)
+			assert.Equal(t, days, len(rolls))
+
+			for _, rollup := range rolls {
+				assert.Equal(t, *totalUsageRollups[rollup.IntervalStart], rollup)
+			}
+		})
 	})
 }
 

@@ -72,11 +72,13 @@ proto: ## Rebuild protobuf files
 	go run scripts/protobuf.go generate
 
 .PHONY: build-packages
-build-packages: build-packages-race build-packages-normal ## Test docker images locally
+build-packages: build-packages-race build-packages-normal build-npm ## Test docker images locally
 build-packages-race:
-	go install -v ./...
+	go build -v ./...
 build-packages-normal:
-	go install -v -race ./...
+	go build -v -race ./...
+build-npm:
+	cd web/satellite && npm ci
 
 ##@ Simulator
 
@@ -97,10 +99,10 @@ test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
 
-.PHONY: test-certificate-signing
-test-certificate-signing: ## Test certificate signing service and storagenode setup (jenkins)
+.PHONY: test-certificates
+test-certificates: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-certificate-signing.sh
+	@./scripts/test-certificates.sh
 
 .PHONY: test-docker
 test-docker: ## Run tests in Docker
