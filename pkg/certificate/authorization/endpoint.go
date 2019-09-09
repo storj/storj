@@ -40,6 +40,7 @@ func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 		listener: listener,
 		service:  service,
 		server: http.Server{
+			Addr:    listener.Addr().String(),
 			Handler: mux,
 		},
 	}
