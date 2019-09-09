@@ -138,7 +138,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 			Id:      limits[info.i].GetLimit().StorageNodeId,
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
-		// these hashes should all be signed by the storagenode
 		successfulHashes[info.i] = info.hash
 
 		atomic.AddInt32(&successfulCount, 1)
@@ -223,7 +222,6 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 			err = errs.Combine(err, upload.Cancel(ctx))
 			return
 		}
-		// this is where the uplink verifies the signed hash by the storagenode. h should be signed by the storagenode
 		h, closeErr := upload.Commit(ctx)
 		hash = h
 		err = errs.Combine(err, closeErr)

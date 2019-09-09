@@ -68,6 +68,7 @@ type Endpoint struct {
 	orders           *orders.Service
 	overlay          *overlay.Service
 	partnerinfo      attribution.DB
+	peerIdentities   overlay.PeerIdentities
 	projectUsage     *accounting.ProjectUsage
 	containment      Containment
 	apiKeys          APIKeys
@@ -77,7 +78,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB,
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
 	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
@@ -86,6 +87,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		orders:           orders,
 		overlay:          cache,
 		partnerinfo:      partnerinfo,
+		peerIdentities:   peerIdentities,
 		containment:      containment,
 		apiKeys:          apiKeys,
 		projectUsage:     projectUsage,
@@ -260,8 +262,6 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 
 	// clear hashes so we don't store them
 	for _, piece := range req.GetPointer().GetRemote().GetRemotePieces() {
-		// verify hash before deleting
-		// easy peasy
 		piece.Hash = nil
 	}
 
@@ -469,13 +469,37 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 	defer mon.Task()(&ctx)(&err)
 
 	if pointer.Type == pb.Pointer_REMOTE {
-		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
+
+		nodeIDList := storj.NodeIDList{}
+		for _, piece := range remote.RemotePieces {
+			nodeIDList = append(nodeIDList, piece.NodeId)
+		}
+		// TODO determine if peerIDList has a 1:1 mapping with nodeIDList
+		peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if len(peerIDList) != len(nodeIDList) {
+			return Error.New("size of peer ID list and node ID list do not match")
+		}
+
+		var remotePieces []*pb.RemotePiece
 		allSizesValid := true
 		lastPieceSize := int64(0)
-		for _, piece := range remote.RemotePieces {
+		for i, piece := range remote.RemotePieces {
 
-			// TODO enable piece hash signature verification
+			// Verify storagenode signature on piecehash
+			peerID := peerIDList[i]
+			if peerID == nil {
+				endpoint.log.Warn("Peer ID is nil for node", zap.String("nodeID", piece.NodeId.String()))
+			}
+			signee := signing.SigneeFromPeerIdentity(peerID)
+			err := signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
+			if err != nil {
+				endpoint.log.Warn("Error verifying piece hash signature", zap.String("nodeID", piece.NodeId.String()), zap.Error(err))
+				continue
+			}
 
 			err = endpoint.validatePieceHash(ctx, piece, limits)
 			if err != nil {
@@ -1335,7 +1359,6 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	}, nil
 }
 
-// take in signed storagenode hashes
 // CommitSegment commits segment after uploading
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
