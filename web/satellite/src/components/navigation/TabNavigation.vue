@@ -14,11 +14,11 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { NavigationLink } from '@/types/navigation';
 
-    @Component
-    export default class TabNavigation extends Vue {
-        @Prop({default: new Array(NavigationLink)})
-        private navigation: NavigationLink[];
-    }
+@Component
+export default class TabNavigation extends Vue {
+    @Prop({default: new Array(NavigationLink)})
+    private navigation: NavigationLink[];
+}
 </script>
 
 <style scoped lang="scss">
