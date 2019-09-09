@@ -51,11 +51,11 @@ PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network tes
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_0_DIR`/config.yaml
 
 # keep half of the storage nodes on the old version
-ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_0_DIR`/storagenode
-ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_1_DIR`/storagenode
-ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_2_DIR`/storagenode
-ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_3_DIR`/storagenode
-ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_4_DIR`/storagenode
+ln $RELEASE_DIR/bin/panick `storj-sim network env STORAGENODE_0_DIR`/storagenode
+ln $RELEASE_DIR/bin/panick `storj-sim network env STORAGENODE_1_DIR`/storagenode
+ln $RELEASE_DIR/bin/panick `storj-sim network env STORAGENODE_2_DIR`/storagenode
+ln $RELEASE_DIR/bin/panick `storj-sim network env STORAGENODE_3_DIR`/storagenode
+ln $RELEASE_DIR/bin/panick `storj-sim network env STORAGENODE_4_DIR`/storagenode
 
 # run download part of backward compatibility tests from the current branch
 PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
