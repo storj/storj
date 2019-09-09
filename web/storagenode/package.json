@@ -1,0 +1,50 @@
+{
+  "name": "storj-storagenode",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "lint": "vue-cli-service lint",
+    "build": "vue-cli-service build",
+    "debug": "vue-cli-service build --mode development"
+  },
+  "dependencies": {
+    "chart.js": "2.8.0",
+    "vue": "2.6.10",
+    "vue-chartjs": "3.4.2",
+    "vue-class-component": "6.0.0",
+    "vue-property-decorator": "8.2.2",
+    "vue-router": "3.1.2",
+    "vuex": "3.1.1"
+  },
+  "devDependencies": {
+    "@babel/core": "7.5.0",
+    "@babel/plugin-proposal-object-rest-spread": "7.5.0",
+    "@types/sinon": "7.0.13",
+    "@vue/cli-plugin-babel": "3.11.0",
+    "@vue/cli-plugin-typescript": "3.11.0",
+    "@vue/cli-plugin-unit-jest": "3.11.0",
+    "@vue/cli-service": "3.11.0",
+    "babel-core": "7.0.0-bridge.0",
+    "node-sass": "4.12.0",
+    "sass-loader": "7.1.0",
+    "tslint": "5.19.0",
+    "tslint-consistent-codestyle": "1.15.1",
+    "tslint-loader": "3.5.4",
+    "typescript": "3.5.3",
+    "vue-template-compiler": "2.6.10",
+    "vue-tslint": "0.3.2",
+    "vue-tslint-loader": "3.5.6",
+    "webpack": "4.39.3"
+  },
+  "postcss": {
+    "plugins": {
+      "autoprefixer": {}
+    }
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not ie <= 8"
+  ]
+}

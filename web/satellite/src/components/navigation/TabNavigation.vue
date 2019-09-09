@@ -14,7 +14,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { NavigationLink } from '@/types/navigation';
 
-@Component({})
+@Component
 export default class TabNavigation extends Vue {
     @Prop({default: new Array(NavigationLink)})
     private navigation: NavigationLink[];
