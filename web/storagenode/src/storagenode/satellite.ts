@@ -20,11 +20,11 @@ export class Satellite {
  */
 export class Stamp {
     public atRestTotal: number;
-    public timestamp: Date;
+    public intervalStart: Date;
 
-    public constructor(atRestTotal: number, timestamp: Date) {
+    public constructor(atRestTotal: number, intervalStart: Date) {
         this.atRestTotal = atRestTotal;
-        this.timestamp = timestamp;
+        this.intervalStart = intervalStart;
     }
 
     /**
@@ -57,8 +57,8 @@ export class Metric {
  */
 export class Egress {
     public constructor(
-        public repair: number,
         public audit: number,
+        public repair: number,
         public usage: number) {}
 }
 
@@ -78,8 +78,7 @@ export class BandwidthUsed {
     public constructor(
         public egress: Egress,
         public ingress: Ingress,
-        public from: Date,
-        public to: Date) {}
+        public intervalStart: Date) {}
 
     /**
      * Used to summarize all bandwidth usage data
@@ -99,7 +98,7 @@ export class BandwidthUsed {
         const now = new Date();
         now.setDate(date);
 
-        return new BandwidthUsed(new Egress(0, 0, 0), new Ingress(0, 0), now, now);
+        return new BandwidthUsed(new Egress(0, 0, 0), new Ingress(0, 0), now);
     }
 }
 

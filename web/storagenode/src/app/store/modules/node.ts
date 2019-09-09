@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { SNOApi } from '@/storagenode/api/storagenode';
 import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
 import { BandwidthUsed, Satellite, Stamp } from '@/storagenode/satellite';
-import { SNOApi } from '@/storagenode/api/storagenode';
 
 export const NODE_MUTATIONS = {
     POPULATE_STORE: 'POPULATE_STORE',

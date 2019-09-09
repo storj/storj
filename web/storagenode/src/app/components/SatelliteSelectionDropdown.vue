@@ -23,26 +23,27 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-    import { NODE_ACTIONS } from '@/app/store/modules/node';
-    import { SatelliteInfo } from '@/storagenode/dashboard';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class SatelliteSelectionDropdown extends Vue {
-        public async onSatelliteClick(id: string): Promise<void> {
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
-            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
-        }
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { SatelliteInfo } from '@/storagenode/dashboard';
 
-        public get satellites(): SatelliteInfo[] {
-            return this.$store.state.node.satellites;
-        }
-
-        public get selectedSatellite(): string {
-            return this.$store.state.node.selectedSatellite.id;
-        }
+@Component
+export default class SatelliteSelectionDropdown extends Vue {
+    public async onSatelliteClick(id: string): Promise<void> {
+        await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
+        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
     }
+
+    public get satellites(): SatelliteInfo[] {
+        return this.$store.state.node.satellites;
+    }
+
+    public get selectedSatellite(): string {
+        return this.$store.state.node.selectedSatellite.id;
+    }
+}
 </script>
 
 <style lang="scss">

@@ -5,7 +5,8 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "lint": "vue-cli-service lint",
-    "build": "vue-cli-service build"
+    "build": "vue-cli-service build",
+    "debug": "vue-cli-service build --mode development"
   },
   "dependencies": {
     "chart.js": "^2.8.0",

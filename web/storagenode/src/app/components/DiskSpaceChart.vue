@@ -13,91 +13,92 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Chart from '@/app/components/Chart.vue';
-    import { ChartUtils } from '@/app/utils/chartUtils';
-    import { formatBytes } from '@/app/utils/converter';
-    import { Stamp } from '@/storagenode/satellite';
-    import { ChartData } from '@/app/types/chartData';
+import { Component, Vue } from 'vue-property-decorator';
 
-    /**
-     * stores stamp data for disc space chart's tooltip
-     */
-    class StampTooltip {
-        public atRestTotal: string;
-        public timestamp: string;
+import Chart from '@/app/components/Chart.vue';
+import { ChartData } from '@/app/types/chartData';
+import { ChartUtils } from '@/app/utils/chartUtils';
+import { formatBytes } from '@/app/utils/converter';
+import { Stamp } from '@/storagenode/satellite';
 
-        public constructor(stamp: Stamp) {
-            this.atRestTotal = formatBytes(stamp.atRestTotal);
-            this.timestamp = stamp.timestamp.toLocaleString();
-        }
+/**
+ * stores stamp data for disc space chart's tooltip
+ */
+class StampTooltip {
+    public atRestTotal: string;
+    public intervalStart: string;
+
+    public constructor(stamp: Stamp) {
+        this.atRestTotal = formatBytes(stamp.atRestTotal);
+        this.intervalStart = stamp.intervalStart.toLocaleString();
+    }
+}
+
+@Component ({
+    components: {
+        Chart,
+    },
+})
+export default class DiskSpaceChart extends Vue {
+    private get allStamps(): Stamp[] {
+        return ChartUtils.populateEmptyStamps(this.$store.state.node.storageChartData);
     }
 
-    @Component ({
-        components: {
-            Chart,
-        },
-    })
-    export default class DiskSpaceChart extends Vue {
-        private get allStamps(): Stamp[] {
-            return ChartUtils.populateEmptyStamps(this.$store.state.node.storageChartData);
+    public get chartData(): ChartData {
+        let data: number[] = [0];
+        const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
+        const chartBackgroundColor = '#F2F6FC';
+        const chartBorderColor = '#1F49A3';
+        const chartBorderWidth = 2;
+
+        if (this.allStamps.length) {
+            data = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotal));
         }
 
-        public get chartData(): ChartData {
-            const data: number[] = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotal));
+        return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
+    }
 
-            const tillDate = new Date();
-            tillDate.setDate(tillDate.getDate());
-
-            const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
-            const chartBackgroundColor = '#F2F6FC';
-            const chartBorderColor = '#1F49A3';
-            const chartBorderWidth = 2;
-
-            return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
+    public diskSpaceTooltip(tooltipModel): void {
+        // Tooltip Element
+        let tooltipEl = document.getElementById('disk-space-tooltip');
+        // Create element on first render
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.id = 'disk-space-tooltip';
+            document.body.appendChild(tooltipEl);
         }
 
-        public diskSpaceTooltip(tooltipModel): void {
-            // Tooltip Element
-            let tooltipEl = document.getElementById('disk-space-tooltip');
-            // Create element on first render
-            if (!tooltipEl) {
-                tooltipEl = document.createElement('div');
-                tooltipEl.id = 'disk-space-tooltip';
-                document.body.appendChild(tooltipEl);
-            }
-
-            // Hide if no tooltip
-            if (!tooltipModel.opacity) {
-                document.body.removeChild(tooltipEl);
-
-                return;
-            }
-
-            // Set Text
-            if (tooltipModel.body) {
-                const dataIndex = tooltipModel.dataPoints[0].index;
-                const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
-
-                tooltipEl.innerHTML = `<div class='tooltip-body'>
-                                           <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}</b></p>
-                                           <p class='tooltip-body__footer'>${dataPoint.timestamp}</p>
-                                       </div>`;
-            }
-
-            const diskSpaceChart = document.getElementById('disk-space-chart');
-
-            if (diskSpaceChart) {
-                const position = diskSpaceChart.getBoundingClientRect();
-                tooltipEl.style.opacity = '1';
-                tooltipEl.style.position = 'absolute';
-                tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - 20 + 'px';
-                tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
-            }
+        // Hide if no tooltip
+        if (!tooltipModel.opacity) {
+            document.body.removeChild(tooltipEl);
 
             return;
         }
+
+        // Set Text
+        if (tooltipModel.body) {
+            const dataIndex = tooltipModel.dataPoints[0].index;
+            const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
+
+            tooltipEl.innerHTML = `<div class='tooltip-body'>
+                                       <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}</b></p>
+                                       <p class='tooltip-body__footer'>${dataPoint.intervalStart}</p>
+                                   </div>`;
+        }
+
+        const diskSpaceChart = document.getElementById('disk-space-chart');
+
+        if (diskSpaceChart) {
+            const position = diskSpaceChart.getBoundingClientRect();
+            tooltipEl.style.opacity = '1';
+            tooltipEl.style.position = 'absolute';
+            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - 20 + 'px';
+            tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+        }
+
+        return;
     }
+}
 </script>
 
 <style lang="scss">

@@ -3,8 +3,9 @@
 
 import Vue from 'vue';
 import Router from 'vue-router';
-import Dashboard from '@/app/views/Dashboard.vue';
+
 import { NavigationLink } from '@/app/types/navigation';
+import Dashboard from '@/app/views/Dashboard.vue';
 
 Vue.use(Router);
 

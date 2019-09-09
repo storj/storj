@@ -65,8 +65,7 @@ export class ChartUtils {
             const date = i + 1;
 
             for (let j = 0; j < data.length; j++) {
-
-                if (data[j].from.getDate() === date) {
+                if (data[j].intervalStart.getDate() === date) {
                     bandwidthChartData[i] = data[j];
                     continue outer;
                 }
@@ -96,13 +95,13 @@ export class ChartUtils {
             const date = i + 1;
 
             for (let j = 0; j < data.length; j++) {
-                if (data[j].timestamp.getDate() === date) {
+                if (data[j].intervalStart.getDate() === date) {
                     storageChartData[i] = data[j];
                     continue outer;
                 }
-
-                storageChartData[i] = Stamp.emptyWithDate(date);
             }
+
+            storageChartData[i] = Stamp.emptyWithDate(date);
         }
 
         return storageChartData;

@@ -13,120 +13,121 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Chart from '@/app/components/Chart.vue';
-    import { ChartUtils } from '@/app/utils/chartUtils';
-    import { formatBytes } from '@/app/utils/converter';
-    import { BandwidthUsed } from '@/storagenode/satellite';
-    import { ChartData } from '@/app/types/chartData';
+import { Component, Vue } from 'vue-property-decorator';
 
-    /**
-     * stores bandwidth data for bandwidth chart's tooltip
-     */
-    class BandwidthTooltip {
-        public normalEgress: string;
-        public normalIngress: string;
-        public repairIngress: string;
-        public repairEgress: string;
-        public auditEgress: string;
-        public date: string;
+import Chart from '@/app/components/Chart.vue';
+import { ChartData } from '@/app/types/chartData';
+import { ChartUtils } from '@/app/utils/chartUtils';
+import { formatBytes } from '@/app/utils/converter';
+import { BandwidthUsed } from '@/storagenode/satellite';
 
-        public constructor(bandwidth: BandwidthUsed) {
-            this.normalEgress = formatBytes(bandwidth.egress.usage);
-            this.normalIngress = formatBytes(bandwidth.ingress.usage);
-            this.repairIngress = formatBytes(bandwidth.ingress.repair);
-            this.repairEgress = formatBytes(bandwidth.egress.repair);
-            this.auditEgress = formatBytes(bandwidth.egress.audit);
-            this.date = bandwidth.from.toLocaleString();
-        }
+/**
+ * stores bandwidth data for bandwidth chart's tooltip
+ */
+class BandwidthTooltip {
+    public normalEgress: string;
+    public normalIngress: string;
+    public repairIngress: string;
+    public repairEgress: string;
+    public auditEgress: string;
+    public date: string;
+
+    public constructor(bandwidth: BandwidthUsed) {
+        this.normalEgress = formatBytes(bandwidth.egress.usage);
+        this.normalIngress = formatBytes(bandwidth.ingress.usage);
+        this.repairIngress = formatBytes(bandwidth.ingress.repair);
+        this.repairEgress = formatBytes(bandwidth.egress.repair);
+        this.auditEgress = formatBytes(bandwidth.egress.audit);
+        this.date = bandwidth.intervalStart.toLocaleString();
+    }
+}
+
+@Component ({
+    components: {
+        Chart,
+    },
+})
+export default class BandwidthChart extends Vue {
+    private get allBandwidth(): BandwidthUsed[] {
+        return ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
     }
 
-    @Component ({
-        components: {
-            Chart,
-        },
-    })
-    export default class BandwidthChart extends Vue {
-        private get allBandwidth(): BandwidthUsed[] {
-            return ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
+    public get chartData(): ChartData {
+        let data: number[] = [0];
+        const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
+        const chartBackgroundColor = '#F2F6FC';
+        const chartBorderColor = '#1F49A3';
+        const chartBorderWidth = 2;
+
+        if (this.allBandwidth.length) {
+            data = ChartUtils.normalizeChartData(this.allBandwidth.map((elem) => {
+                return elem.summary();
+            }));
         }
 
-        public get chartData(): ChartData {
-            let data: number[] = [0];
-            const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
-            const chartBackgroundColor = '#F2F6FC';
-            const chartBorderColor = '#1F49A3';
-            const chartBorderWidth = 2;
+        return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
+    }
 
-            if (this.allBandwidth.length) {
-                data = ChartUtils.normalizeChartData(this.allBandwidth.map((elem) => {
-                    return elem.summary();
-                }));
-            }
-
-            return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
+    public bandwidthTooltip(tooltipModel): void {
+        // Tooltip Element
+        let tooltipEl = document.getElementById('bandwidth-tooltip');
+        // Create element on first render
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.id = 'bandwidth-tooltip';
+            document.body.appendChild(tooltipEl);
         }
 
-        public bandwidthTooltip(tooltipModel): void {
-            // Tooltip Element
-            let tooltipEl = document.getElementById('bandwidth-tooltip');
-            // Create element on first render
-            if (!tooltipEl) {
-                tooltipEl = document.createElement('div');
-                tooltipEl.id = 'bandwidth-tooltip';
-                document.body.appendChild(tooltipEl);
-            }
-
-            // Hide if no tooltip
-            if (!tooltipModel.opacity) {
-                document.body.removeChild(tooltipEl);
-
-                return;
-            }
-
-            // Set Text
-            if (tooltipModel.body) {
-                const dataIndex = tooltipModel.dataPoints[0].index;
-                const dataPoint = new BandwidthTooltip(this.allBandwidth[dataIndex]);
-
-                tooltipEl.innerHTML = `<div class='tooltip-header'>
-                                           <p>EGRESS</p>
-                                           <p class='tooltip-header__ingress'>INGRESS</p>
-                                       </div>
-                                       <div class='tooltip-body'>
-                                           <div class='tooltip-body__info'>
-                                               <p>NORMAL</p>
-                                               <p class='tooltip-body__info__egress-value'><b>${dataPoint.normalEgress}</b></p>
-                                               <p class='tooltip-body__info__ingress-value'><b>${dataPoint.normalIngress}</b></p>
-                                           </div>
-                                           <div class='tooltip-body__info'>
-                                               <p>REPAIR</p>
-                                               <p class='tooltip-body__info__egress-value'><b>${dataPoint.repairEgress}</b></p>
-                                               <p class='tooltip-body__info__ingress-value'><b>${dataPoint.repairIngress}</b></p>
-                                           </div>
-                                           <div class='tooltip-body__info'>
-                                               <p>AUDIT</p>
-                                               <p class='tooltip-body__info__egress-value'><b>${dataPoint.auditEgress}</b></p>
-                                           </div>
-                                       </div>
-                                       <div class='tooltip-footer'>
-                                           <p>${dataPoint.date}</p>
-                                       </div>`;
-            }
-
-            // `this` will be the overall tooltip
-            const bandwidthChart = document.getElementById('bandwidth-chart');
-            if (bandwidthChart) {
-                const position = bandwidthChart.getBoundingClientRect();
-                tooltipEl.style.opacity = '1';
-                tooltipEl.style.position = 'absolute';
-                tooltipEl.style.left = position.left + tooltipModel.caretX + 'px';
-                tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
-            }
+        // Hide if no tooltip
+        if (!tooltipModel.opacity) {
+            document.body.removeChild(tooltipEl);
 
             return;
         }
+
+        // Set Text
+        if (tooltipModel.body) {
+            const dataIndex = tooltipModel.dataPoints[0].index;
+            const dataPoint = new BandwidthTooltip(this.allBandwidth[dataIndex]);
+
+            tooltipEl.innerHTML = `<div class='tooltip-header'>
+                                       <p>EGRESS</p>
+                                       <p class='tooltip-header__ingress'>INGRESS</p>
+                                   </div>
+                                   <div class='tooltip-body'>
+                                       <div class='tooltip-body__info'>
+                                           <p>NORMAL</p>
+                                           <p class='tooltip-body__info__egress-value'><b>${dataPoint.normalEgress}</b></p>
+                                           <p class='tooltip-body__info__ingress-value'><b>${dataPoint.normalIngress}</b></p>
+                                       </div>
+                                       <div class='tooltip-body__info'>
+                                           <p>REPAIR</p>
+                                           <p class='tooltip-body__info__egress-value'><b>${dataPoint.repairEgress}</b></p>
+                                           <p class='tooltip-body__info__ingress-value'><b>${dataPoint.repairIngress}</b></p>
+                                       </div>
+                                       <div class='tooltip-body__info'>
+                                           <p>AUDIT</p>
+                                           <p class='tooltip-body__info__egress-value'><b>${dataPoint.auditEgress}</b></p>
+                                       </div>
+                                   </div>
+                                   <div class='tooltip-footer'>
+                                       <p>${dataPoint.date}</p>
+                                   </div>`;
+        }
+
+        // `this` will be the overall tooltip
+        const bandwidthChart = document.getElementById('bandwidth-chart');
+        if (bandwidthChart) {
+            const position = bandwidthChart.getBoundingClientRect();
+            tooltipEl.style.opacity = '1';
+            tooltipEl.style.position = 'absolute';
+            tooltipEl.style.left = position.left + tooltipModel.caretX + 'px';
+            tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+        }
+
+        return;
     }
+}
 </script>
 
 <style lang="scss">

@@ -13,32 +13,33 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import SNOHeader from '@/app/components/SNOHeader.vue';
-    import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
-    import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
-    import SNOFooter from '@/app/components/SNOFooter.vue';
-    import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { Component, Vue } from 'vue-property-decorator';
 
-    const {
-        GET_NODE_INFO,
-        SELECT_SATELLITE,
-    } = NODE_ACTIONS;
+import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
+import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
+import SNOFooter from '@/app/components/SNOFooter.vue';
+import SNOHeader from '@/app/components/SNOHeader.vue';
+import { NODE_ACTIONS } from '@/app/store/modules/node';
 
-    @Component ({
-        components: {
-            SNOHeader,
-            SNOContentTitle,
-            SNOContentFilling,
-            SNOFooter,
-        },
-    })
-    export default class Dashboard extends Vue {
-        public async mounted() {
-            await this.$store.dispatch(GET_NODE_INFO);
-            await this.$store.dispatch(SELECT_SATELLITE, null);
-        }
+const {
+    GET_NODE_INFO,
+    SELECT_SATELLITE,
+} = NODE_ACTIONS;
+
+@Component ({
+    components: {
+        SNOHeader,
+        SNOContentTitle,
+        SNOContentFilling,
+        SNOFooter,
+    },
+})
+export default class Dashboard extends Vue {
+    public async mounted() {
+        await this.$store.dispatch(GET_NODE_INFO);
+        await this.$store.dispatch(SELECT_SATELLITE, null);
     }
+}
 </script>
 
 <style lang="scss">

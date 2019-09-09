@@ -42,8 +42,6 @@ export class SNOApi {
 
         const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used, json.bandwidth.available);
 
-        console.log('dashboard json', json);
-
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
                                         new Date(json.lastPinged), new Date(json.lastQueried), version, json.upToDate);
     }
@@ -61,14 +59,14 @@ export class SNOApi {
         const bandwidthDailyJson = json.bandwidthDaily ? json.bandwidthDaily : [];
 
         const storageDaily: Stamp[] = storageDailyJson.map((stamp: any) => {
-            return new Stamp(stamp.atRestTotal, new Date(stamp.timestamp));
+            return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
         });
 
         const bandwidthDaily: BandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
-            const egress = new Egress(bandwidth.egress.repair, bandwidth.egress.audit, bandwidth.egress.usage);
+            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
             const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
 
-            return new BandwidthUsed(egress, ingress, new Date(bandwidth.from), new Date(bandwidth.to));
+            return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
         });
 
         const audit: Metric = new Metric(json.audit.totalCount, json.audit.successCount, json.audit.alpha,
@@ -76,8 +74,6 @@ export class SNOApi {
 
         const uptime: Metric = new Metric(json.uptime.totalCount, json.uptime.successCount, json.uptime.alpha,
             json.uptime.beta, json.uptime.score);
-
-        console.log('satellite 1', json)
 
         return new Satellite(json.id, storageDaily, bandwidthDaily, json.storageSummary,
             json.bandwidthSummary, audit, uptime);
@@ -94,16 +90,14 @@ export class SNOApi {
         const bandwidthDailyJson = json.bandwidthDaily ? json.bandwidthDaily : [];
 
         const storageDaily: Stamp[] = storageDailyJson.map((stamp: any) => {
-            return new Stamp(stamp.atRestTotal, new Date(stamp.timestamp));
+            return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
         });
 
         const bandwidthDaily: BandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
-            const egress = new Egress(bandwidth.egress.repair, bandwidth.egress.audit, bandwidth.egress.usage);
+            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
             const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
 
-            console.log('satellites json', json);
-
-            return new BandwidthUsed(egress, ingress, new Date(bandwidth.from), new Date(bandwidth.to));
+            return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
         });
 
         return new Satellites(storageDaily, bandwidthDaily, json.storageSummary, json.bandwidthSummary);

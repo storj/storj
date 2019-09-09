@@ -2,6 +2,7 @@
 // See LICENSE for copying information.\
 
 import Vue from 'vue';
+
 import App from './app/App.vue';
 import router from './app/router';
 import store from './app/store';

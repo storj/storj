@@ -12,36 +12,38 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
-    import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-    import { SatelliteInfo } from '@/storagenode/dashboard';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            SatelliteSelectionDropdown,
-        },
-    })
-    export default class SatelliteSelectionContainer extends Vue {
-        @Prop({default: ''})
-        private readonly label: string;
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { SatelliteInfo } from '@/storagenode/dashboard';
 
-        public toggleDropDown(): void {
-            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
-        }
+import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
 
-        public get satellites(): SatelliteInfo[] {
-            return this.$store.state.node.satellites;
-        }
+@Component({
+    components: {
+        SatelliteSelectionDropdown,
+    },
+})
+export default class SatelliteSelectionContainer extends Vue {
+    @Prop({default: ''})
+    private readonly label: string;
 
-        public get selectedSatellite(): string {
-            return this.$store.state.node.selectedSatellite.id;
-        }
-
-        public get isPopupShown(): boolean {
-            return this.$store.state.appStateModule.isSatelliteSelectionShown;
-        }
+    public toggleDropDown(): void {
+        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
     }
+
+    public get satellites(): SatelliteInfo[] {
+        return this.$store.state.node.satellites;
+    }
+
+    public get selectedSatellite(): string {
+        return this.$store.state.node.selectedSatellite.id;
+    }
+
+    public get isPopupShown(): boolean {
+        return this.$store.state.appStateModule.isSatelliteSelectionShown;
+    }
+}
 </script>
 
 <style lang="scss">

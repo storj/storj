@@ -55,73 +55,74 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import BandwidthChart from '@/app/components/BandwidthChart.vue';
-    import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
-    import BarInfoContainer from '@/app/components/BarInfoContainer.vue';
-    import ChecksAreaContainer from '@/app/components/ChecksAreaContainer.vue';
-    import PayoutContainer from '@/app/components/PayoutContainer.vue';
-    import SatelliteSelectionContainer from '@/app/components/SatelliteSelectionContainer.vue';
-    import { formatBytes } from '@/app/utils/converter';
-    import { BandwidthInfo, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
+import { Component, Vue } from 'vue-property-decorator';
 
-    /**
-     * Checks class holds info for Checks entity.
-     */
-    class Checks {
-        public uptime: number;
-        public audit: number;
+import BandwidthChart from '@/app/components/BandwidthChart.vue';
+import BarInfoContainer from '@/app/components/BarInfoContainer.vue';
+import ChecksAreaContainer from '@/app/components/ChecksAreaContainer.vue';
+import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
+import PayoutContainer from '@/app/components/PayoutContainer.vue';
+import SatelliteSelectionContainer from '@/app/components/SatelliteSelectionContainer.vue';
+import { formatBytes } from '@/app/utils/converter';
+import { BandwidthInfo, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
 
-        public constructor(uptime: number, audit: number) {
-            this.uptime = uptime;
-            this.audit = audit;
-        }
+/**
+ * Checks class holds info for Checks entity.
+ */
+class Checks {
+    public uptime: number;
+    public audit: number;
+
+    public constructor(uptime: number, audit: number) {
+        this.uptime = uptime;
+        this.audit = audit;
+    }
+}
+
+@Component ({
+    components: {
+        SatelliteSelectionContainer,
+        BandwidthChart,
+        DiskSpaceChart,
+        BarInfoContainer,
+        ChecksAreaContainer,
+        PayoutContainer,
+    },
+})
+export default class SNOContentFilling extends Vue {
+    public get wallet(): string {
+        return this.$store.state.node.info.wallet;
     }
 
-    @Component ({
-        components: {
-            SatelliteSelectionContainer,
-            BandwidthChart,
-            DiskSpaceChart,
-            BarInfoContainer,
-            ChecksAreaContainer,
-            PayoutContainer,
-        },
-    })
-    export default class SNOContentFilling extends Vue {
-        public get wallet(): string {
-            return this.$store.state.node.info.wallet;
-        }
-
-        public get bandwidthSummary(): string {
-            return formatBytes(this.$store.state.node.bandwidthSummary);
-        }
-
-        public get storageSummary(): string {
-            return formatBytes(this.$store.state.node.storageSummary);
-        }
-
-        public get bandwidth(): BandwidthInfo {
-            return this.$store.state.node.utilization.bandwidth;
-        }
-
-        public get diskSpace(): DiskSpaceInfo {
-            return this.$store.state.node.utilization.diskSpace;
-        }
-
-        public get checks(): Checks {
-            return this.$store.state.node.checks;
-        }
-
-        public get selectedSatellite(): SatelliteInfo {
-            return this.$store.state.node.selectedSatellite;
-        }
-
-        public get disqualifiedSatellites(): SatelliteInfo[] {
-            return this.$store.state.node.disqualifiedSatellites;
-        }
-
+    public get bandwidthSummary(): string {
+        return formatBytes(this.$store.state.node.bandwidthSummary);
     }
+
+    public get storageSummary(): string {
+        return formatBytes(this.$store.state.node.storageSummary);
+    }
+
+    public get bandwidth(): BandwidthInfo {
+        return this.$store.state.node.utilization.bandwidth;
+    }
+
+    public get diskSpace(): DiskSpaceInfo {
+        return this.$store.state.node.utilization.diskSpace;
+    }
+
+    public get checks(): Checks {
+        return this.$store.state.node.checks;
+    }
+
+    public get selectedSatellite(): SatelliteInfo {
+        return this.$store.state.node.selectedSatellite;
+    }
+
+    public get disqualifiedSatellites(): SatelliteInfo[] {
+        return this.$store.state.node.disqualifiedSatellites;
+    }
+
+}
 </script>
 
 <style lang="scss">

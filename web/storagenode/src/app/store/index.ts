@@ -3,8 +3,9 @@
 
 import Vue from 'vue';
 import Vuex from 'vuex';
-import { node } from './modules/node';
+
 import { appStateModule } from './modules/appState';
+import { node } from './modules/node';
 
 Vue.use(Vuex);
 

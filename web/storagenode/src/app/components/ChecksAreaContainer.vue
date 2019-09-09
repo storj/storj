@@ -20,26 +20,27 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import InfoComponent from '@/app/components/InfoComponent.vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component ({
-        components: {
-            InfoComponent,
-        },
-    })
-    export default class ChecksAreaContainer extends Vue {
-        @Prop({default: ''})
-        private readonly label: string;
-        @Prop({default: ''})
-        private readonly amount: number;
-        @Prop({default: ''})
-        private readonly infoText: string;
+import InfoComponent from '@/app/components/InfoComponent.vue';
 
-        public get value(): string {
-            return this.amount.toFixed(1);
-        }
+@Component ({
+    components: {
+        InfoComponent,
+    },
+})
+export default class ChecksAreaContainer extends Vue {
+    @Prop({default: ''})
+    private readonly label: string;
+    @Prop({default: ''})
+    private readonly amount: number;
+    @Prop({default: ''})
+    private readonly infoText: string;
+
+    public get value(): string {
+        return this.amount.toFixed(1);
     }
+}
 </script>
 
 <style lang="scss">
