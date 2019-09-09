@@ -153,7 +153,7 @@ func (endpoint *Endpoint) httpCreate(writer http.ResponseWriter, httpReq *http.R
 	writer.WriteHeader(http.StatusCreated)
 	if _, err = writer.Write([]byte(authorizationRes.Token)); err != nil {
 		msg := "error writing response"
-		err = ErrEndpoint.New(msg)
+		err = ErrEndpoint.Wrap(err)
 		endpoint.log.Error(msg, zap.Error(err))
 		http.Error(writer, msg, http.StatusInternalServerError)
 		return
