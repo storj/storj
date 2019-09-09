@@ -340,10 +340,13 @@ func TestConcurrency(t *testing.T) {
 		node := planet.StorageNodes[0]
 		satellite := planet.Satellites[0]
 
-		go func() {
+		done := make(chan bool)
+		go func(done chan bool) {
 			node.Storage2.BlobsCache.Update(ctx, satellite.ID(), 1000)
-		}()
+			done <- true
+		}(done)
 		err := node.Storage2.CacheService.PersistCacheTotals(ctx)
 		require.NoError(t, err)
+		<-done
 	})
 }
