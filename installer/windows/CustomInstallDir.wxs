@@ -65,7 +65,7 @@ Patch dialog sequence:
             <Publish Dialog="IdentityDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
 
             <Publish Dialog="OperatorConfigDlg" Control="Back" Event="NewDialog" Value="IdentityDirDlg" Order="1">1</Publish>
-            <Publish Dialog="OperatorConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">1</Publish>
+            <Publish Dialog="OperatorConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">STORJ_WALLET AND STORJ_WALLET_VALID</Publish>
 
             <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="OperatorConfigDlg" Order="1">NOT Installed</Publish>
             <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH</Publish>
