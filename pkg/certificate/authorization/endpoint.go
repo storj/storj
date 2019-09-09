@@ -129,11 +129,18 @@ func (endpoint *Endpoint) httpCreate(writer http.ResponseWriter, httpReq *http.R
 	}
 
 	userID, err := ioutil.ReadAll(httpReq.Body)
-	if err != nil || bytes.Equal([]byte{}, userID) {
-		msg := "error reading body"
-		err = ErrEndpoint.New(msg)
+	if bytes.Equal([]byte{}, userID) {
+		msg := "missing user ID body"
+		err = ErrEndpoint.Wrap(err)
 		endpoint.log.Error(msg, zap.Error(err))
 		http.Error(writer, msg, http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		msg := "error reading body"
+		err = ErrEndpoint.Wrap(err)
+		endpoint.log.Error(msg, zap.Error(err))
+		http.Error(writer, msg, http.StatusInternalServerError)
 		return
 	}
 
@@ -144,7 +151,7 @@ func (endpoint *Endpoint) httpCreate(writer http.ResponseWriter, httpReq *http.R
 	authorizationRes, err := endpoint.Create(ctx, authorizationReq)
 	if err != nil {
 		msg := "error creating authorization"
-		err = ErrEndpoint.New(msg)
+		err = ErrEndpoint.Wrap(err)
 		endpoint.log.Error(msg, zap.Error(err))
 		http.Error(writer, msg, http.StatusInternalServerError)
 		return
