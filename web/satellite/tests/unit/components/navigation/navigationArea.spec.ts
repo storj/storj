@@ -1,14 +1,17 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 import Vuex from 'vuex';
+
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import { makeProjectsModule } from '@/store/modules/projects';
-import { ProjectsApiMock } from '../../mock/api/projects';
-import { Project } from '@/types/projects';
-import { NavigationLink } from '@/types/navigation';
+
 import { RouteConfig } from '@/router';
+import { makeProjectsModule } from '@/store/modules/projects';
+import { NavigationLink } from '@/types/navigation';
+import { Project } from '@/types/projects';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import { ProjectsApiMock } from '../../mock/api/projects';
 
 const api = new ProjectsApiMock();
 api.setMockProject(new Project('1'));

@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleserver"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -88,6 +89,8 @@ type Config struct {
 	Version version.Config
 
 	Bandwidth bandwidth.Config
+
+	Contact contact.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -115,6 +118,12 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
+	}
+
+	Contact struct {
+		Endpoint  *contact.Endpoint
+		Chore     *contact.Chore
+		PingStats *contact.PingStats
 	}
 
 	Storage2 struct {
@@ -235,6 +244,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
+	}
+
+	{ // setup contact service
+		peer.Contact.PingStats = new(contact.PingStats)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
+		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup storage
@@ -431,6 +447,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -447,6 +467,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.Contact.Chore != nil {
+		errlist.Add(peer.Contact.Chore.Close())
+	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
 	}

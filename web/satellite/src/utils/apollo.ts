@@ -1,10 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { HttpLink } from 'apollo-link-http';
-import ApolloClient from 'apollo-client/ApolloClient';
 import { InMemoryCache } from 'apollo-cache-inmemory';
+import ApolloClient from 'apollo-client/ApolloClient';
 import { setContext } from 'apollo-link-context';
+import { HttpLink } from 'apollo-link-http';
+
 import { AuthToken } from '@/utils/authToken';
 
 // Satellite url

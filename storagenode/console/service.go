@@ -90,15 +90,24 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 	}, nil
 }
 
+// SatelliteInfo encapsulates satellite ID and disqualification.
+type SatelliteInfo struct {
+	ID           storj.NodeID `json:"id"`
+	Disqualified *time.Time   `json:"disqualified"`
+}
+
 // Dashboard encapsulates dashboard stale data.
 type Dashboard struct {
 	NodeID storj.NodeID `json:"nodeID"`
 	Wallet string       `json:"wallet"`
 
-	Satellites storj.NodeIDList `json:"satellites"`
+	Satellites []SatelliteInfo `json:"satellites"`
 
 	DiskSpace DiskSpaceInfo `json:"diskSpace"`
 	Bandwidth BandwidthInfo `json:"bandwidth"`
+
+	LastPinged  time.Time `json:"lastPinged"`
+	LastQueried time.Time `json:"lastQueried"`
 
 	Version  version.SemVer `json:"version"`
 	UpToDate bool           `json:"upToDate"`
@@ -113,14 +122,29 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
 	data.UpToDate = s.version.IsAllowed()
-	data.Satellites = s.trust.GetSatellites(ctx)
+	data.LastPinged = s.kademlia.LastPinged()
+	data.LastQueried = s.kademlia.LastQueried()
+
+	stats, err := s.reputationDB.All(ctx)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	for _, rep := range stats {
+		data.Satellites = append(data.Satellites,
+			SatelliteInfo{
+				ID:           rep.SatelliteID,
+				Disqualified: rep.Disqualified,
+			},
+		)
+	}
 
 	spaceUsage, err := s.pieceStore.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	bandwidthUsage, err := bandwidth.TotalMonthlySummary(ctx, s.bandwidthDB)
+	bandwidthUsage, err := s.bandwidthDB.Summary(ctx, time.Time{}, time.Now())
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
@@ -140,17 +164,19 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 
 // Satellite encapsulates satellite related data.
 type Satellite struct {
-	ID             storj.NodeID            `json:"id"`
-	StorageDaily   []storageusage.Stamp    `json:"storageDaily"`
-	BandwidthDaily []bandwidth.UsageRollup `json:"bandwidthDaily"`
-	Audit          reputation.Metric       `json:"audit"`
-	Uptime         reputation.Metric       `json:"uptime"`
+	ID               storj.NodeID            `json:"id"`
+	StorageDaily     []storageusage.Stamp    `json:"storageDaily"`
+	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageSummary   float64                 `json:"storageSummary"`
+	BandwidthSummary int64                   `json:"bandwidthSummary"`
+	Audit            reputation.Metric       `json:"audit"`
+	Uptime           reputation.Metric       `json:"uptime"`
 }
 
 // GetSatelliteData returns satellite related data.
 func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
-	from, to := date.MonthBoundary(time.Now())
+	from, to := date.MonthBoundary(time.Now().UTC())
 
 	bandwidthDaily, err := s.bandwidthDB.GetDailySatelliteRollups(ctx, satelliteID, from, to)
 	if err != nil {
@@ -162,31 +188,45 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	bandwidthSummary, err := s.bandwidthDB.SatelliteSummary(ctx, satelliteID, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	storageSummary, err := s.storageUsageDB.SatelliteSummary(ctx, satelliteID, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
 	rep, err := s.reputationDB.Get(ctx, satelliteID)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
 	return &Satellite{
-		ID:             satelliteID,
-		StorageDaily:   storageDaily,
-		BandwidthDaily: bandwidthDaily,
-		Audit:          rep.Audit,
-		Uptime:         rep.Uptime,
+		ID:               satelliteID,
+		StorageDaily:     storageDaily,
+		BandwidthDaily:   bandwidthDaily,
+		StorageSummary:   storageSummary,
+		BandwidthSummary: bandwidthSummary.Total(),
+		Audit:            rep.Audit,
+		Uptime:           rep.Uptime,
 	}, nil
 }
 
 // Satellites represents consolidated data across all satellites.
 type Satellites struct {
-	StorageDaily   []storageusage.Stamp    `json:"storageDaily"`
-	BandwidthDaily []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageDaily     []storageusage.Stamp    `json:"storageDaily"`
+	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageSummary   float64                 `json:"storageSummary"`
+	BandwidthSummary int64                   `json:"bandwidthSummary"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
 // among all satellites from the node's trust pool.
 func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err error) {
 	defer mon.Task()(&ctx)(nil)
-	from, to := date.MonthBoundary(time.Now())
+	from, to := date.MonthBoundary(time.Now().UTC())
 
 	bandwidthDaily, err := s.bandwidthDB.GetDailyRollups(ctx, from, to)
 	if err != nil {
@@ -198,9 +238,21 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	bandwidthSummary, err := s.bandwidthDB.Summary(ctx, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	storageSummary, err := s.storageUsageDB.Summary(ctx, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
 	return &Satellites{
-		StorageDaily:   storageDaily,
-		BandwidthDaily: bandwidthDaily,
+		StorageDaily:     storageDaily,
+		BandwidthDaily:   bandwidthDaily,
+		StorageSummary:   storageSummary,
+		BandwidthSummary: bandwidthSummary.Total(),
 	}, nil
 }
 

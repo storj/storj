@@ -1,13 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { shallowMount, mount } from '@vue/test-utils';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
-import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
+
 import { DelayedNotification } from '@/types/DelayedNotification';
+import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
+import { mount, shallowMount } from '@vue/test-utils';
 
 describe('NotificationArea.vue', () => {
-
     it('renders correctly', () => {
         const wrapper = shallowMount(NotificationArea, {
             computed: {

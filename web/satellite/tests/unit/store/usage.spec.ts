@@ -2,13 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
-import { ProjectUsageApiGql } from '@/api/usage';
-import { makeUsageModule, PROJECT_USAGE_ACTIONS, PROJECT_USAGE_MUTATIONS } from '@/store/modules/usage';
-import { DateRange, ProjectUsage } from '@/types/usage';
+
 import { ProjectsApiGql } from '@/api/projects';
+import { ProjectUsageApiGql } from '@/api/usage';
 import { makeProjectsModule } from '@/store/modules/projects';
+import { makeUsageModule, PROJECT_USAGE_ACTIONS, PROJECT_USAGE_MUTATIONS } from '@/store/modules/usage';
 import { Project } from '@/types/projects';
+import { DateRange, ProjectUsage } from '@/types/usage';
+import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const projectUsageApi = new ProjectUsageApiGql();
@@ -20,9 +21,9 @@ const selectedProject = new Project('', '', '', '');
 selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;
 
-let testDate1 = new Date();
+const testDate1 = new Date();
 testDate1.setDate(1);
-let testDate2 = new Date();
+const testDate2 = new Date();
 testDate2.setDate(2);
 const testUsage = new ProjectUsage(2, 3, 4, testDate1, testDate2);
 const now = new Date();
@@ -110,12 +111,10 @@ describe('actions', () => {
             Promise.resolve(testUsage)
         );
 
-        const firstDate = new Date();
-        firstDate.setMonth(firstDate.getMonth() - 1);
-        firstDate.setDate(1);
+        const date = new Date();
 
-        const secondDate = new Date();
-        secondDate.setDate(1);
+        const firstDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1, 1));
+        const secondDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 0, 23, 59, 59));
 
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
 

@@ -153,6 +153,90 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:contact.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "CheckinRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "address",
+                "type": "node.NodeAddress"
+              },
+              {
+                "id": 3,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              },
+              {
+                "id": 4,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              }
+            ]
+          },
+          {
+            "name": "CheckinResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "ping_node_success",
+                "type": "bool"
+              },
+              {
+                "id": 2,
+                "name": "ping_error_message",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "ContactPingRequest"
+          },
+          {
+            "name": "ContactPingResponse"
+          }
+        ],
+        "services": [
+          {
+            "name": "Contact",
+            "rpcs": [
+              {
+                "name": "PingNode",
+                "in_type": "ContactPingRequest",
+                "out_type": "ContactPingResponse"
+              }
+            ]
+          },
+          {
+            "name": "Node",
+            "rpcs": [
+              {
+                "name": "Checkin",
+                "in_type": "CheckinRequest",
+                "out_type": "CheckinResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "node.proto"
+          }
+        ],
+        "package": {
+          "name": "contact"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:datarepair.proto",
       "def": {
         "messages": [

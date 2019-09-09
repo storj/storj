@@ -6,7 +6,7 @@
         <div v-if="isLoading" class="loading-overlay active">
             <img src="../../static/images/register/Loading.gif">
         </div>
-        <div class="dashboard-container__wrap">
+        <div v-if="!isLoading" class="dashboard-container__wrap">
             <NavigationArea />
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader />
@@ -15,34 +15,41 @@
                 </div>
             </div>
         </div>
-        <ProjectCreationSuccessPopup/>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import DashboardHeader from '@/components/header/Header.vue';
-    import NavigationArea from '@/components/navigation/NavigationArea.vue';
-    import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
-    import {
-        API_KEYS_ACTIONS,
-        APP_STATE_ACTIONS,
-        NOTIFICATION_ACTIONS,
-        PM_ACTIONS,
-        PROJECT_PAYMENT_METHODS_ACTIONS,
-    } from '@/utils/constants/actionNames';
-    import { USER_ACTIONS } from '@/store/modules/users';
-    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-    import { AppState } from '@/utils/constants/appStateEnum';
-    import { AuthToken } from '@/utils/authToken';
-    import { Project } from '@/types/projects';
-    import { RouteConfig } from '@/router';
-    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-    mounted: async function() {
+import DashboardHeader from '@/components/header/Header.vue';
+import NavigationArea from '@/components/navigation/NavigationArea.vue';
+
+import { RouteConfig } from '@/router';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { Project } from '@/types/projects';
+import { AuthToken } from '@/utils/authToken';
+import {
+    API_KEYS_ACTIONS,
+    APP_STATE_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PM_ACTIONS,
+    PROJECT_PAYMENT_METHODS_ACTIONS,
+} from '@/utils/constants/actionNames';
+import { AppState } from '@/utils/constants/appStateEnum';
+
+@Component({
+    components: {
+        NavigationArea,
+        DashboardHeader,
+    }
+})
+export default class Dashboard extends Vue {
+    public mounted(): void {
         setTimeout(async () => {
+            // TODO: combine all project related requests in one
             try {
                 await this.$store.dispatch(USER_ACTIONS.GET);
             } catch (error) {
@@ -67,7 +74,7 @@
             if (!projects.length) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
-                if (!(this as any).isCurrentRouteIsAccount()) {
+                if (!this.isCurrentRouteIsAccount) {
                     await this.$router.push(RouteConfig.ProjectOverview.path);
 
                     return;
@@ -110,24 +117,16 @@
 
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
         }, 800);
-    },
-    computed: {
-        isLoading: function() {
-            return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
-        },
-        isCurrentRouteIsAccount: function(): boolean {
-            const segments = this.$route.path.split('/').map(segment => segment.toLowerCase());
-
-            return segments.includes(RouteConfig.Account.name.toLowerCase());
-        }
-    },
-    components: {
-        ProjectCreationSuccessPopup,
-        NavigationArea,
-        DashboardHeader
     }
-})
-export default class Dashboard extends Vue {
+
+    public get isLoading(): boolean {
+        return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
+    }
+    public get isCurrentRouteIsAccount(): boolean {
+        const segments = this.$route.path.split('/').map(segment => segment.toLowerCase());
+
+        return segments.includes(RouteConfig.Account.name.toLowerCase());
+    }
 }
 </script>
 

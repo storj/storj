@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
@@ -132,7 +133,6 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-	Vouchers  vouchers.Config
 
 	Version version.Config
 }
@@ -158,6 +158,11 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
+	}
+
+	Contact struct {
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
 	}
 
 	Overlay struct {
@@ -192,8 +197,10 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service          *audit.Service
-		ReservoirService *audit.ReservoirService
+		Service *audit.Service
+		Queue   *audit.Queue
+		Worker  *audit.Worker
+		Chore   *audit.Chore
 	}
 
 	GarbageCollection struct {
@@ -353,6 +360,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
+	{ // setup contact service
+		log.Debug("Setting up contact service")
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Overlay.Service, peer.Transport)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
+		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+	}
+
 	{ // setup discovery
 		log.Debug("Setting up discovery")
 		config := config.Discovery
@@ -361,12 +375,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
-			peer.Log.Named("vouchers"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			peer.Overlay.Service,
-			config.Vouchers.Expiration,
-		)
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 
@@ -455,16 +463,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Overlay.Service,
 			config.Checker)
 
+		segmentRepairer := repairer.NewSegmentRepairer(
+			log.Named("repairer"),
+			peer.Metainfo.Service,
+			peer.Orders.Service,
+			peer.Overlay.Service,
+			peer.Transport,
+			config.Repairer.Timeout,
+			config.Repairer.MaxExcessRateOptimalThreshold,
+			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
+		)
+
 		peer.Repair.Repairer = repairer.NewService(
 			peer.Log.Named("repairer"),
 			peer.DB.RepairQueue(),
 			&config.Repairer,
-			config.Repairer.Interval,
-			config.Repairer.MaxRepair,
-			peer.Transport,
-			peer.Metainfo.Service,
-			peer.Orders.Service,
-			peer.Overlay.Service,
+			segmentRepairer,
 		)
 
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
@@ -489,7 +503,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		// setup audit 2.0
-		peer.Audit.ReservoirService = audit.NewReservoirService(peer.Log.Named("reservoir service"),
+		peer.Audit.Queue = &audit.Queue{}
+
+		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
+			peer.Audit.Queue,
+			config,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit reservoir chore"),
+			peer.Audit.Queue,
 			peer.Metainfo.Loop,
 			config,
 		)
@@ -711,7 +736,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.ReservoirService.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.Chore.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
@@ -762,6 +790,13 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Marketing.Endpoint.Close())
 	} else if peer.Marketing.Listener != nil {
 		errlist.Add(peer.Marketing.Listener.Close())
+	}
+
+	if peer.Audit.Chore != nil {
+		errlist.Add(peer.Audit.Chore.Close())
+	}
+	if peer.Audit.Worker != nil {
+		errlist.Add(peer.Audit.Worker.Close())
 	}
 
 	// close services in reverse initialization order

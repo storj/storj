@@ -11,6 +11,7 @@ import (
 	_ "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
 	math "math"
+	drpc "storj.io/drpc"
 	time "time"
 )
 
@@ -213,6 +214,71 @@ var fileDescriptor_3659b9a115b8060d = []byte{
 	0x59, 0xa1, 0xda, 0xf6, 0x1c, 0xe4, 0x6a, 0x29, 0x45, 0x97, 0x20, 0x55, 0x47, 0x20, 0xed, 0xc8,
 	0x9f, 0x7c, 0xa2, 0x9f, 0xfc, 0x9a, 0xc6, 0x6c, 0x4d, 0x3b, 0x37, 0xed, 0x74, 0xbb, 0x15, 0x79,
 	0xdd, 0x67, 0x9f, 0x01, 0x00, 0x00, 0xff, 0xff, 0xf1, 0x1f, 0x45, 0xc2, 0x51, 0x02, 0x00, 0x00,
+}
+
+type DRPCVouchersClient interface {
+	DRPCConn() drpc.Conn
+
+	Request(ctx context.Context, in *VoucherRequest) (*VoucherResponse, error)
+}
+
+type drpcVouchersClient struct {
+	cc drpc.Conn
+}
+
+func NewDRPCVouchersClient(cc drpc.Conn) DRPCVouchersClient {
+	return &drpcVouchersClient{cc}
+}
+
+func (c *drpcVouchersClient) DRPCConn() drpc.Conn { return c.cc }
+
+func (c *drpcVouchersClient) Request(ctx context.Context, in *VoucherRequest) (*VoucherResponse, error) {
+	out := new(VoucherResponse)
+	err := c.cc.Invoke(ctx, "/vouchers.Vouchers/Request", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+type DRPCVouchersServer interface {
+	DRPCRequest(context.Context, *VoucherRequest) (*VoucherResponse, error)
+}
+
+type DRPCVouchersDescription struct{}
+
+func (DRPCVouchersDescription) NumMethods() int { return 1 }
+
+func (DRPCVouchersDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
+	switch n {
+	case 0:
+		return "/vouchers.Vouchers/Request",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCVouchersServer).
+					DRPCRequest(
+						ctx,
+						in1.(*VoucherRequest),
+					)
+			}, DRPCVouchersServer.DRPCRequest, true
+	default:
+		return "", nil, nil, false
+	}
+}
+
+type DRPCVouchers_RequestStream interface {
+	drpc.Stream
+	SendAndClose(*VoucherResponse) error
+}
+
+type drpcVouchersRequestStream struct {
+	drpc.Stream
+}
+
+func (x *drpcVouchersRequestStream) SendAndClose(m *VoucherResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

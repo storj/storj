@@ -30,94 +30,95 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-    import Button from '@/components/common/Button.vue';
-    import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
-    import AddUserPopup from '@/components/team/AddUserPopup.vue';
+import Button from '@/components/common/Button.vue';
+import HeaderComponent from '@/components/common/HeaderComponent.vue';
+import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
-    declare interface ClearSearch {
-        clearSearch: () => void;
+import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+
+declare interface ClearSearch {
+    clearSearch: () => void;
+}
+
+@Component({
+    components: {
+        Button,
+        HeaderComponent,
+        AddUserPopup,
+    }
+})
+export default class HeaderArea extends Vue {
+    @Prop({default: ProjectMemberHeaderState.DEFAULT})
+    private readonly headerState: ProjectMemberHeaderState;
+    @Prop({default: 0})
+    public readonly selectedProjectMembersCount: number;
+
+    private FIRST_PAGE = 1;
+
+    public isDeleteClicked: boolean = false;
+
+    public $refs!: {
+        headerComponent: HeaderComponent & ClearSearch;
+    };
+
+    public get userCountTitle(): string {
+        if (this.selectedProjectMembersCount === 1) {
+            return 'user';
+        }
+
+        return 'users';
     }
 
-    @Component({
-        components: {
-            Button,
-            HeaderComponent,
-            AddUserPopup,
-        }
-    })
-    export default class HeaderArea extends Vue {
-        @Prop({default: ProjectMemberHeaderState.DEFAULT})
-        private readonly headerState: ProjectMemberHeaderState;
-        @Prop({default: 0})
-        public readonly selectedProjectMembersCount: number;
+    public onAddUsersClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+    }
 
-        private FIRST_PAGE = 1;
+    public onFirstDeleteClick(): void {
+        this.isDeleteClicked = true;
+    }
 
-        public isDeleteClicked: boolean = false;
+    public onClearSelection(): void {
+        this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
+        this.isDeleteClicked = false;
 
-        public $refs!: {
-            headerComponent: HeaderComponent & ClearSearch
-        };
+        this.$refs.headerComponent.clearSearch();
+    }
 
-        public get userCountTitle(): string {
-            if (this.selectedProjectMembersCount === 1) {
-                return 'user';
-            }
+    public async onDelete(): Promise<void> {
+        const projectMemberEmails: string[] = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
+            return member.user.email;
+        });
 
-            return 'users';
-        }
+        try {
+            await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
+        } catch (err) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error while deleting users from projectMembers. ${err.message}`);
 
-        public onAddUsersClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+            return;
         }
 
-        public onFirstDeleteClick(): void {
-            this.isDeleteClicked = true;
-        }
+        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
+        this.isDeleteClicked = false;
 
-        public onClearSelection(): void {
-            this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
-            this.isDeleteClicked = false;
+        this.$refs.headerComponent.clearSearch();
+    }
 
-            this.$refs.headerComponent.clearSearch();
-        }
-
-        public async onDelete(): Promise<void> {
-            const projectMemberEmails: string[] = this.$store.getters.selectedProjectMembers.map((member: ProjectMember) => {
-                return member.user.email;
-            });
-
-            try {
-                await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
-            } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error while deleting users from projectMembers. ${err.message}`);
-
-                return;
-            }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
-            this.isDeleteClicked = false;
-
-            this.$refs.headerComponent.clearSearch();
-        }
-
-        public async processSearchQuery(search: string): Promise<void> {
-            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
-            }
-        }
-
-        public get isAddTeamMembersPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
+    public async processSearchQuery(search: string): Promise<void> {
+        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
+        try {
+            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (err) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
         }
     }
+
+    public get isAddTeamMembersPopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
+    }
+}
 </script>
 
 <style scoped lang="scss">
