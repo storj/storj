@@ -82,8 +82,11 @@ func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, transport transpor
 func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[storj.NodeID]bool) (report *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointer, err := verifier.checkIfSegmentDeleted(ctx, path)
+	pointer, err := verifier.metainfo.Get(ctx, path)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, ErrSegmentDeleted.New("%q", path)
+		}
 		return nil, err
 	}
 
@@ -119,7 +122,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		}, err
 	}
 
-	_, err = verifier.checkIfSegmentDeleted(ctx, path)
+	_, err = verifier.checkIfSegmentDeleted(ctx, path, pointer)
 	if err != nil {
 		return &Report{
 			Offlines: offlineNodes,
@@ -310,8 +313,11 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		err          error
 	}
 
-	pointer, err := verifier.checkIfSegmentDeleted(ctx, path)
+	pointer, err := verifier.metainfo.Get(ctx, path)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, ErrSegmentDeleted.New("%q", path)
+		}
 		return nil, err
 	}
 
@@ -392,7 +398,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				}
 				if errs2.IsRPC(err, codes.NotFound) {
 					// Get the original segment pointer in the metainfo
-					oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path)
+					oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, pointer)
 					if err != nil {
 						ch <- result{nodeID: piece.NodeId, status: success}
 						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.String("Segment Path", path), zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
@@ -424,7 +430,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				ch <- result{nodeID: piece.NodeId, status: success}
 				verifier.log.Debug("Reverify: hashes match (audit success)", zap.String("Segment Path", path), zap.Stringer("Node ID", piece.NodeId))
 			} else {
-				oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path)
+				oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, pointer)
 				if err != nil {
 					ch <- result{nodeID: piece.NodeId, status: success}
 					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.String("Segment Path", path), zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
@@ -554,7 +560,7 @@ OUTER:
 }
 
 // checkIfSegmentDeleted checks if path's pointer has been deleted since path was selected.
-func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath string) (newPointer *pb.Pointer, err error) {
+func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath string, oldPointer *pb.Pointer) (newPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
@@ -565,10 +571,9 @@ func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath
 		return nil, err
 	}
 
-	// TODO: commenting because we no longer have access to the old pointer
-	//if oldPointer != nil && oldPointer.CreationDate != newPointer.CreationDate {
-	//	return nil, ErrSegmentDeleted.New("%q", segmentPath)
-	//}
+	if oldPointer != nil && oldPointer.CreationDate != newPointer.CreationDate {
+		return nil, ErrSegmentDeleted.New("%q", segmentPath)
+	}
 	return newPointer, nil
 }
 

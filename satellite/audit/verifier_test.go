@@ -560,38 +560,34 @@ func TestVerifierDeletedSegment(t *testing.T) {
 	})
 }
 
-// TODO: Commenting this test for now because currently when we get paths from the audit queue,
-//  it doesn't seem like there's a way for us to keep track of the old pointer and compare
-//  creations dates like we did previously.
+func TestVerifierModifiedSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-//func TestVerifierModifiedSegment(t *testing.T) {
-//	testplanet.Run(t, testplanet.Config{
-//		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-//	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-//
-//		audits := planet.Satellites[0].Audit
-//		queue := audits.Queue
-//		satellite := planet.Satellites[0]
-//
-//		ul := planet.Uplinks[0]
-//		testData := testrand.Bytes(8 * memory.KiB)
-//
-//		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
-//		require.NoError(t, err)
-//
-//		satellite.Audit.Chore.Loop.TriggerWait()
-//		path, err := queue.Next()
-//		require.NoError(t, err)
-//
-//		// replace the file
-//		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
-//		require.NoError(t, err)
-//
-//		report, err := audits.Verifier.Verify2(ctx, path, nil)
-//		require.True(t, audit.ErrSegmentDeleted.Has(err))
-//		assert.Empty(t, report)
-//	})
-//}
+		audits := planet.Satellites[0].Audit
+		queue := audits.Queue
+		satellite := planet.Satellites[0]
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		satellite.Audit.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		// replace the file
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		report, err := audits.Verifier.Verify(ctx, path, nil)
+		require.True(t, audit.ErrSegmentDeleted.Has(err))
+		assert.Empty(t, report)
+	})
+}
 
 func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
