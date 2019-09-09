@@ -34,9 +34,6 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 GOBIN=$RELEASE_DIR/bin make -C "$RELEASE_DIR" install-sim
 GOBIN=$BRANCH_DIR/bin  make -C "$BRANCH_DIR" install-sim
 
-ls -lah $RELEASE_DIR/bin
-ls -lah $BRANCH_DIR/bin
-
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
@@ -68,6 +65,14 @@ PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test
 ## Ensure that old uplink works
 
 # overwrite new uplink with release branch and test the download
+find $STORJ_NETWORK_DIR
+
+ls -lah $RELEASE_DIR/bin
+ls -lah $BRANCH_DIR/bin
+
+ls -lah $RELEASE_DIR/bin/uplink
+ls -lah $BRANCH_DIR/bin/uplink
+
 rm $BRANCH_DIR/bin/uplink
 cp $RELEASE_DIR/bin/uplink $BRANCH_DIR/bin/uplink
 
