@@ -106,7 +106,6 @@ export default class DiskSpaceChart extends Vue {
         background-color: #FFFFFF;
         width: auto;
         font-size: 12px;
-        font-family: 'font_regular';
         border-radius: 8px;
         box-shadow: 0 2px 10px #D2D6DE;
         color: #535F77;

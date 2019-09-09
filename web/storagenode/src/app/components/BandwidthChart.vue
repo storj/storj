@@ -134,7 +134,6 @@ export default class BandwidthChart extends Vue {
     #bandwidth-tooltip {
         background-color: #FFFFFF;
         width: auto;
-        font-family: 'font_regular';
         font-size: 12px;
         border-radius: 8px;
         box-shadow: 0 2px 10px #D2D6DE;

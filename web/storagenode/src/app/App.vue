@@ -17,18 +17,23 @@
 <style lang="scss">
     body {
         margin: 0 !important;
+        font-family: 'font_regular';
     }
+
     @font-face {
+        font-display: swap;
         font-family: "font_regular";
         src: url("../../static/fonts/font_regular.ttf");
     }
 
     @font-face {
+        font-display: swap;
         font-family: "font_medium";
         src: url("../../static/fonts/font_medium.ttf");
     }
 
     @font-face {
+        font-display: swap;
         font-family: "font_bold";
         src: url("../../static/fonts/font_bold.ttf");
     }

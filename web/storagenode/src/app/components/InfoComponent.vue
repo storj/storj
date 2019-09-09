@@ -98,7 +98,6 @@
                     color: #5A6E87;
                     font-size: 12px;
                     line-height: 16px;
-                    font-family: 'font_regular';
                     margin-block-start: 0;
                     margin-block-end: 0;
                 }
