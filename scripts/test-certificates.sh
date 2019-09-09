@@ -7,6 +7,7 @@ IDENTS_DIR=$TMPDIR/identities
 CERTS_DIR=$TMPDIR/certificates
 CERTS_ADDR=127.0.0.4:11000
 CERTS_ADDR_PRIV=127.0.0.4:11001
+AUTHS_HTTP_ADDR=127.0.0.1:11002
 
 kill_certificates_server() {
   kill $CERTS_PID

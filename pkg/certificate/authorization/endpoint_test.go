@@ -22,7 +22,6 @@ func TestEndpoint_Create(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-
 	authorizationDB := newTestAuthDB(t, ctx)
 	endpoint := NewEndpoint(zaptest.NewLogger(t), authorizationDB, nil)
 	require.NotNil(t, endpoint)
