@@ -62,7 +62,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 	nonNilLimits := nonNilCount(limits)
 
-	if nonNilLimits < es.RequiredCount() {
+	if nonNilLimits <= es.RequiredCount() {
 		return nil, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
 	}
 
@@ -87,18 +87,18 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 			defer cond.L.Unlock()
 
 			for {
-				if successfulPieces >= es.RequiredCount() {
+				if successfulPieces > es.RequiredCount() {
 					// already downloaded minimum number of pieces
 					cond.Broadcast()
 					return
 				}
-				if successfulPieces+inProgress+unusedLimits < es.RequiredCount() {
+				if successfulPieces+inProgress+unusedLimits <= es.RequiredCount() {
 					// not enough available limits left to get required number of pieces
 					cond.Broadcast()
 					return
 				}
 
-				if successfulPieces+inProgress >= es.RequiredCount() {
+				if successfulPieces+inProgress > es.RequiredCount() {
 					cond.Wait()
 					continue
 				}
@@ -125,7 +125,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 	limiter.Wait()
 
-	if successfulPieces < es.RequiredCount() {
+	if successfulPieces <= es.RequiredCount() {
 		return nil, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
 	}
 
@@ -134,7 +134,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, Error.Wrap(err)
 	}
 
-	esScheme := eestream.NewUnsafeRSScheme(fec, es.ErasureShareSize())
+	// TODO switch to NewUnsafeRSScheme when we do not need to use RS error correction
+	esScheme := eestream.NewRSScheme(fec, es.ErasureShareSize())
 	expectedSize := pieceSize * int64(es.RequiredCount())
 
 	ctx, cancel := context.WithCancel(ctx)

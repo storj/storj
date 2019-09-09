@@ -63,26 +63,27 @@ func TestDataRepair(t *testing.T) {
 		var (
 			testData         = testrand.Bytes(8 * memory.KiB)
 			minThreshold     = 3
+			repairThreshold  = 5
 			successThreshold = 7
+			maxThreshold     = 9
 		)
 		err := uplinkPeer.UploadWithConfig(ctx, satellitePeer, &uplink.RSConfig{
 			MinThreshold:     minThreshold,
-			RepairThreshold:  5,
+			RepairThreshold:  repairThreshold,
 			SuccessThreshold: successThreshold,
-			MaxThreshold:     9,
+			MaxThreshold:     maxThreshold,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellitePeer)
 
 		// calculate how many storagenodes to kill
-		redundancy := pointer.GetRemote().GetRedundancy()
-		minReq := redundancy.GetMinReq()
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 		numPieces := len(remotePieces)
 		// disqualify one storage node
 		toDisqualify := 1
-		toKill := numPieces - toDisqualify - int(minReq)
+		toKill := numPieces - toDisqualify - (minThreshold + 1)
+		maxToKill := maxThreshold - toDisqualify - (minThreshold + 1)
 		require.True(t, toKill >= 1)
 		maxNumRepairedPieces := int(
 			math.Ceil(
@@ -93,6 +94,12 @@ func TestDataRepair(t *testing.T) {
 		// Ensure that there are enough storage nodes to upload repaired segments
 		require.Falsef(t,
 			(numStorageNodes-toKill-toDisqualify) < maxNumRepairedPieces,
+			"there is not enough available nodes for repairing: need= %d, have= %d",
+			maxNumRepairedPieces, (numStorageNodes - toKill - toDisqualify),
+		)
+		// Ensure that there would be enough storagenodes in the test if we uploaded the maximum number of pieces
+		require.Falsef(t,
+			(numStorageNodes-maxToKill-toDisqualify) < maxNumRepairedPieces,
 			"there is not enough available nodes for repairing: need= %d, have= %d",
 			maxNumRepairedPieces, (numStorageNodes - toKill - toDisqualify),
 		)
@@ -164,7 +171,7 @@ func TestDataRepair(t *testing.T) {
 
 // TestCorruptDataRepair does the following:
 // - Uploads test data
-// - Kills all but the minimum number of nodes carrying the uploaded segment
+// - Kills all but the minimum number of nodes (+1) carrying the uploaded segment
 // - On one of the remaining nodes, corrupt the piece data being stored by that node
 // - Triggers data repair, which attempts to repair the data from the remaining nodes to
 //	 the numbers of nodes determined by the upload repair max threshold
@@ -213,7 +220,7 @@ func TestCorruptDataRepair(t *testing.T) {
 		minReq := redundancy.GetMinReq()
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 		numPieces := len(remotePieces)
-		toKill := numPieces - int(minReq)
+		toKill := numPieces - int(minReq+1)
 		require.True(t, toKill >= 1)
 
 		// kill nodes and track lost pieces
