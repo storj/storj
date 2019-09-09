@@ -48,6 +48,17 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 		return nil, Error.Wrap(err)
 	}
 
+	err = endpoint.service.overlay.Put(ctx, peerID, pb.Node{
+		Id: peerID,
+		Address: &pb.NodeAddress{
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			Address:   req.GetAddress().GetAddress(),
+		},
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	// TODO(jg): We are making 2 requests to the database, one to update uptime and
 	// the other to update the capacity and operator info. We should combine these into
 	// one to reduce db connections. Consider adding batching and using a stored procedure.
