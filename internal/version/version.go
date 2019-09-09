@@ -93,6 +93,29 @@ func NewSemVer(v string) (sv SemVer, err error) {
 	return sv, nil
 }
 
+// Compare compare two versions, return -1 if compared version is greater, 0 if equal and 1 if less.
+func (sem *SemVer) Compare(version SemVer) int {
+	result := sem.Major - version.Major
+	if result > 0 {
+		return 1
+	} else if result < 0 {
+		return -1
+	}
+	result = sem.Minor - version.Minor
+	if result > 0 {
+		return 1
+	} else if result < 0 {
+		return -1
+	}
+	result = sem.Patch - version.Patch
+	if result > 0 {
+		return 1
+	} else if result < 0 {
+		return -1
+	}
+	return 0
+}
+
 // String converts the SemVer struct to a more easy to handle string
 func (sem *SemVer) String() (version string) {
 	return fmt.Sprintf("v%d.%d.%d", sem.Major, sem.Minor, sem.Patch)

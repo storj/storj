@@ -9,7 +9,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-const maxReservoirSize = 2
+const maxReservoirSize = 3
 
 // Reservoir holds a certain number of segments to reflect a random sample
 type Reservoir struct {

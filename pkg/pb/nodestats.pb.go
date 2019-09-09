@@ -11,6 +11,7 @@ import (
 	_ "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
 	math "math"
+	drpc "storj.io/drpc"
 	time "time"
 )
 
@@ -359,6 +360,107 @@ var fileDescriptor_e0b184ee117142aa = []byte{
 	0xef, 0x5f, 0x79, 0x56, 0xd6, 0xfa, 0x0e, 0x06, 0x7f, 0xf4, 0x40, 0x0f, 0xae, 0x6f, 0xa9, 0xb0,
 	0x7d, 0x70, 0x93, 0x2a, 0xdd, 0xf6, 0x5b, 0x23, 0x5d, 0x2c, 0x3a, 0x3a, 0xe1, 0xe3, 0xdf, 0x01,
 	0x00, 0x00, 0xff, 0xff, 0xad, 0xd9, 0x13, 0x89, 0x80, 0x04, 0x00, 0x00,
+}
+
+type DRPCNodeStatsClient interface {
+	DRPCConn() drpc.Conn
+
+	GetStats(ctx context.Context, in *GetStatsRequest) (*GetStatsResponse, error)
+	DailyStorageUsage(ctx context.Context, in *DailyStorageUsageRequest) (*DailyStorageUsageResponse, error)
+}
+
+type drpcNodeStatsClient struct {
+	cc drpc.Conn
+}
+
+func NewDRPCNodeStatsClient(cc drpc.Conn) DRPCNodeStatsClient {
+	return &drpcNodeStatsClient{cc}
+}
+
+func (c *drpcNodeStatsClient) DRPCConn() drpc.Conn { return c.cc }
+
+func (c *drpcNodeStatsClient) GetStats(ctx context.Context, in *GetStatsRequest) (*GetStatsResponse, error) {
+	out := new(GetStatsResponse)
+	err := c.cc.Invoke(ctx, "/nodestats.NodeStats/GetStats", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcNodeStatsClient) DailyStorageUsage(ctx context.Context, in *DailyStorageUsageRequest) (*DailyStorageUsageResponse, error) {
+	out := new(DailyStorageUsageResponse)
+	err := c.cc.Invoke(ctx, "/nodestats.NodeStats/DailyStorageUsage", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+type DRPCNodeStatsServer interface {
+	DRPCGetStats(context.Context, *GetStatsRequest) (*GetStatsResponse, error)
+	DRPCDailyStorageUsage(context.Context, *DailyStorageUsageRequest) (*DailyStorageUsageResponse, error)
+}
+
+type DRPCNodeStatsDescription struct{}
+
+func (DRPCNodeStatsDescription) NumMethods() int { return 2 }
+
+func (DRPCNodeStatsDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
+	switch n {
+	case 0:
+		return "/nodestats.NodeStats/GetStats",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCNodeStatsServer).
+					DRPCGetStats(
+						ctx,
+						in1.(*GetStatsRequest),
+					)
+			}, DRPCNodeStatsServer.DRPCGetStats, true
+	case 1:
+		return "/nodestats.NodeStats/DailyStorageUsage",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCNodeStatsServer).
+					DRPCDailyStorageUsage(
+						ctx,
+						in1.(*DailyStorageUsageRequest),
+					)
+			}, DRPCNodeStatsServer.DRPCDailyStorageUsage, true
+	default:
+		return "", nil, nil, false
+	}
+}
+
+type DRPCNodeStats_GetStatsStream interface {
+	drpc.Stream
+	SendAndClose(*GetStatsResponse) error
+}
+
+type drpcNodeStatsGetStatsStream struct {
+	drpc.Stream
+}
+
+func (x *drpcNodeStatsGetStatsStream) SendAndClose(m *GetStatsResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCNodeStats_DailyStorageUsageStream interface {
+	drpc.Stream
+	SendAndClose(*DailyStorageUsageResponse) error
+}
+
+type drpcNodeStatsDailyStorageUsageStream struct {
+	drpc.Stream
+}
+
+func (x *drpcNodeStatsDailyStorageUsageStream) SendAndClose(m *DailyStorageUsageResponse) error {
+	if err := x.MsgSend(m); err != nil {
+		return err
+	}
+	return x.CloseSend()
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

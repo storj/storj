@@ -436,14 +436,16 @@ func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.Ci
 		return err
 	}
 
+	var errlist errs.Group
 	for _, item := range items {
 		err = s.segments.Delete(ctx, streamID, item.Position.Index)
 		if err != nil {
-			return err
+			errlist.Add(err)
+			continue
 		}
 	}
 
-	return nil
+	return errlist.Err()
 }
 
 // ListItem is a single item in a listing

@@ -72,7 +72,7 @@ typedef struct BucketConfig {
 
 typedef struct BucketListOptions {
     char    *cursor;
-    int8_t  direction;
+    ListDirection  direction;
     int64_t limit;
 } BucketListOptions;
 
