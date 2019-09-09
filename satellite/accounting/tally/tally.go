@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
@@ -31,21 +32,19 @@ type Service struct {
 	logger                  *zap.Logger
 	metainfo                *metainfo.Service
 	overlay                 *overlay.Service
-	limit                   int
-	ticker                  *time.Ticker
+	Loop                    sync2.Cycle
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
 	liveAccounting          live.Service
 }
 
 // New creates a new tally Service
-func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, metainfo *metainfo.Service, overlay *overlay.Service, limit int, interval time.Duration) *Service {
+func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, metainfo *metainfo.Service, overlay *overlay.Service, interval time.Duration) *Service {
 	return &Service{
 		logger:                  logger,
 		metainfo:                metainfo,
 		overlay:                 overlay,
-		limit:                   limit,
-		ticker:                  time.NewTicker(interval),
+		Loop:                    *sync2.NewCycle(interval),
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
 		liveAccounting:          liveAccounting,
@@ -57,16 +56,19 @@ func (t *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	t.logger.Info("Tally service starting up")
 
-	for {
-		if err = t.Tally(ctx); err != nil {
-			t.logger.Error("Tally failed", zap.Error(err))
+	return t.Loop.Run(ctx, func(ctx context.Context) error {
+		err := t.Tally(ctx)
+		if err != nil {
+			t.logger.Error("tally failed", zap.Error(err))
 		}
-		select {
-		case <-t.ticker.C: // wait for the next interval to happen
-		case <-ctx.Done(): // or the Tally is canceled via context
-			return ctx.Err()
-		}
-	}
+		return nil
+	})
+}
+
+// Close stops the service and releases any resources.
+func (t *Service) Close() error {
+	t.Loop.Close()
+	return nil
 }
 
 // Tally calculates data-at-rest usage once
@@ -100,6 +102,7 @@ func (t *Service) Tally(ctx context.Context) (err error) {
 			}
 		}
 	}
+
 	return errs.Combine(errAtRest, errBucketInfo)
 }
 
