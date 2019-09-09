@@ -44,17 +44,19 @@
 
         public mounted(): void {
             const infoComponent = document.querySelector('.info');
-            if (infoComponent) {
-                const slots = this.$slots.default;
-                if (slots) {
-                    const slot = slots[0];
-                    if (slot && slot.elm) {
-                        this.height = (slot.elm as HTMLElement).offsetHeight + 'px';
-                    }
-                }
+            if (!infoComponent) {
+                return;
             }
 
-            return;
+            const slots = this.$slots.default;
+            if (!slots) {
+                return;
+            }
+
+            const slot = slots[0];
+            if (slot && slot.elm) {
+                this.height = (slot.elm as HTMLElement).offsetHeight + 'px';
+            }
         }
     }
 </script>
