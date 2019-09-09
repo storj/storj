@@ -1,13 +1,15 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 import Vuex from 'vuex';
-import { ProjectMembersApiGql } from '@/api/projectMembers';
+
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+
+import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { appStateModule } from '@/store/modules/appState';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
-import { appStateModule } from '@/store/modules/appState';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 
