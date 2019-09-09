@@ -72,11 +72,13 @@ proto: ## Rebuild protobuf files
 	go run scripts/protobuf.go generate
 
 .PHONY: build-packages
-build-packages: build-packages-race build-packages-normal ## Test docker images locally
+build-packages: build-packages-race build-packages-normal build-npm ## Test docker images locally
 build-packages-race:
-	go install -v ./...
+	go build -v ./...
 build-packages-normal:
-	go install -v -race ./...
+	go build -v -race ./...
+build-npm:
+	cd web/satellite && npm ci
 
 ##@ Simulator
 

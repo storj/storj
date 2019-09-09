@@ -10,8 +10,9 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { NavigationLink } from '@/types/navigation';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import { NavigationLink } from '@/types/navigation';
 
     @Component
     export default class TabNavigation extends Vue {

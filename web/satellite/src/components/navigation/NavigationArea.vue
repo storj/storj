@@ -4,9 +4,10 @@
 <template src="./navigationArea.html"></template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import { NavigationLink } from '@/types/navigation';
-    import { RouteConfig } from '@/router';
+import { Component, Vue } from 'vue-property-decorator';
+
+import { RouteConfig } from '@/router';
+import { NavigationLink } from '@/types/navigation';
 
     @Component
     export default class NavigationArea extends Vue {

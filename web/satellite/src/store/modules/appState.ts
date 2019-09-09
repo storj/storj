@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { APP_STATE_MUTATIONS } from '../mutationConstants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+
+import { APP_STATE_MUTATIONS } from '../mutationConstants';
 
 export const appStateModule = {
     state: {
