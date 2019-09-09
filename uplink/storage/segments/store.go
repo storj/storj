@@ -145,6 +145,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 
 		sizedReader := SizeReader(peekReader)
 
+		// send successfulHashes to satellite to verify
 		successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, piecePrivateKey, s.rs, sizedReader, expiration)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
@@ -172,6 +173,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		return Meta{}, err
 	}
 
+	// send hashes
 	savedPointer, err := s.metainfo.CommitSegment(ctx, bucket, objectPath, segmentIndex, pointer, originalLimits)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)

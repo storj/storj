@@ -260,6 +260,8 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 
 	// clear hashes so we don't store them
 	for _, piece := range req.GetPointer().GetRemote().GetRemotePieces() {
+		// verify hash before deleting
+		// easy peasy
 		piece.Hash = nil
 	}
 
@@ -1333,6 +1335,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	}, nil
 }
 
+// take in signed storagenode hashes
 // CommitSegment commits segment after uploading
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
