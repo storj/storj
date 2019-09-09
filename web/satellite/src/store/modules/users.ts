@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { UpdatedUser, User, UsersApi } from '@/types/users';
 import { StoreModule } from '@/store';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
 
 export const USER_ACTIONS = {
     UPDATE: 'updateUser',
@@ -66,7 +66,7 @@ export function makeUsersModule(api: UsersApi): StoreModule<User> {
                 commit(UPDATE_USER, userInfo);
             },
             [GET]: async function ({commit}: any): Promise<User> {
-                let user = await api.get();
+                const user = await api.get();
 
                 commit(SET_USER, user);
 

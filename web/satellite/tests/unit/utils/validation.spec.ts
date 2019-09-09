@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 import {
-    validatePassword,
-    validateEmail
+    validateEmail,
+    validatePassword
  } from '@/utils/validation';
 
 describe('validation', () => {

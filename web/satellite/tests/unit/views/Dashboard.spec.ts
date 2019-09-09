@@ -1,16 +1,18 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 import Vuex from 'vuex';
+
 import { appStateModule } from '@/store/modules/appState';
-import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeNotificationsModule } from '@/store/modules/notifications';
-import Dashboard from '@/views/Dashboard.vue';
+import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMembersPage } from '@/types/projectMembers';
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+import Dashboard from '@/views/Dashboard.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 
 const localVue = createLocalVue();
 

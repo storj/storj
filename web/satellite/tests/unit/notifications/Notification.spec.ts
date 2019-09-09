@@ -1,14 +1,16 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
-import Vuex from 'vuex';
 import sinon from 'sinon';
+import Vuex from 'vuex';
+
 import Notification from '@/components/notifications/Notification.vue';
-import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
-import { DelayedNotification } from '@/types/DelayedNotification';
+
 import { makeNotificationsModule } from '@/store/modules/notifications';
+import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
+import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 

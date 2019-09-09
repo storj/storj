@@ -8,20 +8,22 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Notification from '@/components/notifications/Notification.vue';
-    import { DelayedNotification } from '@/types/DelayedNotification';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Notification,
-        }
-    })
-    export default class NotificationArea extends Vue {
-        public get notifications(): DelayedNotification[] {
-            return this.$store.state.notificationsModule.notificationQueue;
-        }
+import Notification from '@/components/notifications/Notification.vue';
+
+import { DelayedNotification } from '@/types/DelayedNotification';
+
+@Component({
+    components: {
+        Notification,
     }
+})
+export default class NotificationArea extends Vue {
+    public get notifications(): DelayedNotification[] {
+        return this.$store.state.notificationsModule.notificationQueue;
+    }
+}
 </script>
 
 <style scoped lang="scss">

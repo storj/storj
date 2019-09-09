@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { API_KEYS_MUTATIONS } from '../mutationConstants';
-import { ApiKey, ApiKeysApi } from '@/types/apiKeys';
 import { StoreModule } from '@/store';
+import { ApiKey, ApiKeysApi } from '@/types/apiKeys';
+
+import { API_KEYS_MUTATIONS } from '../mutationConstants';
 
 const {
     FETCH,
@@ -63,7 +64,7 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
             setAPIKeys: async function ({commit, rootGetters}): Promise<ApiKey[]> {
                 const projectId = rootGetters.selectedProject.id;
 
-                let apiKeys = await api.get(projectId);
+                const apiKeys = await api.get(projectId);
 
                 commit(FETCH, apiKeys);
 
@@ -72,14 +73,14 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
             createAPIKey: async function ({commit, rootGetters}: any, name: string): Promise<ApiKey> {
                 const projectId = rootGetters.selectedProject.id;
 
-                let apiKey = await api.create(projectId, name);
+                const apiKey = await api.create(projectId, name);
 
                 commit(ADD, apiKey);
 
                 return apiKey;
             },
             deleteAPIKey: async function({commit}: any, ids: string[]): Promise<null> {
-                let result = await api.delete(ids);
+                const result = await api.delete(ids);
 
                 commit(DELETE, ids);
 
@@ -97,8 +98,8 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
         },
         getters: {
             selectedAPIKeys: function (state: any): ApiKey[] {
-                let keys: ApiKey[] = state.apiKeys;
-                let selectedKeys: ApiKey[] = [];
+                const keys: ApiKey[] = state.apiKeys;
+                const selectedKeys: ApiKey[] = [];
 
                 for (let i = 0; i < keys.length; i++ ) {
                     if (keys[i].isSelected) {
