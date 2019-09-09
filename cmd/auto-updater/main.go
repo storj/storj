@@ -54,6 +54,7 @@ var (
 	versionURL     string
 	binaryLocation string
 	snServiceName  string
+	logPath        string
 )
 
 // Response response from version server.
@@ -86,9 +87,18 @@ func init() {
 	runCmd.Flags().StringVar(&binaryLocation, "binary-location", "storagenode.exe", "the storage node executable binary location")
 
 	runCmd.Flags().StringVar(&snServiceName, "service-name", "storagenode", "storage node OS service name")
+	runCmd.Flags().StringVar(&logPath, "log", "", "path to log file, if empty standard output will be used")
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return errs.New("error opening log file: %v", err)
+	}
+	defer func() { err = errs.Combine(err, logFile.Close()) }()
+
+	log.SetOutput(logFile)
+
 	if !fileExists(binaryLocation) {
 		return errs.New("unable to find storage node executable binary")
 	}
