@@ -20,10 +20,16 @@ export default class Chart extends Vue {
 
     @Watch('chartData')
     private onDataChange(news: object, old: object) {
+        /**
+         * renderChart method is inherited from BaseChart which is extended by VChart.Line
+         */
         (this as any).renderChart(this.chartData, this.chartOptions);
     }
 
     public mounted(): void {
+        /**
+         * renderChart method is inherited from BaseChart which is extended by VChart.Line
+         */
         (this as any).renderChart(this.chartData, this.chartOptions);
     }
 
