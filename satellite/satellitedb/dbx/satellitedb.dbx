@@ -216,6 +216,7 @@ model user (
 
     field id               blob
     field email            text      ( updatable )
+    field normalized_email text      ( updatable )
     field full_name        text      ( updatable )
     field short_name       text      ( updatable, nullable )
     field password_hash    blob      ( updatable )
@@ -231,7 +232,7 @@ delete user ( where user.id = ? )
 
 read one (
     select user
-    where user.email = ?
+    where user.normalized_email = ?
     where user.status != 0
 )
 read one (

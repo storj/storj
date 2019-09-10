@@ -18,6 +18,8 @@ import (
 var NoCreditForUpdateErr = errs.Class("no credit found to update")
 
 // UserCredits holds information to interact with database
+//
+// architecture: Database
 type UserCredits interface {
 	GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*UserCreditUsage, error)
 	Create(ctx context.Context, userCredit CreateCredit) error

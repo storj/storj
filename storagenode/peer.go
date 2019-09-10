@@ -47,6 +47,8 @@ var (
 )
 
 // DB is the master database for Storage Node
+//
+// architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
 	CreateTables() error
@@ -99,6 +101,8 @@ func (config *Config) Verify(log *zap.Logger) error {
 }
 
 // Peer is the representation of a Storage Node.
+//
+// architecture: Peer
 type Peer struct {
 	// core dependencies
 	Log      *zap.Logger
