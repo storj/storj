@@ -14,9 +14,9 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -34,7 +34,7 @@ type Config struct {
 // architecture: Chore
 type Chore struct {
 	log       *zap.Logger
-	self      overlay.NodeDossier
+	rt        *kademlia.RoutingTable
 	transport transport.Client
 
 	trust *trust.Pool
@@ -44,10 +44,10 @@ type Chore struct {
 }
 
 // NewChore creates a new contact chore
-func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, transport transport.Client, self overlay.NodeDossier) *Chore {
+func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, transport transport.Client, rt *kademlia.RoutingTable) *Chore {
 	return &Chore{
 		log:       log,
-		self:      self,
+		rt:        rt,
 		transport: transport,
 
 		trust: trust,
@@ -75,8 +75,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	chore.log.Sugar().Infof("node disk %d", chore.rt.Local().Capacity.FreeDisk)
 	var group errgroup.Group
+	self := chore.rt.Local()
 	satellites := chore.trust.GetSatellites(ctx)
 	for _, satellite := range satellites {
 		satellite := satellite
@@ -102,12 +103,9 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 				}
 			}()
 			_, err = pb.NewNodeClient(conn).Checkin(ctx, &pb.CheckinRequest{
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   chore.self.GetAddress().GetAddress(),
-				},
-				Capacity: &chore.self.Capacity,
-				Operator: &chore.self.Operator,
+				Address:  self.Address,
+				Capacity: &self.Capacity,
+				Operator: &self.Operator,
 			})
 
 			return err
