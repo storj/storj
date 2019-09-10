@@ -183,9 +183,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		// .Get() seems to only fail from input validation, so it would keep failing
 		return true, Error.Wrap(err)
 	}
-	defer func() {
-		err = errs.Combine(err, segmentReader.Close())
-	}()
+	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
 	// Upload the repaired pieces
 	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, expiration, repairer.timeout, path)
