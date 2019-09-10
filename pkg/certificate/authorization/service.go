@@ -6,11 +6,8 @@ package authorization
 import (
 	"context"
 	"fmt"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // ErrService is the default error class for the authorization service.
@@ -35,10 +32,10 @@ func (service *Service) GetOrCreate(ctx context.Context, userID string) (_ *Toke
 	defer mon.Task()(&ctx)(&err)
 
 	if userID == "" {
-		msg := "error getting authorizations"
-		err = ErrService.Wrap(err)
+		msg := "missing user ID"
+		err = ErrService.New(msg)
 		service.log.Error(msg, zap.Error(err))
-		return nil, status.Error(codes.InvalidArgument, msg)
+		return nil, err
 	}
 
 	existingGroup, err := service.db.Get(ctx, userID)
@@ -46,7 +43,7 @@ func (service *Service) GetOrCreate(ctx context.Context, userID string) (_ *Toke
 		msg := "error getting authorizations"
 		err = ErrService.Wrap(err)
 		service.log.Error(msg, zap.Error(err))
-		return nil, status.Error(codes.Internal, msg)
+		return nil, err
 	}
 
 	if existingGroup != nil && len(existingGroup) > 0 {
@@ -59,7 +56,7 @@ func (service *Service) GetOrCreate(ctx context.Context, userID string) (_ *Toke
 		msg := "error creating authorization"
 		err = ErrService.Wrap(err)
 		service.log.Error(msg, zap.Error(err))
-		return nil, status.Error(codes.Internal, msg)
+		return nil, err
 	}
 
 	groupLen := len(createdGroup)
@@ -68,7 +65,7 @@ func (service *Service) GetOrCreate(ctx context.Context, userID string) (_ *Toke
 		internalMsg := clientMsg + fmt.Sprintf("; expected 1, got %d", groupLen)
 
 		service.log.Error(internalMsg)
-		return nil, status.Error(codes.Internal, ErrEndpoint.New(clientMsg).Error())
+		return nil, ErrEndpoint.New(clientMsg)
 	}
 
 	authorization := createdGroup[0]
