@@ -4,12 +4,16 @@
 package contact
 
 import (
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/overlay"
 )
+
+// Error is the default error class for contact package
+var Error = errs.Class("contact")
 
 var mon = monkit.Package()
 
