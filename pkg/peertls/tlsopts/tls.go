@@ -72,6 +72,7 @@ func (opts *Options) tlsConfig(isServer bool, verificationFuncs ...peertls.PeerC
 	config := &tls.Config{
 		Certificates:       []tls.Certificate{*opts.Cert},
 		InsecureSkipVerify: true,
+		MinVersion:         tls.VersionTLS12,
 		VerifyPeerCertificate: peertls.VerifyPeerFunc(
 			verificationFuncs...,
 		),

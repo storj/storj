@@ -72,26 +72,27 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button
-        }
-    })
-    export default class MonthlyBillingSummary extends Vue {
-        private areUsageChargesShown: boolean = false;
-        private areReferralCreditsShown: boolean = false;
+import Button from '@/components/common/Button.vue';
 
-        public toggleUsageChargesPopup(): void {
-            this.areUsageChargesShown = !this.areUsageChargesShown;
-        }
-
-        public toggleReferralCreditsPopup(): void {
-            this.areReferralCreditsShown = !this.areReferralCreditsShown;
-        }
+@Component({
+    components: {
+        Button
     }
+})
+export default class MonthlyBillingSummary extends Vue {
+    private areUsageChargesShown: boolean = false;
+    private areReferralCreditsShown: boolean = false;
+
+    public toggleUsageChargesPopup(): void {
+        this.areUsageChargesShown = !this.areUsageChargesShown;
+    }
+
+    public toggleReferralCreditsPopup(): void {
+        this.areReferralCreditsShown = !this.areReferralCreditsShown;
+    }
+}
 </script>
 
 <style scoped lang="scss">
