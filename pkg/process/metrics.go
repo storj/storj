@@ -43,8 +43,9 @@ func flagDefault(dev, release string) string {
 // InitMetrics initializes telemetry reporting. Makes a telemetry.Client and calls
 // its Run() method in a goroutine.
 func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, instanceID string) (err error) {
+	log = log.Named("telemetry")
 	if *metricCollector == "" || *metricInterval == 0 {
-		log.Named("metrics").Info("disabled")
+		log.Info("disabled")
 		return nil
 	}
 	if r == nil {
