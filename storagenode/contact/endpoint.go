@@ -19,6 +19,8 @@ import (
 )
 
 // Endpoint implements the contact service Endpoints
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log       *zap.Logger
 	pingStats *PingStats
