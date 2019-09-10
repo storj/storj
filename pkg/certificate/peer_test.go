@@ -92,6 +92,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				client, err := certificateclient.New(ctx, clientTransport, peer.Server.Addr().String())
 				require.NoError(t, err)
 				require.NotNil(t, client)
+				defer ctx.Check(client.Close)
 
 				signedChainBytes, err := client.Sign(ctx, auths[0].Token.String())
 				require.NoError(t, err)
