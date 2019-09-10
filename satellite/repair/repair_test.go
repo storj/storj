@@ -116,7 +116,6 @@ func TestDataRepair(t *testing.T) {
 		}
 
 		for _, node := range planet.StorageNodes {
-			node.Contact.Chore.Loop.Stop()
 			if nodesToDisqualify[node.ID()] {
 				disqualifyNode(t, ctx, satellitePeer, node.ID())
 				continue
