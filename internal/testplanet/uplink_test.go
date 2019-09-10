@@ -251,9 +251,6 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		for _, sn := range planet.StorageNodes {
-			sn.Contact.Chore.Loop.Stop()
-		}
 		expectedData := testrand.Bytes(5 * memory.MiB)
 
 		config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
