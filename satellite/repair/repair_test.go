@@ -323,7 +323,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellitePeer.Discovery.Service.Discovery.Stop()
 		satellitePeer.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
+		planet.Satellites[0].Audit.Worker.Loop.Stop()
 
 		satellitePeer.Repair.Checker.Loop.Pause()
 		satellitePeer.Repair.Repairer.Loop.Pause()

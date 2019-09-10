@@ -103,6 +103,8 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 
 func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 	var errlist errs.Group
+
+	// First, attempt to reverify nodes for this segment that are in containment mode.
 	report, err := worker.verifier.Reverify(ctx, path)
 	if err != nil {
 		errlist.Add(err)
@@ -131,6 +133,7 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 		}
 	}
 
+	// Next, audit the the remaining nodes that are not in containment mode.
 	report, err = worker.verifier.Verify(ctx, path, skip)
 	if err != nil {
 		errlist.Add(err)

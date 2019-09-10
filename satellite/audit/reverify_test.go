@@ -450,7 +450,6 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Reverify(ctx, path)
-		// TODO: is this desired behavior for if a segment is deleted?
 		require.True(t, audit.ErrSegmentDeleted.Has(err))
 		assert.Empty(t, report)
 
