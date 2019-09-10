@@ -61,8 +61,7 @@ model node (
 ## Rationale
 
 The Storj Data Science team has currently published two papers on the design of our reputation score:
-[Reputation Scoring](https://github.com/storj/datascience/blob/8b02707dceedd4ce20d699a5a9791ce589b303bd/reputation/Reputation_Scoring_Framework_Highlevel.pdf) and [Extending Audit/Uptime Success Ratios](
-https://github.com/storj/datascience/blob/2ec82c9ec89263d9348798e8a5d50a7b62782110/reputation/extending%20ratios%20to%20reputation/extending%20ratios%20to%20reputation.pdf).  
+[Reputation Scoring](../datascience/reputation%20scoring%20framework.pdf) and [Extending Audit/Uptime Success Ratios](../datascience/extending%20ratios%20to%20reputation.pdf).  
 
 These papers put forth a model where reputation chance be determined based on previous 'shape' values α and β, a forgetting factor λ, single value feedback _v_, and a normalization weight _w_.
 

@@ -12,6 +12,8 @@ import (
 )
 
 // DB contains information about bandwidth usage.
+//
+// architecture: Database
 type DB interface {
 	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
 	// MonthSummary returns summary of the current months bandwidth usages
