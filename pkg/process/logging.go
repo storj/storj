@@ -33,21 +33,23 @@ var (
 	logOutput   = flag.String("log.output", "stderr", "can be stdout, stderr, or a filename")
 )
 
-func isDev() bool { return cfgstruct.DefaultsType() != "release" }
-
-func newLogger() (*zap.Logger, error) {
-	levelEncoder := zapcore.CapitalColorLevelEncoder
-	if runtime.GOOS == "windows" {
-		levelEncoder = zapcore.CapitalLevelEncoder
-	}
-
+func init() {
 	winFileSink := func(u *url.URL) (zap.Sink, error) {
 		// Remove leading slash left by url.Parse()
 		return os.OpenFile(u.Path[1:], os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	}
 	err := zap.RegisterSink("winfile", winFileSink)
 	if err != nil {
-		return nil, err
+		panic("Unable to register winfile sink: " + err.Error())
+	}
+}
+
+func isDev() bool { return cfgstruct.DefaultsType() != "release" }
+
+func newLogger() (*zap.Logger, error) {
+	levelEncoder := zapcore.CapitalColorLevelEncoder
+	if runtime.GOOS == "windows" {
+		levelEncoder = zapcore.CapitalLevelEncoder
 	}
 
 	timeKey := "T"
