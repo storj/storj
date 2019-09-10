@@ -37,7 +37,12 @@ type ServiceVersions struct {
 
 // Versions represents versions for all binaries
 type Versions struct {
+	Bootstrap   Binary
+	Satellite   Binary
 	Storagenode Binary
+	Uplink      Binary
+	Gateway     Binary
+	Identity    Binary
 }
 
 // Binary represents versions for single binary
