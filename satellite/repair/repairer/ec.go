@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/uplink/piecestore"
 )
 
+// ErrPieceHashVerifyFailed is the errs class when a piece hash downloaded from storagenode fails to match the original hash
 var ErrPieceHashVerifyFailed = errs.Class("piece hash don't match")
 
 // ECRepairer allows the repairer to download, verify, and upload pieces from storagenodes.
