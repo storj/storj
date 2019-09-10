@@ -66,7 +66,7 @@ func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingReque
 }
 
 // RequestInf returns the node info
-func (endpoint *Endpoint) RequestInf(ctx context.Context, req *pb.InfoReq) (_ *pb.InfoRes, err error) {
+func (endpoint *Endpoint) RequestInf(ctx context.Context, req *pb.InfoRequest) (_ *pb.InfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	self := endpoint.service.Local()
 
@@ -86,7 +86,7 @@ func (endpoint *Endpoint) RequestInf(ctx context.Context, req *pb.InfoReq) (_ *p
 
 	//endpoint.pingStats.wasPinged(time.Now(), peerID.ID, p.Addr.String())
 
-	return &pb.InfoRes{
+	return &pb.InfoResponse{
 		Type:     self.Type,
 		Operator: &self.Operator,
 		Capacity: &self.Capacity,

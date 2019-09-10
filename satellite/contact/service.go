@@ -64,13 +64,13 @@ func (service *Service) Local() overlay.NodeDossier {
 }
 
 // FetchInfo connects to a node and returns its node info.
-func (service *Service) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.InfoRes, err error) {
+func (service *Service) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.InfoResponse, err error) {
 	conn, err := service.dialNode(ctx, target)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := conn.client.RequestInf(ctx, &pb.InfoReq{})
+	resp, err := conn.client.RequestInf(ctx, &pb.InfoRequest{})
 
 	return resp, errs.Combine(err, conn.disconnect())
 }
