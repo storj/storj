@@ -78,6 +78,7 @@ type StoragenodeAccounting interface {
 // ProjectAccounting stores information about bandwidth and storage usage for projects
 type ProjectAccounting interface {
 	// SaveTallies saves the latest project info
+	// TODO: remove `[]BucketTally` from result
 	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) ([]BucketTally, error)
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
