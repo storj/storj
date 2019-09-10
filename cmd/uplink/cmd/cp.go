@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	progressbar "github.com/cheggaaa/pb"
+	progressbar "github.com/cheggaaa/pb/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -91,10 +91,9 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
 	if showProgress {
-		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES).SetWidth(80)
-		bar.ShowSpeed = true
-		bar.Start()
+		bar = progressbar.New64(fileInfo.Size())
 		reader = bar.NewProxyReader(reader)
+		bar.Start()
 	}
 
 	opts := &libuplink.UploadOptions{}
@@ -149,10 +148,9 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	var bar *progressbar.ProgressBar
 	var reader io.ReadCloser
 	if showProgress {
-		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES).SetWidth(80)
-		bar.ShowSpeed = true
-		bar.Start()
+		bar = progressbar.New64(object.Meta.Size)
 		reader = bar.NewProxyReader(rc)
+		bar.Start()
 	} else {
 		reader = rc
 	}
@@ -222,9 +220,9 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	var bar *progressbar.ProgressBar
 	var reader io.Reader
 	if *progress {
-		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(object.Meta.Size)
+		reader = bar.NewProxyReader(reader)
 		bar.Start()
-		reader = bar.NewProxyReader(rc)
 	} else {
 		reader = rc
 	}
