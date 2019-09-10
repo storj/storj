@@ -45,7 +45,10 @@ func newLogger() (*zap.Logger, error) {
 		// Remove leading slash left by url.Parse()
 		return os.OpenFile(u.Path[1:], os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	}
-	zap.RegisterSink("winfile", winFileSink)
+	err := zap.RegisterSink("winfile", winFileSink)
+	if err != nil {
+		return nil, err
+	}
 
 	timeKey := "T"
 	if os.Getenv("STORJ_LOG_NOTIME") != "" {
