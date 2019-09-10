@@ -36,7 +36,7 @@ type Worker struct {
 	log      *zap.Logger
 	queue    *Queue
 	verifier *Verifier
-	reporter reporter
+	reporter *Reporter
 	Loop     sync2.Cycle
 	limiter  sync2.Limiter
 }
