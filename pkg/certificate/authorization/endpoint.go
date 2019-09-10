@@ -18,7 +18,7 @@ import (
 // ErrEndpoint is the default error class for the authorization endpoint.
 var ErrEndpoint = errs.Class("authorization endpoint error")
 
-// Endpoint implements pb.AuthorizationsServer.
+// Endpoint provides a http endpoint for interacting with an authorization service.
 type Endpoint struct {
 	log      *zap.Logger
 	db       *DB
@@ -27,7 +27,7 @@ type Endpoint struct {
 	listener net.Listener
 }
 
-// NewEndpoint creates a new http server for interacting with an authorization service.
+// NewEndpoint creates a authorization endpoint.
 func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 	service := NewService(log, db)
 	mux := http.NewServeMux()
