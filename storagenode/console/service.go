@@ -34,8 +34,7 @@ var (
 //
 // architecture: Service
 type Service struct {
-	log *zap.Logger
-
+	log            *zap.Logger
 	trust          *trust.Pool
 	bandwidthDB    bandwidth.DB
 	reputationDB   reputation.DB

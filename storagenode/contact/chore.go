@@ -13,7 +13,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storagenode/trust"
@@ -24,7 +23,7 @@ import (
 // architecture: Chore
 type Chore struct {
 	log       *zap.Logger
-	rt        *kademlia.RoutingTable
+	service   *Service
 	transport transport.Client
 
 	trust *trust.Pool
@@ -34,10 +33,10 @@ type Chore struct {
 }
 
 // NewChore creates a new contact chore
-func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, transport transport.Client, rt *kademlia.RoutingTable) *Chore {
+func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, transport transport.Client, service *Service) *Chore {
 	return &Chore{
 		log:       log,
-		rt:        rt,
+		service:   service,
 		transport: transport,
 
 		trust: trust,
@@ -65,9 +64,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	chore.log.Sugar().Infof("node disk %d", chore.rt.Local().Capacity.FreeDisk)
+	chore.log.Sugar().Infof("node disk %d", chore.service.Local().Capacity.FreeDisk)
 	var group errgroup.Group
-	self := chore.rt.Local()
+	self := chore.service.Local()
 	satellites := chore.trust.GetSatellites(ctx)
 	for _, satellite := range satellites {
 		satellite := satellite

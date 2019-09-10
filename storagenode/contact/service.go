@@ -5,6 +5,7 @@ package contact
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -40,13 +41,16 @@ type Conn struct {
 
 // Service is the contact service between storage nodes and satellites
 type Service struct {
-	log       *zap.Logger
-	self      overlay.NodeDossier
+	log *zap.Logger
+
+	mutex *sync.Mutex
+	self  *overlay.NodeDossier
+
 	transport transport.Client
 }
 
 // NewService creates a new contact service
-func NewService(log *zap.Logger, self overlay.NodeDossier, transport transport.Client) *Service {
+func NewService(log *zap.Logger, self *overlay.NodeDossier, transport transport.Client) *Service {
 	return &Service{
 		log:       log,
 		self:      self,
@@ -54,9 +58,11 @@ func NewService(log *zap.Logger, self overlay.NodeDossier, transport transport.C
 	}
 }
 
-// Local returns the satellite node dossier
+// Local returns the storagenode node-dossier
 func (service *Service) Local() overlay.NodeDossier {
-	return service.self
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	return *service.self
 }
 
 // FetchInfo connects to a node and returns its node info.

@@ -5,6 +5,7 @@ package contact
 
 import (
 	"context"
+	"sync"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -36,14 +37,17 @@ type Conn struct {
 //
 // architecture: Service
 type Service struct {
-	log       *zap.Logger
-	self      overlay.NodeDossier
+	log *zap.Logger
+
+	mutex *sync.Mutex
+	self  *overlay.NodeDossier
+
 	overlay   *overlay.Service
 	transport transport.Client
 }
 
 // NewService creates a new contact service
-func NewService(log *zap.Logger, self overlay.NodeDossier, overlay *overlay.Service, transport transport.Client) *Service {
+func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, transport transport.Client) *Service {
 	return &Service{
 		log:       log,
 		self:      self,
@@ -54,11 +58,13 @@ func NewService(log *zap.Logger, self overlay.NodeDossier, overlay *overlay.Serv
 
 // Local returns the satellite node dossier
 func (service *Service) Local() overlay.NodeDossier {
-	return service.self
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	return *service.self
 }
 
 // FetchInfo connects to a node and returns its node info.
-func (service *Service) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.InfoResponse, err error) {
+func (service *Service) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.InfoRes, err error) {
 	conn, err := service.dialNode(ctx, target)
 	if err != nil {
 		return nil, err
