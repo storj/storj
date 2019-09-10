@@ -59,6 +59,8 @@ type Verifier struct {
 	containment        Containment
 	minBytesPerSecond  memory.Size
 	minDownloadTimeout time.Duration
+
+	OnTestingCheckSegmentAlteredHook func()
 }
 
 // NewVerifier creates a Verifier
@@ -560,6 +562,10 @@ OUTER:
 // checkIfSegmentAltered checks if path's pointer has been altered since path was selected.
 func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, segmentPath string, oldPointer *pb.Pointer) (newPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if verifier.OnTestingCheckSegmentAlteredHook != nil {
+		verifier.OnTestingCheckSegmentAlteredHook()
+	}
 
 	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
 	if err != nil {

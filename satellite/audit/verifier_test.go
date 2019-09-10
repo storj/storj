@@ -577,9 +577,11 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		// replace the file
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
-		require.NoError(t, err)
+		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
+			// replace the file so that checkIfSegmentAltered fails
+			err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+			require.NoError(t, err)
+		}
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.True(t, audit.ErrSegmentDeleted.Has(err))
