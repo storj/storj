@@ -61,7 +61,7 @@ type Peer struct {
 }
 
 // New creates a new certificates peer.
-func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, revocationDB *revocation.DB, config *Config) (_ *Peer, err error) {
+func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, revocationDB *revocation.DB, config *Config) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: ident,
@@ -87,6 +87,7 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	peer.Certificate.Endpoint = NewEndpoint(log.Named("certificate"), ca, authorizationDB, uint16(config.MinDifficulty))
 	pb.RegisterCertificatesServer(peer.Server.GRPC(), peer.Certificate.Endpoint)
 
+	var err error
 	peer.Authorization.Listener, err = net.Listen("tcp", config.AuthorizationAddr)
 	if err != nil {
 		return nil, errs.Combine(err, peer.Close())
