@@ -47,6 +47,8 @@ var (
 )
 
 // DB is the master database for Storage Node
+//
+// architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
 	CreateTables() error
@@ -99,6 +101,8 @@ func (config *Config) Verify(log *zap.Logger) error {
 }
 
 // Peer is the representation of a Storage Node.
+//
+// architecture: Peer
 type Peer struct {
 	// core dependencies
 	Log      *zap.Logger
@@ -252,7 +256,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup contact service
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable.Local())
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 	}

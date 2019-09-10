@@ -27,6 +27,8 @@ type Config struct {
 }
 
 // Service for creating order limits.
+//
+// architecture: Service
 type Service struct {
 	log                                 *zap.Logger
 	satellite                           signing.Signer

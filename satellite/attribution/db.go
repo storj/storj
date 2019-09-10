@@ -34,6 +34,8 @@ type CSVRow struct {
 }
 
 // DB implements the database for value attribution table
+//
+// architecture: Database
 type DB interface {
 	// Get retrieves attribution info using project id and bucket name.
 	Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (*Info, error)

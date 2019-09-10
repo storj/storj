@@ -11,6 +11,8 @@ import (
 
 // RepairQueue implements queueing for segments that need repairing.
 // Implementation can be found at satellite/satellitedb/repairqueue.go.
+//
+// architecture: Database
 type RepairQueue interface {
 	// Insert adds an injured segment.
 	Insert(ctx context.Context, s *pb.InjuredSegment) error

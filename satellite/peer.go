@@ -68,6 +68,8 @@ import (
 var mon = monkit.Package()
 
 // DB is the master database for the satellite
+//
+// architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
 	CreateTables() error
@@ -138,6 +140,8 @@ type Config struct {
 }
 
 // Peer is the satellite
+//
+// architecture: Peer
 type Peer struct {
 	// core dependencies
 	Log      *zap.Logger
@@ -176,7 +180,7 @@ type Peer struct {
 	}
 
 	Metainfo struct {
-		Database  storage.KeyValueStore // TODO: move into pointerDB
+		Database  metainfo.PointerDB // TODO: move into pointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
 		Loop      *metainfo.Loop
