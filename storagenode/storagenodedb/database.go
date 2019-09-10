@@ -277,6 +277,8 @@ func (db *DB) openDatabase(sqliteDriverInstanceKey string, path string) (*sql.DB
 	// TODO: This shouldn't be needed. When a database is first opened it hasn't been created on disk yet.
 	// This flushes the newly initialized database to disk.
 	sqlDB.Ping()
+
+	db.log.Sugar().Debugf("opened database %s", filename)
 	return sqlDB, nil
 }
 
@@ -302,26 +304,35 @@ func (db *DB) Close() error {
 	)
 }
 
+// closeDatabases closes all the SQLite database connections and removes them from the associated maps.
 func (db *DB) closeDatabases() error {
-	for k := range db.sqliteConnections {
-		delete(db.sqliteConnections, k)
+	var err error
+
+	for k, _ := range db.sqlDatabases {
+		errs.Combine(err, db.closeDatabase(k))
+	}
+	return err
+}
+
+// closeDatabase closes the specified SQLite database connections and removes them from the associated maps.
+func (db *DB) closeDatabase(filename string) error {
+	var err error
+
+	if sqlConn, ok := db.sqlDatabases[filename]; ok {
+		err = errs.Combine(err, sqlConn.Close())
+		delete(db.sqlDatabases, filename)
+	}
+	if sqliteConn, ok := db.sqliteConnections[filename]; ok {
+		err = errs.Combine(err, sqliteConn.Close())
+		delete(db.sqliteConnections, filename)
+	}
+	if err != nil {
+		db.log.Sugar().Errorf("error closing database %s: %+v", filename, err)
+	} else {
+		db.log.Sugar().Debugf("closed database %s", filename)
 	}
 
-	for k := range db.sqlDatabases {
-		delete(db.sqliteConnections, k)
-	}
-
-	return errs.Combine(
-		db.versionsDB.Close(),
-		db.bandwidthDB.Close(),
-		db.ordersDB.Close(),
-		db.pieceExpirationDB.Close(),
-		db.v0PieceInfoDB.Close(),
-		db.pieceSpaceUsedDB.Close(),
-		db.reputationDB.Close(),
-		db.storageUsageDB.Close(),
-		db.usedSerialsDB.Close(),
-	)
+	return err
 }
 
 // VersionsMigration returns the instance of the versions database.
@@ -763,25 +774,56 @@ func (db *DB) Migration() *migrate.Migration {
 					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, BandwidthDatabaseFilename, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
+					if err := db.closeDatabase(BandwidthDatabaseFilename); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
 					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, OrdersDatabaseFilename, "unsent_order", "order_archive_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
+					if err := db.closeDatabase(OrdersDatabaseFilename); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
 					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, PieceExpirationDatabaseFilename, "piece_expirations"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
+					if err := db.closeDatabase(PieceExpirationDatabaseFilename); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
 					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, v0PieceInfoDatabaseFilename, "pieceinfo_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
+					if err := db.closeDatabase(v0PieceInfoDatabaseFilename); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
 					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, PieceSpacedUsedDatabaseFilename, "piece_space_used"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
+					if err := db.closeDatabase(PieceSpacedUsedDatabaseFilename); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
 					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, ReputationDatabaseFilename, "reputation"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
+					if err := db.closeDatabase(ReputationDatabaseFilename); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
 					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, StorageUsageDatabaseFilename, "storage_usage"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
+					if err := db.closeDatabase(StorageUsageDatabaseFilename); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
 					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, UsedSerialsDatabaseFilename, "used_serial_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.closeDatabase(UsedSerialsDatabaseFilename); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -810,22 +852,18 @@ func (db *DB) Migration() *migrate.Migration {
 					}
 
 					// VACUUM the versions database to reclaim the space used by the migrated dropped tables.
-					db.log.Named("migration").Info("vacuum databases")
+					db.log.Named("migration").Sugar().Debugf("vacuum %s", VersionsDatabaseFilename)
 					_, err := db.versionsDB.Exec("VACUUM;")
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
-					// Closing the databases completes the reclaiming of the space used above in the vacuum call.
-					db.log.Named("migration").Info("closing databases")
-					err = db.closeDatabases()
-					if err != nil {
-						return ErrDatabase.Wrap(err)
-					}
+					// Close the original database.
+					versionsDBLocation := db.versionsDB.location
+					db.closeDatabase(VersionsDatabaseFilename)
 
 					// Re-open all the SQLite3 connections after executing the migration, VACUUM and close to reclaim space.
-					db.log.Named("migration").Info("re-opening databases")
-					err = db.openDatabases(filepath.Dir(db.versionsDB.location))
+					err = db.openDatabases(filepath.Dir(versionsDBLocation))
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
