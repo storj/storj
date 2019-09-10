@@ -42,13 +42,13 @@ The satellite picks a piece from the transfer queue and verifies whether it stil
 
 The satellite will send a `TransferPiece`, which contains sufficient information to upload the piece to a replacement node.
 
-The storage node will start a new piece upload to the replacement node similar to uplink. It will use `uplink/piecestore.Upload`. Once uploaded, the storage node will verify the piece hash sent by the replacement node corresponds to the piece hash stored in the database.
+The storage node will start a new piece upload to the replacement node similar to uplink. It will use `uplink/piecestore.Upload`. Once uploaded, the storage node will verify the piece hash sent by the replacement node corresponds to the piece hash stored in the database and verify the signature.
 
 #### Verifying transfer
 
 The storage node sends the piece hash, order limit, original "uploader" signature, and piece hash signed by the replacement node to the satellite for confirmation.
 
-The satellite verifies that the original piece hash matches the replacement piece hash, and verifies the order limit's signature. On success, the satellite will update segment / pointer information. If verification fails, the satellite will send an `ExitFailed` message.
+The satellite verifies that the original piece hash matches the replacement piece hash, and verifies both order limit's signature. On success, the satellite will update segment / pointer information. If verification fails, the satellite will send an `ExitFailed` message.
 
 ![Transfer Sequence](./images/transfer-sequence.svg)
 

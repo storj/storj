@@ -29,9 +29,9 @@ This report should contain:
 
 ## Design
 
-Add satellite CLI command to list gracefully exited nodes between two dates. The report should query `nodes` table where `exit_finished_at >= start AND exit_finished_at <= end date`. 
+Add satellite CLI command to list gracefully exited nodes between two dates. The report should query `nodes` table where `exit_finished_at >= start AND exit_finished_at < end date`. 
 
-Add satellite CLI command to list gracefully exiting nodes between two dates. The report should query `nodes` table where `exit_started_at >= start AND exit_started_at <= end date AND exit_finished_at IS NULL`. 
+Add satellite CLI command to list gracefully exiting nodes between two dates. The report should query `nodes` table where `exit_started_at >= start AND exit_started_at < end date AND exit_finished_at IS NULL`. 
 
 GB transferred will be retrieved from a new `graceful_exit_progress` table.
 

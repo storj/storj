@@ -47,7 +47,7 @@ For `exit-satellite` command it could stay up and show exiting progress. However
 
 ## Implementation
 
-- Add `storagenode exit-satellite` command to storagenode CLI, which calls `gexit.Service.InitiateExit`.
+- Add `storagenode exit-satellite` command to storagenode CLI, which updates `satellites` table with the satellite information that is being exited.
 	- Once initiated [protocol for transferring pieces](protocol.md) should start.
 - Add `storagenode exit-status` command to storagenode CLI. This returns completion status as described above.
 - TODO: terminating graceful exit?

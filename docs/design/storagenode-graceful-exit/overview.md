@@ -106,7 +106,7 @@ model nodes (
     ...
     field exit_loop_completed       timestamp ( updateable )
     field exit_initiated_at         timestamp ( updateable )
-    field exit_finished_at         timestamp ( updateable )
+    field exit_finished_at          timestamp ( updateable )
 }
 ```
 
