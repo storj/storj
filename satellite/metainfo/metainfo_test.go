@@ -966,7 +966,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 			Position: storj.SegmentPosition{
 				Index: 0,
 			},
-			MaxOderLimit: memory.MiB.Int64(),
+			MaxOrderLimit: memory.MiB.Int64(),
 		})
 		require.NoError(t, err)
 
