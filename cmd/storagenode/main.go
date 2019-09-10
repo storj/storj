@@ -11,6 +11,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+
+	"golang.org/x/sys/windows/svc"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -86,6 +88,15 @@ const (
 )
 
 func init() {
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
+	
+	run := svc.Run
+	err := run("storagenode7", &myservice{})
+	if err != nil {
+		// elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
+		panic("service failed "+ err.Error())
+	}
+
 	defaultConfDir := fpath.ApplicationDir("storj", "storagenode")
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "storagenode")
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
