@@ -78,6 +78,7 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 
 	if httpReq.Method != http.MethodPut {
 		msg := fmt.Sprintf("unsupported HTTP method: %s", httpReq.Method)
+		// NB: err set for `mon.Task` call.
 		err = ErrEndpoint.New(msg)
 		http.Error(writer, msg, http.StatusMethodNotAllowed)
 		return
