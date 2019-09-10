@@ -105,8 +105,8 @@ func (s *segmentStore) Put(ctx context.Context, streamID storj.StreamID, data io
 	}
 
 	segmentID, limits, piecePrivateKey, err := s.metainfo.BeginSegment(ctx, metainfo.BeginSegmentParams{
-		StreamID:     streamID,
-		MaxOderLimit: s.maxEncryptedSegmentSize,
+		StreamID:      streamID,
+		MaxOrderLimit: s.maxEncryptedSegmentSize,
 		Position: storj.SegmentPosition{
 			Index: int32(segmentIndex),
 		},
