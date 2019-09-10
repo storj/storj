@@ -5,13 +5,19 @@
 
 package main
 
-
-
 import (
-	// "fmt"
 	"storj.io/storj/pkg/process"
 	"golang.org/x/sys/windows/svc"
 )
+
+func init(){
+	run := svc.Run
+	err := run("storagenode7", &myservice{})
+	if err != nil {
+		// elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
+		panic("service failed "+ err.Error())
+	}
+}
 
 type myservice struct{}
 
