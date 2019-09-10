@@ -92,7 +92,7 @@
         private changeVision(): void {
             this.isPasswordShown = !this.isPasswordShown;
             if (this.isPasswordShown) {
-                this.type = this.type == this.passwordType ? this.textType : this.passwordType;
+                this.type = this.type === this.passwordType ? this.textType : this.passwordType;
             }
         }
 
