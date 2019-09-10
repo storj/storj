@@ -413,9 +413,6 @@ func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.Ci
 		return err
 	}
 
-	// TODO maybe for now just use GetObject and decrypt num of segments from metainfo
-	// to avoid two satellite requestes ??
-
 	// TODO do it in batch
 	streamID, err := s.metainfo.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 		Bucket:        []byte(path.Bucket()),
