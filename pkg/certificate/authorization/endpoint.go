@@ -91,7 +91,7 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 		return
 	}
 
-	token, err := endpoint.service.GetOrCreate(ctx, string(userID))
+	token, err := endpoint.service.GetOrCreate(ctx, userID)
 	if err != nil {
 		msg := "error creating authorization"
 		err = ErrEndpoint.Wrap(err)
