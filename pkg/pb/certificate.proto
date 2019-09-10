@@ -20,15 +20,3 @@ message SigningRequest {
 message SigningResponse {
     repeated bytes chain = 1;
 }
-
-service Authorizations {
-    rpc Create (AuthorizationRequest) returns (AuthorizationResponse);
-}
-
-message AuthorizationRequest {
-    string user_id = 1;
-}
-
-message AuthorizationResponse {
-    string token = 1;
-}

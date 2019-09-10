@@ -14,8 +14,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-
-	"storj.io/storj/pkg/pb"
 )
 
 // ErrEndpoint is the default error class for the authorization endpoint.
@@ -48,16 +46,6 @@ func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 	mux.HandleFunc("/v1/authorization", endpoint.handleAuthorization)
 
 	return endpoint
-}
-
-// Create creates an authorization from the given authorization request.
-func (endpoint *Endpoint) Create(ctx context.Context, req *pb.AuthorizationRequest) (_ *pb.AuthorizationResponse, err error) {
-	mon.Task()(&ctx, req.UserId)(&err)
-	token, err := endpoint.service.GetOrCreate(ctx, req.UserId)
-
-	return &pb.AuthorizationResponse{
-		Token: token.String(),
-	}, nil
 }
 
 // Run starts the endpoint HTTP server and waits for the context to be
@@ -110,11 +98,7 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 		return
 	}
 
-	authorizationReq := &pb.AuthorizationRequest{
-		UserId: string(userID),
-	}
-
-	authorizationRes, err := endpoint.Create(ctx, authorizationReq)
+	token, err := endpoint.service.GetOrCreate(ctx, string(userID))
 	if err != nil {
 		msg := "error creating authorization"
 		err = ErrEndpoint.Wrap(err)
@@ -124,7 +108,7 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 	}
 
 	writer.WriteHeader(http.StatusCreated)
-	if _, err = writer.Write([]byte(authorizationRes.Token)); err != nil {
+	if _, err = writer.Write([]byte(token.String())); err != nil {
 		msg := "error writing response"
 		err = ErrEndpoint.Wrap(err)
 		endpoint.log.Error(msg, zap.Error(err))

@@ -10,9 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"storj.io/storj/internal/testcontext"
 )
 
@@ -70,7 +67,6 @@ func TestService_GetOrCreate_error(t *testing.T) {
 	{ // empty user ID
 		token, err := service.GetOrCreate(ctx, "")
 		require.Error(t, errs.Unwrap(err), ErrEmptyUserID.Error())
-		require.Equal(t, codes.InvalidArgument, status.Code(err))
 		require.Nil(t, token)
 	}
 }

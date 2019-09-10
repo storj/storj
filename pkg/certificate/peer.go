@@ -92,8 +92,6 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	}
 
 	peer.Authorization.Endpoint = authorization.NewEndpoint(log.Named("authorization"), authorizationDB, peer.Authorization.Listener)
-	// NB: The authorization gRPC server is not intended to be exposed publicly!
-	pb.RegisterAuthorizationsServer(peer.Server.PrivateGRPC(), peer.Authorization.Endpoint)
 
 	return peer, nil
 }
