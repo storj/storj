@@ -153,7 +153,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 						bucketTallies[bucketID] = bucketTally
 					}
 
-					bucketTally.AddSegment(pointer, segment == "l")
+					bucketAddSegment(bucketTally, pointer, segment == "l")
 				}
 
 				remote := pointer.GetRemote()
@@ -189,11 +189,11 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	}
 
 	for _, bucketTally := range bucketTallies {
-		bucketTally.Report("bucket")
+		bucketReport(bucketTally, "bucket")
 		totalTallies.Combine(bucketTally)
 	}
 
-	totalTallies.Report("total")
+	bucketReport(&totalTallies, "total")
 
 	//store byte hours, not just bytes
 	numHours := time.Since(latestTally).Hours()

@@ -6,7 +6,13 @@ package accounting
 import (
 	"time"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/storj"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // Constants for accounting_raw, accounting_rollup, and accounting_timestamps
