@@ -71,8 +71,6 @@ func NewSegmentRepairer(
 func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
-	// should check if segment has changed before tries to repair it
-
 	// Read the segment pointer from the metainfo
 	pointer, err := repairer.metainfo.Get(ctx, path)
 	if err != nil {

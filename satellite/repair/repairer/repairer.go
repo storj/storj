@@ -21,8 +21,7 @@ import (
 // Error is a standard error class for this package.
 var (
 	Error = errs.Class("repairer error")
-
-	mon = monkit.Package()
+	mon   = monkit.Package()
 )
 
 // Config contains configurable values for repairer
