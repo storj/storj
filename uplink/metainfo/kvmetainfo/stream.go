@@ -17,7 +17,7 @@ var _ storj.ReadOnlyStream = (*readonlyStream)(nil)
 type readonlyStream struct {
 	db *DB
 
-	ID        storj.StreamID
+	id        storj.StreamID
 	info      storj.Object
 	bucket    string
 	encPath   storj.Path
@@ -46,7 +46,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
-		_, segmentEnc, err := stream.db.segments.Get(ctx, stream.ID, int32(index), stream.info.RedundancyScheme)
+		_, segmentEnc, err := stream.db.segments.Get(ctx, stream.id, int32(index), stream.info.RedundancyScheme)
 		if err != nil {
 			return segment, err
 		}
