@@ -38,7 +38,7 @@ func (db *DB) CreateTables() error {
 			}
 		}
 		migration := db.PostgresMigration()
-		return migration.Run(db.log.Named("migrate"), db.db)
+		return migration.Run(db.log.Named("migrate"))
 	default:
 		return migrate.Create("database", db.db)
 	}
@@ -51,6 +51,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 		Steps: []*migrate.Step{
 			{
 				// some databases may have already this done, although the version may not match
+				DB:          db.db,
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
@@ -171,6 +172,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				// some databases may have already this done, although the version may not match
+				DB:          db.db,
 				Description: "Adjust table naming",
 				Version:     1,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
@@ -255,6 +257,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				// some databases may have already this done, although the version may not match
+				DB:          db.db,
 				Description: "Remove bucket infos",
 				Version:     2,
 				Action: migrate.SQL{
@@ -263,6 +266,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				// some databases may have already this done, although the version may not match
+				DB:          db.db,
 				Description: "Add certificates table",
 				Version:     3,
 				Action: migrate.SQL{
@@ -276,6 +280,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				// some databases may have already this done, although the version may not match
+				DB:          db.db,
 				Description: "Adjust users table",
 				Version:     4,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
@@ -322,6 +327,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				}),
 			},
 			{
+				DB:          db.db,
 				Description: "Add wallet column",
 				Version:     5,
 				Action: migrate.SQL{
@@ -334,6 +340,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add bucket usage rollup table",
 				Version:     6,
 				Action: migrate.SQL{
@@ -356,6 +363,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add index on bwagreements",
 				Version:     7,
 				Action: migrate.SQL{
@@ -363,6 +371,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add registration_tokens table",
 				Version:     8,
 				Action: migrate.SQL{
@@ -377,6 +386,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add new tables for tracking used serials, bandwidth and storage",
 				Version:     9,
 				Action: migrate.SQL{
@@ -445,6 +455,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "users first_name to full_name, last_name to short_name",
 				Version:     10,
 				Action: migrate.SQL{
@@ -454,6 +465,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "drops interval seconds from storage_rollups, renames x_storage_rollups to x_storage_tallies, adds fields to bucket_storage_tallies",
 				Version:     11,
 				Action: migrate.SQL{
@@ -481,6 +493,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Merge overlay_cache_nodes into nodes table",
 				Version:     12,
 				Action: migrate.SQL{
@@ -509,6 +522,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Change bucket_id to bucket_name and project_id",
 				Version:     13,
 				Action: migrate.SQL{
@@ -545,6 +559,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add new Columns to store version information",
 				Version:     14,
 				Action: migrate.SQL{
@@ -557,6 +572,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Default Node Type should be invalid",
 				Version:     15,
 				Action: migrate.SQL{
@@ -564,6 +580,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add path to injuredsegment to prevent duplicates",
 				Version:     16,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
@@ -617,6 +634,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				}),
 			},
 			{
+				DB:          db.db,
 				Description: "Fix audit and uptime ratios for new nodes",
 				Version:     17,
 				Action: migrate.SQL{`
@@ -625,6 +643,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Drops storagenode_storage_tally table, Renames accounting_raws to storagenode_storage_tally, and Drops data_type and created_at columns",
 				Version:     18,
 				Action: migrate.SQL{
@@ -635,6 +654,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Added new table to store reset password tokens",
 				Version:     19,
 				Action: migrate.SQL{`
@@ -648,6 +668,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Adds pending_audits table, adds 'contained' column to nodes table",
 				Version:     20,
 				Action: migrate.SQL{
@@ -667,6 +688,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add last_ip column and index",
 				Version:     21,
 				Action: migrate.SQL{
@@ -677,6 +699,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Create new tables for free credits program",
 				Version:     22,
 				Action: migrate.SQL{`
@@ -698,6 +721,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Drops and recreates api key table to handle macaroons and adds revocation table",
 				Version:     23,
 				Action: migrate.SQL{
@@ -716,6 +740,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add usage_limit column to projects table",
 				Version:     24,
 				Action: migrate.SQL{
@@ -723,6 +748,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add disqualified column to nodes table",
 				Version:     25,
 				Action: migrate.SQL{
@@ -730,6 +756,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add invitee_credit_in_gb and award_credit_in_gb columns, delete type and credit_in_cents columns",
 				Version:     26,
 				Action: migrate.SQL{
@@ -740,6 +767,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Create value attribution table",
 				Version:     27,
 				Action: migrate.SQL{
@@ -752,6 +780,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Remove agreements table",
 				Version:     28,
 				Action: migrate.SQL{
@@ -759,6 +788,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add userpaymentinfos, projectpaymentinfos, projectinvoicestamps",
 				Version:     29,
 				Action: migrate.SQL{
@@ -788,6 +818,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Alter value attribution table. Remove bucket_id. Add project_id and bucket_name as primary key",
 				Version:     30,
 				Action: migrate.SQL{
@@ -801,6 +832,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add user_credit table",
 				Version:     31,
 				Action: migrate.SQL{
@@ -818,6 +850,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Change type of disqualified column of nodes table to timestamp",
 				Version:     32,
 				Action: migrate.SQL{
@@ -832,6 +865,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add alpha and beta columns for reputations",
 				Version:     33,
 				Action: migrate.SQL{
@@ -842,6 +876,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Remove ratio columns from node reputations",
 				Version:     34,
 				Action: migrate.SQL{
@@ -850,6 +885,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Fix reputations to preserve a baseline",
 				Version:     35,
 				Action: migrate.SQL{
@@ -860,6 +896,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Update Last_IP column to be masked",
 				Version:     36,
 				Action: migrate.SQL{
@@ -869,6 +906,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Update project_id column from 36 byte string based UUID to 16 byte UUID",
 				Version:     37,
 				Action: migrate.SQL{
@@ -899,6 +937,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add bucket metadata table",
 				Version:     38,
 				Action: migrate.SQL{
@@ -923,6 +962,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Remove disqualification flag for failing uptime checks",
 				Version:     39,
 				Action: migrate.SQL{
@@ -930,6 +970,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add unique id for project payments. Add is_default property",
 				Version:     40,
 				Action: migrate.SQL{
@@ -946,6 +987,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Move InjuredSegment path from string to bytes",
 				Version:     41,
 				Action: migrate.SQL{
@@ -958,6 +1000,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Remove num_redeemed column in offers table",
 				Version:     42,
 				Action: migrate.SQL{
@@ -965,6 +1008,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Set default offer for each offer type in offers table",
 				Version:     43,
 				Action: migrate.SQL{
@@ -1005,6 +1049,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add index on InjuredSegments attempted column",
 				Version:     44,
 				Action: migrate.SQL{
@@ -1012,6 +1057,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add partner id field to support OSPP",
 				Version:     45,
 				Action: migrate.SQL{
@@ -1022,6 +1068,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add pending audit path",
 				Version:     46,
 				Action: migrate.SQL{
@@ -1031,6 +1078,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Modify default offers configuration",
 				Version:     47,
 				Action: migrate.SQL{
@@ -1050,6 +1098,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				// This partial unique index enforces uniqueness among (id, offer_id) pairs for users that have signed up
 				// but are not yet activated (credits_earned_in_cents=0).
 				// Among users that are activated, uniqueness of (id, offer_id) pairs is not required or desirable.
+				DB:          db.db,
 				Description: "Create partial index for user_credits table",
 				Version:     48,
 				Action: migrate.SQL{
@@ -1058,6 +1107,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add cascade to user_id for deleting an account",
 				Version:     49,
 				Action: migrate.SQL{
@@ -1073,6 +1123,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Changing the primary key constraint",
 				Version:     50,
 				Action: migrate.SQL{
@@ -1085,6 +1136,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				// Creating owner_id column for project.
 				// Removing projects without project members
 				// And populating this column with first project member id
+				DB:          db.db,
 				Description: "Creating owner_id column for projects table",
 				Version:     51,
 				Action: migrate.SQL{
@@ -1115,6 +1167,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Remove certRecords table",
 				Version:     52,
 				Action: migrate.SQL{
@@ -1122,6 +1175,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add piece_count column to nodes table",
 				Version:     53,
 				Action: migrate.SQL{
@@ -1129,6 +1183,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Add Peer Identities table",
 				Version:     54,
 				Action: migrate.SQL{
@@ -1142,6 +1197,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.db,
 				Description: "Added normalized_email column to users table",
 				Version:     55,
 				Action: migrate.SQL{

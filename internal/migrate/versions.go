@@ -47,6 +47,7 @@ type Migration struct {
 
 // Step describes a single step in migration.
 type Step struct {
+	DB          DB // The DB to execute this step on
 	Description string
 	Version     int // Versions should start at 0
 	Action      Action
@@ -90,7 +91,7 @@ func (migration *Migration) ValidateSteps() error {
 }
 
 // Run runs the migration steps
-func (migration *Migration) Run(log *zap.Logger, db DB) error {
+func (migration *Migration) Run(log *zap.Logger) error {
 	err := migration.ValidTableName()
 	if err != nil {
 		return err
@@ -101,41 +102,45 @@ func (migration *Migration) Run(log *zap.Logger, db DB) error {
 		return err
 	}
 
-	err = migration.ensureVersionTable(log, db)
-	if err != nil {
-		return Error.New("creating version table failed: %v", err)
-	}
-
-	version, err := migration.getLatestVersion(log, db)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if version >= 0 {
-		log.Info("Latest Version", zap.Int("version", version))
-	} else {
-		log.Info("No Version")
-	}
-
 	for _, step := range migration.Steps {
-		if step.Version <= version {
-			continue
+		if step.DB == nil {
+			return Error.New("step.DB is nil for step %d", step.Version)
 		}
 
-		log := log.Named(strconv.Itoa(step.Version))
-		log.Info(step.Description)
+		err = migration.ensureVersionTable(log, step.DB)
+		if err != nil {
+			return Error.New("creating version table failed: %v", err)
+		}
 
-		tx, err := db.Begin()
+		version, err := migration.getLatestVersion(log, step.DB)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		err = step.Action.Run(log, db, tx)
+		if version >= 0 {
+			log.Info("Latest Version", zap.Int("version", version))
+		} else {
+			log.Info("No Version")
+		}
+
+		if step.Version <= version {
+			continue
+		}
+
+		stepLog := log.Named(strconv.Itoa(step.Version))
+		stepLog.Info(step.Description)
+
+		tx, err := step.DB.Begin()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		err = step.Action.Run(stepLog, step.DB, tx)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
-		err = migration.addVersion(tx, db, step.Version)
+		err = migration.addVersion(tx, step.DB, step.Version)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
