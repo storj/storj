@@ -48,9 +48,6 @@ func TestDataRepair(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		for _, sn := range planet.StorageNodes {
-			sn.Contact.Chore.Loop.Stop()
-		}
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
 		satellitePeer := planet.Satellites[0]
@@ -119,6 +116,7 @@ func TestDataRepair(t *testing.T) {
 		}
 
 		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Loop.Stop()
 			if nodesToDisqualify[node.ID()] {
 				disqualifyNode(t, ctx, satellitePeer, node.ID())
 				continue
