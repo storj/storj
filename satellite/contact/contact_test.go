@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 )
@@ -25,12 +24,6 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeDossier := planet.StorageNodes[0].Local()
 		ident := planet.StorageNodes[0].Identity
-
-		// this identity will be put in the certs table, expected to be overwritten after Checkin called
-		fakeIdent, err := testidentity.NewTestIdentity(ctx)
-		require.NoError(t, err)
-		err = planet.Satellites[0].DB.PeerIdentities().Set(ctx, nodeDossier.Id, fakeIdent.PeerIdentity())
-		require.NoError(t, err)
 
 		grpcPeer := peer.Peer{
 			Addr: &net.TCPAddr{
@@ -52,9 +45,9 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 
+		// TODO: verify that the peer ID is being set by Contact.Endpoint.Checkin, and not by Discovery.Refresh
 		peerID, err := planet.Satellites[0].DB.PeerIdentities().Get(ctx, nodeDossier.Id)
 		require.NoError(t, err)
-		// TODO(moby): why doesn't this pass?
-		require.Equal(t, peerID, ident.PeerIdentity())
+		require.Equal(t, ident.PeerIdentity(), peerID)
 	})
 }
