@@ -168,6 +168,8 @@ func extractBucketID(path storj.Path) (bucketID string, projectID *uuid.UUID, bu
 }
 
 // ensureBucket returns bucket corresponding to the passed in path
+//
+// TODO: this parsing shouldn't be done by the observers, they shouldn't know how the data is laid out.
 func (tally *Tally) ensureBucket(ctx context.Context, path storj.Path) (*accounting.BucketTally, error) {
 	bucketID, projectID, bucketName, err := extractBucketID(path)
 	if err != nil {
