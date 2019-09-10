@@ -138,7 +138,7 @@ func TestMigratePostgres(t *testing.T) {
 				tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
 				// run migration up to a specific version
-				err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"), rawdb)
+				err := migrations.TargetVersion(step.Version).Run(log.Named("migrate"))
 				require.NoError(t, err, tag)
 
 				// find the matching expected version
