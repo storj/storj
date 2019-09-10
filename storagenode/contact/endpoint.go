@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/overlay"
 )
 
 // SatelliteIDVerifier checks if the connection is from a trusted satellite
@@ -27,7 +26,7 @@ type SatelliteIDVerifier interface {
 // Endpoint implements the contact service Endpoints
 type Endpoint struct {
 	log       *zap.Logger
-	self      overlay.NodeDossier
+	service   *Service
 	pingStats *PingStats
 	trust     SatelliteIDVerifier
 }
@@ -41,11 +40,11 @@ type PingStats struct {
 }
 
 // NewEndpoint returns a new contact service endpoint
-func NewEndpoint(log *zap.Logger, self overlay.NodeDossier, pingStats *PingStats, trust SatelliteIDVerifier) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Service, pingStats *PingStats, trust SatelliteIDVerifier) *Endpoint {
 	return &Endpoint{
 		log:       log,
 		pingStats: pingStats,
-		self:      self,
+		service:   service,
 		trust:     trust,
 	}
 }
@@ -69,7 +68,7 @@ func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingReque
 // RequestInf returns the node info
 func (endpoint *Endpoint) RequestInf(ctx context.Context, req *pb.InfoReq) (_ *pb.InfoRes, err error) {
 	defer mon.Task()(&ctx)(&err)
-	self := endpoint.self
+	self := endpoint.service.Local()
 
 	if endpoint.trust == nil {
 		return nil, status.Error(codes.Internal, "missing trust")

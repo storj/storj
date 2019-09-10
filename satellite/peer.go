@@ -377,7 +377,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		self := overlay.NodeDossier{
+		self := &overlay.NodeDossier{
 			Node: pb.Node{
 				Id: peer.ID(),
 				Address: &pb.NodeAddress{
