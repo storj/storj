@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
@@ -39,6 +40,7 @@ type Service struct {
 	storageUsageDB storageusage.DB
 	pieceStore     *pieces.Store
 	version        *version.Service
+	pingStats      *contact.PingStats
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
@@ -51,7 +53,7 @@ type Service struct {
 // NewService returns new instance of Service.
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *version.Service,
 	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
-	reputationDB reputation.DB, storageUsageDB storageusage.DB, myNodeID storj.NodeID) (*Service, error) {
+	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, myNodeID storj.NodeID) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -68,6 +70,10 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		return nil, errs.New("version can't be nil")
 	}
 
+	if pingStats == nil {
+		return nil, errs.New("pingStats can't be nil")
+	}
+
 	return &Service{
 		log:                log,
 		trust:              trust,
@@ -76,6 +82,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		storageUsageDB:     storageUsageDB,
 		pieceStore:         pieceStore,
 		version:            version,
+		pingStats:          pingStats,
 		allocatedBandwidth: allocatedBandwidth,
 		allocatedDiskSpace: allocatedDiskSpace,
 		nodeID:             myNodeID,
@@ -101,8 +108,9 @@ type Dashboard struct {
 	DiskSpace DiskSpaceInfo `json:"diskSpace"`
 	Bandwidth BandwidthInfo `json:"bandwidth"`
 
-	LastPinged  time.Time `json:"lastPinged"`
-	LastQueried time.Time `json:"lastQueried"`
+	LastPinged          time.Time    `json:"lastPinged"`
+	LastPingFromID      storj.NodeID `json:"lastPingFromID"`
+	LastPingFromAddress string       `json:"lastPingFromAddress"`
 
 	Version  version.SemVer `json:"version"`
 	UpToDate bool           `json:"upToDate"`
@@ -117,8 +125,8 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
 	data.UpToDate = s.version.IsAllowed()
-	data.LastPinged = s.kademlia.LastPinged()
-	data.LastQueried = s.kademlia.LastQueried()
+
+	data.LastPinged, data.LastPingFromID, data.LastPingFromAddress = s.pingStats.WhenLastPinged()
 
 	stats, err := s.reputationDB.All(ctx)
 	if err != nil {
