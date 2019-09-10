@@ -113,7 +113,7 @@ func (service *CacheService) Close() (err error) {
 // BlobsUsageCache is a blob storage with a cache for storing
 // totals of current space used
 //
-// Architecture: Database
+// architecture: Database
 type BlobsUsageCache struct {
 	storage.Blobs
 
