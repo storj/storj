@@ -21,6 +21,8 @@ import (
 type Config struct {
 	Address  string `user:"true" help:"public address to listen on" default:":8080"`
 	Versions ServiceVersions
+
+	Version Versions
 }
 
 // ServiceVersions provides a list of allowed Versions per Service
@@ -31,6 +33,23 @@ type ServiceVersions struct {
 	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
 	Gateway     string `user:"true" help:"Allowed Gateway Versions" default:"v0.0.1"`
 	Identity    string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
+}
+
+// Versions represents versions for all binaries
+type Versions struct {
+	Storagenode Binary
+}
+
+// Binary represents versions for single binary
+type Binary struct {
+	Minimum   Version
+	Suggested Version
+}
+
+// Version single version
+type Version struct {
+	Version string `user:"true" help:"peer version" default:"v0.0.1"`
+	URL     string `user:"true" help:"URL for specific binary" default:""`
 }
 
 // Peer is the representation of a VersionControl Server.
@@ -107,6 +126,10 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 		return &Peer{}, err
 	}
 
+	peer.Versions.Processes = version.Processes{}
+
+	peer.Versions.Processes.Storagenode = configToProcess(config.Version.Storagenode)
+
 	peer.response, err = json.Marshal(peer.Versions)
 
 	if err != nil {
@@ -153,3 +176,16 @@ func (peer *Peer) Close() (err error) {
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Listener.Addr().String() }
+
+func configToProcess(binary Binary) version.Process {
+	return version.Process{
+		Minimum: version.Version{
+			Version: binary.Minimum.Version,
+			URL:     binary.Minimum.URL,
+		},
+		Suggested: version.Version{
+			Version: binary.Suggested.Version,
+			URL:     binary.Suggested.URL,
+		},
+	}
+}
