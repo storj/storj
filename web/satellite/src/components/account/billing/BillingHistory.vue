@@ -49,12 +49,6 @@ export default class BillingHistory extends Vue {
 </script>
 
 <style scoped lang="scss">
-    ::-webkit-scrollbar,
-    ::-webkit-scrollbar-track,
-    ::-webkit-scrollbar-thumb {
-        width: 0;
-    }
-
     p,
     h1 {
         margin: 0;
@@ -64,8 +58,6 @@ export default class BillingHistory extends Vue {
         margin-top: 83px;
         background-color: #F5F6FA;
         font-family: 'font_regular';
-        overflow-y: scroll;
-        height: 70vh;
 
         &__title-area {
             display: flex;
@@ -120,6 +112,19 @@ export default class BillingHistory extends Vue {
                 color: #384B65;
                 margin-bottom: 32px;
             }
+        }
+    }
+
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        width: 0;
+    }
+
+    @media (max-height: 1000px) and (max-width: 1230px) {
+        .billing-history-area {
+            overflow-y: scroll;
+            height: 65vh;
         }
     }
 </style>
