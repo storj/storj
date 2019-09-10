@@ -138,12 +138,12 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	limiter.Wait()
 
 	if successfulPieces < es.RequiredCount() {
-		return nil, nil, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
+		return nil, failedNodeIDs, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
 	}
 
 	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
 	if err != nil {
-		return nil, nil, Error.Wrap(err)
+		return nil, failedNodeIDs, Error.Wrap(err)
 	}
 
 	esScheme := eestream.NewUnsafeRSScheme(fec, es.ErasureShareSize())

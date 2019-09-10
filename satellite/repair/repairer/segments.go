@@ -173,18 +173,19 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 
 	// Download the segment using just the healthy pieces
 	segmentReader, failedNodeIDs, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
+	// update audit status for nodes that failed piece hash verification during downloading
+	failedNum, updateErr := repairer.updateAuditFailStatus(ctx, failedNodeIDs)
+	if updateErr != nil || failedNum > 0 {
+		// failed updates should not affect repair, therefore we will not return the error
+		repairer.log.Debug("failed to update audit fail status", zap.Int("Failed Update Number", failedNum), zap.Error(err))
+	}
 	if err != nil {
 		// .Get() seems to only fail from input validation, so it would keep failing
 		return true, Error.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
-
-	// update audit status for nodes that failed piece hash verification during downloading
-	failedNum, err := repairer.updateAuditFailStatus(ctx, failedNodeIDs)
-	if err != nil || failedNum > 0 {
-		// failed updates should not affect repair, therefore we will not return the error
-		repairer.log.Debug("failed to update audit fail status", zap.Int("Failed Update Number", failedNum), zap.Error(err))
-	}
+	defer func() {
+		err = errs.Combine(err, segmentReader.Close())
+	}()
 
 	// Upload the repaired pieces
 	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, expiration, repairer.timeout, path)
