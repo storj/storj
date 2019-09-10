@@ -5,6 +5,7 @@ package process
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -245,7 +246,8 @@ func cleanup(cmd *cobra.Command) {
 
 		err = initDebug(logger, monkit.Default)
 		if err != nil {
-			logger.Error("failed to start debug endpoints", zap.Error(err))
+			withoutStack := errors.New(err.Error())
+			logger.Debug("failed to start debug endpoints", zap.Error(withoutStack))
 		}
 
 		var workErr error
