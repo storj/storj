@@ -6,6 +6,7 @@ package authorization
 import (
 	"context"
 	"fmt"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 )
