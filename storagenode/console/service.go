@@ -31,6 +31,8 @@ var (
 )
 
 // Service is handling storage node operator related logic.
+//
+// architecture: Service
 type Service struct {
 	log *zap.Logger
 

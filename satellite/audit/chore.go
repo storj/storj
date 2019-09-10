@@ -16,6 +16,8 @@ import (
 )
 
 // Chore populates reservoirs and the audit queue.
+//
+// architecture: Chore
 type Chore struct {
 	log   *zap.Logger
 	rand  *rand.Rand

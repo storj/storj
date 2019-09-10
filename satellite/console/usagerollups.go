@@ -11,6 +11,8 @@ import (
 )
 
 // UsageRollups defines how console works with usage rollups
+//
+// architecture: Database
 type UsageRollups interface {
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
