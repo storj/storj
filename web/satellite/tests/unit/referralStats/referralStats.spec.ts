@@ -1,15 +1,18 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
+
 import ReferralStats from '@/components/referral/ReferralStats.vue';
-import { CreditUsage } from '@/types/credits';
-import { User } from '@/types/users';
+
 import { makeCreditsModule } from '@/store/modules/credits';
 import { makeUsersModule, USER_ACTIONS } from '@/store/modules/users';
-import { UsersApiMock } from '../mock/api/users';
+import { CreditUsage } from '@/types/credits';
+import { User } from '@/types/users';
+import { createLocalVue, mount } from '@vue/test-utils';
+
 import { CreditsApiMock } from '../mock/api/credits';
+import { UsersApiMock } from '../mock/api/users';
 
 const {
     GET,

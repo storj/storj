@@ -15,17 +15,18 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import BillingItem from '@/components/account/billing/BillingItem.vue';
-    import SortingHeader from '@/components/account/billing/SortingHeader.vue';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            BillingItem,
-            SortingHeader,
-        }
-    })
-    export default class DepositAndBilling extends Vue {}
+import BillingItem from '@/components/account/billing/BillingItem.vue';
+import SortingHeader from '@/components/account/billing/SortingHeader.vue';
+
+@Component({
+    components: {
+        BillingItem,
+        SortingHeader,
+    }
+})
+export default class DepositAndBilling extends Vue {}
 </script>
 
 <style scoped lang="scss">

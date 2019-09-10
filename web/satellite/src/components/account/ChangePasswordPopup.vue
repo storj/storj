@@ -60,86 +60,88 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-    import Button from '@/components/common/Button.vue';
-    import { NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import { validatePassword } from '@/utils/validation';
-    import { AuthApi } from '@/api/auth';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            HeaderlessInput,
-            Button,
-        }
-    })
-    export default class ChangePasswordPopup extends Vue {
-        private oldPassword: string = '';
-        private newPassword: string = '';
-        private confirmationPassword: string = '';
-        private oldPasswordError: string = '';
-        private newPasswordError: string = '';
-        private confirmationPasswordError: string = '';
+import Button from '@/components/common/Button.vue';
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-        private readonly auth: AuthApi = new AuthApi();
+import { AuthApi } from '@/api/auth';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { validatePassword } from '@/utils/validation';
 
-        public setOldPassword(value: string): void {
-            this.oldPassword = value;
-            this.oldPasswordError = '';
-        }
-
-        public setNewPassword(value: string): void {
-            this.newPassword = value;
-            this.newPasswordError = '';
-        }
-
-        public setPasswordConfirmation(value: string): void {
-            this.confirmationPassword = value;
-            this.confirmationPasswordError = '';
-        }
-
-        public async onUpdateClick(): Promise<void> {
-            let hasError = false;
-            if (!this.oldPassword) {
-                this.oldPasswordError = 'Password required';
-                hasError = true;
-            }
-
-            if (!validatePassword(this.newPassword)) {
-                this.newPasswordError = 'Invalid password. Use 6 or more characters';
-                hasError = true;
-            }
-
-            if (!this.confirmationPassword) {
-                this.confirmationPasswordError = 'Password required';
-                hasError = true;
-            }
-
-            if (this.newPassword !== this.confirmationPassword) {
-                this.confirmationPasswordError = 'Password not match to new one';
-                hasError = true;
-            }
-
-            if (hasError) {
-                return;
-            }
-
-            try {
-                await this.auth.changePassword(this.oldPassword, this.newPassword);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-
-                return;
-            }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-        }
-
-        public onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-        }
+@Component({
+    components: {
+        HeaderlessInput,
+        Button,
     }
+})
+export default class ChangePasswordPopup extends Vue {
+    private oldPassword: string = '';
+    private newPassword: string = '';
+    private confirmationPassword: string = '';
+    private oldPasswordError: string = '';
+    private newPasswordError: string = '';
+    private confirmationPasswordError: string = '';
+
+    private readonly auth: AuthApi = new AuthApi();
+
+    public setOldPassword(value: string): void {
+        this.oldPassword = value;
+        this.oldPasswordError = '';
+    }
+
+    public setNewPassword(value: string): void {
+        this.newPassword = value;
+        this.newPasswordError = '';
+    }
+
+    public setPasswordConfirmation(value: string): void {
+        this.confirmationPassword = value;
+        this.confirmationPasswordError = '';
+    }
+
+    public async onUpdateClick(): Promise<void> {
+        let hasError = false;
+        if (!this.oldPassword) {
+            this.oldPasswordError = 'Password required';
+            hasError = true;
+        }
+
+        if (!validatePassword(this.newPassword)) {
+            this.newPasswordError = 'Invalid password. Use 6 or more characters';
+            hasError = true;
+        }
+
+        if (!this.confirmationPassword) {
+            this.confirmationPasswordError = 'Password required';
+            hasError = true;
+        }
+
+        if (this.newPassword !== this.confirmationPassword) {
+            this.confirmationPasswordError = 'Password not match to new one';
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        try {
+            await this.auth.changePassword(this.oldPassword, this.newPassword);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+
+            return;
+        }
+
+        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+    }
+
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+    }
+}
 </script>
 
 <style scoped lang="scss">

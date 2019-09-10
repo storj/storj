@@ -192,7 +192,15 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
+	executable := process.Executable
+
+	// use executable inside the directory, if it exists
+	localExecutable := filepath.Join(process.Directory, executable)
+	if _, err := os.Lstat(localExecutable); !os.IsNotExist(err) {
+		executable = localExecutable
+	}
+
+	cmd := exec.CommandContext(ctx, executable, process.Arguments[command]...)
 	cmd.Dir = process.processes.Directory
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
 
