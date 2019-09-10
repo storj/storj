@@ -23,14 +23,16 @@ var mon = monkit.Package()
 type Service struct {
 	log       *zap.Logger
 	overlay   *overlay.Service
+	peerids   overlay.PeerIdentities
 	transport transport.Client
 }
 
 // NewService creates a new contact service
-func NewService(log *zap.Logger, overlay *overlay.Service, transport transport.Client) *Service {
+func NewService(log *zap.Logger, overlay *overlay.Service, peerids overlay.PeerIdentities, transport transport.Client) *Service {
 	return &Service{
 		log:       log,
 		overlay:   overlay,
+		peerids:   peerids,
 		transport: transport,
 	}
 }
