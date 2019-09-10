@@ -11,6 +11,8 @@ import (
 )
 
 // PeerIdentities stores storagenode peer identities
+//
+// architecture: Database
 type PeerIdentities interface {
 	// Set adds a peer identity entry for a node
 	Set(context.Context, storj.NodeID, *identity.PeerIdentity) error
