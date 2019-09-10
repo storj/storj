@@ -1326,3 +1326,98 @@ func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) db
 
 	return updateFields
 }
+
+// UpdateCheckIn updates a single storagenode with info from when the
+// the node last checked in
+func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckinInfo, defaults overlay.NodeSelectionConfig) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		_, err = cache.UpdateUptime(ctx, node.NodeID, node.IsUp, node.Lambda, node.Weight, node.UptimeDQ)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		pbInfo := pb.InfoResponse{
+			Operator: node.Operator,
+			Capacity: node.Capacity,
+		}
+		_, err = cache.UpdateNodeInfo(ctx, node.NodeID, &pbInfo)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	case *pq.Driver:
+		// v is a single feedback value that allows us to update both alpha and beta
+		var v float64 = -1
+		if node.IsUp {
+			v = 1
+		}
+		result, err := cache.db.ExecContext(ctx, `
+			INSERT INTO nodes
+			(
+				id, address, last_net, protocol, type, email,
+				wallet, free_bandwidth, free_disk, piece_count, major, minor,
+				patch, hash, timestamp, release, latency_90, audit_success_count,
+				total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success,
+				last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha,
+				uptime_reputation_beta
+			)
+			VALUES (
+				$1, $2, $3, $4, $5, $6,
+				$7, $8, $9, 0, 0, 0,
+				0, '', $19, false, 0, 0,
+				0, 0, 0, current_timestamp, current_timestamp, current_timestamp,
+				$19, false, null, $10, $11, $12,
+				$13
+			)
+			ON CONFLICT (id)
+			DO UPDATE
+			SET
+				address = CASE WHEN $2 = nodes.address
+					THEN nodes.address
+					ELSE $2
+				END,
+				uptime_success_count = CASE WHEN $14 IS TRUE
+					THEN nodes.uptime_success_count+1
+					ELSE nodes.uptime_success_count
+				END,
+				last_contact_success = CASE WHEN $14 IS TRUE
+					THEN current_timestamp
+					ELSE nodes.last_contact_success
+				END,
+				last_contact_failure = CASE WHEN $14 IS FALSE
+					THEN current_timestamp
+					ELSE nodes.last_contact_failure
+				END,
+				disqualified = CASE WHEN (nodes.uptime_reputation_alpha/(nodes.uptime_reputation_alpha+nodes.uptime_reputation_beta)) <= $15
+					THEN current_timestamp
+					ELSE nodes.disqualified
+				END,
+				total_uptime_count=nodes.total_uptime_count+1,
+				uptime_reputation_alpha=$16*nodes.uptime_reputation_alpha + $17*(1+$18)/2,
+				uptime_reputation_beta=$16*nodes.uptime_reputation_beta + $17*(1+$18)/2,
+				email=$6,
+				wallet=$7,
+				free_bandwidth=$8,
+				free_disk=$9,
+				total_audit_count=$15;
+			`, node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(),
+			int(pb.NodeType_INVALID), node.Operator.GetEmail(),
+			node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
+			defaults.AuditReputationAlpha0, defaults.AuditReputationBeta0, defaults.UptimeReputationAlpha0, defaults.UptimeReputationBeta0,
+			node.IsUp, node.UptimeDQ, node.Lambda, node.Weight, v, time.Time{},
+		)
+		if err != nil {
+			fmt.Println("****** 3", err)
+			return Error.Wrap(err)
+		}
+		z, _ := result.RowsAffected()
+		fmt.Println("****** 2 rows count:", z)
+
+	default:
+		return Error.New("Unsupported database %t", t)
+	}
+
+	return nil
+}
