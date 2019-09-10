@@ -45,7 +45,7 @@ func TestReverifySuccess(t *testing.T) {
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		satellite.Audit.Chore.Loop.TriggerWait()
+		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -120,7 +120,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		satellite.Audit.Chore.Loop.TriggerWait()
+		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -201,7 +201,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		satellite.Audit.Chore.Loop.TriggerWait()
+		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -263,7 +263,7 @@ func TestReverifyOffline(t *testing.T) {
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		satellite.Audit.Chore.Loop.TriggerWait()
+		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -327,7 +327,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		satellite.Audit.Chore.Loop.TriggerWait()
+		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -420,7 +420,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		satellite.Audit.Chore.Loop.TriggerWait()
+		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -482,7 +482,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		satellite.Audit.Chore.Loop.TriggerWait()
+		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
 		require.NoError(t, err)
 

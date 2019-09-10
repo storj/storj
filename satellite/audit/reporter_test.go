@@ -62,13 +62,13 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 		nodeID := planet.StorageNodes[0].ID()
 
 		report := audit.Report{Successes: []storj.NodeID{nodeID}}
-		overlay := planet.Satellites[0].Overlay.Service
 
 		// expect RecordAudits to try recording at least once (maxRetries is set to 0)
 		failed, err := audits.Reporter.RecordAudits(ctx, &report)
 		require.NoError(t, err)
 		require.Zero(t, failed)
 
+		overlay := planet.Satellites[0].Overlay.Service
 		node, err := overlay.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.EqualValues(t, 1, node.Reputation.AuditCount)
