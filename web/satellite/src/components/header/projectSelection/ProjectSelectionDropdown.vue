@@ -19,58 +19,58 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    import {
-    APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
-    PM_ACTIONS,
-    API_KEYS_ACTIONS,
-    PROJECT_PAYMENT_METHODS_ACTIONS
-    } from '@/utils/constants/actionNames';
-    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-    import { Project } from '@/types/projects';
-    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import { Project } from '@/types/projects';
+import {
+API_KEYS_ACTIONS,
+APP_STATE_ACTIONS,
+NOTIFICATION_ACTIONS,
+PM_ACTIONS,
+PROJECT_PAYMENT_METHODS_ACTIONS
+} from '@/utils/constants/actionNames';
 
-    @Component
-    export default class ProjectSelectionDropdown extends Vue {
-        private FIRST_PAGE = 1;
+@Component
+export default class ProjectSelectionDropdown extends Vue {
+    private FIRST_PAGE = 1;
 
-        public async onProjectSelected(projectID: string): Promise<void> {
-            this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
-            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+    public async onProjectSelected(projectID: string): Promise<void> {
+        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-            try {
-                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
-            }
-
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
-            }
-
-            try {
-                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
-            }
-
-            try {
-                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
-            }
+        try {
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
         }
 
-        public get projects(): Project[] {
-            return this.$store.getters.projects;
+        try {
+            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
         }
     }
+
+    public get projects(): Project[] {
+        return this.$store.getters.projects;
+    }
+}
 </script>
 
 <style scoped lang="scss">

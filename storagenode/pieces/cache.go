@@ -16,6 +16,8 @@ import (
 )
 
 // CacheService updates the space used cache
+//
+// architecture: Chore
 type CacheService struct {
 	log        *zap.Logger
 	usageCache *BlobsUsageCache
@@ -110,6 +112,8 @@ func (service *CacheService) Close() (err error) {
 
 // BlobsUsageCache is a blob storage with a cache for storing
 // totals of current space used
+//
+// architecture: Database
 type BlobsUsageCache struct {
 	storage.Blobs
 

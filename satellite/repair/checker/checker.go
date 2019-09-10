@@ -46,6 +46,8 @@ type durabilityStats struct {
 }
 
 // Checker contains the information needed to do checks for missing pieces
+//
+// architecture: Chore
 type Checker struct {
 	logger          *zap.Logger
 	repairQueue     queue.RepairQueue
@@ -208,7 +210,11 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	return nil
 }
 
+var _ metainfo.Observer = (*checkerObserver)(nil)
+
 // checkerObserver implements the metainfo loop Observer interface
+//
+// architecture: Observer
 type checkerObserver struct {
 	repairQueue queue.RepairQueue
 	irrdb       irreparable.DB
