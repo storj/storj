@@ -7,6 +7,7 @@ import Router, { RouteRecord } from 'vue-router';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
+import BillingHistory from '@/components/account/billing/BillingHistory.vue';
 import Profile from '@/components/account/Profile.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
@@ -43,6 +44,7 @@ export abstract class RouteConfig {
     public static PaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
     public static Profile = new NavigationLink('profile', 'Profile');
     public static Billing = new NavigationLink('billing', 'Billing');
+    public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
 
     // not in project yet
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
@@ -92,6 +94,11 @@ const router = new Router({
                             path: RouteConfig.PaymentMethods.path,
                             name: RouteConfig.PaymentMethods.name,
                             component: AccountPaymentMethods,
+                        },
+                        {
+                            path: RouteConfig.BillingHistory.path,
+                            name: RouteConfig.BillingHistory.name,
+                            component: BillingHistory,
                         },
                     ]
                 },
