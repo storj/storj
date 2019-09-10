@@ -105,12 +105,12 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
 	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
 
-	if err := bucket.UploadObject(ctx, dst.Path(), reader, opts); err != nil {
-		return err
-	}
-
+	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
 	if bar != nil {
 		bar.Finish()
+	}
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("Created %s\n", dst.String())
@@ -175,12 +175,11 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	}
 
 	_, err = io.Copy(file, reader)
-	if err != nil {
-		return err
-	}
-
 	if bar != nil {
 		bar.Finish()
+	}
+	if err != nil {
+		return err
 	}
 
 	if dst.Base() != "-" {
@@ -239,13 +238,13 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	}
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
 	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
-	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
-	if err != nil {
-		return err
-	}
 
+	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
 	if bar != nil {
 		bar.Finish()
+	}
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("%s copied to %s\n", src.String(), dst.String())
