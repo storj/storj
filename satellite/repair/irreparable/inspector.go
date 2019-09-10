@@ -16,6 +16,8 @@ var (
 )
 
 // Inspector is a gRPC service for inspecting irreparable internals
+//
+// architecture: Endpoint
 type Inspector struct {
 	irrdb DB
 }
