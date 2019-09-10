@@ -122,7 +122,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		}, err
 	}
 
-	_, err = verifier.checkIfSegmentDeleted(ctx, path, pointer)
+	_, err = verifier.checkIfSegmentAltered(ctx, path, pointer)
 	if err != nil {
 		return &Report{
 			Offlines: offlineNodes,
@@ -398,7 +398,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				}
 				if errs2.IsRPC(err, codes.NotFound) {
 					// Get the original segment pointer in the metainfo
-					oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, pointer)
+					oldPtr, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pointer)
 					if err != nil {
 						ch <- result{nodeID: piece.NodeId, status: success}
 						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.String("Segment Path", path), zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
@@ -430,7 +430,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				ch <- result{nodeID: piece.NodeId, status: success}
 				verifier.log.Debug("Reverify: hashes match (audit success)", zap.String("Segment Path", path), zap.Stringer("Node ID", piece.NodeId))
 			} else {
-				oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, pointer)
+				oldPtr, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pointer)
 				if err != nil {
 					ch <- result{nodeID: piece.NodeId, status: success}
 					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.String("Segment Path", path), zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
@@ -559,8 +559,8 @@ OUTER:
 	return err
 }
 
-// checkIfSegmentDeleted checks if path's pointer has been deleted since path was selected.
-func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath string, oldPointer *pb.Pointer) (newPointer *pb.Pointer, err error) {
+// checkIfSegmentAltered checks if path's pointer has been altered since path was selected.
+func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, segmentPath string, oldPointer *pb.Pointer) (newPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
