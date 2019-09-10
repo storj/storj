@@ -44,7 +44,8 @@ func flagDefault(dev, release string) string {
 // its Run() method in a goroutine.
 func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, instanceID string) (err error) {
 	if *metricCollector == "" || *metricInterval == 0 {
-		return Error.New("telemetry disabled")
+		log.Named("metrics").Info("disabled")
+		return nil
 	}
 	if r == nil {
 		r = monkit.Default
