@@ -50,8 +50,7 @@ For `exit-satellite` command it could stay up and show exiting progress. However
 - Add `storagenode exit-satellite` command to storagenode CLI, which updates `satellites` table with the satellite information that is being exited.
 	- Once initiated [protocol for transferring pieces](protocol.md) should start.
 - Add `storagenode exit-status` command to storagenode CLI. This returns completion status as described above.
-- TODO: terminating graceful exit?
 
 ## Open issues (if applicable)
 
-- Should we be able to terminate graceful exit? If we do not provide the feature, storage node operator might try to do this manually, breaking the whole node.
+- Should we be able to terminate graceful exit? If we do not provide the feature, storage node operator might try to do this manually, breaking the whole node. A solution to this should be considered in a future release.
