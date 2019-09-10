@@ -67,8 +67,11 @@ func NewSegmentRepairer(
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 // note that shouldDelete is used even in the case where err is not null
+// note that it will update audit status as failed for nodes that failed piece hash verification during repair downloading
 func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, path)(&err)
+
+	// should check if segment has changed before tries to repair it
 
 	// Read the segment pointer from the metainfo
 	pointer, err := repairer.metainfo.Get(ctx, path)
@@ -171,12 +174,19 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// Download the segment using just the healthy pieces
-	segmentReader, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
+	segmentReader, failedNodeIDs, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
 	if err != nil {
 		// .Get() seems to only fail from input validation, so it would keep failing
 		return true, Error.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
+
+	// update audit status for nodes that failed piece hash verification during downloading
+	failedNum, err := repairer.updateAuditFailStatus(ctx, failedNodeIDs)
+	if err != nil || failedNum > 0 {
+		// failed updates should not affect repair, therefore we will not return the error
+		repairer.log.Debug("failed to update audit fail status", zap.Int("Failed Update Number", failedNum), zap.Error(err))
+	}
 
 	// Upload the repaired pieces
 	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, expiration, repairer.timeout, path)
@@ -234,6 +244,24 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// Update the segment pointer in the metainfo
 	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
 	return err == nil, err
+}
+
+func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failedNum int, err error) {
+	updateRequests := make([]*overlay.UpdateRequest, len(failedAuditNodeIDs))
+	for i, nodeID := range failedAuditNodeIDs {
+		updateRequests[i] = &overlay.UpdateRequest{
+			NodeID:       nodeID,
+			IsUp:         true,
+			AuditSuccess: false,
+		}
+	}
+	if len(updateRequests) > 0 {
+		failed, err := repairer.overlay.BatchUpdateStats(ctx, updateRequests)
+		if err != nil || len(failed) > 0 {
+			return len(failed), errs.Combine(Error.New("failed to update some audit fail statuses in overlay"), err)
+		}
+	}
+	return 0, nil
 }
 
 // sliceToSet converts the given slice to a set
