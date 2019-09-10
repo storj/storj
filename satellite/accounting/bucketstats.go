@@ -17,7 +17,7 @@ type BucketTally struct {
 
 	Files       int64 // TODO: rename to objects
 	InlineFiles int64 // TODO: what's an inline file
-	RemoteFiles int64 // TODO: what's an inline file
+	RemoteFiles int64 // TODO: what's a remote file
 
 	Bytes       int64
 	InlineBytes int64
