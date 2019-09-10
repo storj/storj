@@ -6,8 +6,6 @@ package audit
 import (
 	"bytes"
 	"context"
-	crand "crypto/rand"
-	"encoding/binary"
 	"io"
 	"math/rand"
 	"time"
@@ -742,21 +740,4 @@ func GetRandomStripe(ctx context.Context, pointer *pb.Pointer) (index int64, err
 	randomStripeIndex := rnd.Int63n(numStripes)
 
 	return randomStripeIndex, nil
-}
-
-// cryptoSource implements the math/rand Source interface using crypto/rand
-type cryptoSource struct{}
-
-func (s cryptoSource) Seed(seed int64) {}
-
-func (s cryptoSource) Int63() int64 {
-	return int64(s.Uint64() & ^uint64(1<<63))
-}
-
-func (s cryptoSource) Uint64() (v uint64) {
-	err := binary.Read(crand.Reader, binary.BigEndian, &v)
-	if err != nil {
-		panic(err)
-	}
-	return v
 }
