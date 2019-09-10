@@ -30,6 +30,8 @@ type Config struct {
 }
 
 // Chore is the contact chore for nodes announcing themselves to their trusted satellites
+//
+// architecture: Chore
 type Chore struct {
 	log       *zap.Logger
 	self      overlay.NodeDossier
