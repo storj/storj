@@ -122,26 +122,6 @@
                 "is_repeated": true
               }
             ]
-          },
-          {
-            "name": "AuthorizationRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "user_id",
-                "type": "string"
-              }
-            ]
-          },
-          {
-            "name": "AuthorizationResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "token",
-                "type": "string"
-              }
-            ]
           }
         ],
         "services": [
@@ -152,16 +132,6 @@
                 "name": "Sign",
                 "in_type": "SigningRequest",
                 "out_type": "SigningResponse"
-              }
-            ]
-          },
-          {
-            "name": "Authorizations",
-            "rpcs": [
-              {
-                "name": "Create",
-                "in_type": "AuthorizationRequest",
-                "out_type": "AuthorizationResponse"
               }
             ]
           }
