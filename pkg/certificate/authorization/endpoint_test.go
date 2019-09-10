@@ -4,7 +4,6 @@
 package authorization
 
 import (
-	"bytes"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -34,8 +33,8 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 	defer ctx.Check(endpoint.Close)
 
 	userID := "user@mail.test"
-	url := "http://" + listener.Addr().String() + "/v1/authorization"
-	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBufferString(userID))
+	url := "http://" + listener.Addr().String() + "/v1/authorizations/" + userID
+	req, err := http.NewRequest(http.MethodPut, url, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req)
 
@@ -86,21 +85,21 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 		{
 			"missing user ID",
 			"",
-			"/v1/authorization",
+			"/v1/authorizations/",
 			http.MethodPut,
 			http.StatusUnprocessableEntity,
 		},
 		{
 			"unsupported http method (GET)",
 			"user@mail.test",
-			"/v1/authorization",
+			"/v1/authorizations/",
 			http.MethodGet,
 			http.StatusMethodNotAllowed,
 		},
 		{
 			"unsupported http method (PUT)",
 			"user@mail.test",
-			"/v1/authorization",
+			"/v1/authorizations/",
 			http.MethodPost,
 			http.StatusMethodNotAllowed,
 		},
@@ -115,11 +114,8 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Log(testCase.name)
-		url := baseURL + testCase.urlPath
-		req, err := http.NewRequest(
-			testCase.httpMethod, url,
-			bytes.NewBufferString(testCase.userID),
-		)
+		url := baseURL + testCase.urlPath + testCase.userID
+		req, err := http.NewRequest(testCase.httpMethod, url, nil)
 		require.NoError(t, err)
 
 		client := http.Client{}

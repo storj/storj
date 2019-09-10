@@ -4,12 +4,11 @@
 package authorization
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"path"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -28,7 +27,7 @@ type Endpoint struct {
 	listener net.Listener
 }
 
-// NewEndpoint creates a new http proxy for an authorization service.
+// NewEndpoint creates a new http server for interacting with an authorization service.
 func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 	service := NewService(log, db)
 	mux := http.NewServeMux()
@@ -43,7 +42,7 @@ func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
 		},
 	}
 
-	mux.HandleFunc("/v1/authorization", endpoint.handleAuthorization)
+	mux.HandleFunc("/v1/authorizations/", endpoint.handleAuthorization)
 
 	return endpoint
 }
@@ -84,16 +83,10 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 		return
 	}
 
-	userID, err := ioutil.ReadAll(httpReq.Body)
-	if err != nil {
-		msg := "error reading body"
-		err = ErrEndpoint.Wrap(err)
-		endpoint.log.Error(msg, zap.Error(err))
-		http.Error(writer, msg, http.StatusInternalServerError)
-		return
-	}
-	if bytes.Equal([]byte{}, userID) {
+	userID := path.Base(httpReq.URL.Path)
+	if userID == "authorizations" || userID == "" {
 		msg := "missing user ID body"
+		err = ErrEndpoint.New(msg)
 		http.Error(writer, msg, http.StatusUnprocessableEntity)
 		return
 	}
