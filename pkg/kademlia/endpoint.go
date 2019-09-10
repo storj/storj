@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storagenode/contact"
 )
 
 // EndpointError defines errors class for Endpoint
@@ -28,18 +27,22 @@ type SatelliteIDVerifier interface {
 	VerifySatelliteID(ctx context.Context, id storj.NodeID) error
 }
 
+type pingStatsSource interface {
+	WasPinged(when time.Time, byID storj.NodeID, byAddr string)
+}
+
 // Endpoint implements the kademlia Endpoints
 type Endpoint struct {
 	log          *zap.Logger
 	service      *Kademlia
-	pingStats    *contact.PingStats
+	pingStats    pingStatsSource
 	routingTable *RoutingTable
 	trust        SatelliteIDVerifier
 	connected    int32
 }
 
 // NewEndpoint returns a new kademlia endpoint
-func NewEndpoint(log *zap.Logger, service *Kademlia, pingStats *contact.PingStats, routingTable *RoutingTable, trust SatelliteIDVerifier) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Kademlia, pingStats pingStatsSource, routingTable *RoutingTable, trust SatelliteIDVerifier) *Endpoint {
 	return &Endpoint{
 		log:          log,
 		service:      service,
