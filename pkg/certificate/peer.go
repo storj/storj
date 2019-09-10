@@ -55,6 +55,7 @@ type Peer struct {
 
 	Authorization struct {
 		Listener net.Listener
+		Service  *authorization.Service
 		Endpoint *authorization.Endpoint
 	}
 }
