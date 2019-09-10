@@ -38,9 +38,10 @@ type Config struct {
 //
 // architecture: Chore
 type Discovery struct {
-	log   *zap.Logger
-	cache *overlay.Service
-	kad   *kademlia.Kademlia
+	log    *zap.Logger
+	cache  *overlay.Service
+	peerid overlay.PeerIdentities
+	kad    *kademlia.Kademlia
 
 	refreshLimit       int
 	refreshConcurrency int
@@ -50,11 +51,12 @@ type Discovery struct {
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Service, kad *kademlia.Kademlia, config Config) *Discovery {
+func New(logger *zap.Logger, ol *overlay.Service, peerid overlay.PeerIdentities, kad *kademlia.Kademlia, config Config) *Discovery {
 	discovery := &Discovery{
-		log:   logger,
-		cache: ol,
-		kad:   kad,
+		log:    logger,
+		cache:  ol,
+		peerid: peerid,
+		kad:    kad,
 
 		refreshLimit:       config.RefreshLimit,
 		refreshConcurrency: config.RefreshConcurrency,
@@ -133,6 +135,10 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 				if _, err = discovery.cache.UpdateNodeInfo(ctx, node.Id, info); err != nil {
 					discovery.log.Warn("could not update node info", zap.Stringer("ID", node.GetAddress()))
 				}
+
+				// TODO(moby): switch after kad removal completed
+				nodePeerID, err := discovery.kad.FetchPeerIdentity(ctx, node.Id)
+				discovery.peerid.Set(ctx, node.Id, nodePeerID)
 			})
 		}
 
