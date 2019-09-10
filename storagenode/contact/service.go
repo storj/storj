@@ -53,6 +53,7 @@ type Service struct {
 func NewService(log *zap.Logger, self *overlay.NodeDossier, transport transport.Client) *Service {
 	return &Service{
 		log:       log,
+		mutex:     &sync.Mutex{},
 		self:      self,
 		transport: transport,
 	}
