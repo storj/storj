@@ -48,8 +48,8 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				err := signerCAConfig.Save(signer)
 				require.NoError(t, err)
 
-				authorizationsCfg := authorization.Config{
-					DBURL: "bolt://" + ctx.File("authorizations.db"),
+				authorizationsCfg := authorization.DBConfig{
+					URL: "bolt://" + ctx.File("authorizations.db"),
 				}
 
 				authDB, err := authorization.NewDBFromCfg(authorizationsCfg)
@@ -61,14 +61,14 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				require.NotEmpty(t, auths)
 
 				certificatesCfg := certificate.Config{
-					Authorizations: authorizationsCfg,
-					Signer:         signerCAConfig,
+					Signer: signerCAConfig,
 					Server: server.Config{
 						Address: "127.0.0.1:0",
 						Config: tlsopts.Config{
 							PeerIDVersions: "*",
 						},
 					},
+					AuthorizationAddr: "127.0.0.1:0",
 				}
 
 				peer, err := certificate.New(zaptest.NewLogger(t), serverIdent, signer, authDB, nil, &certificatesCfg)
