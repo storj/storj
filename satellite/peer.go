@@ -201,10 +201,11 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service *audit.Service
-		Queue   *audit.Queue
-		Worker  *audit.Worker
-		Chore   *audit.Chore
+		Queue    *audit.Queue
+		Worker   *audit.Worker
+		Chore    *audit.Chore
+		Verifier *audit.Verifier
+		Reporter *audit.Reporter
 	}
 
 	GarbageCollection struct {
@@ -493,31 +494,38 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		log.Debug("Setting up audits")
 		config := config.Audit
 
-		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
-			config,
+		peer.Audit.Queue = &audit.Queue{}
+
+		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Service,
-			peer.Orders.Service,
 			peer.Transport,
 			peer.Overlay.Service,
 			peer.DB.Containment(),
+			peer.Orders.Service,
 			peer.Identity,
+			config.MinBytesPerSecond,
+			config.MinDownloadTimeout,
 		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
-		// setup audit 2.0
-		peer.Audit.Queue = &audit.Queue{}
+		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
+			peer.Overlay.Service,
+			peer.DB.Containment(),
+			config.MaxRetriesStatDB,
+			int32(config.MaxReverifyCount),
+		)
 
 		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
 			peer.Audit.Queue,
+			peer.Audit.Verifier,
+			peer.Audit.Reporter,
 			config,
 		)
+
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit reservoir chore"),
+		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit chore"),
 			peer.Audit.Queue,
 			peer.Metainfo.Loop,
 			config,
@@ -738,9 +746,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))
