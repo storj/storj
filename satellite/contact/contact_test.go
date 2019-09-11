@@ -4,9 +4,14 @@
 package contact_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -17,19 +22,27 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satDossier := planet.Satellites[0].Local()
 		nodeDossier := planet.StorageNodes[0].Local()
+		ident := planet.StorageNodes[0].Identity
 
-		conn, err := planet.StorageNodes[0].Transport.DialNode(ctx, &satDossier.Node)
-		require.NoError(t, err)
-		defer ctx.Check(conn.Close)
-
-		resp, err := pb.NewNodeClient(conn).Checkin(ctx, &pb.CheckinRequest{
-			Address:  nodeDossier.GetAddress(),
+		grpcPeer := peer.Peer{
+			Addr: &net.TCPAddr{
+				IP:   net.ParseIP(nodeDossier.Address.GetAddress()),
+				Port: 5,
+			},
+			AuthInfo: credentials.TLSInfo{
+				State: tls.ConnectionState{
+					PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+				},
+			},
+		}
+		peerCtx := peer.NewContext(ctx, &grpcPeer)
+		resp, err := planet.Satellites[0].Contact.Endpoint.Checkin(peerCtx, &pb.CheckinRequest{
+			Address:  nodeDossier.Address,
 			Capacity: &nodeDossier.Capacity,
 			Operator: &nodeDossier.Operator,
 		})
-		require.NotNil(t, resp)
 		require.NoError(t, err)
+		require.NotNil(t, resp)
 	})
 }

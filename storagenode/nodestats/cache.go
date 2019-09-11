@@ -40,6 +40,8 @@ type CacheStorage struct {
 
 // Cache runs cache loop and stores reputation stats
 // and storage usage into db
+//
+// architecture: Chore
 type Cache struct {
 	log *zap.Logger
 

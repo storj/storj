@@ -62,6 +62,8 @@ type ArchiveRequest struct {
 }
 
 // DB implements storing orders for sending to the satellite.
+//
+// architecture: Database
 type DB interface {
 	// Enqueue inserts order to the list of orders needing to be sent to the satellite.
 	Enqueue(ctx context.Context, info *Info) error
@@ -89,6 +91,8 @@ type Config struct {
 }
 
 // Service sends every interval unsent orders to the satellite.
+//
+// architecture: Chore
 type Service struct {
 	log    *zap.Logger
 	config Config
