@@ -121,6 +121,11 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 
 	page.CurrentPage = cursor.Page
 
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
 	return page, err
 }
 
