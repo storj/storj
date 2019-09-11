@@ -219,7 +219,7 @@ func openTestDatabase() (*sql.DB, error) {
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables() error {
 	migration := db.Migration()
-	return migration.Run(db.log.Named("migration"), db.versionsDB)
+	return migration.Run(db.log.Named("migration"))
 }
 
 // Close closes any resources.
@@ -239,11 +239,6 @@ func (db *DB) Close() error {
 		db.storageUsageDB.Close(),
 		db.usedSerialsDB.Close(),
 	)
-}
-
-// VersionsMigration returns the instance of the versions database.
-func (db *DB) VersionsMigration() migrate.DB {
-	return db.versionsDB
 }
 
 // Versions returns the instance of the versions database.
@@ -307,6 +302,7 @@ func (db *DB) Migration() *migrate.Migration {
 		Table: "versions",
 		Steps: []*migrate.Step{
 			{
+				DB:          db.versionsDB,
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
@@ -388,6 +384,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Network Wipe #2",
 				Version:     1,
 				Action: migrate.SQL{
@@ -395,6 +392,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add tracking of deletion failures.",
 				Version:     2,
 				Action: migrate.SQL{
@@ -402,6 +400,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add vouchersDB for storing and retrieving vouchers.",
 				Version:     3,
 				Action: migrate.SQL{
@@ -413,6 +412,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add index on pieceinfo expireation",
 				Version:     4,
 				Action: migrate.SQL{
@@ -421,6 +421,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
@@ -432,6 +433,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add creation date.",
 				Version:     6,
 				Action: migrate.SQL{
@@ -439,6 +441,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Drop certificate table.",
 				Version:     7,
 				Action: migrate.SQL{
@@ -447,6 +450,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
 				Version:     8,
 				Action: migrate.SQL{
@@ -455,6 +459,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add order limit table.",
 				Version:     9,
 				Action: migrate.SQL{
@@ -462,6 +467,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
@@ -472,6 +478,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Create bandwidth_usage_rollup table.",
 				Version:     11,
 				Action: migrate.SQL{
@@ -485,6 +492,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{
@@ -532,6 +540,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
@@ -561,6 +570,7 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
@@ -578,6 +588,7 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Start piece_expirations table, deprecate pieceinfo table",
 				Version:     15,
 				Action: migrate.SQL{
@@ -594,6 +605,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add reputation and storage usage cache tables",
 				Version:     16,
 				Action: migrate.SQL{
@@ -621,6 +633,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Create piece_space_used table",
 				Version:     17,
 				Action: migrate.SQL{
@@ -634,6 +647,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Drop vouchers table",
 				Version:     18,
 				Action: migrate.SQL{
@@ -641,6 +655,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add disqualified field to reputation",
 				Version:     19,
 				Action: migrate.SQL{
@@ -664,6 +679,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
 				Version:     20,
 				Action: migrate.SQL{

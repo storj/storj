@@ -7,8 +7,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/gogo/protobuf/proto"
-
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -19,6 +17,7 @@ var _ storj.ReadOnlyStream = (*readonlyStream)(nil)
 type readonlyStream struct {
 	db *DB
 
+	id        storj.StreamID
 	info      storj.Object
 	bucket    string
 	encPath   storj.Path
@@ -47,21 +46,14 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
-		segmentPath := getSegmentPath(storj.JoinPaths(stream.bucket, stream.encPath), index)
-		_, meta, err := stream.db.segments.Get(ctx, segmentPath)
-		if err != nil {
-			return segment, err
-		}
-
-		segmentMeta := pb.SegmentMeta{}
-		err = proto.Unmarshal(meta.Data, &segmentMeta)
+		_, segmentEnc, err := stream.db.segments.Get(ctx, stream.id, int32(index), stream.info.RedundancyScheme)
 		if err != nil {
 			return segment, err
 		}
 
 		segment.Size = stream.info.FixedSegmentSize
-		copy(segment.EncryptedKeyNonce[:], segmentMeta.KeyNonce)
-		segment.EncryptedKey = segmentMeta.EncryptedKey
+		segment.EncryptedKeyNonce = segmentEnc.EncryptedKeyNonce
+		segment.EncryptedKey = segmentEnc.EncryptedKey
 	} else {
 		segment.Size = stream.info.LastSegment.Size
 		segment.EncryptedKeyNonce = stream.info.LastSegment.EncryptedKeyNonce
