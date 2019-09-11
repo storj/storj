@@ -18,17 +18,10 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// SatelliteIDVerifier checks if the connection is from a trusted satellite
-type SatelliteIDVerifier interface {
-	VerifySatelliteID(ctx context.Context, id storj.NodeID) error
-}
-
 // Endpoint implements the contact service Endpoints
 type Endpoint struct {
 	log       *zap.Logger
-	service   *Service
 	pingStats *PingStats
-	trust     SatelliteIDVerifier
 }
 
 // PingStats contains information regarding who and when the node was last pinged
@@ -40,12 +33,10 @@ type PingStats struct {
 }
 
 // NewEndpoint returns a new contact service endpoint
-func NewEndpoint(log *zap.Logger, service *Service, pingStats *PingStats, trust SatelliteIDVerifier) *Endpoint {
+func NewEndpoint(log *zap.Logger, pingStats *PingStats) *Endpoint {
 	return &Endpoint{
 		log:       log,
 		pingStats: pingStats,
-		service:   service,
-		trust:     trust,
 	}
 }
 
@@ -63,36 +54,6 @@ func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingReque
 	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
 	endpoint.pingStats.WasPinged(time.Now(), peerID.ID, p.Addr.String())
 	return &pb.ContactPingResponse{}, nil
-}
-
-// RequestInf returns the node info
-func (endpoint *Endpoint) RequestInf(ctx context.Context, req *pb.InfoRequest) (_ *pb.InfoResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	self := endpoint.service.Local()
-
-	if endpoint.trust == nil {
-		return nil, status.Error(codes.Internal, "missing trust")
-	}
-
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
-	}
-
-	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
-	if err != nil {
-		return nil, status.Errorf(codes.PermissionDenied, "untrusted peer %v", peer.ID)
-	}
-
-	//endpoint.pingStats.wasPinged(time.Now(), peerID.ID, p.Addr.String())
-
-	return &pb.InfoResponse{
-		Type:     self.Type,
-		Operator: &self.Operator,
-		Capacity: &self.Capacity,
-		Version:  &self.Version,
-	}, nil
-
 }
 
 // WhenLastPinged returns last time someone pinged this node.

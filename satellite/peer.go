@@ -166,8 +166,9 @@ type Peer struct {
 	}
 
 	Contact struct {
-		Service  *contact.Service
-		Endpoint *contact.Endpoint
+		Service    *contact.Service
+		Endpoint   *contact.Endpoint
+		NSEndpoint *contact.NodesServiceEndpoint
 	}
 
 	Overlay struct {
@@ -390,7 +391,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
+		peer.Contact.NSEndpoint = contact.NewNodesServiceEndpoint()
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.NSEndpoint)
 	}
 
 	{ // setup discovery

@@ -39,7 +39,7 @@ type Conn struct {
 type Service struct {
 	log *zap.Logger
 
-	mutex *sync.Mutex
+	mutex sync.Mutex
 	self  *overlay.NodeDossier
 
 	overlay   *overlay.Service
@@ -50,7 +50,7 @@ type Service struct {
 func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, transport transport.Client) *Service {
 	return &Service{
 		log:       log,
-		mutex:     &sync.Mutex{},
+		mutex:     sync.Mutex{},
 		self:      self,
 		overlay:   overlay,
 		transport: transport,
@@ -73,7 +73,7 @@ func (service *Service) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.In
 
 	resp, err := conn.client.RequestInf(ctx, &pb.InfoRequest{})
 
-	return resp, errs.Combine(err, conn.disconnect())
+	return resp, errs.Combine(err, conn.close())
 }
 
 // dialNode dials the specified node.
@@ -86,7 +86,7 @@ func (service *Service) dialNode(ctx context.Context, target pb.Node) (_ *Conn, 
 	}, err
 }
 
-// disconnect disconnects this connection.
-func (conn *Conn) disconnect() error {
+// close disconnects this connection.
+func (conn *Conn) close() error {
 	return conn.conn.Close()
 }
