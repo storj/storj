@@ -4,7 +4,7 @@
 package audit
 
 import (
-	crand "crypto/rand"
+	"crypto/rand"
 	"encoding/binary"
 )
 
@@ -18,7 +18,7 @@ func (s cryptoSource) Int63() int64 {
 }
 
 func (s cryptoSource) Uint64() (v uint64) {
-	err := binary.Read(crand.Reader, binary.BigEndian, &v)
+	err := binary.Read(rand.Reader, binary.BigEndian, &v)
 	if err != nil {
 		panic(err)
 	}
