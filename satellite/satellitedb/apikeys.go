@@ -91,20 +91,10 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	var apiKeys []console.APIKeyInfo
 	for rows.Next() {
 		ak := console.APIKeyInfo{}
-		var keyIDBytes, projectIDBytes, partnerIDBytes []uint8
-		var keyID, projectID, partnerID uuid.UUID
+		var partnerIDBytes []uint8
+		var partnerID uuid.UUID
 
-		err = rows.Scan(&keyIDBytes, &projectIDBytes, &ak.Name, &partnerIDBytes, &ak.CreatedAt)
-		if err != nil {
-			return nil, err
-		}
-
-		keyID, err = bytesToUUID(keyIDBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		projectID, err = bytesToUUID(projectIDBytes)
+		err = rows.Scan(&uuidScan{&ak.ID}, &uuidScan{&ak.ProjectID}, &ak.Name, &partnerIDBytes, &ak.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -116,8 +106,6 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 			}
 		}
 
-		ak.ID = keyID
-		ak.ProjectID = projectID
 		ak.PartnerID = partnerID
 
 		apiKeys = append(apiKeys, ak)
