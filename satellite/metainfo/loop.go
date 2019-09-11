@@ -34,8 +34,12 @@ type Observer interface {
 
 // ScopedPath contains full expanded information about the path
 type ScopedPath struct {
-	ProjectID  uuid.UUID
-	BucketName string
+	ProjectPath string
+	ProjectID   uuid.UUID
+	BucketName  string
+	SegmentPath string
+
+	// TODO: should these be a []byte?
 
 	// Raw is the same path as pointerDB is using.
 	Raw string
@@ -183,9 +187,19 @@ waitformore:
 
 				pathElements := storj.SplitPath(rawPath)
 				isLastSegment := len(pathElements) >= 2 && pathElements[1] == "l"
+
 				path := ScopedPath{
-					Raw: rawPath,
+					Raw:         rawPath,
+					ProjectPath: pathElements[0],
+					BucketName:  pathElements[2],
+					SegmentPath: storj.JoinPaths(pathElements[3:]...),
 				}
+
+				projectID, err := uuid.Parse(path.ProjectPath)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				path.ProjectID = *projectID
 
 				nextObservers := observers[:0]
 				for _, observer := range observers {
