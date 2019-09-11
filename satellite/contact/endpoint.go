@@ -45,12 +45,12 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	}
 	nodeID := peerID.ID
 
-	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
+	err = endpoint.service.peerids.Set(ctx, nodeID, peerID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	err = endpoint.service.peerids.Set(ctx, nodeID, peerID)
+	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
