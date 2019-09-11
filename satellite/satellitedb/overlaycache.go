@@ -917,7 +917,6 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 	}
 
 	pieceCounts := make(map[storj.NodeID]int)
-
 	nodeIDErrs := errs.Group{}
 	for _, row := range rows {
 		nodeID, err := storj.NodeIDFromBytes(row.Id)
@@ -927,6 +926,7 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 		}
 		pieceCounts[nodeID] = int(row.PieceCount)
 	}
+
 	return pieceCounts, nodeIDErrs.Err()
 }
 
@@ -936,6 +936,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 		return nil
 	}
 
+	// TODO: pass in the apprioriate struct to database, rather than constructing it here
 	type NodeCount struct {
 		ID    storj.NodeID
 		Count int64
@@ -948,7 +949,6 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 			Count: int64(count),
 		})
 	}
-
 	sort.Slice(counts, func(i, k int) bool {
 		return counts[i].ID.Less(counts[k].ID)
 	})
