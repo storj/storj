@@ -37,7 +37,6 @@ type ScopedPath struct {
 	ProjectPath string
 	ProjectID   uuid.UUID
 	BucketName  string
-	SegmentPath string
 
 	// TODO: should these be a []byte?
 
@@ -186,13 +185,16 @@ waitformore:
 				}
 
 				pathElements := storj.SplitPath(rawPath)
-				isLastSegment := len(pathElements) >= 2 && pathElements[1] == "l"
+				if len(pathElements) < 3 {
+					return LoopError.New("invalid path %q", rawPath)
+				}
+
+				isLastSegment := pathElements[1] == "l"
 
 				path := ScopedPath{
 					Raw:         rawPath,
 					ProjectPath: pathElements[0],
 					BucketName:  pathElements[2],
-					SegmentPath: storj.JoinPaths(pathElements[3:]...),
 				}
 
 				projectID, err := uuid.Parse(path.ProjectPath)

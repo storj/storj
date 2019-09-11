@@ -223,10 +223,8 @@ type checkerObserver struct {
 	log         *zap.Logger
 }
 
-func (obs *checkerObserver) RemoteSegment(ctx context.Context, scopedPath metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	path := scopedPath.Raw // TODO: fix
 
 	obs.monStats.remoteSegmentsChecked++
 	remote := pointer.GetRemote()
@@ -254,7 +252,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, scopedPath metain
 	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
 			obs.log.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
-				zap.String("path", path),
+				zap.String("path", path.Raw),
 				zap.Int32("min", redundancy.MinReq),
 				zap.Int32("repair", redundancy.RepairThreshold),
 				zap.Int32("success", redundancy.SuccessThreshold),
@@ -263,7 +261,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, scopedPath metain
 		}
 		obs.monStats.remoteSegmentsNeedingRepair++
 		err = obs.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:         []byte(path),
+			Path:         []byte(path.Raw),
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
 		})
@@ -273,13 +271,15 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, scopedPath metain
 		}
 
 		// delete always returns nil when something was deleted and also when element didn't exists
-		err = obs.irrdb.Delete(ctx, []byte(path))
+		err = obs.irrdb.Delete(ctx, []byte(path.Raw))
 		if err != nil {
 			obs.log.Error("error deleting entry from irreparable db", zap.Error(err))
 			return nil
 		}
 	} else if numHealthy < redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
-		pathElements := storj.SplitPath(path)
+		pathElements := storj.SplitPath(path.Raw)
+
+		// TODO: see whether this can be handled with metainfo.ScopedPath
 
 		// check to make sure there are at least *4* path elements. the first three
 		// are project, segment, and bucket name, but we want to make sure we're talking
@@ -295,7 +295,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, scopedPath metain
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
-			Path:               []byte(path),
+			Path:               []byte(path.Raw),
 			SegmentDetail:      pointer,
 			LostPieces:         int32(len(missingPieces)),
 			LastRepairAttempt:  time.Now().Unix(),
