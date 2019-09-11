@@ -36,17 +36,17 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
@@ -62,7 +62,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
 		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
@@ -89,17 +89,17 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
@@ -115,7 +115,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
 		// stop the first node in the pointer
@@ -150,14 +150,14 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -170,7 +170,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
@@ -180,7 +180,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		pointer.GetRemote().RootPieceId = storj.NewPieceID()
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
 		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
@@ -214,7 +214,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := upl.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -227,7 +227,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
@@ -237,7 +237,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			BytesPerSecond: 1 * memory.KiB,
 		}
 
-		tlsOpts, err := tlsopts.NewOptions(planet.Satellites[0].Identity, tlsopts.Config{}, nil)
+		tlsOpts, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
 		newTransport := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
@@ -252,18 +252,18 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(
-			planet.Satellites[0].Log.Named("verifier"),
-			planet.Satellites[0].Metainfo.Service,
+			satellite.Log.Named("verifier"),
+			satellite.Metainfo.Service,
 			slowClient,
-			planet.Satellites[0].Overlay.Service,
-			planet.Satellites[0].DB.Containment(),
-			planet.Satellites[0].Orders.Service,
-			planet.Satellites[0].Identity,
+			satellite.Overlay.Service,
+			satellite.DB.Containment(),
+			satellite.Orders.Service,
+			satellite.Identity,
 			minBytesPerSecond,
 			5*time.Second)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
 		shares, err := verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
@@ -296,17 +296,17 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		storageNodeDB := planet.StorageNodes[0].DB.(*testblobs.SlowDB)
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := upl.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
@@ -326,18 +326,18 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(
-			planet.Satellites[0].Log.Named("verifier"),
-			planet.Satellites[0].Metainfo.Service,
-			planet.Satellites[0].Transport,
-			planet.Satellites[0].Overlay.Service,
-			planet.Satellites[0].DB.Containment(),
-			planet.Satellites[0].Orders.Service,
-			planet.Satellites[0].Identity,
+			satellite.Log.Named("verifier"),
+			satellite.Metainfo.Service,
+			satellite.Transport,
+			satellite.Overlay.Service,
+			satellite.DB.Containment(),
+			satellite.Orders.Service,
+			satellite.Identity,
 			minBytesPerSecond,
 			150*time.Millisecond)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
 		require.NoError(t, err)
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
@@ -360,14 +360,14 @@ func TestVerifierHappyPath(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -394,14 +394,14 @@ func TestVerifierOfflineNode(t *testing.T) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		planet.Satellites[0].Discovery.Service.Discovery.Pause()
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -432,14 +432,14 @@ func TestVerifierMissingPiece(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -454,7 +454,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 		node := getStorageNode(planet, piece.NodeId)
-		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
+		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
@@ -473,14 +473,14 @@ func TestVerifierDialTimeout(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -495,7 +495,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 			BytesPerSecond: 1 * memory.KiB,
 		}
 
-		tlsOpts, err := tlsopts.NewOptions(planet.Satellites[0].Identity, tlsopts.Config{}, nil)
+		tlsOpts, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
 		newTransport := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
@@ -510,13 +510,13 @@ func TestVerifierDialTimeout(t *testing.T) {
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(
-			planet.Satellites[0].Log.Named("verifier"),
-			planet.Satellites[0].Metainfo.Service,
+			satellite.Log.Named("verifier"),
+			satellite.Metainfo.Service,
 			slowClient,
-			planet.Satellites[0].Overlay.Service,
-			planet.Satellites[0].DB.Containment(),
-			planet.Satellites[0].Orders.Service,
-			planet.Satellites[0].Identity,
+			satellite.Overlay.Service,
+			satellite.DB.Containment(),
+			satellite.Orders.Service,
+			satellite.Identity,
 			minBytesPerSecond,
 			5*time.Second)
 
@@ -595,14 +595,14 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -617,7 +617,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 		node := getStorageNode(planet, piece.NodeId)
-		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
+		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
