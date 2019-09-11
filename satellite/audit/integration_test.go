@@ -21,7 +21,8 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		audits := planet.Satellites[0].Audit
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
 
@@ -31,7 +32,7 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(8 * memory.KiB)
 			path := "/some/remote/path/" + strconv.Itoa(i)
-			err := ul.Upload(ctx, planet.Satellites[0], "testbucket", path, testData)
+			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
 			require.NoError(t, err)
 		}
 

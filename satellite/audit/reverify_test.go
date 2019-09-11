@@ -42,7 +42,7 @@ func TestReverifySuccess(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -55,10 +55,10 @@ func TestReverifySuccess(t *testing.T) {
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
-		orders := planet.Satellites[0].Orders.Service
-		containment := planet.Satellites[0].DB.Containment()
+		orders := satellite.Orders.Service
+		containment := satellite.DB.Containment()
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
@@ -117,7 +117,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -130,10 +130,10 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
-		orders := planet.Satellites[0].Orders.Service
-		containment := planet.Satellites[0].DB.Containment()
+		orders := satellite.Orders.Service
+		containment := satellite.DB.Containment()
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
@@ -164,7 +164,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 		node := getStorageNode(planet, piece.NodeId)
-		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
+		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Reverify(ctx, path)
@@ -198,7 +198,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -225,7 +225,7 @@ func TestReverifyFailBadData(t *testing.T) {
 			Path:              path,
 		}
 
-		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
+		err = satellite.DB.Containment().IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
 		nodeID := pieces[0].NodeId
@@ -260,7 +260,7 @@ func TestReverifyOffline(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -287,7 +287,7 @@ func TestReverifyOffline(t *testing.T) {
 			Path:              path,
 		}
 
-		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
+		err = satellite.DB.Containment().IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
 		err = stopStorageNode(ctx, planet, pieces[0].NodeId)
@@ -324,7 +324,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -342,7 +342,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			BytesPerSecond: 1 * memory.KiB,
 		}
 
-		tlsOpts, err := tlsopts.NewOptions(planet.Satellites[0].Identity, tlsopts.Config{}, nil)
+		tlsOpts, err := tlsopts.NewOptions(satellite, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
 		newTransport := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
@@ -358,13 +358,13 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(
-			planet.Satellites[0].Log.Named("verifier"),
-			planet.Satellites[0].Metainfo.Service,
+			satellite.Log.Named("verifier"),
+			satellite.Metainfo.Service,
 			slowClient,
-			planet.Satellites[0].Overlay.Service,
-			planet.Satellites[0].DB.Containment(),
-			planet.Satellites[0].Orders.Service,
-			planet.Satellites[0].Identity,
+			satellite.Overlay.Service,
+			satellite.DB.Containment(),
+			satellite.Orders.Service,
+			satellite.Identity,
 			minBytesPerSecond,
 			5*time.Second)
 
@@ -383,7 +383,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			Path:              path,
 		}
 
-		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
+		err = satellite.DB.Containment().IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
 		report, err := verifier.Reverify(ctx, path)

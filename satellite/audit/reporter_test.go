@@ -21,8 +21,9 @@ func TestReportPendingAudits(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-		audits := planet.Satellites[0].Audit
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		audits.Worker.Loop.Pause()
 
 		nodeID := planet.StorageNodes[0].ID()
 
@@ -35,8 +36,8 @@ func TestReportPendingAudits(t *testing.T) {
 		}
 
 		report := audit.Report{PendingAudits: []*audit.PendingAudit{&pending}}
-		overlay := planet.Satellites[0].Overlay.Service
-		containment := planet.Satellites[0].DB.Containment()
+		overlay := satellite.Overlay.Service
+		containment := satellite.DB.Containment()
 
 		failed, err := audits.Reporter.RecordAudits(ctx, &report)
 		require.NoError(t, err)
@@ -56,8 +57,9 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-		audits := planet.Satellites[0].Audit
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		audits.Worker.Loop.Pause()
 
 		nodeID := planet.StorageNodes[0].ID()
 
@@ -68,7 +70,7 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 		require.NoError(t, err)
 		require.Zero(t, failed)
 
-		overlay := planet.Satellites[0].Overlay.Service
+		overlay := satellite.Overlay.Service
 		node, err := overlay.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.EqualValues(t, 1, node.Reputation.AuditCount)

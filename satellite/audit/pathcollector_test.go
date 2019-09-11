@@ -34,8 +34,8 @@ func TestAuditPathCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		satellite := planet.Satellites[0]
+		satellite.Audit.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 

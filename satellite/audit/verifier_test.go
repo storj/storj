@@ -209,7 +209,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		audits := satellite.Audit
 		queue := audits.Queue
 
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
+		audits.Worker.Loop.Pause()
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -299,7 +299,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		audits := satellite.Audit
 		queue := audits.Queue
 
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
+		audits.Worker.Loop.Pause()
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -392,13 +392,13 @@ func TestVerifierOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Discovery.Service.Discovery.Pause()
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		satellite.Discovery.Service.Discovery.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
