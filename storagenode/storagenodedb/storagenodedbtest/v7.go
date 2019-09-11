@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package storagenodedbtest
 
 var v7 = Snapshots.Add(&MultiDBSnapshot{
