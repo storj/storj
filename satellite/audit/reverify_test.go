@@ -25,8 +25,6 @@ func TestReverifySuccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		// This is a bulky test but all it's doing is:
 		// - uploads random data
 		// - uses the cursor to get a stripe
@@ -35,9 +33,11 @@ func TestReverifySuccess(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as a success in the audit report
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -100,8 +100,6 @@ func TestReverifyFailMissingShare(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		// - uploads random data
 		// - uses the cursor to get a stripe
 		// - creates one pending audit for a node holding a piece for that stripe
@@ -110,9 +108,11 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as a fail in the audit report
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -182,8 +182,6 @@ func TestReverifyFailBadData(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		// - uploads random data
 		// - uses the cursor to get a stripe
 		// - creates a pending audit for a node holding a piece for that stripe
@@ -191,9 +189,11 @@ func TestReverifyFailBadData(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as a fail in the audit report
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -244,8 +244,6 @@ func TestReverifyOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		// - uploads random data
 		// - uses the cursor to get a stripe
 		// - creates pending audits for one node holding a piece for that stripe
@@ -253,9 +251,11 @@ func TestReverifyOffline(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as offline in the audit report
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -308,8 +308,6 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		// - uploads random data
 		// - uses the cursor to get a stripe
 		// - creates pending audit for one node holding a piece for that stripe
@@ -317,9 +315,11 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects one storage node to be marked as offline in the audit report
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -401,8 +401,6 @@ func TestReverifyDeletedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		// - uploads random data
 		// - gets a path from the audit queue
 		// - creates one pending audit for a node holding a piece for that segment
@@ -413,6 +411,8 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -462,8 +462,6 @@ func TestReverifyModifiedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		// - uploads random data
 		// - uses the cursor to get a stripe
 		// - creates one pending audit for a node holding a piece for that stripe
@@ -474,6 +472,8 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)

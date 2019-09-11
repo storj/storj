@@ -34,11 +34,11 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -87,11 +87,11 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -148,11 +148,11 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -205,11 +205,11 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -293,12 +293,13 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		storageNodeDB := planet.StorageNodes[0].DB.(*testblobs.SlowDB)
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -358,11 +359,11 @@ func TestVerifierHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -391,12 +392,13 @@ func TestVerifierOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		planet.Satellites[0].Discovery.Service.Discovery.Pause()
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -430,11 +432,11 @@ func TestVerifierMissingPiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -471,11 +473,11 @@ func TestVerifierDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -534,15 +536,16 @@ func TestVerifierDeletedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
-		audits := planet.Satellites[0].Audit
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -550,7 +553,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the file
-		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
+		err = ul.Delete(ctx, satellite, "testbucket", "test/path")
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
@@ -563,14 +566,16 @@ func TestVerifierModifiedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		audits := planet.Satellites[0].Audit
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -579,7 +584,7 @@ func TestVerifierModifiedSegment(t *testing.T) {
 
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
 			// replace the file so that checkIfSegmentAltered fails
-			err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+			err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 			require.NoError(t, err)
 		}
 
@@ -593,11 +598,11 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
