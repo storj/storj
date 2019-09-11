@@ -410,14 +410,14 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -441,12 +441,12 @@ func TestReverifyDeletedSegment(t *testing.T) {
 			Path:              path,
 		}
 
-		containment := planet.Satellites[0].DB.Containment()
+		containment := satellite.DB.Containment()
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
 		// delete the file
-		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
+		err = ul.Delete(ctx, satellite, "testbucket", "test/path")
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Reverify(ctx, path)
@@ -471,14 +471,14 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		// - calls reverify on that same stripe
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
 
-		audits := planet.Satellites[0].Audit
-		queue := audits.Queue
 		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -502,13 +502,13 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			Path:              path,
 		}
 
-		containment := planet.Satellites[0].DB.Containment()
+		containment := satellite.DB.Containment()
 
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
 		// replace the file
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Reverify(ctx, path)
