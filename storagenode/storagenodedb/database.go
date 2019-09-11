@@ -296,6 +296,13 @@ func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
 	return db.kdb, db.ndb, db.adb
 }
 
+// RawDatabases are required for testing purposes
+func (db *DB) RawDatabases() map[string]SQLDB {
+	return map[string]SQLDB{
+		"versions": db.versionsDB,
+	}
+}
+
 // Migration returns table migrations.
 func (db *DB) Migration() *migrate.Migration {
 	return &migrate.Migration{
