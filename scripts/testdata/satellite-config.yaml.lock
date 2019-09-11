@@ -1,9 +1,6 @@
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
 
-# how frequently segments are audited
-# audit.interval: 30s
-
 # max number of times to attempt updating a statdb batch
 # audit.max-retries-stat-db: 3
 
