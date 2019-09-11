@@ -1,10 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 import VueRouter from 'vue-router';
+
 import TabNavigation from '@/components/navigation/TabNavigation.vue';
+
 import { NavigationLink } from '@/types/navigation';
+import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 
@@ -17,7 +19,6 @@ const navigation: NavigationLink[] = [
 ];
 
 describe('TabNavigation', () => {
-
     it('snapshot not changed', () => {
         const wrapper = shallowMount(TabNavigation, {
             localVue,

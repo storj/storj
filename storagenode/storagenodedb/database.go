@@ -27,13 +27,11 @@ import (
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
-	"storj.io/storj/storagenode/vouchers"
 )
 
 var (
@@ -93,14 +91,12 @@ type DB struct {
 	versionsDB        *versionsDB
 	v0PieceInfoDB     *v0PieceInfoDB
 	bandwidthDB       *bandwidthDB
-	consoleDB         *consoleDB
 	ordersDB          *ordersDB
 	pieceExpirationDB *pieceExpirationDB
 	pieceSpaceUsedDB  *pieceSpaceUsedDB
 	reputationDB      *reputationDB
 	storageUsageDB    *storageusageDB
 	usedSerialsDB     *usedSerialsDB
-	vouchersDB        *vouchersDB
 
 	kdb, ndb, adb storage.KeyValueStore
 }
@@ -136,14 +132,12 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		versionsDB:        newVersionsDB(versionsDB, versionsPath),
 		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
 		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
-		consoleDB:         newConsoleDB(versionsDB),
 		ordersDB:          newOrdersDB(versionsDB, versionsPath),
 		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
 		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
 		reputationDB:      newReputationDB(versionsDB, versionsPath),
 		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
 		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
-		vouchersDB:        newVouchersDB(versionsDB, versionsPath),
 	}
 
 	return db, nil
@@ -175,14 +169,12 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 		versionsDB:        newVersionsDB(versionsDB, versionsPath),
 		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
 		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
-		consoleDB:         newConsoleDB(versionsDB),
 		ordersDB:          newOrdersDB(versionsDB, versionsPath),
 		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
 		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
 		reputationDB:      newReputationDB(versionsDB, versionsPath),
 		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
 		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
-		vouchersDB:        newVouchersDB(versionsDB, versionsPath),
 	}
 	return db, nil
 }
@@ -227,7 +219,7 @@ func openTestDatabase() (*sql.DB, error) {
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables() error {
 	migration := db.Migration()
-	return migration.Run(db.log.Named("migration"), db.versionsDB)
+	return migration.Run(db.log.Named("migration"))
 }
 
 // Close closes any resources.
@@ -240,20 +232,13 @@ func (db *DB) Close() error {
 		db.versionsDB.Close(),
 		db.v0PieceInfoDB.Close(),
 		db.bandwidthDB.Close(),
-		db.consoleDB.Close(),
 		db.ordersDB.Close(),
 		db.pieceExpirationDB.Close(),
 		db.pieceSpaceUsedDB.Close(),
 		db.reputationDB.Close(),
 		db.storageUsageDB.Close(),
 		db.usedSerialsDB.Close(),
-		db.vouchersDB.Close(),
 	)
-}
-
-// VersionsMigration returns the instance of the versions database.
-func (db *DB) VersionsMigration() migrate.DB {
-	return db.versionsDB
 }
 
 // Versions returns the instance of the versions database.
@@ -269,11 +254,6 @@ func (db *DB) V0PieceInfo() pieces.V0PieceInfoDB {
 // Bandwidth returns the instance of the Bandwidth database.
 func (db *DB) Bandwidth() bandwidth.DB {
 	return db.bandwidthDB
-}
-
-// Console returns the instance of the Console database.
-func (db *DB) Console() console.DB {
-	return db.consoleDB
 }
 
 // Orders returns the instance of the Orders database.
@@ -311,11 +291,6 @@ func (db *DB) UsedSerials() piecestore.UsedSerials {
 	return db.usedSerialsDB
 }
 
-// Vouchers returns the instance of the Vouchers database.
-func (db *DB) Vouchers() vouchers.DB {
-	return db.vouchersDB
-}
-
 // RoutingTable returns kademlia routing table
 func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
 	return db.kdb, db.ndb, db.adb
@@ -327,6 +302,7 @@ func (db *DB) Migration() *migrate.Migration {
 		Table: "versions",
 		Steps: []*migrate.Step{
 			{
+				DB:          db.versionsDB,
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
@@ -408,6 +384,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Network Wipe #2",
 				Version:     1,
 				Action: migrate.SQL{
@@ -415,6 +392,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add tracking of deletion failures.",
 				Version:     2,
 				Action: migrate.SQL{
@@ -422,6 +400,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add vouchersDB for storing and retrieving vouchers.",
 				Version:     3,
 				Action: migrate.SQL{
@@ -433,6 +412,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add index on pieceinfo expireation",
 				Version:     4,
 				Action: migrate.SQL{
@@ -441,6 +421,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
@@ -452,6 +433,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add creation date.",
 				Version:     6,
 				Action: migrate.SQL{
@@ -459,6 +441,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Drop certificate table.",
 				Version:     7,
 				Action: migrate.SQL{
@@ -467,6 +450,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
 				Version:     8,
 				Action: migrate.SQL{
@@ -475,6 +459,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add order limit table.",
 				Version:     9,
 				Action: migrate.SQL{
@@ -482,6 +467,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
@@ -492,6 +478,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Create bandwidth_usage_rollup table.",
 				Version:     11,
 				Action: migrate.SQL{
@@ -505,6 +492,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{
@@ -552,6 +540,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
@@ -581,6 +570,7 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
@@ -598,6 +588,7 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Start piece_expirations table, deprecate pieceinfo table",
 				Version:     15,
 				Action: migrate.SQL{
@@ -614,6 +605,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Add reputation and storage usage cache tables",
 				Version:     16,
 				Action: migrate.SQL{
@@ -641,6 +633,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
+				DB:          db.versionsDB,
 				Description: "Create piece_space_used table",
 				Version:     17,
 				Action: migrate.SQL{
@@ -651,6 +644,52 @@ func (db *DB) Migration() *migrate.Migration {
 					)`,
 					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
 					`INSERT INTO piece_space_used (total) select ifnull(sum(piece_size), 0) from pieceinfo_`,
+				},
+			},
+			{
+				DB:          db.versionsDB,
+				Description: "Drop vouchers table",
+				Version:     18,
+				Action: migrate.SQL{
+					`DROP TABLE vouchers`,
+				},
+			},
+			{
+				DB:          db.versionsDB,
+				Description: "Add disqualified field to reputation",
+				Version:     19,
+				Action: migrate.SQL{
+					`DROP TABLE reputation;`,
+					`CREATE TABLE reputation (
+						satellite_id BLOB NOT NULL,
+						uptime_success_count INTEGER NOT NULL,
+						uptime_total_count INTEGER NOT NULL,
+						uptime_reputation_alpha REAL NOT NULL,
+						uptime_reputation_beta REAL NOT NULL,
+						uptime_reputation_score REAL NOT NULL,
+						audit_success_count INTEGER NOT NULL,
+						audit_total_count INTEGER NOT NULL,
+						audit_reputation_alpha REAL NOT NULL,
+						audit_reputation_beta REAL NOT NULL,
+						audit_reputation_score REAL NOT NULL,
+						disqualified TIMESTAMP,
+						updated_at TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id)
+					);`,
+				},
+			},
+			{
+				DB:          db.versionsDB,
+				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
+				Version:     20,
+				Action: migrate.SQL{
+					`DROP TABLE storage_usage`,
+					`CREATE TABLE storage_usage (
+						satellite_id BLOB NOT NULL,
+						at_rest_total REAL NOT NUll,
+						interval_start TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id, interval_start)
+					)`,
 				},
 			},
 		},

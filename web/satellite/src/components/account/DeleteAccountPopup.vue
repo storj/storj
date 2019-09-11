@@ -63,56 +63,58 @@
 </template>
 
 <script lang='ts'>
-    import { Component, Vue } from 'vue-property-decorator';
-    import { AuthApi } from '@/api/auth';
-    import Button from '@/components/common/Button.vue';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { AuthToken } from '@/utils/authToken';
-    import { RouteConfig } from '@/router';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            HeaderedInput,
-            Button
-        }
-    })
-    export default class DeleteAccountPopup extends Vue {
-        public passwordError: string = '';
-        private password: string = '';
-        private isLoading: boolean = false;
+import Button from '@/components/common/Button.vue';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
 
-        private readonly auth: AuthApi = new AuthApi();
+import { AuthApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
+import { AuthToken } from '@/utils/authToken';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        public setPassword(value: string): void {
-            this.password = value;
-        }
+@Component({
+    components: {
+        HeaderedInput,
+        Button
+    }
+})
+export default class DeleteAccountPopup extends Vue {
+    public passwordError: string = '';
+    private password: string = '';
+    private isLoading: boolean = false;
 
-        public async onDeleteAccountClick(): Promise<void> {
-            if (this.isLoading) {
-                return;
-            }
+    private readonly auth: AuthApi = new AuthApi();
 
-            this.isLoading = true;
+    public setPassword(value: string): void {
+        this.password = value;
+    }
 
-            try {
-                await this.auth.delete(this.password);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
-
-                AuthToken.remove();
-
-                this.isLoading = false;
-                this.$router.push(RouteConfig.Login.path);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                this.isLoading = false;
-            }
+    public async onDeleteAccountClick(): Promise<void> {
+        if (this.isLoading) {
+            return;
         }
 
-        public onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
+        this.isLoading = true;
+
+        try {
+            await this.auth.delete(this.password);
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
+
+            AuthToken.remove();
+
+            this.isLoading = false;
+            this.$router.push(RouteConfig.Login.path);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.isLoading = false;
         }
     }
+
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
+    }
+}
 </script>
 
 <style scoped lang='scss'>

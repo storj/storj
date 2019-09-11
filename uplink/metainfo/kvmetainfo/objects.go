@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/uplink/metainfo"
 	"storj.io/storj/uplink/storage/meta"
 	"storj.io/storj/uplink/storage/objects"
 	"storj.io/storj/uplink/storage/segments"
@@ -174,15 +175,16 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 
 	var startAfter, endBefore string
 	switch options.Direction {
-	case storj.Before:
-		// before lists backwards from cursor, without cursor
-		endBefore = options.Cursor
-	case storj.Backward:
-		// backward lists backwards from cursor, including cursor
-		endBefore = keyAfter(options.Cursor)
-	case storj.Forward:
-		// forward lists forwards from cursor, including cursor
-		startAfter = keyBefore(options.Cursor)
+	// TODO for now we are supporting only storj.After
+	// case storj.Before:
+	// 	// before lists backwards from cursor, without cursor
+	// 	endBefore = options.Cursor
+	// case storj.Backward:
+	// 	// backward lists backwards from cursor, including cursor
+	// 	endBefore = keyAfter(options.Cursor)
+	// case storj.Forward:
+	// 	// forward lists forwards from cursor, including cursor
+	// 	startAfter = keyBefore(options.Cursor)
 	case storj.After:
 		// after lists forwards from cursor, without cursor
 		startAfter = options.Cursor
@@ -243,34 +245,21 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 		return object{}, storj.Object{}, err
 	}
 
-	pointer, err := db.metainfo.SegmentInfo(ctx, bucket, encPath.Raw(), -1)
+	objectInfo, err := db.metainfo.GetObject(ctx, metainfo.GetObjectParams{
+		Bucket:        []byte(bucket),
+		EncryptedPath: []byte(encPath.Raw()),
+	})
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			err = storj.ErrObjectNotFound.Wrap(err)
-		}
 		return object{}, storj.Object{}, err
 	}
 
-	var redundancyScheme *pb.RedundancyScheme
-	if pointer.GetType() == pb.Pointer_REMOTE {
-		redundancyScheme = pointer.GetRemote().GetRedundancy()
-	} else {
-		// TODO: handle better
-		redundancyScheme = &pb.RedundancyScheme{
-			Type:             pb.RedundancyScheme_RS,
-			MinReq:           -1,
-			Total:            -1,
-			RepairThreshold:  -1,
-			SuccessThreshold: -1,
-			ErasureShareSize: -1,
-		}
-	}
+	redundancyScheme := objectInfo.Stream.RedundancyScheme
 
 	lastSegmentMeta := segments.Meta{
-		Modified:   pointer.CreationDate,
-		Expiration: pointer.GetExpirationDate(),
-		Size:       pointer.GetSegmentSize(),
-		Data:       pointer.GetMetadata(),
+		Modified:   objectInfo.Created,
+		Expiration: objectInfo.Expires,
+		Size:       objectInfo.Size,
+		Data:       objectInfo.Metadata,
 	}
 
 	streamInfoData, streamMeta, err := streams.TypedDecryptStreamInfo(ctx, lastSegmentMeta.Data, fullpath, db.encStore)
@@ -320,7 +309,7 @@ func objectFromMeta(bucket storj.Bucket, path storj.Path, isPrefix bool, meta ob
 	}
 }
 
-func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) (storj.Object, error) {
+func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme storj.RedundancyScheme) (storj.Object, error) {
 	var nonce storj.Nonce
 	var encryptedKey storj.EncryptedPrivateKey
 	if streamMeta.LastSegmentMeta != nil {
@@ -359,14 +348,7 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 			SegmentCount:     numberOfSegments,
 			FixedSegmentSize: stream.SegmentsSize,
 
-			RedundancyScheme: storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
-				ShareSize:      redundancyScheme.GetErasureShareSize(),
-				RequiredShares: int16(redundancyScheme.GetMinReq()),
-				RepairShares:   int16(redundancyScheme.GetRepairThreshold()),
-				OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
-				TotalShares:    int16(redundancyScheme.GetTotal()),
-			},
+			RedundancyScheme: redundancyScheme,
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.CipherSuite(streamMeta.EncryptionType),
 				BlockSize:   streamMeta.EncryptionBlockSize,

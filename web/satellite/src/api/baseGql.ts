@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import gql from 'graphql-tag';
+
 import apollo from '@/utils/apollo';
 
 /**
@@ -16,7 +17,7 @@ export class BaseGql {
      * @throws Error
      */
     protected async query(query: string, variables: any = null): Promise<any> {
-        let response: any = await apollo.query(
+        const response: any = await apollo.query(
             {
                 query: gql(query),
                 variables,
@@ -40,7 +41,7 @@ export class BaseGql {
      * @throws Error
      */
     protected async mutate(query: string, variables: any = null): Promise<any> {
-        let response: any = await apollo.mutate(
+        const response: any = await apollo.mutate(
             {
                 mutation: gql(query),
                 variables,

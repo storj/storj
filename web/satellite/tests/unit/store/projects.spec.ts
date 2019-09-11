@@ -2,10 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
+
 import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectsModule, PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
+import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const projectsApi = new ProjectsApiGql();

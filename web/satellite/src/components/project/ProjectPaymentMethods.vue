@@ -14,21 +14,22 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import CardComponent from '@/components/project/paymentMethods/CardComponent.vue';
-    import NewPaymentMethodPopup from '@/components/project/paymentMethods/NewPaymentMethodComponent.vue';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            NewPaymentMethodPopup,
-            CardComponent,
-        }
-    })
-    export default class ProjectPaymentMethods extends Vue {
-        public get paymentMethods(): PaymentMethod[] {
-            return this.$store.state.projectPaymentsMethodsModule.paymentMethods;
-        }
+import CardComponent from '@/components/project/paymentMethods/CardComponent.vue';
+import NewPaymentMethodPopup from '@/components/project/paymentMethods/NewPaymentMethodComponent.vue';
+
+@Component({
+    components: {
+        NewPaymentMethodPopup,
+        CardComponent,
     }
+})
+export default class ProjectPaymentMethods extends Vue {
+    public get paymentMethods(): PaymentMethod[] {
+        return this.$store.state.projectPaymentsMethodsModule.paymentMethods;
+    }
+}
 </script>
 
 <style scoped lang="scss">

@@ -11,6 +11,8 @@ import (
 )
 
 // APIKeys is interface for working with api keys store
+//
+// architecture: Database
 type APIKeys interface {
 	// GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor
 	GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (akp *APIKeyPage, err error)

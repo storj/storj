@@ -29,7 +29,7 @@ func (server *Server) logOnErrorStreamInterceptor(srv interface{}, ss grpc.Serve
 			err == io.EOF {
 			return err
 		}
-		server.log.Sugar().Errorf("%+v", err)
+		server.log.Error("gRPC stream error response", zap.Error(err))
 	}
 	return err
 }
@@ -41,7 +41,7 @@ func (server *Server) logOnErrorUnaryInterceptor(ctx context.Context, req interf
 		if status.Code(err) == codes.NotFound {
 			return resp, err
 		}
-		server.log.Sugar().Errorf("%+v", err)
+		server.log.Error("gRPC unary error response", zap.Error(err))
 	}
 	return resp, err
 }
@@ -91,7 +91,9 @@ func UnaryMessageLoggingInterceptor(log *zap.Logger) grpc.UnaryServerInterceptor
 		if jsonReq, err := prepareRequestLog(ctx, req, info.Server, info.FullMethod); err == nil {
 			log.Info(string(jsonReq))
 		} else {
-			log.Sugar().Errorf("Failed to marshal %q request to JSON: %v", info.FullMethod, err)
+			log.Error("Failed to marshal request to JSON.",
+				zap.String("method", info.FullMethod), zap.Error(err),
+			)
 		}
 		return handler(ctx, req)
 	}
@@ -106,7 +108,9 @@ func StreamMessageLoggingInterceptor(log *zap.Logger) grpc.StreamServerIntercept
 		if jsonReq, err := prepareRequestLog(ss.Context(), srv, nil, info.FullMethod); err == nil {
 			log.Info(string(jsonReq))
 		} else {
-			log.Sugar().Errorf("Failed to marshal %q request to JSON: %v", info.FullMethod, err)
+			log.Error("Failed to marshal request to JSON.",
+				zap.String("method", info.FullMethod), zap.Error(err),
+			)
 		}
 		return handler(srv, ss)
 	}

@@ -74,6 +74,8 @@ message PieceDownloadResponse {
         bytes data = 2;
     }
     Chunk chunk = 1;
+    orders.PieceHash hash = 2;
+    orders.OrderLimit limit = 3;
 }
 
 message PieceDeleteRequest {

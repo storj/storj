@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.12.9
+GO_VERSION ?= 1.13.0
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -45,7 +45,7 @@ build-dev-deps: ## Install dependencies for builds
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.1
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.18.0
 
 .PHONY: lint
 lint: check-copyrights ## Analyze and find programs in source code
@@ -72,11 +72,13 @@ proto: ## Rebuild protobuf files
 	go run scripts/protobuf.go generate
 
 .PHONY: build-packages
-build-packages: build-packages-race build-packages-normal ## Test docker images locally
+build-packages: build-packages-race build-packages-normal build-npm ## Test docker images locally
 build-packages-race:
-	go install -v ./...
+	go build -v ./...
 build-packages-normal:
-	go install -v -race ./...
+	go build -v -race ./...
+build-npm:
+	cd web/satellite && npm ci
 
 ##@ Simulator
 
@@ -97,10 +99,10 @@ test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
 
-.PHONY: test-certificate-signing
-test-certificate-signing: ## Test certificate signing service and storagenode setup (jenkins)
+.PHONY: test-certificates
+test-certificates: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-certificate-signing.sh
+	@./scripts/test-certificates.sh
 
 .PHONY: test-docker
 test-docker: ## Run tests in Docker
@@ -286,10 +288,15 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 	for c in bootstrap gateway satellite storagenode uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
+		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-aarch64 \
 		&& for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
-			docker manifest create storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
+			docker manifest create storjlabs/$$c:$$t \
+			storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
+			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
+			storjlabs/$$c:${TAG}${CUSTOMTAG}-aarch64 \
 			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
-			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant arm32v6 \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant v6 \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-aarch64 --os linux --arch arm64 \
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
@@ -323,6 +330,16 @@ test-docker-clean: ## Clean up Docker environment used in test-docker target
 
 
 ##@ Tooling
+
+.PHONY: diagrams
+diagrams:
+	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/   ./satellite/...   | dot -T svg -o satellite.svg
+	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/storagenode/ ./storagenode/... | dot -T svg -o storage-node.svg
+
+.PHONY: diagrams-graphml
+diagrams-graphml:
+	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/   -out satellite.graphml    ./satellite/...
+	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/storagenode/ -out storage-node.graphml ./storagenode/...
 
 .PHONY: update-satellite-config-lock
 update-satellite-config-lock: ## Update the satellite config lock file

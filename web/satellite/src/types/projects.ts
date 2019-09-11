@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 /**
- * Exposes all user-related functionality
+ * Exposes all project-related functionality
  */
 export interface ProjectsApi {
     /**

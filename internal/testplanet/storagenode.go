@@ -24,13 +24,13 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/vouchers"
 )
 
 // newStorageNodes initializes storage nodes
@@ -118,15 +118,16 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				},
 			},
 			Retain: retain.Config{
-				RetainStatus:        retain.Enabled,
-				MaxConcurrentRetain: 5,
-			},
-			Vouchers: vouchers.Config{
-				Interval: time.Hour,
+				Status:      retain.Enabled,
+				Concurrency: 5,
 			},
 			Version: planet.NewVersionConfig(),
 			Bandwidth: bandwidth.Config{
 				Interval: time.Hour,
+			},
+			Contact: contact.Config{
+				Interval: 30 * time.Second,
+				MaxSleep: 0 * time.Second,
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {

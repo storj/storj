@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { APP_STATE_MUTATIONS } from '../mutationConstants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+
+import { APP_STATE_MUTATIONS } from '../mutationConstants';
 
 export const appStateModule = {
     state: {
@@ -21,8 +22,6 @@ export const appStateModule = {
             isSuccessfulProjectCreationPopupShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
-            deletePaymentMethodID: '',
-            setDefaultPaymentMethodID: '',
         },
     },
     mutations: {
@@ -80,12 +79,10 @@ export const appStateModule = {
         },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
-            state.appState.isProjectsDropdownShown = false;
             state.appState.isAccountDropdownShown = false;
+            state.appState.isProjectsDropdownShown = false;
             state.appState.isSortProjectMembersByPopupShown = false;
             state.appState.isSuccessfulRegistrationPopupShown = false;
-            state.appState.setDefaultPaymentMethodID = '';
-            state.appState.deletePaymentMethodID = '';
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;

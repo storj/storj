@@ -13,6 +13,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -759,6 +760,13 @@ func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.
 	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
 }
 
+// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
+func (m *lockedOrders) DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteExpiredSerials(ctx, now)
+}
+
 // GetBucketBandwidth gets total bucket bandwidth from period of time
 func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
@@ -840,6 +848,13 @@ func (m *locked) OverlayCache() overlay.DB {
 type lockedOverlayCache struct {
 	sync.Locker
 	db overlay.DB
+}
+
+// AllPieceCounts returns a map of node IDs to piece counts from the db.
+func (m *lockedOverlayCache) AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.AllPieceCounts(ctx)
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -926,6 +941,13 @@ func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.Node
 	return m.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
+// UpdatePieceCounts sets the piece count field for the given node IDs.
+func (m *lockedOverlayCache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdatePieceCounts(ctx, pieceCounts)
+}
+
 // UpdateStats all parts of single storagenode's stats.
 func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
 	m.Lock()
@@ -938,6 +960,40 @@ func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.Node
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
+}
+
+// PeerIdentities returns a storage for peer identities
+func (m *locked) PeerIdentities() overlay.PeerIdentities {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedPeerIdentities{m.Locker, m.db.PeerIdentities()}
+}
+
+// lockedPeerIdentities implements locking wrapper for overlay.PeerIdentities
+type lockedPeerIdentities struct {
+	sync.Locker
+	db overlay.PeerIdentities
+}
+
+// BatchGet gets all nodes peer identities in a transaction
+func (m *lockedPeerIdentities) BatchGet(ctx context.Context, a1 storj.NodeIDList) ([]*identity.PeerIdentity, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.BatchGet(ctx, a1)
+}
+
+// Get gets peer identity
+func (m *lockedPeerIdentities) Get(ctx context.Context, a1 storj.NodeID) (*identity.PeerIdentity, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, a1)
+}
+
+// Set adds a peer identity entry for a node
+func (m *lockedPeerIdentities) Set(ctx context.Context, a1 storj.NodeID, a2 *identity.PeerIdentity) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Set(ctx, a1, a2)
 }
 
 // ProjectAccounting returns database for storing information about project data use
