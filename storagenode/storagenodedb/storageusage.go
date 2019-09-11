@@ -14,7 +14,10 @@ import (
 	"storj.io/storj/storagenode/storageusage"
 )
 
-var StorageUsageDatabaseFilename = "storage_usage.db"
+const (
+	StorageUsageDBName           = "storage_usage"
+	StorageUsageDatabaseFilename = "storage_usage.db"
+)
 
 // storageusageDB storage usage DB
 type storageusageDB struct {

@@ -3,10 +3,12 @@
 
 package testdata
 
+import "storj.io/storj/storagenode/storagenodedb"
+
 var v0 = MultiDBState{
 	Version: 0,
 	DBStates: DBStates{
-		"versions": &DBState{
+		storagenodedb.VersionsDBName: &DBState{
 			SQL: `-- table for keeping serials that need to be verified against
 				CREATE TABLE used_serial (
 					satellite_id  BLOB NOT NULL,
