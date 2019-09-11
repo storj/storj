@@ -51,12 +51,8 @@ func TestDB_PieceCounts(t *testing.T) {
 		initialCounts, err := overlaydb.AllPieceCounts(ctx)
 		require.NoError(t, err)
 		require.Empty(t, initialCounts)
-		// TODO: make it actually return everything
-		// for _, node := range nodes {
-		// 	count, ok := initialCounts[node.ID]
-		// 	require.True(t, ok)
-		// 	require.Equal(t, count, 0)
-		// }
+		// TODO: make AllPieceCounts return results for all nodes,
+		// since it will keep the logic slightly clearer.
 
 		// update counts
 		counts := make(map[storj.NodeID]int)
