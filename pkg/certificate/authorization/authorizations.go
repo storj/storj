@@ -36,16 +36,16 @@ const (
 
 var (
 	mon = monkit.Package()
-	// Error is the default authorizations error class.
-	Error = errs.Class("certificates error")
-	// ErrAuthorization is used when an error occurs involving an authorization.
-	ErrAuthorization = errs.Class("authorization error")
-	// ErrAuthorizationDB is used when an error occurs involving the authorization database.
-	ErrAuthorizationDB = errs.Class("authorization db error")
+	// Error is used when an error occurs involving an authorization.
+	Error = errs.Class("authorization error")
+	// ErrDB is used when an error occurs involving the authorization database.
+	ErrDB = errs.Class("authorization db error")
 	// ErrInvalidToken is used when a token is invalid.
 	ErrInvalidToken = errs.Class("invalid token error")
-	// ErrAuthorizationCount is used when attempting to create an invalid number of authorizations.
-	ErrAuthorizationCount = ErrAuthorizationDB.New("cannot add less than one authorizations")
+	// ErrCount is used when attempting to create an invalid number of authorizations.
+	ErrCount = ErrDB.New("cannot add less than one authorizations")
+	// ErrEmptyUserID is used when a user ID is required but not provided.
+	ErrEmptyUserID = ErrDB.New("userID cannot be empty")
 )
 
 // Group is a slice of authorizations for convenient de/serialization.
@@ -94,7 +94,7 @@ func NewAuthorization(userID string) (*Authorization, error) {
 	token := Token{UserID: userID}
 	_, err := rand.Read(token.Data[:])
 	if err != nil {
-		return nil, ErrAuthorization.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return &Authorization{
@@ -134,7 +134,7 @@ func ParseToken(tokenString string) (*Token, error) {
 func (group *Group) Unmarshal(data []byte) error {
 	decoder := gob.NewDecoder(bytes.NewBuffer(data))
 	if err := decoder.Decode(group); err != nil {
-		return ErrAuthorization.Wrap(err)
+		return Error.Wrap(err)
 	}
 	return nil
 }
@@ -145,7 +145,7 @@ func (group Group) Marshal() ([]byte, error) {
 	encoder := gob.NewEncoder(data)
 	err := encoder.Encode(group)
 	if err != nil {
-		return nil, ErrAuthorization.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return data.Bytes(), nil
