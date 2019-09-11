@@ -82,7 +82,6 @@ func (discovery *Discovery) Run(ctx context.Context) (err error) {
 }
 
 // refresh updates the cache db with the current DHT.
-// TODO remove once uptime check changes are made and satellites refresh their overlay cache differently
 func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
