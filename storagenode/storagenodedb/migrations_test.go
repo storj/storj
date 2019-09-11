@@ -5,6 +5,7 @@ package storagenodedb_test
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
