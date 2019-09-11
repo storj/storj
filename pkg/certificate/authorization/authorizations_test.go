@@ -43,24 +43,39 @@ var (
 	}
 )
 
-func TestCertSignerConfig_NewAuthDB(t *testing.T) {
+func TestNewDB(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
+	dbURL := "bolt://" + ctx.File("authorizations.db")
+	db, err := NewDB(dbURL, false)
 	require.NoError(t, err)
-	defer ctx.Check(authDB.Close)
+	defer ctx.Check(db.Close)
 
-	assert.NotNil(t, authDB)
-	assert.NotNil(t, authDB.db)
+	require.NotNil(t, db)
+	require.NotNil(t, db.db)
+}
+
+func TestNewDBFromCfg(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	db, err := NewDBFromCfg(DBConfig{
+		URL:       "bolt://" + ctx.File("authorizations.db"),
+		Overwrite: false,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(db.Close)
+
+	require.NotNil(t, db)
+	require.NotNil(t, db.db)
 }
 
 func TestAuthorizationDB_Create(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	cases := []struct {
@@ -95,7 +110,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			"authorization error",
 			"user2@mail.test",
 			5, -1, 0, 5,
-			&ErrAuthorizationDB, ErrAuthorizationCount,
+			&ErrDB, ErrCount,
 		},
 	}
 
@@ -105,7 +120,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			emailKey := storage.Key(testCase.email)
 
 			if testCase.startCount == 0 {
-				_, err = authDB.db.Get(ctx, emailKey)
+				_, err := authDB.db.Get(ctx, emailKey)
 				assert.Error(t, err)
 			} else {
 				v, err := authDB.db.Get(ctx, emailKey)
@@ -146,8 +161,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	var expectedAuths Group
@@ -199,8 +213,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	userID := "user@mail.test"
@@ -262,8 +275,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	userID := "user@mail.test"
@@ -325,7 +337,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, ErrAuthorization.Has(err))
+			assert.True(t, Error.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[claimedIndex].Token.String())
 		}
@@ -354,7 +366,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, ErrAuthorization.Has(err))
+			assert.True(t, Error.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
@@ -378,7 +390,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			MinDifficulty: difficulty2 + 1,
 		})
 		if assert.Error(t, err) {
-			assert.True(t, ErrAuthorization.Has(err))
+			assert.True(t, Error.Has(err))
 			// NB: token string shouldn't leak into error message
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
@@ -468,8 +480,7 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	authDB, err := newTestAuthDB(ctx)
-	require.NoError(t, err)
+	authDB := newTestAuthDB(t, ctx)
 	defer ctx.Check(authDB.Close)
 
 	var authErrs errs.Group
@@ -622,7 +633,9 @@ func TestNewClient(t *testing.T) {
 	})
 }
 
-func newTestAuthDB(ctx *testcontext.Context) (*DB, error) {
+func newTestAuthDB(t *testing.T, ctx *testcontext.Context) *DB {
 	dbURL := "bolt://" + ctx.File("authorizations.db")
-	return NewDB(dbURL, false)
+	db, err := NewDB(dbURL, false)
+	require.NoError(t, err)
+	return db
 }

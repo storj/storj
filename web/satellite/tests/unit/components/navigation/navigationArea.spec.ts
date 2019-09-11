@@ -41,7 +41,7 @@ describe('NavigationArea', () => {
         const resourcesButton = wrapper.findAll('.navigation-area__resources-title__button');
         const accountButton = wrapper.findAll('.navigation-area__account-title__button');
 
-        expect(navigationElements.length).toBe(4);
+        expect(navigationElements.length).toBe(9);
         expect(disabledElements.length).toBe(4);
         expect(resourcesButton.length).toBe(0);
         expect(accountButton.length).toBe(0);
@@ -63,7 +63,7 @@ describe('NavigationArea', () => {
         const resourcesButton = wrapper.findAll('.navigation-area__resources-title__button');
         const accountButton = wrapper.findAll('.navigation-area__account-title__button');
 
-        expect(navigationElements.length).toBe(4);
+        expect(navigationElements.length).toBe(9);
         expect(disabledElements.length).toBe(0);
         expect(resourcesButton.length).toBe(0);
         expect(accountButton.length).toBe(0);
@@ -96,21 +96,21 @@ describe('NavigationArea', () => {
         wrapper.find('.navigation-area__resources-title').trigger('mouseenter');
         wrapper.find('.navigation-area__account-title').trigger('mouseenter');
 
-        expect(wrapper.find('.navigation-area__resources-title__button').text()).toMatch('Show');
-        wrapper.find('.navigation-area__resources-title__button').trigger('click');
-
-        expect(wrapper.find('.navigation-area__account-title__button').text()).toMatch('Show');
-        wrapper.find('.navigation-area__account-title__button').trigger('click');
-
         expect(wrapper.find('.navigation-area__resources-title__button').text()).toMatch('Hide');
-        expect(wrapper.find('.navigation-area__account-title__button').text()).toMatch('Hide');
-
-        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(9);
-
         wrapper.find('.navigation-area__resources-title__button').trigger('click');
+
+        expect(wrapper.find('.navigation-area__account-title__button').text()).toMatch('Hide');
         wrapper.find('.navigation-area__account-title__button').trigger('click');
+
+        expect(wrapper.find('.navigation-area__resources-title__button').text()).toMatch('Show');
+        expect(wrapper.find('.navigation-area__account-title__button').text()).toMatch('Show');
 
         expect(wrapper.findAll('.navigation-area__item-container').length).toBe(4);
+
+        wrapper.find('.navigation-area__resources-title__button').trigger('click');
+        wrapper.find('.navigation-area__account-title__button').trigger('click');
+
+        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(9);
 
         wrapper.find('.navigation-area__resources-title').trigger('mouseleave');
         wrapper.find('.navigation-area__account-title').trigger('mouseleave');
@@ -118,6 +118,6 @@ describe('NavigationArea', () => {
         expect(wrapper.findAll('.navigation-area__resources-title__button').length).toBe(0);
         expect(wrapper.findAll('.navigation-area__account-title__button').length).toBe(0);
 
-        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(4);
+        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(9);
     });
 });
