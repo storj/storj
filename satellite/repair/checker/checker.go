@@ -277,15 +277,16 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 			return nil
 		}
 	} else if numHealthy < redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
-		pathElements := storj.SplitPath(path.Raw)
-
 		// TODO: see whether this can be handled with metainfo.ScopedPath
+		pathElements := storj.SplitPath(path.Raw)
 
 		// check to make sure there are at least *4* path elements. the first three
 		// are project, segment, and bucket name, but we want to make sure we're talking
 		// about an actual object, and that there's an object name specified
 		if len(pathElements) >= 4 {
 			project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
+
+			// TODO: is this correct? split splits all path components, but it's only using the third.
 			lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
 			if !contains(obs.monStats.remoteSegmentInfo, lostSegInfo) {
 				obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
