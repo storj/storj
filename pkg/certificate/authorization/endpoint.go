@@ -21,19 +21,16 @@ var ErrEndpoint = errs.Class("authorization endpoint error")
 // Endpoint provides a http endpoint for interacting with an authorization service.
 type Endpoint struct {
 	log      *zap.Logger
-	db       *DB
 	service  *Service
 	server   http.Server
 	listener net.Listener
 }
 
 // NewEndpoint creates a authorization endpoint.
-func NewEndpoint(log *zap.Logger, db *DB, listener net.Listener) *Endpoint {
-	service := NewService(log, db)
+func NewEndpoint(log *zap.Logger, service *Service, listener net.Listener) *Endpoint {
 	mux := http.NewServeMux()
 	endpoint := &Endpoint{
 		log:      log,
-		db:       db,
 		listener: listener,
 		service:  service,
 		server: http.Server{

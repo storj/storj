@@ -24,7 +24,9 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, listener)
 
-	endpoint := NewEndpoint(zaptest.NewLogger(t), newTestAuthDB(t, ctx), listener)
+	log := zaptest.NewLogger(t)
+	service := NewService(log, newTestAuthDB(t, ctx))
+	endpoint := NewEndpoint(log, service, listener)
 	require.NotNil(t, endpoint)
 
 	ctx.Go(func() error {
@@ -65,7 +67,9 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, listener)
 
-	endpoint := NewEndpoint(zaptest.NewLogger(t), newTestAuthDB(t, ctx), listener)
+	log := zaptest.NewLogger(t)
+	service := NewService(log, newTestAuthDB(t, ctx))
+	endpoint := NewEndpoint(log, service, listener)
 	require.NotNil(t, endpoint)
 
 	ctx.Go(func() error {

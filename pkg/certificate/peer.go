@@ -93,7 +93,8 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 		return nil, errs.Combine(err, peer.Close())
 	}
 
-	peer.Authorization.Endpoint = authorization.NewEndpoint(log.Named("authorization"), authorizationDB, peer.Authorization.Listener)
+	authorizationService := authorization.NewService(log, authorizationDB)
+	peer.Authorization.Endpoint = authorization.NewEndpoint(log.Named("authorization"), authorizationService, peer.Authorization.Listener)
 
 	return peer, nil
 }
