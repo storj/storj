@@ -22,7 +22,7 @@ type Config struct {
 	Address  string `user:"true" help:"public address to listen on" default:":8080"`
 	Versions ServiceVersions
 
-	Version Versions
+	Binary Versions
 }
 
 // ServiceVersions provides a list of allowed Versions per Service
@@ -132,8 +132,12 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	peer.Versions.Processes = version.Processes{}
-
-	peer.Versions.Processes.Storagenode = configToProcess(config.Version.Storagenode)
+	peer.Versions.Processes.Bootstrap = configToProcess(config.Binary.Bootstrap)
+	peer.Versions.Processes.Satellite = configToProcess(config.Binary.Satellite)
+	peer.Versions.Processes.Storagenode = configToProcess(config.Binary.Storagenode)
+	peer.Versions.Processes.Uplink = configToProcess(config.Binary.Uplink)
+	peer.Versions.Processes.Gateway = configToProcess(config.Binary.Gateway)
+	peer.Versions.Processes.Identity = configToProcess(config.Binary.Identity)
 
 	peer.response, err = json.Marshal(peer.Versions)
 
