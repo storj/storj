@@ -1050,7 +1050,7 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 }
 
 // GetAPIKeys returns paged api key list for given Project
-func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (akp *APIKeyPage, err error) {
+func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (page *APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -1067,7 +1067,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 		cursor.Limit = maxLimit
 	}
 
-	akp, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
+	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
