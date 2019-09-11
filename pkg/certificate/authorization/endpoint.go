@@ -76,7 +76,7 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 	if httpReq.Method != http.MethodPut {
 		msg := fmt.Sprintf("unsupported HTTP method: %s", httpReq.Method)
 		// NB: err set for `mon.Task` call.
-		err = ErrEndpoint.New(msg)
+		err = ErrEndpoint.New("%s", msg)
 		http.Error(writer, msg, http.StatusMethodNotAllowed)
 		return
 	}
@@ -84,7 +84,7 @@ func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpRe
 	userID := path.Base(httpReq.URL.Path)
 	if userID == "authorizations" || userID == "" {
 		msg := "missing user ID body"
-		err = ErrEndpoint.New(msg)
+		err = ErrEndpoint.New("%s", msg)
 		http.Error(writer, msg, http.StatusUnprocessableEntity)
 		return
 	}

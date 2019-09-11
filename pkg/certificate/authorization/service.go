@@ -65,7 +65,7 @@ func (service *Service) GetOrCreate(ctx context.Context, userID string) (_ *Toke
 		internalMsg := clientMsg + fmt.Sprintf("; expected 1, got %d", groupLen)
 
 		service.log.Error(internalMsg)
-		return nil, ErrEndpoint.New(clientMsg)
+		return nil, ErrEndpoint.New("%s", clientMsg)
 	}
 
 	authorization := createdGroup[0]
