@@ -37,7 +37,7 @@ var (
 
 func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	authDB, err := authorization.NewDBFromCfg(claimsExportCfg.Authorizations)
+	authDB, err := authorization.NewDBFromCfg(claimsExportCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if len(toPrint) == 0 {
-		fmt.Printf("no claims in database: %s\n", claimsExportCfg.Authorizations.DBURL)
+		fmt.Printf("no claims in database: %s\n", claimsExportCfg.Config.AuthorizationDB.URL)
 		return nil
 	}
 
@@ -76,7 +76,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 
 func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	authDB, err := authorization.NewDBFromCfg(claimsDeleteCfg.Authorizations)
+	authDB, err := authorization.NewDBFromCfg(claimsDeleteCfg.AuthorizationDB)
 	if err != nil {
 		return err
 	}

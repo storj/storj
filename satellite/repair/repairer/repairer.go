@@ -81,13 +81,13 @@ func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
 		seg, err := service.queue.Select(ctx)
-		service.log.Info("Retrieved segment from repair queue", zap.Binary("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
 			}
 			return err
 		}
+		service.log.Info("Retrieved segment from repair queue", zap.Binary("segment", seg.GetPath()))
 
 		service.Limiter.Go(ctx, func() {
 			err := service.worker(ctx, seg)
