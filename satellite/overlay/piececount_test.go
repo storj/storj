@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestOverlayDB_AllPieceCounts(t *testing.T) {
+func TestDB_PieceCounts(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -76,5 +76,48 @@ func TestOverlayDB_AllPieceCounts(t *testing.T) {
 			require.True(t, ok)
 			require.Equal(t, count, node.PieceCount)
 		}
+	})
+}
+
+func BenchmarkDB_PieceCounts(b *testing.B) {
+	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
+		ctx := testcontext.New(b)
+		defer ctx.Cleanup()
+
+		overlaydb := db.OverlayCache()
+
+		counts := make(map[storj.NodeID]int)
+		for i := 0; i < 10000; i++ {
+			counts[testrand.NodeID()] = testrand.Intn(100000)
+		}
+
+		for nodeID := range counts {
+			require.NoError(b, overlaydb.UpdateAddress(ctx, &pb.Node{
+				Id: nodeID,
+				Address: &pb.NodeAddress{
+					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address:   "0.0.0.0",
+				},
+				LastIp: "0.0.0.0",
+			}, overlay.NodeSelectionConfig{}))
+		}
+
+		b.Run("Update", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := overlaydb.UpdatePieceCounts(ctx, counts)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+
+		b.Run("All", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, err := overlaydb.AllPieceCounts(ctx)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	})
 }
