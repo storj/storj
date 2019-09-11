@@ -858,9 +858,9 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 
 // BeginSegmentParams parameters for BeginSegment method
 type BeginSegmentParams struct {
-	StreamID     storj.StreamID
-	Position     storj.SegmentPosition
-	MaxOderLimit int64
+	StreamID      storj.StreamID
+	Position      storj.SegmentPosition
+	MaxOrderLimit int64
 }
 
 func (params *BeginSegmentParams) toRequest() *pb.SegmentBeginRequest {
@@ -870,7 +870,7 @@ func (params *BeginSegmentParams) toRequest() *pb.SegmentBeginRequest {
 			PartNumber: params.Position.PartNumber,
 			Index:      params.Position.Index,
 		},
-		MaxOrderLimit: params.MaxOderLimit,
+		MaxOrderLimit: params.MaxOrderLimit,
 	}
 }
 
@@ -1200,6 +1200,9 @@ func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsPa
 
 	response, err := client.client.ListSegments(ctx, params.toRequest())
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return []storj.SegmentListItem{}, false, storj.ErrObjectNotFound.Wrap(err)
+		}
 		return []storj.SegmentListItem{}, false, Error.Wrap(err)
 	}
 

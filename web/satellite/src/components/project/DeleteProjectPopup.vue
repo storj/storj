@@ -79,92 +79,92 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import { NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
-    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button
-        }
-    })
-    export default class DeleteProjectPopup extends Vue {
-        private projectName: string = '';
-        private nameError: string = '';
-        private isLoading: boolean = false;
+import Button from '@/components/common/Button.vue';
 
-        public resetError (): void {
-            this.nameError = '';
-        }
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import { API_KEYS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';    
 
-        public async onDeleteProjectClick(): Promise<void> {
-            if (this.isLoading) {
-                return;
-            }
-
-            this.isLoading = true;
-
-            if (!this.validateProjectName()) {
-                return;
-            }
-
-            if (!await this.deleteProject()) {
-                return;
-            }
-
-            this.$store.dispatch(PM_ACTIONS.CLEAR);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-
-            this.selectProject();
-
-            this.isLoading = false;
-        }
-
-        public  onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-        }
-
-        public get isDeleteButtonDisabled(): boolean {
-            return !this.projectName || !!this.nameError;
-        }
-
-        private validateProjectName(): boolean {
-            if (this.projectName === this.$store.getters.selectedProject.name) {
-                return true;
-            }
-
-            this.nameError = 'Name doesn\'t match with current project name';
-            this.isLoading = false;
-
-            return false;
-        }
-
-        private async deleteProject(): Promise<string> {
-            let deletedProjectName: string = '';
-
-            try {
-                deletedProjectName = await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
-                this.isLoading = false;
-            }
-
-            return deletedProjectName;
-        }
-
-        private selectProject(): void {
-            if (this.$store.state.projectsModule.projects.length === 0) {
-                return;
-            }
-
-            this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
-            this.$store.dispatch(PM_ACTIONS.FETCH);
-            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-        }
+@Component({
+    components: {
+        Button
     }
+})
+export default class DeleteProjectPopup extends Vue {
+    private projectName: string = '';
+    private nameError: string = '';
+    private isLoading: boolean = false;
+
+    public resetError (): void {
+        this.nameError = '';
+    }
+
+    public async onDeleteProjectClick(): Promise<void> {
+        if (this.isLoading) {
+            return;
+        }
+
+        if (!this.validateProjectName()) {
+            return;
+        }
+
+        this.isLoading = true;
+
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.DELETE, this.$store.getters.selectedProject.id);
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project was successfully deleted');
+
+            await this.selectProject();
+        } catch (e) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+        }
+
+        this.isLoading = false;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+    }
+
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+    }
+
+    public get isDeleteButtonDisabled(): boolean {
+        return !this.projectName || !!this.nameError;
+    }
+
+    private validateProjectName(): boolean {
+        if (this.projectName === this.$store.getters.selectedProject.name) {
+            return true;
+        }
+
+        this.nameError = 'Name doesn\'t match with current project name';
+        this.isLoading = false;
+
+        return false;
+    }
+
+    private async selectProject(): Promise<void> {
+        if (this.$store.state.projectsModule.projects.length === 0) {
+            await this.$store.dispatch(PM_ACTIONS.CLEAR);
+            await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+            await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
+
+            return;
+        }
+
+        // TODO: reuse select project functionality
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
+        await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+        await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+        await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+        await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+    }
+}
 </script>
 
 <style scoped lang="scss">

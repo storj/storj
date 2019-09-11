@@ -23,9 +23,9 @@ export class AuthToken {
     }
 
     private static getCookie(cname: string): string {
-        let name: string = cname + '=';
-        let decodedCookie: string = decodeURIComponent(document.cookie);
-        let ca: string[] = decodedCookie.split(';');
+        const name: string = cname + '=';
+        const decodedCookie: string = decodeURIComponent(document.cookie);
+        const ca: string[] = decodedCookie.split(';');
 
         for (let i = 0; i < ca.length; i++) {
             let c = ca[i];

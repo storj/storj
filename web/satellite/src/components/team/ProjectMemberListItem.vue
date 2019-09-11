@@ -17,30 +17,31 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { getColor } from '@/utils/avatarColorManager';
-    import { ProjectMember } from '@/types/projectMembers';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class ProjectMemberListItem extends Vue {
-        @Prop({default: new ProjectMember('', '', '', '', '')})
-        public itemData: ProjectMember;
+import { ProjectMember } from '@/types/projectMembers';
+import { getColor } from '@/utils/avatarColorManager';
 
-        public get avatarData(): object {
-            let fullName: string = this.itemData.user.getFullName();
+@Component
+export default class ProjectMemberListItem extends Vue {
+    @Prop({default: new ProjectMember('', '', '', '', '')})
+    public itemData: ProjectMember;
 
-            const letter = fullName.slice(0, 1).toLocaleUpperCase();
+    public get avatarData(): object {
+        const fullName: string = this.itemData.user.getFullName();
 
-            const style = {
-                background: getColor(letter)
-            };
+        const letter = fullName.slice(0, 1).toLocaleUpperCase();
 
-            return {
-                letter,
-                style
-            };
-        }
+        const style = {
+            background: getColor(letter)
+        };
+
+        return {
+            letter,
+            style
+        };
     }
+}
 </script>
 
 <style scoped lang="scss">
@@ -113,7 +114,6 @@
 
 
     .user-container.selected {
-        box-shadow: 0px 12px 24px rgba(38, 131, 255, 0.4);
         background-color: #2683FF;
 
         .checkbox {

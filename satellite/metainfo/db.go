@@ -13,6 +13,8 @@ import (
 )
 
 // BucketsDB is the interface for the database to interact with buckets
+//
+// architecture: Database
 type BucketsDB interface {
 	// Create creates a new bucket
 	CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error)

@@ -109,7 +109,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
 	err = db.CreateTables()

@@ -129,7 +129,7 @@ func RefreshToken(ctx context.Context, creds Credentials, refreshToken string) (
 		return nil, err
 	}
 	defer func() {
-		err = errs.Combine(resp.Body.Close())
+		err = errs.Combine(err, resp.Body.Close())
 	}()
 
 	// handle google expires_in field value

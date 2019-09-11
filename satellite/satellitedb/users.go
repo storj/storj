@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"strings"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -32,7 +33,7 @@ func (users *users) Get(ctx context.Context, id uuid.UUID) (_ *console.User, err
 // GetByEmail is a method for querying user by email from the database.
 func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
-	user, err := users.db.Get_User_By_Email_And_Status_Not_Number(ctx, dbx.User_Email(email))
+	user, err := users.db.Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))
 
 	if err != nil {
 		return nil, err
@@ -59,6 +60,7 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(userID[:]),
 		dbx.User_Email(user.Email),
+		dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
 		dbx.User_FullName(user.FullName),
 		dbx.User_PasswordHash(user.PasswordHash),
 		optional,
@@ -95,10 +97,11 @@ func (users *users) Update(ctx context.Context, user *console.User) (err error) 
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable
 func toUpdateUser(user *console.User) dbx.User_Update_Fields {
 	update := dbx.User_Update_Fields{
-		FullName:  dbx.User_FullName(user.FullName),
-		ShortName: dbx.User_ShortName(user.ShortName),
-		Email:     dbx.User_Email(user.Email),
-		Status:    dbx.User_Status(int(user.Status)),
+		FullName:        dbx.User_FullName(user.FullName),
+		ShortName:       dbx.User_ShortName(user.ShortName),
+		Email:           dbx.User_Email(user.Email),
+		NormalizedEmail: dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
+		Status:          dbx.User_Status(int(user.Status)),
 	}
 
 	// extra password check to update only calculated hash from service
@@ -142,4 +145,8 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	}
 
 	return &result, nil
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToUpper(email)
 }

@@ -10,23 +10,28 @@
             <NewProjectArea class="header-container__right-area__new-project" />
             <AccountButton class="header-container__right-area__account-button" />
         </div>
+        <ProjectCreationSuccessPopup/>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
-    import NewProjectArea from '@/components/header/NewProjectArea.vue';
-    import AccountButton from './AccountButton.vue';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            ProjectSelectionArea,
-            NewProjectArea,
-            AccountButton,
-        },
-    })
-    export default class DashboardHeader extends Vue {}
+import NewProjectArea from '@/components/header/NewProjectArea.vue';
+import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
+import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
+
+import AccountButton from './AccountButton.vue';
+
+@Component({
+    components: {
+        ProjectCreationSuccessPopup,
+        ProjectSelectionArea,
+        NewProjectArea,
+        AccountButton,
+    },
+})
+export default class DashboardHeader extends Vue {}
 </script>
 
 <style scoped lang="scss">

@@ -22,6 +22,8 @@ import (
 )
 
 // DB implements saving order after receiving from storage node
+//
+// architecture: Database
 type DB interface {
 	// CreateSerialInfo creates serial number entry in database
 	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
@@ -29,6 +31,8 @@ type DB interface {
 	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
+	// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
+	DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error)
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
@@ -73,6 +77,8 @@ type ProcessOrderResponse struct {
 }
 
 // Endpoint for orders receiving
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log                 *zap.Logger
 	satelliteSignee     signing.Signee

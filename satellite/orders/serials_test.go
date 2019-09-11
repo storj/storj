@@ -48,5 +48,13 @@ func TestSerialNumbers(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, orders.ErrUsingSerialNumber.Has(err))
 		require.Empty(t, bucketID)
+
+		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now().UTC())
+		require.NoError(t, err)
+		require.Equal(t, deleted, 1)
+
+		// check serial number has been deleted from serial_numbers and used_serials
+		_, err = ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
+		require.EqualError(t, err, "serial number: serial number not found")
 	})
 }

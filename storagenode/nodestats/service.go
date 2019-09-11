@@ -28,6 +28,8 @@ var (
 )
 
 // Client encapsulates NodeStatsClient with underlying connection
+//
+// architecture: Client
 type Client struct {
 	conn *grpc.ClientConn
 	pb.NodeStatsClient
@@ -39,6 +41,8 @@ func (c *Client) Close() error {
 }
 
 // Service retrieves info from satellites using GRPC client
+//
+// architecture: Service
 type Service struct {
 	log *zap.Logger
 
@@ -94,7 +98,8 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 			Beta:         audit.GetReputationBeta(),
 			Score:        audit.GetReputationScore(),
 		},
-		UpdatedAt: time.Now(),
+		Disqualified: resp.GetDisqualified(),
+		UpdatedAt:    time.Now(),
 	}, nil
 }
 
@@ -155,9 +160,9 @@ func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID stor
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {
 		stamps = append(stamps, storageusage.Stamp{
-			SatelliteID: satelliteID,
-			AtRestTotal: pbUsage.AtRestTotal,
-			Timestamp:   pbUsage.Timestamp,
+			SatelliteID:   satelliteID,
+			AtRestTotal:   pbUsage.AtRestTotal,
+			IntervalStart: pbUsage.Timestamp,
 		})
 	}
 

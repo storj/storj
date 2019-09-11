@@ -97,7 +97,7 @@ func TestGarbageCollection(t *testing.T) {
 		gcService.Loop.TriggerWait()
 
 		// Wait for the storagenode's RetainService queue to be empty
-		targetNode.Storage2.RetainService.Wait(ctx)
+		targetNode.Storage2.RetainService.TestWaitUntilEmpty()
 
 		// Check that piece of the deleted object is not on the storagenode
 		pieceAccess, err = targetNode.DB.Pieces().Stat(ctx, storage.BlobRef{

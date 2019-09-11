@@ -15,15 +15,16 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class PaginationArea extends Vue {
-        // TODO: use svg loader in future
-        public arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
-        public arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
-    }
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+
+@Component
+export default class PaginationArea extends Vue {
+    // TODO: use svg loader in future
+    public arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
+    public arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
+}
 </script>
 
 <style scoped lang="scss">
@@ -31,8 +32,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding-left: 25px;
-        margin-top: 25px;
+        margin-top: 39px;
     
         &__pages {
             display: flex;

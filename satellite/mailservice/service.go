@@ -35,6 +35,8 @@ var (
 )
 
 // Sender sends emails
+//
+// architecture: Service
 type Sender interface {
 	SendEmail(ctx context.Context, msg *post.Message) error
 	FromAddress() post.Address
@@ -47,6 +49,8 @@ type Message interface {
 }
 
 // Service sends template-backed email messages through SMTP
+//
+// architecture: Service
 type Service struct {
 	log    *zap.Logger
 	sender Sender
