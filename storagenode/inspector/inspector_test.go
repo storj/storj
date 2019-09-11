@@ -70,7 +70,7 @@ func TestInspectorStats(t *testing.T) {
 
 		// TODO set more accurate assertions
 		if response.UsedSpace > 0 {
-			assert.True(t, response.UsedBandwidth > 0)
+			assert.NotZero(t, response.UsedBandwidth)
 			assert.Equal(t, response.UsedBandwidth, response.UsedIngress+response.UsedEgress)
 			assert.Equal(t, availableBandwidth-response.UsedBandwidth, response.AvailableBandwidth)
 			assert.Equal(t, availableSpace-response.UsedSpace, response.AvailableSpace)
@@ -87,7 +87,7 @@ func TestInspectorStats(t *testing.T) {
 			assert.Equal(t, availableSpace, response.AvailableSpace)
 		}
 	}
-	assert.True(t, downloaded >= rs.MinThreshold)
+	assert.True(t, downloaded >= rs.MinThreshold, "downloaded=%v, rs.MinThreshold=%v", downloaded, rs.MinThreshold)
 }
 
 func TestInspectorDashboard(t *testing.T) {
@@ -116,8 +116,7 @@ func TestInspectorDashboard(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.True(t, response.LastPinged.After(testStartedTime))
-
-			assert.True(t, response.LastQueried.After(testStartedTime))
+			assert.NotEmpty(t, response.LastPingFromAddress)
 
 			assert.True(t, response.Uptime.Nanos > 0)
 			assert.Equal(t, storageNode.ID(), response.NodeId)
