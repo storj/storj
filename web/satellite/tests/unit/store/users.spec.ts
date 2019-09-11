@@ -2,12 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
+
 import { UsersApiGql } from '@/api/users';
-import { makeUsersModule } from '@/store/modules/users';
-import { USER_MUTATIONS } from '@/store/mutationConstants';
+import { makeUsersModule, USER_ACTIONS, USER_MUTATIONS } from '@/store/modules/users';
 import { UpdatedUser, User } from '@/types/users';
-import { USER_ACTIONS } from '@/utils/constants/actionNames';
+import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const usersApi = new UsersApiGql();
@@ -81,6 +80,16 @@ describe('actions', () => {
             expect(store.state.fullName).toBe(oldUser.fullName);
             expect(store.state.shortName).toBe(oldUser.shortName);
         }
+    });
+
+    it('clears state', async () => {
+        await store.dispatch(CLEAR);
+
+        expect(store.state.fullName).toBe('');
+        expect(store.state.shortName).toBe('');
+        expect(store.state.email).toBe('');
+        expect(store.state.partnerId).toBe('');
+        expect(store.state.id).toBe('');
     });
 
     it('success get user', async () => {

@@ -13,14 +13,20 @@ import (
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 )
 
+var _ metainfo.Observer = (*PieceTracker)(nil)
+
 // PieceTracker implements the metainfo loop observer interface for garbage collection
+//
+// architecture: Observer
 type PieceTracker struct {
 	log          *zap.Logger
 	config       Config
 	creationDate time.Time
-	pieceCounts  map[storj.NodeID]int
+	// TODO: should we use int or int64 consistently for piece count (db type is int64)?
+	pieceCounts map[storj.NodeID]int
 
 	retainInfos map[storj.NodeID]*RetainInfo
 }

@@ -56,7 +56,7 @@ func (a APIKey) Serialize() string {
 
 // IsZero returns if the api key is an uninitialized value
 func (a *APIKey) IsZero() bool {
-	return a.IsZero()
+	return a.lib.IsZero()
 }
 
 // ParseAPIKey parses an API key

@@ -6,8 +6,9 @@ package testsuite
 import (
 	"path"
 	"strconv"
-	"sync"
 	"testing"
+
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/storage"
 )
@@ -43,21 +44,19 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 	b.Run("Put", func(b *testing.B) {
 		b.SetBytes(int64(len(items)))
 		for k := 0; k < b.N; k++ {
-			var wg sync.WaitGroup
+			var group errgroup.Group
 			for _, item := range items {
 				key := item.Key
 				value := item.Value
 
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					err := store.Put(ctx, key, value)
-					if err != nil {
-						b.Fatal("store.Put err", err)
-					}
-				}()
+				group.Go(func() error {
+					return store.Put(ctx, key, value)
+				})
 			}
-			wg.Wait()
+
+			if err := group.Wait(); err != nil {
+				b.Fatalf("Put: %v", err)
+			}
 		}
 	})
 

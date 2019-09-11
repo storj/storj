@@ -11,22 +11,26 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/vouchers"
 )
 
 // newStorageNodes initializes storage nodes
@@ -102,22 +106,28 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				ExpirationGracePeriod: 0,
 				MaxConcurrentRequests: 100,
 				OrderLimitGracePeriod: time.Hour,
-				Sender: orders.SenderConfig{
-					Interval: time.Hour,
-					Timeout:  time.Hour,
+				Orders: orders.Config{
+					SenderInterval:  time.Hour,
+					SenderTimeout:   time.Hour,
+					CleanupInterval: time.Hour,
+					ArchiveTTL:      time.Hour,
 				},
 				Monitor: monitor.Config{
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
 				},
-				RetainStatus: piecestore.RetainEnabled,
 			},
-			Vouchers: vouchers.Config{
-				Interval: time.Hour,
+			Retain: retain.Config{
+				Status:      retain.Enabled,
+				Concurrency: 5,
 			},
 			Version: planet.NewVersionConfig(),
 			Bandwidth: bandwidth.Config{
 				Interval: time.Hour,
+			},
+			Contact: contact.Config{
+				Interval: 30 * time.Second,
+				MaxSleep: 0 * time.Second,
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
@@ -132,7 +142,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			}
 		}
 
-		verInfo := planet.NewVersionInfo()
+		verisonInfo := planet.NewVersionInfo()
 
 		storageConfig := storagenodedb.Config{
 			Storage:  config.Storage.Path,
@@ -155,7 +165,13 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			}
 		}
 
-		peer, err := storagenode.New(log, identity, db, config, verInfo)
+		revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+		if err != nil {
+			return xs, errs.Wrap(err)
+		}
+		planet.databases = append(planet.databases, revocationDB)
+
+		peer, err := storagenode.New(log, identity, db, revocationDB, config, verisonInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -164,7 +180,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		if err != nil {
 			return nil, err
 		}
-
 		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())

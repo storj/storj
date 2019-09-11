@@ -168,7 +168,7 @@ func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node)
 
 	serverOptions, err := tlsopts.NewOptions(fid, tlsopts.Config{
 		PeerIDVersions: "*",
-	})
+	}, nil)
 	require.NoError(t, err)
 	identOpt := serverOptions.ServerOption()
 
@@ -307,7 +307,7 @@ func startTestNodeServer(ctx *testcontext.Context) (*grpc.Server, *mockNodesServ
 		return nil, nil, nil, ""
 	}
 
-	serverOptions, err := tlsopts.NewOptions(fullIdentity, tlsopts.Config{})
+	serverOptions, err := tlsopts.NewOptions(fullIdentity, tlsopts.Config{}, nil)
 	if err != nil {
 		return nil, nil, nil, ""
 	}
@@ -337,7 +337,7 @@ func newTestServer(ctx *testcontext.Context) (*grpc.Server, *mockNodesServer) {
 	if err != nil {
 		return nil, nil
 	}
-	serverOptions, err := tlsopts.NewOptions(fullIdentity, tlsopts.Config{})
+	serverOptions, err := tlsopts.NewOptions(fullIdentity, tlsopts.Config{}, nil)
 	if err != nil {
 		return nil, nil
 	}
@@ -424,7 +424,7 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 
 	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
 		PeerIDVersions: "*",
-	})
+	}, nil)
 	if err != nil {
 		return nil, err
 	}

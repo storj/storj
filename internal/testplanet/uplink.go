@@ -64,7 +64,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 	tlsOpts, err := tlsopts.NewOptions(identity, tlsopts.Config{
 		PeerIDVersions: strconv.Itoa(int(planet.config.IdentityVersion.Number)),
-	})
+	}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -201,6 +201,26 @@ func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	opts.Expires = expiration
 	opts.Volatile.RedundancyScheme = config.GetRedundancyScheme()
 	opts.Volatile.EncryptionParameters = config.GetEncryptionParameters()
+
+	reader := bytes.NewReader(data)
+	if err := bucket.UploadObject(ctx, path, reader, opts); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UploadWithClientConfig uploads data to specific satellite with custom client configuration
+func (client *Uplink) UploadWithClientConfig(ctx context.Context, satellite *satellite.Peer, clientConfig uplink.Config, bucketName string, path storj.Path, data []byte) (err error) {
+	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, clientConfig)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, bucket.Close(), project.Close()) }()
+
+	opts := &libuplink.UploadOptions{}
+	opts.Volatile.RedundancyScheme = clientConfig.GetRedundancyScheme()
+	opts.Volatile.EncryptionParameters = clientConfig.GetEncryptionParameters()
 
 	reader := bytes.NewReader(data)
 	if err := bucket.UploadObject(ctx, path, reader, opts); err != nil {

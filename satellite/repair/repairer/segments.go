@@ -12,11 +12,12 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
 )
 
@@ -29,7 +30,7 @@ type SegmentRepairer struct {
 	metainfo *metainfo.Service
 	orders   *orders.Service
 	overlay  *overlay.Service
-	ec       ecclient.Client
+	ec       *ECRepairer
 	timeout  time.Duration
 
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
@@ -45,8 +46,8 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
-	overlay *overlay.Service, ec ecclient.Client, timeout time.Duration,
-	excessOptimalThreshold float64,
+	overlay *overlay.Service, tc transport.Client, timeout time.Duration,
+	excessOptimalThreshold float64, satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -58,7 +59,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         ec.WithForceErrorDetection(true),
+		ec:                         NewECRepairer(log.Named("ec repairer"), tc, satelliteSignee),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}
@@ -100,8 +101,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	numHealthy := len(pieces) - len(missingPieces)
-	// irreparable piece, we need k+1 to detect corrupted pieces
-	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq+1 {
+	// irreparable piece
+	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
 		return true, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
 	}
@@ -170,20 +171,15 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// Download the segment using just the healthy pieces
-	rr, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
+	segmentReader, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
 	if err != nil {
 		// .Get() seems to only fail from input validation, so it would keep failing
 		return true, Error.Wrap(err)
 	}
-
-	r, err := rr.Range(ctx, 0, rr.Size())
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, r.Close()) }()
+	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, r, expiration, repairer.timeout, path)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, expiration, repairer.timeout, path)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}

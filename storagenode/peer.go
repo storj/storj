@@ -6,7 +6,6 @@ package storagenode
 import (
 	"context"
 	"net"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -18,6 +17,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleserver"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -36,9 +37,9 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
-	"storj.io/storj/storagenode/vouchers"
 )
 
 var (
@@ -46,6 +47,8 @@ var (
 )
 
 // DB is the master database for Storage Node
+//
+// architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
 	CreateTables() error
@@ -60,8 +63,6 @@ type DB interface {
 	PieceSpaceUsedDB() pieces.PieceSpaceUsedDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
-	Vouchers() vouchers.DB
-	Console() console.DB
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
 
@@ -81,7 +82,7 @@ type Config struct {
 	Storage2  piecestore.Config
 	Collector collector.Config
 
-	Vouchers vouchers.Config
+	Retain retain.Config
 
 	Nodestats nodestats.Config
 
@@ -90,6 +91,8 @@ type Config struct {
 	Version version.Config
 
 	Bandwidth bandwidth.Config
+
+	Contact contact.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -98,6 +101,8 @@ func (config *Config) Verify(log *zap.Logger) error {
 }
 
 // Peer is the representation of a Storage Node.
+//
+// architecture: Peer
 type Peer struct {
 	// core dependencies
 	Log      *zap.Logger
@@ -119,19 +124,24 @@ type Peer struct {
 		Inspector    *kademlia.Inspector
 	}
 
-	Storage2 struct {
-		// TODO: lift things outside of it to organize better
-		Trust        *trust.Pool
-		Store        *pieces.Store
-		BlobsCache   *pieces.BlobsUsageCache
-		CacheService *pieces.CacheService
-		Endpoint     *piecestore.Endpoint
-		Inspector    *inspector.Endpoint
-		Monitor      *monitor.Service
-		Sender       *orders.Sender
+	Contact struct {
+		Endpoint  *contact.Endpoint
+		Chore     *contact.Chore
+		PingStats *contact.PingStats
 	}
 
-	Vouchers *vouchers.Service
+	Storage2 struct {
+		// TODO: lift things outside of it to organize better
+		Trust         *trust.Pool
+		Store         *pieces.Store
+		BlobsCache    *pieces.BlobsUsageCache
+		CacheService  *pieces.CacheService
+		RetainService *retain.Service
+		Endpoint      *piecestore.Endpoint
+		Inspector     *inspector.Endpoint
+		Monitor       *monitor.Service
+		Orders        *orders.Service
+	}
 
 	Collector *collector.Service
 
@@ -151,7 +161,7 @@ type Peer struct {
 }
 
 // New creates a new Storage Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -171,7 +181,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 	{ // setup listener and server
 		sc := config.Server
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config)
+
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -239,6 +250,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
+	{ // setup contact service
+		peer.Contact.PingStats = new(contact.PingStats)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
+		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+	}
+
 	{ // setup storage
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.DB.Pieces())
 
@@ -268,11 +286,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Storage2.Monitor,
 		)
 
+		peer.Storage2.RetainService = retain.NewService(
+			peer.Log.Named("retain"),
+			peer.Storage2.Store,
+			config.Retain,
+		)
+
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
+			peer.Storage2.RetainService,
 			peer.Storage2.Store,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
@@ -284,12 +309,24 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
-		peer.Storage2.Sender = orders.NewSender(
-			log.Named("piecestore:orderssender"),
-			peer.Transport,
+		sc := config.Server
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		// TODO workaround for custom timeout for order sending request (read/write)
+		ordersTransport := transport.NewClientWithTimeouts(options, transport.Timeouts{
+			Dial:    config.Storage2.Orders.SenderDialTimeout,
+			Request: config.Storage2.Orders.SenderRequestTimeout,
+		})
+
+		peer.Storage2.Orders = orders.NewService(
+			log.Named("orders"),
+			ordersTransport,
 			peer.DB.Orders(),
 			peer.Storage2.Trust,
-			config.Storage2.Sender,
+			config.Storage2.Orders,
 		)
 	}
 
@@ -310,17 +347,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Storage2.Trust)
 	}
 
-	{ // setup vouchers
-		interval := config.Vouchers.Interval
-		buffer := interval + time.Hour
-		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Transport, peer.DB.Vouchers(),
-			peer.Storage2.Trust, interval, buffer)
-	}
-
 	{ // setup storage node operator dashboard
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			peer.DB.Console(),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
 			peer.Kademlia.Service,
@@ -390,7 +419,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Collector.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.Sender.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Storage2.Orders.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
@@ -399,7 +428,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
 	})
 
 	group.Go(func() error {
@@ -422,6 +451,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -438,17 +471,20 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.Contact.Chore != nil {
+		errlist.Add(peer.Contact.Chore.Close())
+	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
 	}
-	if peer.Vouchers != nil {
-		errlist.Add(peer.Vouchers.Close())
+	if peer.Storage2.RetainService != nil {
+		errlist.Add(peer.Storage2.RetainService.Close())
 	}
 	if peer.Storage2.Monitor != nil {
 		errlist.Add(peer.Storage2.Monitor.Close())
 	}
-	if peer.Storage2.Sender != nil {
-		errlist.Add(peer.Storage2.Sender.Close())
+	if peer.Storage2.Orders != nil {
+		errlist.Add(peer.Storage2.Orders.Close())
 	}
 	if peer.Storage2.CacheService != nil {
 		errlist.Add(peer.Storage2.CacheService.Close())

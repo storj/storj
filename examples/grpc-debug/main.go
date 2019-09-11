@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	clientOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{})
+	clientOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{}, nil)
 	if err != nil {
 		panic(err)
 	}

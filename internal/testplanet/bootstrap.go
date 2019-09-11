@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/bootstrap/bootstrapdb"
 	"storj.io/storj/bootstrap/bootstrapweb/bootstrapserver"
@@ -17,6 +19,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/versioncontrol"
 )
@@ -94,10 +97,17 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 		planet.config.Reconfigure.Bootstrap(0, &config)
 	}
 
-	var verInfo version.Info
-	verInfo = planet.NewVersionInfo()
+	versionInfo := planet.NewVersionInfo()
 
-	peer, err = bootstrap.New(log, identity, db, config, verInfo)
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return nil, errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	peer, err = bootstrap.New(log, identity, db, revocationDB, config, versionInfo)
 	if err != nil {
 		return nil, err
 	}

@@ -162,7 +162,6 @@ func TestStoreLoad(t *testing.T) {
 
 func TestDeleteWhileReading(t *testing.T) {
 	const blobSize = 8 << 10
-	const repeatCount = 16
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

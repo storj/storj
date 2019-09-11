@@ -6,8 +6,9 @@ package nodestats
 import (
 	"context"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
@@ -17,13 +18,12 @@ import (
 )
 
 var (
-	// NodeStatsEndpointErr is endpoint error class
-	NodeStatsEndpointErr = errs.Class("node stats endpoint error")
-
 	mon = monkit.Package()
 )
 
 // Endpoint for querying node stats for the SNO
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log        *zap.Logger
 	overlay    overlay.DB
@@ -45,12 +45,15 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
-
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		if overlay.ErrNodeNotFound.Has(err) {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+		e.log.Error("overlay.Get failed", zap.Error(err))
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	uptimeScore := calculateReputationScore(
@@ -76,6 +79,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 			ReputationBeta:  node.Reputation.AuditReputationBeta,
 			ReputationScore: auditScore,
 		},
+		Disqualified: node.Disqualified,
 	}, nil
 }
 
@@ -85,17 +89,21 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
-
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		if overlay.ErrNodeNotFound.Has(err) {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+		e.log.Error("overlay.Get failed", zap.Error(err))
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	nodeSpaceUsages, err := e.accounting.QueryStorageNodeUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
 	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
+		e.log.Error("accounting.QueryStorageNodeUsage failed", zap.Error(err))
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &pb.DailyStorageUsageResponse{

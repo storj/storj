@@ -32,10 +32,6 @@ func TestDBInit(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, total, int64(0))
 
-		// Try to update the total record before we initialize
-		err = spaceUsedDB.UpdateTotal(ctx, int64(100))
-		require.NoError(t, err)
-
 		// Expect that no total record exists since we haven't
 		// initialized yet
 		total, err = spaceUsedDB.GetTotal(ctx)

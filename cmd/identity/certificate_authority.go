@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 )
 
 var (
@@ -162,23 +163,18 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 
 func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-	argLen := len(args)
-	switch {
-	case argLen > 0:
+	if len(args) > 0 {
 		revokePeerCACfg.CA = identity.FullCAConfig{
 			CertPath: filepath.Join(identityDir, args[0], "ca.cert"),
 			KeyPath:  filepath.Join(identityDir, args[0], "ca.key"),
 		}
 
 		revokePeerCACfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
-		fallthrough
-	case argLen > 1:
+	}
+	if len(args) > 1 {
 		revokePeerCACfg.PeerCA = identity.PeerCAConfig{
 			CertPath: args[1],
 		}
-	}
-
-	if len(args) > 0 {
 	}
 
 	ca, err := revokePeerCACfg.CA.Load()
@@ -196,7 +192,7 @@ func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	revDB, err := identity.NewRevocationDB(revokePeerCACfg.RevocationDBURL)
+	revDB, err := revocation.NewDB(revokePeerCACfg.RevocationDBURL)
 	if err != nil {
 		return err
 	}

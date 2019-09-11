@@ -14,15 +14,18 @@ import (
 	"storj.io/storj/storagenode/storageusage"
 )
 
-// StorageUsage returns storageusage.DB
-func (db *InfoDB) StorageUsage() storageusage.DB { return &storageusageDB{db} }
-
-// StorageUsage returns storageusage.DB
-func (db *DB) StorageUsage() storageusage.DB { return db.info.StorageUsage() }
-
 // storageusageDB storage usage DB
 type storageusageDB struct {
-	*InfoDB
+	location string
+	SQLDB
+}
+
+// newStorageusageDB returns a new instance of storageusageDB initialized with the specified database.
+func newStorageusageDB(db SQLDB, location string) *storageusageDB {
+	return &storageusageDB{
+		location: location,
+		SQLDB:    db,
+	}
 }
 
 // Store stores storage usage stamps to db replacing conflicting entries
@@ -33,12 +36,12 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 		return nil
 	}
 
-	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, timestamp) 
+	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_start) 
 			VALUES(?,?,?)`
 
 	return db.withTx(ctx, func(tx *sql.Tx) error {
 		for _, stamp := range stamps {
-			_, err = db.db.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
+			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalStart.UTC())
 
 			if err != nil {
 				return err
@@ -54,17 +57,16 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT *
+	query := `SELECT satellite_id,
+					SUM(at_rest_total),
+					interval_start
 				FROM storage_usage
-				WHERE timestamp IN (
-					SELECT MAX(timestamp) 
-					FROM storage_usage
-					WHERE satellite_id = ?
-					AND ? <= timestamp AND timestamp <= ?
-					GROUP BY DATE(timestamp)
-				)`
+				WHERE satellite_id = ?
+				AND ? <= interval_start AND interval_start <= ?
+				GROUP BY DATE(interval_start)
+				ORDER BY interval_start`
 
-	rows, err := db.db.QueryContext(ctx, query, satelliteID, from.UTC(), to.UTC())
+	rows, err := db.QueryContext(ctx, query, satelliteID, from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -77,17 +79,17 @@ func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	for rows.Next() {
 		var satellite storj.NodeID
 		var atRestTotal float64
-		var timeStamp time.Time
+		var intervalStart time.Time
 
-		err = rows.Scan(&satellite, &atRestTotal, &timeStamp)
+		err = rows.Scan(&satellite, &atRestTotal, &intervalStart)
 		if err != nil {
 			return nil, err
 		}
 
 		stamps = append(stamps, storageusage.Stamp{
-			SatelliteID: satellite,
-			AtRestTotal: atRestTotal,
-			Timestamp:   timeStamp,
+			SatelliteID:   satellite,
+			AtRestTotal:   atRestTotal,
+			IntervalStart: intervalStart,
 		})
 	}
 
@@ -99,16 +101,13 @@ func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT SUM(at_rest_total), timestamp 
+	query := `SELECT SUM(at_rest_total), interval_start 
 				FROM storage_usage
-				WHERE timestamp IN (
-					SELECT MAX(timestamp)
-					FROM storage_usage
-					WHERE ? <= timestamp AND timestamp <= ?
-					GROUP BY DATE(timestamp), satellite_id
-				) GROUP BY DATE(timestamp)`
+				WHERE ? <= interval_start AND interval_start <= ?
+				GROUP BY DATE(interval_start)
+				ORDER BY interval_start`
 
-	rows, err := db.db.QueryContext(ctx, query, from.UTC(), to.UTC())
+	rows, err := db.QueryContext(ctx, query, from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -120,18 +119,64 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	var stamps []storageusage.Stamp
 	for rows.Next() {
 		var atRestTotal float64
-		var timeStamp time.Time
+		var intervalStart time.Time
 
-		err = rows.Scan(&atRestTotal, &timeStamp)
+		err = rows.Scan(&atRestTotal, &intervalStart)
 		if err != nil {
 			return nil, err
 		}
 
 		stamps = append(stamps, storageusage.Stamp{
-			AtRestTotal: atRestTotal,
-			Timestamp:   timeStamp,
+			AtRestTotal:   atRestTotal,
+			IntervalStart: intervalStart,
 		})
 	}
 
 	return stamps, nil
+}
+
+// Summary returns aggregated storage usage across all satellites.
+func (db *storageusageDB) Summary(ctx context.Context, from, to time.Time) (_ float64, err error) {
+	defer mon.Task()(&ctx, from, to)(&err)
+	var summary sql.NullFloat64
+
+	query := `SELECT SUM(at_rest_total) 
+				FROM storage_usage
+				WHERE ? <= interval_start AND interval_start <= ?`
+
+	err = db.QueryRowContext(ctx, query, from.UTC(), to.UTC()).Scan(&summary)
+	return summary.Float64, err
+}
+
+// SatelliteSummary returns aggregated storage usage for a particular satellite.
+func (db *storageusageDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ float64, err error) {
+	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
+	var summary sql.NullFloat64
+
+	query := `SELECT SUM(at_rest_total) 
+				FROM storage_usage
+				WHERE satellite_id = ?
+				AND ? <= interval_start AND interval_start <= ?`
+
+	err = db.QueryRowContext(ctx, query, satelliteID, from.UTC(), to.UTC()).Scan(&summary)
+	return summary.Float64, err
+}
+
+// withTx is a helper method which executes callback in transaction scope
+func (db *storageusageDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
 }

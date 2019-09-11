@@ -99,7 +99,7 @@ func TestIDVersionExtensionHandler_success(t *testing.T) {
 		assert.NoError(t, err)
 
 		extensionMap := tlsopts.NewExtensionsMap(testcase.chain...)
-		handlerFuncMap := extensions.AllHandlers.WithOptions(opts)
+		handlerFuncMap := extensions.DefaultHandlers.WithOptions(opts)
 
 		err = extensionMap.HandleExtensions(handlerFuncMap, identity.ToChains(testcase.chain))
 		assert.NoError(t, err)

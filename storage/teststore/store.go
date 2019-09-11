@@ -111,7 +111,7 @@ func (store *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value,
 
 	keyIndex, found := store.indexOf(key)
 	if !found {
-		return nil, storage.ErrKeyNotFound.New(key.String())
+		return nil, storage.ErrKeyNotFound.New("%q", key)
 	}
 
 	return storage.CloneValue(store.Items[keyIndex].Value), nil
@@ -161,7 +161,7 @@ func (store *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 
 	keyIndex, found := store.indexOf(key)
 	if !found {
-		return storage.ErrKeyNotFound.New(key.String())
+		return storage.ErrKeyNotFound.New("%q", key)
 	}
 
 	store.delete(keyIndex)
@@ -443,7 +443,7 @@ func (store *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVal
 	keyIndex, found := store.indexOf(key)
 	if !found {
 		if oldValue != nil {
-			return storage.ErrKeyNotFound.New(key.String())
+			return storage.ErrKeyNotFound.New("%q", key)
 		}
 
 		if newValue == nil {
@@ -456,7 +456,7 @@ func (store *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVal
 
 	kv := &store.Items[keyIndex]
 	if !bytes.Equal(kv.Value, oldValue) {
-		return storage.ErrValueChanged.New(key.String())
+		return storage.ErrValueChanged.New("%q", key)
 	}
 
 	if newValue == nil {

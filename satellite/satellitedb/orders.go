@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/dbutil/sqliteutil"
@@ -22,6 +24,11 @@ import (
 )
 
 const defaultIntervalSeconds = int(time.Hour / time.Second)
+
+var (
+	// ErrDifferentStorageNodes is returned when ProcessOrders gets orders from different storage nodes.
+	ErrDifferentStorageNodes = errs.Class("different storage nodes")
+)
 
 type ordersDB struct {
 	db *dbx.DB
@@ -37,6 +44,16 @@ func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.Ser
 		dbx.SerialNumber_ExpiresAt(limitExpiration),
 	)
 	return err
+}
+
+// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
+func (db *ordersDB) DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	count, err := db.db.Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx, dbx.SerialNumber_ExpiresAt(now))
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
 }
 
 // UseSerialNumber creates serial number entry in database
@@ -213,4 +230,182 @@ func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.Se
 				  serial_number_id IN (SELECT id FROM serial_numbers WHERE serial_number = ?)`
 	_, err = db.db.ExecContext(ctx, db.db.Rebind(statement), storageNodeID.Bytes(), serialNumber.Bytes())
 	return err
+}
+
+// ProcessOrders take a list of order requests and "settles" them in one transaction.
+//
+// ProcessOrders requires that all orders come from the same storage node.
+func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(requests) == 0 {
+		return nil, err
+	}
+
+	// check that all requests are from the same storage node
+	storageNodeID := requests[0].OrderLimit.StorageNodeId
+	for _, req := range requests[1:] {
+		if req.OrderLimit.StorageNodeId != storageNodeID {
+			return nil, ErrDifferentStorageNodes.New("requests from different storage nodes %v and %v", storageNodeID, req.OrderLimit.StorageNodeId)
+		}
+	}
+
+	// sort requests by serial number, all of them should be from the same storage node
+	sort.Slice(requests, func(i, k int) bool {
+		return requests[i].OrderLimit.SerialNumber.Less(requests[k].OrderLimit.SerialNumber)
+	})
+
+	tx, err := db.db.Begin()
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			err = errs.Combine(err, tx.Rollback())
+		}
+	}()
+
+	now := time.Now().UTC()
+	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+
+	rejected := make(map[storj.SerialNumber]bool)
+	bucketBySerial := make(map[storj.SerialNumber][]byte)
+
+	// load the bucket id and insert into used serials table
+	for _, request := range requests {
+		row := tx.QueryRow(db.db.Rebind(`
+			SELECT id, bucket_id
+			FROM serial_numbers
+			WHERE serial_number = ?
+		`), request.OrderLimit.SerialNumber)
+
+		var serialNumberID int64
+		var bucketID []byte
+		if err := row.Scan(&serialNumberID, &bucketID); err != nil {
+			rejected[request.OrderLimit.SerialNumber] = true
+			continue
+		}
+
+		var result sql.Result
+		var count int64
+
+		// try to insert the serial number
+		result, err = tx.Exec(db.db.Rebind(`
+			INSERT INTO used_serials(serial_number_id, storage_node_id)
+			VALUES (?, ?)
+			ON CONFLICT DO NOTHING
+		`), serialNumberID, storageNodeID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		// if we didn't update any rows, then it must already exist
+		count, err = result.RowsAffected()
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if count == 0 {
+			rejected[request.OrderLimit.SerialNumber] = true
+			continue
+		}
+
+		bucketBySerial[request.OrderLimit.SerialNumber] = bucketID
+	}
+
+	// add up amount by action
+	var largestAction pb.PieceAction
+	amountByAction := map[pb.PieceAction]int64{}
+	for _, request := range requests {
+		if rejected[request.OrderLimit.SerialNumber] {
+			continue
+		}
+		limit, order := request.OrderLimit, request.Order
+		amountByAction[limit.Action] += order.Amount
+		if largestAction < limit.Action {
+			largestAction = limit.Action
+		}
+	}
+
+	// do action updates for storage node
+	for action := pb.PieceAction(0); action <= largestAction; action++ {
+		amount := amountByAction[action]
+		if amount == 0 {
+			continue
+		}
+
+		_, err := tx.Exec(db.db.Rebind(`
+			INSERT INTO storagenode_bandwidth_rollups 
+				(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
+			VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT (storagenode_id, interval_start, action)
+			DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?
+		`), storageNodeID, intervalStart, defaultIntervalSeconds, action, 0, amount, amount)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	// sort bucket updates
+	type bucketUpdate struct {
+		bucketID []byte
+		action   pb.PieceAction
+		amount   int64
+	}
+	var bucketUpdates []bucketUpdate
+	for _, request := range requests {
+		if rejected[request.OrderLimit.SerialNumber] {
+			continue
+		}
+		limit, order := request.OrderLimit, request.Order
+
+		bucketUpdates = append(bucketUpdates, bucketUpdate{
+			bucketID: bucketBySerial[limit.SerialNumber],
+			action:   limit.Action,
+			amount:   order.Amount,
+		})
+	}
+
+	sort.Slice(bucketUpdates, func(i, k int) bool {
+		compare := bytes.Compare(bucketUpdates[i].bucketID, bucketUpdates[k].bucketID)
+		if compare == 0 {
+			return bucketUpdates[i].action < bucketUpdates[k].action
+		}
+		return compare < 0
+	})
+
+	// do bucket updates
+	for _, update := range bucketUpdates {
+		projectID, bucketName, err := orders.SplitBucketID(update.bucketID)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		_, err = tx.Exec(db.db.Rebind(`
+			INSERT INTO bucket_bandwidth_rollups
+				(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled) 
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT (bucket_name, project_id, interval_start, action)
+			DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?
+		`), bucketName, (*projectID)[:], intervalStart, defaultIntervalSeconds, update.action, 0, 0, update.amount, update.amount)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	for _, request := range requests {
+		if !rejected[request.OrderLimit.SerialNumber] {
+			responses = append(responses, &orders.ProcessOrderResponse{
+				SerialNumber: request.OrderLimit.SerialNumber,
+				Status:       pb.SettlementResponse_ACCEPTED,
+			})
+		} else {
+			responses = append(responses, &orders.ProcessOrderResponse{
+				SerialNumber: request.OrderLimit.SerialNumber,
+				Status:       pb.SettlementResponse_REJECTED,
+			})
+		}
+	}
+	return responses, nil
 }

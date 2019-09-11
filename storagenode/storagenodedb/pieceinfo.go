@@ -18,28 +18,34 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
-type v0PieceInfo struct {
-	*InfoDB
+// ErrPieceInfo represents errors from the piece info database.
+var ErrPieceInfo = errs.Class("v0pieceinfodb error")
+
+type v0PieceInfoDB struct {
+	location string
+	SQLDB
 }
 
-// V0PieceInfo returns database for storing piece information
-func (db *DB) V0PieceInfo() pieces.V0PieceInfoDB { return db.info.V0PieceInfo() }
-
-// V0PieceInfo returns database for storing piece information
-func (db *InfoDB) V0PieceInfo() pieces.V0PieceInfoDB { return &db.v0PieceInfo }
+// newV0PieceInfoDB returns a new instance of pieceinfo initialized with the specified database.
+func newV0PieceInfoDB(db SQLDB, location string) *v0PieceInfoDB {
+	return &v0PieceInfoDB{
+		location: location,
+		SQLDB:    db,
+	}
+}
 
 // Add inserts piece information into the database.
-func (db *v0PieceInfo) Add(ctx context.Context, info *pieces.Info) (err error) {
+func (db *v0PieceInfoDB) Add(ctx context.Context, info *pieces.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	orderLimit, err := proto.Marshal(info.OrderLimit)
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrPieceInfo.Wrap(err)
 	}
 
 	uplinkPieceHash, err := proto.Marshal(info.UplinkPieceHash)
 	if err != nil {
-		return ErrInfo.Wrap(err)
+		return ErrPieceInfo.Wrap(err)
 	}
 
 	var pieceExpiration *time.Time
@@ -49,24 +55,24 @@ func (db *v0PieceInfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	}
 
 	// TODO remove `uplink_cert_id` from DB
-	_, err = db.db.ExecContext(ctx, db.Rebind(`
+	_, err = db.ExecContext(ctx, `
 		INSERT INTO
 			pieceinfo_(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash, uplink_cert_id)
 		VALUES (?,?,?,?,?,?,?,?)
-	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation.UTC(), pieceExpiration, orderLimit, uplinkPieceHash, 0)
+	`, info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation.UTC(), pieceExpiration, orderLimit, uplinkPieceHash, 0)
 
-	return ErrInfo.Wrap(err)
+	return ErrPieceInfo.Wrap(err)
 }
 
-func (db *v0PieceInfo) getAllPiecesOwnedBy(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID) ([]v0StoredPieceAccess, error) {
-	rows, err := db.db.QueryContext(ctx, db.Rebind(`
+func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID) ([]v0StoredPieceAccess, error) {
+	rows, err := db.QueryContext(ctx, `
 		SELECT piece_id, piece_size, piece_creation, piece_expiration
 		FROM pieceinfo_
 		WHERE satellite_id = ?
 		ORDER BY piece_id
-	`), satelliteID)
+	`, satelliteID)
 	if err != nil {
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrPieceInfo.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 	var pieceInfos []v0StoredPieceAccess
@@ -78,7 +84,7 @@ func (db *v0PieceInfo) getAllPiecesOwnedBy(ctx context.Context, blobStore storag
 		thisAccess := &pieceInfos[len(pieceInfos)-1]
 		err = rows.Scan(&thisAccess.pieceID, &thisAccess.pieceSize, &thisAccess.creationTime, &thisAccess.expirationTime)
 		if err != nil {
-			return nil, ErrInfo.Wrap(err)
+			return nil, ErrPieceInfo.Wrap(err)
 		}
 	}
 	return pieceInfos, nil
@@ -91,7 +97,7 @@ func (db *v0PieceInfo) getAllPiecesOwnedBy(ctx context.Context, blobStore storag
 //
 // If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
 // instances will not work, but otherwise everything should be ok.
-func (db *v0PieceInfo) WalkSatelliteV0Pieces(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
+func (db *v0PieceInfoDB) WalkSatelliteV0Pieces(ctx context.Context, blobStore storage.Blobs, satelliteID storj.NodeID, walkFunc func(pieces.StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: is it worth paging this query? we hope that SNs will not yet have too many V0 pieces.
@@ -113,7 +119,7 @@ func (db *v0PieceInfo) WalkSatelliteV0Pieces(ctx context.Context, blobStore stor
 }
 
 // Get gets piece information by satellite id and piece id.
-func (db *v0PieceInfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (_ *pieces.Info, err error) {
+func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (_ *pieces.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 	info := &pieces.Info{}
 	info.SatelliteID = satelliteID
@@ -123,13 +129,13 @@ func (db *v0PieceInfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceI
 	var uplinkPieceHash []byte
 	var pieceExpiration *time.Time
 
-	err = db.db.QueryRowContext(ctx, db.Rebind(`
+	err = db.QueryRowContext(ctx, `
 		SELECT piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash
 		FROM pieceinfo_
 		WHERE satellite_id = ? AND piece_id = ?
-	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &pieceExpiration, &orderLimit, &uplinkPieceHash)
+	`, satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &pieceExpiration, &orderLimit, &uplinkPieceHash)
 	if err != nil {
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrPieceInfo.Wrap(err)
 	}
 
 	if pieceExpiration != nil {
@@ -139,50 +145,50 @@ func (db *v0PieceInfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceI
 	info.OrderLimit = &pb.OrderLimit{}
 	err = proto.Unmarshal(orderLimit, info.OrderLimit)
 	if err != nil {
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrPieceInfo.Wrap(err)
 	}
 
 	info.UplinkPieceHash = &pb.PieceHash{}
 	err = proto.Unmarshal(uplinkPieceHash, info.UplinkPieceHash)
 	if err != nil {
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrPieceInfo.Wrap(err)
 	}
 
 	return info, nil
 }
 
 // Delete deletes piece information.
-func (db *v0PieceInfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+func (db *v0PieceInfoDB) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.db.ExecContext(ctx, db.Rebind(`
+	_, err = db.ExecContext(ctx, `
 		DELETE FROM pieceinfo_
 		WHERE satellite_id = ?
 		  AND piece_id = ?
-	`), satelliteID, pieceID)
+	`, satelliteID, pieceID)
 
-	return ErrInfo.Wrap(err)
+	return ErrPieceInfo.Wrap(err)
 }
 
 // DeleteFailed marks piece as a failed deletion.
-func (db *v0PieceInfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) (err error) {
+func (db *v0PieceInfoDB) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.db.ExecContext(ctx, db.Rebind(`
+	_, err = db.ExecContext(ctx, `
 		UPDATE pieceinfo_
 		SET deletion_failed_at = ?
 		WHERE satellite_id = ?
 		  AND piece_id = ?
-	`), now.UTC(), satelliteID, pieceID)
+	`, now.UTC(), satelliteID, pieceID)
 
-	return ErrInfo.Wrap(err)
+	return ErrPieceInfo.Wrap(err)
 }
 
 // GetExpired gets ExpiredInfo records for pieces that are expired.
-func (db *v0PieceInfo) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
+func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.db.QueryContext(ctx, db.Rebind(`
+	rows, err := db.QueryContext(ctx, `
 		SELECT satellite_id, piece_id
 		FROM pieceinfo_
 		WHERE piece_expiration IS NOT NULL
@@ -190,16 +196,16 @@ func (db *v0PieceInfo) GetExpired(ctx context.Context, expiredAt time.Time, limi
 		AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
 		ORDER BY satellite_id
 		LIMIT ?
-	`), expiredAt.UTC(), expiredAt.UTC(), limit)
+	`, expiredAt.UTC(), expiredAt.UTC(), limit)
 	if err != nil {
-		return nil, ErrInfo.Wrap(err)
+		return nil, ErrPieceInfo.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 	for rows.Next() {
 		info := pieces.ExpiredInfo{InPieceInfo: true}
 		err = rows.Scan(&info.SatelliteID, &info.PieceID)
 		if err != nil {
-			return infos, ErrInfo.Wrap(err)
+			return infos, ErrPieceInfo.Wrap(err)
 		}
 		infos = append(infos, info)
 	}

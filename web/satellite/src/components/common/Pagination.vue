@@ -18,193 +18,208 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue, Prop } from 'vue-property-decorator';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import PagesBlock from '@/components/common/PagesBlock.vue';
-    import { Page } from '@/types/pagination';
+import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            PagesBlock,
-        }
-    })
-    export default class Pagination extends Vue {
-        // TODO: use svg loader
-        public readonly arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
-        public readonly arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
-        private readonly MAX_PAGES_PER_BLOCK: number = 3;
-        private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
-        private currentPageNumber: number = 1;
-        public isLoading = false;
-        public pagesArray: Page[] = [];
-        public firstBlockPages: Page[] = [];
-        public middleBlockPages: Page[] = [];
-        public lastBlockPages: Page[] = [];
+import PagesBlock from '@/components/common/PagesBlock.vue';
 
-        @Prop({default: 0})
-        private readonly totalPageCount: number;
-        @Prop({default: () => { return new Promise(() => false); }})
-        private readonly onPageClickCallback: OnPageClickCallback;
+import { Page } from '@/types/pagination';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-        public mounted() {
-            this.populatePagesArray();
-        }
+@Component({
+    components: {
+        PagesBlock,
+    }
+})
+export default class Pagination extends Vue {
+    // TODO: use svg loader
+    public readonly arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
+    public readonly arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
+    private readonly MAX_PAGES_PER_BLOCK: number = 3;
+    private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
+    private currentPageNumber: number = 1;
+    public isLoading = false;
+    public pagesArray: Page[] = [];
+    public firstBlockPages: Page[] = [];
+    public middleBlockPages: Page[] = [];
+    public lastBlockPages: Page[] = [];
 
-        public get isFirstPage(): boolean {
-            return this.currentPageNumber === 1;
-        }
+    @Prop({default: 0})
+    private readonly totalPageCount: number;
+    @Prop({default: () => new Promise(() => false)})
+    private readonly onPageClickCallback: OnPageClickCallback;
 
-        public get isLastPage(): boolean {
-            return this.currentPageNumber === this.totalPageCount;
-        }
+    public mounted() {
+        this.populatePagesArray();
+    }
 
-        public get isFirstDotsShown(): boolean {
-            return this.middleBlockPages.length <= this.MAX_PAGES_PER_BLOCK
-                && this.pagesArray.length > this.MAX_PAGES_OFF_BLOCKS;
-        }
+    public get isFirstPage(): boolean {
+        return this.currentPageNumber === 1;
+    }
 
-        public get isSecondDotsShown(): boolean {
-            return !!this.middleBlockPages.length;
-        }
+    public get isLastPage(): boolean {
+        return this.currentPageNumber === this.totalPageCount;
+    }
 
-        public isSelected(page: number): boolean {
-            return page === this.currentPageNumber;
-        }
+    public get isFirstDotsShown(): boolean {
+        return this.middleBlockPages.length <= this.MAX_PAGES_PER_BLOCK
+            && this.pagesArray.length > this.MAX_PAGES_OFF_BLOCKS;
+    }
 
-        public async onPageClick(page: number): Promise<void> {
-            if (this.isLoading) {
-                return;
-            }
+    public get isSecondDotsShown(): boolean {
+        return !!this.middleBlockPages.length;
+    }
 
-            this.isLoading = true;
-            await this.onPageClickCallback(page);
-            this.setCurrentPage(page);
-            this.reorganizePageBlocks();
-            this.isLoading = false;
-        }
+    public isSelected(page: number): boolean {
+        return page === this.currentPageNumber;
+    }
 
-        public async nextPage(): Promise<void> {
-            if (this.isLastPage || this.isLoading) {
-                return;
-            }
+    @Watch('totalPageCount')
+    public onPageCountChange(val: number, oldVal: number) {
+        this.resetPageIndex();
+    }
 
-            this.isLoading = true;
-            await this.onPageClickCallback(this.currentPageNumber + 1);
-            this.incrementCurrentPage();
-            this.reorganizePageBlocks();
-            this.isLoading = false;
+    public async onPageClick(page: number): Promise<void> {
+        if (this.isLoading) {
+            return;
         }
 
-        public async prevPage(): Promise<void> {
-            if (this.isFirstPage || this.isLoading) {
-                return;
-            }
+        this.isLoading = true;
+        await this.onPageClickCallback(page);
+        this.setCurrentPage(page);
+        this.reorganizePageBlocks();
+        this.isLoading = false;
+    }
 
-            this.isLoading = true;
-            await this.onPageClickCallback(this.currentPageNumber - 1);
-            this.decrementCurrentPage();
-            this.reorganizePageBlocks();
-            this.isLoading = false;
+    public async nextPage(): Promise<void> {
+        if (this.isLastPage || this.isLoading) {
+            return;
         }
 
-        private populatePagesArray(): void {
-            if (!this.totalPageCount) {
-                return;
-            }
+        this.isLoading = true;
+        await this.onPageClickCallback(this.currentPageNumber + 1);
+        this.incrementCurrentPage();
+        this.reorganizePageBlocks();
+        this.isLoading = false;
+    }
 
-            if (this.$route.query.pageNumber) {
-                const pageNumber = parseInt(this.$route.query.pageNumber as string);
-                this.setCurrentPage(pageNumber);
-
-                // Here we need to set short timeout to let router to set up after page
-                // hard reload before we can replace query with current page number
-                setTimeout(this.updateRouterPathWithPageNumber, 1);
-            }
-
-            for (let i = 1; i <= this.totalPageCount; i++) {
-                this.pagesArray.push(new Page(i, this.onPageClick));
-            }
-
-            if (this.isPagesTotalOffBlocks()) {
-                this.firstBlockPages = this.pagesArray.slice();
-
-                return;
-            }
-
-            this.reorganizePageBlocks();
+    public async prevPage(): Promise<void> {
+        if (this.isFirstPage || this.isLoading) {
+            return;
         }
 
-        private reorganizePageBlocks(): void {
-            if (this.isPagesTotalOffBlocks()) {
-                return;
-            }
+        this.isLoading = true;
+        await this.onPageClickCallback(this.currentPageNumber - 1);
+        this.decrementCurrentPage();
+        this.reorganizePageBlocks();
+        this.isLoading = false;
+    }
 
-            if (this.isCurrentInFirstBlock()) {
-                this.setBlocksIfCurrentInFirstBlock();
+    public resetPageIndex(): void {
+        this.pagesArray = [];
+        this.firstBlockPages = [];
+        this.setCurrentPage(1);
 
-                return;
-            }
+        this.populatePagesArray();
+    }
 
-            if (!this.isCurrentInFirstBlock() && !this.isCurrentInLastBlock()) {
-                this.setBlocksIfCurrentInMiddleBlock();
-
-                return;
-            }
-
-            if (this.isCurrentInLastBlock()) {
-                this.setBlocksIfCurrentInLastBlock();
-            }
+    private populatePagesArray(): void {
+        if (!this.totalPageCount) {
+            return;
         }
 
-        private setBlocksIfCurrentInFirstBlock(): void {
-            this.firstBlockPages = this.pagesArray.slice(0, 3);
-            this.middleBlockPages = [];
-            this.lastBlockPages = this.pagesArray.slice(-1);
+        if (this.$route.query.pageNumber) {
+            const pageNumber = parseInt(this.$route.query.pageNumber as string);
+            this.setCurrentPage(pageNumber);
+
+            // Here we need to set short timeout to let router to set up after page
+            // hard reload before we can replace query with current page number
+            setTimeout(this.updateRouterPathWithPageNumber, 1);
         }
 
-        private setBlocksIfCurrentInMiddleBlock(): void {
-            this.firstBlockPages = this.pagesArray.slice(0, 1);
-            this.middleBlockPages = this.pagesArray.slice(this.currentPageNumber - 2, this.currentPageNumber + 1);
-            this.lastBlockPages = this.pagesArray.slice(-1);
+        for (let i = 1; i <= this.totalPageCount; i++) {
+            this.pagesArray.push(new Page(i, this.onPageClick));
         }
 
-        private setBlocksIfCurrentInLastBlock(): void {
-            this.firstBlockPages = this.pagesArray.slice(0, 1);
-            this.middleBlockPages = [];
-            this.lastBlockPages = this.pagesArray.slice(-3);
+        if (this.isPagesTotalOffBlocks()) {
+            this.firstBlockPages = this.pagesArray.slice();
+
+            return;
         }
 
-        private isCurrentInFirstBlock(): boolean {
-            return this.currentPageNumber < this.MAX_PAGES_PER_BLOCK;
+        this.reorganizePageBlocks();
+    }
+
+    private reorganizePageBlocks(): void {
+        if (this.isPagesTotalOffBlocks()) {
+            return;
         }
 
-        private isCurrentInLastBlock(): boolean {
-            return this.totalPageCount - this.currentPageNumber < this.MAX_PAGES_PER_BLOCK - 1;
+        if (this.isCurrentInFirstBlock()) {
+            this.setBlocksIfCurrentInFirstBlock();
+
+            return;
         }
 
-        private isPagesTotalOffBlocks(): boolean {
-            return this.totalPageCount <= this.MAX_PAGES_OFF_BLOCKS;
+        if (!this.isCurrentInFirstBlock() && !this.isCurrentInLastBlock()) {
+            this.setBlocksIfCurrentInMiddleBlock();
+
+            return;
         }
 
-        private incrementCurrentPage(): void {
-            this.currentPageNumber++;
-            this.updateRouterPathWithPageNumber();
-        }
-
-        private decrementCurrentPage(): void {
-            this.currentPageNumber--;
-            this.updateRouterPathWithPageNumber();
-        }
-
-        private setCurrentPage(pageNumber: number): void {
-            this.currentPageNumber = pageNumber;
-            this.updateRouterPathWithPageNumber();
-        }
-
-        private updateRouterPathWithPageNumber() {
-            this.$router.replace({ query: { pageNumber: this.currentPageNumber.toString() } });
+        if (this.isCurrentInLastBlock()) {
+            this.setBlocksIfCurrentInLastBlock();
         }
     }
+
+    private setBlocksIfCurrentInFirstBlock(): void {
+        this.firstBlockPages = this.pagesArray.slice(0, 3);
+        this.middleBlockPages = [];
+        this.lastBlockPages = this.pagesArray.slice(-1);
+    }
+
+    private setBlocksIfCurrentInMiddleBlock(): void {
+        this.firstBlockPages = this.pagesArray.slice(0, 1);
+        this.middleBlockPages = this.pagesArray.slice(this.currentPageNumber - 2, this.currentPageNumber + 1);
+        this.lastBlockPages = this.pagesArray.slice(-1);
+    }
+
+    private setBlocksIfCurrentInLastBlock(): void {
+        this.firstBlockPages = this.pagesArray.slice(0, 1);
+        this.middleBlockPages = [];
+        this.lastBlockPages = this.pagesArray.slice(-3);
+    }
+
+    private isCurrentInFirstBlock(): boolean {
+        return this.currentPageNumber < this.MAX_PAGES_PER_BLOCK;
+    }
+
+    private isCurrentInLastBlock(): boolean {
+        return this.totalPageCount - this.currentPageNumber < this.MAX_PAGES_PER_BLOCK - 1;
+    }
+
+    private isPagesTotalOffBlocks(): boolean {
+        return this.totalPageCount <= this.MAX_PAGES_OFF_BLOCKS;
+    }
+
+    private incrementCurrentPage(): void {
+        this.currentPageNumber++;
+        this.updateRouterPathWithPageNumber();
+    }
+
+    private decrementCurrentPage(): void {
+        this.currentPageNumber--;
+        this.updateRouterPathWithPageNumber();
+    }
+
+    private setCurrentPage(pageNumber: number): void {
+        this.currentPageNumber = pageNumber;
+        this.updateRouterPathWithPageNumber();
+    }
+
+    private updateRouterPathWithPageNumber() {
+        this.$router.replace({ query: { pageNumber: this.currentPageNumber.toString() } });
+    }
+}
 </script>
 
 <style scoped lang="scss">

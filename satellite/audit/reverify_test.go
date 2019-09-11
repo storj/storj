@@ -307,7 +307,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			BytesPerSecond: 1 * memory.KiB,
 		}
 
-		tlsOpts, err := tlsopts.NewOptions(planet.Satellites[0].Identity, tlsopts.Config{})
+		tlsOpts, err := tlsopts.NewOptions(planet.Satellites[0].Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
 		newTransport := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{

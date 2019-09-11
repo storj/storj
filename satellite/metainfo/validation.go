@@ -124,27 +124,27 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 	defer mon.Task()(&ctx)(&err)
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		endpoint.log.Debug("unauthorized request")
+		return nil, status.Error(codes.Unauthenticated, "Missing API credentials")
 	}
 
 	key, err := macaroon.ParseAPIKey(string(keyData))
 	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		endpoint.log.Debug("invalid request", zap.Error(err))
+		return nil, status.Error(codes.InvalidArgument, "Invalid API credentials")
 	}
 
 	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		endpoint.log.Debug("unauthorized request", zap.Error(err))
+		return nil, status.Error(codes.PermissionDenied, "Unauthorized API credentials")
 	}
 
 	// Revocations are currently handled by just deleting the key.
 	err = key.Check(ctx, keyInfo.Secret, action, nil)
 	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		endpoint.log.Debug("unauthorized request", zap.Error(err))
+		return nil, status.Error(codes.PermissionDenied, "Unauthorized API credentials")
 	}
 
 	return keyInfo, nil
@@ -311,7 +311,7 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
 			}
-			if bytes.Compare(piece.NodeId.Bytes(), limit.StorageNodeId.Bytes()) != 0 {
+			if piece.NodeId != limit.StorageNodeId {
 				return Error.New("piece NodeID != order limit NodeID")
 			}
 		}
@@ -323,7 +323,7 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if endpoint.requiredRSConfig.Validate == true {
+	if endpoint.requiredRSConfig.Validate {
 		if endpoint.requiredRSConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
 			endpoint.requiredRSConfig.MaxThreshold != int(redundancy.Total) ||
 			endpoint.requiredRSConfig.MinThreshold != int(redundancy.MinReq) ||

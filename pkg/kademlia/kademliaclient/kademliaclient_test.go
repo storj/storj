@@ -179,7 +179,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 	func() { // PingNode
 		self := planet.StorageNodes[0]
 
-		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
+		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
 		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
@@ -215,7 +215,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 	func() { // FetchPeerIdentity
 		self := planet.StorageNodes[1]
 
-		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
+		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
 		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
@@ -252,7 +252,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 	func() { // Lookup
 		self := planet.StorageNodes[2]
 
-		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
+		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
 		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
@@ -282,7 +282,6 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 					if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
 						return errs.New("invalid error: %v (peer:%s target:%s)", err, peer.ID(), target.ID())
 					}
-					return nil
 				}
 				return nil
 			})

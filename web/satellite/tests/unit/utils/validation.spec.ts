@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 import {
-    validatePassword,
-    validateEmail
+    validateEmail,
+    validatePassword
  } from '@/utils/validation';
 
 describe('validation', () => {
     it('validatePassword regex works correctly', () => {
         const testString1 = 'test';
-        const testString2 = '        ';
+        const testString2 = '        '.trim();
         const testString3 = 'test %%%';
         const testString4 = 'testtest';
         const testString5 = 'test1233';
@@ -18,8 +18,8 @@ describe('validation', () => {
 
         expect(validatePassword(testString1)).toBe(false);
         expect(validatePassword(testString2)).toBe(false);
-        expect(validatePassword(testString3)).toBe(false);
-        expect(validatePassword(testString4)).toBe(false);
+        expect(validatePassword(testString3)).toBe(true);
+        expect(validatePassword(testString4)).toBe(true);
         expect(validatePassword(testString5)).toBe(true);
         expect(validatePassword(testString6)).toBe(false);
         expect(validatePassword(testString7)).toBe(true);

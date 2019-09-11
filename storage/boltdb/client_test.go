@@ -9,10 +9,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/zeebo/errs"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storage"
@@ -168,21 +168,18 @@ func BenchmarkClientWrite(b *testing.B) {
 	// benchmark test: execute 1000 Put operations where each call to `PutAndCommit` does the following:
 	// 1) create a BoltDB transaction (tx), 2) execute the db operation, 3) commit the tx which writes it to disk.
 	for n := 0; n < b.N; n++ {
-		var wg sync.WaitGroup
+		var group errgroup.Group
 		for i := 0; i < 1000; i++ {
 			key := storage.Key(fmt.Sprintf("testkey%d", i))
 			value := storage.Value("testvalue")
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				err := kdb.PutAndCommit(ctx, key, value)
-				if err != nil {
-					b.Fatal("Put err:", err)
-				}
-			}()
+			group.Go(func() error {
+				return kdb.PutAndCommit(ctx, key, value)
+			})
 		}
-		wg.Wait()
+		if err := group.Wait(); err != nil {
+			b.Fatalf("PutAndCommit: %v", err)
+		}
 	}
 }
 
@@ -210,21 +207,18 @@ func BenchmarkClientNoSyncWrite(b *testing.B) {
 	// 2) executes the db operation, and 3) commits the tx which does NOT write it to disk.
 	kdb.db.NoSync = true
 	for n := 0; n < b.N; n++ {
-		var wg sync.WaitGroup
+		var group errgroup.Group
 		for i := 0; i < 1000; i++ {
 			key := storage.Key(fmt.Sprintf("testkey%d", i))
 			value := storage.Value("testvalue")
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				err := kdb.PutAndCommit(ctx, key, value)
-				if err != nil {
-					b.Fatal("PutAndCommit Nosync err:", err)
-				}
-			}()
+			group.Go(func() error {
+				return kdb.PutAndCommit(ctx, key, value)
+			})
 		}
-		wg.Wait()
+		if err := group.Wait(); err != nil {
+			b.Fatalf("PutAndCommit: %v", err)
+		}
 	}
 	err = kdb.db.Sync()
 	if err != nil {
@@ -258,25 +252,17 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 	// transaction for all operations currently in the batch, executes the operations,
 	// commits, and writes them to disk
 	for n := 0; n < b.N; n++ {
-		var wg sync.WaitGroup
+		var group errgroup.Group
 		for i := 0; i < 1000; i++ {
 			key := storage.Key(fmt.Sprintf("testkey%d", i))
 			value := storage.Value("testvalue")
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				err := kdb.Put(ctx, key, value)
-				if err != nil {
-					b.Fatalf("boltDB put: %v\n", err)
-				}
-			}()
-
-			if err != nil {
-				b.Fatalf("boltDB put: %v\n", err)
-			}
+			group.Go(func() error {
+				return kdb.Put(ctx, key, value)
+			})
 		}
-		wg.Wait()
+		if err := group.Wait(); err != nil {
+			b.Fatalf("Put: %v", err)
+		}
 	}
 }
 
@@ -306,25 +292,19 @@ func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
 	// commits, but does NOT write them to disk
 	kdb.db.NoSync = true
 	for n := 0; n < b.N; n++ {
-		var wg sync.WaitGroup
+		var group errgroup.Group
 		for i := 0; i < 1000; i++ {
 			key := storage.Key(fmt.Sprintf("testkey%d", i))
 			value := storage.Value("testvalue")
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				err := kdb.Put(ctx, key, value)
-				if err != nil {
-					b.Fatalf("boltDB put: %v\n", err)
-				}
-			}()
-
-			if err != nil {
-				b.Fatalf("boltDB put: %v\n", err)
-			}
+			group.Go(func() error {
+				return kdb.Put(ctx, key, value)
+			})
 		}
-		wg.Wait()
+
+		if err := group.Wait(); err != nil {
+			b.Fatalf("Put: %v", err)
+		}
+
 		err := kdb.db.Sync()
 		if err != nil {
 			b.Fatalf("boltDB sync err: %v\n", err)

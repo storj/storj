@@ -22,9 +22,11 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/metainfo"
 )
 
 func TestUplinksParallel(t *testing.T) {
@@ -204,7 +206,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 				wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
 				require.NoError(t, err)
-				options, err := tlsopts.NewOptions(storageNode.Identity, tlsopts.Config{
+				tlscfg := tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: wl,
@@ -213,14 +215,23 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
-				})
+				}
+
+				revocationDB, err := revocation.NewDBFromCfg(tlscfg)
+				require.NoError(t, err)
+
+				options, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
 				require.NoError(t, err)
 
 				server, err := server.New(storageNode.Log.Named("mock-server"), options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
 				require.NoError(t, err)
 				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
 				go func() {
+					// TODO: get goroutine under control
 					err := server.Run(ctx)
+					require.NoError(t, err)
+
+					err = revocationDB.Close()
 					require.NoError(t, err)
 				}()
 				stopped = true
@@ -233,5 +244,38 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, expectedData, data)
+	})
+}
+
+func TestDeleteWithOfflineStoragenode(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedData := testrand.Bytes(5 * memory.MiB)
+
+		config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
+		config.Client.SegmentSize = 1 * memory.MiB
+		err := planet.Uplinks[0].UploadWithClientConfig(ctx, planet.Satellites[0], config, "test-bucket", "test-file", expectedData)
+		require.NoError(t, err)
+
+		for _, node := range planet.StorageNodes {
+			err = planet.StopPeer(node)
+			require.NoError(t, err)
+		}
+
+		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test-bucket", "test-file")
+		require.Error(t, err)
+
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		objects, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("test-bucket"),
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, len(objects))
 	})
 }

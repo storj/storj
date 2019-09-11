@@ -79,6 +79,7 @@ CREATE TABLE nodes (
 	wallet text NOT NULL,
 	free_bandwidth bigint NOT NULL,
 	free_disk bigint NOT NULL,
+	piece_count bigint NOT NULL,
 	major bigint NOT NULL,
 	minor bigint NOT NULL,
 	patch bigint NOT NULL,
@@ -116,6 +117,13 @@ CREATE TABLE offers (
 	status integer NOT NULL,
 	type integer NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE peer_identities (
+	node_id bytea NOT NULL,
+	leaf_serial_number bytea NOT NULL,
+	chain bytea NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( node_id )
 );
 CREATE TABLE pending_audits (
 	node_id bytea NOT NULL,
@@ -178,6 +186,7 @@ CREATE TABLE storagenode_storage_tallies (
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
+	normalized_email text NOT NULL,
 	full_name text NOT NULL,
 	short_name text,
 	password_hash bytea NOT NULL,

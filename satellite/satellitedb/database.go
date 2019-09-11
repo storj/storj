@@ -98,6 +98,11 @@ func (db *DB) DropSchema(schema string) error {
 	return nil
 }
 
+// PeerIdentities returns a storage for peer identities
+func (db *DB) PeerIdentities() overlay.PeerIdentities {
+	return &peerIdentities{db: db.db}
+}
+
 // Attribution is a getter for value attribution repository
 func (db *DB) Attribution() attribution.DB {
 	return &attributionDB{db: db.db}

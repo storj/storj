@@ -86,7 +86,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 					iterations, auditDQCutOff, prevReputation, reputation,
 				)
 
-				require.True(t, time.Now().Sub(*dossier.Disqualified) >= 0,
+				require.True(t, time.Since(*dossier.Disqualified) >= 0,
 					"Disqualified should be in the past",
 				)
 

@@ -1,11 +1,12 @@
-FROM golang:1.12.8
+FROM golang:1.13.0
 
 # Postgres
 
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list
+RUN curl -sL https://deb.nodesource.com/setup_12.x  | bash -
 
-RUN apt-get update && apt-get install -y -qq postgresql-11 redis-server unzip libuv1-dev libjson-c-dev nettle-dev
+RUN apt-get update && apt-get install -y -qq postgresql-11 redis-server unzip libuv1-dev libjson-c-dev nettle-dev nodejs
 
 RUN rm /etc/postgresql/11/main/pg_hba.conf; \
 	echo 'local   all             all                                     trust' >> /etc/postgresql/11/main/pg_hba.conf; \
@@ -26,7 +27,7 @@ RUN unzip /tmp/protoc.zip -d "$HOME"/protoc
 
 # Linters
 
-RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.1
+RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.18.0
 RUN go get github.com/ckaznocha/protoc-gen-lint
 RUN go get github.com/nilslice/protolock/cmd/protolock
 RUN go get github.com/josephspurrier/goversioninfo

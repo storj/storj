@@ -62,6 +62,8 @@ type Config struct {
 }
 
 // Server represents console web server
+//
+// architecture: Endpoint
 type Server struct {
 	log *zap.Logger
 
@@ -115,6 +117,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
 		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
 		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
+		mux.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 
@@ -144,7 +147,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	var group errgroup.Group
 	group.Go(func() error {
 		<-ctx.Done()
-		return server.server.Shutdown(nil)
+		return server.server.Shutdown(context.Background())
 	})
 	group.Go(func() error {
 		defer cancel()
@@ -170,8 +173,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		"img-src 'self' data:",
 	}
 
-	header.Set("Content-Type", "text/html; charset=UTF-8")
+	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
+	header.Set("X-Content-Type-Options", "nosniff")
 
 	if server.templates.index == nil || server.templates.index.Execute(w, nil) != nil {
 		server.log.Error("satellite/console/server: index template could not be executed")
@@ -437,6 +441,19 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	sugar.Debug(result)
 }
 
+// seoHandler used to communicate with web crawlers and other web robots
+func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
+	header := w.Header()
+
+	header.Set(contentType, mime.TypeByExtension(".txt"))
+	header.Set("X-Content-Type-Options", "nosniff")
+
+	_, err := w.Write([]byte("User-agent: *\nDisallow: \nDisallow: /cgi-bin/)"))
+	if err != nil {
+		server.log.Error(err.Error())
+	}
+}
+
 // gzipHandler is used to gzip static content to minify resources if browser support such decoding
 func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -455,6 +472,9 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 		// TODO: find better solution, its a temporary fix
 		isFromStaticDir := strings.Contains(r.URL.Path, "/static/dist/")
 
+		w.Header().Set(contentType, mime.TypeByExtension(extension))
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
 		// in case if old browser doesn't support gzip decoding or if file extension is not recommended to gzip
 		// just return original file
 		if !isGzipSupported || !isNeededFormatToGzip || !isFromStaticDir {
@@ -462,7 +482,6 @@ func (server *Server) gzipHandler(fn http.Handler) http.Handler {
 			return
 		}
 
-		w.Header().Set("Content-Type", mime.TypeByExtension(extension))
 		w.Header().Set("Content-Encoding", "gzip")
 
 		// updating request URL

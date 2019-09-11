@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
@@ -39,6 +40,8 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/inspector"
@@ -65,6 +68,8 @@ import (
 var mon = monkit.Package()
 
 // DB is the master database for the satellite
+//
+// architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
 	CreateTables() error
@@ -76,6 +81,8 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
+	// PeerIdentities returns a storage for peer identities
+	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
 	// Attribution returns database for partner keys information
@@ -118,6 +125,8 @@ type Config struct {
 
 	GarbageCollection gc.Config
 
+	DBCleanup dbcleanup.Config
+
 	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
@@ -126,12 +135,13 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-	Vouchers  vouchers.Config
 
 	Version version.Config
 }
 
 // Peer is the satellite
+//
+// architecture: Peer
 type Peer struct {
 	// core dependencies
 	Log      *zap.Logger
@@ -154,6 +164,11 @@ type Peer struct {
 		Inspector    *kademlia.Inspector
 	}
 
+	Contact struct {
+		Service  *contact.Service
+		Endpoint *contact.Endpoint
+	}
+
 	Overlay struct {
 		DB        overlay.DB
 		Service   *overlay.Service
@@ -165,7 +180,7 @@ type Peer struct {
 	}
 
 	Metainfo struct {
-		Database  storage.KeyValueStore // TODO: move into pointerDB
+		Database  metainfo.PointerDB // TODO: move into pointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
 		Loop      *metainfo.Loop
@@ -187,10 +202,17 @@ type Peer struct {
 	}
 	Audit struct {
 		Service *audit.Service
+		Queue   *audit.Queue
+		Worker  *audit.Worker
+		Chore   *audit.Chore
 	}
 
 	GarbageCollection struct {
 		Service *gc.Service
+	}
+
+	DBCleanup struct {
+		Chore *dbcleanup.Chore
 	}
 
 	Accounting struct {
@@ -228,7 +250,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -249,7 +271,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	{ // setup listener and server
 		log.Debug("Starting listener and server")
 		sc := config.Server
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config)
+
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -341,6 +364,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
+	{ // setup contact service
+		log.Debug("Setting up contact service")
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Overlay.Service, peer.Transport)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
+		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+	}
+
 	{ // setup discovery
 		log.Debug("Setting up discovery")
 		config := config.Discovery
@@ -349,12 +379,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
-			peer.Log.Named("vouchers"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			peer.Overlay.Service,
-			config.Vouchers.Expiration,
-		)
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 
@@ -384,6 +408,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
 			peer.DB.Orders(),
+			config.Orders.SettlementBatchSize,
 		)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
@@ -442,16 +467,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service,
 			config.Checker)
 
+		segmentRepairer := repairer.NewSegmentRepairer(
+			log.Named("repairer"),
+			peer.Metainfo.Service,
+			peer.Orders.Service,
+			peer.Overlay.Service,
+			peer.Transport,
+			config.Repairer.Timeout,
+			config.Repairer.MaxExcessRateOptimalThreshold,
+			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
+		)
+
 		peer.Repair.Repairer = repairer.NewService(
 			peer.Log.Named("repairer"),
 			peer.DB.RepairQueue(),
 			&config.Repairer,
-			config.Repairer.Interval,
-			config.Repairer.MaxRepair,
-			peer.Transport,
-			peer.Metainfo.Service,
-			peer.Orders.Service,
-			peer.Overlay.Service,
+			segmentRepairer,
 		)
 
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
@@ -474,6 +505,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		// setup audit 2.0
+		peer.Audit.Queue = &audit.Queue{}
+
+		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
+			peer.Audit.Queue,
+			config,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit reservoir chore"),
+			peer.Audit.Queue,
+			peer.Metainfo.Loop,
+			config,
+		)
 	}
 
 	{ // setup garbage collection
@@ -488,9 +536,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		)
 	}
 
+	{ // setup db cleanup
+		log.Debug("Setting up db cleanup")
+		peer.DBCleanup.Chore = dbcleanup.NewChore(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
+	}
+
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
@@ -678,6 +731,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.DBCleanup.Chore.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
@@ -685,6 +741,12 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Audit.Chore.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
@@ -735,6 +797,24 @@ func (peer *Peer) Close() error {
 	}
 
 	// close services in reverse initialization order
+
+	if peer.Audit.Chore != nil {
+		errlist.Add(peer.Audit.Chore.Close())
+	}
+	if peer.Audit.Worker != nil {
+		errlist.Add(peer.Audit.Worker.Close())
+	}
+
+	if peer.Accounting.Rollup != nil {
+		errlist.Add(peer.Accounting.Rollup.Close())
+	}
+	if peer.Accounting.Tally != nil {
+		errlist.Add(peer.Accounting.Tally.Close())
+	}
+
+	if peer.DBCleanup.Chore != nil {
+		errlist.Add(peer.DBCleanup.Chore.Close())
+	}
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
 	}

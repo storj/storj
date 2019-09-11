@@ -13,12 +13,17 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/post"
+	"storj.io/storj/satellite/mailservice"
 )
 
 var mon = monkit.Package()
 
+var _ mailservice.Sender = (*LinkClicker)(nil)
+
 // LinkClicker is mailservice.Sender that click all links
 // from html msg parts
+//
+// architecture: Service
 type LinkClicker struct{}
 
 // FromAddress return empty mail address
@@ -48,8 +53,8 @@ func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (e
 	// click all links
 	var sendError error
 	for _, link := range links {
-		_, err := http.Get(link)
-		sendError = errs.Combine(sendError, err)
+		response, err := http.Get(link)
+		sendError = errs.Combine(sendError, err, response.Body.Close())
 	}
 
 	return sendError

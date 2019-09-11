@@ -44,138 +44,167 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import Checkbox from '@/components/common/Checkbox.vue';
-    import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
-    import { PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { TeamMember } from '../../types/teamMembers';
-    import { RequestResponse } from '../../types/response';
-    import { CreateProjectModel, Project } from '@/types/projects';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            HeaderedInput,
-            Checkbox,
-            Button,
-        }
-    })
-    export default class NewProjectPopup extends Vue {
-        private projectName: string = '';
-        private description: string = '';
-        private nameError: string = '';
-        private createdProjectId: string = '';
-        private isLoading: boolean = false;
+import Button from '@/components/common/Button.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
 
-        public setProjectName (value: string): void {
-            this.projectName = value;
-            this.nameError = '';
-        }
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import { CreateProjectModel, Project } from '@/types/projects';
+import {
+    API_KEYS_ACTIONS,
+    APP_STATE_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PM_ACTIONS,
+} from '@/utils/constants/actionNames';
 
-        public setProjectDescription (value: string): void {
-            this.description = value;
-        }
-
-        public onCloseClick (): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-        }
-
-        public async createProjectClick (): Promise<void> {
-            if (this.isLoading) {
-                return;
-            }
-
-            this.isLoading = true;
-
-            if (!this.validateProjectName()) {
-                this.isLoading = false;
-
-                return;
-            }
-
-            if (!await this.createProject()) {
-                this.isLoading = false;
-
-                return;
-            }
-
-            this.selectCreatedProject();
-
-            this.fetchProjectMembers();
-
-            this.checkIfsFirstProject();
-
-            this.isLoading = false;
-        }
-
-        private validateProjectName(): boolean {
-            this.projectName = this.projectName.trim();
-
-            const rgx = /^[^/]+$/;
-            if (!rgx.test(this.projectName)) {
-                this.nameError = 'Name for project is invalid!';
-
-                return false;
-            }
-
-            if (this.projectName.length > 20) {
-                this.nameError = 'Name should be less than 21 character!';
-
-                return false;
-            }
-
-            return true;
-        }
-
-        private async createProject(): Promise<boolean> {
-            const project: CreateProjectModel = {
-                name: this.projectName,
-                description: this.description,
-            };
-
-            let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, project);
-            if (!response.isSuccess) {
-                this.notifyError(response.errorMessage);
-
-                return false;
-            }
-            this.createdProjectId = response.data.id;
-
-            return true;
-        }
-
-        private selectCreatedProject(): void {
-            this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.createdProjectId);
-
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-        }
-
-        private checkIfsFirstProject(): void {
-            let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
-
-            isFirstProject
-                ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
-                : this.notifySuccess('Project created successfully!');
-        }
-
-        private async fetchProjectMembers(): Promise<any> {
-            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-
-            const response: RequestResponse<TeamMember[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
-            if (!response.isSuccess) {
-                this.notifyError(response.errorMessage);
-            }
-        }
-
-        private notifyError(message: string): void {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, message);
-        }
-
-        private notifySuccess(message: string): void {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
-        }
+@Component({
+    components: {
+        HeaderedInput,
+        Checkbox,
+        Button,
     }
+})
+export default class NewProjectPopup extends Vue {
+    private projectName: string = '';
+    private description: string = '';
+    private nameError: string = '';
+    private createdProjectId: string = '';
+    private isLoading: boolean = false;
+
+    public setProjectName (value: string): void {
+        this.projectName = value;
+        this.nameError = '';
+    }
+
+    public setProjectDescription (value: string): void {
+        this.description = value;
+    }
+
+    public onCloseClick (): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+    }
+
+    public async createProjectClick (): Promise<void> {
+        if (this.isLoading) {
+            return;
+        }
+
+        this.isLoading = true;
+
+        if (!this.validateProjectName()) {
+            this.isLoading = false;
+
+            return;
+        }
+
+        if (!await this.createProject()) {
+            this.isLoading = false;
+
+            return;
+        }
+
+        this.selectCreatedProject();
+
+        try {
+            await this.fetchProjectMembers();
+        } catch (e) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+        }
+
+        this.clearApiKeys();
+
+        this.clearUsage();
+
+        this.clearBucketUsage();
+
+        this.checkIfsFirstProject();
+
+        this.isLoading = false;
+    }
+
+    private validateProjectName(): boolean {
+        this.projectName = this.projectName.trim();
+
+        const rgx = /^[^/]+$/;
+        if (!rgx.test(this.projectName)) {
+            this.nameError = 'Name for project is invalid!';
+
+            return false;
+        }
+
+        if (this.projectName.length > 20) {
+            this.nameError = 'Name should be less than 21 character!';
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private async createProject(): Promise<Project> {
+        const project: CreateProjectModel = {
+            name: this.projectName,
+            description: this.description,
+        };
+
+        let newProject: Project = {} as Project;
+
+        try {
+            newProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
+        } catch (error) {
+            this.notifyError(error.message);
+        }
+
+        this.createdProjectId = newProject.id;
+
+        return newProject;
+    }
+
+    private selectCreatedProject(): void {
+        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
+
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+    }
+
+    private checkIfsFirstProject(): void {
+        const isFirstProject = this.$store.state.projectsModule.projects.length === 1;
+
+        isFirstProject
+            ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
+            : this.notifySuccess('Project created successfully!');
+    }
+
+    private async fetchProjectMembers(): Promise<void> {
+        await this.$store.dispatch(PM_ACTIONS.CLEAR);
+        const fistPage = 1;
+        await this.$store.dispatch(PM_ACTIONS.FETCH, fistPage);
+    }
+
+    private clearApiKeys(): void {
+        this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+    }
+
+    private clearUsage(): void {
+        this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
+    }
+
+    private clearBucketUsage(): void {
+        this.$store.dispatch(BUCKET_ACTIONS.SET_SEARCH, '');
+        this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+    }
+
+    private notifyError(message: string): void {
+        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, message);
+    }
+
+    private notifySuccess(message: string): void {
+        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
+    }
+}
 </script>
 
 <style scoped lang="scss">

@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { APP_STATE_MUTATIONS } from '../mutationConstants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+
+import { APP_STATE_MUTATIONS } from '../mutationConstants';
 
 export const appStateModule = {
     state: {
@@ -16,18 +17,15 @@ export const appStateModule = {
             isAccountDropdownShown: false,
             isDeleteProjectPopupShown: false,
             isDeleteAccountPopupShown: false,
-            isNewAPIKeyPopupShown: false,
             isSortProjectMembersByPopupShown: false,
             isSuccessfulRegistrationPopupShown: false,
             isSuccessfulProjectCreationPopupShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
-            deletePaymentMethodID: '',
-            setDefaultPaymentMethodID: '',
         },
     },
     mutations: {
-        // Mutation changing add team members popup visibility
+        // Mutation changing add projectMembers members popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: any): void {
             state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
         },
@@ -59,10 +57,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN](state: any): void {
             state.appState.isSortProjectMembersByPopupShown = !state.appState.isSortProjectMembersByPopupShown;
         },
-        // Mutation changing new api key popup visibility
-        [APP_STATE_MUTATIONS.TOGGLE_NEW_API_KEY_POPUP](state: any): void {
-            state.appState.isNewAPIKeyPopupShown = !state.appState.isNewAPIKeyPopupShown;
-        },
         // Mutation changing 'successful registration' popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP](state: any): void {
             state.appState.isSuccessfulRegistrationPopupShown = !state.appState.isSuccessfulRegistrationPopupShown;
@@ -85,12 +79,10 @@ export const appStateModule = {
         },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
-            state.appState.isProjectsDropdownShown = false;
             state.appState.isAccountDropdownShown = false;
+            state.appState.isProjectsDropdownShown = false;
             state.appState.isSortProjectMembersByPopupShown = false;
             state.appState.isSuccessfulRegistrationPopupShown = false;
-            state.appState.setDefaultPaymentMethodID = '';
-            state.appState.deletePaymentMethodID = '';
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
@@ -146,13 +138,6 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY]: function ({commit, state}: any): void {
-            if (!state.appState.isNewAPIKeyPopupShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_NEW_API_KEY_POPUP);
         },
         [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP]: function ({commit, state}: any): void {
             if (!state.appState.isSuccessfullRegistrationPopupShown) {

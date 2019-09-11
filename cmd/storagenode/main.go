@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -139,7 +140,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	peer, err := storagenode.New(log, identity, db, runCfg.Config, version.Build)
+	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	peer, err := storagenode.New(log, identity, db, revocationDB, runCfg.Config, version.Build)
 	if err != nil {
 		return err
 	}
@@ -152,7 +161,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
 	err = db.CreateTables()

@@ -85,11 +85,14 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			})
 			expectedLostPieces[int32(i)] = true
 		}
+
+		// when number of healthy piece is less than minimum required number of piece in redundancy,
+		// the piece is considered irreparable and will be put into irreparable DB
 		pointer := &pb.Pointer{
 			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:           int32(3),
+					MinReq:           int32(4),
 					RepairThreshold:  int32(8),
 					SuccessThreshold: int32(9),
 					Total:            int32(10),
@@ -157,7 +160,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		remoteSegmentInfo, err = irreparable.Get(ctx, []byte("fake-piece-id"))
+		_, err = irreparable.Get(ctx, []byte("fake-piece-id"))
 		require.Error(t, err)
 	})
 }

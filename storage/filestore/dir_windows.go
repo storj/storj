@@ -109,9 +109,6 @@ func tryFixLongPath(path string) string {
 
 // rename implements atomic file rename on windows
 func rename(oldpath, newpath string) error {
-	const replace_existing = 0x1
-	const write_through = 0x8
-
 	oldpathp, err := windows.UTF16PtrFromString(tryFixLongPath(oldpath))
 	if err != nil {
 		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}

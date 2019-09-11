@@ -4,73 +4,75 @@
 <template src="./registrationSuccessPopup.html"></template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import ROUTES from '@/utils/constants/routerConstants';
-    import { AuthApi } from '@/api/auth';
-    import { getUserId } from '@/utils/consoleLocalStorage';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button,
-        },
-    })
-    export default class RegistrationSuccessPopup extends Vue {
-        private isResendEmailButtonDisabled: boolean = true;
-        private timeToEnableResendEmailButton: string = '00:30';
-        private intervalID: any = null;
+import Button from '@/components/common/Button.vue';
 
-        private readonly auth: AuthApi = new AuthApi();
+import { AuthApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
+import { getUserId } from '@/utils/consoleLocalStorage';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        public beforeDestroy(): void {
-            if (this.intervalID) {
-                clearInterval(this.intervalID);
-            }
-        }
+@Component({
+    components: {
+        Button,
+    },
+})
+export default class RegistrationSuccessPopup extends Vue {
+    private isResendEmailButtonDisabled: boolean = true;
+    private timeToEnableResendEmailButton: string = '00:30';
+    private intervalID: any = null;
 
-        public async onResendEmailButtonClick(): Promise<void> {
-            this.isResendEmailButtonDisabled = true;
+    private readonly auth: AuthApi = new AuthApi();
 
-            const userId = getUserId();
-            if (!userId) {
-                return;
-            }
-
-            try {
-                await this.auth.resendEmail(userId);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'could not send email ');
-            }
-
-            this.startResendEmailCountdown();
-        }
-
-        public onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-            this.$router.push(ROUTES.LOGIN.path);
-        }
-
-        public get isPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
-        }
-
-        private startResendEmailCountdown(): void {
-            let countdown = 30;
-
-            this.intervalID = setInterval(() => {
-                countdown--;
-
-                let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
-                this.timeToEnableResendEmailButton = `00:${secondsLeft}`;
-
-                if (countdown <= 0) {
-                    clearInterval(this.intervalID);
-                    this.isResendEmailButtonDisabled = false;
-                }
-            }, 1000);
+    public beforeDestroy(): void {
+        if (this.intervalID) {
+            clearInterval(this.intervalID);
         }
     }
+
+    public async onResendEmailButtonClick(): Promise<void> {
+        this.isResendEmailButtonDisabled = true;
+
+        const userId = getUserId();
+        if (!userId) {
+            return;
+        }
+
+        try {
+            await this.auth.resendEmail(userId);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'could not send email ');
+        }
+
+        this.startResendEmailCountdown();
+    }
+
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        this.$router.push(RouteConfig.Login.path);
+    }
+
+    public get isPopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
+    }
+
+    private startResendEmailCountdown(): void {
+        let countdown = 30;
+
+        this.intervalID = setInterval(() => {
+            countdown--;
+
+            const secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
+            this.timeToEnableResendEmailButton = `00:${secondsLeft}`;
+
+            if (countdown <= 0) {
+                clearInterval(this.intervalID);
+                this.isResendEmailButtonDisabled = false;
+            }
+        }, 1000);
+    }
+}
 </script>
 
 <style scoped lang="scss">

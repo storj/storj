@@ -1,15 +1,16 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { getId } from '@/utils/idGenerator';
 import { NOTIFICATION_IMAGES, NOTIFICATION_TYPES } from '@/utils/constants/notification';
+import { getId } from '@/utils/idGenerator';
 
 export class DelayedNotification {
-    private readonly successColor: string = 'rgba(214, 235, 208, 0.4)';
-    private readonly errorColor: string = 'rgba(246, 205, 204, 0.4)';
-    private readonly infoColor: string = 'rgba(219, 225, 232, 0.4)';
+    private readonly successColor: string = '#DBF1D3';
+    private readonly errorColor: string = '#FFD4D2';
+    private readonly infoColor: string = '#D0E3FE';
+    private readonly warningColor: string = '#FCF8E3';
+    public readonly id: string;
 
-    private readonly id: string;
     private readonly callback: Function;
     private timerId: number;
     private startTime: number;
@@ -39,6 +40,12 @@ export class DelayedNotification {
                 this.style = { backgroundColor: this.errorColor };
                 this.imgSource = NOTIFICATION_IMAGES.ERROR;
                 break;
+
+            case NOTIFICATION_TYPES.WARNING:
+                this.style = { backgroundColor: this.warningColor };
+                this.imgSource = NOTIFICATION_IMAGES.WARNING;
+                break;
+
             default:
                 this.style = { backgroundColor: this.infoColor };
                 this.imgSource = NOTIFICATION_IMAGES.NOTIFICATION;

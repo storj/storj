@@ -11,6 +11,8 @@ import (
 )
 
 // ProjectMembers exposes methods to manage ProjectMembers table in database.
+//
+// architecture: Database
 type ProjectMembers interface {
 	// GetByMemberID is a method for querying project members from the database by memberID.
 	GetByMemberID(ctx context.Context, memberID uuid.UUID) ([]ProjectMember, error)

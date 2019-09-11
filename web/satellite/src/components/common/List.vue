@@ -9,8 +9,7 @@
             :is="itemComponent"
             :itemData="item"
             @click.native="onItemClick(item)"
-            v-bind:class="[item.isSelected ? 'selected' : '']"
-            v-bind:key="item.id"/>
+            :class="{ selected: item.isSelected }"/>
     </div>
 </template>
 
@@ -23,11 +22,7 @@
     export default class List extends Vue {
         @Prop({default: ''})
         private readonly itemComponent: string;
-        @Prop({
-            default: () => {
-                console.error('onItemClick is not reinitialized');
-            }
-        })
+        @Prop({default: () => new Promise(() => false)})
         private readonly onItemClick: listItemClickCallback;
         @Prop({default: Array()})
         private readonly dataSet: any[];

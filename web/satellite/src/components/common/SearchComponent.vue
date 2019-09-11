@@ -3,9 +3,10 @@
 
 <template>
     <input
+        ref="input"
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
-        @input="onInput"
+        @input="processSearchQuery"
         v-model="searchQuery"
         :placeholder="`Search ${placeHolder}`"
         :style="style"
@@ -14,56 +15,59 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    declare type searchCallback = (search: string) => Promise<void>;
-    declare interface SearchStyle {
-        width: string;
+declare type searchCallback = (search: string) => Promise<void>;
+declare interface SearchStyle {
+    width: string;
+}
+
+@Component
+export default class SearchComponent extends Vue {
+    @Prop({default: ''})
+    private readonly placeHolder: string;
+    @Prop({default: () => ''})
+    private readonly search: searchCallback;
+
+    private inputWidth: string = '56px';
+    private searchQuery: string = '';
+
+    public $refs!: {
+        input: HTMLElement;
+    };
+
+    public get style(): SearchStyle {
+        return { width: this.inputWidth };
     }
 
-    @Component
-    export default class SearchComponent extends Vue {
-        @Prop({default: ''})
-        private readonly placeHolder: string;
-        @Prop({default: () => { return ''; }})
-        private readonly search: searchCallback;
+    public get searchString(): string {
+        return this.searchQuery;
+    }
 
-        private inputWidth: string = '56px';
-        private searchQuery: string = '';
+    public onMouseEnter(): void {
+        this.inputWidth = '602px';
 
-        public get style(): SearchStyle {
-            return { width: this.inputWidth };
-        }
+        this.$refs.input.focus();
+    }
 
-        public get searchString(): string {
-            return this.searchQuery;
-        }
-
-        public onMouseEnter(): void {
-            this.inputWidth = '602px';
-        }
-
-        public onMouseLeave(): void {
-            if (!this.searchString) {
-                this.inputWidth = '56px';
-            }
-        }
-
-        public clearSearch() {
-            this.searchQuery = '';
-            this.processSearchQuery();
+    public onMouseLeave(): void {
+        if (!this.searchString) {
             this.inputWidth = '56px';
         }
 
-        public onInput(): void {
-            this.onMouseLeave();
-            this.processSearchQuery();
-        }
-
-        private async processSearchQuery() {
-            await this.search(this.searchString);
-        }
+        this.$refs.input.blur();
     }
+
+    public clearSearch() {
+        this.searchQuery = '';
+        this.processSearchQuery();
+        this.inputWidth = '56px';
+    }
+
+    private async processSearchQuery() {
+        await this.search(this.searchString);
+    }
+}
 </script>
 
 <style scoped lang="scss">

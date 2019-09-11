@@ -16,12 +16,15 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/certificates"
+	"storj.io/storj/pkg/certificate/certificateclient"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/pkg/transport"
 )
 
 const (
@@ -56,7 +59,7 @@ var (
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`
 		ParentCertPath string `help:"path to the parent authority's certificate chain"`
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
-		Signer         certificates.CertClientConfig
+		Signer         certificateclient.Config
 		// TODO: ideally the default is the latest version; can't interpolate struct tags
 		IdentityVersion uint `default:"0" help:"identity version to use when creating an identity or CA"`
 
@@ -146,10 +149,10 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func cmdAuthorize(cmd *cobra.Command, args []string) error {
+func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
+	err = version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -185,7 +188,27 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	// Ensure we dont enforce a signed Peer Identity
 	config.Signer.TLS.UsePeerCAWhitelist = false
 
-	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
+	revocationDB, err := revocation.NewDBFromCfg(config.Signer.TLS)
+	if err != nil {
+		return errs.New("error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	tlsOpts, err := tlsopts.NewOptions(ident, config.Signer.TLS, nil)
+	if err != nil {
+		return err
+	}
+	client, err := certificateclient.New(ctx, transport.NewClient(tlsOpts), config.Signer.Address)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, client.Close())
+	}()
+
+	signedChainBytes, err := client.Sign(ctx, authToken)
 	if err != nil {
 		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)
 	}

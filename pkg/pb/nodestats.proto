@@ -27,6 +27,7 @@ message GetStatsRequest {}
 message GetStatsResponse {
     ReputationStats uptime_check = 1;
     ReputationStats audit_check = 2;
+    google.protobuf.Timestamp disqualified = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
 }
 
 message DailyStorageUsageRequest {

@@ -40,6 +40,8 @@ type CacheStorage struct {
 
 // Cache runs cache loop and stores reputation stats
 // and storage usage into db
+//
+// architecture: Chore
 type Cache struct {
 	log *zap.Logger
 
@@ -146,7 +148,7 @@ func (cache *Cache) sleep(ctx context.Context) error {
 		return nil
 	}
 
-	jitter := time.Duration(rand.Intn(int(cache.maxSleep)))
+	jitter := time.Duration(rand.Int63n(int64(cache.maxSleep)))
 	if !sync2.Sleep(ctx, jitter) {
 		return ctx.Err()
 	}

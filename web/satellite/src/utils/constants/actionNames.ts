@@ -8,7 +8,6 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_ACCOUNT: 'toggleAccountDropdown',
     TOGGLE_DEL_PROJ: 'toggleDeleteProjectPopup',
     TOGGLE_DEL_ACCOUNT: 'toggleDeleteAccountPopup',
-    TOGGLE_NEW_API_KEY: 'toggleNewAPIKeyPopup',
     TOGGLE_SORT_PM_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',
     TOGGLE_SUCCESSFUL_REGISTRATION_POPUP: 'toggleSuccessfulRegistrationPopup',
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
@@ -26,6 +25,7 @@ export const NOTIFICATION_ACTIONS = {
     SUCCESS: 'success',
     ERROR: 'error',
     NOTIFY: 'notify',
+    WARNING: 'WARNING',
     DELETE: 'deleteNotification',
     PAUSE: 'pauseNotification',
     RESUME: 'resumeNotification',
@@ -41,44 +41,17 @@ export const PM_ACTIONS = {
     CLEAR: 'clearProjectMembers',
     SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
     SET_SORT_BY: 'setProjectMembersSortingBy',
+    SET_SORT_DIRECTION: 'setProjectMembersSortingDirection',
     CLEAR_OFFSET: 'clearProjectMembersOffset'
 };
 
-export const PROJETS_ACTIONS = {
-    FETCH: 'fetchProjects',
-    CREATE: 'createProject',
-    SELECT: 'selectProject',
-    UPDATE: 'updateProject',
-    DELETE: 'deleteProject',
-    CLEAR: 'clearProjects',
-};
-
-export const USER_ACTIONS = {
-    UPDATE: 'updateUser',
-    GET: 'getUser',
-    CLEAR: 'clearUser',
-};
-
 export const API_KEYS_ACTIONS = {
-    FETCH: 'fetchAPIKeys',
+    FETCH: 'setAPIKeys',
     CREATE: 'createAPIKey',
     DELETE: 'deleteAPIKey',
     CLEAR: 'clearAPIKeys',
     TOGGLE_SELECTION: 'toggleAPIKeySelection',
     CLEAR_SELECTION: 'clearAPIKeySelection'
-};
-
-export const PROJECT_USAGE_ACTIONS = {
-    FETCH: 'fetchProjectUsage',
-    FETCH_CURRENT_ROLLUP: 'fetchCurrentProjectUsage',
-    FETCH_PREVIOUS_ROLLUP: 'fetchPreviousProjectUsage',
-    CLEAR: 'clearProjectUsage',
-};
-
-export const BUCKET_USAGE_ACTIONS = {
-    FETCH: 'fetchBucketUsages',
-    SET_SEARCH: 'setSearchBucketUsage',
-    CLEAR: 'clearBucketUsages'
 };
 
 export const PROJECT_PAYMENT_METHODS_ACTIONS = {
@@ -87,8 +60,4 @@ export const PROJECT_PAYMENT_METHODS_ACTIONS = {
     CLEAR: 'clearProjectPaymentMethods',
     SET_DEFAULT: 'setDefaultPaymentMethod',
     DELETE: 'deletePaymentMethod'
-};
-
-export const CREDIT_USAGE_ACTIONS = {
-    FETCH: 'fetchCreditUsage',
 };

@@ -40,10 +40,7 @@ func bitAtDepth(id storj.NodeID, bitDepth int) bool {
 	power := uint(7 - bitOffset)
 	bitMask := byte(1 << power)
 	b := id[byteDepth]
-	if b&bitMask > 0 {
-		return true
-	}
-	return false
+	return b&bitMask > 0
 }
 
 func extendPrefix(prefix string, bit bool) string {

@@ -91,7 +91,7 @@ func (client *Client) GetPath(ctx context.Context, bucket, key storage.Key) (_ s
 	var val []byte
 	err = row.Scan(&val)
 	if err == sql.ErrNoRows {
-		return nil, storage.ErrKeyNotFound.New(key.String())
+		return nil, storage.ErrKeyNotFound.New("%q", key)
 	}
 
 	return val, Error.Wrap(err)
@@ -120,7 +120,7 @@ func (client *Client) DeletePath(ctx context.Context, bucket, key storage.Key) (
 		return err
 	}
 	if numRows == 0 {
-		return storage.ErrKeyNotFound.New(key.String())
+		return storage.ErrKeyNotFound.New("%q", key)
 	}
 	return nil
 }
@@ -341,7 +341,7 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		return storage.ErrValueChanged.New(key.String())
+		return storage.ErrValueChanged.New("%q", key)
 	}
 
 	if oldValue == nil {
@@ -354,7 +354,7 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		var val []byte
 		err = row.Scan(&val)
 		if err == sql.ErrNoRows {
-			return storage.ErrValueChanged.New(key.String())
+			return storage.ErrValueChanged.New("%q", key)
 		}
 		return Error.Wrap(err)
 	}
@@ -399,10 +399,10 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		return Error.Wrap(err)
 	}
 	if !keyPresent {
-		return storage.ErrKeyNotFound.New(key.String())
+		return storage.ErrKeyNotFound.New("%q", key)
 	}
 	if !valueUpdated {
-		return storage.ErrValueChanged.New(key.String())
+		return storage.ErrValueChanged.New("%q", key)
 	}
 	return nil
 }

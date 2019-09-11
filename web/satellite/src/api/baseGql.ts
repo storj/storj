@@ -2,7 +2,8 @@
 // See LICENSE for copying information.
 
 import gql from 'graphql-tag';
-import apolloManager from '@/utils/apolloManager';
+
+import apollo from '@/utils/apollo';
 
 /**
  * BaseGql is a graphql utility which allows to perform queries and mutations
@@ -16,7 +17,7 @@ export class BaseGql {
      * @throws Error
      */
     protected async query(query: string, variables: any = null): Promise<any> {
-        let response: any = await apolloManager.query(
+        const response: any = await apollo.query(
             {
                 query: gql(query),
                 variables,
@@ -40,7 +41,7 @@ export class BaseGql {
      * @throws Error
      */
     protected async mutate(query: string, variables: any = null): Promise<any> {
-        let response: any = await apolloManager.mutate(
+        const response: any = await apollo.mutate(
             {
                 mutation: gql(query),
                 variables,

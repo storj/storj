@@ -22,10 +22,13 @@ import (
 
 // Config is a configuration struct for orders Service.
 type Config struct {
-	Expiration time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
+	Expiration          time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
+	SettlementBatchSize int           `help:"how many orders to batch per transaction" default:"250"`
 }
 
 // Service for creating order limits.
+//
+// architecture: Service
 type Service struct {
 	log                                 *zap.Logger
 	satellite                           signing.Signer
@@ -154,13 +157,13 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
 
@@ -298,13 +301,13 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
 
@@ -382,13 +385,13 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
 
@@ -460,11 +463,11 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 	}
 
 	if node.Disqualified != nil {
-		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeDisqualified.New(nodeID.String())
+		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeDisqualified.New("%v", nodeID)
 	}
 
 	if !service.overlay.IsOnline(node) {
-		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New(nodeID.String())
+		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New("%v", nodeID)
 	}
 
 	orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
@@ -547,13 +550,13 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
 

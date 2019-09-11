@@ -1,9 +1,25 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { USER_MUTATIONS } from '../mutationConstants';
-import { UpdatedUser, User, UsersApi } from '@/types/users';
 import { StoreModule } from '@/store';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
+
+export const USER_ACTIONS = {
+    UPDATE: 'updateUser',
+    GET: 'getUser',
+    CLEAR: 'clearUser',
+};
+
+export const USER_MUTATIONS = {
+    SET_USER: 'setUser',
+    UPDATE_USER: 'updateUser',
+    CLEAR: 'clearUser',
+};
+
+const {
+    GET,
+    UPDATE,
+} = USER_ACTIONS;
 
 const {
     SET_USER,
@@ -21,7 +37,7 @@ export function makeUsersModule(api: UsersApi): StoreModule<User> {
         state: new User(),
 
         mutations: {
-            setUser(state: User, user: User): void {
+            [SET_USER](state: User, user: User): void {
                 state.id = user.id;
                 state.email = user.email;
                 state.shortName = user.shortName;
@@ -29,7 +45,7 @@ export function makeUsersModule(api: UsersApi): StoreModule<User> {
                 state.partnerId = user.partnerId;
             },
 
-            clearUser(state: User): void {
+            [CLEAR](state: User): void {
                 state.id = '';
                 state.email = '';
                 state.shortName = '';
@@ -37,26 +53,26 @@ export function makeUsersModule(api: UsersApi): StoreModule<User> {
                 state.partnerId = '';
             },
 
-            updateUser(state: User, user: UpdatedUser): void {
+            [UPDATE_USER](state: User, user: UpdatedUser): void {
                 state.fullName = user.fullName;
                 state.shortName = user.shortName;
             },
         },
 
         actions: {
-            updateUser: async function ({commit}: any, userInfo: UpdatedUser): Promise<void> {
+            [UPDATE]: async function ({commit}: any, userInfo: UpdatedUser): Promise<void> {
                 await api.update(userInfo);
 
                 commit(UPDATE_USER, userInfo);
             },
-            getUser: async function ({commit}: any): Promise<User> {
-                let user = await api.get();
+            [GET]: async function ({commit}: any): Promise<User> {
+                const user = await api.get();
 
                 commit(SET_USER, user);
 
                 return user;
             },
-            clearUser: function({commit}: any) {
+            [CLEAR]: function({commit}: any) {
                 commit(CLEAR);
             },
         },

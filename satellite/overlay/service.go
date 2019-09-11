@@ -36,6 +36,8 @@ var ErrBucketNotFound = errs.New("bucket not found")
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
 // DB implements the database for overlay.Service
+//
+// architecture: Database
 type DB interface {
 	// SelectStorageNodes looks up nodes based on criteria
 	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
@@ -66,6 +68,11 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
+
+	// AllPieceCounts returns a map of node IDs to piece counts from the db.
+	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
+	// UpdatePieceCounts sets the piece count field for the given node IDs.
+	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -117,6 +124,7 @@ type NodeDossier struct {
 	Version      pb.NodeVersion
 	Contained    bool
 	Disqualified *time.Time
+	PieceCount   int64
 }
 
 // NodeStats contains statistics about a node.
@@ -136,6 +144,8 @@ type NodeStats struct {
 }
 
 // Service is used to store and handle node information
+//
+// architecture: Service
 type Service struct {
 	log    *zap.Logger
 	db     DB
@@ -184,7 +194,7 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (service *Service) IsOnline(node *NodeDossier) bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow ||
+	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow ||
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 

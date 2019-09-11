@@ -81,7 +81,7 @@ func TestPingTimeout(t *testing.T) {
 		self := planet.StorageNodes[0]
 		routingTable := self.Kademlia.RoutingTable
 
-		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{})
+		tlsOpts, err := tlsopts.NewOptions(self.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
 		self.Transport = transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{

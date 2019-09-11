@@ -134,6 +134,7 @@ model node (
 	field wallet         text  ( updatable ) // TODO: use compressed format
 	field free_bandwidth int64 ( updatable )
 	field free_disk      int64 ( updatable )
+	field piece_count    int64 ( autoinsert, updatable )
 
  	field major             int64 ( updatable )
 	field minor             int64 ( updatable )
@@ -189,6 +190,11 @@ read limitoffset (
 	orderby asc node.id
 )
 
+read all (
+    select node.id node.piece_count
+    where node.piece_count != 0
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (
@@ -210,6 +216,7 @@ model user (
 
     field id               blob
     field email            text      ( updatable )
+    field normalized_email text      ( updatable )
     field full_name        text      ( updatable )
     field short_name       text      ( updatable, nullable )
     field password_hash    blob      ( updatable )
@@ -225,7 +232,7 @@ delete user ( where user.id = ? )
 
 read one (
     select user
-    where user.email = ?
+    where user.normalized_email = ?
     where user.status != 0
 )
 read one (
@@ -613,6 +620,31 @@ read all (
 read all (
 	select storagenode_storage_tally
 	where storagenode_storage_tally.interval_end_time >= ?
+)
+
+//--- peer_identity ---//
+
+model peer_identity (
+    key node_id
+
+    field node_id            blob
+    field leaf_serial_number blob (updatable)
+    field chain              blob (updatable) // x509 ASN.1 DER content 
+    field updated_at         timestamp ( autoinsert, autoupdate )
+)
+
+create peer_identity ( )
+update peer_identity (
+	where  peer_identity.node_id = ?
+)
+
+read one (
+    select peer_identity
+    where  peer_identity.node_id = ?
+)
+read one (
+    select peer_identity.leaf_serial_number
+    where  peer_identity.node_id = ?
 )
 
 //--- satellite registration token for Vanguard release (temporary table) ---//

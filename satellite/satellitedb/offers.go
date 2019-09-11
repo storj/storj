@@ -64,7 +64,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 	)
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-	results := make(rewards.Offers, 0, 0)
+	results := rewards.Offers{}
 	for rows.Next() {
 		o := rewards.Offer{}
 		err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &awardCreditDurationDays, &inviteeCreditDurationDays, &redeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)

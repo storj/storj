@@ -68,53 +68,56 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
-    import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
-    import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
-    import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
-    import { User } from '../../types/users';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button,
-            DeleteAccountPopup,
-            ChangePasswordPopup,
-            EditProfilePopup,
-        },
-    })
-    export default class Profile extends Vue {
-        public mounted(): void {
-            this.$store.dispatch(USER_ACTIONS.GET);
-        }
+import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
+import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
+import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
+import Button from '@/components/common/Button.vue';
 
-        public toggleDeleteAccountPopup(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
-        }
-        public toggleChangePasswordPopup(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-        }
-        public toggleEditProfilePopup(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
-        }
+import { USER_ACTIONS } from '@/store/modules/users';
+import { User } from '@/types/users';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-        public get user(): User {
-            return this.$store.getters.user;
-        }
-        public get isEditProfilePopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isEditProfilePopupShown;
-        }
-        public get isChangePasswordPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isChangePasswordPopupShown;
-        }
-        public get isDeleteAccountPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
-        }
-        public get avatarLetter(): string {
-            return this.$store.getters.userName.slice(0, 1).toUpperCase();
-        }
+@Component({
+    components: {
+        Button,
+        DeleteAccountPopup,
+        ChangePasswordPopup,
+        EditProfilePopup,
+    },
+})
+export default class Profile extends Vue {
+    public mounted(): void {
+        this.$store.dispatch(USER_ACTIONS.GET);
     }
+
+    public toggleDeleteAccountPopup(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
+    }
+    public toggleChangePasswordPopup(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+    }
+    public toggleEditProfilePopup(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+    }
+
+    public get user(): User {
+        return this.$store.getters.user;
+    }
+    public get isEditProfilePopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isEditProfilePopupShown;
+    }
+    public get isChangePasswordPopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isChangePasswordPopupShown;
+    }
+    public get isDeleteAccountPopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
+    }
+    public get avatarLetter(): string {
+        return this.$store.getters.userName.slice(0, 1).toUpperCase();
+    }
+}
 </script>
 
 <style scoped lang="scss">

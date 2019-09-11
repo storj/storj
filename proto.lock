@@ -153,6 +153,90 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:contact.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "CheckinRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "address",
+                "type": "node.NodeAddress"
+              },
+              {
+                "id": 3,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              },
+              {
+                "id": 4,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              }
+            ]
+          },
+          {
+            "name": "CheckinResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "ping_node_success",
+                "type": "bool"
+              },
+              {
+                "id": 2,
+                "name": "ping_error_message",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "ContactPingRequest"
+          },
+          {
+            "name": "ContactPingResponse"
+          }
+        ],
+        "services": [
+          {
+            "name": "Contact",
+            "rpcs": [
+              {
+                "name": "PingNode",
+                "in_type": "ContactPingRequest",
+                "out_type": "ContactPingResponse"
+              }
+            ]
+          },
+          {
+            "name": "Node",
+            "rpcs": [
+              {
+                "name": "Checkin",
+                "in_type": "CheckinRequest",
+                "out_type": "CheckinResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "node.proto"
+          }
+        ],
+        "package": {
+          "name": "contact"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:datarepair.proto",
       "def": {
         "messages": [
@@ -4039,6 +4123,21 @@
                 "id": 2,
                 "name": "audit_check",
                 "type": "ReputationStats"
+              },
+              {
+                "id": 3,
+                "name": "disqualified",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "true"
+                  }
+                ]
               }
             ]
           },
@@ -5052,6 +5151,16 @@
                 "id": 1,
                 "name": "chunk",
                 "type": "Chunk"
+              },
+              {
+                "id": 2,
+                "name": "hash",
+                "type": "orders.PieceHash"
+              },
+              {
+                "id": 3,
+                "name": "limit",
+                "type": "orders.OrderLimit"
               }
             ],
             "messages": [
@@ -5535,7 +5644,7 @@
             "fields": [
               {
                 "id": 1,
-                "name": "number_of_segments",
+                "name": "deprecated_number_of_segments",
                 "type": "int64"
               },
               {
@@ -5577,6 +5686,11 @@
                 "id": 4,
                 "name": "last_segment_meta",
                 "type": "SegmentMeta"
+              },
+              {
+                "id": 5,
+                "name": "number_of_segments",
+                "type": "int64"
               }
             ]
           }

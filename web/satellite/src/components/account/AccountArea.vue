@@ -12,22 +12,25 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import TabNavigation from '@/components/navigation/TabNavigation.vue';
-    import { ACCOUNT_ROUTES } from '@/utils/constants/tabNavigation';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            TabNavigation,
-        },
-    })
-    export default class AccountArea extends Vue {
-        public navigation: object = ACCOUNT_ROUTES;
+import TabNavigation from '@/components/navigation/TabNavigation.vue';
 
-        public mounted(): void {
-            this.$router.push(ACCOUNT_ROUTES.PROFILE.path);
-        }
-    }
+import { RouteConfig } from '@/router';
+import { NavigationLink } from '@/types/navigation';
+
+@Component({
+    components: {
+        TabNavigation,
+    },
+})
+export default class AccountArea extends Vue {
+    public navigation: NavigationLink[] = [
+        RouteConfig.Account.with(RouteConfig.Profile),
+        RouteConfig.Account.with(RouteConfig.Billing),
+        RouteConfig.Account.with(RouteConfig.PaymentMethods),
+    ];
+}
 </script>
 
 <style scoped lang="scss">

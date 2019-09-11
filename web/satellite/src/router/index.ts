@@ -2,140 +2,143 @@
 // See LICENSE for copying information.
 
 import Vue from 'vue';
-import Router from 'vue-router';
-import ROUTES from '@/utils/constants/routerConstants';
+import Router, { RouteRecord } from 'vue-router';
+
+import AccountArea from '@/components/account/AccountArea.vue';
+import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
+import AccountBilling from '@/components/account/billing/BillingArea.vue';
+import BillingHistory from '@/components/account/billing/BillingHistory.vue';
+import Profile from '@/components/account/Profile.vue';
+import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
+import BucketArea from '@/components/buckets/BucketArea.vue';
+import Page404 from '@/components/errors/Page404.vue';
+import ProjectDetails from '@/components/project/ProjectDetails.vue';
+import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
+import UsageReport from '@/components/project/UsageReport.vue';
+import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+
+import { NavigationLink } from '@/types/navigation';
+import { AuthToken } from '@/utils/authToken';
+import Dashboard from '@/views/Dashboard.vue';
+import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
 import Login from '@/views/login/Login.vue';
 import Register from '@/views/register/Register.vue';
-import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import Dashboard from '@/views/Dashboard.vue';
-import AccountArea from '@/components/account/AccountArea.vue';
-import Profile from '@/components/account/Profile.vue';
-import AccountBillingHistory from '@/components/account/billing/BillingArea.vue';
-import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
-import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
-import TeamArea from '@/components/team/TeamArea.vue';
-import Page404 from '@/components/errors/Page404.vue';
-import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
-import UsageReport from '@/components/project/UsageReport.vue';
-import ProjectDetails from '@/components/project/ProjectDetails.vue';
-import ProjectBillingHistory from '@/components/project/billing/BillingArea.vue';
-import ProjectPaymentMethods from '@/components/project/ProjectPaymentMethods.vue';
-import BucketArea from '@/components/buckets/BucketArea.vue';
-import { AuthToken } from '@/utils/authToken';
-import store from '@/store';
 
 Vue.use(Router);
 
-let router = new Router({
+export abstract class RouteConfig {
+    // root paths
+    public static Root = new NavigationLink('/', 'Root');
+    public static Login = new NavigationLink('/login', 'Login');
+    public static Register = new NavigationLink('/register', 'Register');
+    public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
+    public static Account = new NavigationLink('/account', 'Account');
+    public static ProjectOverview = new NavigationLink('/project-overview', 'Overview');
+    public static Team = new NavigationLink('/project-members', 'Team');
+    public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
+    public static Buckets = new NavigationLink('/buckets', 'Buckets');
+
+    // child paths
+    public static ProjectDetails = new NavigationLink('details', 'Project Details');
+    public static UsageReport = new NavigationLink('usage-report', 'Usage Report');
+    public static PaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
+    public static Profile = new NavigationLink('profile', 'Profile');
+    public static Billing = new NavigationLink('billing', 'Billing');
+    public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+
+    // not in project yet
+    // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
+}
+
+const router = new Router({
     mode: 'history',
     routes: [
         {
-            path: ROUTES.LOGIN.path,
-            name: ROUTES.LOGIN.name,
+            path: RouteConfig.Login.path,
+            name: RouteConfig.Login.name,
             component: Login
         },
         {
-            path: ROUTES.REGISTER.path,
-            name: ROUTES.REGISTER.name,
+            path: RouteConfig.Register.path,
+            name: RouteConfig.Register.name,
             component: Register
         },
         {
-            path: ROUTES.REFERRAL.path,
-            name: ROUTES.REFERRAL.name,
-            component: Register
-        },
-        {
-            path: ROUTES.FORGOT_PASSWORD.path,
-            name: ROUTES.FORGOT_PASSWORD.name,
+            path: RouteConfig.ForgotPassword.path,
+            name: RouteConfig.ForgotPassword.name,
             component: ForgotPassword
         },
         {
-            path: ROUTES.DASHBOARD.path,
+            path: RouteConfig.Root.path,
             meta: {
                 requiresAuth: true
             },
             component: Dashboard,
             children: [
                 {
-                    path: ROUTES.ACCOUNT_SETTINGS.path,
-                    name: ROUTES.ACCOUNT_SETTINGS.name,
+                    path: RouteConfig.Account.path,
+                    name: RouteConfig.Account.name,
                     component: AccountArea,
                     children: [
                         {
-                            path: ROUTES.PROFILE.path,
-                            name: ROUTES.PROFILE.name,
+                            path: RouteConfig.Profile.path,
+                            name: RouteConfig.Profile.name,
                             component: Profile,
                         },
                         {
-                            path: ROUTES.PAYMENT_METHODS.path,
-                            name: ROUTES.PAYMENT_METHODS.name,
+                            path: RouteConfig.Billing.path,
+                            name: RouteConfig.Billing.name,
+                            component: AccountBilling,
+                        },
+                        {
+                            path: RouteConfig.PaymentMethods.path,
+                            name: RouteConfig.PaymentMethods.name,
                             component: AccountPaymentMethods,
                         },
                         {
-                            path: ROUTES.BILLING_HISTORY.path,
-                            name: ROUTES.BILLING_HISTORY.name,
-                            component: AccountBillingHistory,
+                            path: RouteConfig.BillingHistory.path,
+                            name: RouteConfig.BillingHistory.name,
+                            component: BillingHistory,
                         },
                     ]
                 },
                 {
-                    path: ROUTES.PROJECT_OVERVIEW.path,
-                    name: ROUTES.PROJECT_OVERVIEW.name,
+                    path: RouteConfig.ProjectOverview.path,
+                    name: RouteConfig.ProjectOverview.name,
                     component: ProjectOverviewArea,
                     children: [
                         {
-                            path: ROUTES.USAGE_REPORT.path,
-                            name: ROUTES.USAGE_REPORT.name,
+                            path: RouteConfig.UsageReport.path,
+                            name: RouteConfig.UsageReport.name,
                             component: UsageReport,
                         },
                         {
-                            path: ROUTES.PROJECT_DETAILS.path,
-                            name: ROUTES.PROJECT_DETAILS.name,
+                            path: RouteConfig.ProjectDetails.path,
+                            name: RouteConfig.ProjectDetails.name,
                             component: ProjectDetails
-                        },
-                        {
-                            path: ROUTES.BILLING_HISTORY.path,
-                            name: ROUTES.BILLING_HISTORY.name,
-                            component: ProjectBillingHistory
-                        },
-                        {
-                            path: ROUTES.PAYMENT_METHODS.path,
-                            name: ROUTES.PAYMENT_METHODS.name,
-                            component: ProjectPaymentMethods
                         },
                     ]
                 },
-                // Remove when dashboard will be created
                 {
-                    path: '/',
+                    path: RouteConfig.Root.path,
                     name: 'default',
                     component: ProjectOverviewArea
                 },
                 {
-                    path: ROUTES.TEAM.path,
-                    name: ROUTES.TEAM.name,
-                    component: TeamArea
+                    path: RouteConfig.Team.path,
+                    name: RouteConfig.Team.name,
+                    component: ProjectMembersArea
                 },
                 {
-                    path: ROUTES.API_KEYS.path,
-                    name: ROUTES.API_KEYS.name,
+                    path: RouteConfig.ApiKeys.path,
+                    name: RouteConfig.ApiKeys.name,
                     component: ApiKeysArea
                 },
                 {
-                    path: ROUTES.BUCKETS.path,
-                    name: ROUTES.BUCKETS.name,
+                    path: RouteConfig.Buckets.path,
+                    name: RouteConfig.Buckets.name,
                     component: BucketArea
                 },
-                // {
-                //     path: ROUTES.BUCKETS.path,
-                //     name: ROUTES.BUCKETS.name,
-                //     component: BucketArea
-                // },
-                // {
-                //     path: '/',
-                //     name: 'dashboardArea',
-                //     component: DashboardArea
-                // },
             ]
         },
         {
@@ -146,34 +149,44 @@ let router = new Router({
     ]
 });
 
-// Makes check that Token exist at session storage before any route except Login and Register
-// and if we are able to navigate to page without existing project
 router.beforeEach((to, from, next) => {
-    if (isUnavailablePageWithoutProject(to.name as string)) {
-        next(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
-
-        return;
-    }
-
     if (to.matched.some(route => route.meta.requiresAuth)) {
         if (!AuthToken.get()) {
-            next(ROUTES.LOGIN);
+            next(RouteConfig.Login.path);
 
             return;
         }
     }
 
+    if (navigateToFirstSubTab(to.matched, RouteConfig.Account, RouteConfig.Profile)) {
+        next(RouteConfig.Account.with(RouteConfig.Profile).path);
+
+        return;
+    }
+
+    if (navigateToFirstSubTab(to.matched, RouteConfig.ProjectOverview, RouteConfig.ProjectDetails)) {
+        next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+
+        return;
+    }
+
+    if (to.name === 'default') {
+        next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+    }
+
     next();
 });
 
-// isUnavailablePageWithoutProject checks if we are able to navigate to page without existing project
-function isUnavailablePageWithoutProject(pageName: string): boolean {
-    let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name, ROUTES.BUCKETS.name];
-    const state = store.state as any;
-
-    let isProjectSelected = state.projectsModule.selectedProject.id !== '';
-
-    return unavailablePages.includes(pageName) && !isProjectSelected;
+/**
+ * if our route is a tab and has no sub tab route - we will navigate to default subtab.
+ * F.E. /account/ -> /account/profile/; /project-overview/ -> /project-overview/details/
+ * @param routes - array of RouteRecord from vue-router
+ * @param next - callback to process next route
+ * @param tabRoute - tabNavigator route
+ * @param subTabRoute - default sub route of the tabNavigator
+ */
+function navigateToFirstSubTab(routes: RouteRecord[], tabRoute: NavigationLink, subTabRoute: NavigationLink): boolean {
+    return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
 
 export default router;

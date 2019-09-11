@@ -43,61 +43,64 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import Button from '@/components/common/Button.vue';
-    import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import { UpdatedUser } from '@/types/users';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            HeaderedInput,
-            Button,
-        }
-    })
-    export default class EditProfilePopup extends Vue {
-        private fullNameError: string = '';
+import Button from '@/components/common/Button.vue';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
 
-        private readonly userInfo: UpdatedUser =
-            new UpdatedUser(this.$store.getters.user.fullName, this.$store.getters.user.shortName);
+import { USER_ACTIONS } from '@/store/modules/users';
+import { UpdatedUser } from '@/types/users';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        public setFullName(value: string): void {
-            this.userInfo.setFullName(value);
-            this.fullNameError = '';
-        }
-
-        public setShortName(value: string): void {
-            this.userInfo.setShortName(value);
-        }
-
-        public async onUpdateClick(): Promise<void> {
-            if (!this.userInfo.isValid()) {
-                this.fullNameError = 'Full name expected';
-
-                return;
-            }
-
-            try {
-                await this.$store.dispatch(USER_ACTIONS.UPDATE, this.userInfo);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-
-                return;
-            }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account info successfully updated!');
-
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
-        }
-
-        public onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
-        }
-
-        public get avatarLetter(): string {
-            return this.$store.getters.userName.slice(0, 1).toUpperCase();
-        }
+@Component({
+    components: {
+        HeaderedInput,
+        Button,
     }
+})
+export default class EditProfilePopup extends Vue {
+    private fullNameError: string = '';
+
+    private readonly userInfo: UpdatedUser =
+        new UpdatedUser(this.$store.getters.user.fullName, this.$store.getters.user.shortName);
+
+    public setFullName(value: string): void {
+        this.userInfo.setFullName(value);
+        this.fullNameError = '';
+    }
+
+    public setShortName(value: string): void {
+        this.userInfo.setShortName(value);
+    }
+
+    public async onUpdateClick(): Promise<void> {
+        if (!this.userInfo.isValid()) {
+            this.fullNameError = 'Full name expected';
+
+            return;
+        }
+
+        try {
+            await this.$store.dispatch(USER_ACTIONS.UPDATE, this.userInfo);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+
+            return;
+        }
+
+        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account info successfully updated!');
+
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+    }
+
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+    }
+
+    public get avatarLetter(): string {
+        return this.$store.getters.userName.slice(0, 1).toUpperCase();
+    }
+}
 </script>
 
 <style scoped lang="scss">

@@ -10,10 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/rollup"
@@ -21,6 +24,7 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/mailservice"
@@ -31,7 +35,6 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/vouchers"
 )
 
 // newSatellites initializes satellites
@@ -66,13 +69,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		err = db.CreateTables()
-		if err != nil {
-			return nil, err
-		}
-
-		planet.databases = append(planet.databases, db)
 
 		config := satellite.Config{
 			Server: server.Config{
@@ -170,6 +166,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
+				MaxReverifyCount:   3,
+				ChoreInterval:      30 * time.Second,
+				QueueInterval:      1 * time.Hour,
+				Slots:              3,
+				WorkerConcurrency:  1,
 			},
 			GarbageCollection: gc.Config{
 				Interval:          1 * time.Minute,
@@ -177,6 +178,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				InitialPieces:     10,
 				FalsePositiveRate: 0.1,
 				ConcurrentSends:   1,
+			},
+			DBCleanup: dbcleanup.Config{
+				SerialsInterval: time.Hour,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
@@ -202,21 +206,30 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Address:   "127.0.0.1:0",
 				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
 			},
-			Vouchers: vouchers.Config{
-				Expiration: 30 * 24 * time.Hour,
-			},
 			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
 		}
 
-		verInfo := planet.NewVersionInfo()
+		versionInfo := planet.NewVersionInfo()
 
-		peer, err := satellite.New(log, identity, db, &config, verInfo)
+		revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+		if err != nil {
+			return xs, errs.Wrap(err)
+		}
+		planet.databases = append(planet.databases, revocationDB)
+
+		peer, err := satellite.New(log, identity, db, revocationDB, &config, versionInfo)
 		if err != nil {
 			return xs, err
 		}
+
+		err = db.CreateTables()
+		if err != nil {
+			return nil, err
+		}
+		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
 		xs = append(xs, peer)

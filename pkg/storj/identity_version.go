@@ -48,7 +48,7 @@ type IDVersion struct {
 }
 
 func init() {
-	extensions.AllHandlers.Register(IDVersionHandler)
+	extensions.DefaultHandlers.Register(IDVersionHandler)
 }
 
 // GetIDVersion looks up the given version number in the map of registered

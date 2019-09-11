@@ -12,16 +12,17 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue, Prop } from 'vue-property-decorator';
-    import { Page } from '@/types/pagination';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class PagesBlock extends Vue {
-        @Prop({default: []})
-        public readonly pages: Page[];
-        @Prop({default: () => false})
-        public readonly checkSelected: CheckSelected;
-    }
+import { Page } from '@/types/pagination';
+
+@Component
+export default class PagesBlock extends Vue {
+    @Prop({default: () => []})
+    public readonly pages: Page[];
+    @Prop({default: () => false})
+    public readonly checkSelected: CheckSelected;
+}
 </script>
 
 <style scoped lang="scss">
