@@ -1,12 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedbtest
+package testdata
 
-var v19 = MultiDBSnapshot{
-	Version: 19,
-	Databases: Databases{
-		"versions": &DBSnapshot{
+var v18 = MultiDBState{
+	Version: 18,
+	DBStates: DBStates{
+		"versions": &DBState{
 			SQL: `
 				-- table for keeping serials that need to be verified against
 				CREATE TABLE used_serial_ (
@@ -118,7 +118,6 @@ var v19 = MultiDBSnapshot{
 					audit_reputation_alpha REAL NOT NULL,
 					audit_reputation_beta REAL NOT NULL,
 					audit_reputation_score REAL NOT NULL,
-					disqualified TIMESTAMP,
 					updated_at TIMESTAMP NOT NULL,
 					PRIMARY KEY (satellite_id)
 				);
@@ -180,6 +179,8 @@ var v19 = MultiDBSnapshot{
 				INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 18:00:00+00:00',X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',6,6);
 				INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 20:00:00+00:00',X'2b3a5863a41f25408a8f5348839d7a1361dbd886d75786bb139a8ca0bdf41000',6,6);
 
+				INSERT INTO reputation VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',1,1,1.0,1.0,1.0,1,1,1.0,1.0,1.0,'2019-07-19 20:00:00+00:00');
+
 				INSERT INTO storage_usage VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',5.0,'2019-07-19 20:00:00+00:00');
 
 				INSERT INTO pieceinfo_ VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',X'd5e757fd8d207d1c46583fb58330f803dc961b71147308ff75ff1e72a0df6b0b',1000,'2019-05-09 00:00:00.000000+00:00', X'', X'0a20d5e757fd8d207d1c46583fb58330f803dc961b71147308ff75ff1e72a0df6b0b120501020304051a47304502201c16d76ecd9b208f7ad9f1edf66ce73dce50da6bde6bbd7d278415099a727421022100ca730450e7f6506c2647516f6e20d0641e47c8270f58dde2bb07d1f5a3a45673',1,NULL,'epoch');
@@ -188,9 +189,6 @@ var v19 = MultiDBSnapshot{
 				INSERT INTO piece_space_used (total) VALUES (1337);
 
 				INSERT INTO piece_space_used (total, satellite_id) VALUES (1337, X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000');
-			`,
-			NewData: `
-				INSERT INTO reputation VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',1,1,1.0,1.0,1.0,1,1,1.0,1.0,1.0,'2019-07-19 20:00:00+00:00','2019-08-23 20:00:00+00:00');
 			`,
 		},
 	},

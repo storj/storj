@@ -1,12 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedbtest
+package testdata
 
-var v4 = MultiDBSnapshot{
+var v4 = MultiDBState{
 	Version: 4,
-	Databases: Databases{
-		"versions": &DBSnapshot{
+	DBStates: DBStates{
+		"versions": &DBState{
 			SQL: `
 				-- table for keeping serials that need to be verified against
 				CREATE TABLE used_serial (

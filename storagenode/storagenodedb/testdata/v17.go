@@ -1,12 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedbtest
+package testdata
 
-var v18 = MultiDBSnapshot{
-	Version: 18,
-	Databases: Databases{
-		"versions": &DBSnapshot{
+var v17 = MultiDBState{
+	Version: 17,
+	DBStates: DBStates{
+		"versions": &DBState{
 			SQL: `
 				-- table for keeping serials that need to be verified against
 				CREATE TABLE used_serial_ (
@@ -84,6 +84,13 @@ var v18 = MultiDBSnapshot{
 					archived_at TIMESTAMP NOT NULL,
 
 					FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
+				);
+
+				-- table for storing vouchers
+				CREATE TABLE vouchers (
+					satellite_id BLOB PRIMARY KEY NOT NULL,
+					voucher_serialized BLOB NOT NULL,
+					expiration TIMESTAMP NOT NULL
 				);
 
 				CREATE TABLE bandwidth_usage_rollups (
@@ -164,6 +171,8 @@ var v18 = MultiDBSnapshot{
 				INSERT INTO bandwidth_usage VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',6,6,'2019-04-01 18:51:24.1074772+00:00');
 				INSERT INTO bandwidth_usage VALUES(X'2b3a5863a41f25408a8f5348839d7a1361dbd886d75786bb139a8ca0bdf41000',6,6,'2019-04-01 20:51:24.1074772+00:00');
 
+				INSERT INTO vouchers VALUES(X'2b3a5863a41f25408a8f5348839d7a1361dbd886d75786bb139a8ca0bdf41000', X'd5e757fd8d207d1c46583fb58330f803dc961b71147308ff75ff1e72a0df6b0b', '2019-07-04 00:00:00.000000+00:00');
+
 				INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 18:00:00+00:00',X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',0,0);
 				INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 20:00:00+00:00',X'2b3a5863a41f25408a8f5348839d7a1361dbd886d75786bb139a8ca0bdf41000',0,0);
 				INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 18:00:00+00:00',X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',1,1);
@@ -187,7 +196,8 @@ var v18 = MultiDBSnapshot{
 				INSERT INTO pieceinfo_ VALUES(X'2b3a5863a41f25408a8f5348839d7a1361dbd886d75786bb139a8ca0bdf41000',X'd5e757fd8d207d1c46583fb58330f803dc961b71147308ff75ff1e72a0df6b0b',337,'2019-05-09 00:00:00.000000+00:00', X'', X'0a20d5e757fd8d207d1c46583fb58330f803dc961b71147308ff75ff1e72a0df6b0b120501020304051a483046022100e623cf4705046e2c04d5b42d5edbecb81f000459713ad460c691b3361817adbf022100993da2a5298bb88de6c35b2e54009d1bf306cda5d441c228aa9eaf981ceb0f3d',2,NULL,'epoch');
 
 				INSERT INTO piece_space_used (total) VALUES (1337);
-
+			`,
+			NewData: `
 				INSERT INTO piece_space_used (total, satellite_id) VALUES (1337, X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000');
 			`,
 		},

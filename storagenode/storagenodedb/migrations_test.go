@@ -15,18 +15,23 @@ import (
 	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"storj.io/storj/storagenode/storagenodedb/testdata"
 )
 
-// insertNewData will insert any NewData from the snapshots into the appropriate
-// rawDB. This prepares the rawDB for the test comparing schema and data.
-func insertNewData(mdbs *storagenodedbtest.MultiDBSnapshot, rawDBs map[string]storagenodedb.SQLDB) error {
-	for dbName, dbSnapshot := range mdbs.Databases {
+// insertNewData will insert any NewData from the MultiDBState into the
+// appropriate rawDB. This prepares the rawDB for the test comparing schema and
+// data.
+func insertNewData(mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.SQLDB) error {
+	for dbName, dbState := range mdbs.DBStates {
+		if dbState.NewData == "" {
+			continue
+		}
+
 		rawDB, ok := rawDBs[dbName]
 		if !ok {
 			return errs.New("Failed to find DB %s", dbName)
 		}
-		_, err := rawDB.Exec(dbSnapshot.NewData)
+		_, err := rawDB.Exec(dbState.NewData)
 		if err != nil {
 			return err
 		}
@@ -69,8 +74,6 @@ func getData(rawDBs map[string]storagenodedb.SQLDB, schemas map[string]*dbschema
 
 func TestMigrate(t *testing.T) {
 	ctx := testcontext.New(t)
-	err := storagenodedbtest.Snapshots.LoadSnapshots()
-	require.NoError(t, err)
 
 	log := zaptest.NewLogger(t)
 
@@ -98,7 +101,7 @@ func TestMigrate(t *testing.T) {
 		require.NoError(t, err, tag)
 
 		// find the matching expected version
-		expected, ok := storagenodedbtest.Snapshots.FindVersion(step.Version)
+		expected, ok := testdata.States.FindVersion(step.Version)
 		require.True(t, ok)
 
 		// insert data for new tables
@@ -113,10 +116,13 @@ func TestMigrate(t *testing.T) {
 		data, err := getData(rawDBs, schemas)
 		require.NoError(t, err, tag)
 
+		multiDBSnapshot, err := testdata.LoadMultiDBSnapshot(expected)
+		require.NoError(t, err, tag)
+
 		// verify schema and data for each db in the expected snapshot
-		for dbName, database := range expected.Databases {
-			require.Equal(t, database.Schema, schemas[dbName], tag)
-			require.Equal(t, database.Data, data[dbName], tag)
+		for dbName, dbSnapshot := range multiDBSnapshot.DBSnapshots {
+			require.Equal(t, dbSnapshot.Schema, schemas[dbName], tag)
+			require.Equal(t, dbSnapshot.Data, data[dbName], tag)
 		}
 	}
 }
