@@ -5,7 +5,7 @@ ARG GOARCH
 ENV GOARCH ${GOARCH}
 EXPOSE 28967
 WORKDIR /app/dashboard/
-COPY web/storagnode/ /app/dashboard/
+COPY web/storagenode/ /app/dashboard/
 RUN npm install
 RUN npm run build
 WORKDIR /app
