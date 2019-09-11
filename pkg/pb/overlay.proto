@@ -33,7 +33,6 @@ message PingRequest {};
 message PingResponse {};
 
 // TODO: add fields that validate who is requesting the info
-// TODO add InfoRequest and InfoResponse to contact.proto before removing this protobuf
 message InfoRequest {}
 
 message InfoResponse {

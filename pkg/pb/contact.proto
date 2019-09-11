@@ -7,11 +7,9 @@ option go_package = "pb";
 package contact;
 
 import "node.proto";
-import "overlay.proto";
 
 service Contact {
     rpc PingNode(ContactPingRequest) returns (ContactPingResponse);
-    rpc RequestInf(overlay.InfoRequest) returns (overlay.InfoResponse);
 }
 
 service Node {

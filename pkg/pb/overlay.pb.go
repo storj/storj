@@ -260,7 +260,6 @@ func (m *PingResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_PingResponse proto.InternalMessageInfo
 
 // TODO: add fields that validate who is requesting the info
-// TODO add InfoRequest and InfoResponse to contact.proto before removing this protobuf
 type InfoRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
