@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
@@ -26,9 +27,17 @@ var (
 //
 // architecture: Observer
 type Observer interface {
-	RemoteSegment(context.Context, storj.Path, *pb.Pointer) error
-	RemoteObject(context.Context, storj.Path, *pb.Pointer) error
-	InlineSegment(context.Context, storj.Path, *pb.Pointer) error
+	RemoteSegment(context.Context, PointerLocation, *pb.Pointer) error
+	RemoteObject(context.Context, PointerLocation, *pb.Pointer) error
+	InlineSegment(context.Context, PointerLocation, *pb.Pointer) error
+}
+
+// PointerLocation contains full expanded information about the pointer
+type PointerLocation struct {
+	ProjectID  uuid.UUID
+	BucketName string
+
+	RawPath string
 }
 
 type observerContext struct {
@@ -171,10 +180,13 @@ waitformore:
 					return LoopError.New("unexpected error unmarshalling pointer %s", err)
 				}
 
-				nextObservers := observers[:0]
+				pathElements := storj.SplitPath(path)
+				isLastSeg := len(pathElements) >= 2 && pathElements[1] == "l"
+				location := PointerLocation{}
 
+				nextObservers := observers[:0]
 				for _, observer := range observers {
-					keepObserver := handlePointer(ctx, observer, path, pointer)
+					keepObserver := handlePointer(ctx, observer, location, pointer)
 					if keepObserver {
 						nextObservers = append(nextObservers, observer)
 					}
@@ -201,20 +213,19 @@ waitformore:
 // handlePointer deals with a pointer for a single observer
 // if there is some error on the observer, handle the error and return false. Otherwise, return true
 func handlePointer(ctx context.Context, observer *observerContext, path storj.Path, pointer *pb.Pointer) bool {
-	pathElements := storj.SplitPath(path)
-	isLastSeg := len(pathElements) >= 2 && pathElements[1] == "l"
+
 	remote := pointer.GetRemote()
 
 	if remote != nil {
-		if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
+		if observer.HandleError(observer.RemoteSegment(ctx, location, pointer)) {
 			return false
 		}
 		if isLastSeg {
-			if observer.HandleError(observer.RemoteObject(ctx, path, pointer)) {
+			if observer.HandleError(observer.RemoteObject(ctx, location, pointer)) {
 				return false
 			}
 		}
-	} else if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
+	} else if observer.HandleError(observer.InlineSegment(ctx, location, pointer)) {
 		return false
 	}
 
