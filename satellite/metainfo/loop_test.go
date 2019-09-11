@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 )
@@ -281,7 +280,7 @@ type testObserver struct {
 	remoteSegCount  int
 	remoteFileCount int
 	inlineSegCount  int
-	uniquePaths     map[string]struct{}
+	uniquePaths     map[string]metainfo.ScopedPath
 	onSegment       func(context.Context) error // if set, run this during RemoteSegment()
 }
 
@@ -290,19 +289,19 @@ func newTestObserver(onSegment func(context.Context) error) *testObserver {
 		remoteSegCount:  0,
 		remoteFileCount: 0,
 		inlineSegCount:  0,
-		uniquePaths:     make(map[string]struct{}),
+		uniquePaths:     make(map[string]metainfo.ScopedPath),
 		onSegment:       onSegment,
 	}
 }
 
-func (obs *testObserver) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) error {
+func (obs *testObserver) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	obs.remoteSegCount++
 
-	if _, ok := obs.uniquePaths[path]; ok {
+	if _, ok := obs.uniquePaths[path.Raw]; ok {
 		// TODO: collect the errors and check in test
 		panic("Expected unique path in observer.RemoteSegment")
 	}
-	obs.uniquePaths[path] = struct{}{}
+	obs.uniquePaths[path.Raw] = path
 
 	if obs.onSegment != nil {
 		return obs.onSegment(ctx)
@@ -311,17 +310,17 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, path storj.Path, poi
 	return nil
 }
 
-func (obs *testObserver) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) error {
+func (obs *testObserver) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	obs.remoteFileCount++
 	return nil
 }
 
-func (obs *testObserver) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) error {
+func (obs *testObserver) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	obs.inlineSegCount++
-	if _, ok := obs.uniquePaths[path]; ok {
+	if _, ok := obs.uniquePaths[path.Raw]; ok {
 		// TODO: collect the errors and check in test
 		panic("Expected unique path in observer.InlineSegment")
 	}
-	obs.uniquePaths[path] = struct{}{}
+	obs.uniquePaths[path.Raw] = path
 	return nil
 }

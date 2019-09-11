@@ -223,8 +223,10 @@ type checkerObserver struct {
 	log         *zap.Logger
 }
 
-func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) RemoteSegment(ctx context.Context, scopedPath metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	path := scopedPath.Raw // TODO: fix
 
 	obs.monStats.remoteSegmentsChecked++
 	remote := pointer.GetRemote()
@@ -311,7 +313,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 	return nil
 }
 
-func (obs *checkerObserver) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obs.monStats.remoteFilesChecked++
@@ -319,7 +321,7 @@ func (obs *checkerObserver) RemoteObject(ctx context.Context, path storj.Path, p
 	return nil
 }
 
-func (obs *checkerObserver) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }
