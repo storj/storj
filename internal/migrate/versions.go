@@ -117,12 +117,6 @@ func (migration *Migration) Run(log *zap.Logger) error {
 			return Error.Wrap(err)
 		}
 
-		if version >= 0 {
-			log.Info("Latest Version", zap.Int("version", version))
-		} else {
-			log.Info("No Version")
-		}
-
 		if step.Version <= version {
 			continue
 		}
@@ -148,6 +142,12 @@ func (migration *Migration) Run(log *zap.Logger) error {
 		if err := tx.Commit(); err != nil {
 			return Error.Wrap(err)
 		}
+	}
+
+	if len(migration.Steps) > 0 {
+		log.Info("Database Version", zap.Int("version", migration.Steps[len(migration.Steps)-1].Version))
+	} else {
+		log.Info("No Versions")
 	}
 
 	return nil
