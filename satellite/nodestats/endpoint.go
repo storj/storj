@@ -22,6 +22,8 @@ var (
 )
 
 // Endpoint for querying node stats for the SNO
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log        *zap.Logger
 	overlay    overlay.DB

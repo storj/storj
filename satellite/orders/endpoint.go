@@ -22,6 +22,8 @@ import (
 )
 
 // DB implements saving order after receiving from storage node
+//
+// architecture: Database
 type DB interface {
 	// CreateSerialInfo creates serial number entry in database
 	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
@@ -75,6 +77,8 @@ type ProcessOrderResponse struct {
 }
 
 // Endpoint for orders receiving
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log                 *zap.Logger
 	satelliteSignee     signing.Signee

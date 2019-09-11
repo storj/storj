@@ -9,9 +9,14 @@ import (
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 )
 
+var _ metainfo.Observer = (*PathCollector)(nil)
+
 // PathCollector uses the metainfo loop to add paths to node reservoirs
+//
+// architecture: Observer
 type PathCollector struct {
 	Reservoirs map[storj.NodeID]*Reservoir
 	slotCount  int

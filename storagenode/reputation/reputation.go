@@ -11,6 +11,8 @@ import (
 )
 
 // DB works with reputation database
+//
+// architecture: Database
 type DB interface {
 	// Store inserts or updates reputation stats into the DB
 	Store(ctx context.Context, stats Stats) error
