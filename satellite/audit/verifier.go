@@ -47,6 +47,8 @@ type Share struct {
 }
 
 // Verifier helps verify the correctness of a given stripe
+//
+// architecture: Worker
 type Verifier struct {
 	log                *zap.Logger
 	metainfo           *metainfo.Service

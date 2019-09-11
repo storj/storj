@@ -19,14 +19,16 @@ import (
 )
 
 // Service structure
+//
+// architecture: Service
 type Service struct {
 	logger    *zap.Logger
-	DB        storage.KeyValueStore
+	DB        PointerDB
 	bucketsDB BucketsDB
 }
 
 // NewService creates new metainfo service
-func NewService(logger *zap.Logger, db storage.KeyValueStore, bucketsDB BucketsDB) *Service {
+func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service {
 	return &Service{logger: logger, DB: db, bucketsDB: bucketsDB}
 }
 
