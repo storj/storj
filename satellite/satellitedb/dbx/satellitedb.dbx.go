@@ -458,6 +458,7 @@ CREATE TABLE storagenode_storage_tallies (
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
+	normalized_email text NOT NULL,
 	full_name text NOT NULL,
 	short_name text,
 	password_hash bytea NOT NULL,
@@ -808,6 +809,7 @@ CREATE TABLE storagenode_storage_tallies (
 CREATE TABLE users (
 	id BLOB NOT NULL,
 	email TEXT NOT NULL,
+	normalized_email TEXT NOT NULL,
 	full_name TEXT NOT NULL,
 	short_name TEXT,
 	password_hash BLOB NOT NULL,
@@ -3886,14 +3888,15 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
 type User struct {
-	Id           []byte
-	Email        string
-	FullName     string
-	ShortName    *string
-	PasswordHash []byte
-	Status       int
-	PartnerId    []byte
-	CreatedAt    time.Time
+	Id              []byte
+	Email           string
+	NormalizedEmail string
+	FullName        string
+	ShortName       *string
+	PasswordHash    []byte
+	Status          int
+	PartnerId       []byte
+	CreatedAt       time.Time
 }
 
 func (User) _Table() string { return "users" }
@@ -3904,11 +3907,12 @@ type User_Create_Fields struct {
 }
 
 type User_Update_Fields struct {
-	Email        User_Email_Field
-	FullName     User_FullName_Field
-	ShortName    User_ShortName_Field
-	PasswordHash User_PasswordHash_Field
-	Status       User_Status_Field
+	Email           User_Email_Field
+	NormalizedEmail User_NormalizedEmail_Field
+	FullName        User_FullName_Field
+	ShortName       User_ShortName_Field
+	PasswordHash    User_PasswordHash_Field
+	Status          User_Status_Field
 }
 
 type User_Id_Field struct {
@@ -3948,6 +3952,25 @@ func (f User_Email_Field) value() interface{} {
 }
 
 func (User_Email_Field) _Column() string { return "email" }
+
+type User_NormalizedEmail_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func User_NormalizedEmail(v string) User_NormalizedEmail_Field {
+	return User_NormalizedEmail_Field{_set: true, _value: v}
+}
+
+func (f User_NormalizedEmail_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_NormalizedEmail_Field) _Column() string { return "normalized_email" }
 
 type User_FullName_Field struct {
 	_set   bool
@@ -5780,6 +5803,7 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 func (obj *postgresImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
+	user_normalized_email User_NormalizedEmail_Field,
 	user_full_name User_FullName_Field,
 	user_password_hash User_PasswordHash_Field,
 	optional User_Create_Fields) (
@@ -5788,6 +5812,7 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__email_val := user_email.value()
+	__normalized_email_val := user_normalized_email.value()
 	__full_name_val := user_full_name.value()
 	__short_name_val := optional.ShortName.value()
 	__password_hash_val := user_password_hash.value()
@@ -5795,13 +5820,13 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	__partner_id_val := optional.PartnerId.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6651,14 +6676,14 @@ func (obj *postgresImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ct
 
 }
 
-func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
-	user_email User_Email_Field) (
+func (obj *postgresImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, user_email.value())
+	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -6677,13 +6702,13 @@ func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Con
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("User_By_Email_And_Status_Not_Number")
+		return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -6698,7 +6723,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -6707,7 +6732,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8250,7 +8275,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8259,6 +8284,11 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	if update.Email._set {
 		__values = append(__values, update.Email.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.NormalizedEmail._set {
+		__values = append(__values, update.NormalizedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("normalized_email = ?"))
 	}
 
 	if update.FullName._set {
@@ -8294,7 +8324,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -9604,6 +9634,7 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
+	user_normalized_email User_NormalizedEmail_Field,
 	user_full_name User_FullName_Field,
 	user_password_hash User_PasswordHash_Field,
 	optional User_Create_Fields) (
@@ -9612,6 +9643,7 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__email_val := user_email.value()
+	__normalized_email_val := user_normalized_email.value()
 	__full_name_val := user_full_name.value()
 	__short_name_val := optional.ShortName.value()
 	__password_hash_val := user_password_hash.value()
@@ -9619,12 +9651,12 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	__partner_id_val := optional.PartnerId.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10529,14 +10561,14 @@ func (obj *sqlite3Impl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx
 
 }
 
-func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
-	user_email User_Email_Field) (
+func (obj *sqlite3Impl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, user_email.value())
+	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -10555,13 +10587,13 @@ func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Cont
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("User_By_Email_And_Status_Not_Number")
+		return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -10576,7 +10608,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -10585,7 +10617,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12179,6 +12211,11 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
 	}
 
+	if update.NormalizedEmail._set {
+		__values = append(__values, update.NormalizedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("normalized_email = ?"))
+	}
+
 	if update.FullName._set {
 		__values = append(__values, update.FullName.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("full_name = ?"))
@@ -12217,12 +12254,12 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13189,13 +13226,13 @@ func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 	pk int64) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14359,6 +14396,7 @@ func (rx *Rx) Create_UsedSerial(ctx context.Context,
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
+	user_normalized_email User_NormalizedEmail_Field,
 	user_full_name User_FullName_Field,
 	user_password_hash User_PasswordHash_Field,
 	optional User_Create_Fields) (
@@ -14367,7 +14405,7 @@ func (rx *Rx) Create_User(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_User(ctx, user_id, user_email, user_full_name, user_password_hash, optional)
+	return tx.Create_User(ctx, user_id, user_email, user_normalized_email, user_full_name, user_password_hash, optional)
 
 }
 
@@ -14833,16 +14871,6 @@ func (rx *Rx) Get_UserPayment_By_UserId(ctx context.Context,
 	return tx.Get_UserPayment_By_UserId(ctx, user_payment_user_id)
 }
 
-func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
-	user_email User_Email_Field) (
-	user *User, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_User_By_Email_And_Status_Not_Number(ctx, user_email)
-}
-
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
@@ -14851,6 +14879,16 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_User_By_Id(ctx, user_id)
+}
+
+func (rx *Rx) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
+	user *User, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx, user_normalized_email)
 }
 
 func (rx *Rx) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
@@ -15359,6 +15397,7 @@ type Methods interface {
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_email User_Email_Field,
+		user_normalized_email User_NormalizedEmail_Field,
 		user_full_name User_FullName_Field,
 		user_password_hash User_PasswordHash_Field,
 		optional User_Create_Fields) (
@@ -15558,12 +15597,12 @@ type Methods interface {
 		user_payment_user_id UserPayment_UserId_Field) (
 		user_payment *UserPayment, err error)
 
-	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
-		user_email User_Email_Field) (
-		user *User, err error)
-
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
+		user *User, err error)
+
+	Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+		user_normalized_email User_NormalizedEmail_Field) (
 		user *User, err error)
 
 	Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,

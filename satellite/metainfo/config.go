@@ -41,8 +41,15 @@ type Config struct {
 	Loop                 LoopConfig  `help:"metainfo loop configuration"`
 }
 
+// PointerDB stores pointers.
+//
+// architecture: Database
+type PointerDB interface {
+	storage.KeyValueStore
+}
+
 // NewStore returns database for storing pointer data
-func NewStore(logger *zap.Logger, dbURLString string) (db storage.KeyValueStore, err error) {
+func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) {
 	driver, source, err := dbutil.SplitConnstr(dbURLString)
 	if err != nil {
 		return nil, err

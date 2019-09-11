@@ -28,6 +28,8 @@ var (
 )
 
 // Client encapsulates NodeStatsClient with underlying connection
+//
+// architecture: Client
 type Client struct {
 	conn *grpc.ClientConn
 	pb.NodeStatsClient
@@ -39,6 +41,8 @@ func (c *Client) Close() error {
 }
 
 // Service retrieves info from satellites using GRPC client
+//
+// architecture: Service
 type Service struct {
 	log *zap.Logger
 

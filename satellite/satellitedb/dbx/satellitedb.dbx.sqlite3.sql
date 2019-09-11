@@ -186,6 +186,7 @@ CREATE TABLE storagenode_storage_tallies (
 CREATE TABLE users (
 	id BLOB NOT NULL,
 	email TEXT NOT NULL,
+	normalized_email TEXT NOT NULL,
 	full_name TEXT NOT NULL,
 	short_name TEXT,
 	password_hash BLOB NOT NULL,
