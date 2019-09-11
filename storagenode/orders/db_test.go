@@ -113,7 +113,8 @@ func TestDB(t *testing.T) {
 		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
 
 		// test archival
-		err = ordersdb.Archive(ctx, orders.ArchiveRequest{
+		archivedAt := time.Now().UTC()
+		err = ordersdb.Archive(ctx, archivedAt, orders.ArchiveRequest{
 			Satellite: satellite0.ID,
 			Serial:    infos[0].Limit.SerialNumber,
 			Status:    orders.StatusAccepted,
@@ -121,7 +122,7 @@ func TestDB(t *testing.T) {
 		require.NoError(t, err)
 
 		// duplicate archive
-		err = ordersdb.Archive(ctx, orders.ArchiveRequest{
+		err = ordersdb.Archive(ctx, archivedAt, orders.ArchiveRequest{
 			Satellite: satellite0.ID,
 			Serial:    infos[0].Limit.SerialNumber,
 			Status:    orders.StatusRejected,
@@ -133,7 +134,7 @@ func TestDB(t *testing.T) {
 		)
 
 		// one new archive and one duplicated
-		err = ordersdb.Archive(ctx, orders.ArchiveRequest{
+		err = ordersdb.Archive(ctx, archivedAt, orders.ArchiveRequest{
 			Satellite: satellite0.ID,
 			Serial:    infos[0].Limit.SerialNumber,
 			Status:    orders.StatusRejected,
@@ -221,7 +222,7 @@ func TestDB_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure Archive works at all
-			err := db.Orders().Archive(ctx, orders.ArchiveRequest{satelliteID, serial, orders.StatusAccepted})
+			err := db.Orders().Archive(ctx, time.Now().UTC(), orders.ArchiveRequest{satelliteID, serial, orders.StatusAccepted})
 			require.NoError(t, err)
 		}
 

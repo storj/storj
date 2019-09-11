@@ -22,7 +22,7 @@ func TestInspectorStats(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 10, 1)
+	planet, err := testplanet.New(t, 1, 5, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -52,9 +52,9 @@ func TestInspectorStats(t *testing.T) {
 
 	rs := &uplink.RSConfig{
 		MinThreshold:     2,
-		RepairThreshold:  4,
-		SuccessThreshold: 6,
-		MaxThreshold:     10,
+		RepairThreshold:  3,
+		SuccessThreshold: 4,
+		MaxThreshold:     5,
 	}
 
 	err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], rs, "testbucket", "test/path", expectedData)
@@ -94,7 +94,7 @@ func TestInspectorDashboard(t *testing.T) {
 	testStartedTime := time.Now()
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		for _, storageNode := range planet.StorageNodes {
 			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})

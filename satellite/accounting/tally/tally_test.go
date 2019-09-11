@@ -95,7 +95,7 @@ func TestOnlyInline(t *testing.T) {
 			InlineFiles:    1,
 			Bytes:          int64(expectedTotalBytes),
 			InlineBytes:    int64(expectedTotalBytes),
-			MetadataSize:   111, // brittle, this is hardcoded since its too difficult to get this value progamatically
+			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
 		// The projectID should be the 16 bytes uuid representation, not 36 byte string representation
 		assert.Equal(t, 16, len(projectID[:]))

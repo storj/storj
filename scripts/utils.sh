@@ -1,5 +1,41 @@
 #!/usr/bin/env bash
 
+new_error() {
+  file=$0
+  err_msg=$1
+  line_no=$2
+
+    echo -e "ERROR: ${file}: line ${line_no}: ${err_msg}"
+    exit 1
+}
+
+require_empty() {
+  line_no=$2
+
+  if [[ -z $(sed -e 's/^[[:space:]]*//') ]]; then
+    new_error "expected \"$1\" to be an empty string" $line_no
+  fi
+}
+
+require_equal() {
+  a=$1
+  b=$2
+  line_no=$3
+
+  if [[ "$a" != "$b" ]]; then
+    new_error "expected equal:\n$(diff <(echo $a) <(echo $b))" $line_no
+  fi
+}
+
+require_lines() {
+  line_no=$3
+  string=$2
+  line_count=$(echo "$string" | wc -l)
+  if [[ "$line_count" -lt "$1" ]]; then
+    new_error "expected number of lines ${line_count} to be ${1}:\n$2" $line_no
+  fi
+}
+
 dots() {
 	echo -n "."
 	sleep 1

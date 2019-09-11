@@ -23,7 +23,14 @@ func main() {
 	}
 
 	leftover := strings.Split(strings.TrimSpace(string(out)), "\n")
-	leftover = ignoreDir(leftover, ".build")
+	leftover = ignorePrefix(leftover, ".build")
+
+	// there's no easy way to modify npm to use tmp folders
+	leftover = ignorePrefix(leftover, "web/satellite/node_modules/")
+	leftover = ignorePrefix(leftover, "web/satellite/coverage/")
+	leftover = ignorePrefix(leftover, "web/satellite/dist/")
+	// TODO: shouldn't this be already up to date?
+	leftover = ignorePrefix(leftover, "web/satellite/package-lock.json")
 
 	if len(leftover) != 0 {
 		fmt.Println("Files left-over after running tests:")
@@ -34,7 +41,7 @@ func main() {
 	}
 }
 
-func ignoreDir(files []string, dir string) []string {
+func ignorePrefix(files []string, dir string) []string {
 	result := files[:0]
 	for _, file := range files {
 		if file == "" {

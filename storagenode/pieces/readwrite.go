@@ -56,6 +56,9 @@ const (
 	v1PieceHeaderFramingSize = 2
 )
 
+// BadFormatVersion is returned when a storage format cannot support the request function
+var BadFormatVersion = errs.Class("Incompatible storage format version")
+
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
 type Writer struct {
 	hash      hash.Hash
@@ -229,7 +232,7 @@ func (r *Reader) StorageFormatVersion() storage.FormatVersion {
 // of performance we need to understand why and how often that would happen.)
 func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	if r.formatVersion < filestore.FormatV1 {
-		return nil, Error.New("Can't get piece header from storage format V0 reader")
+		return nil, BadFormatVersion.New("Can't get piece header from storage format V0 reader")
 	}
 	if r.pos != 0 {
 		return nil, Error.New("GetPieceHeader called when not at the beginning of the blob stream")

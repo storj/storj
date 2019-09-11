@@ -25,56 +25,58 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { OnHeaderClickCallback, ProjectMemberOrderBy } from '@/types/projectMembers';
-    import { SortDirection } from '@/types/common';
-    import VerticalArrows from '@/components/common/VerticalArrows.vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            VerticalArrows,
-        },
-    })
-    export default class SortingListHeader extends Vue {
-        @Prop({default: () => { return new Promise(() => false); }})
-        private readonly onHeaderClickCallback: OnHeaderClickCallback;
+import VerticalArrows from '@/components/common/VerticalArrows.vue';
 
-        public ProjectMemberOrderBy = ProjectMemberOrderBy;
+import { SortDirection } from '@/types/common';
+import { OnHeaderClickCallback, ProjectMemberOrderBy } from '@/types/projectMembers';
 
-        public sortBy: ProjectMemberOrderBy = ProjectMemberOrderBy.NAME;
-        public sortDirection: SortDirection = SortDirection.ASCENDING;
+@Component({
+    components: {
+        VerticalArrows,
+    },
+})
+export default class SortingListHeader extends Vue {
+    @Prop({default: () => new Promise(() => false)})
+    private readonly onHeaderClickCallback: OnHeaderClickCallback;
 
-        public get getSortDirection() {
-            if (this.sortDirection === SortDirection.DESCENDING) {
-                return SortDirection.ASCENDING;
-            }
+    public ProjectMemberOrderBy = ProjectMemberOrderBy;
 
-            return SortDirection.DESCENDING;
+    public sortBy: ProjectMemberOrderBy = ProjectMemberOrderBy.NAME;
+    public sortDirection: SortDirection = SortDirection.ASCENDING;
+
+    public get getSortDirection() {
+        if (this.sortDirection === SortDirection.DESCENDING) {
+            return SortDirection.ASCENDING;
         }
 
-        public get getSortBy() {
-            return this.sortBy;
-        }
+        return SortDirection.DESCENDING;
+    }
 
-        public async onHeaderItemClick(sortBy: ProjectMemberOrderBy): Promise<void> {
-            if (this.sortBy != sortBy) {
-                this.sortBy = sortBy;
-                this.sortDirection = SortDirection.ASCENDING;
+    public get getSortBy() {
+        return this.sortBy;
+    }
 
-                await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
-
-                return;
-            }
-
-            if (this.sortDirection === SortDirection.DESCENDING) {
-                this.sortDirection = SortDirection.ASCENDING;
-            } else {
-                this.sortDirection = SortDirection.DESCENDING;
-            }
+    public async onHeaderItemClick(sortBy: ProjectMemberOrderBy): Promise<void> {
+        if (this.sortBy !== sortBy) {
+            this.sortBy = sortBy;
+            this.sortDirection = SortDirection.ASCENDING;
 
             await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
+
+            return;
         }
+
+        if (this.sortDirection === SortDirection.DESCENDING) {
+            this.sortDirection = SortDirection.ASCENDING;
+        } else {
+            this.sortDirection = SortDirection.DESCENDING;
+        }
+
+        await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
     }
+}
 </script>
 
 <style scoped lang="scss">
@@ -82,7 +84,8 @@
         display: flex;
         flex-direction: row;
         height: 36px;
-        margin-top: 200px;
+        background-color: rgba(255, 255, 255, 0.3);
+        margin-top: 29px;
 
         p {
             font-family: 'font_medium';

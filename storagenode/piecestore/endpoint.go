@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/bloomfilter"
@@ -64,10 +65,12 @@ type Config struct {
 	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
 
 	Monitor monitor.Config
-	Sender  orders.SenderConfig
+	Orders  orders.Config
 }
 
-// Endpoint implements uploading, downloading and deleting for a storage node.
+// Endpoint implements uploading, downloading and deleting for a storage node..
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log    *zap.Logger
 	config Config
@@ -408,6 +411,45 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		}
 	}()
 
+	// for repair traffic, send along the PieceHash and original OrderLimit for validation
+	// before sending the piece itself
+	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
+		var orderLimit pb.OrderLimit
+		var pieceHash pb.PieceHash
+
+		if pieceReader.StorageFormatVersion() == 0 {
+			// v0 stores this information in SQL
+			info, err := endpoint.store.GetV0PieceInfoDB().Get(ctx, limit.SatelliteId, limit.PieceId)
+			if err != nil {
+				endpoint.log.Error("error getting piece from v0 pieceinfo db", zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
+			}
+			orderLimit = *info.OrderLimit
+			pieceHash = *info.UplinkPieceHash
+		} else {
+			//v1+ stores this information in the file
+			header, err := pieceReader.GetPieceHeader()
+			if err != nil {
+				endpoint.log.Error("error getting header from piecereader", zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
+			}
+			orderLimit = header.OrderLimit
+			pieceHash = pb.PieceHash{
+				PieceId:   limit.PieceId,
+				Hash:      header.GetHash(),
+				PieceSize: pieceReader.Size(),
+				Timestamp: header.GetCreationTime(),
+				Signature: header.GetSignature(),
+			}
+		}
+
+		err = stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit})
+		if err != nil {
+			endpoint.log.Error("error sending hash and order limit", zap.Error(err))
+			return status.Error(codes.Internal, err.Error())
+		}
+	}
+
 	// TODO: verify chunk.Size behavior logic with regards to reading all
 	if chunk.Offset+chunk.ChunkSize > pieceReader.Size() {
 		return Error.New("requested more data than available, requesting=%v available=%v", chunk.Offset+chunk.ChunkSize, pieceReader.Size())
@@ -415,7 +457,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
 	if err != nil {
-		return ErrInternal.Wrap(err)
+		endpoint.log.Error("error getting available bandwidth", zap.Error(err))
+		return status.Error(codes.Internal, err.Error())
 	}
 
 	throttle := sync2.NewThrottle()
@@ -440,13 +483,15 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			chunkData := make([]byte, chunkSize)
 			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
 			if err != nil {
-				return ErrInternal.Wrap(err)
+				endpoint.log.Error("error seeking on piecereader", zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
 			}
 
 			// ReadFull is required to ensure we are sending the right amount of data.
 			_, err = io.ReadFull(pieceReader, chunkData)
 			if err != nil {
-				return ErrInternal.Wrap(err)
+				endpoint.log.Error("error reading from piecereader", zap.Error(err))
+				return status.Error(codes.Internal, err.Error())
 			}
 
 			err = stream.Send(&pb.PieceDownloadResponse{
@@ -464,7 +509,6 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			currentOffset += chunkSize
 			unsentAmount -= chunkSize
 		}
-
 		return nil
 	})
 
@@ -480,7 +524,11 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			// TODO: add timeout here
 			message, err = stream.Recv()
 			if err != nil {
-				// err is io.EOF when uplink closed the connection, no need to return error
+				// err is io.EOF or canceled when uplink closed the connection, no need to return error
+				if errs2.IsCanceled(err) {
+					endpoint.log.Debug("client canceled connection")
+					return nil
+				}
 				return ErrProtocol.Wrap(ignoreEOF(err))
 			}
 

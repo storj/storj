@@ -110,32 +110,36 @@ func TestRetainPieces(t *testing.T) {
 		}
 
 		retainEnabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
-			RetainStatus:        retain.Enabled,
-			MaxConcurrentRetain: 1,
-			RetainTimeBuffer:    0,
+			Status:      retain.Enabled,
+			Concurrency: 1,
+			MaxTimeSkew: 0,
 		})
+
 		retainDisabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
-			RetainStatus:        retain.Disabled,
-			MaxConcurrentRetain: 1,
-			RetainTimeBuffer:    0,
+			Status:      retain.Disabled,
+			Concurrency: 1,
+			MaxTimeSkew: 0,
 		})
+
 		retainDebug := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
-			RetainStatus:        retain.Debug,
-			MaxConcurrentRetain: 1,
-			RetainTimeBuffer:    0,
+			Status:      retain.Debug,
+			Concurrency: 1,
+			MaxTimeSkew: 0,
 		})
 
 		// start the retain services
+		runCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
 		var group errgroup.Group
-		ctx2, cancel := context.WithCancel(ctx)
 		group.Go(func() error {
-			return retainEnabled.Run(ctx2)
+			return retainEnabled.Run(runCtx)
 		})
 		group.Go(func() error {
-			return retainDisabled.Run(ctx2)
+			return retainDisabled.Run(runCtx)
 		})
 		group.Go(func() error {
-			return retainDebug.Run(ctx2)
+			return retainDebug.Run(runCtx)
 		})
 
 		// expect that disabled and debug endpoints do not delete any pieces
@@ -146,33 +150,33 @@ func TestRetainPieces(t *testing.T) {
 		}
 		queued := retainDisabled.Queue(req)
 		require.True(t, queued)
-		retainDisabled.Wait(ctx2)
+		retainDisabled.TestWaitUntilEmpty()
 
 		queued = retainDebug.Queue(req)
 		require.True(t, queued)
-		retainDebug.Wait(ctx2)
+		retainDebug.TestWaitUntilEmpty()
 
-		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))
+		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(5*time.Second))
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite1Pieces))
 
-		satellite0Pieces, err := getAllPieceIDs(ctx, store, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second))
+		satellite0Pieces, err := getAllPieceIDs(ctx, store, satellite0.ID, recentTime.Add(5*time.Second))
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite0Pieces))
 
 		// expect that enabled endpoint deletes the correct pieces
 		queued = retainEnabled.Queue(req)
 		require.True(t, queued)
-		retainEnabled.Wait(ctx2)
+		retainEnabled.TestWaitUntilEmpty()
 
 		// check we have deleted nothing for satellite1
-		satellite1Pieces, err = getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))
+		satellite1Pieces, err = getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(5*time.Second))
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite1Pieces))
 
 		// check we did not delete recent pieces or retained pieces for satellite0
 		// also check that we deleted the correct pieces for satellite0
-		satellite0Pieces, err = getAllPieceIDs(ctx, store, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second))
+		satellite0Pieces, err = getAllPieceIDs(ctx, store, satellite0.ID, recentTime.Add(5*time.Second))
 		require.NoError(t, err)
 		require.Equal(t, numPieces-numOldPieces, len(satellite0Pieces))
 

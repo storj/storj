@@ -390,6 +390,13 @@ CREATE TABLE offers (
 	type integer NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE peer_identities (
+	node_id bytea NOT NULL,
+	leaf_serial_number bytea NOT NULL,
+	chain bytea NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE pending_audits (
 	node_id bytea NOT NULL,
 	piece_id bytea NOT NULL,
@@ -451,6 +458,7 @@ CREATE TABLE storagenode_storage_tallies (
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
+	normalized_email text NOT NULL,
 	full_name text NOT NULL,
 	short_name text,
 	password_hash bytea NOT NULL,
@@ -733,6 +741,13 @@ CREATE TABLE offers (
 	type INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE peer_identities (
+	node_id BLOB NOT NULL,
+	leaf_serial_number BLOB NOT NULL,
+	chain BLOB NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE pending_audits (
 	node_id BLOB NOT NULL,
 	piece_id BLOB NOT NULL,
@@ -794,6 +809,7 @@ CREATE TABLE storagenode_storage_tallies (
 CREATE TABLE users (
 	id BLOB NOT NULL,
 	email TEXT NOT NULL,
+	normalized_email TEXT NOT NULL,
 	full_name TEXT NOT NULL,
 	short_name TEXT,
 	password_hash BLOB NOT NULL,
@@ -2982,6 +2998,96 @@ func (f Offer_Type_Field) value() interface{} {
 
 func (Offer_Type_Field) _Column() string { return "type" }
 
+type PeerIdentity struct {
+	NodeId           []byte
+	LeafSerialNumber []byte
+	Chain            []byte
+	UpdatedAt        time.Time
+}
+
+func (PeerIdentity) _Table() string { return "peer_identities" }
+
+type PeerIdentity_Update_Fields struct {
+	LeafSerialNumber PeerIdentity_LeafSerialNumber_Field
+	Chain            PeerIdentity_Chain_Field
+}
+
+type PeerIdentity_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PeerIdentity_NodeId(v []byte) PeerIdentity_NodeId_Field {
+	return PeerIdentity_NodeId_Field{_set: true, _value: v}
+}
+
+func (f PeerIdentity_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PeerIdentity_NodeId_Field) _Column() string { return "node_id" }
+
+type PeerIdentity_LeafSerialNumber_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PeerIdentity_LeafSerialNumber(v []byte) PeerIdentity_LeafSerialNumber_Field {
+	return PeerIdentity_LeafSerialNumber_Field{_set: true, _value: v}
+}
+
+func (f PeerIdentity_LeafSerialNumber_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PeerIdentity_LeafSerialNumber_Field) _Column() string { return "leaf_serial_number" }
+
+type PeerIdentity_Chain_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PeerIdentity_Chain(v []byte) PeerIdentity_Chain_Field {
+	return PeerIdentity_Chain_Field{_set: true, _value: v}
+}
+
+func (f PeerIdentity_Chain_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PeerIdentity_Chain_Field) _Column() string { return "chain" }
+
+type PeerIdentity_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PeerIdentity_UpdatedAt(v time.Time) PeerIdentity_UpdatedAt_Field {
+	return PeerIdentity_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f PeerIdentity_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PeerIdentity_UpdatedAt_Field) _Column() string { return "updated_at" }
+
 type PendingAudits struct {
 	NodeId            []byte
 	PieceId           []byte
@@ -3782,14 +3888,15 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
 type User struct {
-	Id           []byte
-	Email        string
-	FullName     string
-	ShortName    *string
-	PasswordHash []byte
-	Status       int
-	PartnerId    []byte
-	CreatedAt    time.Time
+	Id              []byte
+	Email           string
+	NormalizedEmail string
+	FullName        string
+	ShortName       *string
+	PasswordHash    []byte
+	Status          int
+	PartnerId       []byte
+	CreatedAt       time.Time
 }
 
 func (User) _Table() string { return "users" }
@@ -3800,11 +3907,12 @@ type User_Create_Fields struct {
 }
 
 type User_Update_Fields struct {
-	Email        User_Email_Field
-	FullName     User_FullName_Field
-	ShortName    User_ShortName_Field
-	PasswordHash User_PasswordHash_Field
-	Status       User_Status_Field
+	Email           User_Email_Field
+	NormalizedEmail User_NormalizedEmail_Field
+	FullName        User_FullName_Field
+	ShortName       User_ShortName_Field
+	PasswordHash    User_PasswordHash_Field
+	Status          User_Status_Field
 }
 
 type User_Id_Field struct {
@@ -3844,6 +3952,25 @@ func (f User_Email_Field) value() interface{} {
 }
 
 func (User_Email_Field) _Column() string { return "email" }
+
+type User_NormalizedEmail_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func User_NormalizedEmail(v string) User_NormalizedEmail_Field {
+	return User_NormalizedEmail_Field{_set: true, _value: v}
+}
+
+func (f User_NormalizedEmail_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_NormalizedEmail_Field) _Column() string { return "normalized_email" }
 
 type User_FullName_Field struct {
 	_set   bool
@@ -5440,8 +5567,17 @@ type Id_LastNet_Address_Protocol_Row struct {
 	Protocol int
 }
 
+type Id_PieceCount_Row struct {
+	Id         []byte
+	PieceCount int64
+}
+
 type Id_Row struct {
 	Id []byte
+}
+
+type LeafSerialNumber_Row struct {
+	LeafSerialNumber []byte
 }
 
 type Value_Row struct {
@@ -5667,6 +5803,7 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 func (obj *postgresImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
+	user_normalized_email User_NormalizedEmail_Field,
 	user_full_name User_FullName_Field,
 	user_password_hash User_PasswordHash_Field,
 	optional User_Create_Fields) (
@@ -5675,6 +5812,7 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__email_val := user_email.value()
+	__normalized_email_val := user_normalized_email.value()
 	__full_name_val := user_full_name.value()
 	__short_name_val := optional.ShortName.value()
 	__password_hash_val := user_password_hash.value()
@@ -5682,13 +5820,13 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	__partner_id_val := optional.PartnerId.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6005,6 +6143,32 @@ func (obj *postgresImpl) Create_StoragenodeStorageTally(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return storagenode_storage_tally, nil
+
+}
+
+func (obj *postgresImpl) Create_PeerIdentity(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
+	peer_identity_chain PeerIdentity_Chain_Field) (
+	peer_identity *PeerIdentity, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := peer_identity_node_id.value()
+	__leaf_serial_number_val := peer_identity_leaf_serial_number.value()
+	__chain_val := peer_identity_chain.value()
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? ) RETURNING peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
+
+	peer_identity = &PeerIdentity{}
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return peer_identity, nil
 
 }
 
@@ -6480,14 +6644,46 @@ func (obj *postgresImpl) Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol
 
 }
 
-func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
-	user_email User_Email_Field) (
-	user *User, err error) {
+func (obj *postgresImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+	rows []*Id_PieceCount_Row, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.piece_count != 0")
 
 	var __values []interface{}
-	__values = append(__values, user_email.value())
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_PieceCount_Row{}
+		err = __rows.Scan(&row.Id, &row.PieceCount)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
+	user *User, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -6506,13 +6702,13 @@ func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Con
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("User_By_Email_And_Status_Not_Number")
+		return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -6527,7 +6723,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -6536,7 +6732,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7418,6 +7614,48 @@ func (obj *postgresImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterO
 
 }
 
+func (obj *postgresImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	peer_identity *PeerIdentity, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, peer_identity_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	peer_identity = &PeerIdentity{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return peer_identity, nil
+
+}
+
+func (obj *postgresImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	row *LeafSerialNumber_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.leaf_serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, peer_identity_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &LeafSerialNumber_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.LeafSerialNumber)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *postgresImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 	registration_token_secret RegistrationToken_Secret_Field) (
 	registration_token *RegistrationToken, err error) {
@@ -8037,7 +8275,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8046,6 +8284,11 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	if update.Email._set {
 		__values = append(__values, update.Email.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.NormalizedEmail._set {
+		__values = append(__values, update.NormalizedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("normalized_email = ?"))
 	}
 
 	if update.FullName._set {
@@ -8081,7 +8324,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8214,6 +8457,52 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *postgresImpl) Update_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	update PeerIdentity_Update_Fields) (
+	peer_identity *PeerIdentity, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ? RETURNING peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.LeafSerialNumber._set {
+		__values = append(__values, update.LeafSerialNumber.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("leaf_serial_number = ?"))
+	}
+
+	if update.Chain._set {
+		__values = append(__values, update.Chain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("chain = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, peer_identity_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	peer_identity = &PeerIdentity{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return peer_identity, nil
 }
 
 func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
@@ -9003,6 +9292,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM peer_identities;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM offers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -9335,6 +9634,7 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
+	user_normalized_email User_NormalizedEmail_Field,
 	user_full_name User_FullName_Field,
 	user_password_hash User_PasswordHash_Field,
 	optional User_Create_Fields) (
@@ -9343,6 +9643,7 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := user_id.value()
 	__email_val := user_email.value()
+	__normalized_email_val := user_normalized_email.value()
 	__full_name_val := user_full_name.value()
 	__short_name_val := optional.ShortName.value()
 	__password_hash_val := user_password_hash.value()
@@ -9350,12 +9651,12 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	__partner_id_val := optional.PartnerId.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9709,6 +10010,35 @@ func (obj *sqlite3Impl) Create_StoragenodeStorageTally(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastStoragenodeStorageTally(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_PeerIdentity(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
+	peer_identity_chain PeerIdentity_Chain_Field) (
+	peer_identity *PeerIdentity, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := peer_identity_node_id.value()
+	__leaf_serial_number_val := peer_identity_leaf_serial_number.value()
+	__chain_val := peer_identity_chain.value()
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastPeerIdentity(ctx, __pk)
 
 }
 
@@ -10199,14 +10529,46 @@ func (obj *sqlite3Impl) Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol_
 
 }
 
-func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
-	user_email User_Email_Field) (
-	user *User, err error) {
+func (obj *sqlite3Impl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+	rows []*Id_PieceCount_Row, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.piece_count FROM nodes WHERE nodes.piece_count != 0")
 
 	var __values []interface{}
-	__values = append(__values, user_email.value())
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_PieceCount_Row{}
+		err = __rows.Scan(&row.Id, &row.PieceCount)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
+	user *User, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, user_normalized_email.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -10225,13 +10587,13 @@ func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Cont
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("User_By_Email_And_Status_Not_Number")
+		return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -10246,7 +10608,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -10255,7 +10617,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11137,6 +11499,48 @@ func (obj *sqlite3Impl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOr
 
 }
 
+func (obj *sqlite3Impl) Get_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	peer_identity *PeerIdentity, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, peer_identity_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	peer_identity = &PeerIdentity{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return peer_identity, nil
+
+}
+
+func (obj *sqlite3Impl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	row *LeafSerialNumber_Row, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.leaf_serial_number FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, peer_identity_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &LeafSerialNumber_Row{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&row.LeafSerialNumber)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *sqlite3Impl) Get_RegistrationToken_By_Secret(ctx context.Context,
 	registration_token_secret RegistrationToken_Secret_Field) (
 	registration_token *RegistrationToken, err error) {
@@ -11807,6 +12211,11 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
 	}
 
+	if update.NormalizedEmail._set {
+		__values = append(__values, update.NormalizedEmail.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("normalized_email = ?"))
+	}
+
 	if update.FullName._set {
 		__values = append(__values, update.FullName.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("full_name = ?"))
@@ -11845,12 +12254,12 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE users.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -12013,6 +12422,62 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+}
+
+func (obj *sqlite3Impl) Update_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	update PeerIdentity_Update_Fields) (
+	peer_identity *PeerIdentity, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.LeafSerialNumber._set {
+		__values = append(__values, update.LeafSerialNumber.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("leaf_serial_number = ?"))
+	}
+
+	if update.Chain._set {
+		__values = append(__values, update.Chain.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("chain = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, peer_identity_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	peer_identity = &PeerIdentity{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return peer_identity, nil
 }
 
 func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
@@ -12761,13 +13226,13 @@ func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 	pk int64) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at FROM users WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12970,6 +13435,24 @@ func (obj *sqlite3Impl) getLastStoragenodeStorageTally(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return storagenode_storage_tally, nil
+
+}
+
+func (obj *sqlite3Impl) getLastPeerIdentity(ctx context.Context,
+	pk int64) (
+	peer_identity *PeerIdentity, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	peer_identity = &PeerIdentity{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return peer_identity, nil
 
 }
 
@@ -13251,6 +13734,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM peer_identities;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM offers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -13428,6 +13921,15 @@ func (rx *Rx) All_Node_Id(ctx context.Context) (
 		return
 	}
 	return tx.All_Node_Id(ctx)
+}
+
+func (rx *Rx) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+	rows []*Id_PieceCount_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx)
 }
 
 func (rx *Rx) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
@@ -13740,6 +14242,19 @@ func (rx *Rx) Create_Offer(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_PeerIdentity(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
+	peer_identity_chain PeerIdentity_Chain_Field) (
+	peer_identity *PeerIdentity, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_PeerIdentity(ctx, peer_identity_node_id, peer_identity_leaf_serial_number, peer_identity_chain)
+
+}
+
 func (rx *Rx) Create_PendingAudits(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	pending_audits_piece_id PendingAudits_PieceId_Field,
@@ -13881,6 +14396,7 @@ func (rx *Rx) Create_UsedSerial(ctx context.Context,
 func (rx *Rx) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
+	user_normalized_email User_NormalizedEmail_Field,
 	user_full_name User_FullName_Field,
 	user_password_hash User_PasswordHash_Field,
 	optional User_Create_Fields) (
@@ -13889,7 +14405,7 @@ func (rx *Rx) Create_User(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_User(ctx, user_id, user_email, user_full_name, user_password_hash, optional)
+	return tx.Create_User(ctx, user_id, user_email, user_normalized_email, user_full_name, user_password_hash, optional)
 
 }
 
@@ -14224,6 +14740,26 @@ func (rx *Rx) Get_Offer_By_Id(ctx context.Context,
 	return tx.Get_Offer_By_Id(ctx, offer_id)
 }
 
+func (rx *Rx) Get_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	peer_identity *PeerIdentity, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_PeerIdentity_By_NodeId(ctx, peer_identity_node_id)
+}
+
+func (rx *Rx) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field) (
+	row *LeafSerialNumber_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, peer_identity_node_id)
+}
+
 func (rx *Rx) Get_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field) (
 	pending_audits *PendingAudits, err error) {
@@ -14335,16 +14871,6 @@ func (rx *Rx) Get_UserPayment_By_UserId(ctx context.Context,
 	return tx.Get_UserPayment_By_UserId(ctx, user_payment_user_id)
 }
 
-func (rx *Rx) Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
-	user_email User_Email_Field) (
-	user *User, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_User_By_Email_And_Status_Not_Number(ctx, user_email)
-}
-
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
@@ -14353,6 +14879,16 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_User_By_Id(ctx, user_id)
+}
+
+func (rx *Rx) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
+	user *User, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx, user_normalized_email)
 }
 
 func (rx *Rx) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
@@ -14527,6 +15063,17 @@ func (rx *Rx) Update_Offer_By_Id(ctx context.Context,
 	return tx.Update_Offer_By_Id(ctx, offer_id, update)
 }
 
+func (rx *Rx) Update_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	update PeerIdentity_Update_Fields) (
+	peer_identity *PeerIdentity, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_PeerIdentity_By_NodeId(ctx, peer_identity_node_id, update)
+}
+
 func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -14600,6 +15147,9 @@ type Methods interface {
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
+
+	All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx context.Context) (
+		rows []*Id_PieceCount_Row, err error)
 
 	All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 		rows []*Offer, err error)
@@ -14770,6 +15320,12 @@ type Methods interface {
 		optional Offer_Create_Fields) (
 		offer *Offer, err error)
 
+	Create_PeerIdentity(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field,
+		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
+		peer_identity_chain PeerIdentity_Chain_Field) (
+		peer_identity *PeerIdentity, err error)
+
 	Create_PendingAudits(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field,
 		pending_audits_piece_id PendingAudits_PieceId_Field,
@@ -14841,6 +15397,7 @@ type Methods interface {
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
 		user_email User_Email_Field,
+		user_normalized_email User_NormalizedEmail_Field,
 		user_full_name User_FullName_Field,
 		user_password_hash User_PasswordHash_Field,
 		optional User_Create_Fields) (
@@ -14987,6 +15544,14 @@ type Methods interface {
 		offer_id Offer_Id_Field) (
 		offer *Offer, err error)
 
+	Get_PeerIdentity_By_NodeId(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field) (
+		peer_identity *PeerIdentity, err error)
+
+	Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field) (
+		row *LeafSerialNumber_Row, err error)
+
 	Get_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field) (
 		pending_audits *PendingAudits, err error)
@@ -15032,12 +15597,12 @@ type Methods interface {
 		user_payment_user_id UserPayment_UserId_Field) (
 		user_payment *UserPayment, err error)
 
-	Get_User_By_Email_And_Status_Not_Number(ctx context.Context,
-		user_email User_Email_Field) (
-		user *User, err error)
-
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
+		user *User, err error)
+
+	Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
+		user_normalized_email User_NormalizedEmail_Field) (
 		user *User, err error)
 
 	Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
@@ -15121,6 +15686,11 @@ type Methods interface {
 		offer_id Offer_Id_Field,
 		update Offer_Update_Fields) (
 		offer *Offer, err error)
+
+	Update_PeerIdentity_By_NodeId(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field,
+		update PeerIdentity_Update_Fields) (
+		peer_identity *PeerIdentity, err error)
 
 	Update_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field,

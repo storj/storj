@@ -1,35 +1,70 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { PROJECTS_MUTATIONS } from '../mutationConstants';
-import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
-import { RequestResponse } from '@/types/response';
-import { CreateProjectModel, Project, UpdateProjectModel } from '@/types/projects';
 import { StoreModule } from '@/store';
+import { CreateProjectModel, Project, ProjectsApi, UpdateProjectModel } from '@/types/projects';
+
+export const PROJECTS_ACTIONS = {
+    FETCH: 'fetchProjects',
+    CREATE: 'createProject',
+    SELECT: 'selectProject',
+    UPDATE: 'updateProject',
+    DELETE: 'deleteProject',
+    CLEAR: 'clearProjects',
+};
+
+export const PROJECTS_MUTATIONS = {
+    ADD: 'CREATE_PROJECT',
+    REMOVE: 'DELETE_PROJECT',
+    UPDATE_PROJECT: 'UPDATE_PROJECT',
+    SET_PROJECTS: 'SET_PROJECTS',
+    SELECT_PROJECT: 'SELECT_PROJECT',
+    CLEAR_PROJECTS: 'CLEAR_PROJECTS',
+};
+
+const defaultSelectedProject = new Project('', '', '', '', true);
 
 class ProjectsState {
     public projects: Project[] = [];
-    public selectedProject: Project =  new Project(true);
+    public selectedProject: Project = defaultSelectedProject;
 }
 
-export function makeProjectsModule(): StoreModule<ProjectsState> {
+const {
+    FETCH,
+    CREATE,
+    SELECT,
+    UPDATE,
+    DELETE,
+    CLEAR,
+} = PROJECTS_ACTIONS;
+
+const {
+    ADD,
+    REMOVE,
+    UPDATE_PROJECT,
+    SET_PROJECTS,
+    SELECT_PROJECT,
+    CLEAR_PROJECTS,
+} = PROJECTS_MUTATIONS;
+
+export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState> {
     return {
         state: new ProjectsState(),
         mutations: {
-            [PROJECTS_MUTATIONS.CREATE](state: any, createdProject: Project): void {
+            [ADD](state: any, createdProject: Project): void {
                 state.projects.push(createdProject);
             },
-            [PROJECTS_MUTATIONS.FETCH](state: any, projects: Project[]): void {
+            [SET_PROJECTS](state: any, projects: Project[]): void {
                 state.projects = projects;
 
                 if (!state.selectedProject.id) {
                     return;
                 }
 
-                let projectsCount = state.projects.length;
+                const projectsCount = state.projects.length;
 
                 for (let i = 0; i < projectsCount; i++) {
-                    let project = state.projects[i];
+                    const project = state.projects[i];
 
                     if (project.id !== state.selectedProject.id) {
                         continue;
@@ -40,9 +75,9 @@ export function makeProjectsModule(): StoreModule<ProjectsState> {
                     return;
                 }
 
-                state.selectedProject = new Project(true);
+                state.selectedProject = defaultSelectedProject;
             },
-            [PROJECTS_MUTATIONS.SELECT](state: any, projectID: string): void {
+            [SELECT_PROJECT](state: any, projectID: string): void {
                 const selected = state.projects.find((project: any) => project.id === projectID);
 
                 if (!selected) {
@@ -51,7 +86,7 @@ export function makeProjectsModule(): StoreModule<ProjectsState> {
 
                 state.selectedProject = selected;
             },
-            [PROJECTS_MUTATIONS.UPDATE](state: any, updateProjectModel: UpdateProjectModel): void {
+            [UPDATE_PROJECT](state: any, updateProjectModel: UpdateProjectModel): void {
                 const selected = state.projects.find((project: any) => project.id === updateProjectModel.id);
                 if (!selected) {
                     return;
@@ -59,60 +94,48 @@ export function makeProjectsModule(): StoreModule<ProjectsState> {
 
                 selected.description = updateProjectModel.description;
             },
-            [PROJECTS_MUTATIONS.DELETE](state: any, projectID: string): void {
+            [REMOVE](state: any, projectID: string): void {
                 state.projects = state.projects.filter(proj => proj.id !== projectID);
 
                 if (state.selectedProject.id === projectID) {
-                    state.selectedProject = new Project(true);
+                    state.selectedProject = new Project('', '', '', '');
                 }
             },
-            [PROJECTS_MUTATIONS.CLEAR](state: any): void {
+            [CLEAR_PROJECTS](state: ProjectsState): void {
                 state.projects = [];
-                state.selectedProject = new Project(true);
+                state.selectedProject = defaultSelectedProject;
             },
         },
         actions: {
-            fetchProjects: async function ({commit}: any): Promise<RequestResponse<Project[]>> {
-                let response: RequestResponse<Project[]> = await fetchProjectsRequest();
+            [FETCH]: async function ({commit}: any): Promise<Project[]> {
+                const projects = await api.get();
 
-                if (response.isSuccess) {
-                    commit(PROJECTS_MUTATIONS.FETCH, response.data);
-                }
+                commit(SET_PROJECTS, projects);
 
-                return response;
+                return projects;
             },
-            createProject: async function ({commit}: any, createProjectModel: CreateProjectModel): Promise<RequestResponse<Project>> {
-                let response = await createProjectRequest(createProjectModel);
+            [CREATE]: async function ({commit}: any, createProjectModel: CreateProjectModel): Promise<Project> {
+                const project = await api.create(createProjectModel);
 
-                if (response.isSuccess) {
-                    commit(PROJECTS_MUTATIONS.CREATE, response.data);
-                }
+                commit(ADD, project);
 
-                return response;
+                return project;
             },
-            selectProject: function ({commit}: any, projectID: string): void {
-                commit(PROJECTS_MUTATIONS.SELECT, projectID);
+            [SELECT]: function ({commit}: any, projectID: string): void {
+                commit(SELECT_PROJECT, projectID);
             },
-            updateProject: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<RequestResponse<null>> {
-                let response = await updateProjectRequest(updateProjectModel.id, updateProjectModel.description);
+            [UPDATE]: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<void> {
+                await api.update(updateProjectModel.id, updateProjectModel.description);
 
-                if (response.isSuccess) {
-                    commit(PROJECTS_MUTATIONS.UPDATE, updateProjectModel);
-                }
-
-                return response;
+                commit(UPDATE_PROJECT, updateProjectModel);
             },
-            deleteProject: async function ({commit}: any, projectID: string): Promise<RequestResponse<null>> {
-                let response = await deleteProjectRequest(projectID);
+            [DELETE]: async function ({commit}: any, projectID: string): Promise<void> {
+                await api.delete(projectID);
 
-                if (response.isSuccess) {
-                    commit(PROJECTS_MUTATIONS.DELETE, projectID);
-                }
-
-                return response;
+                commit(REMOVE, projectID);
             },
-            clearProjects: function({commit}: any): void {
-                commit(PROJECTS_MUTATIONS.CLEAR);
+            [CLEAR]: function({commit}: any): void {
+                commit(CLEAR_PROJECTS);
             }
         },
         getters: {

@@ -12,7 +12,7 @@ message SegmentMeta {
 }
 
 message StreamInfo {
-    int64 number_of_segments = 1;
+    int64 deprecated_number_of_segments = 1;
     int64 segments_size = 2;
     int64 last_segment_size = 3;
     bytes metadata = 4;
@@ -23,4 +23,5 @@ message StreamMeta {
     int32 encryption_type = 2;
     int32 encryption_block_size = 3;
     SegmentMeta last_segment_meta = 4;
+    int64 number_of_segments = 5;
 }

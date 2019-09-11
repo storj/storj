@@ -18,38 +18,39 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { DelayedNotification } from '@/types/DelayedNotification';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component({})
-    export default class Notification extends Vue {
-        @Prop({default: () => new DelayedNotification(new Function(), '', '')})
-        private notification: DelayedNotification;
+import { DelayedNotification } from '@/types/DelayedNotification';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        public isClassActive = false;
+@Component
+export default class Notification extends Vue {
+    @Prop({default: () => new DelayedNotification(() => { return; }, '', '')})
+    private notification: DelayedNotification;
 
-        // Force delete notification
-        public onCloseClick(): void {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.DELETE, this.notification.id);
-        }
+    public isClassActive = false;
 
-        // Force notification to stay on page on mouse over it
-        public onMouseOver(): void {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.PAUSE, this.notification.id);
-        }
-
-        // Resume notification flow when mouse leaves notification
-        public onMouseLeave(): void {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.RESUME, this.notification.id);
-        }
-
-        public mounted() {
-            setTimeout(() => {
-                this.isClassActive = true;
-            }, 100);
-        }
+    // Force delete notification
+    public onCloseClick(): void {
+        this.$store.dispatch(NOTIFICATION_ACTIONS.DELETE, this.notification.id);
     }
+
+    // Force notification to stay on page on mouse over it
+    public onMouseOver(): void {
+        this.$store.dispatch(NOTIFICATION_ACTIONS.PAUSE, this.notification.id);
+    }
+
+    // Resume notification flow when mouse leaves notification
+    public onMouseLeave(): void {
+        this.$store.dispatch(NOTIFICATION_ACTIONS.RESUME, this.notification.id);
+    }
+
+    public mounted() {
+        setTimeout(() => {
+            this.isClassActive = true;
+        }, 100);
+    }
+}
 </script>
 
 <style scoped lang="scss">

@@ -10,14 +10,15 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { NavigationLink } from '@/types/navigation';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component({})
-    export default class TabNavigation extends Vue {
-        @Prop({default: new Array(NavigationLink)})
-        private navigation: NavigationLink[];
-    }
+import { NavigationLink } from '@/types/navigation';
+
+@Component
+export default class TabNavigation extends Vue {
+    @Prop({default: new Array(NavigationLink)})
+    private navigation: NavigationLink[];
+}
 </script>
 
 <style scoped lang="scss">

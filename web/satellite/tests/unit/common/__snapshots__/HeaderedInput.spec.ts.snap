@@ -17,7 +17,7 @@ exports[`HeaderedInput.vue renders correctly with input error 1`] = `
 <div class="input-container">
   <div class="label-container"><img src="../../../static/images/register/ErrorInfo.svg">
     <!---->
-    <h3 class="label-container__add-label"></h3>
+    <!---->
     <h3 class="label-container__error">testError</h3>
   </div>
   <!---->

@@ -22,6 +22,8 @@ var (
 )
 
 // Endpoint for querying node stats for the SNO
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log        *zap.Logger
 	overlay    overlay.DB
@@ -77,6 +79,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 			ReputationBeta:  node.Reputation.AuditReputationBeta,
 			ReputationScore: auditScore,
 		},
+		Disqualified: node.Disqualified,
 	}, nil
 }
 

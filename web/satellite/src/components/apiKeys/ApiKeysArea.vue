@@ -23,7 +23,7 @@
                         <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
                     </div>
                     <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                        <span>Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}}</span>
+                        <span>Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}} ?</span>
                         <div class="header-after-delete-click__button-area">
                             <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
                             <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
@@ -31,6 +31,7 @@
                     </div>
                 </HeaderComponent>
                 <div class="blur-content" v-if="isDeleteClicked"></div>
+                <div class="blur-search" v-if="isDeleteClicked"></div>
             </div>
             <div v-if="!isEmpty" class="api-keys-items">
                 <SortingHeader/>
@@ -55,144 +56,146 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import VueClipboards from 'vue-clipboards';
-    import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
-    import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
-    import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
-    import Button from '@/components/common/Button.vue';
-    import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import List from '@/components/common/List.vue';
-    import HeaderComponent from '@/components/common/HeaderComponent.vue';
-    import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
-    import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { ApiKey } from '@/types/apiKeys';
+import VueClipboards from 'vue-clipboards';
+import { Component, Vue } from 'vue-property-decorator';
 
-    Vue.use(VueClipboards);
+import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
+import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
+import Button from '@/components/common/Button.vue';
+import EmptyState from '@/components/common/EmptyStateArea.vue';
+import HeaderComponent from '@/components/common/HeaderComponent.vue';
+import List from '@/components/common/List.vue';
 
-    // header state depends on api key selection state
-    enum HeaderState {
-        DEFAULT = 0,
-        ON_SELECT,
+import { ApiKey } from '@/types/apiKeys';
+import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+
+import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
+import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
+
+Vue.use(VueClipboards);
+
+// header state depends on api key selection state
+enum HeaderState {
+    DEFAULT = 0,
+    ON_SELECT,
+}
+
+const {
+    FETCH,
+    DELETE,
+    TOGGLE_SELECTION,
+    CLEAR_SELECTION,
+} = API_KEYS_ACTIONS;
+
+@Component({
+    components: {
+        List,
+        EmptyState,
+        HeaderComponent,
+        ApiKeysItem,
+        Button,
+        ApiKeysCreationPopup,
+        ApiKeysCopyPopup,
+        SortingHeader,
+    },
+})
+export default class ApiKeysArea extends Vue {
+    public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
+    private isDeleteClicked: boolean = false;
+    private isNewApiKeyPopupShown: boolean = false;
+    private isCopyApiKeyPopupShown: boolean = false;
+    private apiKeySecret: string = '';
+
+    public mounted(): void {
+        this.$store.dispatch(FETCH);
     }
 
-    const {
-        FETCH,
-        DELETE,
-        TOGGLE_SELECTION,
-        CLEAR_SELECTION,
-    } = API_KEYS_ACTIONS;
-
-    @Component({
-        components: {
-            List,
-            EmptyState,
-            HeaderComponent,
-            ApiKeysItem,
-            Button,
-            ApiKeysCreationPopup,
-            ApiKeysCopyPopup,
-            SortingHeader,
-        },
-    })
-    export default class ApiKeysArea extends Vue {
-        public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
-        private isDeleteClicked: boolean = false;
-        private isNewApiKeyPopupShown: boolean = false;
-        private isCopyApiKeyPopupShown: boolean = false;
-        private apiKeySecret: string = '';
-
-        public mounted(): void {
-            this.$store.dispatch(FETCH);
-        }
-
-        public toggleSelection(apiKey: ApiKey): void {
-            this.$store.dispatch(TOGGLE_SELECTION, apiKey.id);
-        }
-
-        public onCreateApiKeyClick(): void {
-            this.isNewApiKeyPopupShown = true;
-        }
-
-        public onFirstDeleteClick(): void {
-            this.isDeleteClicked = true;
-        }
-
-        public onClearSelection(): void {
-            this.$store.dispatch(CLEAR_SELECTION);
-            this.isDeleteClicked = false;
-        }
-
-        public closeNewApiKeyPopup() {
-            this.isNewApiKeyPopupShown = false;
-        }
-
-        public showCopyApiKeyPopup(secret: string) {
-            this.isCopyApiKeyPopupShown = true;
-            this.apiKeySecret = secret;
-        }
-
-        public closeCopyNewApiKeyPopup() {
-            this.isCopyApiKeyPopupShown = false;
-        }
-
-        public async onDelete(): Promise<void> {
-            let selectedKeys: string[] = this.$store.getters.selectedAPIKeys.map((key) => { return key.id; });
-            let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
-
-            try {
-                await this.$store.dispatch(DELETE, selectedKeys);
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-            }
-
-            this.isDeleteClicked = false;
-        }
-
-        public get itemComponent() {
-            return ApiKeysItem;
-        }
-
-        public get apiKeyList(): ApiKey[] {
-            return this.$store.getters.apiKeys;
-        }
-
-        public get apiKeyCountTitle(): string {
-            if (this.selectedAPIKeysCount === 1) {
-                return 'api key';
-            }
-
-            return 'api keys';
-        }
-
-        public get isEmpty(): boolean {
-            return this.$store.getters.apiKeys.length === 0;
-        }
-
-        public get isSelected(): boolean {
-            return this.$store.getters.selectedAPIKeys.length > 0;
-        }
-
-        public get selectedAPIKeysCount(): number {
-            return this.$store.getters.selectedAPIKeys.length;
-        }
-
-        public get headerState(): number {
-            if (this.selectedAPIKeysCount > 0) {
-                return HeaderState.ON_SELECT;
-            }
-
-            return HeaderState.DEFAULT;
-        }
+    public toggleSelection(apiKey: ApiKey): void {
+        this.$store.dispatch(TOGGLE_SELECTION, apiKey.id);
     }
+
+    public onCreateApiKeyClick(): void {
+        this.isNewApiKeyPopupShown = true;
+    }
+
+    public onFirstDeleteClick(): void {
+        this.isDeleteClicked = true;
+    }
+
+    public onClearSelection(): void {
+        this.$store.dispatch(CLEAR_SELECTION);
+        this.isDeleteClicked = false;
+    }
+
+    public closeNewApiKeyPopup() {
+        this.isNewApiKeyPopupShown = false;
+    }
+
+    public showCopyApiKeyPopup(secret: string) {
+        this.isCopyApiKeyPopupShown = true;
+        this.apiKeySecret = secret;
+    }
+
+    public closeCopyNewApiKeyPopup() {
+        this.isCopyApiKeyPopupShown = false;
+    }
+
+    public async onDelete(): Promise<void> {
+        const selectedKeys: string[] = this.$store.getters.selectedAPIKeys.map((key) => key.id);
+        const keySuffix = selectedKeys.length > 1 ? '\'s' : '';
+
+        try {
+            await this.$store.dispatch(DELETE, selectedKeys);
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        }
+
+        this.isDeleteClicked = false;
+    }
+
+    public get itemComponent() {
+        return ApiKeysItem;
+    }
+
+    public get apiKeyList(): ApiKey[] {
+        return this.$store.getters.apiKeys;
+    }
+
+    public get apiKeyCountTitle(): string {
+        if (this.selectedAPIKeysCount === 1) {
+            return 'api key';
+        }
+
+        return 'api keys';
+    }
+
+    public get isEmpty(): boolean {
+        return this.$store.getters.apiKeys.length === 0;
+    }
+
+    public get isSelected(): boolean {
+        return this.$store.getters.selectedAPIKeys.length > 0;
+    }
+
+    public get selectedAPIKeysCount(): number {
+        return this.$store.getters.selectedAPIKeys.length;
+    }
+
+    public get headerState(): number {
+        if (this.selectedAPIKeysCount > 0) {
+            return HeaderState.ON_SELECT;
+        }
+
+        return HeaderState.DEFAULT;
+    }
+}
 </script>
 
 <style scoped lang="scss">
     .api-keys-area {
         position: relative;
-        max-width: 92.9%;
         padding: 40px 65px 55px 64px;
         height: 85vh;
 
@@ -216,6 +219,17 @@
                 height: 70vh;
                 z-index: 100;
                 opacity: 0.3;
+            }
+
+            .blur-search {
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                width: 602px;
+                height: 56px;
+                z-index: 100;
+                opacity: 0.3;
+                background-color: #F5F6FA;
             }
         }
 

@@ -26,7 +26,7 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 		zaptest.NewLogger(t, zaptest.Level(zapcore.WarnLevel)),
 		testplanet.Config{
 			SatelliteCount:   1,
-			StorageNodeCount: 10,
+			StorageNodeCount: 5,
 			UplinkCount:      1,
 			Reconfigure:      testplanet.DisablePeerCAWhitelist,
 		},

@@ -27,42 +27,43 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import { AuthToken } from '@/utils/authToken';
-    import { RouteConfig } from '@/router';
-    import {
-        APP_STATE_ACTIONS,
-        PROJETS_ACTIONS,
-        PM_ACTIONS,
-        API_KEYS_ACTIONS,
-        NOTIFICATION_ACTIONS,
-    } from '@/utils/constants/actionNames';
-    import { USER_ACTIONS } from '@/store/modules/users';
-    import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class ProjectSelectionDropdown extends Vue {
-        public onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
-        }
+import { RouteConfig } from '@/router';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { AuthToken } from '@/utils/authToken';
+import {
+    API_KEYS_ACTIONS,
+    APP_STATE_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PM_ACTIONS,
+} from '@/utils/constants/actionNames';
 
-        public onAccountSettingsClick(): void {
-            this.$router.push(RouteConfig.Account.with(RouteConfig.Profile).path);
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
-        }
-
-        public onLogoutClick(): void {
-            AuthToken.remove();
-
-            this.$router.push(RouteConfig.Login.path);
-            this.$store.dispatch(PM_ACTIONS.CLEAR);
-            this.$store.dispatch(PROJETS_ACTIONS.CLEAR);
-            this.$store.dispatch(USER_ACTIONS.CLEAR);
-            this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
-            this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-        }
+@Component
+export default class AccountDropdown extends Vue {
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
     }
+
+    public onAccountSettingsClick(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Profile).path);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+    }
+
+    public onLogoutClick(): void {
+        AuthToken.remove();
+
+        this.$router.push(RouteConfig.Login.path);
+        this.$store.dispatch(PM_ACTIONS.CLEAR);
+        this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
+        this.$store.dispatch(USER_ACTIONS.CLEAR);
+        this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+        this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
+        this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+    }
+}
 </script>
 
 <style scoped lang="scss">
