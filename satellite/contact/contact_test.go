@@ -45,7 +45,6 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 
-		// TODO: verify that the peer ID is being set by Contact.Endpoint.Checkin, and not by Discovery.Refresh
 		peerID, err := planet.Satellites[0].DB.PeerIdentities().Get(ctx, nodeDossier.Id)
 		require.NoError(t, err)
 		require.Equal(t, ident.PeerIdentity(), peerID)

@@ -22,11 +22,6 @@ func TestCache_Refresh(t *testing.T) {
 			node, err := satellite.Overlay.Service.Get(ctx, storageNode.ID())
 			if assert.NoError(t, err) {
 				assert.Equal(t, storageNode.Addr(), node.Address.Address)
-
-				peerCert, err := satellite.DB.PeerIdentities().Get(ctx, storageNode.ID())
-				if assert.NoError(t, err) {
-					assert.Equal(t, storageNode.Identity.PeerIdentity(), peerCert)
-				}
 			}
 		}
 	})
