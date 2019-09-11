@@ -781,7 +781,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
-// UpdateNodeInfo updates the email and wallet for a given node ID for satellite payments.
+// UpdateNodeInfo updates the following fields for a given node ID:
+// wallet, email for node operator, free disk and bandwidth capacity, and version
 func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
