@@ -145,7 +145,8 @@ func (migration *Migration) Run(log *zap.Logger) error {
 	}
 
 	if len(migration.Steps) > 0 {
-		log.Info("Database Version", zap.Int("version", migration.Steps[len(migration.Steps)-1].Version))
+		last := migration.Steps[len(migration.Steps)-1]
+		log.Info("Database Version", zap.Int("version", last.Version))
 	} else {
 		log.Info("No Versions")
 	}
