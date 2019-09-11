@@ -5,12 +5,9 @@ package satellite
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/mail"
 	"net/smtp"
-	"os"
-	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,7 +20,6 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -61,8 +57,6 @@ import (
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 )
 
 var mon = monkit.Package()
@@ -112,7 +106,6 @@ type Config struct {
 	Identity identity.Config
 	Server   server.Config
 
-	Kademlia  kademlia.Config
 	Contact   contact.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
@@ -156,15 +149,6 @@ type Peer struct {
 	Version *version.Service
 
 	// services and endpoints
-	Kademlia struct {
-		kdb, ndb, adb storage.KeyValueStore // TODO: move these into DB
-
-		RoutingTable *kademlia.RoutingTable
-		Service      *kademlia.Kademlia
-		Endpoint     *kademlia.Endpoint
-		Inspector    *kademlia.Inspector
-	}
-
 	Contact struct {
 		Service    *contact.Service
 		Endpoint   *contact.Endpoint
@@ -300,70 +284,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
-	}
-
-	{ // setup kademlia
-		log.Debug("Setting up Kademlia")
-		config := config.Kademlia
-		// TODO: move this setup logic into kademlia package
-		if config.ExternalAddress == "" {
-			config.ExternalAddress = peer.Addr()
-		}
-
-		pbVersion, err := versionInfo.Proto()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		self := &overlay.NodeDossier{
-			Node: pb.Node{
-				Id: peer.ID(),
-				Address: &pb.NodeAddress{
-					Address: config.ExternalAddress,
-				},
-			},
-			Type: pb.NodeType_SATELLITE,
-			Operator: pb.NodeOperator{
-				Email:  config.Operator.Email,
-				Wallet: config.Operator.Wallet,
-			},
-			Version: *pbVersion,
-		}
-
-		{ // setup routing table
-			// TODO: clean this up, should be part of database
-			log.Debug("Setting up routing table")
-			bucketIdentifier := peer.ID().String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
-			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
-
-			if err := os.MkdirAll(config.DBPath, 0777); err != nil && !os.IsExist(err) {
-				return nil, err
-			}
-
-			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-			peer.Kademlia.kdb, peer.Kademlia.ndb, peer.Kademlia.adb = dbs[0], dbs[1], dbs[2]
-
-			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb, peer.Kademlia.adb, &config.RoutingTableConfig)
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
-		}
-
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, config)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, nil, peer.Kademlia.RoutingTable, nil)
-		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
-
-		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
-		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
 	{ // setup contact service
@@ -729,6 +649,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 }
 
 // Run runs satellite until it's either closed or it errors.
+// todo update
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -736,12 +657,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
@@ -795,6 +710,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 }
 
 // Close closes all the resources.
+// todo update
 func (peer *Peer) Close() error {
 	var errlist errs.Group
 
@@ -855,22 +771,8 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Discovery.Service.Close())
 	}
 
-	// TODO: add kademlia.Endpoint for consistency
-	if peer.Kademlia.Service != nil {
-		errlist.Add(peer.Kademlia.Service.Close())
-	}
-	if peer.Kademlia.RoutingTable != nil {
-		errlist.Add(peer.Kademlia.RoutingTable.Close())
-	}
-
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
-	}
-
-	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil || peer.Kademlia.adb != nil {
-		errlist.Add(peer.Kademlia.kdb.Close())
-		errlist.Add(peer.Kademlia.ndb.Close())
-		errlist.Add(peer.Kademlia.adb.Close())
 	}
 
 	return errlist.Err()
