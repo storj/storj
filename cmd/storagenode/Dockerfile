@@ -4,6 +4,10 @@ ARG TAG
 ARG GOARCH
 ENV GOARCH ${GOARCH}
 EXPOSE 28967
+WORKDIR /app/dashboard/
+COPY web/storagnode/ /app/dashboard/
+RUN npm install
+RUN npm run build
 WORKDIR /app
 VOLUME /root/.local/share/storj/storagenode
 COPY resources/certs.pem /etc/ssl/certs/ca-certificates.crt
