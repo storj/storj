@@ -143,7 +143,7 @@ var v21 = MultiDBState{
 					PRIMARY KEY (node_id)
 				);
 
-				CREATE TABLE satellites_exit_progress (
+				CREATE TABLE satellite_exit_progress (
 					satellite_id BLOB NOT NULL,
 					initiated_at TIMESTAMP,
 					finished_at TIMESTAMP,
@@ -211,7 +211,7 @@ var v21 = MultiDBState{
 			`,
 			NewData: `
 				INSERT INTO satellites VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000','127.0.0.1:55516','2019-09-10 20:00:00+00:00', 0);	
-				INSERT INTO satellites_exit_progress VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000','2019-09-10 20:00:00+00:00', null, 100, 0, null);	
+				INSERT INTO satellite_exit_progress VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000','2019-09-10 20:00:00+00:00', null, 100, 0, null);	
 			`,
 		},
 	},

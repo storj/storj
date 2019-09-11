@@ -711,7 +711,7 @@ func (db *DB) Migration() *migrate.Migration {
 						status INTEGER NOT NULL,
 						PRIMARY KEY (node_id)
 					)`,
-					`CREATE TABLE satellites_exit_progress (
+					`CREATE TABLE satellite_exit_progress (
 						satellite_id BLOB NOT NULL,
 						initiated_at TIMESTAMP,
 						finished_at TIMESTAMP,
