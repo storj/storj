@@ -5,6 +5,7 @@ package storagenodedb_test
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -124,6 +125,17 @@ func TestMigrate(t *testing.T) {
 
 		// verify schema and data for each db in the expected snapshot
 		for dbName, dbSnapshot := range multiDBSnapshot.DBSnapshots {
+			// If the tables and indexes of the schema are empty, that's
+			// semantically the same as nil. Set to nil explicitly to help with
+			// comparison to snapshot.
+			schema, ok := schemas[dbName]
+			if ok && len(schema.Tables) == 0 {
+				schema.Tables = nil
+			}
+			if ok && len(schema.Indexes) == 0 {
+				schema.Indexes = nil
+			}
+
 			require.Equal(t, dbSnapshot.Schema, schemas[dbName], tag)
 			require.Equal(t, dbSnapshot.Data, data[dbName], tag)
 		}

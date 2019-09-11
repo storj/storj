@@ -21,7 +21,10 @@ import (
 // ErrPieceInfo represents errors from the piece info database.
 var ErrPieceInfo = errs.Class("v0pieceinfodb error")
 
-var v0PieceInfoDatabaseFilename = "pieceinfo.db"
+const (
+	PieceInfoDBName             = "pieceinfo"
+	V0PieceInfoDatabaseFilename = "pieceinfo.db"
+)
 
 type v0PieceInfoDB struct {
 	SQLDB

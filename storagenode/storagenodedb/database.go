@@ -203,7 +203,7 @@ func (db *DB) openDatabases(databasesPath string) error {
 		db.pieceExpirationDB.SQLDB = pieceExpirationDB
 	}
 
-	v0PieceInfoDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, v0PieceInfoDatabaseFilename))
+	v0PieceInfoDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, V0PieceInfoDatabaseFilename))
 	if err != nil {
 		return err
 	}
@@ -384,7 +384,15 @@ func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
 // RawDatabases are required for testing purposes
 func (db *DB) RawDatabases() map[string]SQLDB {
 	return map[string]SQLDB{
-		"versions": db.versionsDB,
+		BandwidthDBName:       db.bandwidthDB,
+		OrdersDBName:          db.ordersDB,
+		PieceExpirationDBName: db.pieceExpirationDB,
+		PieceSpaceUsedDBName:  db.pieceSpaceUsedDB,
+		ReputationDBName:      db.reputationDB,
+		StorageUsageDBName:    db.storageUsageDB,
+		UsedSerialsDBName:     db.usedSerialsDB,
+		PieceInfoDBName:       db.v0PieceInfoDB,
+		VersionsDBName:        db.versionsDB,
 	}
 }
 
@@ -815,10 +823,10 @@ func (db *DB) Migration() *migrate.Migration {
 						return ErrDatabase.Wrap(err)
 					}
 
-					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, v0PieceInfoDatabaseFilename, "pieceinfo_"); err != nil {
+					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, V0PieceInfoDatabaseFilename, "pieceinfo_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.closeDatabase(v0PieceInfoDatabaseFilename); err != nil {
+					if err := db.closeDatabase(V0PieceInfoDatabaseFilename); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 

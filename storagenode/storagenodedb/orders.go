@@ -19,7 +19,10 @@ import (
 // ErrOrders represents errors from the ordersdb database.
 var ErrOrders = errs.Class("ordersdb error")
 
-var OrdersDatabaseFilename = "orders.db"
+const (
+	OrdersDBName           = "orders"
+	OrdersDatabaseFilename = "orders.db"
+)
 
 type ordersDB struct {
 	SQLDB

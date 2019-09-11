@@ -16,7 +16,10 @@ import (
 // ErrUsedSerials represents errors from the used serials database.
 var ErrUsedSerials = errs.Class("usedserialsdb error")
 
-var UsedSerialsDatabaseFilename = "used_serial.db"
+const (
+	UsedSerialsDBName           = "used_serial"
+	UsedSerialsDatabaseFilename = "used_serial.db"
+)
 
 type usedSerialsDB struct {
 	SQLDB
