@@ -163,7 +163,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB:   0,
-				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
 				MaxReverifyCount:   3,
