@@ -17,12 +17,8 @@ setup(){
     }
     random_bytes_file 2x1024      "$TEST_FILES_DIR/small-upload-testfile" # create 2kb file of random bytes (inline)
     random_bytes_file 5x1024x1024 "$TEST_FILES_DIR/big-upload-testfile"   # create 5mb file of random bytes (remote)
-    echo "setup test successfully"
-}
 
-cleanup(){
-    rm -rf "$STORJ_NETWORK_DIR"
-    echo "cleaned up test successfully"
+    echo "setup test successfully"
 }
 
 if [[ "$1" == "upload" ]]; then
@@ -72,9 +68,10 @@ if [[ "$1" == "download" ]]; then
         echo "download test on current branch: big upload testfile does not match uploaded file"
         exit 1
     fi
+fi
 
+if [[ "$1" == "cleanup" ]]; then
     uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/small-upload-testfile"
     uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/big-upload-testfile"
     uplink --config-dir "$GATEWAY_0_DIR" rb "sj://$BUCKET"
-    cleanup
 fi

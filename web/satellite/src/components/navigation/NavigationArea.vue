@@ -11,9 +11,30 @@ import { NavigationLink } from '@/types/navigation';
 
 @Component
 export default class NavigationArea extends Vue {
+    public areResourceItemsShown: boolean = true;
+    public isResourceButtonShown: boolean = false;
+    public areAccountItemsShown: boolean = true;
+    public isAccountButtonShown: boolean = false;
+
+    public toggleResourceItemsVisibility(): void {
+        this.areResourceItemsShown = !this.areResourceItemsShown;
+    }
+
+    public toggleResourceButtonVisibility(): void {
+        this.isResourceButtonShown = !this.isResourceButtonShown;
+    }
+
+    public toggleAccountItemsVisibility(): void {
+        this.areAccountItemsShown = !this.areAccountItemsShown;
+    }
+
+    public toggleAccountButtonVisibility(): void {
+        this.isAccountButtonShown = !this.isAccountButtonShown;
+    }
+
     // TODO: Use SvgLoaderComponent to reduce markup lines
     public readonly navigation: NavigationLink[] = [
-        RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).withIcon(
+        RouteConfig.ProjectOverview.withIcon(
             `<svg class="svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22.073 5.3913C21.8382 5.15652 21.5252 5 21.2121 5H6.89038C6.26429 5 5.71647 5.54783 5.79473 6.09565L2.19473 6.01739C1.80342 6.09565 1.49038 6.17391 1.2556 6.48696C1.09908 6.72174 0.942555 7.03478 1.02082 7.42609L3.13386 18.4609C3.21212 19.0087 3.68169 19.4 4.22951 19.4H19.0991C19.6469 19.4 20.1165 19.0087 20.1947 18.4609L22.3078 6.33043C22.386 6.01739 22.3078 5.62609 22.073 5.3913ZM19.6469 14.7826L18.7078 9.38261C18.6295 8.75652 18.0034 8.28696 17.3773 8.28696H8.4556C8.37734 8.28696 8.29908 8.2087 8.29908 8.13043L8.14256 7.34783C8.14256 6.8 7.75125 6.33043 7.28169 6.17391L21.2121 6.09565L19.6469 14.7826Z" fill="#363840"/>
             </svg>`),
@@ -50,6 +71,12 @@ export default class NavigationArea extends Vue {
                <path d="M2.53227 9.81792C2.17175 9.81792 1.90137 9.54519 1.90137 9.18155V5.90882C1.90137 5.54519 2.17175 5.27246 2.53227 5.27246H20.4679C20.8284 5.27246 21.0988 5.54519 21.0988 5.90882V8.99973C21.0988 9.36337 20.8284 9.6361 20.4679 9.6361C20.1074 9.6361 19.837 9.36337 19.837 8.99973V6.54519H3.16317V9.18155C3.16317 9.54519 2.89278 9.81792 2.53227 9.81792Z" fill="#354049"/>
                <path d="M20.4679 4.27273H2.53227C2.17175 4.27273 1.90137 4 1.90137 3.63636C1.90137 3.27273 2.17175 3 2.53227 3H20.4679C20.8284 3 21.0988 3.27273 21.0988 3.63636C21.0988 4 20.8284 4.27273 20.4679 4.27273Z" fill="#354049"/>
             </svg>`),
+    ];
+
+    public readonly accountNavigation: NavigationLink[] = [
+        RouteConfig.Account.with(RouteConfig.Profile),
+        RouteConfig.Account.with(RouteConfig.Billing),
+        RouteConfig.Account.with(RouteConfig.PaymentMethods),
     ];
 
     public onLogoClick(): void {

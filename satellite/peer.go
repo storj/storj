@@ -68,6 +68,8 @@ import (
 var mon = monkit.Package()
 
 // DB is the master database for the satellite
+//
+// architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
 	CreateTables() error
@@ -138,6 +140,8 @@ type Config struct {
 }
 
 // Peer is the satellite
+//
+// architecture: Peer
 type Peer struct {
 	// core dependencies
 	Log      *zap.Logger
@@ -176,7 +180,7 @@ type Peer struct {
 	}
 
 	Metainfo struct {
-		Database  storage.KeyValueStore // TODO: move into pointerDB
+		Database  metainfo.PointerDB // TODO: move into pointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
 		Loop      *metainfo.Loop
@@ -539,7 +543,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
@@ -727,6 +731,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.DBCleanup.Chore.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
 	})
 	group.Go(func() error {
@@ -757,9 +764,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.DBCleanup.Chore.Run(ctx))
 	})
 
 	return group.Wait()
@@ -792,6 +796,8 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Marketing.Listener.Close())
 	}
 
+	// close services in reverse initialization order
+
 	if peer.Audit.Chore != nil {
 		errlist.Add(peer.Audit.Chore.Close())
 	}
@@ -799,7 +805,13 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Audit.Worker.Close())
 	}
 
-	// close services in reverse initialization order
+	if peer.Accounting.Rollup != nil {
+		errlist.Add(peer.Accounting.Rollup.Close())
+	}
+	if peer.Accounting.Tally != nil {
+		errlist.Add(peer.Accounting.Tally.Close())
+	}
+
 	if peer.DBCleanup.Chore != nil {
 		errlist.Add(peer.DBCleanup.Chore.Close())
 	}

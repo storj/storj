@@ -149,10 +149,10 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func cmdAuthorize(cmd *cobra.Command, args []string) error {
+func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
+	err = version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -204,6 +204,9 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = errs.Combine(err, client.Close())
+	}()
 
 	signedChainBytes, err := client.Sign(ctx, authToken)
 	if err != nil {

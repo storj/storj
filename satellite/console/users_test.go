@@ -62,6 +62,47 @@ func TestUserRepository(t *testing.T) {
 	})
 }
 
+func TestUserEmailCase(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+		for _, testCase := range []struct {
+			email    string
+			expected string
+		}{
+			{email: "prettyandsimple@example.com"},
+			{email: "firstname.lastname@domain.com	"},
+			{email: "email@subdomain.domain.com	"},
+			{email: "firstname+lastname@domain.com	"},
+			{email: "email@[123.123.123.123]	"},
+			{email: "\"email\"@domain.com"},
+			{email: "_______@domain.com	"},
+		} {
+			newUser := &console.User{
+				ID:           testrand.UUID(),
+				FullName:     newName,
+				ShortName:    newLastName,
+				Email:        testCase.email,
+				Status:       console.Active,
+				PasswordHash: []byte(newPass),
+			}
+
+			createdUser, err := db.Console().Users().Insert(ctx, newUser)
+			assert.NoError(t, err)
+			assert.Equal(t, testCase.email, createdUser.Email)
+
+			createdUser.Status = console.Active
+
+			err = db.Console().Users().Update(ctx, createdUser)
+			assert.NoError(t, err)
+
+			retrievedUser, err := db.Console().Users().GetByEmail(ctx, testCase.email)
+			assert.NoError(t, err)
+			assert.Equal(t, testCase.email, retrievedUser.Email)
+		}
+	})
+}
+
 func testUsers(ctx context.Context, t *testing.T, repository console.Users, user *console.User) {
 
 	t.Run("User insertion success", func(t *testing.T) {

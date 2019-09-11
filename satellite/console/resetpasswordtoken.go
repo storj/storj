@@ -14,6 +14,8 @@ import (
 )
 
 // ResetPasswordTokens is interface for working with reset password tokens
+//
+// architecture: Database
 type ResetPasswordTokens interface {
 	// Create creates new reset password token
 	Create(ctx context.Context, ownerID uuid.UUID) (*ResetPasswordToken, error)
