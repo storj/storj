@@ -311,23 +311,18 @@ func (db *DB) closeDatabases() error {
 }
 
 // closeDatabase closes the specified SQLite database connections and removes them from the associated maps.
-func (db *DB) closeDatabase(filename string) error {
-	var err error
-
-	if sqlConn, ok := db.sqlDatabases[filename]; ok {
-		err = errs.Combine(err, sqlConn.Close())
+func (db *DB) closeDatabase(filename string) (err error) {
+	if conn, ok := db.sqlDatabases[filename]; ok {
+		err = errs.Combine(err, conn.Close())
 		delete(db.sqlDatabases, filename)
 	}
-	if sqliteConn, ok := db.sqliteConnections[filename]; ok {
-		err = errs.Combine(err, sqliteConn.Close())
+	if conn, ok := db.sqliteConnections[filename]; ok {
+		err = errs.Combine(err, conn.Close())
 		delete(db.sqliteConnections, filename)
 	}
-	if err != nil {
-		db.log.Sugar().Errorf("error closing database %s: %+v", filename, err)
-	} else {
+	if err == nil {
 		db.log.Sugar().Debugf("closed database %s", filename)
 	}
-
 	return err
 }
 
