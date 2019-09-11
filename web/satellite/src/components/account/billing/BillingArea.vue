@@ -75,7 +75,6 @@ export default class BillingArea extends Vue {}
             }
 
             &__negative-balance {
-                position: relative;
                 background-color: #FFD4D2;
             }
 
