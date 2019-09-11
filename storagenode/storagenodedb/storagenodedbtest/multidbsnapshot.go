@@ -12,17 +12,35 @@ import (
 )
 
 // Snapshots is the global variable that stores all the snapshots for testing
-var Snapshots MultiDBSnapshots
+var Snapshots = MultiDBSnapshots{
+	List: []*MultiDBSnapshot{
+		&v0,
+		&v1,
+		&v2,
+		&v3,
+		&v4,
+		&v5,
+		&v6,
+		&v7,
+		&v8,
+		&v9,
+		&v10,
+		&v11,
+		&v12,
+		&v13,
+		&v14,
+		&v15,
+		&v16,
+		&v17,
+		&v18,
+		&v19,
+		&v20,
+	},
+}
 
 // MultiDBSnapshots provides a convenient list of MultiDBSnapshot
 type MultiDBSnapshots struct {
 	List []*MultiDBSnapshot
-}
-
-// Add adds a new snapshot.
-func (mdbs *MultiDBSnapshots) Add(snap *MultiDBSnapshot) *MultiDBSnapshot {
-	mdbs.List = append(mdbs.List, snap)
-	return snap
 }
 
 // FindVersion finds a snapshot with the specified version.

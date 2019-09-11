@@ -3,7 +3,7 @@
 
 package storagenodedbtest
 
-var v10 = Snapshots.Add(&MultiDBSnapshot{
+var v10 = MultiDBSnapshot{
 	Version: 10,
 	Databases: Databases{
 		"versions": &DBSnapshot{
@@ -134,4 +134,4 @@ var v10 = Snapshots.Add(&MultiDBSnapshot{
 			`,
 		},
 	},
-})
+}
