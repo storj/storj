@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleserver"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -46,6 +47,8 @@ var (
 )
 
 // DB is the master database for Storage Node
+//
+// architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
 	CreateTables() error
@@ -60,7 +63,6 @@ type DB interface {
 	PieceSpaceUsedDB() pieces.PieceSpaceUsedDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
-	Console() console.DB
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
 
@@ -89,6 +91,8 @@ type Config struct {
 	Version version.Config
 
 	Bandwidth bandwidth.Config
+
+	Contact contact.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -97,6 +101,8 @@ func (config *Config) Verify(log *zap.Logger) error {
 }
 
 // Peer is the representation of a Storage Node.
+//
+// architecture: Peer
 type Peer struct {
 	// core dependencies
 	Log      *zap.Logger
@@ -116,6 +122,12 @@ type Peer struct {
 		Service      *kademlia.Kademlia
 		Endpoint     *kademlia.Endpoint
 		Inspector    *kademlia.Inspector
+	}
+
+	Contact struct {
+		Endpoint  *contact.Endpoint
+		Chore     *contact.Chore
+		PingStats *contact.PingStats
 	}
 
 	Storage2 struct {
@@ -238,6 +250,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
 	}
 
+	{ // setup contact service
+		peer.Contact.PingStats = new(contact.PingStats)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
+		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+	}
+
 	{ // setup storage
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.DB.Pieces())
 
@@ -290,9 +309,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
+		sc := config.Server
+		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		// TODO workaround for custom timeout for order sending request (read/write)
+		ordersTransport := transport.NewClientWithTimeouts(options, transport.Timeouts{
+			Dial:    config.Storage2.Orders.SenderDialTimeout,
+			Request: config.Storage2.Orders.SenderRequestTimeout,
+		})
+
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
-			peer.Transport,
+			ordersTransport,
 			peer.DB.Orders(),
 			peer.Storage2.Trust,
 			config.Storage2.Orders,
@@ -319,7 +350,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup storage node operator dashboard
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			peer.DB.Console(),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
 			peer.Kademlia.Service,
@@ -421,6 +451,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
+	})
+
 	return group.Wait()
 }
 
@@ -437,6 +471,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.Contact.Chore != nil {
+		errlist.Add(peer.Contact.Chore.Close())
+	}
 	if peer.Bandwidth != nil {
 		errlist.Add(peer.Bandwidth.Close())
 	}

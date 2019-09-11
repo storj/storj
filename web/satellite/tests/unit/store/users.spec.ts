@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
+
 import { UsersApiGql } from '@/api/users';
-import { makeUsersModule } from '@/store/modules/users';
+import { makeUsersModule, USER_ACTIONS, USER_MUTATIONS } from '@/store/modules/users';
 import { UpdatedUser, User } from '@/types/users';
-import { USER_MUTATIONS, USER_ACTIONS } from '@/store/modules/users';
+import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const usersApi = new UsersApiGql();

@@ -1,11 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { NOTIFICATION_MUTATIONS } from '../mutationConstants';
-import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
+import { StoreModule } from '@/store';
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { StoreModule } from '@/store';
+import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
+
+import { NOTIFICATION_MUTATIONS } from '../mutationConstants';
 
 class NotificationsState {
     public notificationQueue: DelayedNotification[] = [];

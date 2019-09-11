@@ -4,7 +4,7 @@
 <template>
     <div class="team-area">
         <div class="team-area__header">
-            <HeaderArea :headerState="headerState" :selectedProjectMembers="selectedProjectMembers.length"/>
+            <HeaderArea :headerState="headerState" :selectedProjectMembersCount="selectedProjectMembers.length"/>
         </div>
         <div class="team-area__container" id="team-container" v-if="projectMembersCount > 0 || projectMembersTotalCount > 0">
             <SortingListHeader :onHeaderClickCallback="onHeaderSectionClickCallback"/>
@@ -57,89 +57,89 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    import List from '@/components/common/List.vue';
-    import Pagination from '@/components/common/Pagination.vue';
-    import HeaderArea from '@/components/team/HeaderArea.vue';
-    import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
-    import SortingListHeader from '@/components/team/SortingListHeader.vue';
-    import { ProjectMember, ProjectMemberOrderBy } from '@/types/projectMembers';
-    import { SortDirection } from '@/types/common';
-    import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import List from '@/components/common/List.vue';
+import Pagination from '@/components/common/Pagination.vue';
+import HeaderArea from '@/components/team/HeaderArea.vue';
+import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
+import SortingListHeader from '@/components/team/SortingListHeader.vue';
 
-    enum HeaderState {
-        DEFAULT = 0,
-        ON_SELECT,
+import { SortDirection } from '@/types/common';
+import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
+import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+
+@Component({
+    components: {
+        HeaderArea,
+        List,
+        Pagination,
+        SortingListHeader,
+    }
+})
+export default class ProjectMembersArea extends Vue {
+    private FIRST_PAGE = 1;
+
+    public async beforeDestroy(): Promise<void> {
+        await this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
     }
 
-    @Component({
-        components: {
-            HeaderArea,
-            List,
-            Pagination,
-            SortingListHeader,
-        }
-    })
-    export default class ProjectMembersArea extends Vue {
-        private FIRST_PAGE = 1;
+    public onMemberClick(member: ProjectMember): void {
+        this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
+    }
 
-        public onMemberClick(member: ProjectMember): void {
-            this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
-        }
+    public get projectMembers(): ProjectMember[] {
+        return this.$store.state.projectMembersModule.page.projectMembers;
+    }
 
-        public get projectMembers(): ProjectMember[] {
-            return this.$store.state.projectMembersModule.page.projectMembers;
-        }
+    public get getItemComponent() {
+        return ProjectMemberListItem;
+    }
 
-        public get getItemComponent() {
-            return ProjectMemberListItem;
-        }
+    public get projectMembersTotalCount(): number {
+        return this.$store.state.projectMembersModule.page.totalCount;
+    }
 
-        public get projectMembersTotalCount(): number {
-            return this.$store.state.projectMembersModule.page.totalCount;
-        }
+    public get projectMembersCount(): number {
+        return this.$store.state.projectMembersModule.page.projectMembers.length;
+    }
 
-        public get projectMembersCount(): number {
-            return this.$store.state.projectMembersModule.page.projectMembers.length;
-        }
+    public get totalPageCount(): number {
+        return this.$store.state.projectMembersModule.page.pageCount;
+    }
 
-        public get totalPageCount(): number {
-            return this.$store.state.projectMembersModule.page.pageCount;
+    public get selectedProjectMembers(): ProjectMember[] {
+        return this.$store.getters.selectedProjectMembers;
+    }
+
+    public get headerState(): number {
+        if (this.selectedProjectMembers.length > 0) {
+            return ProjectMemberHeaderState.ON_SELECT;
         }
 
-        public get selectedProjectMembers(): ProjectMember[] {
-            return this.$store.getters.selectedProjectMembers;
-        }
+        return ProjectMemberHeaderState.DEFAULT;
+    }
 
-        public get headerState(): number {
-            if (this.selectedProjectMembers.length > 0) {
-                return HeaderState.ON_SELECT;
-            }
-
-            return HeaderState.DEFAULT;
-        }
-
-        public async onPageClick(index: number):Promise<void> {
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, index);
-            } catch (err) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
-            }
-        }
-
-        public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
-            this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
-            this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
-            }
-
-            (this.$refs.pagination as Pagination).resetPageIndex();
+    public async onPageClick(index: number):Promise<void> {
+        try {
+            await this.$store.dispatch(PM_ACTIONS.FETCH, index);
+        } catch (err) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
         }
     }
+
+    public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
+        this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
+        this.$store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, sortDirection);
+        try {
+            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+        }
+
+        (this.$refs.pagination as Pagination).resetPageIndex();
+    }
+}
 </script>
 
 <style scoped lang="scss">

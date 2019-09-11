@@ -2,90 +2,40 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
-        <div v-if="billing > 0" class="billing-overflow">
-            <div class="billing-container">
-                <div class="billing-container__table-holder">
-                    <table class="billing-container__table">
-                        <SortingHeader />
-                        <BillingItem />
-                    </table>
-                </div>
-                <PaginationArea />
-            </div>
-        </div>
+    <div class="account-billing-area">
+        <AccountBalance/>
+        <MonthlyBillingSummary/>
+        <DepositAndBilling/>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import BillingItem from '@/components/account/billing/BillingItem.vue';
-    import PaginationArea from '@/components/account/billing/PaginationArea.vue';
-    import SortingHeader from '@/components/account/billing/SortingHeader.vue';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            EmptyState,
-            SortingHeader,
-            BillingItem,
-            PaginationArea,
-        }
-    })
-    export default class BillingArea extends Vue {
-        public billing: number = 1;
+import AccountBalance from '@/components/account/billing/AccountBalance.vue';
+import DepositAndBilling from '@/components/account/billing/DepositAndBilling.vue';
+import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
+
+@Component({
+    components: {
+        AccountBalance,
+        MonthlyBillingSummary,
+        DepositAndBilling,
     }
+})
+export default class BillingArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .billing-container {
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        width: 0;
+    }
+
+    .account-billing-area {
         margin-top: 83px;
-    
-        &__table {
-            margin-top: 20px;
-            width: 100%;
-        }
-    }
-    
-    .table-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 20px 90px 0 40px;
-        
-        &:last-child {
-            padding-left: 20px;
-        }
-    }
-    
-    @media screen and (max-height: 900px) {
-        .billing-container__table-holder {
-            overflow-y: scroll;
-            height: 555px;
-        
-            &::-webkit-scrollbar,
-            &::-webkit-scrollbar-track,
-            &::-webkit-scrollbar-thumb {
-                visibility: hidden;
-            }
-        }
-    }
-    
-    @media screen and (max-height: 860px) {
-        .billing-container__table-holder {
-            height: 535px;
-        }
-    }
-    
-    @media screen and (max-height: 835px) {
-        .billing-container__table-holder {
-            height: 495px;
-        }
-    }
-    
-    @media screen and (max-height: 795px) {
-        .billing-container__table-holder {
-            height: 475px;
-        }
+        overflow-y: scroll;
+        height: 75vh;
     }
 </style>

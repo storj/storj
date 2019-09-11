@@ -11,6 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/date"
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
@@ -124,6 +126,51 @@ func (db *bandwidthDB) Summary(ctx context.Context, from, to time.Time) (_ *band
 	return usage, ErrBandwidth.Wrap(rows.Err())
 }
 
+// SatelliteSummary returns aggregated bandwidth usage for a particular satellite.
+func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
+	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
+
+	from, to = from.UTC(), to.UTC()
+
+	query := `SELECT action, sum(a) amount from(
+			SELECT action, sum(amount) a
+				FROM bandwidth_usage
+				WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+				AND satellite_id = ?
+				GROUP BY action
+			UNION ALL
+			SELECT action, sum(amount) a
+				FROM bandwidth_usage_rollups
+				WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+				AND satellite_id = ?
+				GROUP BY action
+		) GROUP BY action;`
+
+	rows, err := db.QueryContext(ctx, query, from, to, satelliteID, from, to, satelliteID)
+	if err != nil {
+		return nil, ErrBandwidth.Wrap(err)
+	}
+
+	defer func() {
+		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
+	}()
+
+	usage := new(bandwidth.Usage)
+	for rows.Next() {
+		var action pb.PieceAction
+		var amount int64
+
+		err := rows.Scan(&action, &amount)
+		if err != nil {
+			return nil, err
+		}
+
+		usage.Include(action, amount)
+	}
+
+	return usage, nil
+}
+
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
 func (db *bandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storj.NodeID]*bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -218,6 +265,111 @@ func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
 	}
 
 	return nil
+}
+
+// GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
+// sorted in ascending order.
+func (db *bandwidthDB) GetDailyRollups(ctx context.Context, from, to time.Time) (_ []bandwidth.UsageRollup, err error) {
+	defer mon.Task()(&ctx, from, to)(&err)
+
+	since, _ := date.DayBoundary(from.UTC())
+	_, before := date.DayBoundary(to.UTC())
+
+	return db.getDailyUsageRollups(ctx,
+		"WHERE DATETIME(?) <= DATETIME(interval_start) AND DATETIME(interval_start) <= DATETIME(?)",
+		since, before)
+}
+
+// GetDailySatelliteRollups returns slice of daily bandwidth usage for provided time range,
+// sorted in ascending order for a particular satellite.
+func (db *bandwidthDB) GetDailySatelliteRollups(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []bandwidth.UsageRollup, err error) {
+	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
+
+	since, _ := date.DayBoundary(from.UTC())
+	_, before := date.DayBoundary(to.UTC())
+
+	return db.getDailyUsageRollups(ctx,
+		"WHERE satellite_id = ? AND DATETIME(?) <= DATETIME(interval_start) AND DATETIME(interval_start) <= DATETIME(?)",
+		satelliteID, since, before)
+}
+
+// getDailyUsageRollups returns slice of grouped by date bandwidth usage rollups
+// sorted in ascending order and applied condition if any.
+func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, args ...interface{}) (_ []bandwidth.UsageRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT action, sum(a) as amount, DATETIME(DATE(interval_start)) as date FROM (
+			SELECT action, sum(amount) as a, created_at AS interval_start
+				FROM bandwidth_usage
+				` + cond + `
+				GROUP BY interval_start, action
+			UNION ALL
+			SELECT action, sum(amount) as a, interval_start
+				FROM bandwidth_usage_rollups
+				` + cond + `
+				GROUP BY interval_start, action
+		) GROUP BY date, action
+		ORDER BY interval_start`
+
+	// duplicate args as they are used twice
+	args = append(args, args...)
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, ErrBandwidth.Wrap(err)
+	}
+
+	defer func() {
+		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
+	}()
+
+	var dates []time.Time
+	usageRollupsByDate := make(map[time.Time]*bandwidth.UsageRollup)
+
+	for rows.Next() {
+		var action int32
+		var amount int64
+		var intervalStartN dbutil.NullTime
+
+		err = rows.Scan(&action, &amount, &intervalStartN)
+		if err != nil {
+			return nil, err
+		}
+
+		intervalStart := intervalStartN.Time
+
+		rollup, ok := usageRollupsByDate[intervalStart]
+		if !ok {
+			rollup = &bandwidth.UsageRollup{
+				IntervalStart: intervalStart,
+			}
+
+			dates = append(dates, intervalStart)
+			usageRollupsByDate[intervalStart] = rollup
+		}
+
+		switch pb.PieceAction(action) {
+		case pb.PieceAction_GET:
+			rollup.Egress.Usage = amount
+		case pb.PieceAction_GET_AUDIT:
+			rollup.Egress.Audit = amount
+		case pb.PieceAction_GET_REPAIR:
+			rollup.Egress.Repair = amount
+		case pb.PieceAction_PUT:
+			rollup.Ingress.Usage = amount
+		case pb.PieceAction_PUT_REPAIR:
+			rollup.Ingress.Repair = amount
+		case pb.PieceAction_DELETE:
+			rollup.Delete = amount
+		}
+	}
+
+	var usageRollups []bandwidth.UsageRollup
+	for _, d := range dates {
+		usageRollups = append(usageRollups, *usageRollupsByDate[d])
+	}
+
+	return usageRollups, nil
 }
 
 func getBeginningOfMonth(now time.Time) time.Time {

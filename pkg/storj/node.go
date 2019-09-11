@@ -110,12 +110,12 @@ func (id NodeID) IsZero() bool {
 // Bytes returns raw bytes of the id
 func (id NodeID) Bytes() []byte { return id[:] }
 
-// Less returns whether id is smaller than b in lexiographic order
-func (id NodeID) Less(b NodeID) bool {
+// Less returns whether id is smaller than other in lexicographic order.
+func (id NodeID) Less(other NodeID) bool {
 	for k, v := range id {
-		if v < b[k] {
+		if v < other[k] {
 			return true
-		} else if v > b[k] {
+		} else if v > other[k] {
 			return false
 		}
 	}

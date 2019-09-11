@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 import { StoreModule } from '@/store';
+import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 
 export const BUCKET_ACTIONS = {
     FETCH: 'setBuckets',
@@ -26,7 +26,7 @@ const {
     SET_SEARCH,
     CLEAR,
 } = BUCKET_MUTATIONS;
-const bucketPageLimit = 8;
+const bucketPageLimit = 7;
 const firstPage = 1;
 
 class BucketsState {
@@ -66,7 +66,7 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
 
                 commit(SET_PAGE, page);
 
-                let result = await api.get(projectID, before, state.cursor);
+                const result = await api.get(projectID, before, state.cursor);
 
                 commit(SET, result);
 
