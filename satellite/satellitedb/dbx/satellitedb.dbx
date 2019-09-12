@@ -843,7 +843,7 @@ model graceful_exit_progress (
     key node_id
 
     field node_id              blob
-    field bytes_transferred    int64
+    field bytes_transferred    int64     ( updatable )
     field updated_at           timestamp ( autoinsert, autoupdate )
 )
 
@@ -867,12 +867,12 @@ model graceful_exit_transfer_queue (
     field node_id             blob
     field path                blob
     field piece_num           int
-    field durability_ratio    float64
+    field durability_ratio    float64   ( updatable )
     field queued_at           timestamp ( autoinsert ) 
     field requested_at        timestamp ( updatable, nullable ) 
     field last_failed_at      timestamp ( updatable, nullable ) 
-    field last_failed_code    int (nullable)
-    field failed_count        int (nullable)
+    field last_failed_code    int       ( updatable, nullable )
+    field failed_count        int       ( updatable, nullable )
     field finished_at         timestamp ( updatable, nullable )
 )
 

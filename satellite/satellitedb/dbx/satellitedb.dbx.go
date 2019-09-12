@@ -1872,6 +1872,7 @@ type GracefulExitProgress struct {
 func (GracefulExitProgress) _Table() string { return "graceful_exit_progress" }
 
 type GracefulExitProgress_Update_Fields struct {
+	BytesTransferred GracefulExitProgress_BytesTransferred_Field
 }
 
 type GracefulExitProgress_NodeId_Field struct {
@@ -1955,9 +1956,12 @@ type GracefulExitTransferQueue_Create_Fields struct {
 }
 
 type GracefulExitTransferQueue_Update_Fields struct {
-	RequestedAt  GracefulExitTransferQueue_RequestedAt_Field
-	LastFailedAt GracefulExitTransferQueue_LastFailedAt_Field
-	FinishedAt   GracefulExitTransferQueue_FinishedAt_Field
+	DurabilityRatio GracefulExitTransferQueue_DurabilityRatio_Field
+	RequestedAt     GracefulExitTransferQueue_RequestedAt_Field
+	LastFailedAt    GracefulExitTransferQueue_LastFailedAt_Field
+	LastFailedCode  GracefulExitTransferQueue_LastFailedCode_Field
+	FailedCount     GracefulExitTransferQueue_FailedCount_Field
+	FinishedAt      GracefulExitTransferQueue_FinishedAt_Field
 }
 
 type GracefulExitTransferQueue_NodeId_Field struct {
@@ -9356,6 +9360,11 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx conte
 	var __values []interface{}
 	var __args []interface{}
 
+	if update.BytesTransferred._set {
+		__values = append(__values, update.BytesTransferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_transferred = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -9389,6 +9398,11 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_
 	var __values []interface{}
 	var __args []interface{}
 
+	if update.DurabilityRatio._set {
+		__values = append(__values, update.DurabilityRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
+	}
+
 	if update.RequestedAt._set {
 		__values = append(__values, update.RequestedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
@@ -9397,6 +9411,16 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_
 	if update.LastFailedAt._set {
 		__values = append(__values, update.LastFailedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
+	}
+
+	if update.LastFailedCode._set {
+		__values = append(__values, update.LastFailedCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
+	}
+
+	if update.FailedCount._set {
+		__values = append(__values, update.FailedCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
 	}
 
 	if update.FinishedAt._set {
@@ -13656,6 +13680,11 @@ func (obj *sqlite3Impl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx contex
 	var __values []interface{}
 	var __args []interface{}
 
+	if update.BytesTransferred._set {
+		__values = append(__values, update.BytesTransferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_transferred = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -13689,6 +13718,11 @@ func (obj *sqlite3Impl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_P
 	var __values []interface{}
 	var __args []interface{}
 
+	if update.DurabilityRatio._set {
+		__values = append(__values, update.DurabilityRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
+	}
+
 	if update.RequestedAt._set {
 		__values = append(__values, update.RequestedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
@@ -13697,6 +13731,16 @@ func (obj *sqlite3Impl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_P
 	if update.LastFailedAt._set {
 		__values = append(__values, update.LastFailedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
+	}
+
+	if update.LastFailedCode._set {
+		__values = append(__values, update.LastFailedCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
+	}
+
+	if update.FailedCount._set {
+		__values = append(__values, update.FailedCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
 	}
 
 	if update.FinishedAt._set {
