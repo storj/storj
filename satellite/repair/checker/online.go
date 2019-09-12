@@ -16,6 +16,8 @@ import (
 
 // ReliabilityCache caches the reliable nodes for the specified staleness duration
 // and updates automatically from overlay.
+//
+// architecture: Service
 type ReliabilityCache struct {
 	overlay   *overlay.Service
 	staleness time.Duration

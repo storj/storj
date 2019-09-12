@@ -32,8 +32,7 @@ export default class PaginationArea extends Vue {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding-left: 25px;
-        margin-top: 25px;
+        margin-top: 39px;
     
         &__pages {
             display: flex;

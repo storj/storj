@@ -68,7 +68,9 @@ type Config struct {
 	Orders  orders.Config
 }
 
-// Endpoint implements uploading, downloading and deleting for a storage node.
+// Endpoint implements uploading, downloading and deleting for a storage node..
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log    *zap.Logger
 	config Config
@@ -615,6 +617,11 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	}
 
 	return &pb.RetainResponse{}, nil
+}
+
+// TestLiveRequestCount returns the current number of live requests.
+func (endpoint *Endpoint) TestLiveRequestCount() int32 {
+	return atomic.LoadInt32(&endpoint.liveRequests)
 }
 
 // min finds the min of two values

@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 )
@@ -30,10 +31,13 @@ var (
 )
 
 // Endpoint does inspectory things
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log        *zap.Logger
 	pieceStore *pieces.Store
 	kademlia   *kademlia.Kademlia
+	pingStats  *contact.PingStats
 	usageDB    bandwidth.DB
 
 	startTime        time.Time
@@ -46,6 +50,7 @@ func NewEndpoint(
 	log *zap.Logger,
 	pieceStore *pieces.Store,
 	kademlia *kademlia.Kademlia,
+	pingStats *contact.PingStats,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
 	dashbaordAddress net.Addr) *Endpoint {
@@ -54,6 +59,7 @@ func NewEndpoint(
 		log:              log,
 		pieceStore:       pieceStore,
 		kademlia:         kademlia,
+		pingStats:        pingStats,
 		usageDB:          usageDB,
 		pieceStoreConfig: pieceStoreConfig,
 		dashboardAddress: dashbaordAddress,
@@ -92,14 +98,10 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	inspector.log.Debug("Getting Stats...")
-
 	statsSummary, err := inspector.retrieveStats(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	inspector.log.Info("Successfully retrieved Stats...")
 
 	return statsSummary, nil
 }
@@ -124,17 +126,20 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 		bsNodes[i] = node.Address.Address
 	}
 
+	lastPingedAt, lastPingFromID, lastPingFromAddress := inspector.pingStats.WhenLastPinged()
+
 	return &pb.DashboardResponse{
-		NodeId:           inspector.kademlia.Local().Id,
-		NodeConnections:  int64(len(nodes)),
-		BootstrapAddress: strings.Join(bsNodes, ", "),
-		InternalAddress:  "",
-		ExternalAddress:  inspector.kademlia.Local().Address.Address,
-		LastPinged:       inspector.kademlia.LastPinged(),
-		LastQueried:      inspector.kademlia.LastQueried(),
-		DashboardAddress: inspector.dashboardAddress.String(),
-		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
-		Stats:            statsSummary,
+		NodeId:              inspector.kademlia.Local().Id,
+		NodeConnections:     int64(len(nodes)),
+		BootstrapAddress:    strings.Join(bsNodes, ", "),
+		InternalAddress:     "",
+		ExternalAddress:     inspector.kademlia.Local().Address.Address,
+		LastPinged:          lastPingedAt,
+		LastPingFromId:      &lastPingFromID,
+		LastPingFromAddress: lastPingFromAddress,
+		DashboardAddress:    inspector.dashboardAddress.String(),
+		Uptime:              ptypes.DurationProto(time.Since(inspector.startTime)),
+		Stats:               statsSummary,
 	}, nil
 }
 
