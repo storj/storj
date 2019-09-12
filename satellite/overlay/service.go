@@ -69,7 +69,7 @@ type DB interface {
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
-	UpdateCheckIn(ctx context.Context, node NodeCheckinInfo, defaults NodeSelectionConfig) (err error)
+	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, config NodeSelectionConfig) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -77,21 +77,14 @@ type DB interface {
 	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
 }
 
-// NodeCheckinInfo contains all the info that will be updated when a node checkins
-type NodeCheckinInfo struct {
+// NodeCheckInInfo contains all the info that will be updated when a node checkins
+type NodeCheckInInfo struct {
 	NodeID   storj.NodeID
 	Address  *pb.NodeAddress
 	LastIP   string
 	IsUp     bool
 	Operator *pb.NodeOperator
 	Capacity *pb.NodeCapacity
-	// Lambda is the "forgetting factor" which determines how much past info is
-	// kept when determining current reputation score.
-	Lambda float64
-	// Weight is the normalization weight that affects how severely new updates
-	// affect the current reputation distribution.
-	Weight   float64
-	UptimeDQ float64
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -403,12 +396,8 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info.
-func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckinInfo) (err error) {
+func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	node.Lambda = service.config.Node.UptimeReputationLambda
-	node.Weight = service.config.Node.UptimeReputationWeight
-	node.UptimeDQ = service.config.Node.UptimeReputationDQ
-
 	return service.db.UpdateCheckIn(ctx, node, service.config.Node)
 }
 

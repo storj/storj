@@ -48,7 +48,7 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	nodeInfo := overlay.NodeCheckinInfo{
+	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID:   peerID,
 		Address:  req.Address,
 		IsUp:     pingNodeSuccess,

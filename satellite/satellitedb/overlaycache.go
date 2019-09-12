@@ -1071,6 +1071,7 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	if isSuccess {
 		v = 1
 	}
+	// config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
 	newAlpha = lambda*alpha + w*(1+v)/2
 	newBeta = lambda*beta + w*(1-v)/2
 	return newAlpha, newBeta, totalCount + 1
@@ -1329,12 +1330,24 @@ func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) db
 
 // UpdateCheckIn updates a single storagenode with info from when the
 // the node last checked in
-func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckinInfo, defaults overlay.NodeSelectionConfig) (err error) {
+func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	switch t := cache.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
-		_, err = cache.UpdateUptime(ctx, node.NodeID, node.IsUp, node.Lambda, node.Weight, node.UptimeDQ)
+		value := pb.Node{
+			Id: node.NodeID,
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   node.Address.GetAddress(),
+			},
+		}
+		err := cache.UpdateAddress(ctx, &value, config)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		_, err = cache.UpdateUptime(ctx, node.NodeID, node.IsUp, config.UptimeReputationLambda, config.UptimeReputationWeight, config.UptimeReputationDQ)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -1342,6 +1355,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		pbInfo := pb.InfoResponse{
 			Operator: node.Operator,
 			Capacity: node.Capacity,
+			Type:     pb.NodeType_STORAGE,
 		}
 		_, err = cache.UpdateNodeInfo(ctx, node.NodeID, &pbInfo)
 		if err != nil {
@@ -1350,71 +1364,81 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 	case *pq.Driver:
 		// v is a single feedback value that allows us to update both alpha and beta
 		var v float64 = -1
+		uptimeSuccess := 0
+		lastContactSuccess := time.Time{}.UTC()
+		lastContactFailure := time.Time{}.UTC()
 		if node.IsUp {
 			v = 1
+			uptimeSuccess = 1
+			lastContactSuccess = time.Now().UTC()
+			lastContactFailure = time.Time{}.UTC()
 		}
-		result, err := cache.db.ExecContext(ctx, `
+		uptimeReputationAlpha := config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
+		uptimeReputationBeta := config.UptimeReputationLambda*config.UptimeReputationBeta0 + config.UptimeReputationWeight*(1-v)/2
+		start := time.Now()
+		query := `
 			INSERT INTO nodes
 			(
-				id, address, last_net, protocol, type, email,
-				wallet, free_bandwidth, free_disk, piece_count, major, minor,
-				patch, hash, timestamp, release, latency_90, audit_success_count,
-				total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success,
-				last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha,
-				uptime_reputation_beta
+				id, address, last_net, protocol, type,
+				email, wallet, free_bandwidth, free_disk,
+				audit_success_count, total_audit_count, uptime_success_count, total_uptime_count,
+				created_at, updated_at, last_contact_success, last_contact_failure,
+				audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
+				contained, disqualified,
+				piece_count, major, minor, patch, hash, timestamp, release, latency_90
 			)
 			VALUES (
-				$1, $2, $3, $4, $5, $6,
-				$7, $8, $9, 0, 0, 0,
-				0, '', $19, false, 0, 0,
-				0, 0, 0, current_timestamp, current_timestamp, current_timestamp,
-				$19, false, null, $10, $11, $12,
-				$13
+				$1, $2, $3, $4, $5,
+				$6, $7, $8, $9,
+				0, 0, $10, 1,
+				current_timestamp, current_timestamp, $11, $12,
+				0, 0, $13, $14,
+				false, null,
+				0, 0, 0, 0, '', $15, false, 0
 			)
 			ON CONFLICT (id)
 			DO UPDATE
 			SET
-				address = CASE WHEN $2 = nodes.address
-					THEN nodes.address
-					ELSE $2
-				END,
-				uptime_success_count = CASE WHEN $14 IS TRUE
-					THEN nodes.uptime_success_count+1
-					ELSE nodes.uptime_success_count
-				END,
-				last_contact_success = CASE WHEN $14 IS TRUE
-					THEN current_timestamp
-					ELSE nodes.last_contact_success
-				END,
-				last_contact_failure = CASE WHEN $14 IS FALSE
-					THEN current_timestamp
-					ELSE nodes.last_contact_failure
-				END,
-				disqualified = CASE WHEN (nodes.uptime_reputation_alpha/(nodes.uptime_reputation_alpha+nodes.uptime_reputation_beta)) <= $15
-					THEN current_timestamp
-					ELSE nodes.disqualified
-				END,
 				total_uptime_count=nodes.total_uptime_count+1,
-				uptime_reputation_alpha=$16*nodes.uptime_reputation_alpha + $17*(1+$18)/2,
-				uptime_reputation_beta=$16*nodes.uptime_reputation_beta + $17*(1+$18)/2,
+				uptime_reputation_alpha=$18::numeric*nodes.uptime_reputation_alpha + $19::numeric*(1+$20)/2,
+				uptime_reputation_beta=$18::numeric*nodes.uptime_reputation_beta + $19::numeric*(1-$20)/2,
 				email=$6,
 				wallet=$7,
 				free_bandwidth=$8,
 				free_disk=$9,
-				total_audit_count=$15;
-			`, node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(),
-			int(pb.NodeType_INVALID), node.Operator.GetEmail(),
-			node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
-			defaults.AuditReputationAlpha0, defaults.AuditReputationBeta0, defaults.UptimeReputationAlpha0, defaults.UptimeReputationBeta0,
-			node.IsUp, node.UptimeDQ, node.Lambda, node.Weight, v, time.Time{},
+				address = CASE WHEN $2 = nodes.address AND $2 != ''
+					THEN nodes.address
+					ELSE $2
+				END,
+				uptime_success_count = CASE WHEN $16
+					THEN nodes.uptime_success_count+1
+					ELSE nodes.uptime_success_count
+				END,
+				last_contact_success = CASE WHEN $16
+					THEN current_timestamp
+					ELSE nodes.last_contact_success
+				END,
+				last_contact_failure = CASE WHEN $16 IS FALSE
+					THEN current_timestamp
+					ELSE nodes.last_contact_failure
+				END,
+				-- this disqualified is so ugly, im sorry
+				-- the equation resolves to is: (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
+				disqualified = CASE WHEN (($18::numeric*nodes.uptime_reputation_alpha + $19::numeric*(1+$20)/2)/(($18::numeric*nodes.uptime_reputation_alpha + $19::numeric*(1+$20)/2)+($18::numeric*nodes.uptime_reputation_beta + $19::numeric*(1-$20)/2))) <= $17
+					THEN current_timestamp
+					ELSE nodes.disqualified
+				END;
+			`
+		_, err := cache.db.ExecContext(ctx, query,
+			node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
+			node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
+			uptimeSuccess, lastContactSuccess, lastContactFailure,
+			uptimeReputationAlpha, uptimeReputationBeta, time.Time{}.UTC(),
+			node.IsUp, config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight, v,
 		)
 		if err != nil {
-			fmt.Println("****** 3", err)
 			return Error.Wrap(err)
 		}
-		z, _ := result.RowsAffected()
-		fmt.Println("****** 2 rows count:", z)
-
 	default:
 		return Error.New("Unsupported database %t", t)
 	}
