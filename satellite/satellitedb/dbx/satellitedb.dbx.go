@@ -5668,28 +5668,27 @@ func (obj *postgresImpl) Create_Irreparabledb(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_AccountingTimestamps(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	accounting_timestamps_value AccountingTimestamps_Value_Field) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	__name_val := accounting_timestamps_name.value()
 	__value_val := accounting_timestamps_value.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_timestamps ( name, value ) VALUES ( ?, ? ) RETURNING accounting_timestamps.name, accounting_timestamps.value")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_timestamps ( name, value ) VALUES ( ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __name_val, __value_val)
 
-	accounting_timestamps = &AccountingTimestamps{}
-	err = obj.driver.QueryRow(__stmt, __name_val, __value_val).Scan(&accounting_timestamps.Name, &accounting_timestamps.Value)
+	_, err = obj.driver.Exec(__stmt, __name_val, __value_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return accounting_timestamps, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
@@ -5698,7 +5697,7 @@ func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
 	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
 	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-	accounting_rollup *AccountingRollup, err error) {
+	err error) {
 	__node_id_val := accounting_rollup_node_id.value()
 	__start_time_val := accounting_rollup_start_time.value()
 	__put_total_val := accounting_rollup_put_total.value()
@@ -5708,17 +5707,16 @@ func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
 	__put_repair_total_val := accounting_rollup_put_repair_total.value()
 	__at_rest_total_val := accounting_rollup_at_rest_total.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 
-	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return accounting_rollup, nil
+	return nil
 
 }
 
@@ -6044,51 +6042,49 @@ func (obj *postgresImpl) Create_BucketUsage(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_SerialNumber(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field,
 	serial_number_bucket_id SerialNumber_BucketId_Field,
 	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
-	serial_number *SerialNumber, err error) {
+	err error) {
 	__serial_number_val := serial_number_serial_number.value()
 	__bucket_id_val := serial_number_bucket_id.value()
 	__expires_at_val := serial_number_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO serial_numbers ( serial_number, bucket_id, expires_at ) VALUES ( ?, ?, ? ) RETURNING serial_numbers.id, serial_numbers.serial_number, serial_numbers.bucket_id, serial_numbers.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO serial_numbers ( serial_number, bucket_id, expires_at ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 
-	serial_number = &SerialNumber{}
-	err = obj.driver.QueryRow(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val).Scan(&serial_number.Id, &serial_number.SerialNumber, &serial_number.BucketId, &serial_number.ExpiresAt)
+	_, err = obj.driver.Exec(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return serial_number, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_UsedSerial(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_UsedSerial(ctx context.Context,
 	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
 	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-	used_serial *UsedSerial, err error) {
+	err error) {
 	__serial_number_id_val := used_serial_serial_number_id.value()
 	__storage_node_id_val := used_serial_storage_node_id.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( serial_number_id, storage_node_id ) VALUES ( ?, ? ) RETURNING used_serials.serial_number_id, used_serials.storage_node_id")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO used_serials ( serial_number_id, storage_node_id ) VALUES ( ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
 
-	used_serial = &UsedSerial{}
-	err = obj.driver.QueryRow(__stmt, __serial_number_id_val, __storage_node_id_val).Scan(&used_serial.SerialNumberId, &used_serial.StorageNodeId)
+	_, err = obj.driver.Exec(__stmt, __serial_number_id_val, __storage_node_id_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return used_serial, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
@@ -6098,7 +6094,7 @@ func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
 	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
 	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
+	err error) {
 	__bucket_name_val := bucket_storage_tally_bucket_name.value()
 	__project_id_val := bucket_storage_tally_project_id.value()
 	__interval_start_val := bucket_storage_tally_interval_start.value()
@@ -6109,48 +6105,46 @@ func (obj *postgresImpl) Create_BucketStorageTally(ctx context.Context,
 	__object_count_val := bucket_storage_tally_object_count.value()
 	__metadata_size_val := bucket_storage_tally_metadata_size.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
-	bucket_storage_tally = &BucketStorageTally{}
-	err = obj.driver.QueryRow(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val).Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+	_, err = obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return bucket_storage_tally, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_StoragenodeStorageTally(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
 	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
 	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
 	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
-	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	err error) {
 	__node_id_val := storagenode_storage_tally_node_id.value()
 	__interval_end_time_val := storagenode_storage_tally_interval_end_time.value()
 	__data_total_val := storagenode_storage_tally_data_total.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_storage_tallies ( node_id, interval_end_time, data_total ) VALUES ( ?, ?, ? ) RETURNING storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_storage_tallies ( node_id, interval_end_time, data_total ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 
-	storagenode_storage_tally = &StoragenodeStorageTally{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __interval_end_time_val, __data_total_val).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return storagenode_storage_tally, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_PeerIdentity(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
 	peer_identity_chain PeerIdentity_Chain_Field) (
-	peer_identity *PeerIdentity, err error) {
+	err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := peer_identity_node_id.value()
@@ -6158,17 +6152,16 @@ func (obj *postgresImpl) Create_PeerIdentity(ctx context.Context,
 	__chain_val := peer_identity_chain.value()
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? ) RETURNING peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO peer_identities ( node_id, leaf_serial_number, chain, updated_at ) VALUES ( ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
-	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return peer_identity, nil
+	return nil
 
 }
 
@@ -8053,13 +8046,13 @@ func (obj *postgresImpl) Update_Irreparabledb_By_Segmentpath(ctx context.Context
 	return irreparabledb, nil
 }
 
-func (obj *postgresImpl) Update_AccountingTimestamps_By_Name(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ? RETURNING accounting_timestamps.name, accounting_timestamps.value")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8071,7 +8064,7 @@ func (obj *postgresImpl) Update_AccountingTimestamps_By_Name(ctx context.Context
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+		return emptyUpdate()
 	}
 
 	__args = append(__args, accounting_timestamps_name.value())
@@ -8082,15 +8075,11 @@ func (obj *postgresImpl) Update_AccountingTimestamps_By_Name(ctx context.Context
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	accounting_timestamps = &AccountingTimestamps{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&accounting_timestamps.Name, &accounting_timestamps.Value)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return accounting_timestamps, nil
+	return nil
 }
 
 func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
@@ -8459,13 +8448,13 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
-func (obj *postgresImpl) Update_PeerIdentity_By_NodeId(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	update PeerIdentity_Update_Fields) (
-	peer_identity *PeerIdentity, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ? RETURNING peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8494,15 +8483,11 @@ func (obj *postgresImpl) Update_PeerIdentity_By_NodeId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return peer_identity, nil
+	return nil
 }
 
 func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
@@ -9490,10 +9475,10 @@ func (obj *sqlite3Impl) Create_Irreparabledb(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Create_AccountingTimestamps(ctx context.Context,
+func (obj *sqlite3Impl) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	accounting_timestamps_value AccountingTimestamps_Value_Field) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	__name_val := accounting_timestamps_name.value()
 	__value_val := accounting_timestamps_value.value()
 
@@ -9502,19 +9487,15 @@ func (obj *sqlite3Impl) Create_AccountingTimestamps(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __name_val, __value_val)
 
-	__res, err := obj.driver.Exec(__stmt, __name_val, __value_val)
+	_, err = obj.driver.Exec(__stmt, __name_val, __value_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastAccountingTimestamps(ctx, __pk)
+	return nil
 
 }
 
-func (obj *sqlite3Impl) Create_AccountingRollup(ctx context.Context,
+func (obj *sqlite3Impl) CreateNoReturn_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
@@ -9523,7 +9504,7 @@ func (obj *sqlite3Impl) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
 	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
 	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-	accounting_rollup *AccountingRollup, err error) {
+	err error) {
 	__node_id_val := accounting_rollup_node_id.value()
 	__start_time_val := accounting_rollup_start_time.value()
 	__put_total_val := accounting_rollup_put_total.value()
@@ -9538,15 +9519,11 @@ func (obj *sqlite3Impl) Create_AccountingRollup(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastAccountingRollup(ctx, __pk)
+	return nil
 
 }
 
@@ -9899,11 +9876,11 @@ func (obj *sqlite3Impl) Create_BucketUsage(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Create_SerialNumber(ctx context.Context,
+func (obj *sqlite3Impl) CreateNoReturn_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field,
 	serial_number_bucket_id SerialNumber_BucketId_Field,
 	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
-	serial_number *SerialNumber, err error) {
+	err error) {
 	__serial_number_val := serial_number_serial_number.value()
 	__bucket_id_val := serial_number_bucket_id.value()
 	__expires_at_val := serial_number_expires_at.value()
@@ -9913,22 +9890,18 @@ func (obj *sqlite3Impl) Create_SerialNumber(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
+	_, err = obj.driver.Exec(__stmt, __serial_number_val, __bucket_id_val, __expires_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastSerialNumber(ctx, __pk)
+	return nil
 
 }
 
-func (obj *sqlite3Impl) Create_UsedSerial(ctx context.Context,
+func (obj *sqlite3Impl) CreateNoReturn_UsedSerial(ctx context.Context,
 	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
 	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-	used_serial *UsedSerial, err error) {
+	err error) {
 	__serial_number_id_val := used_serial_serial_number_id.value()
 	__storage_node_id_val := used_serial_storage_node_id.value()
 
@@ -9937,19 +9910,15 @@ func (obj *sqlite3Impl) Create_UsedSerial(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __serial_number_id_val, __storage_node_id_val)
 
-	__res, err := obj.driver.Exec(__stmt, __serial_number_id_val, __storage_node_id_val)
+	_, err = obj.driver.Exec(__stmt, __serial_number_id_val, __storage_node_id_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastUsedSerial(ctx, __pk)
+	return nil
 
 }
 
-func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
+func (obj *sqlite3Impl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
@@ -9959,7 +9928,7 @@ func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
 	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
 	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
+	err error) {
 	__bucket_name_val := bucket_storage_tally_bucket_name.value()
 	__project_id_val := bucket_storage_tally_project_id.value()
 	__interval_start_val := bucket_storage_tally_interval_start.value()
@@ -9975,23 +9944,19 @@ func (obj *sqlite3Impl) Create_BucketStorageTally(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
-	__res, err := obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+	_, err = obj.driver.Exec(__stmt, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastBucketStorageTally(ctx, __pk)
+	return nil
 
 }
 
-func (obj *sqlite3Impl) Create_StoragenodeStorageTally(ctx context.Context,
+func (obj *sqlite3Impl) CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
 	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
 	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
 	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
-	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	err error) {
 	__node_id_val := storagenode_storage_tally_node_id.value()
 	__interval_end_time_val := storagenode_storage_tally_interval_end_time.value()
 	__data_total_val := storagenode_storage_tally_data_total.value()
@@ -10001,23 +9966,19 @@ func (obj *sqlite3Impl) Create_StoragenodeStorageTally(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __interval_end_time_val, __data_total_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastStoragenodeStorageTally(ctx, __pk)
+	return nil
 
 }
 
-func (obj *sqlite3Impl) Create_PeerIdentity(ctx context.Context,
+func (obj *sqlite3Impl) CreateNoReturn_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
 	peer_identity_chain PeerIdentity_Chain_Field) (
-	peer_identity *PeerIdentity, err error) {
+	err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := peer_identity_node_id.value()
@@ -10030,15 +9991,11 @@ func (obj *sqlite3Impl) Create_PeerIdentity(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __leaf_serial_number_val, __chain_val, __updated_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastPeerIdentity(ctx, __pk)
+	return nil
 
 }
 
@@ -11958,10 +11915,10 @@ func (obj *sqlite3Impl) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 	return irreparabledb, nil
 }
 
-func (obj *sqlite3Impl) Update_AccountingTimestamps_By_Name(ctx context.Context,
+func (obj *sqlite3Impl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE accounting_timestamps SET "), __sets, __sqlbundle_Literal(" WHERE accounting_timestamps.name = ?")}}
@@ -11976,7 +11933,7 @@ func (obj *sqlite3Impl) Update_AccountingTimestamps_By_Name(ctx context.Context,
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+		return emptyUpdate()
 	}
 
 	__args = append(__args, accounting_timestamps_name.value())
@@ -11987,25 +11944,11 @@ func (obj *sqlite3Impl) Update_AccountingTimestamps_By_Name(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	accounting_timestamps = &AccountingTimestamps{}
 	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT accounting_timestamps.name, accounting_timestamps.value FROM accounting_timestamps WHERE accounting_timestamps.name = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&accounting_timestamps.Name, &accounting_timestamps.Value)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return accounting_timestamps, nil
+	return nil
 }
 
 func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
@@ -12424,10 +12367,10 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 	return api_key, nil
 }
 
-func (obj *sqlite3Impl) Update_PeerIdentity_By_NodeId(ctx context.Context,
+func (obj *sqlite3Impl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	update PeerIdentity_Update_Fields) (
-	peer_identity *PeerIdentity, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE peer_identities SET "), __sets, __sqlbundle_Literal(" WHERE peer_identities.node_id = ?")}}
@@ -12459,25 +12402,11 @@ func (obj *sqlite3Impl) Update_PeerIdentity_By_NodeId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	peer_identity = &PeerIdentity{}
 	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT peer_identities.node_id, peer_identities.leaf_serial_number, peer_identities.chain, peer_identities.updated_at FROM peer_identities WHERE peer_identities.node_id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return peer_identity, nil
+	return nil
 }
 
 func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
@@ -14060,7 +13989,7 @@ func (rx *Rx) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	return tx.Count_UserCredit_By_ReferredBy(ctx, user_credit_referred_by)
 }
 
-func (rx *Rx) Create_AccountingRollup(ctx context.Context,
+func (rx *Rx) CreateNoReturn_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
@@ -14069,24 +13998,94 @@ func (rx *Rx) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
 	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
 	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-	accounting_rollup *AccountingRollup, err error) {
+	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_put_total, accounting_rollup_get_total, accounting_rollup_get_audit_total, accounting_rollup_get_repair_total, accounting_rollup_put_repair_total, accounting_rollup_at_rest_total)
+	return tx.CreateNoReturn_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_put_total, accounting_rollup_get_total, accounting_rollup_get_audit_total, accounting_rollup_get_repair_total, accounting_rollup_put_repair_total, accounting_rollup_at_rest_total)
 
 }
 
-func (rx *Rx) Create_AccountingTimestamps(ctx context.Context,
+func (rx *Rx) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	accounting_timestamps_value AccountingTimestamps_Value_Field) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_AccountingTimestamps(ctx, accounting_timestamps_name, accounting_timestamps_value)
+	return tx.CreateNoReturn_AccountingTimestamps(ctx, accounting_timestamps_name, accounting_timestamps_value)
+
+}
+
+func (rx *Rx) CreateNoReturn_BucketStorageTally(ctx context.Context,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
+
+}
+
+func (rx *Rx) CreateNoReturn_PeerIdentity(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
+	peer_identity_chain PeerIdentity_Chain_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_PeerIdentity(ctx, peer_identity_node_id, peer_identity_leaf_serial_number, peer_identity_chain)
+
+}
+
+func (rx *Rx) CreateNoReturn_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field,
+	serial_number_bucket_id SerialNumber_BucketId_Field,
+	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_SerialNumber(ctx, serial_number_serial_number, serial_number_bucket_id, serial_number_expires_at)
+
+}
+
+func (rx *Rx) CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
+	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_StoragenodeStorageTally(ctx, storagenode_storage_tally_node_id, storagenode_storage_tally_interval_end_time, storagenode_storage_tally_data_total)
+
+}
+
+func (rx *Rx) CreateNoReturn_UsedSerial(ctx context.Context,
+	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_UsedSerial(ctx, used_serial_serial_number_id, used_serial_storage_node_id)
 
 }
 
@@ -14127,25 +14126,6 @@ func (rx *Rx) Create_BucketMetainfo(ctx context.Context,
 		return
 	}
 	return tx.Create_BucketMetainfo(ctx, bucket_metainfo_id, bucket_metainfo_project_id, bucket_metainfo_name, bucket_metainfo_path_cipher, bucket_metainfo_default_segment_size, bucket_metainfo_default_encryption_cipher_suite, bucket_metainfo_default_encryption_block_size, bucket_metainfo_default_redundancy_algorithm, bucket_metainfo_default_redundancy_share_size, bucket_metainfo_default_redundancy_required_shares, bucket_metainfo_default_redundancy_repair_shares, bucket_metainfo_default_redundancy_optimal_shares, bucket_metainfo_default_redundancy_total_shares, optional)
-
-}
-
-func (rx *Rx) Create_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	bucket_storage_tally *BucketStorageTally, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
 
 }
 
@@ -14239,19 +14219,6 @@ func (rx *Rx) Create_Offer(ctx context.Context,
 		return
 	}
 	return tx.Create_Offer(ctx, offer_name, offer_description, offer_award_credit_in_cents, offer_invitee_credit_in_cents, offer_expires_at, offer_status, offer_type, optional)
-
-}
-
-func (rx *Rx) Create_PeerIdentity(ctx context.Context,
-	peer_identity_node_id PeerIdentity_NodeId_Field,
-	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
-	peer_identity_chain PeerIdentity_Chain_Field) (
-	peer_identity *PeerIdentity, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_PeerIdentity(ctx, peer_identity_node_id, peer_identity_leaf_serial_number, peer_identity_chain)
 
 }
 
@@ -14352,44 +14319,6 @@ func (rx *Rx) Create_ResetPasswordToken(ctx context.Context,
 		return
 	}
 	return tx.Create_ResetPasswordToken(ctx, reset_password_token_secret, reset_password_token_owner_id)
-
-}
-
-func (rx *Rx) Create_SerialNumber(ctx context.Context,
-	serial_number_serial_number SerialNumber_SerialNumber_Field,
-	serial_number_bucket_id SerialNumber_BucketId_Field,
-	serial_number_expires_at SerialNumber_ExpiresAt_Field) (
-	serial_number *SerialNumber, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_SerialNumber(ctx, serial_number_serial_number, serial_number_bucket_id, serial_number_expires_at)
-
-}
-
-func (rx *Rx) Create_StoragenodeStorageTally(ctx context.Context,
-	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
-	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
-	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
-	storagenode_storage_tally *StoragenodeStorageTally, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_StoragenodeStorageTally(ctx, storagenode_storage_tally_node_id, storagenode_storage_tally_interval_end_time, storagenode_storage_tally_data_total)
-
-}
-
-func (rx *Rx) Create_UsedSerial(ctx context.Context,
-	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
-	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-	used_serial *UsedSerial, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_UsedSerial(ctx, used_serial_serial_number_id, used_serial_storage_node_id)
 
 }
 
@@ -14996,15 +14925,26 @@ func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 	return tx.Limited_ProjectMember_By_ProjectId(ctx, project_member_project_id, limit, offset)
 }
 
-func (rx *Rx) Update_AccountingTimestamps_By_Name(ctx context.Context,
+func (rx *Rx) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
-	accounting_timestamps *AccountingTimestamps, err error) {
+	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Update_AccountingTimestamps_By_Name(ctx, accounting_timestamps_name, update)
+	return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx, accounting_timestamps_name, update)
+}
+
+func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
+	peer_identity_node_id PeerIdentity_NodeId_Field,
+	update PeerIdentity_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_PeerIdentity_By_NodeId(ctx, peer_identity_node_id, update)
 }
 
 func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
@@ -15061,17 +15001,6 @@ func (rx *Rx) Update_Offer_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Update_Offer_By_Id(ctx, offer_id, update)
-}
-
-func (rx *Rx) Update_PeerIdentity_By_NodeId(ctx context.Context,
-	peer_identity_node_id PeerIdentity_NodeId_Field,
-	update PeerIdentity_Update_Fields) (
-	peer_identity *PeerIdentity, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_PeerIdentity_By_NodeId(ctx, peer_identity_node_id, update)
 }
 
 func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
@@ -15201,7 +15130,7 @@ type Methods interface {
 		user_credit_referred_by UserCredit_ReferredBy_Field) (
 		count int64, err error)
 
-	Create_AccountingRollup(ctx context.Context,
+	CreateNoReturn_AccountingRollup(ctx context.Context,
 		accounting_rollup_node_id AccountingRollup_NodeId_Field,
 		accounting_rollup_start_time AccountingRollup_StartTime_Field,
 		accounting_rollup_put_total AccountingRollup_PutTotal_Field,
@@ -15210,12 +15139,47 @@ type Methods interface {
 		accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
 		accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
 		accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-		accounting_rollup *AccountingRollup, err error)
+		err error)
 
-	Create_AccountingTimestamps(ctx context.Context,
+	CreateNoReturn_AccountingTimestamps(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
-		accounting_timestamps *AccountingTimestamps, err error)
+		err error)
+
+	CreateNoReturn_BucketStorageTally(ctx context.Context,
+		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+		bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
+		bucket_storage_tally_inline BucketStorageTally_Inline_Field,
+		bucket_storage_tally_remote BucketStorageTally_Remote_Field,
+		bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
+		bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
+		bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
+		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+		err error)
+
+	CreateNoReturn_PeerIdentity(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field,
+		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
+		peer_identity_chain PeerIdentity_Chain_Field) (
+		err error)
+
+	CreateNoReturn_SerialNumber(ctx context.Context,
+		serial_number_serial_number SerialNumber_SerialNumber_Field,
+		serial_number_bucket_id SerialNumber_BucketId_Field,
+		serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+		err error)
+
+	CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
+		storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+		storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+		storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+		err error)
+
+	CreateNoReturn_UsedSerial(ctx context.Context,
+		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
+		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
+		err error)
 
 	Create_ApiKey(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
@@ -15242,18 +15206,6 @@ type Methods interface {
 		bucket_metainfo_default_redundancy_total_shares BucketMetainfo_DefaultRedundancyTotalShares_Field,
 		optional BucketMetainfo_Create_Fields) (
 		bucket_metainfo *BucketMetainfo, err error)
-
-	Create_BucketStorageTally(ctx context.Context,
-		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-		bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-		bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-		bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-		bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-		bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-		bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-		bucket_storage_tally *BucketStorageTally, err error)
 
 	Create_BucketUsage(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field,
@@ -15320,12 +15272,6 @@ type Methods interface {
 		optional Offer_Create_Fields) (
 		offer *Offer, err error)
 
-	Create_PeerIdentity(ctx context.Context,
-		peer_identity_node_id PeerIdentity_NodeId_Field,
-		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
-		peer_identity_chain PeerIdentity_Chain_Field) (
-		peer_identity *PeerIdentity, err error)
-
 	Create_PendingAudits(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field,
 		pending_audits_piece_id PendingAudits_PieceId_Field,
@@ -15376,23 +15322,6 @@ type Methods interface {
 		reset_password_token_secret ResetPasswordToken_Secret_Field,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 		reset_password_token *ResetPasswordToken, err error)
-
-	Create_SerialNumber(ctx context.Context,
-		serial_number_serial_number SerialNumber_SerialNumber_Field,
-		serial_number_bucket_id SerialNumber_BucketId_Field,
-		serial_number_expires_at SerialNumber_ExpiresAt_Field) (
-		serial_number *SerialNumber, err error)
-
-	Create_StoragenodeStorageTally(ctx context.Context,
-		storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
-		storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
-		storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
-		storagenode_storage_tally *StoragenodeStorageTally, err error)
-
-	Create_UsedSerial(ctx context.Context,
-		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
-		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
-		used_serial *UsedSerial, err error)
 
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
@@ -15656,10 +15585,15 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*ProjectMember, err error)
 
-	Update_AccountingTimestamps_By_Name(ctx context.Context,
+	UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		update AccountingTimestamps_Update_Fields) (
-		accounting_timestamps *AccountingTimestamps, err error)
+		err error)
+
+	UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
+		peer_identity_node_id PeerIdentity_NodeId_Field,
+		update PeerIdentity_Update_Fields) (
+		err error)
 
 	Update_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
@@ -15686,11 +15620,6 @@ type Methods interface {
 		offer_id Offer_Id_Field,
 		update Offer_Update_Fields) (
 		offer *Offer, err error)
-
-	Update_PeerIdentity_By_NodeId(ctx context.Context,
-		peer_identity_node_id PeerIdentity_NodeId_Field,
-		update PeerIdentity_Update_Fields) (
-		peer_identity *PeerIdentity, err error)
 
 	Update_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field,
