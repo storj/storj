@@ -25,7 +25,6 @@ import VerticalArrows from '@/components/common/VerticalArrows.vue';
 
 import { ApiKeyOrderBy, OnHeaderClickCallback } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component({
     components:{
@@ -33,9 +32,6 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     }
 })
 export default class SortApiKeysHeader extends Vue {
-    public arrowUp: string = EMPTY_STATE_IMAGES.ARROW_UP;
-    public arrowDown: string = EMPTY_STATE_IMAGES.ARROW_DOWN;
-
     @Prop({default: () => new Promise(() => false)})
     private readonly onHeaderClickCallback: OnHeaderClickCallback;
 
@@ -98,28 +94,6 @@ export default class SortApiKeysHeader extends Vue {
                 font-size: 16px;
                 margin-left: 26px;
                 color: #AFB7C1;
-            }
-
-            &__arrows {
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-start;
-                padding-bottom: 12px;
-                margin-left: 10px;
-
-                span.selected {
-
-                    svg {
-
-                        path {
-                            fill: #2683FF !important;
-                        }
-                    }
-                }
-
-                span {
-                    height: 10px;
-                }
             }
 
             &:nth-child(1) {
