@@ -40,7 +40,7 @@ export default class SortApiKeysHeader extends Vue {
     public sortBy: ApiKeyOrderBy = ApiKeyOrderBy.NAME;
     public sortDirection: SortDirection = SortDirection.ASCENDING;
 
-    public get getSortDirection() {
+    public get getSortDirection(): SortDirection {
         if (this.sortDirection === SortDirection.DESCENDING) {
             return SortDirection.ASCENDING;
         }
