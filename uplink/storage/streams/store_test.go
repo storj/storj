@@ -45,7 +45,7 @@ func TestStreamsStorePutGetDelete(t *testing.T) {
 			expiration time.Time
 			content    []byte
 		}{
-			{"test inline put/get", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+			// {"test inline put/get", "path/1", []byte("inline-metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
 			{"test remote put/get", "mypath/1", []byte("remote-metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
 		} {
 			test := tt
