@@ -22,10 +22,9 @@ type SatelliteIDVerifier interface {
 
 // NodesServiceEndpoint implements the NodesServer Interface
 type NodesServiceEndpoint struct {
-	log       *zap.Logger
-	service   *Service
-	trust     SatelliteIDVerifier
-	connected int32
+	log     *zap.Logger
+	service *Service
+	trust   SatelliteIDVerifier
 }
 
 // NewNodesServiceEndpoint returns a new nodes service endpoint

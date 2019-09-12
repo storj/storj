@@ -54,6 +54,7 @@ func (service *Service) Local() overlay.NodeDossier {
 	return *service.self
 }
 
+// UpdateSelf updates the local node with the capacity
 func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
