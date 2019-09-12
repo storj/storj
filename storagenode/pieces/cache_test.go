@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -340,13 +341,13 @@ func TestConcurrency(t *testing.T) {
 		node := planet.StorageNodes[0]
 		satellite := planet.Satellites[0]
 
-		done := make(chan bool)
-		go func(done chan bool) {
+		var group errgroup.Group
+		group.Go(func() error {
 			node.Storage2.BlobsCache.Update(ctx, satellite.ID(), 1000)
-			done <- true
-		}(done)
+			return nil
+		})
 		err := node.Storage2.CacheService.PersistCacheTotals(ctx)
 		require.NoError(t, err)
-		<-done
+		require.NoError(t, group.Wait())
 	})
 }
