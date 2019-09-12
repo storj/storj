@@ -223,7 +223,7 @@ type checkerObserver struct {
 	log         *zap.Logger
 }
 
-func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obs.monStats.remoteSegmentsChecked++
@@ -252,7 +252,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
 			obs.log.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
-				zap.String("path", path),
+				zap.String("path", path.Raw),
 				zap.Int32("min", redundancy.MinReq),
 				zap.Int32("repair", redundancy.RepairThreshold),
 				zap.Int32("success", redundancy.SuccessThreshold),
@@ -261,7 +261,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 		}
 		obs.monStats.remoteSegmentsNeedingRepair++
 		err = obs.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:         []byte(path),
+			Path:         []byte(path.Raw),
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
 		})
@@ -271,19 +271,22 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 		}
 
 		// delete always returns nil when something was deleted and also when element didn't exists
-		err = obs.irrdb.Delete(ctx, []byte(path))
+		err = obs.irrdb.Delete(ctx, []byte(path.Raw))
 		if err != nil {
 			obs.log.Error("error deleting entry from irreparable db", zap.Error(err))
 			return nil
 		}
 	} else if numHealthy < redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
-		pathElements := storj.SplitPath(path)
+		// TODO: see whether this can be handled with metainfo.ScopedPath
+		pathElements := storj.SplitPath(path.Raw)
 
 		// check to make sure there are at least *4* path elements. the first three
 		// are project, segment, and bucket name, but we want to make sure we're talking
 		// about an actual object, and that there's an object name specified
 		if len(pathElements) >= 4 {
 			project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
+
+			// TODO: is this correct? split splits all path components, but it's only using the third.
 			lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
 			if !contains(obs.monStats.remoteSegmentInfo, lostSegInfo) {
 				obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
@@ -293,7 +296,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
-			Path:               []byte(path),
+			Path:               []byte(path.Raw),
 			SegmentDetail:      pointer,
 			LostPieces:         int32(len(missingPieces)),
 			LastRepairAttempt:  time.Now().Unix(),
@@ -311,7 +314,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 	return nil
 }
 
-func (obs *checkerObserver) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obs.monStats.remoteFilesChecked++
@@ -319,7 +322,7 @@ func (obs *checkerObserver) RemoteObject(ctx context.Context, path storj.Path, p
 	return nil
 }
 
-func (obs *checkerObserver) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }

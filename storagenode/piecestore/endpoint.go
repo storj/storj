@@ -619,6 +619,11 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	return &pb.RetainResponse{}, nil
 }
 
+// TestLiveRequestCount returns the current number of live requests.
+func (endpoint *Endpoint) TestLiveRequestCount() int32 {
+	return atomic.LoadInt32(&endpoint.liveRequests)
+}
+
 // min finds the min of two values
 func min(a, b int64) int64 {
 	if a < b {
