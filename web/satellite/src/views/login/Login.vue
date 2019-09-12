@@ -57,7 +57,6 @@ export default class Login extends Vue {
 
     public async onLogin(): Promise<void> {
         const self = this;
-        this.$segment.track(EVENTS.CLICKED_LOGIN);
 
         if (!self.validateFields()) {
             return;
