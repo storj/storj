@@ -6855,37 +6855,36 @@ func (obj *postgresImpl) Create_BucketMetainfo(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_GracefulExitProgress(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_GracefulExitProgress(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
 	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
-	graceful_exit_progress *GracefulExitProgress, err error) {
+	err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_progress_node_id.value()
 	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, updated_at ) VALUES ( ?, ?, ? ) RETURNING graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, updated_at ) VALUES ( ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
 
-	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return graceful_exit_progress, nil
+	return nil
 
 }
 
-func (obj *postgresImpl) Create_GracefulExitTransferQueue(ctx context.Context,
+func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
 	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
 	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
 	optional GracefulExitTransferQueue_Create_Fields) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+	err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_transfer_queue_node_id.value()
@@ -6899,17 +6898,16 @@ func (obj *postgresImpl) Create_GracefulExitTransferQueue(ctx context.Context,
 	__failed_count_val := optional.FailedCount.value()
 	__finished_at_val := optional.FinishedAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue ( node_id, path, piece_num, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue ( node_id, path, piece_num, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
 
-	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return graceful_exit_transfer_queue, nil
+	return nil
 
 }
 
@@ -9346,13 +9344,13 @@ func (obj *postgresImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context
 	return bucket_metainfo, nil
 }
 
-func (obj *postgresImpl) Update_GracefulExitProgress_By_NodeId(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
 	update GracefulExitProgress_Update_Fields) (
-	graceful_exit_progress *GracefulExitProgress, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_progress SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_progress.node_id = ? RETURNING graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_progress SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_progress.node_id = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -9371,25 +9369,21 @@ func (obj *postgresImpl) Update_GracefulExitProgress_By_NodeId(ctx context.Conte
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return graceful_exit_progress, nil
+	return nil
 }
 
-func (obj *postgresImpl) Update_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
 	update GracefulExitTransferQueue_Update_Fields) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? RETURNING graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -9411,7 +9405,7 @@ func (obj *postgresImpl) Update_GracefulExitTransferQueue_By_NodeId_And_Path(ctx
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+		return emptyUpdate()
 	}
 
 	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
@@ -9422,15 +9416,11 @@ func (obj *postgresImpl) Update_GracefulExitTransferQueue_By_NodeId_And_Path(ctx
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
+	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return graceful_exit_transfer_queue, nil
+	return nil
 }
 
 func (obj *postgresImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
@@ -11045,10 +11035,10 @@ func (obj *sqlite3Impl) Create_BucketMetainfo(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Create_GracefulExitProgress(ctx context.Context,
+func (obj *sqlite3Impl) CreateNoReturn_GracefulExitProgress(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
 	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
-	graceful_exit_progress *GracefulExitProgress, err error) {
+	err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_progress_node_id.value()
@@ -11060,25 +11050,21 @@ func (obj *sqlite3Impl) Create_GracefulExitProgress(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastGracefulExitProgress(ctx, __pk)
+	return nil
 
 }
 
-func (obj *sqlite3Impl) Create_GracefulExitTransferQueue(ctx context.Context,
+func (obj *sqlite3Impl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
 	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
 	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
 	optional GracefulExitTransferQueue_Create_Fields) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+	err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_transfer_queue_node_id.value()
@@ -11097,15 +11083,11 @@ func (obj *sqlite3Impl) Create_GracefulExitTransferQueue(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastGracefulExitTransferQueue(ctx, __pk)
+	return nil
 
 }
 
@@ -13662,10 +13644,10 @@ func (obj *sqlite3Impl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.
 	return bucket_metainfo, nil
 }
 
-func (obj *sqlite3Impl) Update_GracefulExitProgress_By_NodeId(ctx context.Context,
+func (obj *sqlite3Impl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
 	update GracefulExitProgress_Update_Fields) (
-	graceful_exit_progress *GracefulExitProgress, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_progress SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_progress.node_id = ?")}}
@@ -13687,32 +13669,18 @@ func (obj *sqlite3Impl) Update_GracefulExitProgress_By_NodeId(ctx context.Contex
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	graceful_exit_progress = &GracefulExitProgress{}
 	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return graceful_exit_progress, nil
+	return nil
 }
 
-func (obj *sqlite3Impl) Update_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+func (obj *sqlite3Impl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
 	update GracefulExitTransferQueue_Update_Fields) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+	err error) {
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")}}
@@ -13737,7 +13705,7 @@ func (obj *sqlite3Impl) Update_GracefulExitTransferQueue_By_NodeId_And_Path(ctx 
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+		return emptyUpdate()
 	}
 
 	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
@@ -13748,25 +13716,11 @@ func (obj *sqlite3Impl) Update_GracefulExitTransferQueue_By_NodeId_And_Path(ctx 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
 	_, err = obj.driver.Exec(__stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return graceful_exit_transfer_queue, nil
+	return nil
 }
 
 func (obj *sqlite3Impl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
@@ -15243,6 +15197,33 @@ func (rx *Rx) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	return tx.Count_UserCredit_By_ReferredBy(ctx, user_credit_referred_by)
 }
 
+func (rx *Rx) CreateNoReturn_GracefulExitProgress(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_GracefulExitProgress(ctx, graceful_exit_progress_node_id, graceful_exit_progress_bytes_transferred)
+
+}
+
+func (rx *Rx) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+	optional GracefulExitTransferQueue_Create_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_GracefulExitTransferQueue(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, graceful_exit_transfer_queue_durability_ratio, optional)
+
+}
+
 func (rx *Rx) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
@@ -15351,33 +15332,6 @@ func (rx *Rx) Create_BucketUsage(ctx context.Context,
 		return
 	}
 	return tx.Create_BucketUsage(ctx, bucket_usage_id, bucket_usage_bucket_id, bucket_usage_rollup_end_time, bucket_usage_remote_stored_data, bucket_usage_inline_stored_data, bucket_usage_remote_segments, bucket_usage_inline_segments, bucket_usage_objects, bucket_usage_metadata_size, bucket_usage_repair_egress, bucket_usage_get_egress, bucket_usage_audit_egress)
-
-}
-
-func (rx *Rx) Create_GracefulExitProgress(ctx context.Context,
-	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
-	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
-	graceful_exit_progress *GracefulExitProgress, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_GracefulExitProgress(ctx, graceful_exit_progress_node_id, graceful_exit_progress_bytes_transferred)
-
-}
-
-func (rx *Rx) Create_GracefulExitTransferQueue(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
-	optional GracefulExitTransferQueue_Create_Fields) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_GracefulExitTransferQueue(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, graceful_exit_transfer_queue_durability_ratio, optional)
 
 }
 
@@ -16259,6 +16213,29 @@ func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 	return tx.Limited_ProjectMember_By_ProjectId(ctx, project_member_project_id, limit, offset)
 }
 
+func (rx *Rx) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	update GracefulExitProgress_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id, update)
+}
+
+func (rx *Rx) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	update GracefulExitTransferQueue_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, update)
+}
+
 func (rx *Rx) Update_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -16291,29 +16268,6 @@ func (rx *Rx) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		return
 	}
 	return tx.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name, update)
-}
-
-func (rx *Rx) Update_GracefulExitProgress_By_NodeId(ctx context.Context,
-	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
-	update GracefulExitProgress_Update_Fields) (
-	graceful_exit_progress *GracefulExitProgress, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id, update)
-}
-
-func (rx *Rx) Update_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	update GracefulExitTransferQueue_Update_Fields) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, update)
 }
 
 func (rx *Rx) Update_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -16487,6 +16441,19 @@ type Methods interface {
 		user_credit_referred_by UserCredit_ReferredBy_Field) (
 		count int64, err error)
 
+	CreateNoReturn_GracefulExitProgress(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+		graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+		err error)
+
+	CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+		graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+		optional GracefulExitTransferQueue_Create_Fields) (
+		err error)
+
 	Create_AccountingRollup(ctx context.Context,
 		accounting_rollup_node_id AccountingRollup_NodeId_Field,
 		accounting_rollup_start_time AccountingRollup_StartTime_Field,
@@ -16555,19 +16522,6 @@ type Methods interface {
 		bucket_usage_get_egress BucketUsage_GetEgress_Field,
 		bucket_usage_audit_egress BucketUsage_AuditEgress_Field) (
 		bucket_usage *BucketUsage, err error)
-
-	Create_GracefulExitProgress(ctx context.Context,
-		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
-		graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
-		graceful_exit_progress *GracefulExitProgress, err error)
-
-	Create_GracefulExitTransferQueue(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-		graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
-		optional GracefulExitTransferQueue_Create_Fields) (
-		graceful_exit_transfer_queue *GracefulExitTransferQueue, err error)
 
 	Create_Irreparabledb(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
@@ -16977,6 +16931,17 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*ProjectMember, err error)
 
+	UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+		update GracefulExitProgress_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		update GracefulExitTransferQueue_Update_Fields) (
+		err error)
+
 	Update_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		update AccountingTimestamps_Update_Fields) (
@@ -16992,17 +16957,6 @@ type Methods interface {
 		bucket_metainfo_name BucketMetainfo_Name_Field,
 		update BucketMetainfo_Update_Fields) (
 		bucket_metainfo *BucketMetainfo, err error)
-
-	Update_GracefulExitProgress_By_NodeId(ctx context.Context,
-		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
-		update GracefulExitProgress_Update_Fields) (
-		graceful_exit_progress *GracefulExitProgress, err error)
-
-	Update_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-		update GracefulExitTransferQueue_Update_Fields) (
-		graceful_exit_transfer_queue *GracefulExitTransferQueue, err error)
 
 	Update_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,

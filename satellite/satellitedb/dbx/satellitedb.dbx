@@ -847,8 +847,11 @@ model graceful_exit_progress (
     field updated_at           timestamp ( autoinsert, autoupdate )
 )
 
-create graceful_exit_progress ( )
-update graceful_exit_progress ( where graceful_exit_progress.node_id = ? )
+create graceful_exit_progress ( noreturn )
+update graceful_exit_progress ( 
+	where graceful_exit_progress.node_id = ?
+	noreturn
+)
 delete graceful_exit_progress ( where graceful_exit_progress.node_id = ? )
 read one (
 	select graceful_exit_progress
@@ -873,10 +876,11 @@ model graceful_exit_transfer_queue (
     field finished_at         timestamp ( updatable, nullable )
 )
 
-create graceful_exit_transfer_queue ( )
+create graceful_exit_transfer_queue ( noreturn )
 update graceful_exit_transfer_queue ( 
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	noreturn
 )
 delete graceful_exit_transfer_queue ( 
 	where graceful_exit_transfer_queue.node_id = ?
