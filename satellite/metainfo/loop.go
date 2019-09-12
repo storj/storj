@@ -199,7 +199,7 @@ waitformore:
 
 				projectID, err := uuid.Parse(path.ProjectPath)
 				if err != nil {
-					return Error.Wrap(err)
+					return LoopError.Wrap(err)
 				}
 				path.ProjectID = *projectID
 
