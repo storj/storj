@@ -79,14 +79,14 @@ model satellites (
     field address  text not null
     field added_at timestamp ( autoinsert ) not null
 
-    field status   byte not null
+    field status   int not null
 )
 ```
 
 Create `satellites_exit_progress` tables:
 
 ```
-model satellites_exit_progress (
+model satellite_exit_progress (
     fk satellite_id 
 
     field initiated_at         timestamp ( updateable )
