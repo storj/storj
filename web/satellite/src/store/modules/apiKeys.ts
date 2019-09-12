@@ -41,7 +41,7 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
     return {
         state: new ApiKeysState(),
         mutations: {
-            [SET_PAGE](state: any, page: ApiKeysPage) {
+            [SET_PAGE](state: ApiKeysState, page: ApiKeysPage) {
                 state.page = page;
             },
             [SET_PAGE_NUMBER](state: ApiKeysState, pageNumber: number) {

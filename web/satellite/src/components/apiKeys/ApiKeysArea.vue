@@ -205,7 +205,7 @@ export default class ApiKeysArea extends Vue {
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
-        
+
         try {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
@@ -258,6 +258,7 @@ export default class ApiKeysArea extends Vue {
 
         return HeaderState.DEFAULT;
     }
+
     public async onPageClick(index: number): Promise<void> {
         try {
             await this.$store.dispatch(FETCH, index);
