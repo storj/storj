@@ -26,26 +26,22 @@
                     <rect width="4" height="4" rx="2" fill="#354049"/>
                     <rect x="8" width="4" height="4" rx="2" fill="#354049"/>
                 </svg>
-                <div class="dialog">
-
-                </div>
+                <CardDialog />
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
+import { Component, Vue } from 'vue-property-decorator';
+import CardDialog from '@/components/account/billing/CardDialog.vue';
 
-    @Component({
-        components: {
-            // MakeDefaultPaymentMethodDialog,
-            Button,
-            // DeletePaymentMethodDialog,
-        }
-    })
-    export default class CardComponent extends Vue {}
+@Component({
+    components: {
+        CardDialog
+    }
+})
+export default class CardComponent extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -139,16 +135,5 @@
             cursor: pointer;
             position: relative;
         }
-    }
-
-    .dialog {
-        position: absolute;
-        top: 15px;
-        right: -50px;
-        z-index: 100;
-        background-image: url("../../../../static/images/payments/Dialog.svg");
-        background-size: contain;
-        width: 122px;
-        height: 167px;
     }
 </style>
