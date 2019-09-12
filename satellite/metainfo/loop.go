@@ -34,14 +34,14 @@ type Observer interface {
 
 // ScopedPath contains full expanded information about the path
 type ScopedPath struct {
-	ProjectPath string
-	ProjectID   uuid.UUID
-	BucketName  string
+	ProjectID       uuid.UUID
+	ProjectIDString string
+	BucketName      string
 
 	// TODO: should these be a []byte?
 
 	// Raw is the same path as pointerDB is using.
-	Raw string
+	Raw storj.Path
 }
 
 type observerContext struct {
@@ -192,12 +192,12 @@ waitformore:
 				isLastSegment := pathElements[1] == "l"
 
 				path := ScopedPath{
-					Raw:         rawPath,
-					ProjectPath: pathElements[0],
-					BucketName:  pathElements[2],
+					Raw:             rawPath,
+					ProjectIDString: pathElements[0],
+					BucketName:      pathElements[2],
 				}
 
-				projectID, err := uuid.Parse(path.ProjectPath)
+				projectID, err := uuid.Parse(path.ProjectIDString)
 				if err != nil {
 					return LoopError.Wrap(err)
 				}
