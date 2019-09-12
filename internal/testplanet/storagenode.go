@@ -119,9 +119,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				Interval: time.Hour,
 			},
 			Contact: contact.Config{
-				ExternalAddress: "",
-				Interval:        30 * time.Second,
-				MaxSleep:        0 * time.Second,
+				Interval: 30 * time.Second,
+				MaxSleep: 0 * time.Second,
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {

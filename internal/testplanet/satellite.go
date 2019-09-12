@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
-	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
@@ -84,9 +83,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 						WhitelistSignedLeaf: false,
 					},
 				},
-			},
-			Contact: contact.Config{
-				ExternalAddress: "127.0.0.1:0",
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
