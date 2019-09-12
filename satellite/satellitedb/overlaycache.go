@@ -1071,7 +1071,6 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	if isSuccess {
 		v = 1
 	}
-	// config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
 	newAlpha = lambda*alpha + w*(1+v)/2
 	newBeta = lambda*beta + w*(1-v)/2
 	return newAlpha, newBeta, totalCount + 1
@@ -1422,8 +1421,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					THEN current_timestamp
 					ELSE nodes.last_contact_failure
 				END,
-				-- this disqualified is so ugly, im sorry
-				-- the equation resolves to is: (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
+				-- this disqualified case statement resolves to: 
+				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
 				disqualified = CASE WHEN (($18::numeric*nodes.uptime_reputation_alpha + $19::numeric*(1+$20)/2)/(($18::numeric*nodes.uptime_reputation_alpha + $19::numeric*(1+$20)/2)+($18::numeric*nodes.uptime_reputation_beta + $19::numeric*(1-$20)/2))) <= $17
 					THEN current_timestamp
 					ELSE nodes.disqualified
@@ -1439,6 +1438,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		mon.FloatVal("UpdateCheckIn query execution time (seconds)").Observe(time.Since(start).Seconds())
 	default:
 		return Error.New("Unsupported database %t", t)
 	}
