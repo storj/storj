@@ -21,7 +21,7 @@ var ignoreFolder = map[string]bool{
 }
 
 func main() {
-	const fileSizeLimit = 600 * memory.KB
+	const fileSizeLimit = 650 * memory.KB
 
 	var failed int
 

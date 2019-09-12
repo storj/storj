@@ -132,9 +132,8 @@ func TestUsageRollups(t *testing.T) {
 				bucketTallies[bucketID2] = tally2
 			}
 
-			tallies, err := db.ProjectAccounting().SaveTallies(ctx, interval, bucketTallies)
+			err := db.ProjectAccounting().SaveTallies(ctx, interval, bucketTallies)
 			require.NoError(t, err)
-			require.Equal(t, len(tallies), len(buckets)*2)
 		}
 
 		usageRollups := db.Console().UsageRollups()
