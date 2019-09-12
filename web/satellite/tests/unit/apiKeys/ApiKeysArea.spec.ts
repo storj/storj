@@ -6,26 +6,50 @@ import Vuex from 'vuex';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 
 import { ApiKeysApiGql } from '@/api/apiKeys';
-import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { API_KEYS_MUTATIONS, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeNotificationsModule } from '@/store/modules/notifications';
-import { API_KEYS_MUTATIONS } from '@/store/mutationConstants';
-import { ApiKey } from '@/types/apiKeys';
-import { createLocalVue, mount } from '@vue/test-utils';
+import { ApiKey, ApiKeysPage } from '@/types/apiKeys';
+import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const notificationsModule = makeNotificationsModule();
-const ADD = API_KEYS_MUTATIONS.ADD;
+const { SET_PAGE, SET_SEARCH_QUERY, CLEAR } = API_KEYS_MUTATIONS;
 const store = new Vuex.Store({ modules: { apiKeysModule, notificationsModule }});
 
 describe('ApiKeysArea', () => {
     const apiKey = new ApiKey('testId', 'test', 'test', 'test');
     const apiKey1 = new ApiKey('testId1', 'test1', 'test1', 'test1');
 
+    const testApiKeysPage = new ApiKeysPage();
+    testApiKeysPage.apiKeys = [apiKey];
+    testApiKeysPage.totalCount = 1;
+    testApiKeysPage.pageCount = 1;
+
     it('renders correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
+            store,
+            localVue,
+        });
+
+        expect(wrapper).toMatchSnapshot();
+    });
+
+    it('renders empty screen with add key prompt', () => {
+        const wrapper = shallowMount(ApiKeysArea, {
+            store,
+            localVue,
+        });
+
+        store.commit(CLEAR);
+
+        expect(wrapper).toMatchSnapshot();
+    });
+
+    it('renders empty search state correctly', () => {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -34,9 +58,9 @@ describe('ApiKeysArea', () => {
     });
 
     it('function apiKeyList works correctly', () => {
-        store.commit(ADD, apiKey);
+        store.commit(SET_PAGE, testApiKeysPage);
 
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -45,20 +69,20 @@ describe('ApiKeysArea', () => {
     });
 
     it('action on toggleSelection works correctly', () => {
-        store.commit(ADD, apiKey1);
+        store.commit(SET_PAGE, testApiKeysPage);
 
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue
         });
 
-        wrapper.vm.toggleSelection(apiKey1);
+        wrapper.vm.toggleSelection(apiKey);
 
-        expect(store.getters.selectedAPIKeys.length).toBe(1);
+        expect(store.getters.selectedApiKeys.length).toBe(1);
     });
 
     it('action on onClearSelection works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue
         });
@@ -69,7 +93,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function onCreateApiKeyClick works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -80,7 +104,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function onFirstDeleteClick works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -91,7 +115,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function apiKeyCountTitle works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -100,9 +124,9 @@ describe('ApiKeysArea', () => {
     });
 
     it('function isEmpty works correctly', () => {
-        store.commit(ADD, apiKey);
+        store.commit(SET_PAGE, testApiKeysPage);
 
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -111,7 +135,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function isSelected works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -120,7 +144,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function selectedAPIKeysCount works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -129,7 +153,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function headerState works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -138,10 +162,14 @@ describe('ApiKeysArea', () => {
     });
 
     it('function apiKeyCountTitle with 2 keys works correctly', () => {
-        store.commit(ADD, apiKey);
-        store.commit(ADD, apiKey1);
+        const testPage = new ApiKeysPage();
+        testPage.apiKeys = [apiKey, apiKey1];
+        testPage.totalCount = 1;
+        testPage.pageCount = 1;
 
-        const wrapper = mount(ApiKeysArea, {
+        store.commit(SET_PAGE, testPage);
+
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -150,7 +178,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function closeNewApiKeyPopup works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -161,7 +189,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function showCopyApiKeyPopup works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -175,7 +203,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('function closeCopyNewApiKeyPopup works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });
@@ -186,7 +214,7 @@ describe('ApiKeysArea', () => {
     });
 
     it('action on onDelete with name works correctly', () => {
-        const wrapper = mount(ApiKeysArea, {
+        const wrapper = shallowMount(ApiKeysArea, {
             store,
             localVue,
         });

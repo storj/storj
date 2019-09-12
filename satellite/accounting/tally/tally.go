@@ -98,7 +98,7 @@ func (t *Service) Tally(ctx context.Context) (err error) {
 		}
 
 		if len(bucketData) > 0 {
-			_, err = t.projectAccountingDB.SaveTallies(ctx, latestTally, bucketData)
+			err = t.projectAccountingDB.SaveTallies(ctx, latestTally, bucketData)
 			if err != nil {
 				errBucketInfo = errs.New("Saving bucket storage data failed")
 			}

@@ -98,14 +98,10 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	inspector.log.Debug("Getting Stats...")
-
 	statsSummary, err := inspector.retrieveStats(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	inspector.log.Info("Successfully retrieved Stats...")
 
 	return statsSummary, nil
 }

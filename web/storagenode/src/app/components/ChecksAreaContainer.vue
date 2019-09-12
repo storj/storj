@@ -15,7 +15,7 @@
                 </div>
             </InfoComponent>
         </div>
-        <p class="checks-area-container__amount"><b>{{value}}</b>%</p>
+        <p class="checks-area-container__amount"><b>{{value}}%</b></p>
     </div>
 </template>
 
