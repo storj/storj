@@ -53,7 +53,7 @@ export default class SortApiKeysHeader extends Vue {
                 font-family: 'font_medium';
                 font-size: 16px;
                 margin-left: 26px;
-                color: #AFB7C1;
+                color: #2A2A32;
             }
 
             &__arrows {
