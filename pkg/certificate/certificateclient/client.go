@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -65,6 +66,9 @@ func (config Config) Sign(ctx context.Context, ident *identity.FullIdentity, aut
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = errs.Combine(err, client.Close())
+	}()
 
 	return client.Sign(ctx, authToken)
 }

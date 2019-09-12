@@ -6,6 +6,7 @@ package consoleweb
 import (
 	"encoding/json"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -13,6 +14,18 @@ import (
 
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
+
+func init() {
+	err := mime.AddExtensionType(".ttf", "font/ttf")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	err = mime.AddExtensionType(".txt", "text/plain")
+	if err != nil {
+		panic(err.Error())
+	}
+}
 
 // JSON request from graphql clients
 type graphqlJSON struct {

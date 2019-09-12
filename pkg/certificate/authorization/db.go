@@ -24,15 +24,15 @@ type DB struct {
 	db storage.KeyValueStore
 }
 
-// Config is the authorization db config.
-type Config struct {
-	DBURL     string `default:"bolt://$CONFDIR/authorizations.db" help:"url to the certificate signing authorization database"`
+// DBConfig is the authorization db config.
+type DBConfig struct {
+	URL       string `default:"bolt://$CONFDIR/authorizations.db" help:"url to the certificate signing authorization database"`
 	Overwrite bool   `default:"false" help:"if true, overwrites config AND authorization db is truncated" setup:"true"`
 }
 
 // NewDBFromCfg creates and/or opens the authorization database specified by the config.
-func NewDBFromCfg(config Config) (*DB, error) {
-	return NewDB(config.DBURL, config.Overwrite)
+func NewDBFromCfg(config DBConfig) (*DB, error) {
+	return NewDB(config.URL, config.Overwrite)
 }
 
 // NewDB creates and/or opens the authorization database.
@@ -54,12 +54,12 @@ func NewDB(dbURL string, overwrite bool) (*DB, error) {
 
 		authDB.db, err = boltdb.New(source, Bucket)
 		if err != nil {
-			return nil, ErrAuthorizationDB.Wrap(err)
+			return nil, ErrDB.Wrap(err)
 		}
 	case "redis":
 		redisClient, err := redis.NewClientFrom(dbURL)
 		if err != nil {
-			return nil, ErrAuthorizationDB.Wrap(err)
+			return nil, ErrDB.Wrap(err)
 		}
 
 		if overwrite {
@@ -70,7 +70,7 @@ func NewDB(dbURL string, overwrite bool) (*DB, error) {
 
 		authDB.db = redisClient
 	default:
-		return nil, ErrAuthorizationDB.New("database scheme not supported: %s", driver)
+		return nil, ErrDB.New("database scheme not supported: %s", driver)
 	}
 
 	return authDB, nil
@@ -78,17 +78,17 @@ func NewDB(dbURL string, overwrite bool) (*DB, error) {
 
 // Close closes the authorization database's underlying store.
 func (authDB *DB) Close() error {
-	return ErrAuthorizationDB.Wrap(authDB.db.Close())
+	return ErrDB.Wrap(authDB.db.Close())
 }
 
 // Create creates a new authorization and adds it to the authorization database.
 func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID, count)(&err)
 	if len(userID) == 0 {
-		return nil, ErrAuthorizationDB.New("userID cannot be empty")
+		return nil, ErrDB.Wrap(ErrEmptyUserID)
 	}
 	if count < 1 {
-		return nil, ErrAuthorizationCount
+		return nil, ErrDB.Wrap(ErrCount)
 	}
 
 	var (
@@ -104,7 +104,7 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group
 		newAuths = append(newAuths, auth)
 	}
 	if authErrs.Err() != nil {
-		return nil, ErrAuthorizationDB.Wrap(authErrs.Err())
+		return nil, ErrDB.Wrap(authErrs.Err())
 	}
 
 	if err := authDB.add(ctx, userID, newAuths); err != nil {
@@ -119,7 +119,7 @@ func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
-		return nil, ErrAuthorizationDB.Wrap(err)
+		return nil, ErrDB.Wrap(err)
 	}
 	if authsBytes == nil {
 		return nil, nil
@@ -127,7 +127,7 @@ func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 
 	var auths Group
 	if err := auths.Unmarshal(authsBytes); err != nil {
-		return nil, ErrAuthorizationDB.Wrap(err)
+		return nil, ErrDB.Wrap(err)
 	}
 	return auths, nil
 }
@@ -173,7 +173,7 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	now := time.Now().Unix()
 	if !(now-MaxClaimDelaySeconds < opts.Req.Timestamp) ||
 		!(opts.Req.Timestamp < now+MaxClaimDelaySeconds) {
-		return ErrAuthorization.New("claim timestamp is outside of max delay window: %d", opts.Req.Timestamp)
+		return Error.New("claim timestamp is outside of max delay window: %d", opts.Req.Timestamp)
 	}
 
 	ident, err := identity.PeerIdentityFromPeer(opts.Peer)
@@ -187,7 +187,7 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	}
 
 	if peerDifficulty < opts.MinDifficulty {
-		return ErrAuthorization.New("difficulty must be greater than: %d", opts.MinDifficulty)
+		return Error.New("difficulty must be greater than: %d", opts.MinDifficulty)
 	}
 
 	token, err := ParseToken(opts.Req.AuthToken)
@@ -203,7 +203,7 @@ func (authDB *DB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
 	for i, auth := range auths {
 		if auth.Token.Equal(token) {
 			if auth.Claim != nil {
-				return ErrAuthorization.New("authorization has already been claimed: %s", auth.String())
+				return Error.New("authorization has already been claimed: %s", auth.String())
 			}
 
 			auths[i] = &Authorization{
@@ -266,11 +266,11 @@ func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err erro
 
 	authsBytes, err := auths.Marshal()
 	if err != nil {
-		return ErrAuthorizationDB.Wrap(err)
+		return ErrDB.Wrap(err)
 	}
 
 	if err := authDB.db.Put(ctx, storage.Key(userID), authsBytes); err != nil {
-		return ErrAuthorizationDB.Wrap(err)
+		return ErrDB.Wrap(err)
 	}
 	return nil
 }
