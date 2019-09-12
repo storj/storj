@@ -18,9 +18,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"math/rand"
-
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -6302,12 +6301,12 @@ func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
 	__exit_finished_at_val := optional.ExitFinishedAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_net, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_net, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta, exit_initiated_at, exit_loop_completed_at, exit_finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
+	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -9069,6 +9068,21 @@ func (obj *postgresImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
 	}
 
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -10616,7 +10630,7 @@ func (obj *sqlite3Impl) CreateNoReturn_Node(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
+	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -13437,6 +13451,21 @@ func (obj *sqlite3Impl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
 	}
 
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -15573,6 +15602,33 @@ func (rx *Rx) CreateNoReturn_BucketStorageTally(ctx context.Context,
 
 }
 
+func (rx *Rx) CreateNoReturn_GracefulExitProgress(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_GracefulExitProgress(ctx, graceful_exit_progress_node_id, graceful_exit_progress_bytes_transferred)
+
+}
+
+func (rx *Rx) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+	optional GracefulExitTransferQueue_Create_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_GracefulExitTransferQueue(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, graceful_exit_transfer_queue_durability_ratio, optional)
+
+}
+
 func (rx *Rx) CreateNoReturn_Irreparabledb(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
@@ -16535,6 +16591,29 @@ func (rx *Rx) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	return tx.UpdateNoReturn_ApiKey_By_Id(ctx, api_key_id, update)
 }
 
+func (rx *Rx) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	update GracefulExitProgress_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id, update)
+}
+
+func (rx *Rx) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	update GracefulExitTransferQueue_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, update)
+}
+
 func (rx *Rx) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -16758,6 +16837,19 @@ type Methods interface {
 		bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
 		bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
 		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
+		err error)
+
+	CreateNoReturn_GracefulExitProgress(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+		graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+		err error)
+
+	CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+		graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+		optional GracefulExitTransferQueue_Create_Fields) (
 		err error)
 
 	CreateNoReturn_Irreparabledb(ctx context.Context,
@@ -17217,6 +17309,17 @@ type Methods interface {
 	UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
 		update ApiKey_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+		update GracefulExitProgress_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		update GracefulExitTransferQueue_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
