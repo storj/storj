@@ -312,7 +312,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
-		peer.Contact.NSEndpoint = contact.NewNodesServiceEndpoint()
+		peer.Contact.NSEndpoint = contact.NewNodesServiceEndpoint(peer.Log.Named("contact:nodes_service_endpoint"))
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.NSEndpoint)
 	}

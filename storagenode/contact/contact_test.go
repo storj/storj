@@ -39,3 +39,24 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 		require.True(t, secondPing.After(firstPing))
 	})
 }
+
+func TestRequestInfoEndpoint(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeDossier := planet.StorageNodes[0].Local()
+
+		// Satellite Trusted
+		conn, err := planet.Satellites[0].Transport.DialNode(ctx, &nodeDossier.Node)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		resp, err := pb.NewNodesClient(conn).RequestInfo(ctx, &pb.InfoRequest{})
+		require.NotNil(t, resp)
+		require.NoError(t, err)
+		require.Equal(t, nodeDossier.Type, resp.Type)
+		require.Equal(t, &nodeDossier.Operator, resp.Operator)
+		require.Equal(t, &nodeDossier.Capacity, resp.Capacity)
+		require.Equal(t, nodeDossier.Version.Version, resp.Version.Version)
+	})
+}
