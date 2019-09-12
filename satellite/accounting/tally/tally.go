@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -155,34 +154,15 @@ type Tally struct {
 	Bucket map[string]*accounting.BucketTally
 }
 
-// extractBucketID extracts bucket information from path
-func extractBucketID(path storj.Path) (bucketID string, projectID *uuid.UUID, bucketName string, err error) {
-	elems := storj.SplitPath(path)
-	projectUUID, _, bucketName := elems[0], elems[1], elems[2]
-
-	bucketID = storj.JoinPaths(projectUUID, bucketName)
-	projectID, err = uuid.Parse(projectUUID)
-	if err != nil {
-		return "", nil, "", Error.Wrap(err)
-	}
-
-	return bucketID, projectID, bucketName, nil
-}
-
 // ensureBucket returns bucket corresponding to the passed in path
-//
-// TODO: this parsing shouldn't be done by the observers, they shouldn't know how the data is laid out.
-func (tally *Tally) ensureBucket(ctx context.Context, path storj.Path) (*accounting.BucketTally, error) {
-	bucketID, projectID, bucketName, err := extractBucketID(path)
-	if err != nil {
-		return nil, err
-	}
+func (tally *Tally) ensureBucket(ctx context.Context, path metainfo.ScopedPath) (*accounting.BucketTally, error) {
+	bucketID := storj.JoinPaths(path.ProjectIDString, path.BucketName)
 
 	bucket, exists := tally.Bucket[bucketID]
 	if !exists {
 		bucket = &accounting.BucketTally{}
-		bucket.ProjectID = projectID[:]
-		bucket.BucketName = []byte(bucketName)
+		bucket.ProjectID = path.ProjectID[:]
+		bucket.BucketName = []byte(path.BucketName)
 		tally.Bucket[bucketID] = bucket
 	}
 
@@ -190,7 +170,7 @@ func (tally *Tally) ensureBucket(ctx context.Context, path storj.Path) (*account
 }
 
 // RemoteObject is called for each object once.
-func (tally *Tally) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (tally *Tally) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	bucket, err := tally.ensureBucket(ctx, path)
 	if err != nil {
 		return err
@@ -201,7 +181,7 @@ func (tally *Tally) RemoteObject(ctx context.Context, path storj.Path, pointer *
 }
 
 // InlineSegment is called for each inline segment.
-func (tally *Tally) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (tally *Tally) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	bucket, err := tally.ensureBucket(ctx, path)
 	if err != nil {
 		return err
@@ -215,7 +195,7 @@ func (tally *Tally) InlineSegment(ctx context.Context, path storj.Path, pointer 
 }
 
 // RemoteSegment is called for each remote segment.
-func (tally *Tally) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (tally *Tally) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	bucket, err := tally.ensureBucket(ctx, path)
 	if err != nil {
 		return err
