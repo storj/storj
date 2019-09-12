@@ -649,7 +649,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 }
 
 // Run runs satellite until it's either closed or it errors.
-// todo update
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -710,7 +709,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 }
 
 // Close closes all the resources.
-// todo update
 func (peer *Peer) Close() error {
 	var errlist errs.Group
 
@@ -771,6 +769,9 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Discovery.Service.Close())
 	}
 
+	if peer.Contact.Service != nil {
+		errlist.Add(peer.Contact.Service.Close())
+	}
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
 	}

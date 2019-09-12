@@ -14,7 +14,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
@@ -72,15 +71,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					},
 				},
 			},
-			Kademlia: kademlia.Config{
-				BootstrapBackoffBase: 500 * time.Millisecond,
-				BootstrapBackoffMax:  2 * time.Second,
-				Alpha:                5,
-				DBPath:               filepath.Join(storageDir, "kademlia/"),
-				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@mail.test",
-					Wallet: "0x" + strings.Repeat("00", 20),
-				},
+			Operator: storagenode.OperatorConfig{
+				Email:  prefix + "@mail.test",
+				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 			Storage: piecestore.OldConfig{
 				Path:                   filepath.Join(storageDir, "pieces/"),
@@ -126,8 +119,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				Interval: time.Hour,
 			},
 			Contact: contact.Config{
-				Interval: 30 * time.Second,
-				MaxSleep: 0 * time.Second,
+				ExternalAddress: "",
+				Interval:        30 * time.Second,
+				MaxSleep:        0 * time.Second,
 			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
@@ -139,17 +133,17 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			if i >= count-newIPCount {
 				config.Server.Address = fmt.Sprintf("127.0.%d.1:0", i+1)
 				config.Server.PrivateAddress = fmt.Sprintf("127.0.%d.1:0", i+1)
+				config.Contact.ExternalAddress = fmt.Sprintf("127.0.%d.1:0", i+1)
 			}
 		}
 
 		verisonInfo := planet.NewVersionInfo()
 
 		storageConfig := storagenodedb.Config{
-			Storage:  config.Storage.Path,
-			Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
-			Info2:    filepath.Join(config.Storage.Path, "info.db"),
-			Pieces:   config.Storage.Path,
-			Kademlia: config.Kademlia.DBPath,
+			Storage: config.Storage.Path,
+			Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
+			Info2:   filepath.Join(config.Storage.Path, "info.db"),
+			Pieces:  config.Storage.Path,
 		}
 
 		var db storagenode.DB

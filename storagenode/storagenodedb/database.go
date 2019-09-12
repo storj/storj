@@ -16,13 +16,11 @@ import (
 	_ "github.com/mattn/go-sqlite3" // used indirectly
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
@@ -71,10 +69,9 @@ type SQLDB interface {
 // Config configures storage node database
 type Config struct {
 	// TODO: figure out better names
-	Storage  string
-	Info     string
-	Info2    string
-	Kademlia string
+	Storage string
+	Info    string
+	Info2   string
 
 	Pieces string
 }
@@ -109,11 +106,6 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	}
 	pieces := filestore.New(log, piecesDir)
 
-	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
-	if err != nil {
-		return nil, err
-	}
-
 	versionsPath := config.Info2
 	versionsDB, err := openDatabase(versionsPath)
 	if err != nil {
@@ -123,9 +115,6 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	db := &DB{
 		log:    log,
 		pieces: pieces,
-		kdb:    dbs[0],
-		ndb:    dbs[1],
-		adb:    dbs[2],
 
 		// Initialize databases. Currently shares one info.db database file but
 		// in the future these will initialize their own database connections.
@@ -289,11 +278,6 @@ func (db *DB) StorageUsage() storageusage.DB {
 // UsedSerials returns the instance of the UsedSerials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials {
 	return db.usedSerialsDB
-}
-
-// RoutingTable returns kademlia routing table
-func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
-	return db.kdb, db.ndb, db.adb
 }
 
 // RawDatabases are required for testing purposes

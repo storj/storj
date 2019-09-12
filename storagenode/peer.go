@@ -64,9 +64,6 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
-
-	// TODO: use better interfaces
-	RoutingTable() (kdb, ndb, adb storage.KeyValueStore)
 }
 
 // Config is all the configuration parameters for a Storage Node
@@ -96,7 +93,7 @@ type Config struct {
 
 // Verify verifies whether configuration is consistent and acceptable.
 func (config *Config) Verify(log *zap.Logger) error {
-	return config.Kademlia.Verify(log)
+	return config.Operator.Verify(log)
 }
 
 // Peer is the representation of a Storage Node.
@@ -197,11 +194,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 	}
 
-	// TODO
-	// Set up Contact.PingStats before Kademlia (until Kademlia goes away, at which point this can
-	// be folded back in with the Contact setup block). Both services must share pointers to this
-	// PingStats instance for now.
-	peer.Contact.PingStats = &contact.PingStats{}
 	{ // setup contact service
 		c := config.Contact
 		if c.ExternalAddress == "" {
@@ -255,8 +247,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
-			peer.Kademlia.RoutingTable,
 			peer.Storage2.Store,
+			peer.Contact.Service,
 			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
 			config.Storage.AllocatedBandwidth.Int64(),
@@ -340,7 +332,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Reputation(),
 			peer.DB.StorageUsage(),
 			peer.Contact.PingStats,
-			peer.Local().Id)
+			peer.Contact.Service)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -363,11 +355,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Storage2.Inspector = inspector.NewEndpoint(
 			peer.Log.Named("pieces:inspector"),
 			peer.Storage2.Store,
-			peer.Kademlia.Service, //TODO UPDATE
+			peer.Contact.Service,
 			peer.Contact.PingStats,
 			peer.DB.Bandwidth(),
 			config.Storage,
 			peer.Console.Listener.Addr(),
+			config.Contact.ExternalAddress,
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}

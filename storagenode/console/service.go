@@ -40,24 +40,24 @@ type Service struct {
 	reputationDB   reputation.DB
 	storageUsageDB storageusage.DB
 	pieceStore     *pieces.Store
+	contact        *contact.Service
 
 	version   *version.Service
 	pingStats *contact.PingStats
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
-	nodeID             storj.NodeID
-	walletAddress      string
-	startedAt          time.Time
-	versionInfo        version.Info
+
+	walletAddress string
+	startedAt     time.Time
+	versionInfo   version.Info
 }
 
 // NewService returns new instance of Service.
 
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *version.Service,
-
 	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
-	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, myNodeID storj.NodeID) (*Service, error) {
+	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, contact *contact.Service) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -76,9 +76,11 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 
 	if pingStats == nil {
 		return nil, errs.New("pingStats can't be nil")
-
 	}
 
+	if contact == nil {
+		return nil, errs.New("contact service can't be nil")
+	}
 	return &Service{
 		log:                log,
 		trust:              trust,
@@ -90,7 +92,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		pingStats:          pingStats,
 		allocatedBandwidth: allocatedBandwidth,
 		allocatedDiskSpace: allocatedDiskSpace,
-		nodeID:             myNodeID,
+		contact:            contact,
 		walletAddress:      walletAddress,
 		startedAt:          time.Now(),
 		versionInfo:        versionInfo,
@@ -126,7 +128,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	defer mon.Task()(&ctx)(&err)
 	data := new(Dashboard)
 
-	data.NodeID = s.nodeID
+	data.NodeID = s.contact.Local().Id
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
 	data.UpToDate = s.version.IsAllowed()

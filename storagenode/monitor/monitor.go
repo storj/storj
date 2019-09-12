@@ -13,9 +13,9 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -38,8 +38,8 @@ type Config struct {
 // architecture: Service
 type Service struct {
 	log                *zap.Logger
-	routingTable       *kademlia.RoutingTable
 	store              *pieces.Store
+	contact            *contact.Service
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
@@ -50,10 +50,9 @@ type Service struct {
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
 	return &Service{
 		log:                log,
-		routingTable:       routingTable,
 		store:              store,
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
@@ -152,7 +151,7 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	service.routingTable.UpdateSelf(&pb.NodeCapacity{
+	service.contact.UpdateSelf(&pb.NodeCapacity{
 		FreeBandwidth: service.allocatedBandwidth - usedBandwidth,
 		FreeDisk:      service.allocatedDiskSpace - usedSpace,
 	})

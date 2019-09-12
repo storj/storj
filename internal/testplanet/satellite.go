@@ -7,13 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
@@ -24,6 +22,7 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
@@ -86,15 +85,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					},
 				},
 			},
-			Kademlia: kademlia.Config{
-				Alpha:                5,
-				BootstrapBackoffBase: 500 * time.Millisecond,
-				BootstrapBackoffMax:  2 * time.Second,
-				DBPath:               storageDir, // TODO: replace with master db
-				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@mail.test",
-					Wallet: "0x" + strings.Repeat("00", 20),
-				},
+			Contact: contact.Config{
+				ExternalAddress: "127.0.0.1:0",
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{

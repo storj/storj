@@ -28,8 +28,9 @@ type Chore struct {
 
 	trust *trust.Pool
 
-	maxSleep time.Duration
-	Loop     *sync2.Cycle
+	maxSleep        time.Duration
+	Loop            *sync2.Cycle
+	checkinFinished sync2.Fence
 }
 
 // NewChore creates a new contact chore
@@ -64,6 +65,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer chore.checkinFinished.Release()
 	chore.log.Sugar().Infof("node disk %d", chore.service.Local().Capacity.FreeDisk)
 	var group errgroup.Group
 	self := chore.service.Local()
@@ -116,6 +118,11 @@ func (chore *Chore) randomDurationSleep(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// WaitForCheckin waits for checkin pinging has been completed.
+func (chore *Chore) WaitForCheckin() {
+	chore.checkinFinished.Wait()
 }
 
 // Close stops the contact chore

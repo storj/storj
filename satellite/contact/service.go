@@ -30,7 +30,7 @@ type Config struct {
 // Conn represents a connection
 type Conn struct {
 	conn   *grpc.ClientConn
-	client pb.ContactClient
+	client pb.NodesClient
 }
 
 // Service is the contact service between storage nodes and satellites
@@ -82,7 +82,7 @@ func (service *Service) dialNode(ctx context.Context, target pb.Node) (_ *Conn, 
 	grpcconn, err := service.transport.DialNode(ctx, &target)
 	return &Conn{
 		conn:   grpcconn,
-		client: pb.NewContactClient(grpcconn),
+		client: pb.NewNodesClient(grpcconn),
 	}, err
 }
 
@@ -90,3 +90,6 @@ func (service *Service) dialNode(ctx context.Context, target pb.Node) (_ *Conn, 
 func (conn *Conn) close() error {
 	return conn.conn.Close()
 }
+
+// Close closes resources
+func (service *Service) Close() error { return nil }

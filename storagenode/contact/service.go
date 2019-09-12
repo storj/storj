@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -51,4 +52,12 @@ func (service *Service) Local() overlay.NodeDossier {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	return *service.self
+}
+
+func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if capacity != nil {
+		service.self.Capacity = *capacity
+	}
 }
