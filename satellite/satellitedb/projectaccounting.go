@@ -22,14 +22,15 @@ type ProjectAccounting struct {
 }
 
 // SaveTallies saves the latest bucket info
-func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) (_ []accounting.BucketTally, err error) {
+func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if len(bucketTallies) == 0 {
-		return nil, Error.New("In SaveTallies with empty bucketTallies")
+		return nil
 	}
 
 	// TODO: see if we can send all bucket storage tallies to the db in one operation
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+	return Error.Wrap(db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for _, info := range bucketTallies {
 			err := tx.CreateNoReturn_BucketStorageTally(ctx,
 				dbx.BucketStorageTally_BucketName(info.BucketName),
@@ -47,12 +48,32 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			}
 		}
 		return nil
-	})
+	}))
+}
 
+// GetTallies saves the latest bucket info
+func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounting.BucketTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxTallies, err := db.db.All_BucketStorageTally(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return nil, nil
+
+	for _, dbxTally := range dbxTallies {
+		tallies = append(tallies, accounting.BucketTally{
+			BucketName:     dbxTally.BucketName,
+			ProjectID:      dbxTally.ProjectId,
+			InlineSegments: int64(dbxTally.InlineSegmentsCount),
+			RemoteSegments: int64(dbxTally.RemoteSegmentsCount),
+			Files:          int64(dbxTally.ObjectCount),
+			InlineBytes:    int64(dbxTally.Inline),
+			RemoteBytes:    int64(dbxTally.Remote),
+			MetadataSize:   int64(dbxTally.MetadataSize),
+		})
+	}
+
+	return tallies, nil
 }
 
 // CreateStorageTally creates a record in the bucket_storage_tallies accounting table

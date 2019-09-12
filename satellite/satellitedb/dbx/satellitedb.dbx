@@ -565,6 +565,10 @@ read first (
 
 read all (
     select bucket_storage_tally
+)
+
+read all (
+    select bucket_storage_tally
     where bucket_storage_tally.project_id = ?
     where bucket_storage_tally.bucket_name = ?
     where bucket_storage_tally.interval_start >= ?
