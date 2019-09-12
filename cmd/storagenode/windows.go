@@ -6,18 +6,25 @@
 package main
 
 import (
-	"os"
-	"syscall"
 	"time"
 
-	"storj.io/storj/pkg/process"
 	"golang.org/x/sys/windows/svc"
+	"storj.io/storj/pkg/process"
 )
 
 func init() {
-	err := svc.Run("storagenode", &myservice{})
+	interactive, err := svc.IsAnInteractiveSession()
 	if err != nil {
-		panic("service failed "+ err.Error())
+		panic("failed to determine if session is interactive: " + err.Error())
+	}
+
+	if interactive {
+		return
+	}
+
+	err = svc.Run("storagenode", &myservice{})
+	if err != nil {
+		panic("service failed: " + err.Error())
 	}
 }
 
@@ -34,7 +41,7 @@ func (m *myservice) Execute(args []string, r <-chan svc.ChangeRequest, changes c
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-	loop:
+loop:
 	for {
 		select {
 		case c := <-r:
