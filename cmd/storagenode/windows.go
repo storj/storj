@@ -12,7 +12,7 @@ import (
 
 func init(){
 	run := svc.Run
-	err := run("storagenode7", &myservice{})
+	err := run("storagenode", &myservice{})
 	if err != nil {
 		// elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
 		panic("service failed "+ err.Error())
