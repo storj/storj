@@ -37,9 +37,8 @@ func TestFileConcurrency(t *testing.T) {
 	log := zaptest.NewLogger(t)
 
 	db, err := storagenodedb.New(log, storagenodedb.Config{
-		Pieces:   ctx.Dir("storage"),
-		Info2:    ctx.Dir("storage") + "/info.db",
-		Kademlia: ctx.Dir("storage") + "/kademlia",
+		Pieces: ctx.Dir("storage"),
+		Info2:  ctx.Dir("storage") + "/info.db",
 	})
 	if err != nil {
 		t.Fatal(err)

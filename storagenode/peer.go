@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
@@ -373,7 +373,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 }
 
 // Run runs storage node until it's either closed or it errors.
-//TODO update
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -382,7 +381,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
-
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
+	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Collector.Run(ctx))
 	})
@@ -419,15 +420,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
-	})
-
 	return group.Wait()
 }
 
 // Close closes all the resources.
-//TODO update
 func (peer *Peer) Close() error {
 	var errlist errs.Group
 

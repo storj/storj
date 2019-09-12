@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
-	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/orders"
@@ -94,8 +93,6 @@ type DB struct {
 	reputationDB      *reputationDB
 	storageUsageDB    *storageusageDB
 	usedSerialsDB     *usedSerialsDB
-
-	kdb, ndb, adb storage.KeyValueStore
 }
 
 // New creates a new master database for storage node
@@ -149,9 +146,6 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 	db := &DB{
 		log:    log,
 		pieces: pieces,
-		kdb:    teststore.New(),
-		ndb:    teststore.New(),
-		adb:    teststore.New(),
 
 		// Initialize databases. Currently shares one info.db database file but
 		// in the future these will initialize their own database connections.
@@ -214,10 +208,6 @@ func (db *DB) CreateTables() error {
 // Close closes any resources.
 func (db *DB) Close() error {
 	return errs.Combine(
-		db.kdb.Close(),
-		db.ndb.Close(),
-		db.adb.Close(),
-
 		db.versionsDB.Close(),
 		db.v0PieceInfoDB.Close(),
 		db.bandwidthDB.Close(),

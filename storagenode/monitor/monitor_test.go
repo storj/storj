@@ -26,7 +26,7 @@ func TestMonitor(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Monitor.Loop.Pause()
 
-			info, err := satellite.Kademlia.Service.FetchInfo(ctx, storageNode.Local().Node)
+			info, err := satellite.Contact.Service.FetchInfo(ctx, storageNode.Local().Node)
 			require.NoError(t, err)
 
 			// assume that all storage nodes have the same initial values
@@ -42,7 +42,7 @@ func TestMonitor(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Monitor.Loop.TriggerWait()
 
-			info, err := satellite.Kademlia.Service.FetchInfo(ctx, storageNode.Local().Node)
+			info, err := satellite.Contact.Service.FetchInfo(ctx, storageNode.Local().Node)
 			require.NoError(t, err)
 
 			stats, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})

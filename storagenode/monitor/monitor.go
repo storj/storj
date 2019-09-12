@@ -54,6 +54,7 @@ func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, 
 	return &Service{
 		log:                log,
 		store:              store,
+		contact:            contact,
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
 		allocatedBandwidth: allocatedBandwidth,
