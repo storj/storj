@@ -699,6 +699,29 @@ func (db *DB) Migration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				DB:          db.versionsDB,
+				Description: "Create satellites table and satellites_exit_progress table",
+				Version:     21,
+				Action: migrate.SQL{
+					`CREATE TABLE satellites (
+						node_id BLOB NOT NULL,
+						address TEXT NOT NUll,
+						added_at TIMESTAMP NOT NULL,
+						status INTEGER NOT NULL,
+						PRIMARY KEY (node_id)
+					)`,
+					`CREATE TABLE satellite_exit_progress (
+						satellite_id BLOB NOT NULL,
+						initiated_at TIMESTAMP,
+						finished_at TIMESTAMP,
+						starting_disk_usage INTEGER NOT NULL,
+						bytes_deleted INTEGER NOT NULL,
+						completion_receipt BLOB,
+						PRIMARY KEY (satellite_id)
+					)`,
+				},
+			},
 		},
 	}
 }

@@ -48,34 +48,65 @@ func TestApiKeysRepository(t *testing.T) {
 			}
 		})
 
-		t.Run("GetByProjectID success", func(t *testing.T) {
-			keys, err := apikeys.GetByProjectID(ctx, project.ID)
-			assert.NotNil(t, keys)
-			assert.Equal(t, len(keys), 10)
+		t.Run("GetPagedByProjectID success", func(t *testing.T) {
+			cursor := console.APIKeyCursor{
+				Page:   1,
+				Limit:  10,
+				Search: "",
+			}
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+
+			assert.NotNil(t, page)
+			assert.Equal(t, len(page.APIKeys), 10)
+			assert.NoError(t, err)
+		})
+
+		t.Run("GetPagedByProjectID with limit success", func(t *testing.T) {
+			cursor := console.APIKeyCursor{
+				Page:   1,
+				Limit:  2,
+				Search: "",
+			}
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+
+			assert.NotNil(t, page)
+			assert.Equal(t, len(page.APIKeys), 2)
+			assert.Equal(t, page.PageCount, uint(5))
 			assert.NoError(t, err)
 		})
 
 		t.Run("Get By ID success", func(t *testing.T) {
-			keys, err := apikeys.GetByProjectID(ctx, project.ID)
-			assert.NotNil(t, keys)
-			assert.Equal(t, len(keys), 10)
+			cursor := console.APIKeyCursor{
+				Page:   1,
+				Limit:  10,
+				Search: "",
+			}
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+
+			assert.NotNil(t, page)
+			assert.Equal(t, len(page.APIKeys), 10)
 			assert.NoError(t, err)
 
-			key, err := apikeys.Get(ctx, keys[0].ID)
+			key, err := apikeys.Get(ctx, page.APIKeys[0].ID)
 			assert.NotNil(t, key)
-			assert.Equal(t, keys[0].ID, key.ID)
+			assert.Equal(t, page.APIKeys[0].ID, key.ID)
 			assert.NoError(t, err)
 		})
 
 		t.Run("Update success", func(t *testing.T) {
-			keys, err := apikeys.GetByProjectID(ctx, project.ID)
-			assert.NotNil(t, keys)
-			assert.Equal(t, len(keys), 10)
+			cursor := console.APIKeyCursor{
+				Page:   1,
+				Limit:  10,
+				Search: "",
+			}
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			assert.NotNil(t, page)
+			assert.Equal(t, len(page.APIKeys), 10)
 			assert.NoError(t, err)
 
-			key, err := apikeys.Get(ctx, keys[0].ID)
+			key, err := apikeys.Get(ctx, page.APIKeys[0].ID)
 			assert.NotNil(t, key)
-			assert.Equal(t, keys[0].ID, key.ID)
+			assert.Equal(t, page.APIKeys[0].ID, key.ID)
 			assert.NoError(t, err)
 
 			key.Name = "some new name"
@@ -83,21 +114,26 @@ func TestApiKeysRepository(t *testing.T) {
 			err = apikeys.Update(ctx, *key)
 			assert.NoError(t, err)
 
-			updatedKey, err := apikeys.Get(ctx, keys[0].ID)
+			updatedKey, err := apikeys.Get(ctx, page.APIKeys[0].ID)
 			assert.NotNil(t, key)
 			assert.Equal(t, key.Name, updatedKey.Name)
 			assert.NoError(t, err)
 		})
 
 		t.Run("Delete success", func(t *testing.T) {
-			keys, err := apikeys.GetByProjectID(ctx, project.ID)
-			assert.NotNil(t, keys)
-			assert.Equal(t, len(keys), 10)
+			cursor := console.APIKeyCursor{
+				Page:   1,
+				Limit:  10,
+				Search: "",
+			}
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			assert.NotNil(t, page)
+			assert.Equal(t, len(page.APIKeys), 10)
 			assert.NoError(t, err)
 
-			key, err := apikeys.Get(ctx, keys[0].ID)
+			key, err := apikeys.Get(ctx, page.APIKeys[0].ID)
 			assert.NotNil(t, key)
-			assert.Equal(t, keys[0].ID, key.ID)
+			assert.Equal(t, page.APIKeys[0].ID, key.ID)
 			assert.NoError(t, err)
 
 			key.Name = "some new name"
@@ -105,10 +141,23 @@ func TestApiKeysRepository(t *testing.T) {
 			err = apikeys.Delete(ctx, key.ID)
 			assert.NoError(t, err)
 
-			keys, err = apikeys.GetByProjectID(ctx, project.ID)
-			assert.NotNil(t, keys)
-			assert.Equal(t, len(keys), 9)
+			page, err = apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+			assert.NotNil(t, page)
+			assert.Equal(t, len(page.APIKeys), 9)
 			assert.NoError(t, err)
 		})
+
+		t.Run("GetPageByProjectID with 0 page error", func(t *testing.T) {
+			cursor := console.APIKeyCursor{
+				Page:   0,
+				Limit:  10,
+				Search: "",
+			}
+			page, err := apikeys.GetPagedByProjectID(ctx, project.ID, cursor)
+
+			assert.Nil(t, page)
+			assert.Error(t, err)
+		})
+
 	})
 }
