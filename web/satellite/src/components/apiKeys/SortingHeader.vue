@@ -3,33 +3,77 @@
 
 <template>
     <div class="sort-header-container">
-        <div class="sort-header-container__name-item">
+        <div class="sort-header-container__name-item" @click="onHeaderItemClick(ApiKeyOrderBy.NAME)">
             <p>Key Name</p>
-            <div class="sort-header-container__name-item__arrows">
-                <span v-html="arrowUp"></span>
-                <span class="selected" v-html="arrowDown"></span>
-            </div>
+            <VerticalArrows
+                :isActive="getSortBy === ApiKeyOrderBy.NAME"
+                :direction="getSortDirection"></VerticalArrows>
         </div>
-        <div class="sort-header-container__date-item">
+        <div class="sort-header-container__date-item" @click="onHeaderItemClick(ApiKeyOrderBy.CREATED_AT)">
             <p>Created</p>
-            <div class="sort-header-container__name-item__arrows">
-                <span v-html="arrowUp"></span>
-                <span class="selected" v-html="arrowDown"></span>
-            </div>
+            <VerticalArrows
+                :isActive="getSortBy === ApiKeyOrderBy.CREATED_AT"
+                :direction="getSortDirection"></VerticalArrows>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import VerticalArrows from '@/components/common/VerticalArrows.vue';
+
+import { ApiKeyOrderBy, OnHeaderClickCallback } from '@/types/apiKeys';
+import { SortDirection } from '@/types/common';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-@Component
-
+@Component({
+    components:{
+        VerticalArrows,
+    }
+})
 export default class SortApiKeysHeader extends Vue {
     public arrowUp: string = EMPTY_STATE_IMAGES.ARROW_UP;
     public arrowDown: string = EMPTY_STATE_IMAGES.ARROW_DOWN;
+
+    @Prop({default: () => new Promise(() => false)})
+    private readonly onHeaderClickCallback: OnHeaderClickCallback;
+
+    public ApiKeyOrderBy = ApiKeyOrderBy;
+
+    public sortBy: ApiKeyOrderBy = ApiKeyOrderBy.NAME;
+    public sortDirection: SortDirection = SortDirection.ASCENDING;
+
+    public get getSortDirection() {
+        if (this.sortDirection === SortDirection.DESCENDING) {
+            return SortDirection.ASCENDING;
+        }
+
+        return SortDirection.DESCENDING;
+    }
+
+    public get getSortBy() {
+        return this.sortBy;
+    }
+
+    public async onHeaderItemClick(sortBy: ApiKeyOrderBy): Promise<void> {
+        if (this.sortBy !== sortBy) {
+            this.sortBy = sortBy;
+            this.sortDirection = SortDirection.ASCENDING;
+
+            await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
+
+            return;
+        }
+
+        if (this.sortDirection === SortDirection.DESCENDING) {
+            this.sortDirection = SortDirection.ASCENDING;
+        } else {
+            this.sortDirection = SortDirection.DESCENDING;
+        }
+
+        await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
+    }
 }
 </script>
 

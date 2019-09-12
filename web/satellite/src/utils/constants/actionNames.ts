@@ -46,12 +46,15 @@ export const PM_ACTIONS = {
 };
 
 export const API_KEYS_ACTIONS = {
-    FETCH: 'setAPIKeys',
-    CREATE: 'createAPIKey',
-    DELETE: 'deleteAPIKey',
-    CLEAR: 'clearAPIKeys',
-    TOGGLE_SELECTION: 'toggleAPIKeySelection',
-    CLEAR_SELECTION: 'clearAPIKeySelection'
+    FETCH: 'fetchApiKeys',
+    CREATE: 'createApiKey',
+    DELETE: 'deleteApiKey',
+    CLEAR: 'clearApiKeys',
+    SET_SEARCH_QUERY: 'setApiKeysSearchQuery',
+    SET_SORT_BY: 'setApiKeysSortingBy',
+    SET_SORT_DIRECTION: 'setApiKeysSortingDirection',
+    TOGGLE_SELECTION: 'toggleApiKeySelection',
+    CLEAR_SELECTION: 'clearApiKeySelection'
 };
 
 export const PROJECT_PAYMENT_METHODS_ACTIONS = {
