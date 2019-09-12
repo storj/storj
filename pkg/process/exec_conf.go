@@ -74,7 +74,7 @@ func Exec(cmd *cobra.Command) {
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
-func Ctx(cmd *cobra.Command) context.Context {
+func Ctx(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	commandMtx.Lock()
 	defer commandMtx.Unlock()
 
@@ -91,7 +91,7 @@ func Ctx(cmd *cobra.Command) context.Context {
 		signal.Stop(c)
 		cancel()
 	}()
-	return ctx
+	return ctx, cancel
 }
 
 // Viper returns the appropriate *viper.Viper for the command, creating if necessary.

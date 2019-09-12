@@ -26,7 +26,7 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("No object specified for copy")
 	}
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	dst, err := fpath.New(args[0])
 	if err != nil {

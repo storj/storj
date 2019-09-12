@@ -6,6 +6,7 @@
 package main
 
 import (
+	"log"
 	"time"
 
 	"golang.org/x/sys/windows/svc"
@@ -15,22 +16,22 @@ import (
 func init() {
 	interactive, err := svc.IsAnInteractiveSession()
 	if err != nil {
-		panic("failed to determine if session is interactive: " + err.Error())
+		log.Fatalf("failed to determine if session is interactive: %v", err)
 	}
 
 	if interactive {
 		return
 	}
 
-	err = svc.Run("storagenode", &myservice{})
+	err = svc.Run("storagenode", &service{})
 	if err != nil {
-		panic("service failed: " + err.Error())
+		log.Fatalf("service failed: %v", err)
 	}
 }
 
-type myservice struct{}
+type service struct{}
 
-func (m *myservice) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 
 	changes <- svc.Status{State: svc.StartPending}
@@ -47,15 +48,18 @@ loop:
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
+				log.Println("Interrogate request received.")
 				changes <- c.CurrentStatus
 				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
 				time.Sleep(100 * time.Millisecond)
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
-				// TODO: find a way to cancel the context of the process
+				log.Println("Stop/Shutdown request received.")
+				_, cancel := process.Ctx(rootCmd)
+				cancel()
 				break loop
 			default:
-				// elog.Error(1, fmt.Sprintf("unexpected control request #%d", c))
+				log.Printf("Unexpected control request: %d\n", c)
 			}
 		}
 	}
