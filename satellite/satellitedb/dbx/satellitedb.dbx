@@ -55,8 +55,11 @@ model irreparabledb (
 	field repair_attempt_count int64 ( updatable )
 )
 
-create irreparabledb ( )
-update irreparabledb ( where irreparabledb.segmentpath = ? )
+create irreparabledb ( noreturn )
+update irreparabledb (
+	where irreparabledb.segmentpath = ?
+	noreturn
+)
 delete irreparabledb ( where irreparabledb.segmentpath = ? )
 
 read one (
@@ -166,8 +169,12 @@ model node (
 	field uptime_reputation_beta  float64 ( updatable )
 )
 
-create node ( )
+create node ( noreturn )
 update node ( where node.id = ? )
+update node (
+	where node.id = ?
+	noreturn
+)
 delete node ( where node.id = ? )
 
 // "Get" query; fails if node not found
@@ -397,8 +404,11 @@ model api_key (
     field  created_at  timestamp  (autoinsert)
 )
 
-create api_key ()
-update api_key ( where api_key.id = ? )
+create api_key ( )
+update api_key ( 
+	where api_key.id = ?
+	noreturn
+)
 delete api_key ( where api_key.id = ? )
 
 read one (
@@ -742,6 +752,7 @@ read all (
 
 update offer (
 	where offer.id = ?
+	noreturn
 )
 
 create offer ( )
