@@ -6,6 +6,8 @@
 package main
 
 import (
+	"time"
+
 	"storj.io/storj/pkg/process"
 	"golang.org/x/sys/windows/svc"
 )
@@ -29,34 +31,25 @@ func (m *myservice) Execute(args []string, r <-chan svc.ChangeRequest, changes c
 	go func() {
 		process.Exec(rootCmd)
 	}()
-	
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+
 	loop:
 	for {
 		select {
-		// case <-tick:
-			// beep()
-			// elog.Info(1, "beep")
 		case c := <-r:
 			switch c.Cmd {
-			// case svc.Interrogate:
-			// 	changes <- c.CurrentStatus
-			// 	// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
-			// 	time.Sleep(100 * time.Millisecond)
-			// 	changes <- c.CurrentStatus
+			case svc.Interrogate:
+				changes <- c.CurrentStatus
+				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
+				time.Sleep(100 * time.Millisecond)
+				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
 				// golang.org/x/sys/windows/svc.TestExample is verifying this output.
 				// testOutput := strings.Join(ar/gs, "-")
 				// testOutput += fmt.Sprintf("-%d", c.Context)
 				// elog.Info(1, testOutput)
 				break loop
-			// case svc.Pause:
-			// 	changes <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}
-			// 	tick = slowtick
-			// case svc.Continue:
-			// 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
-			// 	tick = fasttick
 			default:
 				// fmt.Println(1, fmt.Sprintf("unexpected control request #%d", c))
 			}
