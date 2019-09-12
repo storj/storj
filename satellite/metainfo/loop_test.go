@@ -26,7 +26,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
-// TestMetainfoLoop does the following
+// TestLoop does the following
 // * upload 5 remote files with 1 segment
 // * (TODO) upload 3 remote files with 2 segments
 // * upload 2 inline files
@@ -37,7 +37,7 @@ import (
 //    - 5 remote segments
 //    - 2 inline files/segments
 //    - 7 unique path items
-func TestMetainfoLoop(t *testing.T) {
+func TestLoop(t *testing.T) {
 	// TODO: figure out how to configure testplanet so we can upload 2*segmentSize to get two segments
 	segmentSize := 8 * memory.KiB
 
@@ -94,16 +94,21 @@ func TestMetainfoLoop(t *testing.T) {
 		err := group.Wait()
 		require.NoError(t, err)
 
+		projectID := ul.ProjectID[satellite.ID()]
 		for _, obs := range []*testObserver{obs1, obs2} {
 			assert.EqualValues(t, 5, obs.remoteSegCount)
 			assert.EqualValues(t, 5, obs.remoteFileCount)
 			assert.EqualValues(t, 2, obs.inlineSegCount)
 			assert.EqualValues(t, 7, len(obs.uniquePaths))
+			for _, path := range obs.uniquePaths {
+				assert.EqualValues(t, path.BucketName, "bucket")
+				assert.EqualValues(t, path.ProjectID, projectID)
+			}
 		}
 	})
 }
 
-// TestMetainfoLoopObserverCancel does the following:
+// TestLoopObserverCancel does the following:
 // * upload 3 remote segments
 // * hook three observers up to metainfo loop
 // * let observer 1 run normally
@@ -111,7 +116,7 @@ func TestMetainfoLoop(t *testing.T) {
 // * let observer 3's context be canceled
 // * expect observer 1 to see all segments
 // * expect observers 2 and 3 to finish with errors
-func TestMetainfoLoopObserverCancel(t *testing.T) {
+func TestLoopObserverCancel(t *testing.T) {
 	segmentSize := 8 * memory.KiB
 
 	testplanet.Run(t, testplanet.Config{
@@ -189,13 +194,13 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 	})
 }
 
-// TestMetainfoLoopCancel does the following:
+// TestLoopCancel does the following:
 // * upload 3 remote segments
 // * hook two observers up to metainfo loop
 // * cancel loop context partway through
 // * expect both observers to exit with an error and see fewer than 3 remote segments
 // * expect that a new observer attempting to join at this point receives a loop closed error
-func TestMetainfoLoopCancel(t *testing.T) {
+func TestLoopCancel(t *testing.T) {
 	segmentSize := 8 * memory.KiB
 
 	testplanet.Run(t, testplanet.Config{
