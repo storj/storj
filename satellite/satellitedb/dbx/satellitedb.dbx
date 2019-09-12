@@ -55,8 +55,11 @@ model irreparabledb (
 	field repair_attempt_count int64 ( updatable )
 )
 
-create irreparabledb ( )
-update irreparabledb ( where irreparabledb.segmentpath = ? )
+create irreparabledb ( noreturn )
+update irreparabledb (
+	where irreparabledb.segmentpath = ?
+	noreturn
+)
 delete irreparabledb ( where irreparabledb.segmentpath = ? )
 
 read one (
@@ -80,8 +83,11 @@ model accounting_timestamps (
 	field value timestamp ( updatable )
 )
 
-create accounting_timestamps ( )
-update accounting_timestamps ( where accounting_timestamps.name = ? )
+create accounting_timestamps ( noreturn )
+update accounting_timestamps (
+	where accounting_timestamps.name = ?
+	noreturn
+)
 
 read scalar (
 	select accounting_timestamps.value
@@ -102,7 +108,7 @@ model accounting_rollup (
 	field at_rest_total    float64
 )
 
-create accounting_rollup ( )
+create accounting_rollup ( noreturn )
 delete accounting_rollup ( where accounting_rollup.id = ? )
 
 read one (
@@ -163,8 +169,12 @@ model node (
 	field uptime_reputation_beta  float64 ( updatable )
 )
 
-create node ( )
+create node ( noreturn )
 update node ( where node.id = ? )
+update node (
+	where node.id = ?
+	noreturn
+)
 delete node ( where node.id = ? )
 
 // "Get" query; fails if node not found
@@ -394,8 +404,11 @@ model api_key (
     field  created_at  timestamp  (autoinsert)
 )
 
-create api_key ()
-update api_key ( where api_key.id = ? )
+create api_key ( )
+update api_key ( 
+	where api_key.id = ?
+	noreturn
+)
 delete api_key ( where api_key.id = ? )
 
 read one (
@@ -438,7 +451,7 @@ model bucket_usage (
     field  audit_egress       uint64
 )
 
-create bucket_usage ()
+create bucket_usage ( )
 delete bucket_usage ( where bucket_usage.id = ? )
 
 read one (
@@ -489,7 +502,7 @@ model used_serial (
 )
 
 // inserting a new serial number
-create serial_number ()
+create serial_number ( noreturn )
 
 // finding out information about the serial number
 read scalar (
@@ -503,7 +516,7 @@ delete serial_number (
 )
 
 // for preventing duplicate serial numbers
-create used_serial ()
+create used_serial ( noreturn )
 
 // --- bucket accounting tables --- //
 
@@ -552,12 +565,16 @@ model bucket_storage_tally (
 	field  metadata_size      uint64
 )
 
-create bucket_storage_tally ()
+create bucket_storage_tally ( noreturn )
 
 read first (
     select bucket_storage_tally
     where bucket_storage_tally.project_id = ?
     orderby desc bucket_storage_tally.interval_start
+)
+
+read all (
+    select bucket_storage_tally
 )
 
 read all (
@@ -608,7 +625,7 @@ model storagenode_storage_tally (
 	field data_total				float64
 )
 
-create storagenode_storage_tally ()
+create storagenode_storage_tally ( noreturn )
 delete storagenode_storage_tally ( where storagenode_storage_tally.id = ? )
 read one (
 		select storagenode_storage_tally
@@ -633,9 +650,10 @@ model peer_identity (
     field updated_at         timestamp ( autoinsert, autoupdate )
 )
 
-create peer_identity ( )
+create peer_identity ( noreturn )
 update peer_identity (
 	where  peer_identity.node_id = ?
+	noreturn
 )
 
 read one (
@@ -734,6 +752,7 @@ read all (
 
 update offer (
 	where offer.id = ?
+	noreturn
 )
 
 create offer ( )
