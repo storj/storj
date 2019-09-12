@@ -1037,8 +1037,15 @@ func (m *lockedProjectAccounting) GetStorageTotals(ctx context.Context, projectI
 	return m.db.GetStorageTotals(ctx, projectID)
 }
 
+// GetTallies retrieves all tallies
+func (m *lockedProjectAccounting) GetTallies(ctx context.Context) ([]accounting.BucketTally, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetTallies(ctx)
+}
+
 // SaveTallies saves the latest project info
-func (m *lockedProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
+func (m *lockedProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, intervalStart, bucketTallies)
