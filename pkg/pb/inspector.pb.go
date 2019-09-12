@@ -1729,19 +1729,19 @@ func (c *drpcKadInspectorClient) GetBucketList(ctx context.Context, in *GetBucke
 
 type DRPCKadInspectorServer interface {
 	// CountNodes returns the number of nodes in the routing table
-	DRPCCountNodes(context.Context, *CountNodesRequest) (*CountNodesResponse, error)
+	CountNodes(context.Context, *CountNodesRequest) (*CountNodesResponse, error)
 	// PingNode sends a PING RPC to a node and returns its availability
-	DRPCPingNode(context.Context, *PingNodeRequest) (*PingNodeResponse, error)
+	PingNode(context.Context, *PingNodeRequest) (*PingNodeResponse, error)
 	// LookupNode triggers a Kademlia FindNode and returns the response
-	DRPCLookupNode(context.Context, *LookupNodeRequest) (*LookupNodeResponse, error)
+	LookupNode(context.Context, *LookupNodeRequest) (*LookupNodeResponse, error)
 	// NodeInfo sends a PING RPC to a node and returns its local info
-	DRPCNodeInfo(context.Context, *NodeInfoRequest) (*NodeInfoResponse, error)
+	NodeInfo(context.Context, *NodeInfoRequest) (*NodeInfoResponse, error)
 	// FindNear returns limit number of IDs "near" the Start ID
-	DRPCFindNear(context.Context, *FindNearRequest) (*FindNearResponse, error)
+	FindNear(context.Context, *FindNearRequest) (*FindNearResponse, error)
 	// DumpNodes returns all the nodes in the node database
-	DRPCDumpNodes(context.Context, *DumpNodesRequest) (*DumpNodesResponse, error)
+	DumpNodes(context.Context, *DumpNodesRequest) (*DumpNodesResponse, error)
 	// GetBucketList returns all the buckets with all their nodes
-	DRPCGetBucketList(context.Context, *GetBucketListRequest) (*GetBucketListResponse, error)
+	GetBucketList(context.Context, *GetBucketListRequest) (*GetBucketListResponse, error)
 }
 
 type DRPCKadInspectorDescription struct{}
@@ -1754,68 +1754,72 @@ func (DRPCKadInspectorDescription) Method(n int) (string, drpc.Handler, interfac
 		return "/inspector.KadInspector/CountNodes",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCKadInspectorServer).
-					DRPCCountNodes(
+					CountNodes(
 						ctx,
 						in1.(*CountNodesRequest),
 					)
-			}, DRPCKadInspectorServer.DRPCCountNodes, true
+			}, DRPCKadInspectorServer.CountNodes, true
 	case 1:
 		return "/inspector.KadInspector/PingNode",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCKadInspectorServer).
-					DRPCPingNode(
+					PingNode(
 						ctx,
 						in1.(*PingNodeRequest),
 					)
-			}, DRPCKadInspectorServer.DRPCPingNode, true
+			}, DRPCKadInspectorServer.PingNode, true
 	case 2:
 		return "/inspector.KadInspector/LookupNode",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCKadInspectorServer).
-					DRPCLookupNode(
+					LookupNode(
 						ctx,
 						in1.(*LookupNodeRequest),
 					)
-			}, DRPCKadInspectorServer.DRPCLookupNode, true
+			}, DRPCKadInspectorServer.LookupNode, true
 	case 3:
 		return "/inspector.KadInspector/NodeInfo",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCKadInspectorServer).
-					DRPCNodeInfo(
+					NodeInfo(
 						ctx,
 						in1.(*NodeInfoRequest),
 					)
-			}, DRPCKadInspectorServer.DRPCNodeInfo, true
+			}, DRPCKadInspectorServer.NodeInfo, true
 	case 4:
 		return "/inspector.KadInspector/FindNear",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCKadInspectorServer).
-					DRPCFindNear(
+					FindNear(
 						ctx,
 						in1.(*FindNearRequest),
 					)
-			}, DRPCKadInspectorServer.DRPCFindNear, true
+			}, DRPCKadInspectorServer.FindNear, true
 	case 5:
 		return "/inspector.KadInspector/DumpNodes",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCKadInspectorServer).
-					DRPCDumpNodes(
+					DumpNodes(
 						ctx,
 						in1.(*DumpNodesRequest),
 					)
-			}, DRPCKadInspectorServer.DRPCDumpNodes, true
+			}, DRPCKadInspectorServer.DumpNodes, true
 	case 6:
 		return "/inspector.KadInspector/GetBucketList",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCKadInspectorServer).
-					DRPCGetBucketList(
+					GetBucketList(
 						ctx,
 						in1.(*GetBucketListRequest),
 					)
-			}, DRPCKadInspectorServer.DRPCGetBucketList, true
+			}, DRPCKadInspectorServer.GetBucketList, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterKadInspector(srv drpc.Server, impl DRPCKadInspectorServer) {
+	srv.Register(impl, DRPCKadInspectorDescription{})
 }
 
 type DRPCKadInspector_CountNodesStream interface {
@@ -1969,9 +1973,9 @@ func (c *drpcOverlayInspectorClient) DumpNodes(ctx context.Context, in *DumpNode
 
 type DRPCOverlayInspectorServer interface {
 	// CountNodes returns the number of nodes in the cache
-	DRPCCountNodes(context.Context, *CountNodesRequest) (*CountNodesResponse, error)
+	CountNodes(context.Context, *CountNodesRequest) (*CountNodesResponse, error)
 	// DumpNodes returns all the nodes in the cache
-	DRPCDumpNodes(context.Context, *DumpNodesRequest) (*DumpNodesResponse, error)
+	DumpNodes(context.Context, *DumpNodesRequest) (*DumpNodesResponse, error)
 }
 
 type DRPCOverlayInspectorDescription struct{}
@@ -1984,23 +1988,27 @@ func (DRPCOverlayInspectorDescription) Method(n int) (string, drpc.Handler, inte
 		return "/inspector.OverlayInspector/CountNodes",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCOverlayInspectorServer).
-					DRPCCountNodes(
+					CountNodes(
 						ctx,
 						in1.(*CountNodesRequest),
 					)
-			}, DRPCOverlayInspectorServer.DRPCCountNodes, true
+			}, DRPCOverlayInspectorServer.CountNodes, true
 	case 1:
 		return "/inspector.OverlayInspector/DumpNodes",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCOverlayInspectorServer).
-					DRPCDumpNodes(
+					DumpNodes(
 						ctx,
 						in1.(*DumpNodesRequest),
 					)
-			}, DRPCOverlayInspectorServer.DRPCDumpNodes, true
+			}, DRPCOverlayInspectorServer.DumpNodes, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterOverlayInspector(srv drpc.Server, impl DRPCOverlayInspectorServer) {
+	srv.Register(impl, DRPCOverlayInspectorDescription{})
 }
 
 type DRPCOverlayInspector_CountNodesStream interface {
@@ -2074,9 +2082,9 @@ func (c *drpcPieceStoreInspectorClient) Dashboard(ctx context.Context, in *Dashb
 
 type DRPCPieceStoreInspectorServer interface {
 	// Stats return space and bandwidth stats for a storagenode
-	DRPCStats(context.Context, *StatsRequest) (*StatSummaryResponse, error)
+	Stats(context.Context, *StatsRequest) (*StatSummaryResponse, error)
 	// Dashboard returns stats for a specific storagenode
-	DRPCDashboard(context.Context, *DashboardRequest) (*DashboardResponse, error)
+	Dashboard(context.Context, *DashboardRequest) (*DashboardResponse, error)
 }
 
 type DRPCPieceStoreInspectorDescription struct{}
@@ -2089,23 +2097,27 @@ func (DRPCPieceStoreInspectorDescription) Method(n int) (string, drpc.Handler, i
 		return "/inspector.PieceStoreInspector/Stats",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCPieceStoreInspectorServer).
-					DRPCStats(
+					Stats(
 						ctx,
 						in1.(*StatsRequest),
 					)
-			}, DRPCPieceStoreInspectorServer.DRPCStats, true
+			}, DRPCPieceStoreInspectorServer.Stats, true
 	case 1:
 		return "/inspector.PieceStoreInspector/Dashboard",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCPieceStoreInspectorServer).
-					DRPCDashboard(
+					Dashboard(
 						ctx,
 						in1.(*DashboardRequest),
 					)
-			}, DRPCPieceStoreInspectorServer.DRPCDashboard, true
+			}, DRPCPieceStoreInspectorServer.Dashboard, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterPieceStoreInspector(srv drpc.Server, impl DRPCPieceStoreInspectorServer) {
+	srv.Register(impl, DRPCPieceStoreInspectorDescription{})
 }
 
 type DRPCPieceStoreInspector_StatsStream interface {
@@ -2168,7 +2180,7 @@ func (c *drpcIrreparableInspectorClient) ListIrreparableSegments(ctx context.Con
 
 type DRPCIrreparableInspectorServer interface {
 	// ListIrreparableSegments returns damaged segments
-	DRPCListIrreparableSegments(context.Context, *ListIrreparableSegmentsRequest) (*ListIrreparableSegmentsResponse, error)
+	ListIrreparableSegments(context.Context, *ListIrreparableSegmentsRequest) (*ListIrreparableSegmentsResponse, error)
 }
 
 type DRPCIrreparableInspectorDescription struct{}
@@ -2181,14 +2193,18 @@ func (DRPCIrreparableInspectorDescription) Method(n int) (string, drpc.Handler, 
 		return "/inspector.IrreparableInspector/ListIrreparableSegments",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCIrreparableInspectorServer).
-					DRPCListIrreparableSegments(
+					ListIrreparableSegments(
 						ctx,
 						in1.(*ListIrreparableSegmentsRequest),
 					)
-			}, DRPCIrreparableInspectorServer.DRPCListIrreparableSegments, true
+			}, DRPCIrreparableInspectorServer.ListIrreparableSegments, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterIrreparableInspector(srv drpc.Server, impl DRPCIrreparableInspectorServer) {
+	srv.Register(impl, DRPCIrreparableInspectorDescription{})
 }
 
 type DRPCIrreparableInspector_ListIrreparableSegmentsStream interface {
@@ -2246,9 +2262,9 @@ func (c *drpcHealthInspectorClient) SegmentHealth(ctx context.Context, in *Segme
 
 type DRPCHealthInspectorServer interface {
 	// ObjectHealth will return stats about the health of an object
-	DRPCObjectHealth(context.Context, *ObjectHealthRequest) (*ObjectHealthResponse, error)
+	ObjectHealth(context.Context, *ObjectHealthRequest) (*ObjectHealthResponse, error)
 	// SegmentHealth will return stats about the health of a segment
-	DRPCSegmentHealth(context.Context, *SegmentHealthRequest) (*SegmentHealthResponse, error)
+	SegmentHealth(context.Context, *SegmentHealthRequest) (*SegmentHealthResponse, error)
 }
 
 type DRPCHealthInspectorDescription struct{}
@@ -2261,23 +2277,27 @@ func (DRPCHealthInspectorDescription) Method(n int) (string, drpc.Handler, inter
 		return "/inspector.HealthInspector/ObjectHealth",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCHealthInspectorServer).
-					DRPCObjectHealth(
+					ObjectHealth(
 						ctx,
 						in1.(*ObjectHealthRequest),
 					)
-			}, DRPCHealthInspectorServer.DRPCObjectHealth, true
+			}, DRPCHealthInspectorServer.ObjectHealth, true
 	case 1:
 		return "/inspector.HealthInspector/SegmentHealth",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCHealthInspectorServer).
-					DRPCSegmentHealth(
+					SegmentHealth(
 						ctx,
 						in1.(*SegmentHealthRequest),
 					)
-			}, DRPCHealthInspectorServer.DRPCSegmentHealth, true
+			}, DRPCHealthInspectorServer.SegmentHealth, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterHealthInspector(srv drpc.Server, impl DRPCHealthInspectorServer) {
+	srv.Register(impl, DRPCHealthInspectorDescription{})
 }
 
 type DRPCHealthInspector_ObjectHealthStream interface {
