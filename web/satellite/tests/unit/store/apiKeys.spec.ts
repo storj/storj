@@ -129,21 +129,20 @@ describe('actions', () => {
     });
 
     it('fetch throws an error when api call fails', async () => {
-        const apikeys = store.getters.apiKeys;
         jest.spyOn(apiKeysApi, 'get').mockImplementation(() => {
             throw new Error(TEST_ERROR);
         });
 
-        const stateDump = state;
-
         try {
             await store.dispatch(FETCH);
         } catch (error) {
+            store.commit(API_KEYS_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION, SortDirection.DESCENDING);
             expect(error.message).toBe(TEST_ERROR);
-            expect(state).toBe(stateDump);
 
             return;
         }
+
+        fail(UNREACHABLE_ERROR);
     });
 
     it('success create apiKeys', async () => {
@@ -162,13 +161,10 @@ describe('actions', () => {
             throw new Error(TEST_ERROR);
         });
 
-        const stateDump = state;
-
         try {
             await store.dispatch(CREATE, 'testName');
         } catch (error) {
             expect(error.message).toBe(TEST_ERROR);
-            expect(state).toBe(stateDump);
 
             return;
         }
@@ -194,13 +190,10 @@ describe('actions', () => {
             throw new Error(TEST_ERROR);
         });
 
-        const stateDump = state;
-
         try {
             await store.dispatch(DELETE, 'testId');
         } catch (error) {
             expect(error.message).toBe(TEST_ERROR);
-            expect(state).toBe(stateDump);
 
             return;
         }

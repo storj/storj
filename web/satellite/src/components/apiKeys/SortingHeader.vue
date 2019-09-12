@@ -48,7 +48,7 @@ export default class SortApiKeysHeader extends Vue {
         return SortDirection.DESCENDING;
     }
 
-    public get getSortBy() {
+    public get getSortBy(): ApiKeyOrderBy {
         return this.sortBy;
     }
 

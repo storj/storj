@@ -38,8 +38,6 @@ const CREATE = API_KEYS_ACTIONS.CREATE;
     },
 })
 export default class ApiKeysCreationPopup extends Vue {
-    private FIRST_PAGE = 1;
-    
     @Prop({default: false})
     private readonly isPopupShown: boolean;
 
@@ -47,6 +45,8 @@ export default class ApiKeysCreationPopup extends Vue {
     private errorMessage: string = '';
     private isLoading: boolean = false;
     private key: string = '';
+
+    private FIRST_PAGE = 1;
 
     public onChangeName(value: string): void {
         this.name = value.trim();

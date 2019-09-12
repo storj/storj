@@ -54,12 +54,6 @@ describe('ApiKeysArea', () => {
             localVue,
         });
 
-        const testPage = new ApiKeysPage();
-        testPage.totalCount = 0;
-        testPage.pageCount = 0;
-        testPage.apiKeys = [];
-        testPage.search = 'test';
-
         expect(wrapper).toMatchSnapshot();
     });
 

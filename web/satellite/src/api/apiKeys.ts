@@ -56,7 +56,7 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
 
         const response = await this.query(query, variables);
 
-        return this.getApiKeyPage(response.data.project.apiKeys);
+        return this.getApiKeysPage(response.data.project.apiKeys);
     }
 
     /**
@@ -118,7 +118,7 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
         return response.data.deleteAPIKeys;
     }
 
-    private getApiKeyPage(page: any): ApiKeysPage {
+    private getApiKeysPage(page: any): ApiKeysPage {
         if (!page) {
             return new ApiKeysPage();
         }

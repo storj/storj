@@ -145,8 +145,8 @@ const {
     },
 })
 export default class ApiKeysArea extends Vue {
-    private FIRST_PAGE = 1;
     public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
+    private FIRST_PAGE = 1;
     private isDeleteClicked: boolean = false;
     private isNewApiKeyPopupShown: boolean = false;
     private isCopyApiKeyPopupShown: boolean = false;
