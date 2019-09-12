@@ -54,7 +54,7 @@ func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingReque
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
-	endpoint.pingStats.wasPinged(time.Now(), peerID.ID, p.Addr.String())
+	endpoint.pingStats.WasPinged(time.Now(), peerID.ID, p.Addr.String())
 	return &pb.ContactPingResponse{}, nil
 }
 
@@ -65,8 +65,8 @@ func (stats *PingStats) WhenLastPinged() (when time.Time, who storj.NodeID, addr
 	return stats.lastPinged, stats.whoPingedNodeID, stats.whoPingedAddress
 }
 
-// wasPinged notifies the service it has been remotely pinged.
-func (stats *PingStats) wasPinged(when time.Time, srcNodeID storj.NodeID, srcAddress string) {
+// WasPinged notifies the service it has been remotely pinged.
+func (stats *PingStats) WasPinged(when time.Time, srcNodeID storj.NodeID, srcAddress string) {
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 	stats.lastPinged = when

@@ -159,7 +159,11 @@ a {
             margin-left: 20px;
         }
 
-        &__logo__text {
+        &__logo__text,
+        &__project-title,
+        &__resources-title,
+        &__account-title,
+        .account-item {
             display: none;
         }
 

@@ -1348,6 +1348,22 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 11,
+                "name": "last_ping_from_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
+              },
+              {
+                "id": 12,
+                "name": "last_ping_from_address",
+                "type": "string"
               }
             ]
           },

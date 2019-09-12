@@ -11,9 +11,9 @@ import { NavigationLink } from '@/types/navigation';
 
 @Component
 export default class NavigationArea extends Vue {
-    public areResourceItemsShown: boolean = false;
+    public areResourceItemsShown: boolean = true;
     public isResourceButtonShown: boolean = false;
-    public areAccountItemsShown: boolean = false;
+    public areAccountItemsShown: boolean = true;
     public isAccountButtonShown: boolean = false;
 
     public toggleResourceItemsVisibility(): void {

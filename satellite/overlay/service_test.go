@@ -304,7 +304,8 @@ func TestIsVetted(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var err error
 		satellitePeer := planet.Satellites[0]
-		satellitePeer.Audit.Service.Loop.Pause()
+		satellitePeer.Audit.Chore.Loop.Pause()
+		satellitePeer.Audit.Worker.Loop.Pause()
 		satellitePeer.Repair.Checker.Loop.Pause()
 		service := satellitePeer.Overlay.Service
 
