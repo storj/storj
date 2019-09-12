@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	yaml "gopkg.in/yaml.v2"
+
 	"storj.io/storj/pkg/cfgstruct"
 )
 
