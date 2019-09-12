@@ -45,7 +45,7 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	}
 	nodeID := peerID.ID
 
-	err = endpoint.service.peerids.Set(ctx, nodeID, peerID)
+	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -123,7 +123,7 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckinRequest, 
 func peerIDFromContext(ctx context.Context) (*identity.PeerIdentity, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
-		return nil, Error.New("unable to get grpc peer from contex")
+		return nil, Error.New("unable to get grpc peer from context")
 	}
 	peerIdentity, err := identity.PeerIdentityFromPeer(p)
 	if err != nil {
