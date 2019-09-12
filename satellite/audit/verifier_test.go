@@ -340,7 +340,6 @@ func TestVerifierOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Discovery.Service.Discovery.Pause()
 
 		audits := planet.Satellites[0].Audit.Service
 		err := audits.Close()

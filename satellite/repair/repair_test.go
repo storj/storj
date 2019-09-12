@@ -52,7 +52,6 @@ func TestDataRepair(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellitePeer := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellitePeer.Discovery.Service.Discovery.Stop()
 		satellitePeer.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellitePeer.Audit.Service.Loop.Stop()
@@ -186,7 +185,6 @@ func TestCorruptDataRepair(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellitePeer := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellitePeer.Discovery.Service.Discovery.Stop()
 		satellitePeer.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellitePeer.Audit.Service.Loop.Stop()
@@ -322,7 +320,6 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellitePeer := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellitePeer.Discovery.Service.Discovery.Stop()
 		satellitePeer.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellitePeer.Audit.Service.Loop.Stop()
@@ -407,7 +404,6 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellitePeer := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellitePeer.Discovery.Service.Discovery.Stop()
 		satellitePeer.Discovery.Service.Refresh.Stop()
 
 		satellitePeer.Repair.Checker.Loop.Pause()
@@ -523,7 +519,6 @@ func TestDataRepairUploadLimit(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Service.Loop.Stop()
