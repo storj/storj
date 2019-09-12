@@ -31,7 +31,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Service.Loop.Stop()
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.Sender.Pause()
 		}
@@ -75,7 +75,7 @@ func TestSendingReceivingDuplicateOrders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Service.Loop.Stop()
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.Sender.Pause()
 		}
@@ -136,7 +136,7 @@ func TestUnableToSendOrders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Service.Loop.Stop()
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.Sender.Pause()
 		}
@@ -182,8 +182,8 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		hourBeforeTest := time.Now().UTC().Add(-time.Hour)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
-		planet.Satellites[0].Audit.Service.Loop.Stop()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.Sender.Pause()
 		}
