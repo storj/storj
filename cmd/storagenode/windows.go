@@ -6,17 +6,17 @@
 package main
 
 import (
+	"os"
+	"syscall"
 	"time"
 
 	"storj.io/storj/pkg/process"
 	"golang.org/x/sys/windows/svc"
 )
 
-func init(){
-	run := svc.Run
-	err := run("storagenode", &myservice{})
+func init() {
+	err := svc.Run("storagenode", &myservice{})
 	if err != nil {
-		// elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
 		panic("service failed "+ err.Error())
 	}
 }
@@ -45,13 +45,10 @@ func (m *myservice) Execute(args []string, r <-chan svc.ChangeRequest, changes c
 				time.Sleep(100 * time.Millisecond)
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
-				// golang.org/x/sys/windows/svc.TestExample is verifying this output.
-				// testOutput := strings.Join(ar/gs, "-")
-				// testOutput += fmt.Sprintf("-%d", c.Context)
-				// elog.Info(1, testOutput)
+				// TODO: find a way to cancel the context of the process
 				break loop
 			default:
-				// fmt.Println(1, fmt.Sprintf("unexpected control request #%d", c))
+				// elog.Error(1, fmt.Sprintf("unexpected control request #%d", c))
 			}
 		}
 	}
