@@ -198,7 +198,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	// remove failed audit pieces from the pointer so as to only penalize once for failed audits
 	err = verifier.removeFailedPieces(ctx, path, pointer, failedNodes)
 	if err != nil {
-		verifier.log.Warn(" failed to delete failed pieces", zap.String("Segment Path", path), zap.Error(err))
+		verifier.log.Warn("failed to delete failed pieces", zap.String("Segment Path", path), zap.Error(err))
 	}
 
 	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, containedNodes)
