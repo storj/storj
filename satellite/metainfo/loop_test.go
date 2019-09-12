@@ -22,12 +22,11 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 )
 
-// TestMetainfoLoop does the following
+// TestLoop does the following
 // * upload 5 remote files with 1 segment
 // * (TODO) upload 3 remote files with 2 segments
 // * upload 2 inline files
@@ -38,7 +37,7 @@ import (
 //    - 5 remote segments
 //    - 2 inline files/segments
 //    - 7 unique path items
-func TestMetainfoLoop(t *testing.T) {
+func TestLoop(t *testing.T) {
 	// TODO: figure out how to configure testplanet so we can upload 2*segmentSize to get two segments
 	segmentSize := 8 * memory.KiB
 
@@ -95,16 +94,21 @@ func TestMetainfoLoop(t *testing.T) {
 		err := group.Wait()
 		require.NoError(t, err)
 
+		projectID := ul.ProjectID[satellite.ID()]
 		for _, obs := range []*testObserver{obs1, obs2} {
 			assert.EqualValues(t, 5, obs.remoteSegCount)
 			assert.EqualValues(t, 5, obs.remoteFileCount)
 			assert.EqualValues(t, 2, obs.inlineSegCount)
 			assert.EqualValues(t, 7, len(obs.uniquePaths))
+			for _, path := range obs.uniquePaths {
+				assert.EqualValues(t, path.BucketName, "bucket")
+				assert.EqualValues(t, path.ProjectID, projectID)
+			}
 		}
 	})
 }
 
-// TestMetainfoLoopObserverCancel does the following:
+// TestLoopObserverCancel does the following:
 // * upload 3 remote segments
 // * hook three observers up to metainfo loop
 // * let observer 1 run normally
@@ -112,7 +116,7 @@ func TestMetainfoLoop(t *testing.T) {
 // * let observer 3's context be canceled
 // * expect observer 1 to see all segments
 // * expect observers 2 and 3 to finish with errors
-func TestMetainfoLoopObserverCancel(t *testing.T) {
+func TestLoopObserverCancel(t *testing.T) {
 	segmentSize := 8 * memory.KiB
 
 	testplanet.Run(t, testplanet.Config{
@@ -190,13 +194,13 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 	})
 }
 
-// TestMetainfoLoopCancel does the following:
+// TestLoopCancel does the following:
 // * upload 3 remote segments
 // * hook two observers up to metainfo loop
 // * cancel loop context partway through
 // * expect both observers to exit with an error and see fewer than 3 remote segments
 // * expect that a new observer attempting to join at this point receives a loop closed error
-func TestMetainfoLoopCancel(t *testing.T) {
+func TestLoopCancel(t *testing.T) {
 	segmentSize := 8 * memory.KiB
 
 	testplanet.Run(t, testplanet.Config{
@@ -281,7 +285,7 @@ type testObserver struct {
 	remoteSegCount  int
 	remoteFileCount int
 	inlineSegCount  int
-	uniquePaths     map[string]struct{}
+	uniquePaths     map[string]metainfo.ScopedPath
 	onSegment       func(context.Context) error // if set, run this during RemoteSegment()
 }
 
@@ -290,19 +294,19 @@ func newTestObserver(onSegment func(context.Context) error) *testObserver {
 		remoteSegCount:  0,
 		remoteFileCount: 0,
 		inlineSegCount:  0,
-		uniquePaths:     make(map[string]struct{}),
+		uniquePaths:     make(map[string]metainfo.ScopedPath),
 		onSegment:       onSegment,
 	}
 }
 
-func (obs *testObserver) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) error {
+func (obs *testObserver) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	obs.remoteSegCount++
 
-	if _, ok := obs.uniquePaths[path]; ok {
+	if _, ok := obs.uniquePaths[path.Raw]; ok {
 		// TODO: collect the errors and check in test
 		panic("Expected unique path in observer.RemoteSegment")
 	}
-	obs.uniquePaths[path] = struct{}{}
+	obs.uniquePaths[path.Raw] = path
 
 	if obs.onSegment != nil {
 		return obs.onSegment(ctx)
@@ -311,17 +315,17 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, path storj.Path, poi
 	return nil
 }
 
-func (obs *testObserver) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) error {
+func (obs *testObserver) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	obs.remoteFileCount++
 	return nil
 }
 
-func (obs *testObserver) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) error {
+func (obs *testObserver) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
 	obs.inlineSegCount++
-	if _, ok := obs.uniquePaths[path]; ok {
+	if _, ok := obs.uniquePaths[path.Raw]; ok {
 		// TODO: collect the errors and check in test
 		panic("Expected unique path in observer.InlineSegment")
 	}
-	obs.uniquePaths[path] = struct{}{}
+	obs.uniquePaths[path.Raw] = path
 	return nil
 }
