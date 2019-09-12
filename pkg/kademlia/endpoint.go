@@ -6,10 +6,12 @@ package kademlia
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/identity"
@@ -25,20 +27,26 @@ type SatelliteIDVerifier interface {
 	VerifySatelliteID(ctx context.Context, id storj.NodeID) error
 }
 
+type pingStatsSource interface {
+	WasPinged(when time.Time, byID storj.NodeID, byAddr string)
+}
+
 // Endpoint implements the kademlia Endpoints
 type Endpoint struct {
 	log          *zap.Logger
 	service      *Kademlia
+	pingStats    pingStatsSource
 	routingTable *RoutingTable
 	trust        SatelliteIDVerifier
 	connected    int32
 }
 
 // NewEndpoint returns a new kademlia endpoint
-func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable, trust SatelliteIDVerifier) *Endpoint {
+func NewEndpoint(log *zap.Logger, service *Kademlia, pingStats pingStatsSource, routingTable *RoutingTable, trust SatelliteIDVerifier) *Endpoint {
 	return &Endpoint{
 		log:          log,
 		service:      service,
+		pingStats:    pingStats,
 		routingTable: routingTable,
 		trust:        trust,
 	}
@@ -47,7 +55,6 @@ func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable,
 // Query is a node to node communication query
 func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *pb.QueryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	endpoint.service.Queried()
 
 	if req.GetPingback() {
 		endpoint.pingback(ctx, req.Sender)
@@ -95,7 +102,23 @@ func (endpoint *Endpoint) pingback(ctx context.Context, target *pb.Node) {
 // Ping provides an easy way to verify a node is online and accepting requests
 func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.PingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	endpoint.service.Pinged()
+	// NOTE: this code is very similar to that in storagenode/contact.(*Endpoint).PingNode().
+	// That other will be used going forward, and this will soon be gutted and deprecated. The
+	// code similarity will only exist until the transition away from Kademlia is complete.
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Internal, "unable to get grpc peer from context")
+	}
+	peerID, err := identity.PeerIdentityFromPeer(p)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
+	if endpoint.pingStats != nil {
+		endpoint.pingStats.WasPinged(time.Now(), peerID.ID, p.Addr.String())
+	} else {
+		endpoint.log.Debug("not updating pingStats because nil")
+	}
 	return &pb.PingResponse{}, nil
 }
 

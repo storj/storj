@@ -44,5 +44,9 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
+
+		peerID, err := planet.Satellites[0].DB.PeerIdentities().Get(ctx, nodeDossier.Id)
+		require.NoError(t, err)
+		require.Equal(t, ident.PeerIdentity(), peerID)
 	})
 }

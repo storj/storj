@@ -22,8 +22,9 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		satellite.Audit.Worker.Loop.Pause()
-		satellite.Audit.Chore.Loop.Pause()
+		audits := satellite.Audit
+		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 
@@ -35,15 +36,15 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		satellite.Audit.Chore.Loop.TriggerWait()
-		require.EqualValues(t, 2, satellite.Audit.Queue.Size(), "audit queue")
+		audits.Chore.Loop.TriggerWait()
+		require.EqualValues(t, 2, audits.Queue.Size(), "audit queue")
 
 		uniquePaths := make(map[storj.Path]struct{})
 		var err error
 		var path storj.Path
 		var pathCount int
 		for {
-			path, err = satellite.Audit.Queue.Next()
+			path, err = audits.Queue.Next()
 			if err != nil {
 				break
 			}
@@ -55,14 +56,14 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		}
 		require.True(t, audit.ErrEmptyQueue.Has(err))
 		require.Equal(t, 2, pathCount)
-		require.Equal(t, 0, satellite.Audit.Queue.Size())
+		require.Equal(t, 0, audits.Queue.Size())
 
 		// Repopulate the queue for the worker.
-		satellite.Audit.Chore.Loop.TriggerWait()
-		require.EqualValues(t, 2, satellite.Audit.Queue.Size(), "audit queue")
+		audits.Chore.Loop.TriggerWait()
+		require.EqualValues(t, 2, audits.Queue.Size(), "audit queue")
 
 		// Make sure the worker processes all the items in the audit queue.
-		satellite.Audit.Worker.Loop.TriggerWait()
-		require.EqualValues(t, 0, satellite.Audit.Queue.Size(), "audit queue")
+		audits.Worker.Loop.TriggerWait()
+		require.EqualValues(t, 0, audits.Queue.Size(), "audit queue")
 	})
 }

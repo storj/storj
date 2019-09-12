@@ -40,7 +40,7 @@ type ProjectMembersCursor struct {
 	Limit          uint
 	Page           uint
 	Order          ProjectMemberOrder
-	OrderDirection ProjectMemberOrderDirection
+	OrderDirection OrderDirection
 }
 
 // ProjectMembersPage represent project members page result
@@ -50,7 +50,7 @@ type ProjectMembersPage struct {
 	Search         string
 	Limit          uint
 	Order          ProjectMemberOrder
-	OrderDirection ProjectMemberOrderDirection
+	OrderDirection OrderDirection
 	Offset         uint64
 
 	PageCount   uint
@@ -68,14 +68,4 @@ const (
 	Email ProjectMemberOrder = 2
 	// Created indicates that we should order by created date
 	Created ProjectMemberOrder = 3
-)
-
-// ProjectMemberOrderDirection is used for querying project members in specific order direction
-type ProjectMemberOrderDirection uint8
-
-const (
-	// Ascending indicates that we should order ascending
-	Ascending ProjectMemberOrderDirection = 1
-	// Descending indicates that we should order descending
-	Descending ProjectMemberOrderDirection = 2
 )
