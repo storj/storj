@@ -249,7 +249,7 @@ func unpackBinary(ctx context.Context, archive, target string) (err error) {
 	defer func() { err = errs.Combine(err, zipReader.Close()) }()
 
 	if len(zipReader.File) != 1 {
-		return errors.New("archive contains more than one file")
+		return errors.New("archive should contain only binary file")
 	}
 
 	zipedExec, err := zipReader.File[0].Open()
