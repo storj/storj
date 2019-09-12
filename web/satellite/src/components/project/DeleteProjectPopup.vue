@@ -160,7 +160,7 @@ export default class DeleteProjectPopup extends Vue {
         // TODO: reuse select project functionality
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
         await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-        await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+        await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
         await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
         await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
     }
