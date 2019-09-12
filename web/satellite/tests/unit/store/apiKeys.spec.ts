@@ -2,15 +2,16 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
+
 import { ApiKeysApiGql } from '@/api/apiKeys';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
-import { API_KEYS_MUTATIONS } from '@/store/mutationConstants';
+import { ProjectsApiGql } from '@/api/projects';
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeProjectsModule } from '@/store/modules/projects';
+import { API_KEYS_MUTATIONS } from '@/store/mutationConstants';
 import { ApiKey } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
-import { ProjectsApiGql } from '@/api/projects';
+import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const apiKeysApi = new ApiKeysApiGql();

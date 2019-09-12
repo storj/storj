@@ -54,6 +54,8 @@ type ExpiredInfo struct {
 }
 
 // PieceExpirationDB stores information about pieces with expiration dates.
+//
+// architecture: Database
 type PieceExpirationDB interface {
 	// GetExpired gets piece IDs that expire or have expired before the given time
 	GetExpired(ctx context.Context, expiresBefore time.Time, limit int64) ([]ExpiredInfo, error)
@@ -69,6 +71,8 @@ type PieceExpirationDB interface {
 // V0PieceInfoDB stores meta information about pieces stored with storage format V0 (where
 // metadata goes in the "pieceinfo" table in the storagenodedb). The actual pieces are stored
 // behind something providing the storage.Blobs interface.
+//
+// architecture: Database
 type V0PieceInfoDB interface {
 	// Get returns Info about a piece.
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
@@ -99,6 +103,8 @@ type V0PieceInfoDBForTest interface {
 }
 
 // PieceSpaceUsedDB stores the most recent totals from the space used cache
+//
+// architecture: Database
 type PieceSpaceUsedDB interface {
 	// Init creates the one total record if it doesn't already exist
 	Init(ctx context.Context) error
@@ -136,6 +142,8 @@ type StoredPieceAccess interface {
 }
 
 // Store implements storing pieces onto a blob storage implementation.
+//
+// architecture: Database
 type Store struct {
 	log            *zap.Logger
 	blobs          storage.Blobs

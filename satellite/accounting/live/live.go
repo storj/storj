@@ -20,6 +20,8 @@ type Config struct {
 
 // Service represents the external interface to the live accounting
 // functionality.
+//
+// architecture: Service
 type Service interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error

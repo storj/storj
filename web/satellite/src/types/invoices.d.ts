@@ -3,17 +3,17 @@
 
 // PaymentMethod holds card information to display
 declare type PaymentMethod = {
-    id: string,
-    expYear: number,
-    expMonth: number,
-    brand: string,
-    lastFour: string,
-    holderName: string,
-    addedAt: Date,
-    isDefault: boolean,
+    id: string;
+    expYear: number;
+    expMonth: number;
+    brand: string;
+    lastFour: string;
+    holderName: string;
+    addedAt: Date;
+    isDefault: boolean;
 };
 
 declare type AddPaymentMethodInput = {
-    token: string,
-    makeDefault: boolean,
+    token: string;
+    makeDefault: boolean;
 };

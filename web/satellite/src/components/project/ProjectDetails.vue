@@ -47,83 +47,85 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
-    import Checkbox from '@/components/common/Checkbox.vue';
-    import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { RouteConfig } from '@/router';
-    import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
-    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-    import { UpdateProjectModel } from '@/types/projects';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button,
-            HeaderedInput,
-            Checkbox,
-            EmptyState,
-            DeleteProjectPopup,
-        }
-    })
-    export default class ProjectDetailsArea extends Vue {
-        private isEditing: boolean = false;
-        private newDescription: string = '';
+import Button from '@/components/common/Button.vue';
+import Checkbox from '@/components/common/Checkbox.vue';
+import EmptyState from '@/components/common/EmptyStateArea.vue';
+import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
 
-        public async mounted(): Promise<void> {
-            try {
-                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
-            }
-        }
+import { RouteConfig } from '@/router';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { UpdateProjectModel } from '@/types/projects';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        public get name(): string {
-            return this.$store.getters.selectedProject.name;
-        }
+@Component({
+    components: {
+        Button,
+        HeaderedInput,
+        Checkbox,
+        EmptyState,
+        DeleteProjectPopup,
+    }
+})
+export default class ProjectDetailsArea extends Vue {
+    private isEditing: boolean = false;
+    private newDescription: string = '';
 
-        public get description(): string {
-            return this.$store.getters.selectedProject.description ?
-                this.$store.getters.selectedProject.description :
-                'No description yet. Please enter some information about the project if any.';
-        }
-
-        public get isPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isDeleteProjectPopupShown;
-        }
-
-        public setNewDescription(value: string): void {
-            this.newDescription = value;
-        }
-
-        public async onSaveButtonClick(): Promise<void> {
-            try {
-                await this.$store.dispatch(
-                    PROJECTS_ACTIONS.UPDATE, new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription)
-                );
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
-            }
-
-            this.toggleEditing();
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
-        }
-
-        public toggleDeleteDialog(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-        }
-
-        public onMoreClick(): void {
-            this.$router.push(RouteConfig.UsageReport.path);
-        }
-
-        private toggleEditing(): void {
-            this.isEditing = !this.isEditing;
-            // TODO: cache this value in future
-            this.newDescription = '';
+    public async mounted(): Promise<void> {
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+        } catch (e) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
         }
     }
+
+    public get name(): string {
+        return this.$store.getters.selectedProject.name;
+    }
+
+    public get description(): string {
+        return this.$store.getters.selectedProject.description ?
+            this.$store.getters.selectedProject.description :
+            'No description yet. Please enter some information about the project if any.';
+    }
+
+    public get isPopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isDeleteProjectPopupShown;
+    }
+
+    public setNewDescription(value: string): void {
+        this.newDescription = value;
+    }
+
+    public async onSaveButtonClick(): Promise<void> {
+        try {
+            await this.$store.dispatch(
+                PROJECTS_ACTIONS.UPDATE, new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription)
+            );
+        } catch (e) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+        }
+
+        this.toggleEditing();
+        await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
+    }
+
+    public toggleDeleteDialog(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+    }
+
+    public onMoreClick(): void {
+        this.$router.push(RouteConfig.UsageReport.path);
+    }
+
+    private toggleEditing(): void {
+        this.isEditing = !this.isEditing;
+        // TODO: cache this value in future
+        this.newDescription = '';
+    }
+}
 </script>
 
 <style scoped lang="scss">

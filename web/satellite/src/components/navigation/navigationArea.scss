@@ -2,137 +2,203 @@
 // See LICENSE for copying information.
 
 .navigation-area {
-  position: relative;
-  min-width: 280px;
-  max-width: 280px;
-  height: 100vh;
-  left: 0;
-  background-color: #fff;
-  padding-top: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-
-  &__logo {
+    position: relative;
+    min-width: 280px;
+    max-width: 280px;
+    height: 100vh;
+    left: 0;
+    background-color: #fff;
+    padding-top: 20px;
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    cursor: pointer;
-    margin-bottom: 50px;
-    margin-left: 60px;
-
-    &__img {
-      width: 54px;
-      height: 60px;
-    }
-
-    &__text {
-      margin-left: 12px;
-      width: 69px;
-      height: 16px;
-    }
-  }
-
-  &__satellite {
-    text-align: center;
-    margin-bottom: 100px;
-
-    &__span_title {
-      color: #354049;
-      opacity: 0.41;
-      font-family: 'font_regular';
-      line-height: 21px;
-      font-size: 16px;
-    }
-
-    &__span_name {
-      color: #354049;
-      font-family: 'font_medium';
-      line-height: 21px;
-      font-size: 16px;
-      margin-left: 5px;
-    }
-  }
-
-  &__item-container {
-    height: 70px;
-    padding-left: 60px;
-    border-left: 3px solid transparent;
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    &.router-link-active,
-    &:hover {
-      border-left: 3px solid #2683FF;
-      .svg path:not(.white) {
-        fill: #2683FF !important;
-      }
-    }
-
-    &__link-container {
-      display: flex;
-      flex-direction: row;
-      justify-content: flex-start;
-      align-items: center;
-      h1 {
-        font-family: 'font_medium';
-        font-size: 16px;
-        line-height: 23px;
-        color: #354049;
-        margin-left: 15px;
-      }
-
-      &__add-button {
-        margin-left: 40px;
-        background-color: transparent;
-
-        &:hover {
-          svg {
-            border-radius: 50px;
-            box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
-          }
-        }
-      }
-    }
-  }
-}
-
-a {
-  text-decoration: none;
-  outline: none;
-}
-
-.disabled {
-  pointer-events:none;
-  opacity:0.6;
-}
-
-@media screen and (max-width: 1024px) {
-  .navigation-area {
-    width: 80px;
-    max-width: 80px;
-    min-width: 80px;
+    flex-direction: column;
+    justify-content: space-between;
+    font-family: 'font_regular';
 
     &__logo {
-      margin-left: 20px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        cursor: pointer;
+        margin-bottom: 60px;
+        margin-left: 60px;
+
+        &__img {
+            width: 54px;
+            height: 60px;
+        }
+
+        &__text {
+            margin-left: 12px;
+            width: 69px;
+            height: 16px;
+        }
     }
 
-    &__logo__text {
-      display: none;
+    &__project-title {
+        font-size: 14px;
+        line-height: 20px;
+        color: #505872;
+        margin: 0 0 10px 65px;
+        font-weight: 600;
+    }
+
+    &__resources-title,
+    &__account-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 0 0 0 65px;
+        padding: 25px 25px 25px 0;
+        border-top: 1px solid rgba(169, 181, 193, 0.3);
+        font-weight: 600;
+
+        &__title,
+        &__button {
+            font-size: 14px;
+            line-height: 20px;
+            color: #505872;
+            margin: 0;
+        }
+
+        &__button {
+            cursor: pointer;
+
+            &:hover {
+                color: #5E6978;
+            }
+        }
+    }
+
+    &__resources-title {
+        margin-top: 10px;
+    }
+
+    .custom {
+        padding: 25px 25px 10px 0;
     }
 
     &__item-container {
-      padding-left: 26px;
+        height: 52px;
+        padding-left: 60px;
+        border-left: 3px solid transparent;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
 
-      &__link-container {
-        h1 {
-          display: none;
+        &.router-link-active,
+        &:hover {
+            border-left: 3px solid #2683FF;
+
+            .svg path:not(.white) {
+                fill: #2683FF !important;
+            }
         }
 
-        &__add-button {
-          display: none;
+        &__link-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-start;
+            align-items: center;
+
+            h1 {
+                font-family: 'font_medium';
+                font-size: 16px;
+                line-height: 23px;
+                color: #354049;
+                margin-left: 15px;
+            }
+
+            .docs-title {
+                margin-left: 20px;
+            }
         }
-      }
     }
-  }
+
+    .support-item {
+        margin-bottom: 10px;
+    }
+
+    .account-item {
+        margin-left: 0;
+
+        &.router-link-active {
+
+            h1 {
+                color: #2683FF;
+            }
+        }
+    }
 }
+
+a {
+    text-decoration: none;
+    outline: none;
+}
+
+.disabled {
+    pointer-events:none;
+    opacity:0.6;
+}
+
+.divider {
+    margin: 0 0 0 65px;
+    border-top: 1px solid rgba(169, 181, 193, 0.3);
+}
+
+.custom-divider {
+    margin: 10px 0 0 65px;
+}
+
+@media screen and (max-width: 1024px) {
+    .navigation-area {
+        width: 80px;
+        max-width: 80px;
+        min-width: 80px;
+
+        &__logo {
+            margin-left: 20px;
+        }
+
+        &__logo__text,
+        &__project-title,
+        &__resources-title,
+        &__account-title,
+        .account-item {
+            display: none;
+        }
+
+        &__item-container {
+            padding-left: 26px;
+
+            &__link-container {
+
+                h1 {
+                    display: none;
+                }
+
+                &__add-button {
+                    display: none;
+                }
+            }
+        }
+    }
+}
+
+@media screen and (max-height: 800px) {
+    .navigation-area {
+
+        &__item-container {
+            height: 45px;
+        }
+    }
+}
+
+@media screen and (max-height: 730px) {
+    .navigation-area {
+
+        &__item-container {
+            height: 40px;
+        }
+    }
+}
+

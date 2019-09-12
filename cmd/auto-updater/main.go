@@ -57,28 +57,6 @@ var (
 	logPath        string
 )
 
-// Response response from version server.
-type Response struct {
-	Processes Processes `json:"processes"`
-}
-
-// Processes describes versions for each binary.
-type Processes struct {
-	Storagenode Process `json:"storagenode"`
-}
-
-// Process versions for specific binary.
-type Process struct {
-	Minimum   Version `json:"minimum"`
-	Suggested Version `json:"suggested"`
-}
-
-// Version represents version and download URL for binary.
-type Version struct {
-	Version string `json:"version"`
-	URL     string `json:"url"`
-}
-
 func init() {
 	rootCmd.AddCommand(runCmd)
 
@@ -231,7 +209,7 @@ func suggestedVersion() (ver version.SemVer, url string, err error) {
 		return ver, url, err
 	}
 
-	var response Response
+	var response version.AllowedVersions
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return ver, url, err

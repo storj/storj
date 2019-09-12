@@ -14,9 +14,9 @@ import (
 	"storj.io/storj/internal/date"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
@@ -31,6 +31,8 @@ var (
 )
 
 // Service is handling storage node operator related logic.
+//
+// architecture: Service
 type Service struct {
 	log *zap.Logger
 
@@ -39,20 +41,21 @@ type Service struct {
 	reputationDB   reputation.DB
 	storageUsageDB storageusage.DB
 	pieceStore     *pieces.Store
-	kademlia       *kademlia.Kademlia
 	version        *version.Service
+	pingStats      *contact.PingStats
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
+	nodeID             storj.NodeID
 	walletAddress      string
 	startedAt          time.Time
 	versionInfo        version.Info
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, kademlia *kademlia.Kademlia, version *version.Service,
+func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *version.Service,
 	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
-	reputationDB reputation.DB, storageUsageDB storageusage.DB) (*Service, error) {
+	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, myNodeID storj.NodeID) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -69,8 +72,8 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		return nil, errs.New("version can't be nil")
 	}
 
-	if kademlia == nil {
-		return nil, errs.New("kademlia can't be nil")
+	if pingStats == nil {
+		return nil, errs.New("pingStats can't be nil")
 	}
 
 	return &Service{
@@ -80,14 +83,21 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		reputationDB:       reputationDB,
 		storageUsageDB:     storageUsageDB,
 		pieceStore:         pieceStore,
-		kademlia:           kademlia,
 		version:            version,
+		pingStats:          pingStats,
 		allocatedBandwidth: allocatedBandwidth,
 		allocatedDiskSpace: allocatedDiskSpace,
+		nodeID:             myNodeID,
 		walletAddress:      walletAddress,
 		startedAt:          time.Now(),
 		versionInfo:        versionInfo,
 	}, nil
+}
+
+// SatelliteInfo encapsulates satellite ID and disqualification.
+type SatelliteInfo struct {
+	ID           storj.NodeID `json:"id"`
+	Disqualified *time.Time   `json:"disqualified"`
 }
 
 // Dashboard encapsulates dashboard stale data.
@@ -95,10 +105,14 @@ type Dashboard struct {
 	NodeID storj.NodeID `json:"nodeID"`
 	Wallet string       `json:"wallet"`
 
-	Satellites storj.NodeIDList `json:"satellites"`
+	Satellites []SatelliteInfo `json:"satellites"`
 
 	DiskSpace DiskSpaceInfo `json:"diskSpace"`
 	Bandwidth BandwidthInfo `json:"bandwidth"`
+
+	LastPinged          time.Time    `json:"lastPinged"`
+	LastPingFromID      storj.NodeID `json:"lastPingFromID"`
+	LastPingFromAddress string       `json:"lastPingFromAddress"`
 
 	Version  version.SemVer `json:"version"`
 	UpToDate bool           `json:"upToDate"`
@@ -109,18 +123,33 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	defer mon.Task()(&ctx)(&err)
 	data := new(Dashboard)
 
-	data.NodeID = s.kademlia.Local().Id
+	data.NodeID = s.nodeID
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
 	data.UpToDate = s.version.IsAllowed()
-	data.Satellites = s.trust.GetSatellites(ctx)
+
+	data.LastPinged, data.LastPingFromID, data.LastPingFromAddress = s.pingStats.WhenLastPinged()
+
+	stats, err := s.reputationDB.All(ctx)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	for _, rep := range stats {
+		data.Satellites = append(data.Satellites,
+			SatelliteInfo{
+				ID:           rep.SatelliteID,
+				Disqualified: rep.Disqualified,
+			},
+		)
+	}
 
 	spaceUsage, err := s.pieceStore.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	bandwidthUsage, err := bandwidth.TotalMonthlySummary(ctx, s.bandwidthDB)
+	bandwidthUsage, err := s.bandwidthDB.Summary(ctx, time.Time{}, time.Now())
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
@@ -140,17 +169,19 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 
 // Satellite encapsulates satellite related data.
 type Satellite struct {
-	ID             storj.NodeID            `json:"id"`
-	StorageDaily   []storageusage.Stamp    `json:"storageDaily"`
-	BandwidthDaily []bandwidth.UsageRollup `json:"bandwidthDaily"`
-	Audit          reputation.Metric       `json:"audit"`
-	Uptime         reputation.Metric       `json:"uptime"`
+	ID               storj.NodeID            `json:"id"`
+	StorageDaily     []storageusage.Stamp    `json:"storageDaily"`
+	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageSummary   float64                 `json:"storageSummary"`
+	BandwidthSummary int64                   `json:"bandwidthSummary"`
+	Audit            reputation.Metric       `json:"audit"`
+	Uptime           reputation.Metric       `json:"uptime"`
 }
 
 // GetSatelliteData returns satellite related data.
 func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
-	from, to := date.MonthBoundary(time.Now())
+	from, to := date.MonthBoundary(time.Now().UTC())
 
 	bandwidthDaily, err := s.bandwidthDB.GetDailySatelliteRollups(ctx, satelliteID, from, to)
 	if err != nil {
@@ -162,31 +193,45 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	bandwidthSummary, err := s.bandwidthDB.SatelliteSummary(ctx, satelliteID, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	storageSummary, err := s.storageUsageDB.SatelliteSummary(ctx, satelliteID, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
 	rep, err := s.reputationDB.Get(ctx, satelliteID)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
 	return &Satellite{
-		ID:             satelliteID,
-		StorageDaily:   storageDaily,
-		BandwidthDaily: bandwidthDaily,
-		Audit:          rep.Audit,
-		Uptime:         rep.Uptime,
+		ID:               satelliteID,
+		StorageDaily:     storageDaily,
+		BandwidthDaily:   bandwidthDaily,
+		StorageSummary:   storageSummary,
+		BandwidthSummary: bandwidthSummary.Total(),
+		Audit:            rep.Audit,
+		Uptime:           rep.Uptime,
 	}, nil
 }
 
 // Satellites represents consolidated data across all satellites.
 type Satellites struct {
-	StorageDaily   []storageusage.Stamp    `json:"storageDaily"`
-	BandwidthDaily []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageDaily     []storageusage.Stamp    `json:"storageDaily"`
+	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageSummary   float64                 `json:"storageSummary"`
+	BandwidthSummary int64                   `json:"bandwidthSummary"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
 // among all satellites from the node's trust pool.
 func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err error) {
 	defer mon.Task()(&ctx)(nil)
-	from, to := date.MonthBoundary(time.Now())
+	from, to := date.MonthBoundary(time.Now().UTC())
 
 	bandwidthDaily, err := s.bandwidthDB.GetDailyRollups(ctx, from, to)
 	if err != nil {
@@ -198,9 +243,21 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	bandwidthSummary, err := s.bandwidthDB.Summary(ctx, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	storageSummary, err := s.storageUsageDB.Summary(ctx, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
 	return &Satellites{
-		StorageDaily:   storageDaily,
-		BandwidthDaily: bandwidthDaily,
+		StorageDaily:     storageDaily,
+		BandwidthDaily:   bandwidthDaily,
+		StorageSummary:   storageSummary,
+		BandwidthSummary: bandwidthSummary.Total(),
 	}, nil
 }
 
