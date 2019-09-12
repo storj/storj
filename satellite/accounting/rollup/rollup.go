@@ -24,6 +24,8 @@ type Config struct {
 }
 
 // Service is the rollup service for totalling data on storage nodes on daily intervals
+//
+// architecture: Chore
 type Service struct {
 	logger        *zap.Logger
 	Loop          sync2.Cycle

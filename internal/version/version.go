@@ -58,6 +58,30 @@ type AllowedVersions struct {
 	Uplink      SemVer
 	Gateway     SemVer
 	Identity    SemVer
+
+	Processes Processes `json:"processes"`
+}
+
+// Processes describes versions for each binary.
+type Processes struct {
+	Bootstrap   Process `json:"bootstrap"`
+	Satellite   Process `json:"satellite"`
+	Storagenode Process `json:"storagenode"`
+	Uplink      Process `json:"uplink"`
+	Gateway     Process `json:"gateway"`
+	Identity    Process `json:"identity"`
+}
+
+// Process versions for specific binary.
+type Process struct {
+	Minimum   Version `json:"minimum"`
+	Suggested Version `json:"suggested"`
+}
+
+// Version represents version and download URL for binary.
+type Version struct {
+	Version string `json:"version"`
+	URL     string `json:"url"`
 }
 
 // SemVerRegex is the regular expression used to parse a semantic version.

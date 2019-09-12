@@ -39,6 +39,8 @@ type Config struct {
 }
 
 // Server represents storagenode console web server.
+//
+// architecture: Endpoint
 type Server struct {
 	log *zap.Logger
 

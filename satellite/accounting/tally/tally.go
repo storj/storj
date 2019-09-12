@@ -32,6 +32,8 @@ type Config struct {
 }
 
 // Service is the tally service for data stored on each storage node
+//
+// architecture: Chore
 type Service struct {
 	log          *zap.Logger
 	metainfoLoop *metainfo.Loop

@@ -11,6 +11,8 @@ import (
 )
 
 // DB works with storage usage database
+//
+// architecture: Database
 type DB interface {
 	// Store stores storage usage stamps to db replacing conflicting entries
 	Store(ctx context.Context, stamps []Stamp) error
