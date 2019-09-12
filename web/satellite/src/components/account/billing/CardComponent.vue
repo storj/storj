@@ -34,6 +34,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import CardDialog from '@/components/account/billing/CardDialog.vue';
 
 @Component({

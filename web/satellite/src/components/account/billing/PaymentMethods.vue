@@ -35,6 +35,7 @@
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p>Add Credit or Debit Card</p>
+            <StripeInput />
             <Button
                 label="Add card"
                 width="123px"
@@ -49,14 +50,18 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
+
 import CardComponent from '@/components/account/billing/CardComponent.vue';
+import StripeInput from '@/components/account/billing/StripeInput.vue';
+import Button from '@/components/common/Button.vue';
+
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 @Component({
     components: {
         Button,
         CardComponent,
+        StripeInput,
     }
 })
 export default class PaymentMethods extends Vue {
@@ -99,6 +104,10 @@ export default class PaymentMethods extends Vue {
     span {
         margin: 0;
         color: #354049;
+    }
+
+    form {
+        width: 60%;
     }
 
     .button {

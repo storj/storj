@@ -13,9 +13,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
 import AccountBalance from '@/components/account/billing/AccountBalance.vue';
 import DepositAndBilling from '@/components/account/billing/DepositAndBilling.vue';
+import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
 import PaymentMethods from '@/components/account/billing/PaymentMethods.vue';
 
 @Component({
