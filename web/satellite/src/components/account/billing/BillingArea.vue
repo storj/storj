@@ -15,7 +15,7 @@
     import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
     import AccountBalance from '@/components/account/billing/AccountBalance.vue';
     import DepositAndBilling from '@/components/account/billing/DepositAndBilling.vue';
-    import PaymentMethods from "@/components/account/billing/PaymentMethods.vue";
+    import PaymentMethods from '@/components/account/billing/PaymentMethods.vue';
 
     @Component({
         components: {
