@@ -32,7 +32,6 @@
         background-color: rgba(245, 246, 250, 0.5);
         width: calc(100% - 60px);
         padding: 0 30px;
-        border-bottom: 1px solid rgba(169, 181, 193, 0.3);
         
         &__item {
             text-align: left;

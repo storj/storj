@@ -2,12 +2,15 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
             label 'main'
         }
     }
     options {
           timeout(time: 14, unit: 'MINUTES')
+    }
+    environment {
+        NPM_CONFIG_CACHE = '/tmp/npm/cache'
     }
     stages {
         stage('Build') {
@@ -21,7 +24,7 @@ pipeline {
                 // download dependencies
                 sh 'go mod download'
 
-                sh 'make -j2 build-packages'
+                sh 'make -j3 build-packages'
                 sh 'make install-sim'
 
                 sh 'service postgresql start'
@@ -104,6 +107,18 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
                         sh 'make test-sim-backwards-compatible'
+                    }
+                }
+
+                stage('npm') {
+                    steps {
+                        dir("web/satellite") {
+                            sh 'npm run build'
+                            sh 'npm run lint'
+                            // TODO: reenable with vue4
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
                     }
                 }
             }

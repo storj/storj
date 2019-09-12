@@ -143,7 +143,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					Validate:         false,
 				},
 				Loop: metainfo.LoopConfig{
-					CoalesceDuration: 5 * time.Second,
+					CoalesceDuration: 1 * time.Second,
 				},
 			},
 			Orders: orders.Config{
@@ -163,9 +163,13 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB:   0,
-				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
+				MaxReverifyCount:   3,
+				ChoreInterval:      30 * time.Second,
+				QueueInterval:      1 * time.Hour,
+				Slots:              3,
+				WorkerConcurrency:  1,
 			},
 			GarbageCollection: gc.Config{
 				Interval:          1 * time.Minute,

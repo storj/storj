@@ -28,6 +28,8 @@ type Config struct {
 }
 
 // Chore for deleting DB entries that are no longer needed.
+//
+// architecture: Chore
 type Chore struct {
 	log    *zap.Logger
 	orders orders.DB

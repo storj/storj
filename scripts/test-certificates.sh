@@ -7,6 +7,7 @@ IDENTS_DIR=$TMPDIR/identities
 CERTS_DIR=$TMPDIR/certificates
 CERTS_ADDR=127.0.0.4:11000
 CERTS_ADDR_PRIV=127.0.0.4:11001
+AUTHS_HTTP_ADDR=127.0.0.4:11002
 
 kill_certificates_server() {
   kill $CERTS_PID
@@ -35,8 +36,8 @@ _certificates() {
   exec certificates --identity-dir "$ident_dir" \
                --config-dir "$CERTS_DIR" \
                "$subcommand" \
-               --signer.ca.cert-path "$ca_cert_path" \
-               --signer.ca.key-path "$ca_key_path" \
+               --signer.cert-path "$ca_cert_path" \
+               --signer.key-path "$ca_key_path" \
                --server.address "$CERTS_ADDR" \
                --server.private-address "$CERTS_ADDR_PRIV" \
                --server.revocation-dburl="$rev_dburl" \
@@ -78,7 +79,7 @@ for i in {0..4}; do
 done
 
 exported_auths=$(_certificates auth export)
-_certificates run --signer.min-difficulty 0 &
+_certificates run --min-difficulty 0 --authorization-addr $AUTHS_HTTP_ADDR &
 CERTS_PID=$!
 
 sleep 1

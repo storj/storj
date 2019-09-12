@@ -46,6 +46,8 @@ type durabilityStats struct {
 }
 
 // Checker contains the information needed to do checks for missing pieces
+//
+// architecture: Chore
 type Checker struct {
 	logger          *zap.Logger
 	repairQueue     queue.RepairQueue
@@ -161,9 +163,10 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	numHealthy := int32(len(pieces) - len(missingPieces))
 	redundancy := pointer.Remote.Redundancy
 
-	// we repair when the number of healthy pieces is less than or equal to the repair threshold
+	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
+	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
+	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
 			checker.logger.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
 				zap.String("path", path),
@@ -187,9 +190,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		if err != nil {
 			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
 		}
-		// we need one additional piece for error correction. If only the minimum is remaining the file can't be repaired and is lost.
-		// except for the case when minimum and repair thresholds are the same (a case usually seen during testing)
-	} else if numHealthy <= redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
+	} else if numHealthy < redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
 
 		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
@@ -209,7 +210,11 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	return nil
 }
 
+var _ metainfo.Observer = (*checkerObserver)(nil)
+
 // checkerObserver implements the metainfo loop Observer interface
+//
+// architecture: Observer
 type checkerObserver struct {
 	repairQueue queue.RepairQueue
 	irrdb       irreparable.DB
@@ -218,7 +223,7 @@ type checkerObserver struct {
 	log         *zap.Logger
 }
 
-func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obs.monStats.remoteSegmentsChecked++
@@ -241,12 +246,13 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 
 	redundancy := pointer.Remote.Redundancy
 
-	// we repair when the number of healthy pieces is less than or equal to the repair threshold
+	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
+	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
+	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
 			obs.log.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
-				zap.String("path", path),
+				zap.String("path", path.Raw),
 				zap.Int32("min", redundancy.MinReq),
 				zap.Int32("repair", redundancy.RepairThreshold),
 				zap.Int32("success", redundancy.SuccessThreshold),
@@ -255,7 +261,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 		}
 		obs.monStats.remoteSegmentsNeedingRepair++
 		err = obs.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:         []byte(path),
+			Path:         []byte(path.Raw),
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
 		})
@@ -265,21 +271,22 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 		}
 
 		// delete always returns nil when something was deleted and also when element didn't exists
-		err = obs.irrdb.Delete(ctx, []byte(path))
+		err = obs.irrdb.Delete(ctx, []byte(path.Raw))
 		if err != nil {
 			obs.log.Error("error deleting entry from irreparable db", zap.Error(err))
 			return nil
 		}
-		// we need one additional piece for error correction. If only the minimum is remaining the file can't be repaired and is lost.
-		// except for the case when minimum and repair thresholds are the same (a case usually seen during testing)
-	} else if numHealthy <= redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
-		pathElements := storj.SplitPath(path)
+	} else if numHealthy < redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
+		// TODO: see whether this can be handled with metainfo.ScopedPath
+		pathElements := storj.SplitPath(path.Raw)
 
 		// check to make sure there are at least *4* path elements. the first three
 		// are project, segment, and bucket name, but we want to make sure we're talking
 		// about an actual object, and that there's an object name specified
 		if len(pathElements) >= 4 {
 			project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
+
+			// TODO: is this correct? split splits all path components, but it's only using the third.
 			lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
 			if !contains(obs.monStats.remoteSegmentInfo, lostSegInfo) {
 				obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
@@ -289,7 +296,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
-			Path:               []byte(path),
+			Path:               []byte(path.Raw),
 			SegmentDetail:      pointer,
 			LostPieces:         int32(len(missingPieces)),
 			LastRepairAttempt:  time.Now().Unix(),
@@ -307,7 +314,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, 
 	return nil
 }
 
-func (obs *checkerObserver) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obs.monStats.remoteFilesChecked++
@@ -315,7 +322,7 @@ func (obs *checkerObserver) RemoteObject(ctx context.Context, path storj.Path, p
 	return nil
 }
 
-func (obs *checkerObserver) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }
