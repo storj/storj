@@ -20,7 +20,12 @@ import (
 )
 
 const (
-	AnySource  = "any"
+	// AnySource is a source annotation for config values that can come from
+	// a flag or file.
+	AnySource = "any"
+
+	// FlagSource is a source annotation for config values that just come from
+	// flags (i.e. are never persisted to file)
 	FlagSource = "flag"
 )
 

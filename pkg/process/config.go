@@ -99,11 +99,12 @@ func SaveConfig(cmd *cobra.Command, outfile string, opts ...SaveConfigOption) er
 			}
 			fullKey := base + key
 
-			// the following keys have no place in the config file but cannot
-			// use the FlagSource source annotation to be skipped since they
-			// are standard flags and not pflags.
-			switch fullKey {
-			case "help":
+			// the help key should not be persisted to the config file but
+			// cannot use the FlagSource source annotation since it is a
+			// standard flags and not pflags.
+			// TODO: figure out a better way to do for standard flags than
+			// hardcoding in pkg/process.
+			if fullKey == "help" {
 				continue
 			}
 
