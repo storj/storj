@@ -33,6 +33,8 @@ const (
 )
 
 func TestStreamsStorePutGet(t *testing.T) {
+	t.Skip()
+
 	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
 		bucketName := "bucket-name"
 		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
