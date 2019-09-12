@@ -205,6 +205,12 @@ export default class ApiKeysArea extends Vue {
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
+        
+        try {
+            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.notifyFetchError(error);
+        }
 
         this.isDeleteClicked = false;
     }
