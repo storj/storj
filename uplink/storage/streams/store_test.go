@@ -33,7 +33,7 @@ const (
 )
 
 func TestStreamsStorePutGet(t *testing.T) {
-	t.Skip()
+	//t.Skip()
 
 	runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, streamStore streams.Store) {
 		bucketName := "bucket-name"
