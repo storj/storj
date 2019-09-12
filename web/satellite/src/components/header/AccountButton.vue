@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-button-container" id="accountDropdownButton">
-        <div class="account-button-toggle-container" v-on:click="toggleSelection" >
+        <div class="account-button-toggle-container" @click="toggleSelection" >
             <!-- background of this div generated and stores in store -->
             <div class="account-button-toggle-container__avatar">
                 <!-- First digit of firstName after Registration -->

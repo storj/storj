@@ -44,13 +44,13 @@
                     placeholder='Your Password'
                     class='full-input'
                     width='100%'
-                    isPassword
+                    is-password="true"
                     :error='passwordError'
                     @setData='setPassword'>
                 </HeaderedInput>
                 <div class='delete-account__form-container__button-container'>
-                    <Button label='Cancel' width='205px' height='48px' :onPress='onCloseClick' isWhite="true"/>
-                    <Button label='Delete' width='205px' height='48px' class='red' :onPress='onDeleteAccountClick'/>
+                    <Button label='Cancel' width='205px' height='48px' :on-press='onCloseClick' is-white="true"/>
+                    <Button label='Delete' width='205px' height='48px' class='red' :on-press='onDeleteAccountClick'/>
                 </div>
             </div>
             <div class='delete-account__close-cross-container' @click='onCloseClick'>

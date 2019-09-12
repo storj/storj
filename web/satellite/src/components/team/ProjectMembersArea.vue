@@ -4,21 +4,21 @@
 <template>
     <div class="team-area">
         <div class="team-area__header">
-            <HeaderArea :headerState="headerState" :selectedProjectMembersCount="selectedProjectMembers.length"/>
+            <HeaderArea :header-state="headerState" :selected-project-members-count="selectedProjectMembers.length"/>
         </div>
         <div class="team-area__container" id="team-container" v-if="projectMembersCount > 0 || projectMembersTotalCount > 0">
-            <SortingListHeader :onHeaderClickCallback="onHeaderSectionClickCallback"/>
+            <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
             <div class="team-area__container__content">
                 <List
-                    :dataSet="projectMembers"
-                    :itemComponent="getItemComponent"
-                    :onItemClick="onMemberClick"/>
+                    :data-set="projectMembers"
+                    :item-component="getItemComponent"
+                    :on-item-click="onMemberClick"/>
             </div>
             <Pagination
                 class="pagination-area"
                 ref="pagination"
-                :totalPageCount="totalPageCount"
-                :onPageClickCallback="onPageClick"/>
+                :total-page-count="totalPageCount"
+                :on-page-click-callback="onPageClick"/>
         </div>
         <div class="team-area__empty-search-result-area" v-if="(projectMembersCount === 0 && projectMembersTotalCount === 0)">
             <h1>No results found</h1>

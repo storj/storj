@@ -4,10 +4,10 @@
 <template>
     <!-- if isDisabled check onPress in parent element -->
     <div
-        v-bind:class="containerClassName"
+        :class="containerClassName"
         :style="style"
-        v-on:click="onPress">
-            <h1 v-bind:class="[isWhite ? 'label white' : 'label']">{{label}}</h1>
+        @click="onPress">
+            <h1 :class="[isWhite ? 'label white' : 'label']">{{label}}</h1>
     </div>
 </template>
 

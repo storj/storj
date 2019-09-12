@@ -35,8 +35,8 @@
                     <a href="https://github.com/storj/storj/wiki/Uplink-CLI" target="_blank">Uplink CLI.</a>
                 </p>
                 <div class="project-creation-success-popup__form-container__button-container">
-                    <Button label="I will do it later" width="214px" height="50px" :onPress="onCloseClick" isWhite="true" />
-                    <Button label="Create first API Key" width="214px" height="50px" :onPress="onCreateAPIKeyClick" />
+                    <Button label="I will do it later" width="214px" height="50px" :on-press="onCloseClick" is-white="true" />
+                    <Button label="Create first API Key" width="214px" height="50px" :on-press="onCreateAPIKeyClick" />
                 </div>
             </div>
             <div class="project-creation-success-popup__close-cross-container" @click="onCloseClick">

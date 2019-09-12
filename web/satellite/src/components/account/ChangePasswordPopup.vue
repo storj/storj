@@ -23,7 +23,7 @@
                     label="Old Password"
                     placeholder ="Enter Old Password"
                     width="100%"
-                    isPassword="true"
+                    is-password="true"
                     ref="oldPasswordInput"
                     :error="oldPasswordError"
                     @setData="setOldPassword" />
@@ -33,7 +33,7 @@
                     placeholder ="Enter New Password"
                     width="100%"
                     ref="newPasswordInput"
-                    isPassword="true"
+                    is-password="true"
                     :error="newPasswordError"
                     @setData="setNewPassword" />
                 <HeaderlessInput
@@ -42,12 +42,12 @@
                     placeholder="Confirm password"
                     width="100%"
                     ref="confirmPasswordInput"
-                    isPassword="true"
+                    is-password="true"
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation" />
                 <div class="change-password-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true" />
-                    <Button label="Update" width="205px" height="48px" :onPress="onUpdateClick" />
+                    <Button label="Cancel" width="205px" height="48px" :on-press="onCloseClick" is-white="true" />
+                    <Button label="Update" width="205px" height="48px" :on-press="onUpdateClick" />
                 </div>
             </div>
             <div class="change-password-popup__close-cross-container" @click="onCloseClick">

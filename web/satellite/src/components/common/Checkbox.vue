@@ -4,7 +4,7 @@
 <template>
     <label class="container">
         <input type="checkbox" v-model="checked" @change="onChange">
-        <span v-bind:class="[isCheckboxError ? 'checkmark error': 'checkmark']"></span>
+        <span :class="[isCheckboxError ? 'checkmark error': 'checkmark']"></span>
     </label>
 </template>
 

@@ -8,7 +8,7 @@
             <div class="empty-state__wrap__additional-text" v-html="additionalText"/>
             <div id="addApiKeysPopupEmptyButton" v-if="isButtonShown">
                 <Button
-                    :onPress="onButtonClick"
+                    :on-press="onButtonClick"
                     :label="buttonLabel"
                     width="190px"
                     height="50px"/>

@@ -41,8 +41,8 @@
                         </div>
                     </div>
                     <div class='add-user__form-container__button-container'>
-                        <Button label='Cancel' width='205px' height='48px' :onPress="onClose" isWhite="true"/>
-                        <Button label='Add Team Members' width='205px' height='48px' :onPress="isButtonActive ? onAddUsersClick : () => {}" :isDisabled="!isButtonActive"/>
+                        <Button label='Cancel' width='205px' height='48px' :on-press="onClose" is-white="true"/>
+                        <Button label='Add Team Members' width='205px' height='48px' :on-press="isButtonActive ? onAddUsersClick : () => {}" :is-disabled="!isButtonActive"/>
                     </div>
                 </div>
                 <div class='add-user__close-cross-container' @click='onClose'>

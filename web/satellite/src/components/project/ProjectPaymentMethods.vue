@@ -7,7 +7,7 @@
         <div class="scroll-container">
             <NewPaymentMethodPopup/>
             <div v-for="method in paymentMethods" class="payment-methods-container__card-container">
-                <CardComponent :paymentMethod="method"/>
+                <CardComponent :payment-method="method"/>
             </div>
         </div>
     </div>

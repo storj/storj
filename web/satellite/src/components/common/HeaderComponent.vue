@@ -6,7 +6,7 @@
         <div class="header-container__buttons-area">
             <slot></slot>
         </div>
-        <SearchComponent ref="search" :placeHolder="placeHolder" :search="search"/>
+        <SearchComponent ref="search" :place-holder="placeHolder" :search="search"/>
     </div>
 </template>
 

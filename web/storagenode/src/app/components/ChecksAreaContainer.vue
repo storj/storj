@@ -5,7 +5,7 @@
     <div class="checks-area-container">
         <div class="checks-area-container__header">
             <p class="checks-area-container__header__title">{{label}}</p>
-            <InfoComponent :text="infoText" isExtraPadding="true" isCustomPosition="true">
+            <InfoComponent :text="infoText" is-extra-padding="true" is-custom-position="true">
                 <div>
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" alt="info image">
                         <rect width="18" height="18" rx="9" fill="#5A667C"/>

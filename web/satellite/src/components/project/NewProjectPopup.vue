@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="new-project-popup-container" v-on:keyup.enter="createProjectClick" v-on:keyup.esc="onCloseClick">
+    <div class="new-project-popup-container" @keyup.enter="createProjectClick" @keyup.esc="onCloseClick">
         <div class="new-project-popup" id="newProjectPopup" >
             <div class="new-project-popup__info-panel-container">
                 <h2 class="new-project-popup__info-panel-container__main-label-text">Create a Project</h2>
@@ -11,11 +11,11 @@
             <div class="new-project-popup__form-container">
                 <HeaderedInput
                     label="Project Name"
-                    additionalLabel="Up To 20 Characters"
+                    additional-label="Up To 20 Characters"
                     placeholder="Enter Project Name"
                     class="full-input"
                     width="100%"
-                    maxSymbols="20"
+                    max-symbols="20"
                     :error="nameError"
                     @setData="setProjectName">
                 </HeaderedInput>
@@ -24,14 +24,14 @@
                     placeholder="Enter Project Description"
                     additional-label="Optional"
                     class="full-input"
-                    isMultiline="true"
+                    is-multiline="true"
                     height="100px"
                     width="100%"
                     @setData="setProjectDescription">
                 </HeaderedInput>
                 <div class="new-project-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true"/>
-                    <Button label="Next" width="205px" height="48px" :onPress="createProjectClick"/>
+                    <Button label="Cancel" width="205px" height="48px" :on-press="onCloseClick" is-white="true"/>
+                    <Button label="Next" width="205px" height="48px" :on-press="createProjectClick"/>
                 </div>
             </div>
             <div class="new-project-popup__close-cross-container" @click="onCloseClick">

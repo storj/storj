@@ -18,7 +18,7 @@
                     width="100%"
                     ref="fullNameInput"
                     :error="fullNameError"
-                    :initValue="userInfo.fullName"
+                    :init-value="userInfo.fullName"
                     @setData="setFullName" />
                 <HeaderedInput
                     class="full-input"
@@ -26,11 +26,11 @@
                     placeholder="Enter Nickname"
                     width="100%"
                     ref="shortNameInput"
-                    :initValue="userInfo.shortName"
+                    :init-value="userInfo.shortName"
                     @setData="setShortName"/>
                 <div class="edit-profile-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true" />
-                    <Button label="Update" width="205px" height="48px" :onPress="onUpdateClick" />
+                    <Button label="Cancel" width="205px" height="48px" :on-press="onCloseClick" isWhite="true" />
+                    <Button label="Update" width="205px" height="48px" :on-press="onUpdateClick" />
                 </div>
             </div>
             <div class="edit-profile-popup__close-cross-container" @click="onCloseClick">

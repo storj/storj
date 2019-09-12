@@ -29,7 +29,7 @@
             v-if="!isMultiline"
             :id="this.$props.label"
             :placeholder="this.$props.placeholder"
-            v-bind:type="[isPassword ? 'password': 'text']"
+            :type="[isPassword ? 'password': 'text']"
             @input="onInput"
             @change="onInput"
             v-model="value"

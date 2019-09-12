@@ -8,25 +8,25 @@
             <ApiKeysCreationPopup
                 @closePopup="closeNewApiKeyPopup"
                 @showCopyPopup="showCopyApiKeyPopup"
-                :isPopupShown="isNewApiKeyPopupShown"/>
+                :is-popup-shown="isNewApiKeyPopupShown"/>
             <ApiKeysCopyPopup
-                :isPopupShown="isCopyApiKeyPopupShown"
-                :apiKeySecret="apiKeySecret"
+                :is-popup-shown="isCopyApiKeyPopupShown"
+                :api-key-secret="apiKeySecret"
                 @closePopup="closeCopyNewApiKeyPopup"/>
             <div v-if="!isEmpty" class="api-keys-header">
-                <HeaderComponent ref="headerComponent" placeHolder="API Key">
+                <HeaderComponent ref="headerComponent" place-holder="API Key">
                     <div class="header-default-state" v-if="headerState === 0">
-                        <Button class="button" label="+Create API Key" width="180px" height="48px" :onPress="onCreateApiKeyClick"/>
+                        <Button class="button" label="+Create API Key" width="180px" height="48px" :on-press="onCreateApiKeyClick"/>
                     </div>
                     <div class="header-selected-api-keys" v-if="headerState === 1 && !isDeleteClicked">
-                        <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onFirstDeleteClick"/>
-                        <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
+                        <Button class="button deletion" label="Delete" width="122px" height="48px" :on-press="onFirstDeleteClick"/>
+                        <Button class="button" label="Cancel" width="122px" height="48px" is-white="true" :on-press="onClearSelection"/>
                     </div>
                     <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
                         <span>Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}} ?</span>
                         <div class="header-after-delete-click__button-area">
-                            <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
-                            <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
+                            <Button class="button deletion" label="Delete" width="122px" height="48px" :on-press="onDelete"/>
+                            <Button class="button" label="Cancel" width="122px" height="48px" is-white="true" :on-press="onClearSelection"/>
                         </div>
                     </div>
                 </HeaderComponent>
@@ -37,20 +37,20 @@
                 <SortingHeader/>
                 <div class="api-keys-items__content">
                     <List
-                        :dataSet="apiKeyList"
-                        :itemComponent="itemComponent"
-                        :onItemClick="toggleSelection"/>
+                        :data-set="apiKeyList"
+                        :item-component="itemComponent"
+                        :on-item-click="toggleSelection"/>
                 </div>
                 <p>Want to give limited access? <b>Use API Keys.</b></p>
             </div>
             <EmptyState
-                :onButtonClick="onCreateApiKeyClick"
+                :on-button-click="onCreateApiKeyClick"
                 v-if="isEmpty && !isNewApiKeyPopupShown"
-                mainTitle="Let's create your first API Key"
+                main-title="Let's create your first API Key"
                 additional-text="<p>API keys give access to the project allowing you to create buckets, upload files, and read them. Once you’ve created an API key, you’re ready to interact with the network through our Uplink CLI.</p>"
-                :imageSource="emptyImage"
-                buttonLabel="Create an API Key"
-                isButtonShown="true" />
+                :image-source="emptyImage"
+                button-label="Create an API Key"
+                is-button-shown="true" />
         </div>
     </div>
 </template>
