@@ -5,10 +5,6 @@ package storagenodedb_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,65 +15,65 @@ import (
 	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/storagenodedb/testdata"
 )
 
-// loadSnapshots loads all the dbschemas from testdata/db.* caching the result
-func loadSnapshots() (*dbschema.Snapshots, error) {
-	snapshots := &dbschema.Snapshots{}
+// insertNewData will insert any NewData from the MultiDBState into the
+// appropriate rawDB. This prepares the rawDB for the test comparing schema and
+// data.
+func insertNewData(mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.SQLDB) error {
+	for dbName, dbState := range mdbs.DBStates {
+		if dbState.NewData == "" {
+			continue
+		}
 
-	// snapshot represents clean DB state
-	snapshots.Add(&dbschema.Snapshot{
-		Version: -1,
-		Schema:  &dbschema.Schema{},
-		Script:  "",
-	})
-
-	// find all sql files
-	matches, err := filepath.Glob("testdata/sqlite.*")
-	if err != nil {
-		return nil, errs.Wrap(err)
+		rawDB, ok := rawDBs[dbName]
+		if !ok {
+			return errs.New("Failed to find DB %s", dbName)
+		}
+		_, err := rawDB.Exec(dbState.NewData)
+		if err != nil {
+			return err
+		}
 	}
-
-	for _, match := range matches {
-		versionStr := match[17 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
-		version, err := strconv.Atoi(versionStr)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-
-		scriptData, err := ioutil.ReadFile(match)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-
-		snapshot, err := sqliteutil.LoadSnapshotFromSQL(string(scriptData))
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		snapshot.Version = version
-
-		snapshots.Add(snapshot)
-	}
-
-	snapshots.Sort()
-
-	return snapshots, nil
+	return nil
 }
 
-const newDataSeparator = `-- NEW DATA --`
+// getSchemas queries the schema of each rawDB and returns a map of each rawDB's
+// schema keyed by dbName
+func getSchemas(rawDBs map[string]storagenodedb.SQLDB) (map[string]*dbschema.Schema, error) {
+	schemas := make(map[string]*dbschema.Schema)
+	for dbName, rawDB := range rawDBs {
+		schema, err := sqliteutil.QuerySchema(rawDB)
+		if err != nil {
+			return nil, err
+		}
 
-func newData(snap *dbschema.Snapshot) string {
-	tokens := strings.SplitN(snap.Script, newDataSeparator, 2)
-	if len(tokens) != 2 {
-		return ""
+		// we don't care changes in versions table
+		schema.DropTable("versions")
+
+		schemas[dbName] = schema
 	}
-	return tokens[1]
+	return schemas, nil
+}
+
+// getSchemas queries the data of each rawDB and returns a map of each rawDB's
+// data keyed by dbName
+func getData(rawDBs map[string]storagenodedb.SQLDB, schemas map[string]*dbschema.Schema) (map[string]*dbschema.Data, error) {
+	data := make(map[string]*dbschema.Data)
+	for dbName, rawDB := range rawDBs {
+		datum, err := sqliteutil.QueryData(rawDB, schemas[dbName])
+		if err != nil {
+			return nil, err
+		}
+
+		data[dbName] = datum
+	}
+	return data, nil
 }
 
 func TestMigrate(t *testing.T) {
 	ctx := testcontext.New(t)
-	snapshots, err := loadSnapshots()
-	require.NoError(t, err)
 
 	log := zaptest.NewLogger(t)
 
@@ -92,6 +88,8 @@ func TestMigrate(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
+	rawDBs := db.RawDatabases()
+
 	// get migration for this database
 	migrations := db.Migration()
 	for i, step := range migrations.Steps {
@@ -103,28 +101,28 @@ func TestMigrate(t *testing.T) {
 		require.NoError(t, err, tag)
 
 		// find the matching expected version
-		expected, ok := snapshots.FindVersion(step.Version)
+		expected, ok := testdata.States.FindVersion(step.Version)
 		require.True(t, ok)
 
 		// insert data for new tables
-		if newdata := newData(expected); newdata != "" {
-			_, err = db.Versions().Exec(newdata)
-			require.NoError(t, err, tag)
-		}
+		err = insertNewData(expected, rawDBs)
+		require.NoError(t, err, tag)
 
 		// load schema from database
-		currentSchema, err := sqliteutil.QuerySchema(db.Versions())
+		schemas, err := getSchemas(rawDBs)
 		require.NoError(t, err, tag)
-
-		// we don't care changes in versions table
-		currentSchema.DropTable("versions")
 
 		// load data from database
-		currentData, err := sqliteutil.QueryData(db.Versions(), currentSchema)
+		data, err := getData(rawDBs, schemas)
 		require.NoError(t, err, tag)
 
-		// verify schema and data
-		require.Equal(t, expected.Schema, currentSchema, tag)
-		require.Equal(t, expected.Data, currentData, tag)
+		multiDBSnapshot, err := testdata.LoadMultiDBSnapshot(expected)
+		require.NoError(t, err, tag)
+
+		// verify schema and data for each db in the expected snapshot
+		for dbName, dbSnapshot := range multiDBSnapshot.DBSnapshots {
+			require.Equal(t, dbSnapshot.Schema, schemas[dbName], tag)
+			require.Equal(t, dbSnapshot.Data, data[dbName], tag)
+		}
 	}
 }
