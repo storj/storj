@@ -211,7 +211,7 @@ func sanitizedOrderColumnName(pmo console.ProjectMemberOrder) string {
 	}
 }
 
-func sanitizeOrderDirectionName(pmo console.ProjectMemberOrderDirection) string {
+func sanitizeOrderDirectionName(pmo console.OrderDirection) string {
 	if pmo == 2 {
 		return "DESC"
 	}

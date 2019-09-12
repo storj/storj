@@ -46,6 +46,8 @@ export default class ApiKeysCreationPopup extends Vue {
     private isLoading: boolean = false;
     private key: string = '';
 
+    private FIRST_PAGE = 1;
+
     public onChangeName(value: string): void {
         this.name = value.trim();
         this.errorMessage = '';
@@ -83,6 +85,12 @@ export default class ApiKeysCreationPopup extends Vue {
         this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
         this.key = createdApiKey.secret;
         this.isLoading = false;
+        
+        try {
+            this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch API keys. ${error.message}`);
+        }
 
         this.$emit('closePopup');
         this.$emit('showCopyPopup', this.key);

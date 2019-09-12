@@ -12,8 +12,8 @@
             </div>
             <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
             <div class="account-button-toggle-container__expander-area">
-                <img v-if="!isDropdownShown" src="../../../static/images/register/BlueExpand.svg" />
-                <img v-if="isDropdownShown" src="../../../static/images/register/BlueHide.svg" />
+                <img v-if="!isDropdownShown" src="../../../static/images/register/BlueExpand.svg"  alt="expand settings" />
+                <img v-if="isDropdownShown" src="../../../static/images/register/BlueHide.svg"  alt="hide settings" />
             </div>
         </div>
         <AccountDropdown v-if="isDropdownShown" />

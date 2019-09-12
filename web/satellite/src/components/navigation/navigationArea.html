@@ -23,7 +23,7 @@
             </svg>
         </div>
         <p class="navigation-area__project-title">PROJECT</p>
-        <router-link class="navigation-area__item-container" :class="{disabled: isProjectNotSelected && navItem.path !== '/project-details'}" v-for="navItem in navigation" :key="navItem.name" :to="navItem.path">
+        <router-link :aria-label="navItem.name" class="navigation-area__item-container" :class="{disabled: isProjectNotSelected && navItem.path !== '/project-details'}" v-for="navItem in navigation" :key="navItem.name" :to="navItem.path">
             <div class="navigation-area__item-container__link-container" >
                 <div v-html="navItem.icon"></div>
                 <h1>{{navItem.name}}</h1>

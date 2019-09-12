@@ -56,16 +56,19 @@ export default class App extends Vue {
 
     @font-face {
         font-family: "font_regular";
+        font-display: swap;
         src: url("../static/fonts/font_regular.ttf");
     }
 
     @font-face {
         font-family: "font_medium";
+        font-display: swap;
         src: url("../static/fonts/font_medium.ttf");
     }
 
     @font-face {
         font-family: "font_bold";
+        font-display: swap;
         src: url("../static/fonts/font_bold.ttf");
     }
 
