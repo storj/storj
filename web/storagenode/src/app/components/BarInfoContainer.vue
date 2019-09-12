@@ -4,7 +4,7 @@
 <template>
     <div class="remaining-space-container">
         <p class="remaining-space-container__title">{{label}}</p>
-        <p class="remaining-space-container__amount"><b>{{remaining}}</b>GB</p>
+        <p class="remaining-space-container__amount"><b>{{remaining}}GB</b></p>
         <div class="remaining-space-container__bar">
             <InfoComponent :text="infoMessage">
                 <Bar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
@@ -65,7 +65,6 @@ export default class BarInfoContainer extends Vue {
 
         &__amount {
             font-size: 32px;
-            font-family: 'font_bold';
             line-height: 57px;
             color: #535F77;
         }

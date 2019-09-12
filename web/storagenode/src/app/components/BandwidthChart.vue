@@ -38,7 +38,7 @@ class BandwidthTooltip {
         this.repairIngress = formatBytes(bandwidth.ingress.repair);
         this.repairEgress = formatBytes(bandwidth.egress.repair);
         this.auditEgress = formatBytes(bandwidth.egress.audit);
-        this.date = bandwidth.intervalStart.toLocaleString();
+        this.date = bandwidth.intervalStart.toUTCString();
     }
 }
 
