@@ -114,6 +114,8 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 		// copy the pieces from the map back to the pointer
 		var pieces []*pb.RemotePiece
 		for _, piece := range pieceMap {
+			// clear hashes so we don't store them
+			piece.Hash = nil
 			pieces = append(pieces, piece)
 		}
 		pointer.GetRemote().RemotePieces = pieces
