@@ -126,7 +126,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	if len(tally.Bucket) > 0 {
-		_, err = service.projectAccountingDB.SaveTallies(ctx, finishTime, tally.Bucket)
+		err = service.projectAccountingDB.SaveTallies(ctx, finishTime, tally.Bucket)
 		if err != nil {
 			errAtRest = errs.New("ProjectAccounting.SaveTallies failed: %v", err)
 		}

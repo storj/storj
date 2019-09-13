@@ -110,7 +110,7 @@ func TestOnlyInline(t *testing.T) {
 			require.NoError(t, err)
 			assert.Len(t, actualNodeData, 0)
 
-			_, err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, latestTally, actualBucketData)
+			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, latestTally, actualBucketData)
 			require.NoError(t, err)
 
 			// Confirm the correct bucket storage tally was created

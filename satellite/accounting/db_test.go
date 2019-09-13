@@ -35,9 +35,13 @@ func TestSaveBucketTallies(t *testing.T) {
 		// Execute test:  retrieve the save tallies and confirm they contains the expected data
 		intervalStart := time.Now()
 		pdb := db.ProjectAccounting()
-		actualTallies, err := pdb.SaveTallies(ctx, intervalStart, bucketTallies)
+
+		err = pdb.SaveTallies(ctx, intervalStart, bucketTallies)
 		require.NoError(t, err)
-		for _, tally := range actualTallies {
+
+		tallies, err := pdb.GetTallies(ctx)
+		require.NoError(t, err)
+		for _, tally := range tallies {
 			require.Contains(t, expectedTallies, tally)
 		}
 	})
