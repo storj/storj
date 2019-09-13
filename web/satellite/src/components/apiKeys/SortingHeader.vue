@@ -29,7 +29,7 @@ import { SortDirection } from '@/types/common';
 @Component({
     components: {
         VerticalArrows,
-    }
+    },
 })
 export default class SortApiKeysHeader extends Vue {
     @Prop({default: () => new Promise(() => false)})

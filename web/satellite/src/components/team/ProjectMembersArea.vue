@@ -75,7 +75,7 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
         List,
         Pagination,
         SortingListHeader,
-    }
+    },
 })
 export default class ProjectMembersArea extends Vue {
     private FIRST_PAGE = 1;

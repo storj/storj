@@ -3,7 +3,7 @@
 
 import {
     validateEmail,
-    validatePassword
+    validatePassword,
  } from '@/utils/validation';
 
 describe('validation', () => {

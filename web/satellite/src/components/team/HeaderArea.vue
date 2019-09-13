@@ -48,7 +48,7 @@ declare interface ClearSearch {
         Button,
         HeaderComponent,
         AddUserPopup,
-    }
+    },
 })
 export default class HeaderArea extends Vue {
     @Prop({default: ProjectMemberHeaderState.DEFAULT})

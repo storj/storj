@@ -73,7 +73,7 @@ import { validatePassword } from '@/utils/validation';
     components: {
         HeaderlessInput,
         Button,
-    }
+    },
 })
 export default class ChangePasswordPopup extends Vue {
     private oldPassword: string = '';

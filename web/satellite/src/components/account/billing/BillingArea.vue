@@ -37,7 +37,7 @@ import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSu
         AccountBalance,
         MonthlyBillingSummary,
         DepositAndBilling,
-    }
+    },
 })
 export default class BillingArea extends Vue {}
 </script>

@@ -41,8 +41,8 @@ describe('Notification.vue', () => {
                 notification: new DelayedNotification(
                     jest.fn(),
                     NOTIFICATION_TYPES.SUCCESS,
-                    testMessage
-                )
+                    testMessage,
+                ),
             },
         });
 
@@ -53,8 +53,8 @@ describe('Notification.vue', () => {
             notification: new DelayedNotification(
                 jest.fn(),
                 NOTIFICATION_TYPES.ERROR,
-                testMessage
-            )
+                testMessage,
+            ),
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -63,8 +63,8 @@ describe('Notification.vue', () => {
             notification: new DelayedNotification(
                 jest.fn(),
                 NOTIFICATION_TYPES.NOTIFICATION,
-                testMessage
-            )
+                testMessage,
+            ),
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -73,8 +73,8 @@ describe('Notification.vue', () => {
             notification: new DelayedNotification(
                 jest.fn(),
                 NOTIFICATION_TYPES.WARNING,
-                testMessage
-            )
+                testMessage,
+            ),
         });
 
         expect(wrapper).toMatchSnapshot();

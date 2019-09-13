@@ -72,6 +72,7 @@
     "semicolon": [true, "always"],
     "space-within-parens": 0,    
     "static-this": true,
+    "trailing-comma": [true, {"multiline": "always", "singleline": "never"}],
     "triple-equals": true,
     "typedef": [
       true,
