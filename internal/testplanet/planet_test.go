@@ -58,6 +58,23 @@ func TestBasic(t *testing.T) {
 	}
 }
 
+// test that nodes get put into each satellite's overlay cache
+func TestContact(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 2, StorageNodeCount: 5, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite0 := planet.Satellites[0]
+		satellite1 := planet.Satellites[1]
+
+		for _, n := range planet.StorageNodes {
+			_, err := satellite0.Overlay.Service.Get(ctx, n.ID())
+			require.NoError(t, err)
+			_, err = satellite1.Overlay.Service.Get(ctx, n.ID())
+			require.NoError(t, err)
+		}
+	})
+}
+
 func BenchmarkCreate(b *testing.B) {
 	storageNodes := []int{4, 10, 100}
 	for _, count := range storageNodes {
