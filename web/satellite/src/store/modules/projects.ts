@@ -136,7 +136,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             },
             [CLEAR]: function({commit}: any): void {
                 commit(CLEAR_PROJECTS);
-            }
+            },
         },
         getters: {
             projects: (state: any): Project[] => {

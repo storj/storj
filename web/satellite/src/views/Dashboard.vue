@@ -44,7 +44,7 @@ import { AppState } from '@/utils/constants/appStateEnum';
     components: {
         NavigationArea,
         DashboardHeader,
-    }
+    },
 })
 export default class Dashboard extends Vue {
     public mounted(): void {
