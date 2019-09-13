@@ -274,10 +274,9 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 		return OrderError.New("failed to start settlement: %v", err)
 	}
 
-	var (
-		errList errs.Group
-		group   errgroup.Group
-	)
+	var group errgroup.Group
+	var sendErrors errs.Group
+
 	group.Go(func() error {
 		for _, order := range orders {
 			req := pb.SettlementRequest{
@@ -291,7 +290,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 					zap.Error(err),
 					zap.Any("request", req),
 				)
-				errList.Add(err)
+				sendErrors.Add(err)
 				return nil
 			}
 		}
@@ -300,12 +299,13 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 		if err != nil {
 			err = OrderError.New("CloseSend settlement agreements returned an error: %v", err)
 			log.Error("gRPC client error when closing sender ", zap.Error(err))
-			errList.Add(err)
+			sendErrors.Add(err)
 		}
 
 		return nil
 	})
 
+	var errList errs.Group
 	for {
 		response, err := client.Recv()
 		if err != nil {
@@ -341,8 +341,10 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 		}
 	}
 
-	// Errors of this group are reported to errList so it always return nil
+	// errors of this group are reported to sendErrors and it always return nil
 	_ = group.Wait()
+	errList.Add(sendErrors...)
+
 	return errList.Err()
 }
 
