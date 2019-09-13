@@ -93,8 +93,7 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 			}
 			existing := pieceMap[piece.PieceNum]
 			if existing != nil &&
-				existing.NodeId == piece.NodeId &&
-				existing.Hash == piece.Hash {
+				existing.NodeId == piece.NodeId {
 				delete(pieceMap, piece.PieceNum)
 			}
 		}
