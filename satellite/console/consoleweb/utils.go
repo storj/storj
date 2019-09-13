@@ -15,8 +15,8 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
 
-// ContentLengthLimit describes 5KB limit (5 * 1024 bytes)
-const ContentLengthLimit = 5120
+// ContentLengthLimit describes 4KB limit
+const ContentLengthLimit = 1 << 12
 
 func init() {
 	err := mime.AddExtensionType(".ttf", "font/ttf")
