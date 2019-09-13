@@ -811,10 +811,10 @@ func (c *drpcPiecestoreClient) Retain(ctx context.Context, in *RetainRequest) (*
 }
 
 type DRPCPiecestoreServer interface {
-	DRPCUpload(DRPCPiecestore_UploadStream) error
-	DRPCDownload(DRPCPiecestore_DownloadStream) error
-	DRPCDelete(context.Context, *PieceDeleteRequest) (*PieceDeleteResponse, error)
-	DRPCRetain(context.Context, *RetainRequest) (*RetainResponse, error)
+	Upload(DRPCPiecestore_UploadStream) error
+	Download(DRPCPiecestore_DownloadStream) error
+	Delete(context.Context, *PieceDeleteRequest) (*PieceDeleteResponse, error)
+	Retain(context.Context, *RetainRequest) (*RetainResponse, error)
 }
 
 type DRPCPiecestoreDescription struct{}
@@ -827,39 +827,43 @@ func (DRPCPiecestoreDescription) Method(n int) (string, drpc.Handler, interface{
 		return "/piecestore.Piecestore/Upload",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return nil, srv.(DRPCPiecestoreServer).
-					DRPCUpload(
+					Upload(
 						&drpcPiecestoreUploadStream{in1.(drpc.Stream)},
 					)
-			}, DRPCPiecestoreServer.DRPCUpload, true
+			}, DRPCPiecestoreServer.Upload, true
 	case 1:
 		return "/piecestore.Piecestore/Download",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return nil, srv.(DRPCPiecestoreServer).
-					DRPCDownload(
+					Download(
 						&drpcPiecestoreDownloadStream{in1.(drpc.Stream)},
 					)
-			}, DRPCPiecestoreServer.DRPCDownload, true
+			}, DRPCPiecestoreServer.Download, true
 	case 2:
 		return "/piecestore.Piecestore/Delete",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCPiecestoreServer).
-					DRPCDelete(
+					Delete(
 						ctx,
 						in1.(*PieceDeleteRequest),
 					)
-			}, DRPCPiecestoreServer.DRPCDelete, true
+			}, DRPCPiecestoreServer.Delete, true
 	case 3:
 		return "/piecestore.Piecestore/Retain",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCPiecestoreServer).
-					DRPCRetain(
+					Retain(
 						ctx,
 						in1.(*RetainRequest),
 					)
-			}, DRPCPiecestoreServer.DRPCRetain, true
+			}, DRPCPiecestoreServer.Retain, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterPiecestore(srv drpc.Server, impl DRPCPiecestoreServer) {
+	srv.Register(impl, DRPCPiecestoreDescription{})
 }
 
 type DRPCPiecestore_UploadStream interface {

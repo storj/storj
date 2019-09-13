@@ -82,11 +82,9 @@ export default class Register extends Vue {
         this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
     }
     public onLogoClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGO);
         location.reload();
     }
     public onLoginClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGIN);
         this.$router.push(RouteConfig.Login.path);
     }
     public setEmail(value: string): void {
