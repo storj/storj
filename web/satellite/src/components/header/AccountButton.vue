@@ -29,8 +29,8 @@ import AccountDropdown from './AccountDropdown.vue';
 
 @Component({
     components: {
-        AccountDropdown
-    }
+        AccountDropdown,
+    },
 })
 export default class AccountButton extends Vue {
     public toggleSelection(): void {

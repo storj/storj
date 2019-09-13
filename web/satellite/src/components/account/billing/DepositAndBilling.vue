@@ -26,7 +26,7 @@ import { RouteConfig } from '@/router';
     components: {
         BillingItem,
         SortingHeader,
-    }
+    },
 })
 export default class DepositAndBilling extends Vue {
     public onViewAllClick(): void {

@@ -256,6 +256,11 @@ func TestCorruptDataRepair(t *testing.T) {
 			Key:       corruptedPiece.Bytes(),
 		}
 
+		overlay := planet.Satellites[0].Overlay.Service
+		node, err := overlay.Get(ctx, corruptedNodeID)
+		require.NoError(t, err)
+		corruptedNodeReputation := node.Reputation
+
 		// get currently stored piece data from storagenode
 		reader, err := corruptedNode.Storage2.BlobsCache.Open(ctx, blobRef)
 		require.NoError(t, err)
@@ -271,8 +276,9 @@ func TestCorruptDataRepair(t *testing.T) {
 		err = corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
 		require.NoError(t, err)
 
-		// corrupt data and write back to storagenode
-		pieceData[0]++ // if we don't do this, this test should fail
+		// corrupt piece data (not PieceHeader) and write back to storagenode
+		// this means repair downloading should fail during piece hash verification
+		pieceData[pieceSize-1]++ // if we don't do this, this test should fail
 		writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef, pieceSize)
 		require.NoError(t, err)
 
@@ -290,6 +296,13 @@ func TestCorruptDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.Limiter.Wait()
+
+		// repair should update audit status as fail
+		node, err = overlay.Get(ctx, corruptedNodeID)
+		require.NoError(t, err)
+		require.Equal(t, corruptedNodeReputation.AuditCount+1, node.Reputation.AuditCount)
+		require.True(t, corruptedNodeReputation.AuditReputationBeta < node.Reputation.AuditReputationBeta)
+		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= node.Reputation.AuditReputationAlpha)
 
 		// repair should fail, so segment should contain all the original nodes
 		metainfoService := satellite.Metainfo.Service

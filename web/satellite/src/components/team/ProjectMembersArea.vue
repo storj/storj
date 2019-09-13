@@ -75,7 +75,7 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
         List,
         Pagination,
         SortingListHeader,
-    }
+    },
 })
 export default class ProjectMembersArea extends Vue {
     private FIRST_PAGE = 1;
@@ -120,7 +120,7 @@ export default class ProjectMembersArea extends Vue {
         return ProjectMemberHeaderState.DEFAULT;
     }
 
-    public async onPageClick(index: number):Promise<void> {
+    public async onPageClick(index: number): Promise<void> {
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, index);
         } catch (err) {

@@ -190,68 +190,61 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var projectID *uuid.UUID
-	var since, before time.Time
-
-	tokenCookie, err := r.Cookie("tokenKey")
+	host, _, err := net.SplitHostPort(r.Host)
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
+		server.serveError(w, r, http.StatusInternalServerError)
+		return
+	}
 
-		// TODO: use http.StatusUnauthorized status when appropriate page will be created
-		server.serveError(w, r, http.StatusNotFound)
+	tokenCookie, err := r.Cookie(host + "_tokenKey")
+	if err != nil {
+		server.serveError(w, r, http.StatusUnauthorized)
 		return
 	}
 
 	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
 	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-
-		//TODO: when new error pages will be created - change http.StatusNotFound on http.StatusUnauthorized
-		server.serveError(w, r, http.StatusNotFound)
+		server.serveError(w, r, http.StatusUnauthorized)
 		return
 	}
 
-	defer func() {
-		if err != nil {
-			server.log.Error("bucket usage report error", zap.Error(err))
-
-			server.serveError(w, r, http.StatusNotFound)
-			return
-		}
-	}()
+	ctx = console.WithAuth(ctx, auth)
 
 	// parse query params
-	projectID, err = uuid.Parse(r.URL.Query().Get("projectID"))
+	projectID, err := uuid.Parse(r.URL.Query().Get("projectID"))
 	if err != nil {
+		server.serveError(w, r, http.StatusBadRequest)
 		return
 	}
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
 	if err != nil {
+		server.serveError(w, r, http.StatusBadRequest)
 		return
 	}
 	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
 	if err != nil {
+		server.serveError(w, r, http.StatusBadRequest)
 		return
 	}
 
-	since = time.Unix(sinceStamp, 0)
-	before = time.Unix(beforeStamp, 0)
+	since := time.Unix(sinceStamp, 0)
+	before := time.Unix(beforeStamp, 0)
 
 	server.log.Debug("querying bucket usage report",
 		zap.Stringer("projectID", projectID),
 		zap.Stringer("since", since),
 		zap.Stringer("before", before))
 
-	ctx = console.WithAuth(ctx, auth)
 	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
+		server.log.Error("bucket usage report error", zap.Error(err))
+		server.serveError(w, r, http.StatusInternalServerError)
 		return
 	}
 
 	if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
-		server.log.Error("satellite/console/server: usage report template could not be executed", zap.Error(err))
-		server.serveError(w, r, http.StatusNotFound)
-		return
+		server.log.Error("bucket usage report error", zap.Error(err))
 	}
 }
 
