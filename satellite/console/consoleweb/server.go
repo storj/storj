@@ -192,6 +192,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 
 	var projectID *uuid.UUID
 	var since, before time.Time
+	var bucketRollups []console.BucketUsageRollup
 
 	host, _, err := net.SplitHostPort(r.Host)
 	if err != nil {
@@ -214,10 +215,17 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	ctx = console.WithAuth(ctx, auth)
+
 	defer func() {
 		if err != nil {
 			// TODO: use http.StatusUnauthorized status when appropriate page will be created
 			server.serveError(w, r, http.StatusNotFound)
+			return
+		}
+
+		if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
+			server.log.Error("bucket usage report error", zap.Error(err))
 		}
 	}()
 
@@ -243,14 +251,8 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		zap.Stringer("since", since),
 		zap.Stringer("before", before))
 
-	ctx = console.WithAuth(ctx, auth)
-	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
+	bucketRollups, err = server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-		return
-	}
-
-	if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
 		return
 	}
