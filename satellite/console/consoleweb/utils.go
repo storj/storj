@@ -55,7 +55,7 @@ func getToken(req *http.Request) string {
 // getQuery retrieves graphql query from request
 func getQuery(req *http.Request) (query graphqlJSON, err error) {
 	if req.ContentLength > ContentLengthLimit {
-		return graphqlJSON{}, errs.New("content length is more than accepted(%d)", ContentLengthLimit)
+		return graphqlJSON{}, errs.New("content length is more than accepted(%d bytes)", ContentLengthLimit)
 	}
 
 	switch req.Method {
