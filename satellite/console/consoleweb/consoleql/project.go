@@ -31,6 +31,10 @@ const (
 	ProjectMembersPageType = "projectMembersPage"
 	// ProjectMembersCursorInputType is a graphql type name for project members
 	ProjectMembersCursorInputType = "projectMembersCursor"
+	// APIKeysPageType is a field name for api keys page
+	APIKeysPageType = "apiKeysPage"
+	// APIKeysCursorInputType is a graphql type name for api keys
+	APIKeysCursorInputType = "apiKeysCursor"
 	// FieldName is a field name for "name"
 	FieldName = "name"
 	// FieldBucketName is a field name for "bucket name"
@@ -155,11 +159,39 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				},
 			},
 			FieldAPIKeys: &graphql.Field{
-				Type: graphql.NewList(types.apiKeyInfo),
+				Type: types.apiKeyPage,
+				Args: graphql.FieldConfigArgument{
+					CursorArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.apiKeysCursor),
+					},
+				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					return service.GetAPIKeysInfoByProjectID(p.Context, project.ID)
+					_, err := console.GetAuth(p.Context)
+					if err != nil {
+						return nil, err
+					}
+
+					cursor := cursorArgsToAPIKeysCursor(p.Args[CursorArg].(map[string]interface{}))
+					page, err := service.GetAPIKeys(p.Context, project.ID, cursor)
+					if err != nil {
+						return nil, err
+					}
+
+					apiKeysPage := apiKeysPage{
+						APIKeys:        page.APIKeys,
+						TotalCount:     page.TotalCount,
+						Offset:         page.Offset,
+						Limit:          page.Limit,
+						Order:          int(page.Order),
+						OrderDirection: int(page.OrderDirection),
+						Search:         page.Search,
+						CurrentPage:    page.CurrentPage,
+						PageCount:      page.PageCount,
+					}
+
+					return apiKeysPage, err
 				},
 			},
 			FieldUsage: &graphql.Field{
@@ -442,7 +474,24 @@ func cursorArgsToProjectMembersCursor(args map[string]interface{}) console.Proje
 	cursor.Limit = uint(limit)
 	cursor.Page = uint(page)
 	cursor.Order = console.ProjectMemberOrder(order)
-	cursor.OrderDirection = console.ProjectMemberOrderDirection(orderDirection)
+	cursor.OrderDirection = console.OrderDirection(orderDirection)
+	cursor.Search, _ = args[SearchArg].(string)
+
+	return cursor
+}
+
+func cursorArgsToAPIKeysCursor(args map[string]interface{}) console.APIKeyCursor {
+	limit, _ := args[LimitArg].(int)
+	page, _ := args[PageArg].(int)
+	order, _ := args[OrderArg].(int)
+	orderDirection, _ := args[OrderDirectionArg].(int)
+
+	var cursor console.APIKeyCursor
+
+	cursor.Limit = uint(limit)
+	cursor.Page = uint(page)
+	cursor.Order = console.APIKeyOrder(order)
+	cursor.OrderDirection = console.OrderDirection(orderDirection)
 	cursor.Search, _ = args[SearchArg].(string)
 
 	return cursor

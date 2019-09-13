@@ -30,7 +30,7 @@ API_KEYS_ACTIONS,
 APP_STATE_ACTIONS,
 NOTIFICATION_ACTIONS,
 PM_ACTIONS,
-PROJECT_PAYMENT_METHODS_ACTIONS
+PROJECT_PAYMENT_METHODS_ACTIONS,
 } from '@/utils/constants/actionNames';
 
 @Component
@@ -55,7 +55,7 @@ export default class ProjectSelectionDropdown extends Vue {
         }
 
         try {
-            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
         }

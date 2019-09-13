@@ -16,7 +16,7 @@ describe('HeaderedInput.vue', () => {
     it('renders correctly with isMultiline props', () => {
 
         const wrapper = shallowMount(HeaderedInput, {
-            propsData: {isMultiline: true}
+            propsData: {isMultiline: true},
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -31,7 +31,7 @@ describe('HeaderedInput.vue', () => {
         const height = '20px';
 
         const wrapper = shallowMount(HeaderedInput, {
-            propsData: {label, width, height, additionalLabel}
+            propsData: {label, width, height, additionalLabel},
         });
 
         expect(wrapper.find('input').element.style.width).toMatch(width);
@@ -44,8 +44,8 @@ describe('HeaderedInput.vue', () => {
 
         const wrapper = shallowMount(HeaderedInput, {
             propsData: {
-                isOptional: true
-            }
+                isOptional: true,
+            },
         });
 
         expect(wrapper.find('h4').text()).toMatch('Optional');
@@ -56,8 +56,8 @@ describe('HeaderedInput.vue', () => {
 
         const wrapper = shallowMount(HeaderedInput, {
             propsData: {
-                error
-            }
+                error,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();

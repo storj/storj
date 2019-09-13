@@ -17,17 +17,17 @@ export async function addProjectPaymentMethodRequest(projectId: string, cardToke
                             projectID: $projectId,
                             cardToken: $cardToken,
                             isDefault: $isDefault
-                        ) 
+                        )
                 }
             `),
             variables: {
                 projectId: projectId,
                 cardToken: cardToken,
-                isDefault: isDefault
+                isDefault: isDefault,
             },
             fetchPolicy: 'no-cache',
-            errorPolicy: 'all'
-        }
+            errorPolicy: 'all',
+        },
     );
 
     if (response.errors) {
@@ -54,11 +54,11 @@ export async function setDefaultPaymentMethodRequest(projectId: string, paymentI
            `),
            variables: {
                projectId: projectId,
-               id: paymentId
+               id: paymentId,
            },
            fetchPolicy: 'no-cache',
-           errorPolicy: 'all'
-       }
+           errorPolicy: 'all',
+       },
    );
 
    if (response.errors) {
@@ -70,7 +70,7 @@ export async function setDefaultPaymentMethodRequest(projectId: string, paymentI
    return result;
 }
 
-export async function deletePaymentMethodRequest(paymentId: string):Promise<RequestResponse<null>> {
+export async function deletePaymentMethodRequest(paymentId: string): Promise<RequestResponse<null>> {
     const result: RequestResponse<null> = new RequestResponse<null>();
 
     const response: any = await apollo.mutate(
@@ -83,11 +83,11 @@ export async function deletePaymentMethodRequest(paymentId: string):Promise<Requ
                 }
            `),
             variables: {
-                id: paymentId
+                id: paymentId,
             },
             fetchPolicy: 'no-cache',
-            errorPolicy: 'all'
-        }
+            errorPolicy: 'all',
+        },
     );
 
     if (response.errors) {
@@ -119,14 +119,14 @@ export async function fetchProjectPaymentMethods(projectId: string): Promise<Req
                             isDefault
                         }
                     }
-                }`
+                }`,
             ),
             variables: {
                 projectId: projectId,
             },
             fetchPolicy: 'no-cache',
-            errorPolicy: 'all'
-        }
+            errorPolicy: 'all',
+        },
     );
 
     if (response.errors) {

@@ -58,10 +58,10 @@ export default class Notification extends Vue {
         position: relative;
         right: -100%;
         width: calc(100% - 40px);
-        height: 78px;
+        height: auto;
         display: flex;
         justify-content: space-between;
-        padding: 0 20px;
+        padding: 20px;
         align-items: center;
         border-radius: 12px;
         margin-bottom: 7px;
@@ -74,7 +74,10 @@ export default class Notification extends Vue {
             p {
                 font-family: 'font_medium';
                 font-size: 14px;
-                margin-left: 17px;
+                height: auto;
+                width: 270px;
+                margin: 0 0 0 17px;
+                word-break: break-all;
 
                 span {
                     margin-right: 10px;
