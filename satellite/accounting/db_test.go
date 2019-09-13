@@ -148,10 +148,10 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.Buc
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		tally := accounting.BucketTally{
 			BucketName:     []byte(bucketName),
-			ProjectID:      projectID[:],
+			ProjectID:      projectID,
+			ObjectCount:    int64(1),
 			InlineSegments: int64(1),
 			RemoteSegments: int64(1),
-			Files:          int64(1),
 			InlineBytes:    int64(1),
 			RemoteBytes:    int64(1),
 			MetadataSize:   int64(1),

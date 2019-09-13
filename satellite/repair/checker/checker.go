@@ -38,7 +38,7 @@ type Config struct {
 
 // durabilityStats remote segment information
 type durabilityStats struct {
-	remoteFilesChecked          int64
+	objectsChecked              int64
 	remoteSegmentsChecked       int64
 	remoteSegmentsNeedingRepair int64
 	remoteSegmentsLost          int64
@@ -122,7 +122,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		return err
 	}
 
-	mon.IntVal("remote_files_checked").Observe(observer.monStats.remoteFilesChecked)
+	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)
 	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)
 	mon.IntVal("remote_segments_needing_repair").Observe(observer.monStats.remoteSegmentsNeedingRepair)
 	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost)
@@ -314,10 +314,10 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 	return nil
 }
 
-func (obs *checkerObserver) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	obs.monStats.remoteFilesChecked++
+	obs.monStats.objectsChecked++
 
 	return nil
 }
