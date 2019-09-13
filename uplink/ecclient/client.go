@@ -141,7 +141,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 
 		successfulCount++
 		if int(successfulCount) >= rs.OptimalThreshold() {
-			ec.log.Info("Success threshold reached. Cancelling remaining uploads.",
+			ec.log.Debug("Success threshold reached. Cancelling remaining uploads.",
 				zap.Int("Optimal Threshold", rs.OptimalThreshold()),
 			)
 			cancel()

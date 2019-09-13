@@ -37,7 +37,7 @@ export class AuthApi extends BaseGql {
      */
     public async token(email: string, password: string): Promise<string> {
         const query =
-            ` query ($email: String!, $password: String!) { 
+            ` query ($email: String!, $password: String!) {
                 token(email: $email, password: $password) {
                     token
                 }
@@ -131,7 +131,7 @@ export class AuthApi extends BaseGql {
      */
     public async create(user: User, password: string, secret: string, referrerUserId: string = ''): Promise<string> {
         const query =
-            `mutation($email: String!, $password: String!, $fullName: String!, $shortName: String!, 
+            `mutation($email: String!, $password: String!, $fullName: String!, $shortName: String!,
                      $partnerID: String!, $referrerUserId: String!, $secret: String!) {
                 createUser(
                     input: {

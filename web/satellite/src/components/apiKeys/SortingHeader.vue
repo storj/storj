@@ -27,7 +27,7 @@ import { ApiKeyOrderBy, OnHeaderClickCallback } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
 
 @Component({
-    components:{
+    components: {
         VerticalArrows,
     }
 })
