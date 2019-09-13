@@ -197,7 +197,10 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 		info := overlay.NodeCheckInInfo{
 			NodeID: nodeID,
-			IsUp:   false,
+			Address: &pb.NodeAddress{
+				Address: "1.2.3.4",
+			},
+			IsUp: false,
 		}
 		config := overlay.NodeSelectionConfig{
 			UptimeReputationLambda: lambda,

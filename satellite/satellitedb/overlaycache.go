@@ -1327,8 +1327,7 @@ func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) db
 	return updateFields
 }
 
-// UpdateCheckIn updates a single storagenode with info from when the
-// the node last checked in
+// UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
 func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

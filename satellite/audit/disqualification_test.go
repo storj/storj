@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
@@ -215,6 +216,9 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		info := overlay.NodeCheckInInfo{
 			NodeID: disqualifiedNode.ID(),
 			IsUp:   true,
+			Address: &pb.NodeAddress{
+				Address: "1.2.3.4",
+			},
 		}
 		config := overlay.NodeSelectionConfig{
 			UptimeReputationLambda: 0,
@@ -253,6 +257,9 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite
 	info := overlay.NodeCheckInInfo{
 		NodeID: nodeID,
 		IsUp:   false,
+		Address: &pb.NodeAddress{
+			Address: "1.2.3.4",
+		},
 	}
 	config := overlay.NodeSelectionConfig{
 		UptimeReputationLambda: 1,

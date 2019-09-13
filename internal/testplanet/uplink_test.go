@@ -134,6 +134,9 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 				info := overlay.NodeCheckInInfo{
 					NodeID: node.ID(),
 					IsUp:   false,
+					Address: &pb.NodeAddress{
+						Address: "1.2.3.4",
+					},
 				}
 				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info)
 				require.NoError(t, err)
