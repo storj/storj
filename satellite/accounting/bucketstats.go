@@ -10,7 +10,7 @@ type BucketTally struct {
 	// TODO(jg): fix this so that it is uuid.UUID
 	ProjectID []byte
 
-	Objects int64 // TODO: rename to objects
+	Objects int64
 
 	Segments        int64
 	InlineSegments  int64
