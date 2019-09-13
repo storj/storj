@@ -400,7 +400,7 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
 	token := getToken(r)
-	query, err := getQuery(r)
+	query, err := getQuery(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

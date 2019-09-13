@@ -53,24 +53,26 @@ func getToken(req *http.Request) string {
 
 
 // getQuery retrieves graphql query from request
-func getQuery(req *http.Request) (query graphqlJSON, err error) {
-	if req.ContentLength > ContentLengthLimit {
-		return graphqlJSON{}, errs.New("content length is more than accepted(%d bytes)", ContentLengthLimit)
-	}
-
+func getQuery(writer http.ResponseWriter, req *http.Request) (query graphqlJSON, err error) {
 	switch req.Method {
 	case http.MethodGet:
 		query.Query = req.URL.Query().Get(consoleql.Query)
+		if len(query.Query) >= ContentLengthLimit {
+			return query, errs.New("request body too large")
+		}
+		
 		return query, nil
 	case http.MethodPost:
-		return queryPOST(req)
+		return queryPOST(writer, req)
 	default:
 		return query, errs.New("wrong http request type")
 	}
 }
 
 // queryPOST retrieves graphql query from POST request
-func queryPOST(req *http.Request) (query graphqlJSON, err error) {
+func queryPOST(writer http.ResponseWriter, req *http.Request) (query graphqlJSON, err error) {
+	req.Body = http.MaxBytesReader(writer, req.Body, ContentLengthLimit)
+
 	switch typ := req.Header.Get(contentType); typ {
 	case applicationGraphql:
 		body, err := ioutil.ReadAll(req.Body)
