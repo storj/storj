@@ -96,8 +96,8 @@ func TestLoop(t *testing.T) {
 
 		projectID := ul.ProjectID[satellite.ID()]
 		for _, obs := range []*testObserver{obs1, obs2} {
+			assert.EqualValues(t, 7, obs.objectCount)
 			assert.EqualValues(t, 5, obs.remoteSegCount)
-			assert.EqualValues(t, 5, obs.objectCount)
 			assert.EqualValues(t, 2, obs.inlineSegCount)
 			assert.EqualValues(t, 7, len(obs.uniquePaths))
 			for _, path := range obs.uniquePaths {
