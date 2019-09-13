@@ -194,40 +194,30 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var since, before time.Time
 	var bucketRollups []console.BucketUsageRollup
 
+	defer func() {
+		if err != nil {
+			// TODO: use http.StatusUnauthorized status when appropriate page will be created
+			server.serveError(w, r, http.StatusNotFound)
+		}
+	}()
+
 	host, _, err := net.SplitHostPort(r.Host)
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
-		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
 
 	tokenCookie, err := r.Cookie(host + "_tokenKey")
 	if err != nil {
-		// TODO: use http.StatusUnauthorized status when appropriate page will be created
-		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
 
 	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
 	if err != nil {
-		//TODO: when new error pages will be created - change http.StatusNotFound on http.StatusUnauthorized
-		server.serveError(w, r, http.StatusNotFound)
 		return
 	}
 
 	ctx = console.WithAuth(ctx, auth)
-
-	defer func() {
-		if err != nil {
-			// TODO: use http.StatusUnauthorized status when appropriate page will be created
-			server.serveError(w, r, http.StatusNotFound)
-			return
-		}
-
-		if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
-			server.log.Error("bucket usage report error", zap.Error(err))
-		}
-	}()
 
 	// parse query params
 	projectID, err = uuid.Parse(r.URL.Query().Get("projectID"))
@@ -255,6 +245,10 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
 		return
+	}
+
+	if terr := server.templates.usageReport.Execute(w, bucketRollups); terr != nil {
+		server.log.Error("bucket usage report error", zap.Error(terr))
 	}
 }
 
