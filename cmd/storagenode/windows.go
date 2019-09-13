@@ -16,7 +16,7 @@ import (
 func init() {
 	interactive, err := svc.IsAnInteractiveSession()
 	if err != nil {
-		log.Fatalf("failed to determine if session is interactive: %v", err)
+		log.Fatalf("Failed to determine if session is interactive: %v", err)
 	}
 
 	if interactive {
@@ -25,7 +25,7 @@ func init() {
 
 	err = svc.Run("storagenode", &service{})
 	if err != nil {
-		log.Fatalf("service failed: %v", err)
+		log.Fatalf("Service failed: %v", err)
 	}
 }
 
@@ -55,8 +55,12 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 			case svc.Stop, svc.Shutdown:
 				log.Println("Stop/Shutdown request received.")
 				changes <- svc.Status{State: svc.StopPending}
+				// Cancel the command's root context to cleanup resources
 				_, cancel := process.Ctx(runCmd)
 				cancel()
+				// Sleep some time to give chance for goroutines finish cleanup after cancelling the context
+				time.Sleep(15 * time.Second)
+				// After returning the Windows Service is stopped and the process terminates
 				return
 			default:
 				log.Printf("Unexpected control request: %d\n", c)
