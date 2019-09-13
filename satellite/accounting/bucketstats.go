@@ -4,6 +4,7 @@
 package accounting
 
 import (
+	"github.com/skyrings/skyring-common/tools/uuid"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
@@ -13,10 +14,8 @@ var mon = monkit.Package()
 
 // BucketTally contains information about aggregate data stored in a bucket
 type BucketTally struct {
+	ProjectID  uuid.UUID
 	BucketName []byte
-
-	// TODO(jg): fix this so that it is uuid.UUID
-	ProjectID []byte
 
 	ObjectCount int64
 

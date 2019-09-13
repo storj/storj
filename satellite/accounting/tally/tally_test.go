@@ -67,12 +67,7 @@ func TestOnlyInline(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tallySvc := planet.Satellites[0].Accounting.Tally
 		uplink := planet.Uplinks[0]
-
-		projects, err1 := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		if err1 != nil {
-			assert.NoError(t, err1)
-		}
-		projectID := projects[0].ID
+		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 
 		// Setup: create data for the uplink to upload
 		expectedData := testrand.Bytes(1 * memory.KiB)
@@ -88,7 +83,7 @@ func TestOnlyInline(t *testing.T) {
 		expectedBucketName := "testbucket"
 		expectedTally := accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName),
-			ProjectID:      projectID[:],
+			ProjectID:      projectID,
 			ObjectCount:    1,
 			Segments:       1,
 			InlineSegments: 1,
@@ -96,8 +91,6 @@ func TestOnlyInline(t *testing.T) {
 			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
-		// The projectID should be the 16 bytes uuid representation, not 36 byte string representation
-		assert.Equal(t, 16, len(projectID[:]))
 
 		// Execute test: upload a file, then calculate at rest data
 		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
@@ -203,7 +196,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 					bucketID := fmt.Sprintf("%s/%s", tt.project, tt.bucketName)
 					newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
 					newTally.BucketName = []byte(tt.bucketName)
-					newTally.ProjectID = projectID[:]
+					newTally.ProjectID = *projectID
 					expectedBucketTallies[bucketID] = newTally
 				}
 
