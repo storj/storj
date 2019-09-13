@@ -46,7 +46,7 @@ _Referral Link Distribution_
 4. Referral Manager receives all userIDs from satellites and then generates x amount of invitation tokens per user based on the input from CLI.
 6. Referral Manager adds the newly generated invitation tokens and the users each token associated with into Referral Manager database.
 7. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding satellites.
-8. Satellite receives the data and then stores the invitation tokens into users table so they can be displayed in satellite GUI
+8. Satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed in satellite GUI
 
 _Referral Link Redemption_
 
@@ -61,16 +61,20 @@ _Referral Link Redemption_
     
 _User Interface For Displaying Referral Link_
 
+## Rationale
+
+We could add a new column `referral_tokens` in users table to store user's unredeemed tokens, since the `registration_token` is a temporary table.
+
 ## Implementation
 
 - Create a private repository for Referral Manager.
 - Create `tokens` and `satellites` table in Referral Manager database.
-- Update satellite `users` table with a new column, referral tokens.
+- Create a `Delete` method for satellite `registration_tokendb`.
 - Implementing an endpoint on satellite for gathering users whose current count of remaining invitation token is 0.
 - Implementing generating invitation tokens from Referral Manager CLI.
 - Implementing an endpoint on satellite for saving new referral links into users table.
 - Implementing an endpoint on Referral Manager for verifying invitation tokens.
-- Replace existing registration token logic
+- Replace existing registration token logic.
 
 ## Wrapup
 
@@ -80,6 +84,3 @@ _User Interface For Displaying Referral Link_
 1. The existing token is implemented with 32 random bytes.
      - Is it safe to use across satellites?
      - If not, what should we use instead?
-     
-2. Should we have a separate table for invitation tokens in satellite db?
-3. Should we have a separate table for satellites that are allowed to talk to the Referral Manager?
