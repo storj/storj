@@ -122,7 +122,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	}
 
 	server.server = http.Server{
-		Handler: mux,
+		Handler:        mux,
+		MaxHeaderBytes: ContentLengthLimit,
 	}
 
 	return &server

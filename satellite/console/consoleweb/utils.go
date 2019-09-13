@@ -16,7 +16,7 @@ import (
 )
 
 // ContentLengthLimit describes 5KB limit (5 * 1024 bytes)
-const ContentLengthLimit  = 5120
+const ContentLengthLimit = 5120
 
 func init() {
 	err := mime.AddExtensionType(".ttf", "font/ttf")
@@ -51,16 +51,11 @@ func getToken(req *http.Request) string {
 	return value[len(authorizationBearer):]
 }
 
-
 // getQuery retrieves graphql query from request
 func getQuery(writer http.ResponseWriter, req *http.Request) (query graphqlJSON, err error) {
 	switch req.Method {
 	case http.MethodGet:
 		query.Query = req.URL.Query().Get(consoleql.Query)
-		if len(query.Query) >= ContentLengthLimit {
-			return query, errs.New("request body too large")
-		}
-		
 		return query, nil
 	case http.MethodPost:
 		return queryPOST(writer, req)
