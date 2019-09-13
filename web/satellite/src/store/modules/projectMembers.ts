@@ -121,6 +121,6 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
         },
         getters: {
             selectedProjectMembers: (state: any) => state.page.projectMembers.filter((member: ProjectMember) => member.isSelected),
-        }
+        },
     };
 }

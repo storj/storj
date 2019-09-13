@@ -90,8 +90,8 @@ import { API_KEYS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS }
 
 @Component({
     components: {
-        Button
-    }
+        Button,
+    },
 })
 export default class DeleteProjectPopup extends Vue {
     private projectName: string = '';
