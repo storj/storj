@@ -18,7 +18,7 @@ import (
 )
 
 func BenchmarkUpdateCheckIn(b *testing.B) {
-	postgresSetup := os.Getenv("STORJ_SIM_POSTGRES")
+	postgresSetup := os.Getenv("STORJ_POSTGRES_TEST")
 	if postgresSetup == "" {
 		fmt.Println("error: postgres must be configured with env var: STORJ_SIM_POSTGRES")
 		return

@@ -1391,7 +1391,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				$6, $7, $8, $9,
 				0, 0, $10, 1,
 				current_timestamp, current_timestamp, $11, $12,
-				0, 0, $13, $14,
+				$21, $22, $13, $14,
 				false, null,
 				0, 0, 0, 0, '', $15, false, 0
 			)
@@ -1434,6 +1434,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			uptimeSuccess, lastContactSuccess, lastContactFailure,
 			uptimeReputationAlpha, uptimeReputationBeta, time.Time{}.UTC(),
 			node.IsUp, config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight, v,
+			config.AuditReputationAlpha0, config.AuditReputationBeta0,
 		)
 		if err != nil {
 			return Error.Wrap(err)
