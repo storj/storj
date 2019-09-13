@@ -102,7 +102,8 @@ export default class ProjectDetailsArea extends Vue {
     public async onSaveButtonClick(): Promise<void> {
         try {
             await this.$store.dispatch(
-                PROJECTS_ACTIONS.UPDATE, new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
+                PROJECTS_ACTIONS.UPDATE,
+                new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
         } catch (e) {
             await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
