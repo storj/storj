@@ -308,6 +308,7 @@ func TestCommitSegment(t *testing.T) {
 					NodeId:   limit.Limit.StorageNodeId,
 					Hash: &pb.PieceHash{
 						PieceId:   limit.Limit.PieceId,
+						Hash:      []byte{},
 						PieceSize: 256,
 						Timestamp: time.Now(),
 					},

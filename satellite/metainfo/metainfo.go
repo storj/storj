@@ -502,18 +502,14 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			peerID := peerIDMap[piece.NodeId]
 			if peerID == nil {
 				endpoint.log.Warn("Peer ID is nil for node", zap.String("nodeID", piece.NodeId.String()))
-			}
-			signee := signing.SigneeFromPeerIdentity(peerID)
-			err := signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
-			if err != nil {
-				endpoint.log.Warn("Error verifying piece hash signature", zap.String("nodeID", piece.NodeId.String()), zap.Error(err))
 				continue
 			}
+			signee := signing.SigneeFromPeerIdentity(peerID)
 
-			err = endpoint.validatePieceHash(ctx, piece, limits)
+			err = endpoint.validatePieceHash(ctx, piece, limits, signee)
 			if err != nil {
 				// TODO maybe this should be logged also to uplink too
-				endpoint.log.Sugar().Warn(err)
+				endpoint.log.Warn("Problem validating piece hash", zap.Error(err))
 				continue
 			}
 
