@@ -42,7 +42,7 @@ describe('mutations', () => {
         expect(state.projects[0].id).toBe(project.id);
         expect(state.projects[0].name).toBe(project.name);
         expect(state.projects[0].description).toBe(project.description);
-        expect(state.projects[0].createdAt).toBe(project.createdAt );
+        expect(state.projects[0].createdAt).toBe(project.createdAt);
     });
 
     it('set projects', () => {
@@ -120,7 +120,7 @@ describe('actions', () => {
             Promise.resolve(project)
         );
 
-        await store.dispatch(CREATE, {name:'', description: ''});
+        await store.dispatch(CREATE, {name: '', description: ''});
         expect(state.projects.length).toBe(1);
     });
 

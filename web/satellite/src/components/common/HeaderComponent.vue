@@ -17,7 +17,7 @@ import SearchComponent from '@/components/common/SearchComponent.vue';
 
 declare type searchCallback = (search: string) => Promise<void>;
 declare interface ClearSearch {
-    clearSearch: () => void;
+    clearSearch(): void;
 }
 
 @Component({
