@@ -5,7 +5,6 @@ package contact_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -20,7 +19,7 @@ import (
 func BenchmarkUpdateCheckIn(b *testing.B) {
 	postgresSetup := os.Getenv("STORJ_POSTGRES_TEST")
 	if postgresSetup == "" {
-		fmt.Println("error: postgres must be configured with env var: STORJ_SIM_POSTGRES")
+		b.Fatal("postgres must be configured with env var: STORJ_SIM_POSTGRES")
 		return
 	}
 	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
@@ -64,13 +63,13 @@ func benchmarkOld(ctx context.Context, b *testing.B, db satellite.DB) {
 			}
 			err := db.OverlayCache().UpdateAddress(ctx, &value, config)
 			if err != nil {
-				fmt.Println("err:", err)
+				b.Fatal(err)
 				return
 			}
 
 			_, err = db.OverlayCache().UpdateUptime(ctx, node.NodeID, node.IsUp, config.UptimeReputationLambda, config.UptimeReputationWeight, config.UptimeReputationDQ)
 			if err != nil {
-				fmt.Println("err:", err)
+				b.Fatal(err)
 				return
 			}
 
@@ -81,7 +80,7 @@ func benchmarkOld(ctx context.Context, b *testing.B, db satellite.DB) {
 			}
 			_, err = db.OverlayCache().UpdateNodeInfo(ctx, node.NodeID, &pbInfo)
 			if err != nil {
-				fmt.Println("err:", err)
+				b.Fatal(err)
 				return
 			}
 
@@ -96,7 +95,7 @@ func benchmarkNew(ctx context.Context, b *testing.B, db satellite.DB) {
 			node.NodeID = storj.NodeID{2}
 			err := db.OverlayCache().UpdateCheckIn(ctx, node, config)
 			if err != nil {
-				fmt.Println("err:", err)
+				b.Fatal(err)
 				return
 			}
 
