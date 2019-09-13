@@ -40,7 +40,7 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 				dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes)),
 				dbx.BucketStorageTally_RemoteSegmentsCount(uint(info.RemoteSegments)),
 				dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments)),
-				dbx.BucketStorageTally_ObjectCount(uint(info.Files)),
+				dbx.BucketStorageTally_ObjectCount(uint(info.ObjectCount)),
 				dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize)),
 			)
 			if err != nil {
@@ -64,9 +64,9 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 		tallies = append(tallies, accounting.BucketTally{
 			BucketName:     dbxTally.BucketName,
 			ProjectID:      dbxTally.ProjectId,
+			ObjectCount:    int64(dbxTally.ObjectCount),
 			InlineSegments: int64(dbxTally.InlineSegmentsCount),
 			RemoteSegments: int64(dbxTally.RemoteSegmentsCount),
-			Files:          int64(dbxTally.ObjectCount),
 			InlineBytes:    int64(dbxTally.Inline),
 			RemoteBytes:    int64(dbxTally.Remote),
 			MetadataSize:   int64(dbxTally.MetadataSize),

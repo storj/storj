@@ -89,10 +89,9 @@ func TestOnlyInline(t *testing.T) {
 		expectedTally := accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName),
 			ProjectID:      projectID[:],
+			ObjectCount:    1,
 			Segments:       1,
 			InlineSegments: 1,
-			Files:          1,
-			InlineFiles:    1,
 			Bytes:          int64(expectedTotalBytes),
 			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
@@ -239,10 +238,9 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	// if the pointer was inline, create a tally with inline info
 	if inline {
 		newInlineTally := accounting.BucketTally{
+			ObjectCount:    int64(1),
 			Segments:       int64(1),
 			InlineSegments: int64(1),
-			Files:          int64(1),
-			InlineFiles:    int64(1),
 			Bytes:          int64(2),
 			InlineBytes:    int64(2),
 			MetadataSize:   int64(12),
@@ -260,8 +258,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	}
 
 	if last {
-		newRemoteTally.Files++
-		newRemoteTally.RemoteFiles++
+		newRemoteTally.ObjectCount++
 	}
 
 	return &newRemoteTally

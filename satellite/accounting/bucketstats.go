@@ -18,14 +18,12 @@ type BucketTally struct {
 	// TODO(jg): fix this so that it is uuid.UUID
 	ProjectID []byte
 
+	ObjectCount int64
+
 	Segments        int64
 	InlineSegments  int64
 	RemoteSegments  int64
 	UnknownSegments int64
-
-	Files       int64
-	InlineFiles int64
-	RemoteFiles int64
 
 	Bytes       int64
 	InlineBytes int64
@@ -41,9 +39,7 @@ func (s *BucketTally) Combine(o *BucketTally) {
 	s.RemoteSegments += o.RemoteSegments
 	s.UnknownSegments += o.UnknownSegments
 
-	s.Files += o.Files
-	s.InlineFiles += o.InlineFiles
-	s.RemoteFiles += o.RemoteFiles
+	s.ObjectCount += o.ObjectCount
 
 	s.Bytes += o.Bytes
 	s.InlineBytes += o.InlineBytes
@@ -70,26 +66,18 @@ func (s *BucketTally) AddSegment(pointer *pb.Pointer, last bool) {
 	}
 
 	if last {
-		s.Files++
-		switch pointer.GetType() {
-		case pb.Pointer_INLINE:
-			s.InlineFiles++
-		case pb.Pointer_REMOTE:
-			s.RemoteFiles++
-		}
+		s.ObjectCount++
 	}
 }
 
 // Report reports the stats thru monkit
 func (s *BucketTally) Report(prefix string) {
+	mon.IntVal(prefix + ".objects").Observe(s.ObjectCount)
+
 	mon.IntVal(prefix + ".segments").Observe(s.Segments)
 	mon.IntVal(prefix + ".inline_segments").Observe(s.InlineSegments)
 	mon.IntVal(prefix + ".remote_segments").Observe(s.RemoteSegments)
 	mon.IntVal(prefix + ".unknown_segments").Observe(s.UnknownSegments)
-
-	mon.IntVal(prefix + ".files").Observe(s.Files)
-	mon.IntVal(prefix + ".inline_files").Observe(s.InlineFiles)
-	mon.IntVal(prefix + ".remote_files").Observe(s.RemoteFiles)
 
 	mon.IntVal(prefix + ".bytes").Observe(s.Bytes)
 	mon.IntVal(prefix + ".inline_bytes").Observe(s.InlineBytes)

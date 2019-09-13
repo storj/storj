@@ -27,8 +27,8 @@ var (
 //
 // architecture: Observer
 type Observer interface {
+	Object(context.Context, ScopedPath, *pb.Pointer) error
 	RemoteSegment(context.Context, ScopedPath, *pb.Pointer) error
-	RemoteObject(context.Context, ScopedPath, *pb.Pointer) error
 	InlineSegment(context.Context, ScopedPath, *pb.Pointer) error
 }
 
@@ -237,13 +237,13 @@ func handlePointer(ctx context.Context, observer *observerContext, path ScopedPa
 		if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
 			return false
 		}
-		if isLastSegment {
-			if observer.HandleError(observer.RemoteObject(ctx, path, pointer)) {
-				return false
-			}
-		}
 	} else if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
 		return false
+	}
+	if isLastSegment {
+		if observer.HandleError(observer.Object(ctx, path, pointer)) {
+			return false
+		}
 	}
 
 	select {

@@ -238,10 +238,10 @@ func createTallyData(ctx *testcontext.Context, projectAccoutingDB accounting.Pro
 		ProjectID:     projectID,
 		IntervalStart: dataIntervalStart,
 
+		ObjectCount: 0,
+
 		InlineSegmentCount: 0,
 		RemoteSegmentCount: 0,
-
-		ObjectCount: 0,
 
 		InlineBytes:  inline,
 		RemoteBytes:  remote,
