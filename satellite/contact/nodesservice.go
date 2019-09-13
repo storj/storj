@@ -7,11 +7,7 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -36,15 +32,6 @@ func (endpoint *NodesServiceEndpoint) Query(ctx context.Context, req *pb.QueryRe
 // Ping provides an easy way to verify a node is online and accepting requests
 func (endpoint *NodesServiceEndpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.PingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Internal, "unable to get grpc peer from context")
-	}
-	peerID, err := identity.PeerIdentityFromPeer(p)
-	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
-	}
-	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
 	return &pb.PingResponse{}, nil
 }
 

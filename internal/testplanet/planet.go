@@ -216,8 +216,16 @@ func (planet *Planet) Start(ctx context.Context) {
 	planet.started = true
 
 	for _, peer := range planet.StorageNodes {
-		peer.Contact.Chore.WaitForCheckin()
+		peer.Contact.Chore.WaitForCheckin() // is this necessary?
 	}
+
+	planet.Reconnect(ctx)
+}
+
+// Reconnect reconnects all nodes with each other.
+func (planet *Planet) Reconnect(ctx context.Context) {
+	//log := planet.log.Named("reconnect")
+	// TODO call checkin
 }
 
 // StopPeer stops a single peer in the planet
