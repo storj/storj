@@ -13,7 +13,6 @@ import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import EVENTS from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
