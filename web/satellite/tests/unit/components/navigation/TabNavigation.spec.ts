@@ -24,7 +24,7 @@ describe('TabNavigation', () => {
             localVue,
             propsData: {
                 navigation,
-            }
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -35,7 +35,7 @@ describe('TabNavigation', () => {
             localVue,
             propsData: {
                 navigation,
-            }
+            },
         });
 
         const navigationLinks = wrapper.findAll('.tab-navigation-container__item');

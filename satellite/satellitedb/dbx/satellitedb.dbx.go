@@ -327,6 +327,25 @@ CREATE TABLE bucket_usages (
 	audit_egress bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE graceful_exit_progress (
+	node_id bytea NOT NULL,
+	bytes_transferred bigint NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( node_id )
+);
+CREATE TABLE graceful_exit_transfer_queue (
+	node_id bytea NOT NULL,
+	path bytea NOT NULL,
+	piece_num integer NOT NULL,
+	durability_ratio double precision NOT NULL,
+	queued_at timestamp with time zone NOT NULL,
+	requested_at timestamp with time zone,
+	last_failed_at timestamp with time zone,
+	last_failed_code integer,
+	failed_count integer,
+	finished_at timestamp with time zone,
+	PRIMARY KEY ( node_id, path )
+);
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
@@ -373,6 +392,9 @@ CREATE TABLE nodes (
 	audit_reputation_beta double precision NOT NULL,
 	uptime_reputation_alpha double precision NOT NULL,
 	uptime_reputation_beta double precision NOT NULL,
+	exit_initiated_at timestamp with time zone,
+	exit_loop_completed_at timestamp with time zone,
+	exit_finished_at timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -678,6 +700,25 @@ CREATE TABLE bucket_usages (
 	audit_egress INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE graceful_exit_progress (
+	node_id BLOB NOT NULL,
+	bytes_transferred INTEGER NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( node_id )
+);
+CREATE TABLE graceful_exit_transfer_queue (
+	node_id BLOB NOT NULL,
+	path BLOB NOT NULL,
+	piece_num INTEGER NOT NULL,
+	durability_ratio REAL NOT NULL,
+	queued_at TIMESTAMP NOT NULL,
+	requested_at TIMESTAMP,
+	last_failed_at TIMESTAMP,
+	last_failed_code INTEGER,
+	failed_count INTEGER,
+	finished_at TIMESTAMP,
+	PRIMARY KEY ( node_id, path )
+);
 CREATE TABLE injuredsegments (
 	path BLOB NOT NULL,
 	data BLOB NOT NULL,
@@ -724,6 +765,9 @@ CREATE TABLE nodes (
 	audit_reputation_beta REAL NOT NULL,
 	uptime_reputation_alpha REAL NOT NULL,
 	uptime_reputation_beta REAL NOT NULL,
+	exit_initiated_at TIMESTAMP,
+	exit_loop_completed_at TIMESTAMP,
+	exit_finished_at TIMESTAMP,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -1819,6 +1863,372 @@ func (f BucketUsage_AuditEgress_Field) value() interface{} {
 
 func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
 
+type GracefulExitProgress struct {
+	NodeId           []byte
+	BytesTransferred int64
+	UpdatedAt        time.Time
+}
+
+func (GracefulExitProgress) _Table() string { return "graceful_exit_progress" }
+
+type GracefulExitProgress_Update_Fields struct {
+	BytesTransferred GracefulExitProgress_BytesTransferred_Field
+}
+
+type GracefulExitProgress_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GracefulExitProgress_NodeId(v []byte) GracefulExitProgress_NodeId_Field {
+	return GracefulExitProgress_NodeId_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_NodeId_Field) _Column() string { return "node_id" }
+
+type GracefulExitProgress_BytesTransferred_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func GracefulExitProgress_BytesTransferred(v int64) GracefulExitProgress_BytesTransferred_Field {
+	return GracefulExitProgress_BytesTransferred_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_BytesTransferred_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_BytesTransferred_Field) _Column() string { return "bytes_transferred" }
+
+type GracefulExitProgress_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func GracefulExitProgress_UpdatedAt(v time.Time) GracefulExitProgress_UpdatedAt_Field {
+	return GracefulExitProgress_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type GracefulExitTransferQueue struct {
+	NodeId          []byte
+	Path            []byte
+	PieceNum        int
+	DurabilityRatio float64
+	QueuedAt        time.Time
+	RequestedAt     *time.Time
+	LastFailedAt    *time.Time
+	LastFailedCode  *int
+	FailedCount     *int
+	FinishedAt      *time.Time
+}
+
+func (GracefulExitTransferQueue) _Table() string { return "graceful_exit_transfer_queue" }
+
+type GracefulExitTransferQueue_Create_Fields struct {
+	RequestedAt    GracefulExitTransferQueue_RequestedAt_Field
+	LastFailedAt   GracefulExitTransferQueue_LastFailedAt_Field
+	LastFailedCode GracefulExitTransferQueue_LastFailedCode_Field
+	FailedCount    GracefulExitTransferQueue_FailedCount_Field
+	FinishedAt     GracefulExitTransferQueue_FinishedAt_Field
+}
+
+type GracefulExitTransferQueue_Update_Fields struct {
+	DurabilityRatio GracefulExitTransferQueue_DurabilityRatio_Field
+	RequestedAt     GracefulExitTransferQueue_RequestedAt_Field
+	LastFailedAt    GracefulExitTransferQueue_LastFailedAt_Field
+	LastFailedCode  GracefulExitTransferQueue_LastFailedCode_Field
+	FailedCount     GracefulExitTransferQueue_FailedCount_Field
+	FinishedAt      GracefulExitTransferQueue_FinishedAt_Field
+}
+
+type GracefulExitTransferQueue_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GracefulExitTransferQueue_NodeId(v []byte) GracefulExitTransferQueue_NodeId_Field {
+	return GracefulExitTransferQueue_NodeId_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_NodeId_Field) _Column() string { return "node_id" }
+
+type GracefulExitTransferQueue_Path_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func GracefulExitTransferQueue_Path(v []byte) GracefulExitTransferQueue_Path_Field {
+	return GracefulExitTransferQueue_Path_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_Path_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_Path_Field) _Column() string { return "path" }
+
+type GracefulExitTransferQueue_PieceNum_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func GracefulExitTransferQueue_PieceNum(v int) GracefulExitTransferQueue_PieceNum_Field {
+	return GracefulExitTransferQueue_PieceNum_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_PieceNum_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_PieceNum_Field) _Column() string { return "piece_num" }
+
+type GracefulExitTransferQueue_DurabilityRatio_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func GracefulExitTransferQueue_DurabilityRatio(v float64) GracefulExitTransferQueue_DurabilityRatio_Field {
+	return GracefulExitTransferQueue_DurabilityRatio_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_DurabilityRatio_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_DurabilityRatio_Field) _Column() string { return "durability_ratio" }
+
+type GracefulExitTransferQueue_QueuedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func GracefulExitTransferQueue_QueuedAt(v time.Time) GracefulExitTransferQueue_QueuedAt_Field {
+	return GracefulExitTransferQueue_QueuedAt_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitTransferQueue_QueuedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_QueuedAt_Field) _Column() string { return "queued_at" }
+
+type GracefulExitTransferQueue_RequestedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func GracefulExitTransferQueue_RequestedAt(v time.Time) GracefulExitTransferQueue_RequestedAt_Field {
+	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_RequestedAt_Raw(v *time.Time) GracefulExitTransferQueue_RequestedAt_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_RequestedAt_Null()
+	}
+	return GracefulExitTransferQueue_RequestedAt(*v)
+}
+
+func GracefulExitTransferQueue_RequestedAt_Null() GracefulExitTransferQueue_RequestedAt_Field {
+	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_RequestedAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_RequestedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_RequestedAt_Field) _Column() string { return "requested_at" }
+
+type GracefulExitTransferQueue_LastFailedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func GracefulExitTransferQueue_LastFailedAt(v time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
+	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_LastFailedAt_Raw(v *time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_LastFailedAt_Null()
+	}
+	return GracefulExitTransferQueue_LastFailedAt(*v)
+}
+
+func GracefulExitTransferQueue_LastFailedAt_Null() GracefulExitTransferQueue_LastFailedAt_Field {
+	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_LastFailedAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_LastFailedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_LastFailedAt_Field) _Column() string { return "last_failed_at" }
+
+type GracefulExitTransferQueue_LastFailedCode_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func GracefulExitTransferQueue_LastFailedCode(v int) GracefulExitTransferQueue_LastFailedCode_Field {
+	return GracefulExitTransferQueue_LastFailedCode_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_LastFailedCode_Raw(v *int) GracefulExitTransferQueue_LastFailedCode_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_LastFailedCode_Null()
+	}
+	return GracefulExitTransferQueue_LastFailedCode(*v)
+}
+
+func GracefulExitTransferQueue_LastFailedCode_Null() GracefulExitTransferQueue_LastFailedCode_Field {
+	return GracefulExitTransferQueue_LastFailedCode_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_LastFailedCode_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_LastFailedCode_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_LastFailedCode_Field) _Column() string { return "last_failed_code" }
+
+type GracefulExitTransferQueue_FailedCount_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func GracefulExitTransferQueue_FailedCount(v int) GracefulExitTransferQueue_FailedCount_Field {
+	return GracefulExitTransferQueue_FailedCount_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_FailedCount_Raw(v *int) GracefulExitTransferQueue_FailedCount_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_FailedCount_Null()
+	}
+	return GracefulExitTransferQueue_FailedCount(*v)
+}
+
+func GracefulExitTransferQueue_FailedCount_Null() GracefulExitTransferQueue_FailedCount_Field {
+	return GracefulExitTransferQueue_FailedCount_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_FailedCount_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_FailedCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_FailedCount_Field) _Column() string { return "failed_count" }
+
+type GracefulExitTransferQueue_FinishedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func GracefulExitTransferQueue_FinishedAt(v time.Time) GracefulExitTransferQueue_FinishedAt_Field {
+	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _value: &v}
+}
+
+func GracefulExitTransferQueue_FinishedAt_Raw(v *time.Time) GracefulExitTransferQueue_FinishedAt_Field {
+	if v == nil {
+		return GracefulExitTransferQueue_FinishedAt_Null()
+	}
+	return GracefulExitTransferQueue_FinishedAt(*v)
+}
+
+func GracefulExitTransferQueue_FinishedAt_Null() GracefulExitTransferQueue_FinishedAt_Field {
+	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _null: true}
+}
+
+func (f GracefulExitTransferQueue_FinishedAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f GracefulExitTransferQueue_FinishedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitTransferQueue_FinishedAt_Field) _Column() string { return "finished_at" }
+
 type Injuredsegment struct {
 	Path      []byte
 	Data      []byte
@@ -2050,12 +2460,18 @@ type Node struct {
 	AuditReputationBeta   float64
 	UptimeReputationAlpha float64
 	UptimeReputationBeta  float64
+	ExitInitiatedAt       *time.Time
+	ExitLoopCompletedAt   *time.Time
+	ExitFinishedAt        *time.Time
 }
 
 func (Node) _Table() string { return "nodes" }
 
 type Node_Create_Fields struct {
-	Disqualified Node_Disqualified_Field
+	Disqualified        Node_Disqualified_Field
+	ExitInitiatedAt     Node_ExitInitiatedAt_Field
+	ExitLoopCompletedAt Node_ExitLoopCompletedAt_Field
+	ExitFinishedAt      Node_ExitFinishedAt_Field
 }
 
 type Node_Update_Fields struct {
@@ -2087,6 +2503,9 @@ type Node_Update_Fields struct {
 	AuditReputationBeta   Node_AuditReputationBeta_Field
 	UptimeReputationAlpha Node_UptimeReputationAlpha_Field
 	UptimeReputationBeta  Node_UptimeReputationBeta_Field
+	ExitInitiatedAt       Node_ExitInitiatedAt_Field
+	ExitLoopCompletedAt   Node_ExitLoopCompletedAt_Field
+	ExitFinishedAt        Node_ExitFinishedAt_Field
 }
 
 type Node_Id_Field struct {
@@ -2690,6 +3109,102 @@ func (f Node_UptimeReputationBeta_Field) value() interface{} {
 }
 
 func (Node_UptimeReputationBeta_Field) _Column() string { return "uptime_reputation_beta" }
+
+type Node_ExitInitiatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Node_ExitInitiatedAt(v time.Time) Node_ExitInitiatedAt_Field {
+	return Node_ExitInitiatedAt_Field{_set: true, _value: &v}
+}
+
+func Node_ExitInitiatedAt_Raw(v *time.Time) Node_ExitInitiatedAt_Field {
+	if v == nil {
+		return Node_ExitInitiatedAt_Null()
+	}
+	return Node_ExitInitiatedAt(*v)
+}
+
+func Node_ExitInitiatedAt_Null() Node_ExitInitiatedAt_Field {
+	return Node_ExitInitiatedAt_Field{_set: true, _null: true}
+}
+
+func (f Node_ExitInitiatedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_ExitInitiatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_ExitInitiatedAt_Field) _Column() string { return "exit_initiated_at" }
+
+type Node_ExitLoopCompletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Node_ExitLoopCompletedAt(v time.Time) Node_ExitLoopCompletedAt_Field {
+	return Node_ExitLoopCompletedAt_Field{_set: true, _value: &v}
+}
+
+func Node_ExitLoopCompletedAt_Raw(v *time.Time) Node_ExitLoopCompletedAt_Field {
+	if v == nil {
+		return Node_ExitLoopCompletedAt_Null()
+	}
+	return Node_ExitLoopCompletedAt(*v)
+}
+
+func Node_ExitLoopCompletedAt_Null() Node_ExitLoopCompletedAt_Field {
+	return Node_ExitLoopCompletedAt_Field{_set: true, _null: true}
+}
+
+func (f Node_ExitLoopCompletedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_ExitLoopCompletedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_ExitLoopCompletedAt_Field) _Column() string { return "exit_loop_completed_at" }
+
+type Node_ExitFinishedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Node_ExitFinishedAt(v time.Time) Node_ExitFinishedAt_Field {
+	return Node_ExitFinishedAt_Field{_set: true, _value: &v}
+}
+
+func Node_ExitFinishedAt_Raw(v *time.Time) Node_ExitFinishedAt_Field {
+	if v == nil {
+		return Node_ExitFinishedAt_Null()
+	}
+	return Node_ExitFinishedAt(*v)
+}
+
+func Node_ExitFinishedAt_Null() Node_ExitFinishedAt_Field {
+	return Node_ExitFinishedAt_Field{_set: true, _null: true}
+}
+
+func (f Node_ExitFinishedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_ExitFinishedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_ExitFinishedAt_Field) _Column() string { return "exit_finished_at" }
 
 type Offer struct {
 	Id                        int
@@ -5782,13 +6297,16 @@ func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 	__audit_reputation_beta_val := node_audit_reputation_beta.value()
 	__uptime_reputation_alpha_val := node_uptime_reputation_alpha.value()
 	__uptime_reputation_beta_val := node_uptime_reputation_beta.value()
+	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
+	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
+	__exit_finished_at_val := optional.ExitFinishedAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_net, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_net, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta, exit_initiated_at, exit_loop_completed_at, exit_finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
+	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
+	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -6332,6 +6850,62 @@ func (obj *postgresImpl) Create_BucketMetainfo(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) CreateNoReturn_GracefulExitProgress(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+	err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := graceful_exit_progress_node_id.value()
+	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, updated_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
+
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+	optional GracefulExitTransferQueue_Create_Fields) (
+	err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := graceful_exit_transfer_queue_node_id.value()
+	__path_val := graceful_exit_transfer_queue_path.value()
+	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
+	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
+	__queued_at_val := __now
+	__requested_at_val := optional.RequestedAt.value()
+	__last_failed_at_val := optional.LastFailedAt.value()
+	__last_failed_code_val := optional.LastFailedCode.value()
+	__failed_count_val := optional.FailedCount.value()
+	__finished_at_val := optional.FinishedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue ( node_id, path, piece_num, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
+
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -6514,7 +7088,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -6523,7 +7097,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6568,7 +7142,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 	limit int, offset int64) (
 	rows []*Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id_greater_or_equal.value())
@@ -6586,7 +7160,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7981,6 +8555,49 @@ func (obj *postgresImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_Or
 
 }
 
+func (obj *postgresImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	graceful_exit_progress *GracefulExitProgress, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_progress_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	graceful_exit_progress = &GracefulExitProgress{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return graceful_exit_progress, nil
+
+}
+
+func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return graceful_exit_transfer_queue, nil
+
+}
+
 func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -8114,7 +8731,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -8260,6 +8877,21 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
 	}
 
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -8274,7 +8906,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8434,6 +9066,21 @@ func (obj *postgresImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.UptimeReputationBeta._set {
 		__values = append(__values, update.UptimeReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -8891,6 +9538,105 @@ func (obj *postgresImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context
 	return bucket_metainfo, nil
 }
 
+func (obj *postgresImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	update GracefulExitProgress_Update_Fields) (
+	err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_progress SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_progress.node_id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.BytesTransferred._set {
+		__values = append(__values, update.BytesTransferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_transferred = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, graceful_exit_progress_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *postgresImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	update GracefulExitTransferQueue_Update_Fields) (
+	err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.DurabilityRatio._set {
+		__values = append(__values, update.DurabilityRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
+	}
+
+	if update.RequestedAt._set {
+		__values = append(__values, update.RequestedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
+	}
+
+	if update.LastFailedAt._set {
+		__values = append(__values, update.LastFailedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
+	}
+
+	if update.LastFailedCode._set {
+		__values = append(__values, update.LastFailedCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
+	}
+
+	if update.FailedCount._set {
+		__values = append(__values, update.FailedCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
+	}
+
+	if update.FinishedAt._set {
+		__values = append(__values, update.FinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *postgresImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -9284,6 +10030,85 @@ func (obj *postgresImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context
 
 }
 
+func (obj *postgresImpl) Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_progress_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -9508,6 +10333,26 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_transfer_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_progress;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -9776,13 +10621,16 @@ func (obj *sqlite3Impl) CreateNoReturn_Node(ctx context.Context,
 	__audit_reputation_beta_val := node_audit_reputation_beta.value()
 	__uptime_reputation_alpha_val := node_uptime_reputation_alpha.value()
 	__uptime_reputation_beta_val := node_uptime_reputation_beta.value()
+	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
+	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
+	__exit_finished_at_val := optional.ExitFinishedAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_net, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_net, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta, exit_initiated_at, exit_loop_completed_at, exit_finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
+	obj.logStmt(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
+	_, err = obj.driver.Exec(__stmt, __id_val, __address_val, __last_net_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -10365,6 +11213,62 @@ func (obj *sqlite3Impl) Create_BucketMetainfo(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) CreateNoReturn_GracefulExitProgress(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+	err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := graceful_exit_progress_node_id.value()
+	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
+	__updated_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, updated_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
+
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *sqlite3Impl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+	optional GracefulExitTransferQueue_Create_Fields) (
+	err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__node_id_val := graceful_exit_transfer_queue_node_id.value()
+	__path_val := graceful_exit_transfer_queue_path.value()
+	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
+	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
+	__queued_at_val := __now
+	__requested_at_val := optional.RequestedAt.value()
+	__last_failed_at_val := optional.LastFailedAt.value()
+	__last_failed_code_val := optional.LastFailedCode.value()
+	__failed_count_val := optional.FailedCount.value()
+	__finished_at_val := optional.FinishedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue ( node_id, path, piece_num, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
+
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __path_val, __piece_num_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *sqlite3Impl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -10547,7 +11451,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -10556,7 +11460,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10601,7 +11505,7 @@ func (obj *sqlite3Impl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx con
 	limit int, offset int64) (
 	rows []*Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id_greater_or_equal.value())
@@ -10619,7 +11523,7 @@ func (obj *sqlite3Impl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx con
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -12014,6 +12918,49 @@ func (obj *sqlite3Impl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_Ord
 
 }
 
+func (obj *sqlite3Impl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	graceful_exit_progress *GracefulExitProgress, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_progress_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	graceful_exit_progress = &GracefulExitProgress{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return graceful_exit_progress, nil
+
+}
+
+func (obj *sqlite3Impl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return graceful_exit_transfer_queue, nil
+
+}
+
 func (obj *sqlite3Impl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -12303,6 +13250,21 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
 	}
 
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -12322,12 +13284,12 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at FROM nodes WHERE nodes.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -12487,6 +13449,21 @@ func (obj *sqlite3Impl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.UptimeReputationBeta._set {
 		__values = append(__values, update.UptimeReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -12994,6 +13971,105 @@ func (obj *sqlite3Impl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.
 	return bucket_metainfo, nil
 }
 
+func (obj *sqlite3Impl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	update GracefulExitProgress_Update_Fields) (
+	err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_progress SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_progress.node_id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.BytesTransferred._set {
+		__values = append(__values, update.BytesTransferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_transferred = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, graceful_exit_progress_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *sqlite3Impl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	update GracefulExitTransferQueue_Update_Fields) (
+	err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.DurabilityRatio._set {
+		__values = append(__values, update.DurabilityRatio.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
+	}
+
+	if update.RequestedAt._set {
+		__values = append(__values, update.RequestedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
+	}
+
+	if update.LastFailedAt._set {
+		__values = append(__values, update.LastFailedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
+	}
+
+	if update.LastFailedCode._set {
+		__values = append(__values, update.LastFailedCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
+	}
+
+	if update.FailedCount._set {
+		__values = append(__values, update.FailedCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
+	}
+
+	if update.FinishedAt._set {
+		__values = append(__values, update.FinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *sqlite3Impl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -13387,6 +14463,85 @@ func (obj *sqlite3Impl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.
 
 }
 
+func (obj *sqlite3Impl) Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_progress_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastValueAttribution(ctx context.Context,
 	pk int64) (
 	value_attribution *ValueAttribution, err error) {
@@ -13481,13 +14636,13 @@ func (obj *sqlite3Impl) getLastNode(ctx context.Context,
 	pk int64) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta FROM nodes WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at FROM nodes WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.Address, &node.LastNet, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13819,6 +14974,42 @@ func (obj *sqlite3Impl) getLastBucketMetainfo(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastGracefulExitProgress(ctx context.Context,
+	pk int64) (
+	graceful_exit_progress *GracefulExitProgress, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	graceful_exit_progress = &GracefulExitProgress{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return graceful_exit_progress, nil
+
+}
+
+func (obj *sqlite3Impl) getLastGracefulExitTransferQueue(ctx context.Context,
+	pk int64) (
+	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return graceful_exit_transfer_queue, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -14048,6 +15239,26 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM injuredsegments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_transfer_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM graceful_exit_progress;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -14388,6 +15599,33 @@ func (rx *Rx) CreateNoReturn_BucketStorageTally(ctx context.Context,
 		return
 	}
 	return tx.CreateNoReturn_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
+
+}
+
+func (rx *Rx) CreateNoReturn_GracefulExitProgress(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_GracefulExitProgress(ctx, graceful_exit_progress_node_id, graceful_exit_progress_bytes_transferred)
+
+}
+
+func (rx *Rx) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+	optional GracefulExitTransferQueue_Create_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_GracefulExitTransferQueue(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, graceful_exit_transfer_queue_durability_ratio, optional)
 
 }
 
@@ -14773,6 +16011,38 @@ func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 	return tx.Delete_BucketUsage_By_Id(ctx, bucket_usage_id)
 }
 
+func (rx *Rx) Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id)
+}
+
+func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_GracefulExitTransferQueue_By_NodeId(ctx, graceful_exit_transfer_queue_node_id)
+
+}
+
+func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path)
+}
+
 func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -14990,6 +16260,27 @@ func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_BucketUsage_By_Id(ctx, bucket_usage_id)
+}
+
+func (rx *Rx) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+	graceful_exit_progress *GracefulExitProgress, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id)
+}
+
+func (rx *Rx) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path)
 }
 
 func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
@@ -15300,6 +16591,29 @@ func (rx *Rx) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	return tx.UpdateNoReturn_ApiKey_By_Id(ctx, api_key_id, update)
 }
 
+func (rx *Rx) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+	update GracefulExitProgress_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id, update)
+}
+
+func (rx *Rx) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+	update GracefulExitTransferQueue_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, update)
+}
+
 func (rx *Rx) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	update Irreparabledb_Update_Fields) (
@@ -15525,6 +16839,19 @@ type Methods interface {
 		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
 		err error)
 
+	CreateNoReturn_GracefulExitProgress(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+		graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
+		err error)
+
+	CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
+		graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
+		optional GracefulExitTransferQueue_Create_Fields) (
+		err error)
+
 	CreateNoReturn_Irreparabledb(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 		irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
@@ -15736,6 +17063,19 @@ type Methods interface {
 		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
 
+	Delete_GracefulExitProgress_By_NodeId(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+		deleted bool, err error)
+
+	Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+		count int64, err error)
+
+	Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+		deleted bool, err error)
+
 	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		deleted bool, err error)
@@ -15827,6 +17167,15 @@ type Methods interface {
 	Get_BucketUsage_By_Id(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field) (
 		bucket_usage *BucketUsage, err error)
+
+	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
+		graceful_exit_progress *GracefulExitProgress, err error)
+
+	Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
+		graceful_exit_transfer_queue *GracefulExitTransferQueue, err error)
 
 	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
@@ -15960,6 +17309,17 @@ type Methods interface {
 	UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
 		update ApiKey_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx context.Context,
+		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
+		update GracefulExitProgress_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
+		update GracefulExitTransferQueue_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,

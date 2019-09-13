@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	yaml "gopkg.in/yaml.v2"
+
+	"storj.io/storj/pkg/cfgstruct"
 )
 
 // SaveConfigOption is a function that updates the options for SaveConfig.
@@ -97,9 +99,12 @@ func SaveConfig(cmd *cobra.Command, outfile string, opts ...SaveConfigOption) er
 			}
 			fullKey := base + key
 
-			// since this key can't affect anything from the config file and must be present
-			// on the command line, remove it so as to not mislead anyone
-			if fullKey == "defaults" {
+			// the help key should not be persisted to the config file but
+			// cannot use the FlagSource source annotation since it is a
+			// standard flags and not pflags.
+			// TODO: figure out a better way to do for standard flags than
+			// hardcoding in pkg/process.
+			if fullKey == "help" {
 				continue
 			}
 
@@ -110,17 +115,24 @@ func SaveConfig(cmd *cobra.Command, outfile string, opts ...SaveConfigOption) er
 				hidden     bool
 				user       bool
 				deprecated bool
+				source     string
 				comment    string
 				typ        string
 
 				_, overrideExists = options.Overrides[fullKey]
 			)
 			if f := flags.Lookup(fullKey); f != nil { // first check pflags
-				changed = f.Changed
+				// When a value is loaded from the file, the flag won't be
+				// "changed" but we still need to persist it. Therefore, for
+				// the following code, "changed" means that either a flag has
+				// been explicitly set or a value that differs from the
+				// default.
+				changed = f.Changed || f.Value.String() != f.DefValue
 				setup = readBoolAnnotation(f, "setup")
 				hidden = readBoolAnnotation(f, "hidden")
 				user = readBoolAnnotation(f, "user")
 				deprecated = readBoolAnnotation(f, "deprecated")
+				source = readSourceAnnotation(f)
 				comment = f.Usage
 				typ = f.Value.Type()
 			} else if f := flag.Lookup(fullKey); f != nil { // then stdlib flags
@@ -133,7 +145,10 @@ func SaveConfig(cmd *cobra.Command, outfile string, opts ...SaveConfigOption) er
 			}
 
 			// in any of these cases, don't store the key in the config file
-			if setup || hidden || options.RemoveDeprecated && deprecated {
+			if setup ||
+				hidden ||
+				options.RemoveDeprecated && deprecated ||
+				source == cfgstruct.FlagSource {
 				continue
 			}
 
@@ -187,6 +202,15 @@ func SaveConfig(cmd *cobra.Command, outfile string, opts ...SaveConfigOption) er
 	}
 
 	return errs.Wrap(atomicWrite(outfile, 0600, bytes.Join(lines, nl)))
+}
+
+// readSourceAnnotation is a helper to return the source annotation or cfgstruct.AnySource if unset.
+func readSourceAnnotation(flag *pflag.Flag) string {
+	annotation := flag.Annotations["source"]
+	if len(annotation) == 0 {
+		return cfgstruct.AnySource
+	}
+	return annotation[0]
 }
 
 // readBoolAnnotation is a helper to see if a boolean annotation is set to true on the flag.

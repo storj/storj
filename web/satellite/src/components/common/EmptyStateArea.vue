@@ -26,7 +26,7 @@ import Button from '@/components/common/Button.vue';
 @Component({
     components: {
         Button,
-    }
+    },
 })
 export default class EmptyStateProjectArea extends Vue {
     @Prop({default: ''})

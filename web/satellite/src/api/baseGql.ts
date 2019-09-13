@@ -23,7 +23,7 @@ export class BaseGql {
                 variables,
                 fetchPolicy: 'no-cache',
                 errorPolicy: 'all',
-            }
+            },
         );
 
         if (response.errors) {
@@ -47,7 +47,7 @@ export class BaseGql {
                 variables,
                 fetchPolicy: 'no-cache',
                 errorPolicy: 'all',
-            }
+            },
         );
 
         if (response.errors) {

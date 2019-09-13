@@ -20,8 +20,8 @@ import { validateEmail, validatePassword } from '@/utils/validation';
 @Component({
     components: {
         HeaderlessInput,
-        Button
-    }
+        Button,
+    },
 })
 export default class Login extends Vue {
     private email: string = '';
