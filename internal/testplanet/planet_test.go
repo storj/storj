@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -37,21 +38,16 @@ func TestBasic(t *testing.T) {
 			t.Log("UPLINK", uplink.ID(), uplink.Addr())
 		}
 
-		// TODO update
-		//// ping a satellite
-		//_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local().Node)
-		//require.NoError(t, err)
-		//
-		//// ping a storage node
-		//_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local().Node)
-		//require.NoError(t, err)
-		//
-		//err = planet.StopPeer(planet.StorageNodes[1])
-		//require.NoError(t, err)
-		//
-		//// ping a stopped storage node
-		//_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local().Node)
-		//require.Error(t, err)
+		sat := planet.Satellites[0].Local().Node
+		node := planet.StorageNodes[0].Local()
+		conn, err := planet.StorageNodes[0].Transport.DialNode(ctx, &sat)
+		require.NoError(t, err)
+		_, err = pb.NewNodeClient(conn).Checkin(ctx, &pb.CheckinRequest{
+			Address:  node.Address,
+			Capacity: &node.Capacity,
+			Operator: &node.Operator,
+		})
+		require.NoError(t, err)
 
 		// wait a bit to see whether some failures occur
 		time.Sleep(time.Second)

@@ -132,7 +132,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			if i >= count-newIPCount {
 				config.Server.Address = fmt.Sprintf("127.0.%d.1:0", i+1)
 				config.Server.PrivateAddress = fmt.Sprintf("127.0.%d.1:0", i+1)
-				config.Contact.ExternalAddress = fmt.Sprintf("127.0.%d.1:0", i+1)
 			}
 		}
 
