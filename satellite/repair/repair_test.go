@@ -276,7 +276,7 @@ func TestCorruptDataRepair(t *testing.T) {
 		err = corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
 		require.NoError(t, err)
 
-		// corrupt piece data(not PieceHeader) and write back to storagenode
+		// corrupt piece data (not PieceHeader) and write back to storagenode
 		// this means repair downloading should fail during piece hash verification
 		pieceData[pieceSize-1]++ // if we don't do this, this test should fail
 		writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef, pieceSize)
