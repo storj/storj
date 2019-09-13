@@ -6,7 +6,7 @@ This document describes how to handle referrals across satellites.
 
 ## Background
 
-Current referral program only works per satellite, meaning a user on us-east-1 satellite can only refer people to join us-east-1.
+Previous referral program design only works per satellite, meaning a user on us-east-1 satellite can only refer people to join us-east-1.
 For consistent experience we need to be able to handle cross-satellite referrals.
 
 For a better user experience we also need to have a sign-up page where user can select Satellite during registration which is not in the scope of this blueprint.
@@ -19,7 +19,7 @@ Referral Manager
 : A stand-alone process running outside of satellites. It should only talk to tardigrade branded satellites.
 
 Referral Manager CLI
-: A CLI that will allow operators (maybe there's a better to word this?) to invoke referral link generation.
+: A CLI that will allow operators (maybe there's a better way to word this?) to invoke referral link generation.
 
 Referral Link
 : A one-time-use URL that contains a unique invitation token.
@@ -29,39 +29,48 @@ Invitation Token
 
 ### How it will work
 
-_Referral Link Generation_
+_Referral Manager CLI_
 
-1. Marketing team distributes new referral links through Referral Manager CLI, which asks tardigrade satellites for userIDs.
-2. Satellite receives user infos request, which:
-    - starts gathering of users whose current count of remaining invitation token is 0.
-3. Satellite finishes gathering userIDs and send it back to Referral Manager.
-4. Referral manager generates x amount of invitation tokens per user based on the input from CLI.
-6. Referral manager adds the newly generated invitation tokens and the users each token associated with into Referral Manager database.
-7. Referral manager sends back the invitation token along with the owner IDs back to corresponding satellites.
-8. Satellite stores the invitation tokens into users table so it can display them in satellite GUI
+1. `referral manager start` will start the invitation token generation process and send a request to tardigrade satellites.
+2. Satellite receives request, which starts gathering of users whose current count of remaining invitation token is 0.
+3. After Satellite finishes gathering userIDs, it sends them back to Referral Manager.
+4. After receiving responses from all satellites, the CLI should then display the total amount of users from the responses. 
+5. The CLI should then prompt `How many invitation do you want to generate for each user?`
+6. After getting an integer input, the CLI should ask for an confirmation `Generating X amount of invitation tokens for X amount of users. Yes/No.`
+7. If the input is `Yes`, it will keep following the `Referral Link Distribution` process below.
+8. If the input is `No`, it should exit.
+
+_Referral Link Distribution_
+
+1. Marketing team distributes new referral links through Referral Manager CLI.
+4. Referral Manager receives all userIDs from satellites and then generates x amount of invitation tokens per user based on the input from CLI.
+6. Referral Manager adds the newly generated invitation tokens and the users each token associated with into Referral Manager database.
+7. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding satellites.
+8. Satellite receives the data and then stores the invitation tokens into users table so they can be displayed in satellite GUI
 
 _Referral Link Redemption_
 
 1. User Alice tries to register a new account through a referral link, which triggers satellite to verify invitation token using Referral manager.
 2. Referral Manager checks the status of the token:
-    - if it is not redeemed, Referral Manager sends back a success response to the satellite and mark the token as redeems in the Referral Manager's database
-    - if it token is already redeemed, Referral Manager sends back a invalid token response to the satellite.
+    - if it is not redeemed, Referral Manager sends back a success response to the satellite and mark the token as redeemed in the Referral Manager's database
+    - if it token is already redeemed, Referral Manager sends back a `invalid token` response to the satellite.
 3. Satellite receives the response, which:
     - if it is a success, the satellite will proceed with the account creation, remove the used token from users table, and
-    also send a request to the Referral Manager to save the newly created user ID along with the used token.
-    - if it is a invalid token, the satellite will display a proper message in the UI.
+    then send a request to the Referral Manager to save the newly created user ID along with the used token.
+    - if it is an invalid token, the satellite will display a proper message in the UI.
     
-_Referral Manager CLI_
-
-1. `referral manager start` will start the invitation token generation process and send a request to tardigrade satellites for users whose current count of remaining invitation token is 0.
-2. After receiving responses from all satellites, the CLI should then display the total amount of users from the responses. 
-3. The CLI should then prompt `How many invitation do you want to generate for each user?`
-4. After getting an integer input, the CLI should ask for an confirmation `Generating X amount of invitation tokens for X amount of users. Yes/No.`
-5. If the input is `Yes`, it will follow the `Referral Link Generation` process.
-6. If the input is `No`, it should exit.
+_User Interface For Displaying Referral Link_
 
 ## Implementation
 
+- Create a private repository for Referral Manager.
+- Create `tokens` and `satellites` table in Referral Manager database.
+- Update satellite `users` table with a new column, referral tokens.
+- Implementing an endpoint on satellite for gathering users whose current count of remaining invitation token is 0.
+- Implementing generating invitation tokens from Referral Manager CLI.
+- Implementing an endpoint on satellite for saving new referral links into users table.
+- Implementing an endpoint on Referral Manager for verifying invitation tokens.
+- Replace existing registration token logic
 
 ## Wrapup
 
@@ -71,3 +80,6 @@ _Referral Manager CLI_
 1. The existing token is implemented with 32 random bytes.
      - Is it safe to use across satellites?
      - If not, what should we use instead?
+     
+2. Should we have a separate table for invitation tokens in satellite db?
+3. Should we have a separate table for satellites that are allowed to talk to the Referral Manager?
