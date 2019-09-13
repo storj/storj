@@ -6,9 +6,9 @@
 package main
 
 import (
-	"log"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/sys/windows/svc"
 	"storj.io/storj/pkg/process"
 )
@@ -16,7 +16,7 @@ import (
 func init() {
 	interactive, err := svc.IsAnInteractiveSession()
 	if err != nil {
-		log.Fatalf("Failed to determine if session is interactive: %v", err)
+		zap.S().Fatalf("Failed to determine if session is interactive: %v", err)
 	}
 
 	if interactive {
@@ -25,7 +25,7 @@ func init() {
 
 	err = svc.Run("storagenode", &service{})
 	if err != nil {
-		log.Fatalf("Service failed: %v", err)
+		zap.S().Fatalf("Service failed: %v", err)
 	}
 }
 
@@ -47,13 +47,13 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
-				log.Println("Interrogate request received.")
+				zap.S().Info("Interrogate request received.")
 				changes <- c.CurrentStatus
 				// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
 				time.Sleep(100 * time.Millisecond)
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
-				log.Println("Stop/Shutdown request received.")
+				zap.S().Info("Stop/Shutdown request received.")
 				changes <- svc.Status{State: svc.StopPending}
 				// Cancel the command's root context to cleanup resources
 				_, cancel := process.Ctx(runCmd)
@@ -63,7 +63,7 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 				// After returning the Windows Service is stopped and the process terminates
 				return
 			default:
-				log.Printf("Unexpected control request: %d\n", c)
+				zap.S().Infof("Unexpected control request: %d\n", c)
 			}
 		}
 	}
