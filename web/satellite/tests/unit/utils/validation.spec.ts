@@ -24,7 +24,7 @@ describe('validation', () => {
         expect(validatePassword(testString6)).toBe(false);
         expect(validatePassword(testString7)).toBe(true);
     });
-    
+
     it('validateEmail regex works correctly', () => {
         const testString1 = 'test';
         const testString2 = '        ';
