@@ -133,6 +133,7 @@ func TestStreamsInterruptedDelete(t *testing.T) {
 
 		// Ensure the item shows when we list
 		listItems, _, err := streamStore.List(ctx, bucketName, "", "", storj.EncNull, true, 10, meta.None)
+		require.NoError(t, err)
 		require.True(t, len(listItems) == 1)
 
 		streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
@@ -158,15 +159,17 @@ func TestStreamsInterruptedDelete(t *testing.T) {
 		// It should *still* show when we list, as we've only deleted one
 		// segment
 		listItems, _, err = streamStore.List(ctx, bucketName, "", "", storj.EncNull, true, 10, meta.None)
+		require.NoError(t, err)
 		require.True(t, len(listItems) == 1)
 
 		// Now call the streamStore delete method. This should delete all
-		// remaining segments and the file pointer itself without erroring
+		// remaining segments and the file pointer itself without failing
 		// because of the missing first segment.
-		streamStore.Delete(ctx, fullPath, storj.EncNull)
+		_ = streamStore.Delete(ctx, fullPath, storj.EncNull)
 
 		// Now it should have 0 list items
 		listItems, _, err = streamStore.List(ctx, bucketName, "", "", storj.EncNull, true, 10, meta.None)
+		require.NoError(t, err)
 		require.True(t, len(listItems) == 0)
 	})
 }
