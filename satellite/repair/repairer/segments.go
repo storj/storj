@@ -172,7 +172,14 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// Download the segment using just the healthy pieces
-	segmentReader, failedNodeIDs, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
+	segmentReader, failedPieces, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
+
+	// Populate node IDs that failed piece hashes verification
+	var failedNodeIDs storj.NodeIDList
+	for _, piece := range failedPieces {
+		failedNodeIDs = append(failedNodeIDs, piece.NodeId)
+	}
+
 	// update audit status for nodes that failed piece hash verification during downloading
 	failedNum, updateErr := repairer.updateAuditFailStatus(ctx, failedNodeIDs)
 	if updateErr != nil || failedNum > 0 {
@@ -226,6 +233,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	var toRemove []*pb.RemotePiece
 	if healthyAfterRepair >= pointer.Remote.Redundancy.SuccessThreshold {
 		// if full repair, remove all unhealthy pieces
+		// add failed pieces into unhealthyPieces
 		toRemove = unhealthyPieces
 	} else {
 		// if partial repair, leave unrepaired unhealthy pieces in the pointer
@@ -237,6 +245,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 			}
 		}
 	}
+
+	// add pieces that failed piece hashes verification to the removal list
+	toRemove = append(toRemove, failedPieces...)
 
 	// Update the segment pointer in the metainfo
 	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
