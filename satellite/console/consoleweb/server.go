@@ -202,7 +202,6 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 
 	tokenCookie, err := r.Cookie(host + "_tokenKey")
 	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
 		// TODO: use http.StatusUnauthorized status when appropriate page will be created
 		server.serveError(w, r, http.StatusNotFound)
 		return
@@ -210,7 +209,6 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 
 	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
 	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
 		//TODO: when new error pages will be created - change http.StatusNotFound on http.StatusUnauthorized
 		server.serveError(w, r, http.StatusNotFound)
 		return
@@ -218,7 +216,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 
 	defer func() {
 		if err != nil {
-			server.log.Error("bucket usage report error", zap.Error(err))
+			// TODO: use http.StatusUnauthorized status when appropriate page will be created
 			server.serveError(w, r, http.StatusNotFound)
 		}
 	}()
@@ -248,11 +246,12 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	ctx = console.WithAuth(ctx, auth)
 	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
+		server.log.Error("bucket usage report error", zap.Error(err))
 		return
 	}
 
 	if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
-		err = errs.New("usage report template could not be executed: %v", err)
+		server.log.Error("bucket usage report error", zap.Error(err))
 		return
 	}
 }
