@@ -4,9 +4,11 @@
 package tally_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,6 +17,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
@@ -88,7 +91,7 @@ func TestOnlyInline(t *testing.T) {
 			ProjectID:      projectID[:],
 			Segments:       1,
 			InlineSegments: 1,
-			Files:          1,
+			Objects:        1,
 			Bytes:          int64(expectedTotalBytes),
 			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
@@ -117,7 +120,6 @@ func TestOnlyInline(t *testing.T) {
 	})
 }
 
-/*
 func TestCalculateNodeAtRestData(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
@@ -137,19 +139,20 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		expectedBucketName := "testbucket"
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 
-		assert.NoError(t, err)
-		_, actualNodeData, _, err := tallySvc.CalculateAtRestData(ctx)
+		tallySvc.Loop.TriggerWait()
+
+		savedTallies, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 		require.NoError(t, err)
 
 		// Confirm the correct number of shares were stored
 		uplinkRS := uplinkConfig.GetRedundancyScheme()
-		if !correctRedundencyScheme(len(actualNodeData), uplinkRS) {
-			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(actualNodeData))
+		if !correctRedundencyScheme(len(savedTallies), uplinkRS) {
+			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(savedTallies))
 		}
 
 		// Confirm the correct number of bytes were stored on each node
-		for _, actualTotalBytes := range actualNodeData {
-			assert.Equal(t, int64(actualTotalBytes), expectedTotalBytes)
+		for _, actualTotalBytes := range savedTallies {
+			assert.Equal(t, int64(actualTotalBytes.DataTotal), expectedTotalBytes)
 		}
 	})
 }
@@ -170,11 +173,12 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		{"last segment, same project, different bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "l", "mockBucketName1", "mockObjectName2", false, true},
 		{"different project", "9656af6e-2d9c-42fa-91f2-bfd516a722d1", "s0", "mockBucketName", "mockObjectName", false, false},
 	}
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellitePeer := planet.Satellites[0]
-		redundancyScheme := planet.Uplinks[0].GetConfig(satellitePeer).GetRedundancyScheme()
+		satellite := planet.Satellites[0]
+		redundancyScheme := planet.Uplinks[0].GetConfig(satellite).GetRedundancyScheme()
 		expectedBucketTallies := make(map[string]*accounting.BucketTally)
 		for _, tt := range testCases {
 			tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
@@ -185,7 +189,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 
 				// setup: create a pointer and save it to pointerDB
 				pointer, _ := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
-				metainfo := satellitePeer.Metainfo.Service
+				metainfo := satellite.Metainfo.Service
 				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName, tt.objectName)
 				if tt.objectName == "" {
 					objectPath = fmt.Sprintf("%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName)
@@ -204,19 +208,21 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				}
 
 				// test: calculate at rest data
-				tallySvc := satellitePeer.Accounting.Tally
-				_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
+				satellite.Accounting.Tally.Loop.TriggerWait()
+
+				savedTallies, err := planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)
 
-				assert.Equal(t, len(expectedBucketTallies), len(actualBucketData))
-				for bucket, actualTally := range actualBucketData {
-					assert.Equal(t, *expectedBucketTallies[bucket], *actualTally)
+				assert.Equal(t, len(expectedBucketTallies), len(savedTallies))
+				for _, actualTally := range savedTallies {
+					bucket := string(actualTally.BucketName)
+					assert.Equal(t, expectedBucketTallies[bucket], &actualTally)
 				}
 			})
 		}
 	})
 }
-*/
+
 // addBucketTally creates a new expected bucket tally based on the
 // pointer that was just created for the test case
 func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *accounting.BucketTally {
@@ -236,7 +242,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 		newInlineTally := accounting.BucketTally{
 			Segments:       int64(1),
 			InlineSegments: int64(1),
-			Files:          int64(1),
+			Objects:        int64(1),
 			Bytes:          int64(2),
 			InlineBytes:    int64(2),
 			MetadataSize:   int64(12),
@@ -254,7 +260,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	}
 
 	if last {
-		newRemoteTally.Files++
+		newRemoteTally.Objects++
 	}
 
 	return &newRemoteTally

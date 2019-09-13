@@ -10,7 +10,7 @@ type BucketTally struct {
 	// TODO(jg): fix this so that it is uuid.UUID
 	ProjectID []byte
 
-	Files int64 // TODO: rename to objects
+	Objects int64 // TODO: rename to objects
 
 	Segments        int64
 	InlineSegments  int64
@@ -26,7 +26,7 @@ type BucketTally struct {
 
 // Combine aggregates all the tallies
 func (s *BucketTally) Combine(o *BucketTally) {
-	s.Files += o.Files
+	s.Objects += o.Objects
 
 	s.Segments += o.Segments
 	s.InlineSegments += o.InlineSegments

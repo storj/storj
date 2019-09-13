@@ -34,12 +34,11 @@ type Config struct {
 //
 // architecture: Chore
 type Service struct {
-	log          *zap.Logger
-	metainfoLoop *metainfo.Loop
-	Loop         sync2.Cycle
+	log  *zap.Logger
+	Loop sync2.Cycle
 
-	liveAccounting live.Service
-
+	metainfoLoop            *metainfo.Loop
+	liveAccounting          live.Service
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
 }
@@ -47,10 +46,10 @@ type Service struct {
 // New creates a new tally Service
 func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
 	return &Service{
-		log:          log,
-		metainfoLoop: metainfoLoop,
-		Loop:         *sync2.NewCycle(interval),
+		log:  log,
+		Loop: *sync2.NewCycle(interval),
 
+		metainfoLoop:            metainfoLoop,
 		liveAccounting:          liveAccounting,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
@@ -176,7 +175,7 @@ func (tally *Tally) RemoteObject(ctx context.Context, path metainfo.ScopedPath, 
 		return err
 	}
 
-	bucket.Files++
+	bucket.Objects++
 	return nil
 }
 
@@ -231,7 +230,7 @@ func bucketReport(tally *accounting.BucketTally, prefix string) {
 	mon.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
 	mon.IntVal(prefix + ".unknown_segments").Observe(tally.UnknownSegments)
 
-	mon.IntVal(prefix + ".files").Observe(tally.Files)
+	mon.IntVal(prefix + ".objects").Observe(tally.Objects)
 
 	mon.IntVal(prefix + ".bytes").Observe(tally.Bytes)
 	mon.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)
