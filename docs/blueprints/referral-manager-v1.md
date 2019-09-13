@@ -43,10 +43,10 @@ _Referral Manager CLI_
 _Referral Link Distribution_
 
 1. Marketing team distributes new referral links through Referral Manager CLI.
-4. Referral Manager receives all userIDs from satellites and then generates x amount of invitation tokens per user based on the input from CLI.
-6. Referral Manager adds the newly generated invitation tokens and the users each token associated with into Referral Manager database.
-7. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding satellites.
-8. Satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed in satellite GUI
+2. Referral Manager receives all userIDs from satellites and then generates x amount of invitation tokens per user based on the input from CLI.
+3. Referral Manager adds the newly generated invitation tokens and the users each token associated with into Referral Manager database.
+4. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding satellites.
+5. Satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed in satellite GUI
 
 _Referral Link Redemption_
 
