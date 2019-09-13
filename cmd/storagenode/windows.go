@@ -42,7 +42,6 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-loop:
 	for {
 		select {
 		case c := <-r:
@@ -55,14 +54,13 @@ loop:
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
 				log.Println("Stop/Shutdown request received.")
-				_, cancel := process.Ctx(rootCmd)
+				changes <- svc.Status{State: svc.StopPending}
+				_, cancel := process.Ctx(runCmd)
 				cancel()
-				break loop
+				return
 			default:
 				log.Printf("Unexpected control request: %d\n", c)
 			}
 		}
 	}
-	changes <- svc.Status{State: svc.StopPending}
-	return
 }
