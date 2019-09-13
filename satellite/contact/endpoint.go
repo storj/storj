@@ -43,13 +43,20 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, peerID)
+	nodeID := peerID.ID
+
+	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	err = endpoint.service.overlay.Put(ctx, peerID, pb.Node{
-		Id: peerID,
+	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = endpoint.service.overlay.Put(ctx, nodeID, pb.Node{
+		Id: nodeID,
 		Address: &pb.NodeAddress{
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   req.GetAddress().GetAddress(),
@@ -62,13 +69,13 @@ func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (
 	// TODO(jg): We are making 2 requests to the database, one to update uptime and
 	// the other to update the capacity and operator info. We should combine these into
 	// one to reduce db connections. Consider adding batching and using a stored procedure.
-	_, err = endpoint.service.overlay.UpdateUptime(ctx, peerID, pingNodeSuccess)
+	_, err = endpoint.service.overlay.UpdateUptime(ctx, nodeID, pingNodeSuccess)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	nodeInfo := pb.InfoResponse{Operator: req.GetOperator(), Capacity: req.GetCapacity()}
-	_, err = endpoint.service.overlay.UpdateNodeInfo(ctx, peerID, &nodeInfo)
+	_, err = endpoint.service.overlay.UpdateNodeInfo(ctx, nodeID, &nodeInfo)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -113,14 +120,14 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckinRequest, 
 	return pingNodeSuccess, pingErrorMessage, nil
 }
 
-func peerIDFromContext(ctx context.Context) (storj.NodeID, error) {
+func peerIDFromContext(ctx context.Context) (*identity.PeerIdentity, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
-		return storj.NodeID{}, Error.New("unable to get grpc peer from contex")
+		return nil, Error.New("unable to get grpc peer from context")
 	}
 	peerIdentity, err := identity.PeerIdentityFromPeer(p)
 	if err != nil {
-		return storj.NodeID{}, err
+		return nil, err
 	}
-	return peerIdentity.ID, nil
+	return peerIdentity, nil
 }

@@ -184,15 +184,13 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 // Update implements satellite.APIKeys
 func (keys *apikeys) Update(ctx context.Context, key console.APIKeyInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = keys.methods.Update_ApiKey_By_Id(
+	return keys.methods.UpdateNoReturn_ApiKey_By_Id(
 		ctx,
 		dbx.ApiKey_Id(key.ID[:]),
 		dbx.ApiKey_Update_Fields{
 			Name: dbx.ApiKey_Name(key.Name),
 		},
 	)
-
-	return err
 }
 
 // Delete implements satellite.APIKeys
