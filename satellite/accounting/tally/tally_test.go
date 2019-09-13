@@ -4,11 +4,9 @@
 package tally_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,7 +15,6 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
@@ -92,7 +89,6 @@ func TestOnlyInline(t *testing.T) {
 			Segments:       1,
 			InlineSegments: 1,
 			Files:          1,
-			InlineFiles:    1,
 			Bytes:          int64(expectedTotalBytes),
 			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
@@ -106,23 +102,22 @@ func TestOnlyInline(t *testing.T) {
 
 		// Run calculate twice to test unique constraint issue
 		for i := 0; i < 2; i++ {
-			latestTally, actualNodeData, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
-			require.NoError(t, err)
-			assert.Len(t, actualNodeData, 0)
+			tallySvc.Loop.TriggerWait()
 
-			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, latestTally, actualBucketData)
+			savedTallies, err := planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 			require.NoError(t, err)
 
 			// Confirm the correct bucket storage tally was created
-			assert.Equal(t, len(actualBucketData), 1)
-			for bucketID, actualTally := range actualBucketData {
+			assert.Equal(t, len(savedTallies), 1)
+			for bucketID, actualTally := range savedTallies {
 				assert.Contains(t, bucketID, expectedBucketName)
-				assert.Equal(t, expectedTally, *actualTally)
+				assert.Equal(t, expectedTally, actualTally)
 			}
 		}
 	})
 }
 
+/*
 func TestCalculateNodeAtRestData(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
@@ -221,7 +216,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		}
 	})
 }
-
+*/
 // addBucketTally creates a new expected bucket tally based on the
 // pointer that was just created for the test case
 func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *accounting.BucketTally {
@@ -242,7 +237,6 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 			Segments:       int64(1),
 			InlineSegments: int64(1),
 			Files:          int64(1),
-			InlineFiles:    int64(1),
 			Bytes:          int64(2),
 			InlineBytes:    int64(2),
 			MetadataSize:   int64(12),
@@ -261,7 +255,6 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 
 	if last {
 		newRemoteTally.Files++
-		newRemoteTally.RemoteFiles++
 	}
 
 	return &newRemoteTally
