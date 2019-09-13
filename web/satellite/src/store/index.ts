@@ -53,7 +53,7 @@ const store = new Vuex.Store({
         projectsModule: makeProjectsModule(projectsApi),
         usageModule: makeUsageModule(projectUsageApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
-    }
+    },
 });
 
 export default store;

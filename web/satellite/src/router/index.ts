@@ -56,22 +56,22 @@ const router = new Router({
         {
             path: RouteConfig.Login.path,
             name: RouteConfig.Login.name,
-            component: Login
+            component: Login,
         },
         {
             path: RouteConfig.Register.path,
             name: RouteConfig.Register.name,
-            component: Register
+            component: Register,
         },
         {
             path: RouteConfig.ForgotPassword.path,
             name: RouteConfig.ForgotPassword.name,
-            component: ForgotPassword
+            component: ForgotPassword,
         },
         {
             path: RouteConfig.Root.path,
             meta: {
-                requiresAuth: true
+                requiresAuth: true,
             },
             component: Dashboard,
             children: [
@@ -100,7 +100,7 @@ const router = new Router({
                             name: RouteConfig.BillingHistory.name,
                             component: BillingHistory,
                         },
-                    ]
+                    ],
                 },
                 {
                     path: RouteConfig.ProjectOverview.path,
@@ -115,38 +115,38 @@ const router = new Router({
                         {
                             path: RouteConfig.ProjectDetails.path,
                             name: RouteConfig.ProjectDetails.name,
-                            component: ProjectDetails
+                            component: ProjectDetails,
                         },
-                    ]
+                    ],
                 },
                 {
                     path: RouteConfig.Root.path,
                     name: 'default',
-                    component: ProjectOverviewArea
+                    component: ProjectOverviewArea,
                 },
                 {
                     path: RouteConfig.Team.path,
                     name: RouteConfig.Team.name,
-                    component: ProjectMembersArea
+                    component: ProjectMembersArea,
                 },
                 {
                     path: RouteConfig.ApiKeys.path,
                     name: RouteConfig.ApiKeys.name,
-                    component: ApiKeysArea
+                    component: ApiKeysArea,
                 },
                 {
                     path: RouteConfig.Buckets.path,
                     name: RouteConfig.Buckets.name,
-                    component: BucketArea
+                    component: BucketArea,
                 },
-            ]
+            ],
         },
         {
             path: '*',
             name: '404',
-            component: Page404
+            component: Page404,
         },
-    ]
+    ],
 });
 
 router.beforeEach((to, from, next) => {

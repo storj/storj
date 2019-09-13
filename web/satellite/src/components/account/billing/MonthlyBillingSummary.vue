@@ -77,8 +77,8 @@ import Button from '@/components/common/Button.vue';
 
 @Component({
     components: {
-        Button
-    }
+        Button,
+    },
 })
 export default class MonthlyBillingSummary extends Vue {
     private areUsageChargesShown: boolean = false;
