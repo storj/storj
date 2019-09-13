@@ -168,8 +168,8 @@ func (tally *Tally) ensureBucket(ctx context.Context, path metainfo.ScopedPath) 
 	return bucket, nil
 }
 
-// RemoteObject is called for each object once.
-func (tally *Tally) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+// Object is called for each object once.
+func (tally *Tally) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	bucket, err := tally.ensureBucket(ctx, path)
 	if err != nil {
 		return err
@@ -225,12 +225,12 @@ func (tally *Tally) RemoteSegment(ctx context.Context, path metainfo.ScopedPath,
 
 // bucketReport reports the stats thru monkit
 func bucketReport(tally *accounting.BucketTally, prefix string) {
+	mon.IntVal(prefix + ".objects").Observe(tally.ObjectCount)
+
 	mon.IntVal(prefix + ".segments").Observe(tally.Segments)
 	mon.IntVal(prefix + ".inline_segments").Observe(tally.InlineSegments)
 	mon.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
 	mon.IntVal(prefix + ".unknown_segments").Observe(tally.UnknownSegments)
-
-	mon.IntVal(prefix + ".files").Observe(tally.Files)
 
 	mon.IntVal(prefix + ".bytes").Observe(tally.Bytes)
 	mon.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)

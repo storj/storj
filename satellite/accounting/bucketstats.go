@@ -3,21 +3,21 @@
 
 package accounting
 
+import (
+	"github.com/skyrings/skyring-common/tools/uuid"
+)
+
 // BucketTally contains information about aggregate data stored in a bucket
 type BucketTally struct {
+	ProjectID  uuid.UUID
 	BucketName []byte
 
-	// TODO(jg): fix this so that it is uuid.UUID
-	ProjectID []byte
+	ObjectCount int64
 
 	Segments        int64
 	InlineSegments  int64
 	RemoteSegments  int64
 	UnknownSegments int64
-
-	Files       int64 // TODO: rename to objects
-	InlineFiles int64 // TODO: what's an inline file
-	RemoteFiles int64 // TODO: what's a remote file
 
 	Bytes       int64
 	InlineBytes int64
@@ -28,14 +28,12 @@ type BucketTally struct {
 
 // Combine aggregates all the tallies
 func (s *BucketTally) Combine(o *BucketTally) {
+	s.ObjectCount += o.ObjectCount
+
 	s.Segments += o.Segments
 	s.InlineSegments += o.InlineSegments
 	s.RemoteSegments += o.RemoteSegments
 	s.UnknownSegments += o.UnknownSegments
-
-	s.Files += o.Files
-	s.InlineFiles += o.InlineFiles
-	s.RemoteFiles += o.RemoteFiles
 
 	s.Bytes += o.Bytes
 	s.InlineBytes += o.InlineBytes
