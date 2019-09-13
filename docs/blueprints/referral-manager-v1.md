@@ -84,3 +84,5 @@ We could add a new column `referral_tokens` in users table to store user's unred
 1. The existing token is implemented with 32 random bytes.
      - Is it safe to use across satellites?
      - If not, what should we use instead?
+2. How do we deal with authentication/permission between the referral manager and satellites?
+     - We only want the referral manager to be able to use the new endpoints on the satellite. How do we do this?
