@@ -18,7 +18,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
-        NotificationArea
+        NotificationArea,
     },
 })
 export default class App extends Vue {

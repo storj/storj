@@ -34,7 +34,7 @@ export class ProjectUsageApiGql extends BaseGql implements UsageApi {
         const variables = {
             projectId,
             since,
-            before
+            before,
         };
 
         const response = await this.query(query, variables);

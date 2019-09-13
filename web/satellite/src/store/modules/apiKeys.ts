@@ -120,7 +120,7 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
             selectedApiKeys: (state: ApiKeysState) => state.page.apiKeys.filter((key: ApiKey) => key.isSelected),
             apiKeys: function (state: ApiKeysState): ApiKey[] {
                 return state.page.apiKeys;
-            }
+            },
         },
     };
 }

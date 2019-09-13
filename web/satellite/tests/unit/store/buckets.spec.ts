@@ -36,7 +36,7 @@ describe('actions', () => {
 
     it('success fetch buckets', async () => {
         jest.spyOn(bucketsApi, 'get').mockReturnValue(
-            Promise.resolve(page)
+            Promise.resolve(page),
         );
 
         await store.dispatch(FETCH, 1);
@@ -74,7 +74,7 @@ describe('getters', () => {
 
     it('page of buckets', async () => {
         jest.spyOn(bucketsApi, 'get').mockReturnValue(
-            Promise.resolve(page)
+            Promise.resolve(page),
         );
 
         await store.dispatch(FETCH, 1);

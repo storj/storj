@@ -11,8 +11,8 @@ describe('VerticalArrows.vue', () => {
         const wrapper = mount(VerticalArrows, {
             propsData: {
                 isActive: true,
-                direction: SortingDirectionEnum.BOTTOM
-            }
+                direction: SortingDirectionEnum.BOTTOM,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -22,8 +22,8 @@ describe('VerticalArrows.vue', () => {
         const wrapper = mount(VerticalArrows, {
             propsData: {
                 isActive: false,
-                direction: SortingDirectionEnum.BOTTOM
-            }
+                direction: SortingDirectionEnum.BOTTOM,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -33,8 +33,8 @@ describe('VerticalArrows.vue', () => {
         const wrapper = mount(VerticalArrows, {
             propsData: {
                 isActive: true,
-                direction: SortingDirectionEnum.TOP
-            }
+                direction: SortingDirectionEnum.TOP,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();

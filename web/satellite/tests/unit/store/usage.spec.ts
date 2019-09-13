@@ -76,7 +76,7 @@ describe('actions', () => {
 
     it('success fetch project usage', async () => {
         jest.spyOn(projectUsageApi, 'get').mockReturnValue(
-            Promise.resolve(testUsage)
+            Promise.resolve(testUsage),
         );
         const dateRange: DateRange = new DateRange(testDate1, testDate2);
 
@@ -91,7 +91,7 @@ describe('actions', () => {
 
     it('success fetch current project usage', async () => {
         jest.spyOn(projectUsageApi, 'get').mockReturnValue(
-            Promise.resolve(testUsage)
+            Promise.resolve(testUsage),
         );
 
         const firstDate = new Date();
@@ -108,7 +108,7 @@ describe('actions', () => {
 
     it('success fetch previous project usage', async () => {
         jest.spyOn(projectUsageApi, 'get').mockReturnValue(
-            Promise.resolve(testUsage)
+            Promise.resolve(testUsage),
         );
 
         const date = new Date();

@@ -23,7 +23,7 @@ declare interface ClearSearch {
 @Component({
     components: {
         SearchComponent,
-    }
+    },
 })
 export default class HeaderComponent extends Vue {
     @Prop({default: ''})
