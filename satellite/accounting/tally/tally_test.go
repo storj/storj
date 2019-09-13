@@ -91,7 +91,8 @@ func TestOnlyInline(t *testing.T) {
 			ProjectID:      projectID[:],
 			Segments:       1,
 			InlineSegments: 1,
-			Objects:        1,
+			Files:          1,
+			InlineFiles:    1,
 			Bytes:          int64(expectedTotalBytes),
 			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
@@ -242,7 +243,8 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 		newInlineTally := accounting.BucketTally{
 			Segments:       int64(1),
 			InlineSegments: int64(1),
-			Objects:        int64(1),
+			Files:          int64(1),
+			InlineFiles:    int64(1),
 			Bytes:          int64(2),
 			InlineBytes:    int64(2),
 			MetadataSize:   int64(12),
@@ -260,7 +262,8 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	}
 
 	if last {
-		newRemoteTally.Objects++
+		newRemoteTally.Files++
+		newRemoteTally.RemoteFiles++
 	}
 
 	return &newRemoteTally

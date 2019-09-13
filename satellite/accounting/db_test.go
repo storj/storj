@@ -151,7 +151,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.Buc
 			ProjectID:      projectID[:],
 			InlineSegments: int64(1),
 			RemoteSegments: int64(1),
-			Objects:        int64(1),
+			Files:          int64(1),
 			InlineBytes:    int64(1),
 			RemoteBytes:    int64(1),
 			MetadataSize:   int64(1),

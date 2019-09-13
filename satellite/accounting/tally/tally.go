@@ -175,7 +175,7 @@ func (tally *Tally) RemoteObject(ctx context.Context, path metainfo.ScopedPath, 
 		return err
 	}
 
-	bucket.Objects++
+	bucket.Files++
 	return nil
 }
 
@@ -230,7 +230,7 @@ func bucketReport(tally *accounting.BucketTally, prefix string) {
 	mon.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
 	mon.IntVal(prefix + ".unknown_segments").Observe(tally.UnknownSegments)
 
-	mon.IntVal(prefix + ".objects").Observe(tally.Objects)
+	mon.IntVal(prefix + ".files").Observe(tally.Files)
 
 	mon.IntVal(prefix + ".bytes").Observe(tally.Bytes)
 	mon.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)
