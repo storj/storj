@@ -330,7 +330,7 @@ CREATE TABLE bucket_usages (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
+	updated_at timestamp NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_transfer_queue (
@@ -338,12 +338,12 @@ CREATE TABLE graceful_exit_transfer_queue (
 	path bytea NOT NULL,
 	piece_num integer NOT NULL,
 	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
+	queued_at timestamp NOT NULL,
+	requested_at timestamp,
+	last_failed_at timestamp,
 	last_failed_code integer,
 	failed_count integer,
-	finished_at timestamp with time zone,
+	finished_at timestamp,
 	PRIMARY KEY ( node_id, path )
 );
 CREATE TABLE injuredsegments (
@@ -392,9 +392,9 @@ CREATE TABLE nodes (
 	audit_reputation_beta double precision NOT NULL,
 	uptime_reputation_alpha double precision NOT NULL,
 	uptime_reputation_beta double precision NOT NULL,
-	exit_initiated_at timestamp with time zone,
-	exit_loop_completed_at timestamp with time zone,
-	exit_finished_at timestamp with time zone,
+	exit_initiated_at timestamp,
+	exit_loop_completed_at timestamp,
+	exit_finished_at timestamp,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -1920,6 +1920,7 @@ type GracefulExitProgress_UpdatedAt_Field struct {
 }
 
 func GracefulExitProgress_UpdatedAt(v time.Time) GracefulExitProgress_UpdatedAt_Field {
+	v = toUTC(v)
 	return GracefulExitProgress_UpdatedAt_Field{_set: true, _value: v}
 }
 
@@ -2047,6 +2048,7 @@ type GracefulExitTransferQueue_QueuedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_QueuedAt(v time.Time) GracefulExitTransferQueue_QueuedAt_Field {
+	v = toUTC(v)
 	return GracefulExitTransferQueue_QueuedAt_Field{_set: true, _value: v}
 }
 
@@ -2066,6 +2068,7 @@ type GracefulExitTransferQueue_RequestedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_RequestedAt(v time.Time) GracefulExitTransferQueue_RequestedAt_Field {
+	v = toUTC(v)
 	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _value: &v}
 }
 
@@ -2100,6 +2103,7 @@ type GracefulExitTransferQueue_LastFailedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_LastFailedAt(v time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
+	v = toUTC(v)
 	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _value: &v}
 }
 
@@ -2202,6 +2206,7 @@ type GracefulExitTransferQueue_FinishedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_FinishedAt(v time.Time) GracefulExitTransferQueue_FinishedAt_Field {
+	v = toUTC(v)
 	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _value: &v}
 }
 
@@ -3117,6 +3122,7 @@ type Node_ExitInitiatedAt_Field struct {
 }
 
 func Node_ExitInitiatedAt(v time.Time) Node_ExitInitiatedAt_Field {
+	v = toUTC(v)
 	return Node_ExitInitiatedAt_Field{_set: true, _value: &v}
 }
 
@@ -3149,6 +3155,7 @@ type Node_ExitLoopCompletedAt_Field struct {
 }
 
 func Node_ExitLoopCompletedAt(v time.Time) Node_ExitLoopCompletedAt_Field {
+	v = toUTC(v)
 	return Node_ExitLoopCompletedAt_Field{_set: true, _value: &v}
 }
 
@@ -3181,6 +3188,7 @@ type Node_ExitFinishedAt_Field struct {
 }
 
 func Node_ExitFinishedAt(v time.Time) Node_ExitFinishedAt_Field {
+	v = toUTC(v)
 	return Node_ExitFinishedAt_Field{_set: true, _value: &v}
 }
 
@@ -6858,7 +6866,7 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitProgress(ctx context.Context
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_progress_node_id.value()
 	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
-	__updated_at_val := __now
+	__updated_at_val := __now.UTC()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, updated_at ) VALUES ( ?, ?, ? )")
 
@@ -6886,7 +6894,7 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 	__path_val := graceful_exit_transfer_queue_path.value()
 	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
 	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
-	__queued_at_val := __now
+	__queued_at_val := __now.UTC()
 	__requested_at_val := optional.RequestedAt.value()
 	__last_failed_at_val := optional.LastFailedAt.value()
 	__last_failed_code_val := optional.LastFailedCode.value()
@@ -9557,7 +9565,7 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx conte
 
 	__now := obj.db.Hooks.Now().UTC()
 
-	__values = append(__values, __now)
+	__values = append(__values, __now.UTC())
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
 	__args = append(__args, graceful_exit_progress_node_id.value())
@@ -11221,7 +11229,7 @@ func (obj *sqlite3Impl) CreateNoReturn_GracefulExitProgress(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_progress_node_id.value()
 	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
-	__updated_at_val := __now
+	__updated_at_val := __now.UTC()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, updated_at ) VALUES ( ?, ?, ? )")
 
@@ -11249,7 +11257,7 @@ func (obj *sqlite3Impl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Con
 	__path_val := graceful_exit_transfer_queue_path.value()
 	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
 	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
-	__queued_at_val := __now
+	__queued_at_val := __now.UTC()
 	__requested_at_val := optional.RequestedAt.value()
 	__last_failed_at_val := optional.LastFailedAt.value()
 	__last_failed_code_val := optional.LastFailedCode.value()
@@ -13990,7 +13998,7 @@ func (obj *sqlite3Impl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx contex
 
 	__now := obj.db.Hooks.Now().UTC()
 
-	__values = append(__values, __now)
+	__values = append(__values, __now.UTC())
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
 	__args = append(__args, graceful_exit_progress_node_id.value())

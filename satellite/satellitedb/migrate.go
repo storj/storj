@@ -1211,13 +1211,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add Graceful Exit tables and update nodes table",
 				Version:     56,
 				Action: migrate.SQL{
-					`ALTER TABLE nodes ADD COLUMN exit_loop_completed_at timestamp with time zone;`,
-					`ALTER TABLE nodes ADD COLUMN exit_initiated_at timestamp with time zone;`,
-					`ALTER TABLE nodes ADD COLUMN exit_finished_at timestamp with time zone;`,
+					`ALTER TABLE nodes ADD COLUMN exit_loop_completed_at timestamp;`,
+					`ALTER TABLE nodes ADD COLUMN exit_initiated_at timestamp;`,
+					`ALTER TABLE nodes ADD COLUMN exit_finished_at timestamp;`,
 					`CREATE TABLE graceful_exit_progress (
 						node_id bytea NOT NULL,
 						bytes_transferred bigint NOT NULL,
-						updated_at timestamp with time zone NOT NULL,
+						updated_at timestamp NOT NULL,
 						PRIMARY KEY ( node_id )
 					);`,
 					`CREATE TABLE graceful_exit_transfer_queue (
@@ -1225,12 +1225,12 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						path bytea NOT NULL,
 						piece_num integer NOT NULL,
 						durability_ratio double precision NOT NULL,
-						queued_at timestamp with time zone NOT NULL,
-						requested_at timestamp with time zone,
-						last_failed_at timestamp with time zone,
+						queued_at timestamp NOT NULL,
+						requested_at timestamp,
+						last_failed_at timestamp,
 						last_failed_code integer,
 						failed_count integer,
-						finished_at timestamp with time zone,
+						finished_at timestamp,
 						PRIMARY KEY ( node_id, path )
 					);`,
 				},
