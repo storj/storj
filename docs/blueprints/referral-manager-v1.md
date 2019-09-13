@@ -38,8 +38,8 @@ Redeemed Satellite
 _Referral Manager CLI_
 
 1. `referral manager start` will start the invitation token generation process and send a request to tardigrade satellites.
-2. Satellite receives request, which starts gathering of users whose current count of remaining invitation token is 0.
-3. After Satellite finishes gathering userIDs, it sends them back to Referral Manager.
+2. Satellites receive request, which starts gathering of users whose current count of remaining invitation token is 0.
+3. After Satellites finish gathering userIDs, it sends them back to Referral Manager.
 4. After receiving responses from all satellites, the CLI should then display the total amount of users from the responses. 
 5. The CLI should then prompt `How many invitation do you want to generate for each user?`
 6. After getting an integer input, the CLI should ask for an confirmation `Generating X amount of invitation tokens for X amount of users. Yes/No.`
@@ -51,22 +51,26 @@ _Referral Link Distribution_
 1. Marketing team distributes new referral links through Referral Manager CLI.
 2. Referral Manager receives all userIDs from satellites and then generates x amount of invitation tokens per user based on the input from CLI.
 3. Referral Manager adds the newly generated invitation tokens and the users each token associated with into Referral Manager database.
-4. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding satellites.
-5. Satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed in satellite GUI
+4. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding host satellites.
+5. Host satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed on the satellite GUI
 
 _Referral Link Redemption_
 
-1. User Alice tries to register a new account through a referral link, which triggers satellite to verify invitation token using Referral manager.
+1. User Alice tries to register a new account through a referral link, which triggers redeemed satellite to verify invitation token using Referral manager.
 2. Referral Manager checks the status of the token:
-    - if it is not redeemed, Referral Manager sends back a success response to the satellite and mark the token as redeemed in the Referral Manager's database
-    - if it token is already redeemed, Referral Manager sends back a `invalid token` response to the satellite.
-3. Satellite receives the response, which:
-    - if it is a success, the satellite will proceed with the account creation, remove the used token from users table, and
+    - if it is not redeemed, Referral Manager sends back a success response to the redeemed satellite and mark the token as redeemed in the Referral Manager's database
+    - if it token is already redeemed, Referral Manager sends back a `invalid token` response to the redeemed satellite.
+3. Redeemed satellite receives the response, which:
+    - if it is a success, the satellite will proceed with the account creation and
     then send a request to the Referral Manager to save the newly created user ID along with the used token.
     - if it is an invalid token, the satellite will display a proper message in the UI.
-4. Referral Manager reaches out to the original satellite holding the redeemed token, so that it can be removed from the UI.
+4. Referral Manager reaches out to the host satellite holding the redeemed token, so that it can be removed from the UI.
     
 _User Interface For Displaying Referral Link_
+
+1. Users will have a `Give me a link` button on the UI. On click, it will try to retrieve referral tokens from the backend:
+    - if the front-end receives tokens, it should display them.
+    - if the front-end receives empty response payload, it should display a message `No available referral link. Try again later.`
 
 ## Rationale
 
@@ -101,39 +105,47 @@ Statuses: `unsent` (host satellite doesn't know about it yet), `unredeemed` (hos
 
 Referral Manager endpoints:
 ```
-TODO: GenrateInvitationTokens should be split up to fit the design (getting users from satellites is a separate step from generating tokens. See CLI in "How it will work")
-// GenerateInvitationTokens retrieves a list of users who have 0 remaining invitation tokens
-// from each satellite provided, generates tokens, saves those in the referral manager db,
+// GetEligibleUsers retrieves a list of users who have 0 remaining invitation tokens
+// from each satellite provided
+GetEligibleUsers([]satelliteURLs) map[satelliteURL][]UserID {
+    eligibleUsers := make(map[satelliteURL][]UserID)
+    for _, satellite := range satelliteURL {
+       users := satellite.GetUsersReferral() 
+        eligibleUsers[satellite] = users
+    }
+
+    return eligibleUsers
+    
+}
+// GenerateInvitationTokens ,
 // and returns a count of tokens generated for each satellite
-GenerateInvitationTokens([]satelliteURLs) map[satelliteURL]int {
+GenerateInvitationTokens(eligibleUsers map[satelliteURL][]UserID) map[satelliteURL]int {
+
+}
+
+// SendInvitationTokens generates tokens, saves those in the referral manager db
+// and then sends newly created tokens to each respective satellite
+SendInvitationTokens([]satelliteURL) map[satelliteURL]int {
     var tokens []Token
-    results := make(map[satelliteURL]int)
-    for _, satellite := range satelliteURLs {
-        users := satellite.GetUsersReferral()
+    for satellite, users := range eligibleUsers {
         for _, user := range users {
             for i:=0; i<3; i++ {
                 newToken := Token{data: generateRandomToken(), user: user, satellite: satellite}
                 db.CreateToken(newToken)
-                results[satellite]++
+                tokens = append(tokens, newToken)
             }
         }
     }
-    return results
-}
 
-TODO: See todo above. If we make that change, this function should be modified to both generate tokens and send them. The other function will just get a list of users.
-// SendInvitationTokens sends any unsent invitation tokens to each respective satellite
-SendInvitationTokens([]satelliteURL) map[satelliteURL]int {
     results := make(map[satelliteURL]int)
     for _, satellite := range satelliteURLs {
-        tokens := db.GetUnsentForSatellite(satellite)
         successCount := satellite.AddInvitationTokens(tokens)
         results[satellite] = successCount
     }
     return results
 }
 
-// Redeem marks a token as redeemed and associated
+// Redeem marks a token as redeemed and deletes the token from host satellite
 func Redeem(ctx, token, newUserID) error {
 	// only update the status and invitee columns 
 	// if the status of a token is unredeems
@@ -172,7 +184,7 @@ DeleteInvitationToken(token Token) {
 
 ## Wrapup
 
-[Who will archive the blueprint when completed? What documentation needs to be updated to preserve the relevant information from the blueprint?]
+Team Green will be responsible implementing this blueprint.
 
 ## Open issues
 1. The existing token is implemented with 32 random bytes.
@@ -181,3 +193,4 @@ DeleteInvitationToken(token Token) {
 2. How do we deal with authentication/permission between the referral manager and satellites?
      - We only want the referral manager to be able to use the new endpoints on the satellite. How do we do this?
 3. How do we deal with authentication/permission between the referral mangaer cli and the referral manager server?
+4. Where should the user interface on the satellite GUI be?
