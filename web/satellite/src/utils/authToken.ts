@@ -5,7 +5,7 @@
 export class AuthToken {
     private static readonly tokenKeySuffix: string = '_tokenKey';
     private static tokenKey: string = '_tokenKey';
-    
+
     public static initialize(): void {
         AuthToken.tokenKey = (document as any).location.hostname + AuthToken.tokenKeySuffix;
     }

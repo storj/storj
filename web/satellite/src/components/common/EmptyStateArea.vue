@@ -31,19 +31,19 @@ import Button from '@/components/common/Button.vue';
 export default class EmptyStateProjectArea extends Vue {
     @Prop({default: ''})
     private readonly mainTitle: string;
-    
+
     @Prop({default: ''})
     private readonly additionalText: string;
-    
+
     @Prop({default: ''})
     private readonly imageSource: string;
-    
+
     @Prop({default: false})
     private readonly isButtonShown: boolean;
-    
+
     @Prop()
     private readonly onButtonClick: Function;
-    
+
     @Prop({default: 'Default'})
     private readonly buttonLabel: string;
 }
