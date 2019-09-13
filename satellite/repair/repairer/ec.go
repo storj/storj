@@ -152,7 +152,6 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	ctx, cancel := context.WithCancel(ctx)
 	decodeReader := eestream.DecodeReaders(ctx, cancel, ec.log.Named("decode readers"), pieceReaders, esScheme, expectedSize, 0, false)
 
-	// return failed pieces
 	return decodeReader, failedPieces, nil
 }
 
@@ -201,7 +200,6 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	// verify the hashes from storage node
 	calculatedHash := pkcrypto.SHA256Hash(pieceBytes)
 	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
-		hash.Hash = calculatedHash
 		return nil, ErrPieceHashVerifyFailed.Wrap(err)
 	}
 

@@ -233,7 +233,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	var toRemove []*pb.RemotePiece
 	if healthyAfterRepair >= pointer.Remote.Redundancy.SuccessThreshold {
 		// if full repair, remove all unhealthy pieces
-		// add failed pieces into unhealthyPieces
 		toRemove = unhealthyPieces
 	} else {
 		// if partial repair, leave unrepaired unhealthy pieces in the pointer
