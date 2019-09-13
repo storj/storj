@@ -48,12 +48,10 @@ export default class ForgotPassword extends Vue {
     }
 
     public onBackToLoginClick(): void {
-        this.$segment.track(EVENTS.CLICKED_BACK_TO_LOGIN);
         this.$router.push(RouteConfig.Login.path);
     }
 
     public onLogoClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGO);
         location.reload();
     }
 
