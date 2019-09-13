@@ -103,7 +103,7 @@ export function makeNotificationsModule(): StoreModule<NotificationsState> {
                 commit(NOTIFICATION_MUTATIONS.CLEAR);
             },
         },
-        getters: {}
+        getters: {},
     };
 }
 

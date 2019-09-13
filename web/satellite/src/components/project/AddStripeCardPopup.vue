@@ -69,7 +69,7 @@ import Checkbox from '@/components/common/Checkbox.vue';
     components: {
         Checkbox,
         Button,
-    }
+    },
 })
 
 export default class AddStripeCardPopup extends Vue {}

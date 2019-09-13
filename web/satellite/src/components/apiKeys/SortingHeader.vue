@@ -27,9 +27,9 @@ import { ApiKeyOrderBy, OnHeaderClickCallback } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
 
 @Component({
-    components:{
+    components: {
         VerticalArrows,
-    }
+    },
 })
 export default class SortApiKeysHeader extends Vue {
     @Prop({default: () => new Promise(() => false)})
