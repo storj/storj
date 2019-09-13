@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
@@ -26,9 +27,21 @@ var (
 //
 // architecture: Observer
 type Observer interface {
-	RemoteSegment(context.Context, storj.Path, *pb.Pointer) error
-	RemoteObject(context.Context, storj.Path, *pb.Pointer) error
-	InlineSegment(context.Context, storj.Path, *pb.Pointer) error
+	RemoteSegment(context.Context, ScopedPath, *pb.Pointer) error
+	RemoteObject(context.Context, ScopedPath, *pb.Pointer) error
+	InlineSegment(context.Context, ScopedPath, *pb.Pointer) error
+}
+
+// ScopedPath contains full expanded information about the path
+type ScopedPath struct {
+	ProjectID       uuid.UUID
+	ProjectIDString string
+	BucketName      string
+
+	// TODO: should these be a []byte?
+
+	// Raw is the same path as pointerDB is using.
+	Raw storj.Path
 }
 
 type observerContext struct {
@@ -163,7 +176,7 @@ waitformore:
 
 			// iterate over every segment in metainfo
 			for it.Next(ctx, &item) {
-				path := item.Key.String()
+				rawPath := item.Key.String()
 				pointer := &pb.Pointer{}
 
 				err = proto.Unmarshal(item.Value, pointer)
@@ -171,10 +184,28 @@ waitformore:
 					return LoopError.New("unexpected error unmarshalling pointer %s", err)
 				}
 
-				nextObservers := observers[:0]
+				pathElements := storj.SplitPath(rawPath)
+				if len(pathElements) < 3 {
+					return LoopError.New("invalid path %q", rawPath)
+				}
 
+				isLastSegment := pathElements[1] == "l"
+
+				path := ScopedPath{
+					Raw:             rawPath,
+					ProjectIDString: pathElements[0],
+					BucketName:      pathElements[2],
+				}
+
+				projectID, err := uuid.Parse(path.ProjectIDString)
+				if err != nil {
+					return LoopError.Wrap(err)
+				}
+				path.ProjectID = *projectID
+
+				nextObservers := observers[:0]
 				for _, observer := range observers {
-					keepObserver := handlePointer(ctx, observer, path, pointer)
+					keepObserver := handlePointer(ctx, observer, path, isLastSegment, pointer)
 					if keepObserver {
 						nextObservers = append(nextObservers, observer)
 					}
@@ -200,16 +231,13 @@ waitformore:
 
 // handlePointer deals with a pointer for a single observer
 // if there is some error on the observer, handle the error and return false. Otherwise, return true
-func handlePointer(ctx context.Context, observer *observerContext, path storj.Path, pointer *pb.Pointer) bool {
-	pathElements := storj.SplitPath(path)
-	isLastSeg := len(pathElements) >= 2 && pathElements[1] == "l"
+func handlePointer(ctx context.Context, observer *observerContext, path ScopedPath, isLastSegment bool, pointer *pb.Pointer) bool {
 	remote := pointer.GetRemote()
-
 	if remote != nil {
 		if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
 			return false
 		}
-		if isLastSeg {
+		if isLastSegment {
 			if observer.HandleError(observer.RemoteObject(ctx, path, pointer)) {
 				return false
 			}

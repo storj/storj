@@ -43,7 +43,7 @@ export default class DepositAndBilling extends Vue {
     }
 
     .deposit-and-billing-area {
-        margin-bottom: 47px;
+        margin-bottom: 32px;
         padding: 40px;
         background-color: #FFFFFF;
         border-radius: 8px;

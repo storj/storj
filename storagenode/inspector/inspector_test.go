@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
@@ -62,6 +63,19 @@ func TestInspectorStats(t *testing.T) {
 
 	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
 	assert.NoError(t, err)
+
+	// wait until all requests have been handled
+	for {
+		total := int32(0)
+		for _, storageNode := range planet.StorageNodes {
+			total += storageNode.Storage2.Endpoint.TestLiveRequestCount()
+		}
+		if total == 0 {
+			break
+		}
+
+		sync2.Sleep(ctx, 100*time.Millisecond)
+	}
 
 	var downloaded int
 	for _, storageNode := range planet.StorageNodes {

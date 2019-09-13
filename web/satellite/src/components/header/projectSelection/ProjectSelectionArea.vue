@@ -7,8 +7,8 @@
         <div class="project-selection-toggle-container" @click="toggleSelection" v-if="hasProjects">
             <h1>{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
-                <img v-if="!isDropdownShown" src="../../../../static/images/register/BlueExpand.svg"/>
-                <img v-if="isDropdownShown" src="../../../../static/images/register/BlueHide.svg"/>
+                <img v-if="!isDropdownShown" src="../../../../static/images/register/BlueExpand.svg" alt="expand project list" />
+                <img v-if="isDropdownShown" src="../../../../static/images/register/BlueHide.svg" alt="hide project list" />
             </div>
         </div>
         <ProjectSelectionDropdown v-if="isDropdownShown"/>

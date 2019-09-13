@@ -242,7 +242,7 @@ func (c *drpcVouchersClient) Request(ctx context.Context, in *VoucherRequest) (*
 }
 
 type DRPCVouchersServer interface {
-	DRPCRequest(context.Context, *VoucherRequest) (*VoucherResponse, error)
+	Request(context.Context, *VoucherRequest) (*VoucherResponse, error)
 }
 
 type DRPCVouchersDescription struct{}
@@ -255,14 +255,18 @@ func (DRPCVouchersDescription) Method(n int) (string, drpc.Handler, interface{},
 		return "/vouchers.Vouchers/Request",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCVouchersServer).
-					DRPCRequest(
+					Request(
 						ctx,
 						in1.(*VoucherRequest),
 					)
-			}, DRPCVouchersServer.DRPCRequest, true
+			}, DRPCVouchersServer.Request, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterVouchers(srv drpc.Server, impl DRPCVouchersServer) {
+	srv.Register(impl, DRPCVouchersDescription{})
 }
 
 type DRPCVouchers_RequestStream interface {

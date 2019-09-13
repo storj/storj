@@ -5,7 +5,7 @@
 
 set -ueo pipefail
 
-read -p "Have you warned the DevOps Team before updating this file? " -n 1 -r
+read -p "Have you warned about these changes in #config-changes Slack channel before updating this file? " -n 1 -r
 echo    # (optional) move to a new line
 if [[ ! $REPLY =~ ^[Yy]$ ]]
 then

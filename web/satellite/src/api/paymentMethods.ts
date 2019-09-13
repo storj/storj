@@ -17,7 +17,7 @@ export async function addProjectPaymentMethodRequest(projectId: string, cardToke
                             projectID: $projectId,
                             cardToken: $cardToken,
                             isDefault: $isDefault
-                        ) 
+                        )
                 }
             `),
             variables: {
@@ -70,7 +70,7 @@ export async function setDefaultPaymentMethodRequest(projectId: string, paymentI
    return result;
 }
 
-export async function deletePaymentMethodRequest(paymentId: string):Promise<RequestResponse<null>> {
+export async function deletePaymentMethodRequest(paymentId: string): Promise<RequestResponse<null>> {
     const result: RequestResponse<null> = new RequestResponse<null>();
 
     const response: any = await apollo.mutate(

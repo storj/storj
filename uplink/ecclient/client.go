@@ -143,7 +143,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		atomic.AddInt32(&successfulCount, 1)
 
 		if int(successfulCount) >= rs.OptimalThreshold() {
-			ec.log.Info("Success threshold reached. Cancelling remaining uploads.",
+			ec.log.Debug("Success threshold reached. Cancelling remaining uploads.",
 				zap.Int("Optimal Threshold", rs.OptimalThreshold()),
 			)
 			cancel()

@@ -11,7 +11,6 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import EVENTS from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail } from '@/utils/validation';
 
@@ -48,12 +47,10 @@ export default class ForgotPassword extends Vue {
     }
 
     public onBackToLoginClick(): void {
-        this.$segment.track(EVENTS.CLICKED_BACK_TO_LOGIN);
         this.$router.push(RouteConfig.Login.path);
     }
 
     public onLogoClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGO);
         location.reload();
     }
 

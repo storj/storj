@@ -28,7 +28,7 @@ export default class BucketItem extends Vue {
     public get egress(): string {
         return this.itemData.egress.toFixed(4);
     }
-    
+
     public get objectCount(): string {
         return this.itemData.objectCount.toString();
     }
