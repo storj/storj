@@ -28,6 +28,7 @@ type TypeCreator struct {
 	paymentMethod     *graphql.Object
 	projectMember     *graphql.Object
 	projectMemberPage *graphql.Object
+	apiKeyPage        *graphql.Object
 	apiKeyInfo        *graphql.Object
 	createAPIKey      *graphql.Object
 
@@ -35,6 +36,7 @@ type TypeCreator struct {
 	projectInput         *graphql.InputObject
 	bucketUsageCursor    *graphql.InputObject
 	projectMembersCursor *graphql.InputObject
+	apiKeysCursor        *graphql.InputObject
 }
 
 // Create create types and check for error
@@ -57,6 +59,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.projectMembersCursor = graphqlProjectMembersCursor()
 	if err := c.projectMembersCursor.Error(); err != nil {
+		return err
+	}
+
+	c.apiKeysCursor = graphqlAPIKeysCursor()
+	if err := c.apiKeysCursor.Error(); err != nil {
 		return err
 	}
 
@@ -113,6 +120,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.projectMemberPage = graphqlProjectMembersPage(c)
 	if err := c.projectMemberPage.Error(); err != nil {
+		return err
+	}
+
+	c.apiKeyPage = graphqlAPIKeysPage(c)
+	if err := c.apiKeyPage.Error(); err != nil {
 		return err
 	}
 

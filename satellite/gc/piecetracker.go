@@ -44,8 +44,8 @@ func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 }
 
 // RemoteSegment takes a remote segment found in metainfo and adds pieces to bloom filters
-func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx, path)(&err)
+func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx, path.Raw)(&err)
 
 	remote := pointer.GetRemote()
 	pieces := remote.GetRemotePieces()
@@ -58,12 +58,12 @@ func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, path storj.
 }
 
 // RemoteObject returns nil because gc does not interact with remote objects
-func (pieceTracker *PieceTracker) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pieceTracker *PieceTracker) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
 // InlineSegment returns nil because we're only doing gc for storage nodes for now
-func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }
 

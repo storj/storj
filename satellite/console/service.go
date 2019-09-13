@@ -145,11 +145,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 	}
 
-	// TODO: store original email input in the db,
-	// add normalization
-	email := normalizeEmail(user.Email)
-
-	u, err = s.store.Users().GetByEmail(ctx, email)
+	u, err = s.store.Users().GetByEmail(ctx, user.Email)
 	if err == nil {
 		return nil, errs.New(emailUsedErrMsg)
 	}
@@ -210,7 +206,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			}
 		}
 		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
-			Email: email,
+			Email: user.Email,
 			Name:  user.FullName,
 		})
 		if err != nil {
@@ -438,7 +434,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return
 	}
 
-	_, err = s.store.Users().GetByEmail(ctx, normalizeEmail(claims.Email))
+	_, err = s.store.Users().GetByEmail(ctx, claims.Email)
 	if err == nil {
 		return errs.New(emailUsedErrMsg)
 	}
@@ -528,8 +524,6 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 // Token authenticates User by credentials and returns auth token
 func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	email = normalizeEmail(email)
 
 	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
@@ -1059,9 +1053,10 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	return nil
 }
 
-// GetAPIKeysInfoByProjectID retrieves all api keys for a given project
-func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.UUID) (info []APIKeyInfo, err error) {
+// GetAPIKeys returns paged api key list for given Project
+func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (page *APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -1072,12 +1067,16 @@ func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	info, err = s.store.APIKeys().GetByProjectID(ctx, projectID)
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
+	}
+
+	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
 	if err != nil {
 		return nil, ErrConsoleInternal.Wrap(err)
 	}
 
-	return info, nil
+	return
 }
 
 // GetProjectUsage retrieves project usage for a given period

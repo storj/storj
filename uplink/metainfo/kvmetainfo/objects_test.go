@@ -277,10 +277,11 @@ func TestListObjectsEmpty(t *testing.T) {
 		_, err = db.ListObjects(ctx, bucket.Name, storj.ListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
 
+		// TODO for now we are supporting only storj.After
 		for _, direction := range []storj.ListDirection{
-			storj.Before,
-			storj.Backward,
-			storj.Forward,
+			// storj.Before,
+			// storj.Backward,
+			// storj.Forward,
 			storj.After,
 		} {
 			list, err := db.ListObjects(ctx, bucket.Name, storj.ListOptions{Direction: direction})
@@ -391,235 +392,238 @@ func TestListObjects(t *testing.T) {
 				options: options("a/", "xaa", storj.After, 2),
 				more:    true,
 				result:  []string{"xb", "xbb"},
-			}, {
-				options: options("", "", storj.Forward, 0),
-				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			}, {
-				options: options("", "`", storj.Forward, 0),
-				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			}, {
-				options: options("", "b", storj.Forward, 0),
-				result:  []string{"b", "b/", "bb", "c"},
-			}, {
-				options: options("", "c", storj.Forward, 0),
-				result:  []string{"c"},
-			}, {
-				options: options("", "ca", storj.Forward, 0),
-				result:  []string{},
-			}, {
-				options: options("", "", storj.Forward, 1),
-				more:    true,
-				result:  []string{"a"},
-			}, {
-				options: options("", "`", storj.Forward, 1),
-				more:    true,
-				result:  []string{"a"},
-			}, {
-				options: options("", "aa", storj.Forward, 1),
-				more:    true,
-				result:  []string{"aa"},
-			}, {
-				options: options("", "c", storj.Forward, 1),
-				result:  []string{"c"},
-			}, {
-				options: options("", "ca", storj.Forward, 1),
-				result:  []string{},
-			}, {
-				options: options("", "", storj.Forward, 2),
-				more:    true,
-				result:  []string{"a", "a/"},
-			}, {
-				options: options("", "`", storj.Forward, 2),
-				more:    true,
-				result:  []string{"a", "a/"},
-			}, {
-				options: options("", "aa", storj.Forward, 2),
-				more:    true,
-				result:  []string{"aa", "b"},
-			}, {
-				options: options("", "bb", storj.Forward, 2),
-				result:  []string{"bb", "c"},
-			}, {
-				options: options("", "c", storj.Forward, 2),
-				result:  []string{"c"},
-			}, {
-				options: options("", "ca", storj.Forward, 2),
-				result:  []string{},
-			}, {
-				options: optionsRecursive("", "", storj.Forward, 0),
-				result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			}, {
-				options: options("a", "", storj.Forward, 0),
-				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			}, {
-				options: options("a/", "", storj.Forward, 0),
-				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			}, {
-				options: options("a/", "xb", storj.Forward, 0),
-				result:  []string{"xb", "xbb", "xc"},
-			}, {
-				options: optionsRecursive("", "a/xbb", storj.Forward, 5),
-				more:    true,
-				result:  []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
-			}, {
-				options: options("a/", "xaa", storj.Forward, 2),
-				more:    true,
-				result:  []string{"xaa", "xb"},
-			}, {
-				options: options("", "", storj.Backward, 0),
-				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			}, {
-				options: options("", "`", storj.Backward, 0),
-				result:  []string{},
-			}, {
-				options: options("", "b", storj.Backward, 0),
-				result:  []string{"a", "a/", "aa", "b"},
-			}, {
-				options: options("", "c", storj.Backward, 0),
-				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			}, {
-				options: options("", "ca", storj.Backward, 0),
-				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			}, {
-				options: options("", "", storj.Backward, 1),
-				more:    true,
-				result:  []string{"c"},
-			}, {
-				options: options("", "`", storj.Backward, 1),
-				result:  []string{},
-			}, {
-				options: options("", "aa", storj.Backward, 1),
-				more:    true,
-				result:  []string{"aa"},
-			}, {
-				options: options("", "c", storj.Backward, 1),
-				more:    true,
-				result:  []string{"c"},
-			}, {
-				options: options("", "ca", storj.Backward, 1),
-				more:    true,
-				result:  []string{"c"},
-			}, {
-				options: options("", "", storj.Backward, 2),
-				more:    true,
-				result:  []string{"bb", "c"},
-			}, {
-				options: options("", "`", storj.Backward, 2),
-				result:  []string{},
-			}, {
-				options: options("", "a/", storj.Backward, 2),
-				result:  []string{"a"},
-			}, {
-				options: options("", "bb", storj.Backward, 2),
-				more:    true,
-				result:  []string{"b/", "bb"},
-			}, {
-				options: options("", "c", storj.Backward, 2),
-				more:    true,
-				result:  []string{"bb", "c"},
-			}, {
-				options: options("", "ca", storj.Backward, 2),
-				more:    true,
-				result:  []string{"bb", "c"},
-			}, {
-				options: optionsRecursive("", "", storj.Backward, 0),
-				result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			}, {
-				options: options("a", "", storj.Backward, 0),
-				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			}, {
-				options: options("a/", "", storj.Backward, 0),
-				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			}, {
-				options: options("a/", "xb", storj.Backward, 0),
-				result:  []string{"xa", "xaa", "xb"},
-			}, {
-				options: optionsRecursive("", "b/yaa", storj.Backward, 5),
-				more:    true,
-				result:  []string{"a/xc", "aa", "b", "b/ya", "b/yaa"},
-			}, {
-				options: options("a/", "xbb", storj.Backward, 2),
-				more:    true,
-				result:  []string{"xb", "xbb"},
-			}, {
-				options: options("", "", storj.Before, 0),
-				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			}, {
-				options: options("", "`", storj.Before, 0),
-				result:  []string{},
-			}, {
-				options: options("", "a", storj.Before, 0),
-				result:  []string{},
-			}, {
-				options: options("", "b", storj.Before, 0),
-				result:  []string{"a", "a/", "aa"},
-			}, {
-				options: options("", "c", storj.Before, 0),
-				result:  []string{"a", "a/", "aa", "b", "b/", "bb"},
-			}, {
-				options: options("", "ca", storj.Before, 0),
-				result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
-			}, {
-				options: options("", "", storj.Before, 1),
-				more:    true,
-				result:  []string{"c"},
-			}, {
-				options: options("", "`", storj.Before, 1),
-				result:  []string{},
-			}, {
-				options: options("", "a/", storj.Before, 1),
-				result:  []string{"a"},
-			}, {
-				options: options("", "c", storj.Before, 1),
-				more:    true,
-				result:  []string{"bb"},
-			}, {
-				options: options("", "ca", storj.Before, 1),
-				more:    true,
-				result:  []string{"c"},
-			}, {
-				options: options("", "", storj.Before, 2),
-				more:    true,
-				result:  []string{"bb", "c"},
-			}, {
-				options: options("", "`", storj.Before, 2),
-				result:  []string{},
-			}, {
-				options: options("", "a/", storj.Before, 2),
-				result:  []string{"a"},
-			}, {
-				options: options("", "bb", storj.Before, 2),
-				more:    true,
-				result:  []string{"b", "b/"},
-			}, {
-				options: options("", "c", storj.Before, 2),
-				more:    true,
-				result:  []string{"b/", "bb"},
-			}, {
-				options: options("", "ca", storj.Before, 2),
-				more:    true,
-				result:  []string{"bb", "c"},
-			}, {
-				options: optionsRecursive("", "", storj.Before, 0),
-				result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
-			}, {
-				options: options("a", "", storj.Before, 0),
-				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			}, {
-				options: options("a/", "", storj.Before, 0),
-				result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
-			}, {
-				options: options("a/", "xb", storj.Before, 0),
-				result:  []string{"xa", "xaa"},
-			}, {
-				options: optionsRecursive("", "b/yaa", storj.Before, 5),
-				more:    true,
-				result:  []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
-			}, {
-				options: options("a/", "xbb", storj.Before, 2),
-				more:    true,
-				result:  []string{"xaa", "xb"},
 			},
+			// TODO commented until we will decide if we will support direction for object listing
+			//
+			// {
+			// 	options: options("", "", storj.Forward, 0),
+			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			// }, {
+			// 	options: options("", "`", storj.Forward, 0),
+			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			// }, {
+			// 	options: options("", "b", storj.Forward, 0),
+			// 	result:  []string{"b", "b/", "bb", "c"},
+			// }, {
+			// 	options: options("", "c", storj.Forward, 0),
+			// 	result:  []string{"c"},
+			// }, {
+			// 	options: options("", "ca", storj.Forward, 0),
+			// 	result:  []string{},
+			// }, {
+			// 	options: options("", "", storj.Forward, 1),
+			// 	more:    true,
+			// 	result:  []string{"a"},
+			// }, {
+			// 	options: options("", "`", storj.Forward, 1),
+			// 	more:    true,
+			// 	result:  []string{"a"},
+			// }, {
+			// 	options: options("", "aa", storj.Forward, 1),
+			// 	more:    true,
+			// 	result:  []string{"aa"},
+			// }, {
+			// 	options: options("", "c", storj.Forward, 1),
+			// 	result:  []string{"c"},
+			// }, {
+			// 	options: options("", "ca", storj.Forward, 1),
+			// 	result:  []string{},
+			// }, {
+			// 	options: options("", "", storj.Forward, 2),
+			// 	more:    true,
+			// 	result:  []string{"a", "a/"},
+			// }, {
+			// 	options: options("", "`", storj.Forward, 2),
+			// 	more:    true,
+			// 	result:  []string{"a", "a/"},
+			// }, {
+			// 	options: options("", "aa", storj.Forward, 2),
+			// 	more:    true,
+			// 	result:  []string{"aa", "b"},
+			// }, {
+			// 	options: options("", "bb", storj.Forward, 2),
+			// 	result:  []string{"bb", "c"},
+			// }, {
+			// 	options: options("", "c", storj.Forward, 2),
+			// 	result:  []string{"c"},
+			// }, {
+			// 	options: options("", "ca", storj.Forward, 2),
+			// 	result:  []string{},
+			// }, {
+			// 	options: optionsRecursive("", "", storj.Forward, 0),
+			// 	result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
+			// }, {
+			// 	options: options("a", "", storj.Forward, 0),
+			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			// }, {
+			// 	options: options("a/", "", storj.Forward, 0),
+			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			// }, {
+			// 	options: options("a/", "xb", storj.Forward, 0),
+			// 	result:  []string{"xb", "xbb", "xc"},
+			// }, {
+			// 	options: optionsRecursive("", "a/xbb", storj.Forward, 5),
+			// 	more:    true,
+			// 	result:  []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
+			// }, {
+			// 	options: options("a/", "xaa", storj.Forward, 2),
+			// 	more:    true,
+			// 	result:  []string{"xaa", "xb"},
+			// }, {
+			// 	options: options("", "", storj.Backward, 0),
+			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			// }, {
+			// 	options: options("", "`", storj.Backward, 0),
+			// 	result:  []string{},
+			// }, {
+			// 	options: options("", "b", storj.Backward, 0),
+			// 	result:  []string{"a", "a/", "aa", "b"},
+			// }, {
+			// 	options: options("", "c", storj.Backward, 0),
+			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			// }, {
+			// 	options: options("", "ca", storj.Backward, 0),
+			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			// }, {
+			// 	options: options("", "", storj.Backward, 1),
+			// 	more:    true,
+			// 	result:  []string{"c"},
+			// }, {
+			// 	options: options("", "`", storj.Backward, 1),
+			// 	result:  []string{},
+			// }, {
+			// 	options: options("", "aa", storj.Backward, 1),
+			// 	more:    true,
+			// 	result:  []string{"aa"},
+			// }, {
+			// 	options: options("", "c", storj.Backward, 1),
+			// 	more:    true,
+			// 	result:  []string{"c"},
+			// }, {
+			// 	options: options("", "ca", storj.Backward, 1),
+			// 	more:    true,
+			// 	result:  []string{"c"},
+			// }, {
+			// 	options: options("", "", storj.Backward, 2),
+			// 	more:    true,
+			// 	result:  []string{"bb", "c"},
+			// }, {
+			// 	options: options("", "`", storj.Backward, 2),
+			// 	result:  []string{},
+			// }, {
+			// 	options: options("", "a/", storj.Backward, 2),
+			// 	result:  []string{"a"},
+			// }, {
+			// 	options: options("", "bb", storj.Backward, 2),
+			// 	more:    true,
+			// 	result:  []string{"b/", "bb"},
+			// }, {
+			// 	options: options("", "c", storj.Backward, 2),
+			// 	more:    true,
+			// 	result:  []string{"bb", "c"},
+			// }, {
+			// 	options: options("", "ca", storj.Backward, 2),
+			// 	more:    true,
+			// 	result:  []string{"bb", "c"},
+			// }, {
+			// 	options: optionsRecursive("", "", storj.Backward, 0),
+			// 	result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
+			// }, {
+			// 	options: options("a", "", storj.Backward, 0),
+			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			// }, {
+			// 	options: options("a/", "", storj.Backward, 0),
+			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			// }, {
+			// 	options: options("a/", "xb", storj.Backward, 0),
+			// 	result:  []string{"xa", "xaa", "xb"},
+			// }, {
+			// 	options: optionsRecursive("", "b/yaa", storj.Backward, 5),
+			// 	more:    true,
+			// 	result:  []string{"a/xc", "aa", "b", "b/ya", "b/yaa"},
+			// }, {
+			// 	options: options("a/", "xbb", storj.Backward, 2),
+			// 	more:    true,
+			// 	result:  []string{"xb", "xbb"},
+			// }, {
+			// 	options: options("", "", storj.Before, 0),
+			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			// }, {
+			// 	options: options("", "`", storj.Before, 0),
+			// 	result:  []string{},
+			// }, {
+			// 	options: options("", "a", storj.Before, 0),
+			// 	result:  []string{},
+			// }, {
+			// 	options: options("", "b", storj.Before, 0),
+			// 	result:  []string{"a", "a/", "aa"},
+			// }, {
+			// 	options: options("", "c", storj.Before, 0),
+			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb"},
+			// }, {
+			// 	options: options("", "ca", storj.Before, 0),
+			// 	result:  []string{"a", "a/", "aa", "b", "b/", "bb", "c"},
+			// }, {
+			// 	options: options("", "", storj.Before, 1),
+			// 	more:    true,
+			// 	result:  []string{"c"},
+			// }, {
+			// 	options: options("", "`", storj.Before, 1),
+			// 	result:  []string{},
+			// }, {
+			// 	options: options("", "a/", storj.Before, 1),
+			// 	result:  []string{"a"},
+			// }, {
+			// 	options: options("", "c", storj.Before, 1),
+			// 	more:    true,
+			// 	result:  []string{"bb"},
+			// }, {
+			// 	options: options("", "ca", storj.Before, 1),
+			// 	more:    true,
+			// 	result:  []string{"c"},
+			// }, {
+			// 	options: options("", "", storj.Before, 2),
+			// 	more:    true,
+			// 	result:  []string{"bb", "c"},
+			// }, {
+			// 	options: options("", "`", storj.Before, 2),
+			// 	result:  []string{},
+			// }, {
+			// 	options: options("", "a/", storj.Before, 2),
+			// 	result:  []string{"a"},
+			// }, {
+			// 	options: options("", "bb", storj.Before, 2),
+			// 	more:    true,
+			// 	result:  []string{"b", "b/"},
+			// }, {
+			// 	options: options("", "c", storj.Before, 2),
+			// 	more:    true,
+			// 	result:  []string{"b/", "bb"},
+			// }, {
+			// 	options: options("", "ca", storj.Before, 2),
+			// 	more:    true,
+			// 	result:  []string{"bb", "c"},
+			// }, {
+			// 	options: optionsRecursive("", "", storj.Before, 0),
+			// 	result:  []string{"a", "a/xa", "a/xaa", "a/xb", "a/xbb", "a/xc", "aa", "b", "b/ya", "b/yaa", "b/yb", "b/ybb", "b/yc", "bb", "c"},
+			// }, {
+			// 	options: options("a", "", storj.Before, 0),
+			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			// }, {
+			// 	options: options("a/", "", storj.Before, 0),
+			// 	result:  []string{"xa", "xaa", "xb", "xbb", "xc"},
+			// }, {
+			// 	options: options("a/", "xb", storj.Before, 0),
+			// 	result:  []string{"xa", "xaa"},
+			// }, {
+			// 	options: optionsRecursive("", "b/yaa", storj.Before, 5),
+			// 	more:    true,
+			// 	result:  []string{"a/xbb", "a/xc", "aa", "b", "b/ya"},
+			// }, {
+			// 	options: options("a/", "xbb", storj.Before, 2),
+			// 	more:    true,
+			// 	result:  []string{"xaa", "xb"},
+			// },
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
