@@ -160,7 +160,7 @@ func (tally *Tally) ensureBucket(ctx context.Context, path metainfo.ScopedPath) 
 	bucket, exists := tally.Bucket[bucketID]
 	if !exists {
 		bucket = &accounting.BucketTally{}
-		bucket.ProjectID = path.ProjectID[:]
+		bucket.ProjectID = path.ProjectID
 		bucket.BucketName = []byte(path.BucketName)
 		tally.Bucket[bucketID] = bucket
 	}
@@ -175,7 +175,7 @@ func (tally *Tally) Object(ctx context.Context, path metainfo.ScopedPath, pointe
 		return err
 	}
 
-	bucket.Files++
+	bucket.ObjectCount++
 	return nil
 }
 
