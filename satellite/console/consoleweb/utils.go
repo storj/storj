@@ -15,6 +15,9 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
 
+// ContentLengthLimit describes 5KB limit (5 * 1024 bytes)
+const ContentLengthLimit  = 5120
+
 func init() {
 	err := mime.AddExtensionType(".ttf", "font/ttf")
 	if err != nil {
@@ -48,8 +51,13 @@ func getToken(req *http.Request) string {
 	return value[len(authorizationBearer):]
 }
 
+
 // getQuery retrieves graphql query from request
 func getQuery(req *http.Request) (query graphqlJSON, err error) {
+	if req.ContentLength > ContentLengthLimit {
+		return graphqlJSON{}, errs.New("content length is more than accepted(%d)", ContentLengthLimit)
+	}
+
 	switch req.Method {
 	case http.MethodGet:
 		query.Query = req.URL.Query().Get(consoleql.Query)
