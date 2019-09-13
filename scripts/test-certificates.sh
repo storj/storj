@@ -7,6 +7,7 @@ IDENTS_DIR=$TMPDIR/identities
 CERTS_DIR=$TMPDIR/certificates
 CERTS_ADDR=127.0.0.4:11000
 CERTS_ADDR_PRIV=127.0.0.4:11001
+AUTHS_HTTP_ADDR=127.0.0.4:11002
 
 kill_certificates_server() {
   kill $CERTS_PID
@@ -78,7 +79,7 @@ for i in {0..4}; do
 done
 
 exported_auths=$(_certificates auth export)
-_certificates run --min-difficulty 0 &
+_certificates run --min-difficulty 0 --authorization-addr $AUTHS_HTTP_ADDR &
 CERTS_PID=$!
 
 sleep 1
