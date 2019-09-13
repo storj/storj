@@ -765,7 +765,7 @@ func (x *drpcOrdersSettlementClient) Recv() (*SettlementResponse, error) {
 }
 
 type DRPCOrdersServer interface {
-	DRPCSettlement(DRPCOrders_SettlementStream) error
+	Settlement(DRPCOrders_SettlementStream) error
 }
 
 type DRPCOrdersDescription struct{}
@@ -778,13 +778,17 @@ func (DRPCOrdersDescription) Method(n int) (string, drpc.Handler, interface{}, b
 		return "/orders.Orders/Settlement",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return nil, srv.(DRPCOrdersServer).
-					DRPCSettlement(
+					Settlement(
 						&drpcOrdersSettlementStream{in1.(drpc.Stream)},
 					)
-			}, DRPCOrdersServer.DRPCSettlement, true
+			}, DRPCOrdersServer.Settlement, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterOrders(srv drpc.Server, impl DRPCOrdersServer) {
+	srv.Register(impl, DRPCOrdersDescription{})
 }
 
 type DRPCOrders_SettlementStream interface {

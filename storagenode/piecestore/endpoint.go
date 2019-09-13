@@ -88,6 +88,12 @@ type Endpoint struct {
 	liveRequests int32
 }
 
+// drpcEndpoint wraps streaming methods so that they can be used with drpc
+type drpcEndpoint struct{ *Endpoint }
+
+// DRPC returns a DRPC form of the endpoint.
+func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{Endpoint: endpoint} }
+
 // NewEndpoint creates a new piecestore endpoint.
 func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
@@ -142,6 +148,23 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
+	return endpoint.doUpload(stream)
+}
+
+// Upload handles uploading a piece on piece store.
+func (endpoint *drpcEndpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
+	return endpoint.doUpload(stream)
+}
+
+// uploadStream is the minimum interface required to perform settlements.
+type uploadStream interface {
+	Context() context.Context
+	Recv() (*pb.PieceUploadRequest, error)
+	SendAndClose(*pb.PieceUploadResponse) error
+}
+
+// doUpload handles uploading a piece on piece store.
+func (endpoint *Endpoint) doUpload(stream uploadStream) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -328,8 +351,25 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 }
 
-// Download implements downloading a piece from piece store.
+// Download handles Downloading a piece on piece store.
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
+	return endpoint.doDownload(stream)
+}
+
+// Download handles Downloading a piece on piece store.
+func (endpoint *drpcEndpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err error) {
+	return endpoint.doDownload(stream)
+}
+
+// downloadStream is the minimum interface required to perform settlements.
+type downloadStream interface {
+	Context() context.Context
+	Recv() (*pb.PieceDownloadRequest, error)
+	Send(*pb.PieceDownloadResponse) error
+}
+
+// Download implements downloading a piece from piece store.
+func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)

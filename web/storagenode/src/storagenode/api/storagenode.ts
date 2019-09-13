@@ -30,7 +30,9 @@ export class SNOApi {
     public async dashboard(): Promise<Dashboard> {
         const json = (await (await httpGet('/api/dashboard')).json() as any).data;
 
-        const satellites: SatelliteInfo[] = json.satellites.map((satellite: any) => {
+        const satellitesJson = json.satellites ? json.satellites : [];
+
+        const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
 
             return new SatelliteInfo(satellite.id, disqualified);

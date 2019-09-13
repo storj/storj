@@ -23,7 +23,7 @@ describe('Button.vue', () => {
             propsData: {
                 isWhite: true,
                 onPress: () => { return; },
-            }
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -34,7 +34,7 @@ describe('Button.vue', () => {
             propsData: {
                 isDisabled: true,
                 onPress: () => { return; },
-            }
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -77,8 +77,8 @@ describe('Button.vue', () => {
         const wrapper = mount(Button, {
             propsData: {
                 onPress: onPressSpy,
-                isDisabled: false
-            }
+                isDisabled: false,
+            },
         });
 
         wrapper.find('div.container').trigger('click');

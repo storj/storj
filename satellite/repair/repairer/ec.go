@@ -28,6 +28,9 @@ import (
 	"storj.io/storj/uplink/piecestore"
 )
 
+// ErrPieceHashVerifyFailed is the errs class when a piece hash downloaded from storagenode fails to match the original hash.
+var ErrPieceHashVerifyFailed = errs.Class("piece hashes don't match")
+
 // ECRepairer allows the repairer to download, verify, and upload pieces from storagenodes.
 type ECRepairer struct {
 	log             *zap.Logger
@@ -53,17 +56,18 @@ func (ec *ECRepairer) dialPiecestore(ctx context.Context, n *pb.Node) (*piecesto
 // It attempts to download from the minimum required number based on the redundancy scheme.
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, err error) {
+// If piece hash verification fails, it will return all failed node IDs.
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, failedNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
-		return nil, Error.New("number of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), es.TotalCount())
+		return nil, nil, Error.New("number of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), es.TotalCount())
 	}
 
 	nonNilLimits := nonNilCount(limits)
 
 	if nonNilLimits < es.RequiredCount() {
-		return nil, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
+		return nil, nil, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
 	}
 
 	pieceSize := eestream.CalcPieceSize(dataSize, es)
@@ -111,7 +115,12 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				cond.L.Lock()
 				inProgress--
 				if err != nil {
-					ec.log.Debug("Failed to download pieces for repair.", zap.Error(err))
+					// gather nodes that failed to match piece hash with the original piece hash
+					if ErrPieceHashVerifyFailed.Has(err) {
+						failedNodes = append(failedNodes, limit.GetLimit().StorageNodeId)
+					} else {
+						ec.log.Debug("Failed to download pieces for repair", zap.Error(err))
+					}
 					return
 				}
 
@@ -126,12 +135,12 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	limiter.Wait()
 
 	if successfulPieces < es.RequiredCount() {
-		return nil, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
+		return nil, failedNodes, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
 	}
 
 	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, failedNodes, Error.Wrap(err)
 	}
 
 	esScheme := eestream.NewUnsafeRSScheme(fec, es.ErasureShareSize())
@@ -140,7 +149,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	ctx, cancel := context.WithCancel(ctx)
 	decodeReader := eestream.DecodeReaders(ctx, cancel, ec.log.Named("decode readers"), pieceReaders, esScheme, expectedSize, 0, false)
 
-	return decodeReader, nil
+	return decodeReader, failedNodes, nil
 }
 
 // downloadAndVerifyPiece downloads a piece from a storagenode,
@@ -188,7 +197,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	// verify the hashes from storage node
 	calculatedHash := pkcrypto.SHA256Hash(pieceBytes)
 	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
-		return nil, err
+		return nil, ErrPieceHashVerifyFailed.Wrap(err)
 	}
 
 	return pieceBytes, nil

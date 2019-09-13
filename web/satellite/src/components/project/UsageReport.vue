@@ -70,7 +70,7 @@ import { toUnixTimestamp } from '@/utils/time';
 @Component({
     components: {
         Datepicker,
-    }
+    },
 })
 export default class UsageReport extends Vue {
     public startTime: any = {
