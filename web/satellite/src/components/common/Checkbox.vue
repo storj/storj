@@ -9,20 +9,20 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    // Custom checkbox component
-    @Component
-    export default class Checkbox extends Vue {
-        @Prop({default: false})
-        private readonly isCheckboxError: boolean;
-        
-        private checked: boolean = false;
-        
-        public onChange(): void {
-            this.$emit('setData', this.checked);
-        }
+// Custom checkbox component
+@Component
+export default class Checkbox extends Vue {
+    @Prop({default: false})
+    private readonly isCheckboxError: boolean;
+
+    private checked: boolean = false;
+
+    public onChange(): void {
+        this.$emit('setData', this.checked);
     }
+}
 </script>
 
 <style scoped lang="scss">

@@ -5401,34 +5401,34 @@ func (c *drpcMetainfoClient) ProjectInfo(ctx context.Context, in *ProjectInfoReq
 
 type DRPCMetainfoServer interface {
 	// Bucket
-	DRPCCreateBucket(context.Context, *BucketCreateRequest) (*BucketCreateResponse, error)
-	DRPCGetBucket(context.Context, *BucketGetRequest) (*BucketGetResponse, error)
-	DRPCDeleteBucket(context.Context, *BucketDeleteRequest) (*BucketDeleteResponse, error)
-	DRPCListBuckets(context.Context, *BucketListRequest) (*BucketListResponse, error)
-	DRPCSetBucketAttribution(context.Context, *BucketSetAttributionRequest) (*BucketSetAttributionResponse, error)
+	CreateBucket(context.Context, *BucketCreateRequest) (*BucketCreateResponse, error)
+	GetBucket(context.Context, *BucketGetRequest) (*BucketGetResponse, error)
+	DeleteBucket(context.Context, *BucketDeleteRequest) (*BucketDeleteResponse, error)
+	ListBuckets(context.Context, *BucketListRequest) (*BucketListResponse, error)
+	SetBucketAttribution(context.Context, *BucketSetAttributionRequest) (*BucketSetAttributionResponse, error)
 	// Object
-	DRPCBeginObject(context.Context, *ObjectBeginRequest) (*ObjectBeginResponse, error)
-	DRPCCommitObject(context.Context, *ObjectCommitRequest) (*ObjectCommitResponse, error)
-	DRPCGetObject(context.Context, *ObjectGetRequest) (*ObjectGetResponse, error)
-	DRPCListObjects(context.Context, *ObjectListRequest) (*ObjectListResponse, error)
-	DRPCBeginDeleteObject(context.Context, *ObjectBeginDeleteRequest) (*ObjectBeginDeleteResponse, error)
-	DRPCFinishDeleteObject(context.Context, *ObjectFinishDeleteRequest) (*ObjectFinishDeleteResponse, error)
-	DRPCBeginSegment(context.Context, *SegmentBeginRequest) (*SegmentBeginResponse, error)
-	DRPCCommitSegment(context.Context, *SegmentCommitRequest) (*SegmentCommitResponse, error)
-	DRPCMakeInlineSegment(context.Context, *SegmentMakeInlineRequest) (*SegmentMakeInlineResponse, error)
-	DRPCBeginDeleteSegment(context.Context, *SegmentBeginDeleteRequest) (*SegmentBeginDeleteResponse, error)
-	DRPCFinishDeleteSegment(context.Context, *SegmentFinishDeleteRequest) (*SegmentFinishDeleteResponse, error)
-	DRPCListSegments(context.Context, *SegmentListRequest) (*SegmentListResponse, error)
-	DRPCDownloadSegment(context.Context, *SegmentDownloadRequest) (*SegmentDownloadResponse, error)
-	DRPCBatch(context.Context, *BatchRequest) (*BatchResponse, error)
-	DRPCCreateSegmentOld(context.Context, *SegmentWriteRequestOld) (*SegmentWriteResponseOld, error)
-	DRPCCommitSegmentOld(context.Context, *SegmentCommitRequestOld) (*SegmentCommitResponseOld, error)
-	DRPCSegmentInfoOld(context.Context, *SegmentInfoRequestOld) (*SegmentInfoResponseOld, error)
-	DRPCDownloadSegmentOld(context.Context, *SegmentDownloadRequestOld) (*SegmentDownloadResponseOld, error)
-	DRPCDeleteSegmentOld(context.Context, *SegmentDeleteRequestOld) (*SegmentDeleteResponseOld, error)
-	DRPCListSegmentsOld(context.Context, *ListSegmentsRequestOld) (*ListSegmentsResponseOld, error)
-	DRPCSetAttributionOld(context.Context, *SetAttributionRequestOld) (*SetAttributionResponseOld, error)
-	DRPCProjectInfo(context.Context, *ProjectInfoRequest) (*ProjectInfoResponse, error)
+	BeginObject(context.Context, *ObjectBeginRequest) (*ObjectBeginResponse, error)
+	CommitObject(context.Context, *ObjectCommitRequest) (*ObjectCommitResponse, error)
+	GetObject(context.Context, *ObjectGetRequest) (*ObjectGetResponse, error)
+	ListObjects(context.Context, *ObjectListRequest) (*ObjectListResponse, error)
+	BeginDeleteObject(context.Context, *ObjectBeginDeleteRequest) (*ObjectBeginDeleteResponse, error)
+	FinishDeleteObject(context.Context, *ObjectFinishDeleteRequest) (*ObjectFinishDeleteResponse, error)
+	BeginSegment(context.Context, *SegmentBeginRequest) (*SegmentBeginResponse, error)
+	CommitSegment(context.Context, *SegmentCommitRequest) (*SegmentCommitResponse, error)
+	MakeInlineSegment(context.Context, *SegmentMakeInlineRequest) (*SegmentMakeInlineResponse, error)
+	BeginDeleteSegment(context.Context, *SegmentBeginDeleteRequest) (*SegmentBeginDeleteResponse, error)
+	FinishDeleteSegment(context.Context, *SegmentFinishDeleteRequest) (*SegmentFinishDeleteResponse, error)
+	ListSegments(context.Context, *SegmentListRequest) (*SegmentListResponse, error)
+	DownloadSegment(context.Context, *SegmentDownloadRequest) (*SegmentDownloadResponse, error)
+	Batch(context.Context, *BatchRequest) (*BatchResponse, error)
+	CreateSegmentOld(context.Context, *SegmentWriteRequestOld) (*SegmentWriteResponseOld, error)
+	CommitSegmentOld(context.Context, *SegmentCommitRequestOld) (*SegmentCommitResponseOld, error)
+	SegmentInfoOld(context.Context, *SegmentInfoRequestOld) (*SegmentInfoResponseOld, error)
+	DownloadSegmentOld(context.Context, *SegmentDownloadRequestOld) (*SegmentDownloadResponseOld, error)
+	DeleteSegmentOld(context.Context, *SegmentDeleteRequestOld) (*SegmentDeleteResponseOld, error)
+	ListSegmentsOld(context.Context, *ListSegmentsRequestOld) (*ListSegmentsResponseOld, error)
+	SetAttributionOld(context.Context, *SetAttributionRequestOld) (*SetAttributionResponseOld, error)
+	ProjectInfo(context.Context, *ProjectInfoRequest) (*ProjectInfoResponse, error)
 }
 
 type DRPCMetainfoDescription struct{}
@@ -5441,248 +5441,252 @@ func (DRPCMetainfoDescription) Method(n int) (string, drpc.Handler, interface{},
 		return "/metainfo.Metainfo/CreateBucket",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCCreateBucket(
+					CreateBucket(
 						ctx,
 						in1.(*BucketCreateRequest),
 					)
-			}, DRPCMetainfoServer.DRPCCreateBucket, true
+			}, DRPCMetainfoServer.CreateBucket, true
 	case 1:
 		return "/metainfo.Metainfo/GetBucket",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCGetBucket(
+					GetBucket(
 						ctx,
 						in1.(*BucketGetRequest),
 					)
-			}, DRPCMetainfoServer.DRPCGetBucket, true
+			}, DRPCMetainfoServer.GetBucket, true
 	case 2:
 		return "/metainfo.Metainfo/DeleteBucket",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCDeleteBucket(
+					DeleteBucket(
 						ctx,
 						in1.(*BucketDeleteRequest),
 					)
-			}, DRPCMetainfoServer.DRPCDeleteBucket, true
+			}, DRPCMetainfoServer.DeleteBucket, true
 	case 3:
 		return "/metainfo.Metainfo/ListBuckets",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCListBuckets(
+					ListBuckets(
 						ctx,
 						in1.(*BucketListRequest),
 					)
-			}, DRPCMetainfoServer.DRPCListBuckets, true
+			}, DRPCMetainfoServer.ListBuckets, true
 	case 4:
 		return "/metainfo.Metainfo/SetBucketAttribution",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCSetBucketAttribution(
+					SetBucketAttribution(
 						ctx,
 						in1.(*BucketSetAttributionRequest),
 					)
-			}, DRPCMetainfoServer.DRPCSetBucketAttribution, true
+			}, DRPCMetainfoServer.SetBucketAttribution, true
 	case 5:
 		return "/metainfo.Metainfo/BeginObject",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCBeginObject(
+					BeginObject(
 						ctx,
 						in1.(*ObjectBeginRequest),
 					)
-			}, DRPCMetainfoServer.DRPCBeginObject, true
+			}, DRPCMetainfoServer.BeginObject, true
 	case 6:
 		return "/metainfo.Metainfo/CommitObject",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCCommitObject(
+					CommitObject(
 						ctx,
 						in1.(*ObjectCommitRequest),
 					)
-			}, DRPCMetainfoServer.DRPCCommitObject, true
+			}, DRPCMetainfoServer.CommitObject, true
 	case 7:
 		return "/metainfo.Metainfo/GetObject",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCGetObject(
+					GetObject(
 						ctx,
 						in1.(*ObjectGetRequest),
 					)
-			}, DRPCMetainfoServer.DRPCGetObject, true
+			}, DRPCMetainfoServer.GetObject, true
 	case 8:
 		return "/metainfo.Metainfo/ListObjects",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCListObjects(
+					ListObjects(
 						ctx,
 						in1.(*ObjectListRequest),
 					)
-			}, DRPCMetainfoServer.DRPCListObjects, true
+			}, DRPCMetainfoServer.ListObjects, true
 	case 9:
 		return "/metainfo.Metainfo/BeginDeleteObject",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCBeginDeleteObject(
+					BeginDeleteObject(
 						ctx,
 						in1.(*ObjectBeginDeleteRequest),
 					)
-			}, DRPCMetainfoServer.DRPCBeginDeleteObject, true
+			}, DRPCMetainfoServer.BeginDeleteObject, true
 	case 10:
 		return "/metainfo.Metainfo/FinishDeleteObject",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCFinishDeleteObject(
+					FinishDeleteObject(
 						ctx,
 						in1.(*ObjectFinishDeleteRequest),
 					)
-			}, DRPCMetainfoServer.DRPCFinishDeleteObject, true
+			}, DRPCMetainfoServer.FinishDeleteObject, true
 	case 11:
 		return "/metainfo.Metainfo/BeginSegment",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCBeginSegment(
+					BeginSegment(
 						ctx,
 						in1.(*SegmentBeginRequest),
 					)
-			}, DRPCMetainfoServer.DRPCBeginSegment, true
+			}, DRPCMetainfoServer.BeginSegment, true
 	case 12:
 		return "/metainfo.Metainfo/CommitSegment",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCCommitSegment(
+					CommitSegment(
 						ctx,
 						in1.(*SegmentCommitRequest),
 					)
-			}, DRPCMetainfoServer.DRPCCommitSegment, true
+			}, DRPCMetainfoServer.CommitSegment, true
 	case 13:
 		return "/metainfo.Metainfo/MakeInlineSegment",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCMakeInlineSegment(
+					MakeInlineSegment(
 						ctx,
 						in1.(*SegmentMakeInlineRequest),
 					)
-			}, DRPCMetainfoServer.DRPCMakeInlineSegment, true
+			}, DRPCMetainfoServer.MakeInlineSegment, true
 	case 14:
 		return "/metainfo.Metainfo/BeginDeleteSegment",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCBeginDeleteSegment(
+					BeginDeleteSegment(
 						ctx,
 						in1.(*SegmentBeginDeleteRequest),
 					)
-			}, DRPCMetainfoServer.DRPCBeginDeleteSegment, true
+			}, DRPCMetainfoServer.BeginDeleteSegment, true
 	case 15:
 		return "/metainfo.Metainfo/FinishDeleteSegment",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCFinishDeleteSegment(
+					FinishDeleteSegment(
 						ctx,
 						in1.(*SegmentFinishDeleteRequest),
 					)
-			}, DRPCMetainfoServer.DRPCFinishDeleteSegment, true
+			}, DRPCMetainfoServer.FinishDeleteSegment, true
 	case 16:
 		return "/metainfo.Metainfo/ListSegments",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCListSegments(
+					ListSegments(
 						ctx,
 						in1.(*SegmentListRequest),
 					)
-			}, DRPCMetainfoServer.DRPCListSegments, true
+			}, DRPCMetainfoServer.ListSegments, true
 	case 17:
 		return "/metainfo.Metainfo/DownloadSegment",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCDownloadSegment(
+					DownloadSegment(
 						ctx,
 						in1.(*SegmentDownloadRequest),
 					)
-			}, DRPCMetainfoServer.DRPCDownloadSegment, true
+			}, DRPCMetainfoServer.DownloadSegment, true
 	case 18:
 		return "/metainfo.Metainfo/Batch",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCBatch(
+					Batch(
 						ctx,
 						in1.(*BatchRequest),
 					)
-			}, DRPCMetainfoServer.DRPCBatch, true
+			}, DRPCMetainfoServer.Batch, true
 	case 19:
 		return "/metainfo.Metainfo/CreateSegmentOld",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCCreateSegmentOld(
+					CreateSegmentOld(
 						ctx,
 						in1.(*SegmentWriteRequestOld),
 					)
-			}, DRPCMetainfoServer.DRPCCreateSegmentOld, true
+			}, DRPCMetainfoServer.CreateSegmentOld, true
 	case 20:
 		return "/metainfo.Metainfo/CommitSegmentOld",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCCommitSegmentOld(
+					CommitSegmentOld(
 						ctx,
 						in1.(*SegmentCommitRequestOld),
 					)
-			}, DRPCMetainfoServer.DRPCCommitSegmentOld, true
+			}, DRPCMetainfoServer.CommitSegmentOld, true
 	case 21:
 		return "/metainfo.Metainfo/SegmentInfoOld",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCSegmentInfoOld(
+					SegmentInfoOld(
 						ctx,
 						in1.(*SegmentInfoRequestOld),
 					)
-			}, DRPCMetainfoServer.DRPCSegmentInfoOld, true
+			}, DRPCMetainfoServer.SegmentInfoOld, true
 	case 22:
 		return "/metainfo.Metainfo/DownloadSegmentOld",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCDownloadSegmentOld(
+					DownloadSegmentOld(
 						ctx,
 						in1.(*SegmentDownloadRequestOld),
 					)
-			}, DRPCMetainfoServer.DRPCDownloadSegmentOld, true
+			}, DRPCMetainfoServer.DownloadSegmentOld, true
 	case 23:
 		return "/metainfo.Metainfo/DeleteSegmentOld",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCDeleteSegmentOld(
+					DeleteSegmentOld(
 						ctx,
 						in1.(*SegmentDeleteRequestOld),
 					)
-			}, DRPCMetainfoServer.DRPCDeleteSegmentOld, true
+			}, DRPCMetainfoServer.DeleteSegmentOld, true
 	case 24:
 		return "/metainfo.Metainfo/ListSegmentsOld",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCListSegmentsOld(
+					ListSegmentsOld(
 						ctx,
 						in1.(*ListSegmentsRequestOld),
 					)
-			}, DRPCMetainfoServer.DRPCListSegmentsOld, true
+			}, DRPCMetainfoServer.ListSegmentsOld, true
 	case 25:
 		return "/metainfo.Metainfo/SetAttributionOld",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCSetAttributionOld(
+					SetAttributionOld(
 						ctx,
 						in1.(*SetAttributionRequestOld),
 					)
-			}, DRPCMetainfoServer.DRPCSetAttributionOld, true
+			}, DRPCMetainfoServer.SetAttributionOld, true
 	case 26:
 		return "/metainfo.Metainfo/ProjectInfo",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCMetainfoServer).
-					DRPCProjectInfo(
+					ProjectInfo(
 						ctx,
 						in1.(*ProjectInfoRequest),
 					)
-			}, DRPCMetainfoServer.DRPCProjectInfo, true
+			}, DRPCMetainfoServer.ProjectInfo, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterMetainfo(srv drpc.Server, impl DRPCMetainfoServer) {
+	srv.Register(impl, DRPCMetainfoDescription{})
 }
 
 type DRPCMetainfo_CreateBucketStream interface {
