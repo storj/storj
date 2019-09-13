@@ -1332,6 +1332,10 @@ func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) db
 func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if node.Address.GetAddress() == "" {
+		return Error.New("error UpdateCheckIn: missing the storage node address")
+	}
+
 	switch t := cache.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
 		value := pb.Node{
@@ -1405,15 +1409,15 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				wallet=$7,
 				free_bandwidth=$8,
 				free_disk=$9,
-				address = CASE WHEN $2 = nodes.address AND $2 != ''
+				address = CASE WHEN $2 = nodes.address
 					THEN nodes.address
 					ELSE $2
 				END,
-				uptime_success_count = CASE WHEN $16
+				uptime_success_count = CASE WHEN $16 IS TRUE
 					THEN nodes.uptime_success_count+1
 					ELSE nodes.uptime_success_count
 				END,
-				last_contact_success = CASE WHEN $16
+				last_contact_success = CASE WHEN $16 IS TRUE
 					THEN current_timestamp
 					ELSE nodes.last_contact_success
 				END,
