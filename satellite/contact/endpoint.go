@@ -90,7 +90,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, peerID storj.NodeID) (bool, string, error) {
 	client, err := newClient(ctx,
 		endpoint.service.transport,
-		&pb.NodeAddress{Address: req.Address},
+		req.Address,
 		peerID,
 	)
 	if err != nil {
