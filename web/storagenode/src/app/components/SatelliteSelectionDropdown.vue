@@ -32,8 +32,12 @@ import { SatelliteInfo } from '@/storagenode/dashboard';
 @Component
 export default class SatelliteSelectionDropdown extends Vue {
     public async onSatelliteClick(id: string): Promise<void> {
-        await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
-        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+        try {
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
+            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+        } catch (error) {
+            console.error(`${error.message} satellite data.`);
+        }
     }
 
     public get satellites(): SatelliteInfo[] {
