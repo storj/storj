@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -140,8 +139,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		}
 		successfulHashes[info.i] = info.hash
 
-		atomic.AddInt32(&successfulCount, 1)
-
+		successfulCount++
 		if int(successfulCount) >= rs.OptimalThreshold() {
 			ec.log.Debug("Success threshold reached. Cancelling remaining uploads.",
 				zap.Int("Optimal Threshold", rs.OptimalThreshold()),
@@ -160,19 +158,18 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 		}
 	}()
 
-	successes := int(atomic.LoadInt32(&successfulCount))
 	mon.IntVal("put_segment_pieces_total").Observe(int64(pieceCount))
 	mon.IntVal("put_segment_pieces_optimal").Observe(int64(rs.OptimalThreshold()))
-	mon.IntVal("put_segment_pieces_successful").Observe(int64(successes))
+	mon.IntVal("put_segment_pieces_successful").Observe(int64(successfulCount))
 	mon.IntVal("put_segment_pieces_failed").Observe(int64(failureCount))
 	mon.IntVal("put_segment_pieces_canceled").Observe(int64(cancellationCount))
 
-	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
-		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
+	if int(successfulCount) <= rs.RepairThreshold() && int(successfulCount) < rs.OptimalThreshold() {
+		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successfulCount, rs.RepairThreshold())
 	}
 
-	if successes < rs.OptimalThreshold() {
-		return nil, nil, Error.New("successful puts (%d) less than success threshold (%d)", successes, rs.OptimalThreshold())
+	if int(successfulCount) < rs.OptimalThreshold() {
+		return nil, nil, Error.New("successful puts (%d) less than success threshold (%d)", successfulCount, rs.OptimalThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
