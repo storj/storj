@@ -39,6 +39,7 @@ var (
 
 	commandMtx sync.Mutex
 	contexts   = map[*cobra.Command]context.Context{}
+	cancels    = map[*cobra.Command]context.CancelFunc{}
 	configs    = map[*cobra.Command][]interface{}{}
 	vipers     = map[*cobra.Command]*viper.Viper{}
 )
@@ -81,16 +82,25 @@ func Ctx(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	ctx := contexts[cmd]
 	if ctx == nil {
 		ctx = context.Background()
+		contexts[cmd] = ctx
 	}
-	ctx, cancel := context.WithCancel(ctx)
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-c
-		log.Printf("Got a signal from the OS: %q", sig)
-		signal.Stop(c)
-		cancel()
-	}()
+
+	cancel := cancels[cmd]
+	if cancel == nil {
+		ctx, cancel = context.WithCancel(ctx)
+		contexts[cmd] = ctx
+		cancels[cmd] = cancel
+
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			sig := <-c
+			log.Printf("Got a signal from the OS: %q", sig)
+			signal.Stop(c)
+			cancel()
+		}()
+	}
+
 	return ctx, cancel
 }
 
@@ -258,6 +268,7 @@ func cleanup(cmd *cobra.Command) {
 			defer func() {
 				commandMtx.Lock()
 				delete(contexts, cmd)
+				delete(cancels, cmd)
 				commandMtx.Unlock()
 			}()
 
