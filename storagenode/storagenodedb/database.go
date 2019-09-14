@@ -296,6 +296,13 @@ func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
 	return db.kdb, db.ndb, db.adb
 }
 
+// RawDatabases are required for testing purposes
+func (db *DB) RawDatabases() map[string]SQLDB {
+	return map[string]SQLDB{
+		"versions": db.versionsDB,
+	}
+}
+
 // Migration returns table migrations.
 func (db *DB) Migration() *migrate.Migration {
 	return &migrate.Migration{
@@ -689,6 +696,29 @@ func (db *DB) Migration() *migrate.Migration {
 						at_rest_total REAL NOT NUll,
 						interval_start TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, interval_start)
+					)`,
+				},
+			},
+			{
+				DB:          db.versionsDB,
+				Description: "Create satellites table and satellites_exit_progress table",
+				Version:     21,
+				Action: migrate.SQL{
+					`CREATE TABLE satellites (
+						node_id BLOB NOT NULL,
+						address TEXT NOT NUll,
+						added_at TIMESTAMP NOT NULL,
+						status INTEGER NOT NULL,
+						PRIMARY KEY (node_id)
+					)`,
+					`CREATE TABLE satellite_exit_progress (
+						satellite_id BLOB NOT NULL,
+						initiated_at TIMESTAMP,
+						finished_at TIMESTAMP,
+						starting_disk_usage INTEGER NOT NULL,
+						bytes_deleted INTEGER NOT NULL,
+						completion_receipt BLOB,
+						PRIMARY KEY (satellite_id)
 					)`,
 				},
 			},

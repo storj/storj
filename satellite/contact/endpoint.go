@@ -32,52 +32,59 @@ func NewEndpoint(log *zap.Logger, service *Service) *Endpoint {
 	}
 }
 
-// Checkin is periodically called by storage nodes to keep the satellite informed of its existence,
+// CheckIn is periodically called by storage nodes to keep the satellite informed of its existence,
 // address, and operator information. In return, this satellite keeps the node informed of its
 // reachability.
-// When a node checkins with the satellite, the satellite pings the node back to confirm they can
+// When a node checks-in with the satellite, the satellite pings the node back to confirm they can
 // successfully connect.
-func (endpoint *Endpoint) Checkin(ctx context.Context, req *pb.CheckinRequest) (_ *pb.CheckinResponse, err error) {
+func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (_ *pb.CheckInResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	peerID, err := peerIDFromContext(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, peerID)
+	nodeID := peerID.ID
+
+	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	nodeInfo := overlay.NodeCheckInInfo{
-		NodeID:   peerID,
-		Address:  req.Address,
+		NodeID:   peerID.ID,
+		Address:  &pb.NodeAddress{Address: req.Address},
 		IsUp:     pingNodeSuccess,
 		Capacity: req.Capacity,
 		Operator: req.Operator,
 	}
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo)
 
-	endpoint.log.Debug("checking in", zap.String("node addr", req.GetAddress().String()), zap.Bool("ping node succes", pingNodeSuccess))
-	return &pb.CheckinResponse{
+	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node succes", pingNodeSuccess))
+	return &pb.CheckInResponse{
 		PingNodeSuccess:  pingNodeSuccess,
 		PingErrorMessage: pingErrorMessage,
 	}, nil
 }
 
-func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckinRequest, peerID storj.NodeID) (bool, string, error) {
+func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, peerID storj.NodeID) (bool, string, error) {
 	client, err := newClient(ctx,
 		endpoint.service.transport,
-		req.GetAddress(),
+		req.Address,
 		peerID,
 	)
 	if err != nil {
 		// if this is a network error, then return the error otherwise just report internal error
 		_, ok := err.(net.Error)
 		if ok {
-			return false, "", Error.New("failed to connect to %s: %v", req.GetAddress().String(), err)
+			return false, "", Error.New("failed to connect to %s: %v", req.Address, err)
 		}
 		endpoint.log.Info("pingBack internal error", zap.String("error", err.Error()))
-		return false, "", Error.New("couldn't connect to client at addr: %s due to internal error.", req.GetAddress().String())
+		return false, "", Error.New("couldn't connect to client at addr: %s due to internal error.", req.Address)
 	}
 
 	pingNodeSuccess := true
@@ -97,14 +104,14 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckinRequest, 
 	return pingNodeSuccess, pingErrorMessage, nil
 }
 
-func peerIDFromContext(ctx context.Context) (storj.NodeID, error) {
+func peerIDFromContext(ctx context.Context) (*identity.PeerIdentity, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
-		return storj.NodeID{}, Error.New("unable to get grpc peer from contex")
+		return nil, Error.New("unable to get grpc peer from context")
 	}
 	peerIdentity, err := identity.PeerIdentityFromPeer(p)
 	if err != nil {
-		return storj.NodeID{}, err
+		return nil, err
 	}
-	return peerIdentity.ID, nil
+	return peerIdentity, nil
 }

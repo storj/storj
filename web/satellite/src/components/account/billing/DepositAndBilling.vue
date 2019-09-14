@@ -5,7 +5,7 @@
     <div class="deposit-and-billing-area">
         <div class="deposit-and-billing-area__header">
             <h1 class="deposit-and-billing-area__header__title">Deposit & Billing History</h1>
-            <div class="button">View All</div>
+            <div class="button" @click="onViewAllClick">View All</div>
         </div>
         <SortingHeader />
         <BillingItem />
@@ -20,13 +20,19 @@ import { Component, Vue } from 'vue-property-decorator';
 import BillingItem from '@/components/account/billing/BillingItem.vue';
 import SortingHeader from '@/components/account/billing/SortingHeader.vue';
 
+import { RouteConfig } from '@/router';
+
 @Component({
     components: {
         BillingItem,
         SortingHeader,
-    }
+    },
 })
-export default class DepositAndBilling extends Vue {}
+export default class DepositAndBilling extends Vue {
+    public onViewAllClick(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
+    }
+}
 </script>
 
 <style scoped lang="scss">
@@ -37,7 +43,7 @@ export default class DepositAndBilling extends Vue {}
     }
 
     .deposit-and-billing-area {
-        margin-bottom: 47px;
+        margin-bottom: 32px;
         padding: 40px;
         background-color: #FFFFFF;
         border-radius: 8px;

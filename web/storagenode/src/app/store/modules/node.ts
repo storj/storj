@@ -80,7 +80,10 @@ export const node = {
             state.utilization.bandwidth.used = nodeInfo.bandwidth.used;
             state.utilization.bandwidth.remaining = nodeInfo.bandwidth.available - nodeInfo.bandwidth.used;
             state.utilization.bandwidth.available = nodeInfo.bandwidth.available;
-            state.disqualifiedSatellites = [];
+
+            state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => {
+                return satellite.disqualified;
+            });
 
             state.satellites = nodeInfo.satellites ? nodeInfo.satellites : [];
 

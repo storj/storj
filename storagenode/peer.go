@@ -202,6 +202,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 	}
 
+	// Set up Contact.PingStats before Kademlia (until Kademlia goes away, at which point this can
+	// be folded back in with the Contact setup block). Both services must share pointers to this
+	// PingStats instance for now.
+	peer.Contact.PingStats = &contact.PingStats{}
+
 	{ // setup kademlia
 		config := config.Kademlia
 		// TODO: move this setup logic into kademlia package
@@ -243,18 +248,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable, peer.Storage2.Trust)
+		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Contact.PingStats, peer.Kademlia.RoutingTable, peer.Storage2.Trust)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
+		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
+		pb.DRPCRegisterKadInspector(peer.Server.PrivateDRPC(), peer.Kademlia.Inspector)
 	}
 
 	{ // setup contact service
-		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, config.Contact.MaxSleep, peer.Storage2.Trust, peer.Transport, peer.Kademlia.RoutingTable)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup storage
@@ -308,6 +315,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
+		pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC())
 
 		sc := config.Server
 		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
@@ -352,7 +360,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("console:service"),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
-			peer.Kademlia.Service,
 			peer.Version,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
@@ -360,7 +367,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			versionInfo,
 			peer.Storage2.Trust,
 			peer.DB.Reputation(),
-			peer.DB.StorageUsage())
+			peer.DB.StorageUsage(),
+			peer.Contact.PingStats,
+			peer.Local().Id)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -384,11 +393,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("pieces:inspector"),
 			peer.Storage2.Store,
 			peer.Kademlia.Service,
+			peer.Contact.PingStats,
 			peer.DB.Bandwidth(),
 			config.Storage,
 			peer.Console.Listener.Addr(),
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
+		pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)

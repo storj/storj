@@ -1,9 +1,6 @@
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
 
-# how frequently segments are audited
-# audit.interval: 30s
-
 # max number of times to attempt updating a statdb batch
 # audit.max-retries-stat-db: 3
 
@@ -99,9 +96,6 @@
 
 # the time between each send of garbage collection filters to storage nodes
 # garbage-collection.interval: 120h0m0s
-
-# help for setup
-# help: false
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert

@@ -44,7 +44,7 @@ import { AppState } from '@/utils/constants/appStateEnum';
     components: {
         NavigationArea,
         DashboardHeader,
-    }
+    },
 })
 export default class Dashboard extends Vue {
     public mounted(): void {
@@ -93,9 +93,9 @@ export default class Dashboard extends Vue {
             }
 
             try {
-                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
             } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
             }
 
             try {

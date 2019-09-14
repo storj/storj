@@ -184,11 +184,11 @@ func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.AP
 	return m.db.GetByHead(ctx, head)
 }
 
-// GetByProjectID retrieves list of APIKeys for given projectID
-func (m *lockedAPIKeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]console.APIKeyInfo, error) {
+// GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor
+func (m *lockedAPIKeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor) (akp *console.APIKeyPage, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetByProjectID(ctx, projectID)
+	return m.db.GetPagedByProjectID(ctx, projectID, cursor)
 }
 
 // Update updates APIKeyInfo in store
@@ -1044,8 +1044,15 @@ func (m *lockedProjectAccounting) GetStorageTotals(ctx context.Context, projectI
 	return m.db.GetStorageTotals(ctx, projectID)
 }
 
+// GetTallies retrieves all tallies
+func (m *lockedProjectAccounting) GetTallies(ctx context.Context) ([]accounting.BucketTally, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetTallies(ctx)
+}
+
 // SaveTallies saves the latest project info
-func (m *lockedProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
+func (m *lockedProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, intervalStart, bucketTallies)

@@ -7,6 +7,7 @@ import Router, { RouteRecord } from 'vue-router';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
+import BillingHistory from '@/components/account/billing/BillingHistory.vue';
 import Profile from '@/components/account/Profile.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
@@ -43,6 +44,7 @@ export abstract class RouteConfig {
     public static PaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
     public static Profile = new NavigationLink('profile', 'Profile');
     public static Billing = new NavigationLink('billing', 'Billing');
+    public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
 
     // not in project yet
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
@@ -54,22 +56,22 @@ const router = new Router({
         {
             path: RouteConfig.Login.path,
             name: RouteConfig.Login.name,
-            component: Login
+            component: Login,
         },
         {
             path: RouteConfig.Register.path,
             name: RouteConfig.Register.name,
-            component: Register
+            component: Register,
         },
         {
             path: RouteConfig.ForgotPassword.path,
             name: RouteConfig.ForgotPassword.name,
-            component: ForgotPassword
+            component: ForgotPassword,
         },
         {
             path: RouteConfig.Root.path,
             meta: {
-                requiresAuth: true
+                requiresAuth: true,
             },
             component: Dashboard,
             children: [
@@ -93,7 +95,12 @@ const router = new Router({
                             name: RouteConfig.PaymentMethods.name,
                             component: AccountPaymentMethods,
                         },
-                    ]
+                        {
+                            path: RouteConfig.BillingHistory.path,
+                            name: RouteConfig.BillingHistory.name,
+                            component: BillingHistory,
+                        },
+                    ],
                 },
                 {
                     path: RouteConfig.ProjectOverview.path,
@@ -108,38 +115,38 @@ const router = new Router({
                         {
                             path: RouteConfig.ProjectDetails.path,
                             name: RouteConfig.ProjectDetails.name,
-                            component: ProjectDetails
+                            component: ProjectDetails,
                         },
-                    ]
+                    ],
                 },
                 {
                     path: RouteConfig.Root.path,
                     name: 'default',
-                    component: ProjectOverviewArea
+                    component: ProjectOverviewArea,
                 },
                 {
                     path: RouteConfig.Team.path,
                     name: RouteConfig.Team.name,
-                    component: ProjectMembersArea
+                    component: ProjectMembersArea,
                 },
                 {
                     path: RouteConfig.ApiKeys.path,
                     name: RouteConfig.ApiKeys.name,
-                    component: ApiKeysArea
+                    component: ApiKeysArea,
                 },
                 {
                     path: RouteConfig.Buckets.path,
                     name: RouteConfig.Buckets.name,
-                    component: BucketArea
+                    component: BucketArea,
                 },
-            ]
+            ],
         },
         {
             path: '*',
             name: '404',
-            component: Page404
+            component: Page404,
         },
-    ]
+    ],
 });
 
 router.beforeEach((to, from, next) => {

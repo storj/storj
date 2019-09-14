@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -38,7 +39,9 @@ type Uplink struct {
 	Identity         *identity.FullIdentity
 	Transport        transport.Client
 	StorageNodeCount int
-	APIKey           map[storj.NodeID]string
+
+	APIKey    map[storj.NodeID]string
+	ProjectID map[storj.NodeID]uuid.UUID
 }
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite
@@ -73,6 +76,8 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		Log:              planet.log.Named(name),
 		Identity:         identity,
 		StorageNodeCount: storageNodeCount,
+		APIKey:           map[storj.NodeID]string{},
+		ProjectID:        map[storj.NodeID]uuid.UUID{},
 	}
 
 	uplink.Log.Debug("id=" + identity.ID.String())
@@ -87,7 +92,6 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		},
 	}
 
-	apiKeys := make(map[storj.NodeID]string)
 	for j, satellite := range planet.Satellites {
 		// TODO: find a nicer way to do this
 		// populate satellites console with example
@@ -123,10 +127,10 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 			return nil, err
 		}
 
-		apiKeys[satellite.ID()] = key.Serialize()
+		uplink.APIKey[satellite.ID()] = key.Serialize()
+		uplink.ProjectID[satellite.ID()] = project.ID
 	}
 
-	uplink.APIKey = apiKeys
 	planet.uplinks = append(planet.uplinks, uplink)
 
 	return uplink, nil

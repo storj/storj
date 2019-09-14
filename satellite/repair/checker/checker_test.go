@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/teststorj"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -26,15 +26,18 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Loop.Stop()
 
+		projectID := testrand.UUID()
+		pointerPathPrefix := storj.JoinPaths(projectID.String(), "l", "bucket") + "/"
+
 		//add noise to metainfo before bad record
 		for x := 0; x < 10; x++ {
-			makePointer(t, planet, fmt.Sprintf("a-%d", x), false)
+			makePointer(t, planet, pointerPathPrefix+fmt.Sprintf("a-%d", x), false)
 		}
 		//create piece that needs repair
-		makePointer(t, planet, fmt.Sprintf("b"), true)
+		makePointer(t, planet, pointerPathPrefix+"b", true)
 		//add more noise to metainfo after bad record
 		for x := 0; x < 10; x++ {
-			makePointer(t, planet, fmt.Sprintf("c-%d", x), false)
+			makePointer(t, planet, pointerPathPrefix+fmt.Sprintf("c-%d", x), false)
 		}
 		err := checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
@@ -47,13 +50,13 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		require.NoError(t, err)
 
 		numValidNode := int32(len(planet.StorageNodes))
-		require.Equal(t, []byte("b"), injuredSegment.Path)
+		require.Equal(t, []byte(pointerPathPrefix+"b"), injuredSegment.Path)
 		require.Equal(t, len(planet.StorageNodes), len(injuredSegment.LostPieces))
 		for _, lostPiece := range injuredSegment.LostPieces {
 			// makePointer() starts with numValidNode good pieces
-			require.True(t, lostPiece >= numValidNode, fmt.Sprintf("%d >= %d \n", lostPiece, numValidNode))
+			require.True(t, lostPiece >= numValidNode, pointerPathPrefix+fmt.Sprintf("%d >= %d \n", lostPiece, numValidNode))
 			// makePointer() than has numValidNode bad pieces
-			require.True(t, lostPiece < numValidNode*2, fmt.Sprintf("%d < %d \n", lostPiece, numValidNode*2))
+			require.True(t, lostPiece < numValidNode*2, pointerPathPrefix+fmt.Sprintf("%d < %d \n", lostPiece, numValidNode*2))
 		}
 	})
 }
@@ -86,6 +89,10 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			expectedLostPieces[int32(i)] = true
 		}
 
+		projectID := testrand.UUID()
+		pointerPath := storj.JoinPaths(projectID.String(), "l", "bucket", "piece")
+		pieceID := testrand.PieceID()
+
 		// when number of healthy piece is less than minimum required number of piece in redundancy,
 		// the piece is considered irreparable and will be put into irreparable DB
 		pointer := &pb.Pointer{
@@ -97,14 +104,14 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 					SuccessThreshold: int32(9),
 					Total:            int32(10),
 				},
-				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
+				RootPieceId:  pieceID,
 				RemotePieces: pieces,
 			},
 		}
 
 		// put test pointer to db
 		metainfo := planet.Satellites[0].Metainfo.Service
-		err := metainfo.Put(ctx, "fake-piece-id", pointer)
+		err := metainfo.Put(ctx, pointerPath, pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -117,7 +124,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		//check if the expected segments were added to the irreparable DB
 		irreparable := planet.Satellites[0].DB.Irreparable()
-		remoteSegmentInfo, err := irreparable.Get(ctx, []byte("fake-piece-id"))
+		remoteSegmentInfo, err := irreparable.Get(ctx, []byte(pointerPath))
 		require.NoError(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
@@ -129,7 +136,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		remoteSegmentInfo, err = irreparable.Get(ctx, []byte("fake-piece-id"))
+		remoteSegmentInfo, err = irreparable.Get(ctx, []byte(pointerPath))
 		require.NoError(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
@@ -147,25 +154,25 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 					SuccessThreshold: int32(9),
 					Total:            int32(10),
 				},
-				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
+				RootPieceId:  pieceID,
 				RemotePieces: pieces,
 			},
 		}
 		// update test pointer in db
-		err = metainfo.Delete(ctx, "fake-piece-id")
+		err = metainfo.Delete(ctx, pointerPath)
 		require.NoError(t, err)
-		err = metainfo.Put(ctx, "fake-piece-id", pointer)
+		err = metainfo.Put(ctx, pointerPath, pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		_, err = irreparable.Get(ctx, []byte("fake-piece-id"))
+		_, err = irreparable.Get(ctx, []byte(pointerPath))
 		require.Error(t, err)
 	})
 }
 
-func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, createLost bool) {
+func makePointer(t *testing.T, planet *testplanet.Planet, pointerPath string, createLost bool) {
 	ctx := context.TODO()
 	numOfStorageNodes := len(planet.StorageNodes)
 	pieces := make([]*pb.RemotePiece, 0, numOfStorageNodes)
@@ -198,12 +205,12 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 				SuccessThreshold: int32(repairThreshold) + 1,
 				Total:            int32(repairThreshold) + 2,
 			},
-			RootPieceId:  teststorj.PieceIDFromString(pieceID),
+			RootPieceId:  testrand.PieceID(),
 			RemotePieces: pieces,
 		},
 	}
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(ctx, pieceID, pointer)
+	err := pointerdb.Put(ctx, pointerPath, pointer)
 	require.NoError(t, err)
 }

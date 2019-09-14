@@ -14,8 +14,8 @@ import (
 //
 // architecture: Database
 type APIKeys interface {
-	// GetByProjectID retrieves list of APIKeys for given projectID
-	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]APIKeyInfo, error)
+	// GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor
+	GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (akp *APIKeyPage, err error)
 	// Get retrieves APIKeyInfo with given ID
 	Get(ctx context.Context, id uuid.UUID) (*APIKeyInfo, error)
 	// GetByHead retrieves APIKeyInfo for given key head
@@ -37,3 +37,37 @@ type APIKeyInfo struct {
 	Secret    []byte    `json:"-"`
 	CreatedAt time.Time `json:"createdAt"`
 }
+
+// APIKeyCursor holds info for api keys cursor pagination
+type APIKeyCursor struct {
+	Search         string
+	Limit          uint
+	Page           uint
+	Order          APIKeyOrder
+	OrderDirection OrderDirection
+}
+
+// APIKeyPage represent api key page result
+type APIKeyPage struct {
+	APIKeys []APIKeyInfo
+
+	Search         string
+	Limit          uint
+	Order          APIKeyOrder
+	OrderDirection OrderDirection
+	Offset         uint64
+
+	PageCount   uint
+	CurrentPage uint
+	TotalCount  uint64
+}
+
+// APIKeyOrder is used for querying api keys in specified order
+type APIKeyOrder uint8
+
+const (
+	// KeyName indicates that we should order by key name
+	KeyName APIKeyOrder = 1
+	// CreationDate indicates that we should order by creation date
+	CreationDate APIKeyOrder = 2
+)
