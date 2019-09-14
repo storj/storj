@@ -19,6 +19,23 @@ import (
 	"storj.io/storj/internal/version"
 )
 
+const (
+	// AnySource is a source annotation for config values that can come from
+	// a flag or file.
+	AnySource = "any"
+
+	// FlagSource is a source annotation for config values that just come from
+	// flags (i.e. are never persisted to file)
+	FlagSource = "flag"
+)
+
+var (
+	allSources = []string{
+		AnySource,
+		FlagSource,
+	}
+)
+
 // BindOpt is an option for the Bind method
 type BindOpt struct {
 	isDev   *bool
@@ -178,6 +195,9 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				markHidden = true
 				setBoolAnnotation(flags, flagname, "deprecated")
 			}
+			if source := field.Tag.Get("source"); source != "" {
+				setSourceAnnotation(flags, flagname, source)
+			}
 			if markHidden {
 				err := flags.MarkHidden(flagname)
 				if err != nil {
@@ -267,6 +287,9 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				markHidden = true
 				setBoolAnnotation(flags, flagname, "deprecated")
 			}
+			if source := field.Tag.Get("source"); source != "" {
+				setSourceAnnotation(flags, flagname, source)
+			}
 			if markHidden {
 				err := flags.MarkHidden(flagname)
 				if err != nil {
@@ -291,6 +314,29 @@ func getDefault(tag reflect.StructTag, preferred, opposite, fallback, flagname s
 		panic(fmt.Sprintf("%q missing but %q defined for %v", preferred, opposite, flagname))
 	}
 	return tag.Get(fallback)
+}
+
+func setSourceAnnotation(flagset interface{}, name, source string) {
+	switch source {
+	case AnySource:
+	case FlagSource:
+	default:
+		panic(fmt.Sprintf("invalid source annotation %q for %s: must be one of %q", source, name, allSources))
+	}
+
+	setStringAnnotation(flagset, name, "source", source)
+}
+
+func setStringAnnotation(flagset interface{}, name, key, value string) {
+	flags, ok := flagset.(*pflag.FlagSet)
+	if !ok {
+		return
+	}
+
+	err := flags.SetAnnotation(name, key, []string{value})
+	if err != nil {
+		panic(fmt.Sprintf("unable to set %s annotation for %s: %v", key, name, err))
+	}
 }
 
 func setBoolAnnotation(flagset interface{}, name, key string) {
@@ -371,6 +417,7 @@ func DefaultsFlag(cmd *cobra.Command) BindOpt {
 	// arguments early instead
 	_ = cmd.PersistentFlags().String("defaults", defaults,
 		"determines which set of configuration defaults to use. can either be 'dev' or 'release'")
+	setSourceAnnotation(cmd.PersistentFlags(), "defaults", FlagSource)
 
 	switch defaults {
 	case "dev":
