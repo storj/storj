@@ -157,12 +157,17 @@
       "def": {
         "messages": [
           {
-            "name": "CheckinRequest",
+            "name": "CheckInRequest",
             "fields": [
               {
                 "id": 1,
                 "name": "address",
-                "type": "node.NodeAddress"
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "version",
+                "type": "string"
               },
               {
                 "id": 3,
@@ -177,7 +182,7 @@
             ]
           },
           {
-            "name": "CheckinResponse",
+            "name": "CheckInResponse",
             "fields": [
               {
                 "id": 1,
@@ -213,9 +218,9 @@
             "name": "Node",
             "rpcs": [
               {
-                "name": "Checkin",
-                "in_type": "CheckinRequest",
-                "out_type": "CheckinResponse"
+                "name": "CheckIn",
+                "in_type": "CheckInRequest",
+                "out_type": "CheckInResponse"
               }
             ]
           }
