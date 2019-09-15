@@ -7,15 +7,12 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/mattn/go-sqlite3" // used indirectly
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -105,8 +102,8 @@ type DB struct {
 	sqliteDriverInstanceKey string
 	registeredSQLite3Hook   bool
 	conlock                 sync.Mutex
-	sqliteConnections       map[string]*sqlite3.SQLiteConn
-	sqlDatabases            map[string]*sql.DB
+	// sqliteConnections       map[string]*sqlite3.SQLiteConn
+	sqlDatabases map[string]*sql.DB
 }
 
 // New creates a new master database for storage node
@@ -129,27 +126,28 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		ndb:    dbs[1],
 		adb:    dbs[2],
 
-		conlock:           sync.Mutex{},
-		sqliteConnections: make(map[string]*sqlite3.SQLiteConn),
-		sqlDatabases:      make(map[string]*sql.DB),
+		conlock: sync.Mutex{},
+		// sqliteConnections: make(map[string]*sqlite3.SQLiteConn),
+		sqlDatabases: make(map[string]*sql.DB),
 	}
 
 	// The sqlite driver is needed in order to perform backups. We use a connect hook to intercept it.
-	db.sqliteDriverInstanceKey = sqliteutil.Sqlite3DriverName + strconv.FormatInt(rand.Int63(), 10)
-	db.conlock.Lock()
-	if db.registeredSQLite3Hook == false {
-		sql.Register(db.sqliteDriverInstanceKey, &sqlite3.SQLiteDriver{
-			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				filename := strings.ToLower(filepath.Base(conn.GetFilename("")))
-				db.conlock.Lock()
-				db.sqliteConnections[filename] = conn
-				db.conlock.Unlock()
-				return nil
-			},
-		})
-		db.registeredSQLite3Hook = true
-	}
-	db.conlock.Unlock()
+	// db.sqliteDriverInstanceKey = sqliteutil.Sqlite3DriverName + strconv.FormatInt(rand.Int63(), 10)
+	// db.conlock.Lock()
+	// if db.registeredSQLite3Hook == false {
+	// 	sql.Register(db.sqliteDriverInstanceKey, &sqlite3.SQLiteDriver{
+	// 		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+	// 			filename := strings.ToLower(filepath.Base(conn.GetFilename("")))
+	// 			db.conlock.Lock()
+	// 			db.sqliteConnections[filename] = conn
+	// 			db.conlock.Unlock()
+	// 			return nil
+	// 		},
+	// 	})
+	// 	db.registeredSQLite3Hook = true
+	// }
+	// db.conlock.Unlock()
+	db.sqliteDriverInstanceKey = "sqlite3"
 
 	databasesPath := filepath.Dir(config.Info2)
 	err = db.openDatabases(databasesPath)
@@ -265,7 +263,6 @@ func (db *DB) openDatabase(sqliteDriverInstanceKey string, path string) (*sql.DB
 	if err != nil {
 		return nil, ErrDatabase.Wrap(err)
 	}
-
 	filename := strings.ToLower(filepath.Base(path))
 	db.sqlDatabases[filename] = sqlDB
 
@@ -315,10 +312,6 @@ func (db *DB) closeDatabase(filename string) (err error) {
 	if conn, ok := db.sqlDatabases[filename]; ok {
 		err = errs.Combine(err, conn.Close())
 		delete(db.sqlDatabases, filename)
-	}
-	if conn, ok := db.sqliteConnections[filename]; ok {
-		err = errs.Combine(err, conn.Close())
-		delete(db.sqliteConnections, filename)
 	}
 	if err == nil {
 		db.log.Sugar().Debugf("closed database %s", filename)
@@ -797,108 +790,53 @@ func (db *DB) Migration() *migrate.Migration {
 				Description: "Split into multiple sqlite databases",
 				Version:     21,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
-					// We keep database version information in the info.db but we migrate
-					// the other tables into their own individual SQLite3 databases
-					// and we drop them from the info.db.
 					ctx := context.TODO()
 
-					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, BandwidthDatabaseFilename, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
+					// Migrate all the tables to new database files.
+					m := sqliteutil.NewMigrator(db.sqlDatabases)
+					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, BandwidthDatabaseFilename, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.closeDatabase(BandwidthDatabaseFilename); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, OrdersDatabaseFilename, "unsent_order", "order_archive_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-
-					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, OrdersDatabaseFilename, "unsent_order", "order_archive_"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, PieceExpirationDatabaseFilename, "piece_expirations"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.closeDatabase(OrdersDatabaseFilename); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, V0PieceInfoDatabaseFilename, "pieceinfo_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-
-					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, PieceExpirationDatabaseFilename, "piece_expirations"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, PieceSpacedUsedDatabaseFilename, "piece_space_used"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.closeDatabase(PieceExpirationDatabaseFilename); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, ReputationDatabaseFilename, "reputation"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-
-					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, V0PieceInfoDatabaseFilename, "pieceinfo_"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, StorageUsageDatabaseFilename, "storage_usage"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.closeDatabase(V0PieceInfoDatabaseFilename); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, PieceSpacedUsedDatabaseFilename, "piece_space_used"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := db.closeDatabase(PieceSpacedUsedDatabaseFilename); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, UsedSerialsDatabaseFilename, "used_serial_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
-					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, ReputationDatabaseFilename, "reputation"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := db.closeDatabase(ReputationDatabaseFilename); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, StorageUsageDatabaseFilename, "storage_usage"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := db.closeDatabase(StorageUsageDatabaseFilename); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					if err := sqliteutil.MigrateToDatabase(ctx, db.sqliteConnections, db.sqliteDriverInstanceKey, VersionsDatabaseFilename, UsedSerialsDatabaseFilename, "used_serial_"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := db.closeDatabase(UsedSerialsDatabaseFilename); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					// Create a list of tables we have migrated to new databases
-					// that we can delete from the original database.
-					tablesToDrop := []string{
-						"bandwidth_usage",
-						"bandwidth_usage_rollups",
-						"certificate",
-						"unsent_order",
-						"order_archive_",
-						"piece_expirations",
-						"pieceinfo_",
-						"piece_space_used",
-						"reputation",
-						"storage_usage",
-						"used_serial_",
-					}
-
-					// Delete tables we have migrated from the original database.
-					for _, tableName := range tablesToDrop {
-						_, err := db.versionsDB.Exec("DROP TABLE "+tableName+";", nil)
+					// Clean up the legacy database.
+					if infoDB, found := db.sqlDatabases[VersionsDatabaseFilename]; found {
+						err := m.KeepTables(ctx, infoDB, "versions")
 						if err != nil {
-							return ErrDatabase.Wrap(err)
+							ErrDatabase.Wrap(err)
 						}
 					}
 
-					// VACUUM the versions database to reclaim the space used by the migrated dropped tables.
-					db.log.Named("migration").Sugar().Debugf("vacuum %s", VersionsDatabaseFilename)
-					_, err := db.versionsDB.Exec("VACUUM;")
-					if err != nil {
-						return ErrDatabase.Wrap(err)
-					}
+					// Close all the existing database connections
+					// to allow VACUUM to free disk space.
+					db.closeDatabases()
 
-					// Close the original database.
+					// Re-open all the database connections.
 					versionsDBLocation := db.versionsDB.location
-					db.closeDatabase(VersionsDatabaseFilename)
-
-					// Re-open all the SQLite3 connections after executing the migration, VACUUM and close to reclaim space.
-					err = db.openDatabases(filepath.Dir(versionsDBLocation))
+					err := db.openDatabases(filepath.Dir(versionsDBLocation))
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-
 					return nil
 				}),
 			},
