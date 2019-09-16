@@ -85,7 +85,7 @@ export default class ApiKeysCreationPopup extends Vue {
         this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
         this.key = createdApiKey.secret;
         this.isLoading = false;
-        
+
         try {
             this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {

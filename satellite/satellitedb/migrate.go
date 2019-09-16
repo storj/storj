@@ -1206,6 +1206,35 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ALTER COLUMN normalized_email SET NOT NULL;`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add Graceful Exit tables and update nodes table",
+				Version:     56,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN exit_loop_completed_at timestamp with time zone;`,
+					`ALTER TABLE nodes ADD COLUMN exit_initiated_at timestamp with time zone;`,
+					`ALTER TABLE nodes ADD COLUMN exit_finished_at timestamp with time zone;`,
+					`CREATE TABLE graceful_exit_progress (
+						node_id bytea NOT NULL,
+						bytes_transferred bigint NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+					`CREATE TABLE graceful_exit_transfer_queue (
+						node_id bytea NOT NULL,
+						path bytea NOT NULL,
+						piece_num integer NOT NULL,
+						durability_ratio double precision NOT NULL,
+						queued_at timestamp with time zone NOT NULL,
+						requested_at timestamp with time zone,
+						last_failed_at timestamp with time zone,
+						last_failed_code integer,
+						failed_count integer,
+						finished_at timestamp with time zone,
+						PRIMARY KEY ( node_id, path )
+					);`,
+				},
+			},
 		},
 	}
 }

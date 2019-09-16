@@ -66,7 +66,7 @@ import {
         HeaderedInput,
         Checkbox,
         Button,
-    }
+    },
 })
 export default class NewProjectPopup extends Vue {
     private projectName: string = '';

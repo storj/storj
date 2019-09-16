@@ -149,7 +149,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 					}
 					if bucketTally == nil {
 						bucketTally = &accounting.BucketTally{}
-						bucketTally.ProjectID = projectID[:]
+						bucketTally.ProjectID = *projectID
 						bucketTally.BucketName = []byte(bucketName)
 
 						bucketTallies[bucketID] = bucketTally

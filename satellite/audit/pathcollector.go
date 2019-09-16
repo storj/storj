@@ -43,8 +43,8 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo
 	return nil
 }
 
-// RemoteObject returns nil because the audit service does not interact with remote objects
-func (collector *PathCollector) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+// Object returns nil because the audit service does not interact with objects
+func (collector *PathCollector) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }
 

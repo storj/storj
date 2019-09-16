@@ -178,7 +178,7 @@ describe('actions', async () => {
                 6,
                 1,
                 1,
-                1))
+                1)),
         );
 
         await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
@@ -239,7 +239,7 @@ describe('actions', async () => {
                 6,
                 1,
                 1,
-                2))
+                2)),
         );
 
         await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);

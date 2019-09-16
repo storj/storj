@@ -22,7 +22,7 @@ describe('SortingHeader.vue', () => {
         const wrapper = mount(SortingHeader, {
             propsData: {
                 onHeaderClickCallback: onPressSpy,
-            }
+            },
         });
         wrapper.find('.sort-header-container__name-item').trigger('click');
         expect(onPressSpy.callCount).toBe(1);
@@ -34,7 +34,7 @@ describe('SortingHeader.vue', () => {
         const wrapper = mount(SortingHeader, {
             propsData: {
                 onHeaderClickCallback: onPressSpy,
-            }
+            },
         });
 
         expect(wrapper.vm.sortBy).toBe(ApiKeyOrderBy.NAME);
@@ -53,7 +53,7 @@ describe('SortingHeader.vue', () => {
         const wrapper = mount(SortingHeader, {
             propsData: {
                 onHeaderClickCallback: onPressSpy,
-            }
+            },
         });
 
         expect(wrapper.vm.sortBy).toBe(ApiKeyOrderBy.NAME);
