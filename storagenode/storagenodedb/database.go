@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -18,6 +17,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
@@ -98,10 +98,6 @@ type DB struct {
 
 	kdb, ndb, adb storage.KeyValueStore
 
-	sqliteDriverInstanceKey string
-	registeredSQLite3Hook   bool
-	conlock                 sync.Mutex
-	// sqliteConnections       map[string]*sqlite3.SQLiteConn
 	sqlDatabases map[string]*sql.DB
 }
 
@@ -125,28 +121,8 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		ndb:    dbs[1],
 		adb:    dbs[2],
 
-		conlock: sync.Mutex{},
-		// sqliteConnections: make(map[string]*sqlite3.SQLiteConn),
 		sqlDatabases: make(map[string]*sql.DB),
 	}
-
-	// The sqlite driver is needed in order to perform backups. We use a connect hook to intercept it.
-	// db.sqliteDriverInstanceKey = sqliteutil.Sqlite3DriverName + strconv.FormatInt(rand.Int63(), 10)
-	// db.conlock.Lock()
-	// if db.registeredSQLite3Hook == false {
-	// 	sql.Register(db.sqliteDriverInstanceKey, &sqlite3.SQLiteDriver{
-	// 		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-	// 			filename := strings.ToLower(filepath.Base(conn.GetFilename("")))
-	// 			db.conlock.Lock()
-	// 			db.sqliteConnections[filename] = conn
-	// 			db.conlock.Unlock()
-	// 			return nil
-	// 		},
-	// 	})
-	// 	db.registeredSQLite3Hook = true
-	// }
-	// db.conlock.Unlock()
-	db.sqliteDriverInstanceKey = "sqlite3"
 
 	databasesPath := filepath.Dir(config.Info2)
 	err = db.openDatabases(databasesPath)
@@ -160,8 +136,9 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 func (db *DB) openDatabases(databasesPath string) error {
 	// We open the versions database first because this one has the DB schema versioning info
 	// we need before anything else.
-	versionsDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, VersionsDatabaseFilename))
+	versionsDB, err := db.openDatabase(filepath.Join(databasesPath, VersionsDatabaseFilename))
 	if err != nil {
+		db.closeDatabases()
 		return err
 	}
 	if db.versionsDB == nil {
@@ -170,8 +147,9 @@ func (db *DB) openDatabases(databasesPath string) error {
 		db.versionsDB.SQLDB = versionsDB
 	}
 
-	bandwidthDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, BandwidthDatabaseFilename))
+	bandwidthDB, err := db.openDatabase(filepath.Join(databasesPath, BandwidthDatabaseFilename))
 	if err != nil {
+		db.closeDatabases()
 		return err
 	}
 	if db.bandwidthDB == nil {
@@ -180,8 +158,9 @@ func (db *DB) openDatabases(databasesPath string) error {
 		db.bandwidthDB.SQLDB = bandwidthDB
 	}
 
-	ordersDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, OrdersDatabaseFilename))
+	ordersDB, err := db.openDatabase(filepath.Join(databasesPath, OrdersDatabaseFilename))
 	if err != nil {
+		db.closeDatabases()
 		return err
 	}
 	if db.ordersDB == nil {
@@ -190,8 +169,9 @@ func (db *DB) openDatabases(databasesPath string) error {
 		db.ordersDB.SQLDB = ordersDB
 	}
 
-	pieceExpirationDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, PieceExpirationDatabaseFilename))
+	pieceExpirationDB, err := db.openDatabase(filepath.Join(databasesPath, PieceExpirationDatabaseFilename))
 	if err != nil {
+		db.closeDatabases()
 		return err
 	}
 	if db.pieceExpirationDB == nil {
@@ -200,8 +180,9 @@ func (db *DB) openDatabases(databasesPath string) error {
 		db.pieceExpirationDB.SQLDB = pieceExpirationDB
 	}
 
-	v0PieceInfoDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, V0PieceInfoDatabaseFilename))
+	v0PieceInfoDB, err := db.openDatabase(filepath.Join(databasesPath, V0PieceInfoDatabaseFilename))
 	if err != nil {
+		db.closeDatabases()
 		return err
 	}
 	if db.v0PieceInfoDB == nil {
@@ -210,8 +191,9 @@ func (db *DB) openDatabases(databasesPath string) error {
 		db.v0PieceInfoDB.SQLDB = v0PieceInfoDB
 	}
 
-	pieceSpaceUsedDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, PieceSpacedUsedDatabaseFilename))
+	pieceSpaceUsedDB, err := db.openDatabase(filepath.Join(databasesPath, PieceSpacedUsedDatabaseFilename))
 	if err != nil {
+		db.closeDatabases()
 		return err
 	}
 	if db.pieceSpaceUsedDB == nil {
@@ -220,8 +202,9 @@ func (db *DB) openDatabases(databasesPath string) error {
 		db.pieceSpaceUsedDB.SQLDB = pieceSpaceUsedDB
 	}
 
-	reputationDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, ReputationDatabaseFilename))
+	reputationDB, err := db.openDatabase(filepath.Join(databasesPath, ReputationDatabaseFilename))
 	if err != nil {
+		db.closeDatabases()
 		return err
 	}
 	if db.reputationDB == nil {
@@ -230,8 +213,9 @@ func (db *DB) openDatabases(databasesPath string) error {
 		db.reputationDB.SQLDB = reputationDB
 	}
 
-	storageUsageDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, StorageUsageDatabaseFilename))
+	storageUsageDB, err := db.openDatabase(filepath.Join(databasesPath, StorageUsageDatabaseFilename))
 	if err != nil {
+		db.closeDatabases()
 		return err
 	}
 	if db.storageUsageDB == nil {
@@ -240,8 +224,9 @@ func (db *DB) openDatabases(databasesPath string) error {
 		db.storageUsageDB.SQLDB = storageUsageDB
 	}
 
-	usedSerialsDB, err := db.openDatabase(db.sqliteDriverInstanceKey, filepath.Join(databasesPath, UsedSerialsDatabaseFilename))
+	usedSerialsDB, err := db.openDatabase(filepath.Join(databasesPath, UsedSerialsDatabaseFilename))
 	if err != nil {
+		db.closeDatabases()
 		return err
 	}
 	if db.usedSerialsDB == nil {
@@ -253,12 +238,12 @@ func (db *DB) openDatabases(databasesPath string) error {
 }
 
 // openDatabase opens or creates a database at the specified path.
-func (db *DB) openDatabase(sqliteDriverInstanceKey string, path string) (*sql.DB, error) {
+func (db *DB) openDatabase(path string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
 
-	sqlDB, err := sql.Open(sqliteDriverInstanceKey, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	sqlDB, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, ErrDatabase.Wrap(err)
 	}
@@ -266,9 +251,6 @@ func (db *DB) openDatabase(sqliteDriverInstanceKey string, path string) (*sql.DB
 	db.sqlDatabases[filename] = sqlDB
 
 	dbutil.Configure(sqlDB, mon)
-	// TODO: This shouldn't be needed. When a database is first opened it hasn't been created on disk yet.
-	// This flushes the newly initialized database to disk.
-	sqlDB.Ping()
 
 	db.log.Sugar().Debugf("opened database %s", filename)
 	return sqlDB, nil

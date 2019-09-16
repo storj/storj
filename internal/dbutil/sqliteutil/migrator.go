@@ -54,12 +54,6 @@ func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcFilename stri
 	}
 	m.dbs[destFilename] = destDB
 
-	// Required to start the sqlite3 backup process.
-	err = destDB.Ping()
-	if err != nil {
-		return ErrSqlite3Migrator.Wrap(err)
-	}
-
 	// Now we retrieve the raw Sqlite3 driver connections for the src and dest
 	// so that we can execute the backup API for a corruption safe clone.
 	srcConn, err := srcDB.Conn(ctx)
