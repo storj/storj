@@ -115,7 +115,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				cond.L.Lock()
 				inProgress--
 				if err != nil {
-					// gather nodes that failed to match piece hash with the original piece hash
+					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
 					if ErrPieceHashVerifyFailed.Has(err) {
 						failedPieces = append(failedPieces, &pb.RemotePiece{
 							PieceNum: int32(currentLimitIndex),
