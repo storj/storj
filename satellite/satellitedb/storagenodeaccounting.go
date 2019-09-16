@@ -32,14 +32,17 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 			nID := dbx.StoragenodeStorageTally_NodeId(k.Bytes())
 			end := dbx.StoragenodeStorageTally_IntervalEndTime(latestTally)
 			total := dbx.StoragenodeStorageTally_DataTotal(v)
-			_, err := tx.Create_StoragenodeStorageTally(ctx, nID, end, total)
+			err := tx.CreateNoReturn_StoragenodeStorageTally(ctx, nID, end, total)
 			if err != nil {
 				return err
 			}
 		}
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
-		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
-		return err
+		return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
+			dbx.AccountingTimestamps_Name(accounting.LastAtRestTally),
+			dbx.AccountingTimestamps_Update_Fields{
+				Value: dbx.AccountingTimestamps_Value(latestTally),
+			},
+		)
 	})
 	return Error.Wrap(err)
 }
@@ -121,15 +124,20 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				getRepair := dbx.AccountingRollup_GetRepairTotal(ar.GetRepairTotal)
 				putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
 				atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
-				_, err := tx.Create_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
+
+				err := tx.CreateNoReturn_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
 				if err != nil {
 					return err
 				}
 			}
 		}
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}
-		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
-		return err
+
+		return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
+			dbx.AccountingTimestamps_Name(accounting.LastRollup),
+			dbx.AccountingTimestamps_Update_Fields{
+				Value: dbx.AccountingTimestamps_Value(latestRollup),
+			},
+		)
 	})
 	return Error.Wrap(err)
 }
@@ -141,9 +149,10 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 		if lt == nil {
-			update := dbx.AccountingTimestamps_Value(lastTally)
-			_, err = tx.Create_AccountingTimestamps(ctx, dbx.AccountingTimestamps_Name(timestampType), update)
-			return err
+			return tx.CreateNoReturn_AccountingTimestamps(ctx,
+				dbx.AccountingTimestamps_Name(timestampType),
+				dbx.AccountingTimestamps_Value(lastTally),
+			)
 		}
 		lastTally = lt.Value
 		return err

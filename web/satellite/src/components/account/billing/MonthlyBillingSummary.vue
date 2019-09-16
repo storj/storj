@@ -16,7 +16,6 @@
                     height="48px"/>
             </div>
         </div>
-        <div class="divider"></div>
         <div class="current-month-area__content">
             <h2 class="current-month-area__content__title">DETAILED SUMMARY</h2>
             <div class="current-month-area__content__usage-charges" @click="toggleUsageChargesPopup">
@@ -78,8 +77,8 @@ import Button from '@/components/common/Button.vue';
 
 @Component({
     components: {
-        Button
-    }
+        Button,
+    },
 })
 export default class MonthlyBillingSummary extends Vue {
     private areUsageChargesShown: boolean = false;
@@ -105,7 +104,7 @@ export default class MonthlyBillingSummary extends Vue {
     }
 
     .current-month-area {
-        margin-bottom: 47px;
+        margin-bottom: 32px;
         padding: 40px;
         background-color: #FFFFFF;
         border-radius: 8px;

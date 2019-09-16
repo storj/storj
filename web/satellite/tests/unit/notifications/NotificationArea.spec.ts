@@ -11,8 +11,8 @@ describe('NotificationArea.vue', () => {
     it('renders correctly', () => {
         const wrapper = shallowMount(NotificationArea, {
             computed: {
-                notifications: () => []
-            }
+                notifications: () => [],
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -23,25 +23,25 @@ describe('NotificationArea.vue', () => {
         const notifications = [new DelayedNotification(
             jest.fn(),
             NOTIFICATION_TYPES.SUCCESS,
-            testMessage
+            testMessage,
         ), new DelayedNotification(
             jest.fn(),
             NOTIFICATION_TYPES.ERROR,
-            testMessage
+            testMessage,
         ), new DelayedNotification(
             jest.fn(),
             NOTIFICATION_TYPES.WARNING,
-            testMessage
+            testMessage,
         ), new DelayedNotification(
             jest.fn(),
             NOTIFICATION_TYPES.NOTIFICATION,
-            testMessage
+            testMessage,
         )];
 
         const wrapper = mount(NotificationArea, {
             computed: {
-                notifications: () => notifications
-            }
+                notifications: () => notifications,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();

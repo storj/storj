@@ -157,7 +157,7 @@ func (c *drpcCertificatesClient) Sign(ctx context.Context, in *SigningRequest) (
 }
 
 type DRPCCertificatesServer interface {
-	DRPCSign(context.Context, *SigningRequest) (*SigningResponse, error)
+	Sign(context.Context, *SigningRequest) (*SigningResponse, error)
 }
 
 type DRPCCertificatesDescription struct{}
@@ -170,14 +170,18 @@ func (DRPCCertificatesDescription) Method(n int) (string, drpc.Handler, interfac
 		return "/node.Certificates/Sign",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCCertificatesServer).
-					DRPCSign(
+					Sign(
 						ctx,
 						in1.(*SigningRequest),
 					)
-			}, DRPCCertificatesServer.DRPCSign, true
+			}, DRPCCertificatesServer.Sign, true
 	default:
 		return "", nil, nil, false
 	}
+}
+
+func DRPCRegisterCertificates(srv drpc.Server, impl DRPCCertificatesServer) {
+	srv.Register(impl, DRPCCertificatesDescription{})
 }
 
 type DRPCCertificates_SignStream interface {

@@ -55,6 +55,25 @@ CREATE TABLE bucket_usages (
 	audit_egress INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE graceful_exit_progress (
+	node_id BLOB NOT NULL,
+	bytes_transferred INTEGER NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( node_id )
+);
+CREATE TABLE graceful_exit_transfer_queue (
+	node_id BLOB NOT NULL,
+	path BLOB NOT NULL,
+	piece_num INTEGER NOT NULL,
+	durability_ratio REAL NOT NULL,
+	queued_at TIMESTAMP NOT NULL,
+	requested_at TIMESTAMP,
+	last_failed_at TIMESTAMP,
+	last_failed_code INTEGER,
+	failed_count INTEGER,
+	finished_at TIMESTAMP,
+	PRIMARY KEY ( node_id, path )
+);
 CREATE TABLE injuredsegments (
 	path BLOB NOT NULL,
 	data BLOB NOT NULL,
@@ -101,6 +120,9 @@ CREATE TABLE nodes (
 	audit_reputation_beta REAL NOT NULL,
 	uptime_reputation_alpha REAL NOT NULL,
 	uptime_reputation_beta REAL NOT NULL,
+	exit_initiated_at TIMESTAMP,
+	exit_loop_completed_at TIMESTAMP,
+	exit_finished_at TIMESTAMP,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (

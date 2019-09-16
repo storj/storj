@@ -81,10 +81,10 @@ type BucketStorageTally struct {
 	ProjectID     uuid.UUID
 	IntervalStart time.Time
 
+	ObjectCount int64
+
 	InlineSegmentCount int64
 	RemoteSegmentCount int64
-
-	ObjectCount int64
 
 	InlineBytes  int64
 	RemoteBytes  int64

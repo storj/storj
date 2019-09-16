@@ -78,7 +78,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 		Contained: dbx.Node_Contained(true),
 	}
 
-	_, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(pendingAudit.NodeID.Bytes()), updateContained)
+	err = tx.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(pendingAudit.NodeID.Bytes()), updateContained)
 	if err != nil {
 		return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 	}
@@ -106,7 +106,7 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (_ boo
 		Contained: dbx.Node_Contained(false),
 	}
 
-	_, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateContained)
+	err = tx.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateContained)
 	if err != nil {
 		return isDeleted, audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 	}
