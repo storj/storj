@@ -19,6 +19,21 @@ Storj V3 Storage Node is already installed." />
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="storageNodeExe" Guid="{7292F032-A37F-4896-8CF7-EF0603251DEA}" Win64='yes'>
         <File Source="storagenode.exe" />
+        <!--
+        <ServiceInstall
+          Id="ServiceInstaller"
+          Type="ownProcess"
+          Name="Storagenode"
+          DisplayName="Storagenode"
+          Description="Storj Storagenode"
+          Start="auto"
+          Account="[SERVICEACCOUNT]"
+          Password="[SERVICEPASSWORD]"
+          ErrorControl="normal"
+          Arguments=" run --config-dir &quot;[INSTALLFOLDER]\&quot;"
+          />
+        <ServiceControl Id="StartService" Start="install" Stop="both" Remove="uninstall" Name="Storagenode" Wait="yes" />
+        -->
       </Component>
     </ComponentGroup>
     <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
@@ -32,7 +47,7 @@ Storj V3 Storage Node is already installed." />
     <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
 
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='commit' Impersonate='no' 
-                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot;"
+                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot; --log.output &quot;[INSTALLFOLDER]\storagenode.log&quot;"
     />
     <InstallExecuteSequence>
       <Custom Action='StoragenodeSetup' Before='InstallFinalize'/>
