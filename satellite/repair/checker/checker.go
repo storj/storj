@@ -298,9 +298,9 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 
 		var segmentAge time.Duration
 		if pointer.CreationDate.Before(pointer.LastRepaired) {
-			segmentAge = time.Since(pointer.CreationDate)
-		} else {
 			segmentAge = time.Since(pointer.LastRepaired)
+		} else {
+			segmentAge = time.Since(pointer.CreationDate)
 		}
 		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds()))
 
