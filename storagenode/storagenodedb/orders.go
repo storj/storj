@@ -25,17 +25,12 @@ const (
 )
 
 type ordersDB struct {
-	SQLDB
+	storageNodeSQLDB
 }
 
 // newOrdersDB returns a new instance of ordersDB.
 func newOrdersDB() *ordersDB {
 	return &ordersDB{}
-}
-
-// Configure sets the underlining SQLDB connection.
-func (db *ordersDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
 }
 
 // Enqueue inserts order to the unsent list

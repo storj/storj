@@ -23,17 +23,12 @@ const (
 
 // reputation works with node reputation DB
 type reputationDB struct {
-	SQLDB
+	storageNodeSQLDB
 }
 
 // newReputationDB returns a new instance of reputationDB.
 func newReputationDB() *reputationDB {
 	return &reputationDB{}
-}
-
-// Configure sets the underlining SQLDB connection.
-func (db *reputationDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
 }
 
 // Store inserts or updates reputation stats into the db.

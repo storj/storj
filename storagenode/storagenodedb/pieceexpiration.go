@@ -22,17 +22,12 @@ const (
 )
 
 type pieceExpirationDB struct {
-	SQLDB
+	storageNodeSQLDB
 }
 
 // newPieceExpirationDB returns a new instance of pieceExpirationDB.
 func newPieceExpirationDB() *pieceExpirationDB {
 	return &pieceExpirationDB{}
-}
-
-// Configure sets the underlining SQLDB connection.
-func (db *pieceExpirationDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
 }
 
 // GetExpired gets piece IDs that expire or have expired before the given time

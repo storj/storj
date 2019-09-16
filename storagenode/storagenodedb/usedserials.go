@@ -22,17 +22,12 @@ const (
 )
 
 type usedSerialsDB struct {
-	SQLDB
+	storageNodeSQLDB
 }
 
 // newUsedSerialsDB returns a new instance of usedSerials initialized with the specified database.
 func newUsedSerialsDB() *usedSerialsDB {
 	return &usedSerialsDB{}
-}
-
-// Configure sets the underlining SQLDB connection.
-func (db *usedSerialsDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
 }
 
 // Add adds a serial to the database.

@@ -21,17 +21,12 @@ const (
 )
 
 type pieceSpaceUsedDB struct {
-	SQLDB
+	storageNodeSQLDB
 }
 
 // newPieceSpaceUsedDB returns a new instance of pieceSpaceUsedDB.
 func newPieceSpaceUsedDB() *pieceSpaceUsedDB {
 	return &pieceSpaceUsedDB{}
-}
-
-// Configure sets the underlining SQLDB connection.
-func (db *pieceSpaceUsedDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
 }
 
 // Init creates the one total record if it doesn't already exist

@@ -27,17 +27,12 @@ const (
 )
 
 type v0PieceInfoDB struct {
-	SQLDB
+	storageNodeSQLDB
 }
 
 // newV0PieceInfoDB returns a new instance of pieceinfo.
 func newV0PieceInfoDB() *v0PieceInfoDB {
 	return &v0PieceInfoDB{}
-}
-
-// Configure sets the underlining SQLDB connection.
-func (db *v0PieceInfoDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
 }
 
 // Add inserts piece information into the database.

@@ -21,17 +21,12 @@ const (
 
 // storageusageDB storage usage DB
 type storageusageDB struct {
-	SQLDB
+	storageNodeSQLDB
 }
 
 // newStorageusageDB returns a new instance of storageusageDB initialized with the specified database.
 func newStorageusageDB() *storageusageDB {
 	return &storageusageDB{}
-}
-
-// Configure sets the underlining SQLDB connection.
-func (db *storageusageDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
 }
 
 // Store stores storage usage stamps to db replacing conflicting entries

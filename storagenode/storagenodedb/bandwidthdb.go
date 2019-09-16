@@ -32,17 +32,12 @@ type bandwidthDB struct {
 	usedMu    sync.RWMutex
 	usedSince time.Time
 
-	SQLDB
+	storageNodeSQLDB
 }
 
 // newBandwidthDB returns a new instance of usedSerials.
 func newBandwidthDB() *bandwidthDB {
 	return &bandwidthDB{}
-}
-
-// Configure sets the underlining SQLDB connection.
-func (db *bandwidthDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
 }
 
 // Add adds bandwidth usage to the table

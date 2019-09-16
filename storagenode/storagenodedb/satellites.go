@@ -17,15 +17,10 @@ const (
 
 // reputation works with node reputation DB
 type satellitesDB struct {
-	SQLDB
+	storageNodeSQLDB
 }
 
 // newSatellitesDB returns a new instance of satellitesDB initialized with the specified database.
 func newSatellitesDB() *satellitesDB {
 	return &satellitesDB{}
-}
-
-// Configure sets the underlining SQLDB connection.
-func (db *satellitesDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
 }
