@@ -23,7 +23,7 @@ func (tc *timeoutConn) Read(b []byte) (n int, err error) {
 	start := time.Now()
 	defer func() {
 		took := time.Now().Unix() - start.Unix()
-		fmt.Println("Read took: ", took)
+		fmt.Println("Read took: ", took, err)
 	}()
 	return tc.conn.Read(b)
 }
