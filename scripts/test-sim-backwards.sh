@@ -47,6 +47,8 @@ PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --p
 # run upload part of backward compatibility tests from the lastest release branch
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
+PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_0_DIR`/config.yaml
 
@@ -58,6 +60,8 @@ ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_1_DIR`/storag
 ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_2_DIR`/storagenode
 ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_3_DIR`/storagenode
 ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_4_DIR`/storagenode
+
+PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 
 # run download part of backward compatibility tests from the current branch, using new uplink
 PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download

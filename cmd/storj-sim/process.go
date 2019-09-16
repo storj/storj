@@ -42,6 +42,7 @@ func NewProcesses(dir string) *Processes {
 // Exec executes a command on all processes
 func (processes *Processes) Exec(ctx context.Context, command string) error {
 	var group errgroup.Group
+	fmt.Println("LATEST STORJ-SIM RUNNING")
 	processes.Start(ctx, &group, command)
 	return group.Wait()
 }
