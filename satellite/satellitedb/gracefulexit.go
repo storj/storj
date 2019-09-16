@@ -79,7 +79,7 @@ func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) 
 	return progress, err
 }
 
-// GetAllProgress gets aall graceful exit progress entries in the database
+// GetAllProgress gets all graceful exit progress entries in the database
 func (db *gracefulexitDB) GetAllProgress(ctx context.Context) (_ []*gracefulexit.Progress, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxProgressRows, err := db.db.All_GracefulExitProgress(ctx)
@@ -112,13 +112,13 @@ func (db *gracefulexitDB) CreateTransferQueueItem(ctx context.Context, item grac
 		LastFailedCode: dbx.GracefulExitTransferQueue_LastFailedCode_Raw(&item.LastFailedCode),
 		FailedCount:    dbx.GracefulExitTransferQueue_FailedCount_Raw(&item.FailedCount),
 	}
-	if &item.RequestedAt != nil && !item.RequestedAt.IsZero() {
+	if !item.RequestedAt.IsZero() {
 		optional.RequestedAt = dbx.GracefulExitTransferQueue_RequestedAt_Raw(&item.RequestedAt)
 	}
-	if &item.LastFailedAt != nil && !item.LastFailedAt.IsZero() {
+	if !item.LastFailedAt.IsZero() {
 		optional.LastFailedAt = dbx.GracefulExitTransferQueue_LastFailedAt_Raw(&item.LastFailedAt)
 	}
-	if &item.FinishedAt != nil && !item.FinishedAt.IsZero() {
+	if !item.FinishedAt.IsZero() {
 		optional.FinishedAt = dbx.GracefulExitTransferQueue_FinishedAt_Raw(&item.FinishedAt)
 	}
 
@@ -140,13 +140,13 @@ func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item grac
 		FailedCount:     dbx.GracefulExitTransferQueue_FailedCount_Raw(&item.FailedCount),
 	}
 
-	if &item.RequestedAt != nil && !item.RequestedAt.IsZero() {
+	if !item.RequestedAt.IsZero() {
 		update.RequestedAt = dbx.GracefulExitTransferQueue_RequestedAt_Raw(&item.RequestedAt)
 	}
-	if &item.LastFailedAt != nil && !item.LastFailedAt.IsZero() {
+	if !item.LastFailedAt.IsZero() {
 		update.LastFailedAt = dbx.GracefulExitTransferQueue_LastFailedAt_Raw(&item.LastFailedAt)
 	}
-	if &item.FinishedAt != nil && !item.FinishedAt.IsZero() {
+	if !item.FinishedAt.IsZero() {
 		update.FinishedAt = dbx.GracefulExitTransferQueue_FinishedAt_Raw(&item.FinishedAt)
 	}
 
@@ -182,7 +182,7 @@ func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj
 	return transferQueueItem, err
 }
 
-// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets a graceful exit incomplete transfer queue entries in the database ordered by the queued date ascending
+// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets incomplete graceful exit transfer queue entries in the database ordered by the queued date ascending
 func (db *gracefulexitDB) GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxTransferQueueItemRows, err := db.db.Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), limit, offset)

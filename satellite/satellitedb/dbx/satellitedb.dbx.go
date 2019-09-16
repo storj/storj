@@ -18,9 +18,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"math/rand"
-
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -2212,7 +2211,6 @@ func GracefulExitTransferQueue_FinishedAt(v time.Time) GracefulExitTransferQueue
 }
 
 func GracefulExitTransferQueue_FinishedAt_Raw(v *time.Time) GracefulExitTransferQueue_FinishedAt_Field {
-	fmt.Printf("EEEE: ####: %v\n", v)
 	if v == nil {
 		return GracefulExitTransferQueue_FinishedAt_Null()
 	}

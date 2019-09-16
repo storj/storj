@@ -126,7 +126,7 @@ func TestTransferQueueItem(t *testing.T) {
 
 			if i == 2 {
 				item.FinishedAt = time.Now()
-				geDB.UpdateTransferQueueItem(ctx, *item)
+				err = geDB.UpdateTransferQueueItem(ctx, *item)
 				require.NoError(t, err)
 				finished = item
 			}
