@@ -1490,7 +1490,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	return &pb.SegmentCommitResponse{
-		SuccessfulPieces: len(pointer.Remote.RemotePieces),
+		SuccessfulPieces: int32(len(pointer.Remote.RemotePieces)),
 	}, nil
 }
 
