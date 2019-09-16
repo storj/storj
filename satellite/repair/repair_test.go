@@ -256,7 +256,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		require.NoError(t, err)
 		corruptedNodeReputation := node.Reputation
 
-		corruptPieceData(t, ctx, planet, corruptedNode, corruptedPieceID)
+		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
@@ -375,7 +375,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		}
 		require.NotNil(t, corruptedNode)
 
-		corruptPieceData(t, ctx, planet, corruptedNode, corruptedPieceID)
+		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
 		overlay := planet.Satellites[0].Overlay.Service
 		node, err := overlay.Get(ctx, corruptedNodeID)
@@ -801,7 +801,7 @@ func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, 
 }
 
 // corruptPieceData manipulates piece data on a storagde node.
-func corruptPieceData(t *testing.T, ctx context.Context, planet *testplanet.Planet, corruptedNode *storagenode.Peer, corruptedPieceID storj.PieceID) {
+func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *storagenode.Peer, corruptedPieceID storj.PieceID) {
 	t.Helper()
 
 	blobRef := storage.BlobRef{
