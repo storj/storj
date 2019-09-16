@@ -494,7 +494,7 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			// Verify storagenode signature on piecehash
 			peerID := peerIDMap[piece.NodeId]
 			if peerID == nil {
-				endpoint.log.Warn("Peer ID is nil for node", zap.String("nodeID", piece.NodeId.String()))
+				endpoint.log.Warn("Identity chain unknown for node", zap.String("nodeID", piece.NodeId.String()))
 				continue
 			}
 			signee := signing.SigneeFromPeerIdentity(peerID)
