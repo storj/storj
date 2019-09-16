@@ -244,7 +244,8 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))
 	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy))
 
-	mon.IntVal("checker_segment_age").Observe(int64(time.Since(pointer.CreationDate)))
+	segmentAge := time.Since(pointer.CreationDate)
+	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds()))
 
 	redundancy := pointer.Remote.Redundancy
 
@@ -296,12 +297,12 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 		}
 
 		var segmentStart time.Time
-		if pointer.CreationDate.Unix() < pointer.LastRepaired.Unix() {
+		if pointer.CreationDate.Before(pointer.LastRepaired) {
 			segmentStart = pointer.CreationDate
 		} else {
 			segmentStart = pointer.LastRepaired
 		}
-		mon.IntVal("checker_segment_irreparable_time_until_repair").Observe(int64(time.Since(segmentStart)))
+		mon.IntVal("checker_segment_irreparable_time_until_repair").Observe(int64(time.Since(segmentStart).Seconds()))
 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
