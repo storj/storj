@@ -11,12 +11,12 @@ import (
 	"path/filepath"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
@@ -156,60 +156,15 @@ func (db *DB) openDatabases() error {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.legacyInfoDB.Configure(legacyInfoDB)
-
-	bandwidthDB, err := db.openDatabase(BandwidthDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-	db.bandwidthDB.Configure(bandwidthDB)
-
-	ordersDB, err := db.openDatabase(OrdersDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-	db.ordersDB.Configure(ordersDB)
-
-	pieceExpirationDB, err := db.openDatabase(PieceExpirationDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-	db.pieceExpirationDB.Configure(pieceExpirationDB)
-
-	v0PieceInfoDB, err := db.openDatabase(PieceInfoDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-	db.v0PieceInfoDB.Configure(v0PieceInfoDB)
-
-	pieceSpaceUsedDB, err := db.openDatabase(PieceSpaceUsedDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-	db.pieceSpaceUsedDB.Configure(pieceSpaceUsedDB)
-
-	reputationDB, err := db.openDatabase(ReputationDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-	db.reputationDB.Configure(reputationDB)
-
-	storageUsageDB, err := db.openDatabase(StorageUsageDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-	db.storageUsageDB.Configure(storageUsageDB)
-
-	usedSerialsDB, err := db.openDatabase(UsedSerialsDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-	db.usedSerialsDB.Configure(usedSerialsDB)
-
-	satellitesDB, err := db.openDatabase(SatellitesDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-	db.satellitesDB.Configure(satellitesDB)
+	db.bandwidthDB.Configure(legacyInfoDB)
+	db.ordersDB.Configure(legacyInfoDB)
+	db.pieceExpirationDB.Configure(legacyInfoDB)
+	db.v0PieceInfoDB.Configure(legacyInfoDB)
+	db.pieceSpaceUsedDB.Configure(legacyInfoDB)
+	db.reputationDB.Configure(legacyInfoDB)
+	db.storageUsageDB.Configure(legacyInfoDB)
+	db.usedSerialsDB.Configure(legacyInfoDB)
+	db.satellitesDB.Configure(legacyInfoDB)
 	return nil
 }
 
@@ -755,65 +710,6 @@ func (db *DB) Migration() *migrate.Migration {
 						PRIMARY KEY (satellite_id)
 					)`,
 				},
-			},
-			{
-				DB:          db.legacyInfoDB,
-				Description: "Split into multiple sqlite databases",
-				Version:     22,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
-					ctx := context.TODO()
-
-					// Migrate all the tables to new database files.
-					m := sqliteutil.NewMigrator(db.sqlDatabases)
-					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, OrdersDBName, "unsent_order", "order_archive_"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, PieceExpirationDBName, "piece_expirations"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, PieceInfoDBName, "pieceinfo_"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, PieceSpaceUsedDBName, "piece_space_used"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, ReputationDBName, "reputation"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, StorageUsageDBName, "storage_usage"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, UsedSerialsDBName, "used_serial_"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, SatellitesDBName, "satellites", "satellite_exit_progress"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					// Clean up the legacy database.
-					if infoDB, found := db.sqlDatabases[LegacyInfoDBName]; found {
-						err := m.KeepTables(ctx, infoDB, "versions")
-						if err != nil {
-							return ErrDatabase.Wrap(err)
-						}
-					}
-
-					// Close all the existing database connections
-					// to allow VACUUM to free disk space.
-					err := db.closeDatabases()
-					if err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					err = db.openDatabases()
-					if err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-					return nil
-				}),
 			},
 		},
 	}
