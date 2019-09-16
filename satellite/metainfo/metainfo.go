@@ -481,17 +481,9 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 	if pointer.Type == pb.Pointer_REMOTE {
 		remote := pointer.Remote
 
-		nodeIDList := storj.NodeIDList{}
-		for _, piece := range remote.RemotePieces {
-			nodeIDList = append(nodeIDList, piece.NodeId)
-		}
-		peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
+		peerIDMap, err := endpoint.mapNodesFor(ctx, remote.RemotePieces)
 		if err != nil {
-			return Error.Wrap(err)
-		}
-		peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
-		for _, peerID := range peerIDList {
-			peerIDMap[peerID.ID] = peerID
+			return err
 		}
 
 		var remotePieces []*pb.RemotePiece
@@ -556,6 +548,23 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		remote.RemotePieces = remotePieces
 	}
 	return nil
+}
+
+func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePiece) (map[storj.NodeID]*identity.PeerIdentity, error) {
+	nodeIDList := storj.NodeIDList{}
+	for _, piece := range pieces {
+		nodeIDList = append(nodeIDList, piece.NodeId)
+	}
+	peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
+	for _, peerID := range peerIDList {
+		peerIDMap[peerID.ID] = peerID
+	}
+
+	return peerIDMap, nil
 }
 
 // CreatePath will create a Segment path
