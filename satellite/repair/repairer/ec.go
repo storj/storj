@@ -57,7 +57,7 @@ func (ec *ECRepairer) dialPiecestore(ctx context.Context, n *pb.Node) (*piecesto
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
 // If piece hash verification fails, it will return all failed node IDs.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, failedNodes storj.NodeIDList, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, failedPieces []*pb.RemotePiece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -115,9 +115,12 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				cond.L.Lock()
 				inProgress--
 				if err != nil {
-					// gather nodes that failed to match piece hash with the original piece hash
+					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
 					if ErrPieceHashVerifyFailed.Has(err) {
-						failedNodes = append(failedNodes, limit.GetLimit().StorageNodeId)
+						failedPieces = append(failedPieces, &pb.RemotePiece{
+							PieceNum: int32(currentLimitIndex),
+							NodeId:   limit.GetLimit().StorageNodeId,
+						})
 					} else {
 						ec.log.Debug("Failed to download pieces for repair", zap.Error(err))
 					}
@@ -135,12 +138,12 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	limiter.Wait()
 
 	if successfulPieces < es.RequiredCount() {
-		return nil, failedNodes, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
+		return nil, failedPieces, Error.New("couldn't download enough pieces, number of successful downloaded pieces (%d) is less than required number (%d)", successfulPieces, es.RequiredCount())
 	}
 
 	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
 	if err != nil {
-		return nil, failedNodes, Error.Wrap(err)
+		return nil, failedPieces, Error.Wrap(err)
 	}
 
 	esScheme := eestream.NewUnsafeRSScheme(fec, es.ErasureShareSize())
@@ -149,7 +152,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	ctx, cancel := context.WithCancel(ctx)
 	decodeReader := eestream.DecodeReaders(ctx, cancel, ec.log.Named("decode readers"), pieceReaders, esScheme, expectedSize, 0, false)
 
-	return decodeReader, failedNodes, nil
+	return decodeReader, failedPieces, nil
 }
 
 // downloadAndVerifyPiece downloads a piece from a storagenode,
