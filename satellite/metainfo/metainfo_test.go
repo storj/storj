@@ -1048,16 +1048,29 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
 		makeResult := func(num int32) *pb.SegmentPieceUploadResult {
+			nodeID := limits[num].Limit.StorageNodeId
+			hash := &pb.PieceHash{
+				PieceId:   limits[num].Limit.PieceId,
+				PieceSize: 1048832,
+				Timestamp: time.Now(),
+			}
+
+			fullID := fullIDMap[nodeID]
+			require.NotNil(t, fullID)
+			signer := signing.SignerFromFullIdentity(fullID)
+			signedHash, err := signing.SignPieceHash(ctx, signer, hash)
+			require.NoError(t, err)
+
 			return &pb.SegmentPieceUploadResult{
 				PieceNum: num,
-				NodeId:   limits[num].Limit.StorageNodeId,
-				Hash: &pb.PieceHash{
-					PieceId:   limits[num].Limit.PieceId,
-					PieceSize: 1048832,
-					Timestamp: time.Now(),
-					// TODO we still not verifying signature in metainfo
-				},
+				NodeId:   nodeID,
+				Hash:     signedHash,
 			}
 		}
 		err = metainfoClient.CommitSegmentNew(ctx, metainfo.CommitSegmentParams{
