@@ -222,6 +222,7 @@ func (db *DB) openDatabase(dbName string) (*sql.DB, error) {
 	return sqlDB, nil
 }
 
+// FilenameFromDBName returns a constructed filename for the specified database name.
 func (db *DB) FilenameFromDBName(dbName string) string {
 	return dbName + ".db"
 }
@@ -265,7 +266,7 @@ func (db *DB) closeDatabase(dbName string) (err error) {
 	return err
 }
 
-// Versions returns the instance of the versions database.
+// LegacyInfoDB returns the instance of the versions database.
 func (db *DB) LegacyInfoDB() SQLDB {
 	return db.legacyInfoDB
 }
