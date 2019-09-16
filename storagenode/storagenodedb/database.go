@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -147,7 +148,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 
 // openDatabases opens all the SQLite3 storage node databases and returns if any fails to open successfully.
 func (db *DB) openDatabases() error {
-	// These objeccts have a Configure method to allow setting the underlining SQLDB connection
+	// These objects have a Configure method to allow setting the underlining SQLDB connection
 	// that each uses internally to do data access to the SQLite3 databases.
 	// The reason it was done this way was because there's some outside consumers that are
 	// taking a reference to the business object.
@@ -180,10 +181,13 @@ func (db *DB) openDatabase(dbName string) (*sql.DB, error) {
 		return nil, ErrDatabase.Wrap(err)
 	}
 
+	// This isn't safe for concurrent access but we don't currently access this map concurrently.
+	// If we do in the future it needs some protection.
 	db.sqlDatabases[dbName] = sqlDB
+
 	dbutil.Configure(sqlDB, mon)
 
-	db.log.Sugar().Debugf("opened database %s", dbName)
+	db.log.Debug(fmt.Sprintf("opened database %s", dbName))
 	return sqlDB, nil
 }
 
@@ -214,7 +218,7 @@ func (db *DB) closeDatabases() error {
 	var err error
 
 	for k := range db.sqlDatabases {
-		_ = errs.Combine(err, db.closeDatabase(k))
+		err = errs.Combine(err, db.closeDatabase(k))
 	}
 	return err
 }
@@ -226,7 +230,7 @@ func (db *DB) closeDatabase(dbName string) (err error) {
 		delete(db.sqlDatabases, dbName)
 	}
 	if err == nil {
-		db.log.Sugar().Debugf("closed database %s", dbName)
+		db.log.Debug(fmt.Sprintf("closed database %s", dbName))
 	}
 	return err
 }
