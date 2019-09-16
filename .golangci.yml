@@ -18,7 +18,7 @@ linters:
     - varcheck    # find unused global variables and constants
     - structcheck # check for unused struct parameters
     - deadcode    # find code that is not used
-    #- bodyclose   # find unclosed http response bodies
+    - bodyclose   # find unclosed http response bodies
     - nakedret    # check for naked returns
     - gofmt       # sanity check formatting
     - misspell    # check spelling
