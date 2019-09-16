@@ -580,8 +580,9 @@ func TestDoubleCommitSegment(t *testing.T) {
 
 		pointer, limits := runCreateSegment(ctx, t, metainfo, fullIDMap)
 
-		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
+		savedPointer, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.NoError(t, err)
+		require.True(t, savedPointer.PieceHashesVerified)
 
 		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.Error(t, err)

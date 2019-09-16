@@ -273,6 +273,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 	for _, piece := range req.GetPointer().GetRemote().GetRemotePieces() {
 		piece.Hash = nil
 	}
+	req.Pointer.PieceHashesVerified = true
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
 
@@ -1416,6 +1417,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		CreationDate:   streamID.CreationDate,
 		ExpirationDate: streamID.ExpirationDate,
 		Metadata:       metadata,
+
+		PieceHashesVerified: true,
 	}
 
 	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
