@@ -20,6 +20,10 @@
 
         <Control Id="WalletLabel" Type="Text" X="20" Y="60" Width="320" Height="16" NoPrefix="yes" Text="Ethereum wallet address:" />
         <Control Id="Wallet" Type="Edit" Property="STORJ_WALLET" X="20" Y="100" Width="320" Height="18" />
+        <Control Id="WalletDesc" Type="Text" X="20" Y="150" Width="320" Height="16" NoPrefix="yes" Text="This wallet address will receive the STORJ token payouts for running the storage node." />
+        <Control Id="WalletHowto" Type="Hyperlink" X="20" Y="170" Width="320" Height="16">
+          <Text><![CDATA[<a href="https://support.storj.io/hc/en-us/articles/360026611692-How-do-I-hold-STORJ-What-is-a-valid-address-or-compatible-wallet-">Learn how to obtain a valid payout address.</a>]]></Text>
+        </Control>
       </Dialog>
     </UI>
 	</Fragment>
