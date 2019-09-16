@@ -17,16 +17,20 @@ import (
 // ErrSqlite3Migrator is the default error class for sqlite3_migrator.
 var ErrSqlite3Migrator = errs.Class("sqlite3_migrator")
 
+// Migrator is used to migrate safely tables from one SQLite3 database into another.
 type Migrator struct {
 	dbs map[string]*sql.DB
 }
 
+// NewMigrator returns a newly instantiated Migrator instance.
 func NewMigrator(dbs map[string]*sql.DB) *Migrator {
 	return &Migrator{
 		dbs: dbs,
 	}
 }
 
+// MigrateTablesToDatabase safely migrates the specified SQLite3 tables from one database into another.
+// It also prunes the remaining tables and VACUUM's to clear the disk space.
 func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcFilename string, destFilename string, tablesToKeep ...string) error {
 	srcDB, found := m.dbs[srcFilename]
 	if !found {
@@ -53,12 +57,6 @@ func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcFilename stri
 		return ErrSqlite3Migrator.Wrap(err)
 	}
 	m.dbs[destFilename] = destDB
-
-	// Required to start the sqlite3 backup process.
-	err = destDB.Ping()
-	if err != nil {
-		return ErrSqlite3Migrator.Wrap(err)
-	}
 
 	// Now we retrieve the raw Sqlite3 driver connections for the src and dest
 	// so that we can execute the backup API for a corruption safe clone.
@@ -98,10 +96,10 @@ func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcFilename stri
 	if err != nil {
 		return ErrSqlite3Migrator.New("unable to get database driver")
 	}
-
 	return nil
 }
 
+// getFilepathForDatabase returns the filepath of the specified sql.DB.
 func (m *Migrator) getFilepathForDatabase(ctx context.Context, db *sql.DB) (filepath string, err error) {
 	conn, err := db.Conn(ctx)
 	if err != nil {
@@ -123,7 +121,7 @@ func (m *Migrator) getFilepathForDatabase(ctx context.Context, db *sql.DB) (file
 	return filepath, nil
 }
 
-// cleanup closes the specified database and deletes the database file on disk.
+// deleteDatabase closes the specified database and deletes the database file on disk.
 func (m *Migrator) deleteDatabase(db *sql.DB, filePath string) error {
 	if err := db.Close(); err != nil {
 		return ErrSqlite3Migrator.Wrap(err)
@@ -194,7 +192,7 @@ func (m *Migrator) backup(ctx context.Context, sourceDB *sqlite3.SQLiteConn, des
 	return nil
 }
 
-// keepTables drops all the tables except the specified tables to keep.
+// KeepTables drops all the tables except the specified tables to keep.
 func (m *Migrator) KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) error {
 	// Get a list of tables excluding sqlite3 system tables.
 	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
