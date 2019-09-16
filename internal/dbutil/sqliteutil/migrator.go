@@ -31,15 +31,15 @@ func NewMigrator(dbs map[string]*sql.DB) *Migrator {
 
 // MigrateTablesToDatabase safely migrates the specified SQLite3 tables from one database into another.
 // It also prunes the remaining tables and VACUUM's to clear the disk space.
-func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcFilename string, destFilename string, tablesToKeep ...string) error {
-	srcDB, found := m.dbs[srcFilename]
+func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcDBName string, destDBName string, tablesToKeep ...string) error {
+	srcDB, found := m.dbs[srcDBName]
 	if !found {
-		return ErrSqlite3Migrator.New("unable to get database for %s", srcFilename)
+		return ErrSqlite3Migrator.New("unable to get database for %s", srcDBName)
 	}
 
-	destDB, found := m.dbs[destFilename]
+	destDB, found := m.dbs[destDBName]
 	if !found {
-		return ErrSqlite3Migrator.New("unable to get database for %s", destFilename)
+		return ErrSqlite3Migrator.New("unable to get database for %s", destDBName)
 	}
 	destPath, err := m.getFilepathForDatabase(ctx, destDB)
 	if err != nil {
@@ -59,7 +59,7 @@ func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcFilename stri
 	if err != nil {
 		return ErrSqlite3Migrator.Wrap(err)
 	}
-	m.dbs[destFilename] = destDB
+	m.dbs[destDBName] = destDB
 
 	// Now we retrieve the raw Sqlite3 driver connections for the src and dest
 	// so that we can execute the backup API for a corruption safe clone.

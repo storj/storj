@@ -17,9 +17,6 @@ import (
 const (
 	// StorageUsageDBName represents the database name.
 	StorageUsageDBName = "storage_usage"
-
-	// StorageUsageDatabaseFilename represents the database filename.
-	StorageUsageDatabaseFilename = "storage_usage.db"
 )
 
 // storageusageDB storage usage DB

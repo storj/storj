@@ -22,9 +22,6 @@ var ErrOrders = errs.Class("ordersdb error")
 const (
 	// OrdersDBName represents the database name.
 	OrdersDBName = "orders"
-
-	// OrdersDatabaseFilename represents the database filename.
-	OrdersDatabaseFilename = "orders.db"
 )
 
 type ordersDB struct {

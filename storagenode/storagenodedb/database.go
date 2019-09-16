@@ -9,7 +9,6 @@ import (
 	"database/sql/driver"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -88,7 +87,7 @@ type DB struct {
 
 	dbDirectory string
 
-	versionsDB        *versionsDB
+	legacyInfoDB      *legacyInfoDB
 	v0PieceInfoDB     *v0PieceInfoDB
 	bandwidthDB       *bandwidthDB
 	ordersDB          *ordersDB
@@ -126,7 +125,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		dbDirectory: filepath.Dir(config.Info2),
 
 		sqlDatabases:      make(map[string]*sql.DB),
-		versionsDB:        newVersionsDB(),
+		legacyInfoDB:      newLegacyInfoDB(),
 		v0PieceInfoDB:     newV0PieceInfoDB(),
 		bandwidthDB:       newBandwidthDB(),
 		ordersDB:          newOrdersDB(),
@@ -148,55 +147,55 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 func (db *DB) openDatabases() error {
 	// We open the versions database first because this one has the DB schema versioning info
 	// we need before anything else.
-	versionsDB, err := db.openDatabase(filepath.Join(db.dbDirectory, VersionsDatabaseFilename))
+	legacyInfoDB, err := db.openDatabase(LegacyInfoDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.versionsDB.Configure(versionsDB)
+	db.legacyInfoDB.Configure(legacyInfoDB)
 
-	bandwidthDB, err := db.openDatabase(filepath.Join(db.dbDirectory, BandwidthDatabaseFilename))
+	bandwidthDB, err := db.openDatabase(BandwidthDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.bandwidthDB.Configure(bandwidthDB)
 
-	ordersDB, err := db.openDatabase(filepath.Join(db.dbDirectory, OrdersDatabaseFilename))
+	ordersDB, err := db.openDatabase(OrdersDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.ordersDB.Configure(ordersDB)
 
-	pieceExpirationDB, err := db.openDatabase(filepath.Join(db.dbDirectory, PieceExpirationDatabaseFilename))
+	pieceExpirationDB, err := db.openDatabase(PieceExpirationDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.pieceExpirationDB.Configure(pieceExpirationDB)
 
-	v0PieceInfoDB, err := db.openDatabase(filepath.Join(db.dbDirectory, V0PieceInfoDatabaseFilename))
+	v0PieceInfoDB, err := db.openDatabase(PieceInfoDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.v0PieceInfoDB.Configure(v0PieceInfoDB)
 
-	pieceSpaceUsedDB, err := db.openDatabase(filepath.Join(db.dbDirectory, PieceSpacedUsedDatabaseFilename))
+	pieceSpaceUsedDB, err := db.openDatabase(PieceSpaceUsedDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.pieceSpaceUsedDB.Configure(pieceSpaceUsedDB)
 
-	reputationDB, err := db.openDatabase(filepath.Join(db.dbDirectory, ReputationDatabaseFilename))
+	reputationDB, err := db.openDatabase(ReputationDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.reputationDB.Configure(reputationDB)
 
-	storageUsageDB, err := db.openDatabase(filepath.Join(db.dbDirectory, StorageUsageDatabaseFilename))
+	storageUsageDB, err := db.openDatabase(StorageUsageDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.storageUsageDB.Configure(storageUsageDB)
 
-	usedSerialsDB, err := db.openDatabase(filepath.Join(db.dbDirectory, UsedSerialsDatabaseFilename))
+	usedSerialsDB, err := db.openDatabase(UsedSerialsDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
@@ -205,7 +204,8 @@ func (db *DB) openDatabases() error {
 }
 
 // openDatabase opens or creates a database at the specified path.
-func (db *DB) openDatabase(path string) (*sql.DB, error) {
+func (db *DB) openDatabase(dbName string) (*sql.DB, error) {
+	path := filepath.Join(db.dbDirectory, db.FilenameFromDBName(dbName))
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
@@ -214,18 +214,16 @@ func (db *DB) openDatabase(path string) (*sql.DB, error) {
 	if err != nil {
 		return nil, ErrDatabase.Wrap(err)
 	}
-	filename := strings.ToLower(filepath.Base(path))
-	db.sqlDatabases[filename] = sqlDB
 
+	db.sqlDatabases[dbName] = sqlDB
 	dbutil.Configure(sqlDB, mon)
 
-	db.log.Sugar().Debugf("opened database %s %s", path, filename)
+	db.log.Sugar().Debugf("opened database %s", path)
 	return sqlDB, nil
 }
 
-// DatabaseFromFilename returns the database connection related to a databaes filename.
-func (db *DB) DatabaseFromFilename(filename string) *sql.DB {
-	return db.sqlDatabases[filename]
+func (db *DB) FilenameFromDBName(dbName string) string {
+	return dbName + ".db"
 }
 
 // CreateTables creates any necessary tables.
@@ -249,27 +247,27 @@ func (db *DB) Close() error {
 func (db *DB) closeDatabases() error {
 	var err error
 
-	for k, _ := range db.sqlDatabases {
+	for k := range db.sqlDatabases {
 		_ = errs.Combine(err, db.closeDatabase(k))
 	}
 	return err
 }
 
 // closeDatabase closes the specified SQLite database connections and removes them from the associated maps.
-func (db *DB) closeDatabase(filename string) (err error) {
-	if conn, ok := db.sqlDatabases[filename]; ok {
+func (db *DB) closeDatabase(dbName string) (err error) {
+	if conn, ok := db.sqlDatabases[dbName]; ok {
 		err = errs.Combine(err, conn.Close())
-		delete(db.sqlDatabases, filename)
+		delete(db.sqlDatabases, dbName)
 	}
 	if err == nil {
-		db.log.Sugar().Debugf("closed database %s", filename)
+		db.log.Sugar().Debugf("closed database %s", dbName)
 	}
 	return err
 }
 
 // Versions returns the instance of the versions database.
-func (db *DB) Versions() SQLDB {
-	return db.versionsDB
+func (db *DB) LegacyInfoDB() SQLDB {
+	return db.legacyInfoDB
 }
 
 // V0PieceInfo returns the instance of the V0PieceInfoDB database.
@@ -333,7 +331,7 @@ func (db *DB) RawDatabases() map[string]SQLDB {
 		StorageUsageDBName:    db.storageUsageDB,
 		UsedSerialsDBName:     db.usedSerialsDB,
 		PieceInfoDBName:       db.v0PieceInfoDB,
-		VersionsDBName:        db.versionsDB,
+		LegacyInfoDBName:      db.legacyInfoDB,
 	}
 }
 
@@ -343,7 +341,7 @@ func (db *DB) Migration() *migrate.Migration {
 		Table: "versions",
 		Steps: []*migrate.Step{
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
@@ -425,7 +423,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Network Wipe #2",
 				Version:     1,
 				Action: migrate.SQL{
@@ -433,7 +431,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Add tracking of deletion failures.",
 				Version:     2,
 				Action: migrate.SQL{
@@ -441,7 +439,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Add vouchersDB for storing and retrieving vouchers.",
 				Version:     3,
 				Action: migrate.SQL{
@@ -453,7 +451,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Add index on pieceinfo expireation",
 				Version:     4,
 				Action: migrate.SQL{
@@ -462,7 +460,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
@@ -474,7 +472,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Add creation date.",
 				Version:     6,
 				Action: migrate.SQL{
@@ -482,7 +480,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Drop certificate table.",
 				Version:     7,
 				Action: migrate.SQL{
@@ -491,7 +489,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
 				Version:     8,
 				Action: migrate.SQL{
@@ -500,7 +498,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Add order limit table.",
 				Version:     9,
 				Action: migrate.SQL{
@@ -508,7 +506,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
@@ -519,7 +517,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Create bandwidth_usage_rollup table.",
 				Version:     11,
 				Action: migrate.SQL{
@@ -533,7 +531,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{
@@ -581,7 +579,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
@@ -606,7 +604,7 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
@@ -619,7 +617,7 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Start piece_expirations table, deprecate pieceinfo table",
 				Version:     15,
 				Action: migrate.SQL{
@@ -636,7 +634,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Add reputation and storage usage cache tables",
 				Version:     16,
 				Action: migrate.SQL{
@@ -664,7 +662,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Create piece_space_used table",
 				Version:     17,
 				Action: migrate.SQL{
@@ -678,7 +676,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Drop vouchers table",
 				Version:     18,
 				Action: migrate.SQL{
@@ -686,7 +684,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Add disqualified field to reputation",
 				Version:     19,
 				Action: migrate.SQL{
@@ -710,7 +708,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
 				Version:     20,
 				Action: migrate.SQL{
@@ -724,7 +722,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Create satellites table and satellites_exit_progress table",
 				Version:     21,
 				Action: migrate.SQL{
@@ -747,7 +745,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.legacyInfoDB,
 				Description: "Split into multiple sqlite databases",
 				Version:     22,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
@@ -755,33 +753,33 @@ func (db *DB) Migration() *migrate.Migration {
 
 					// Migrate all the tables to new database files.
 					m := sqliteutil.NewMigrator(db.sqlDatabases)
-					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, BandwidthDatabaseFilename, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, OrdersDatabaseFilename, "unsent_order", "order_archive_"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, OrdersDBName, "unsent_order", "order_archive_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, PieceExpirationDatabaseFilename, "piece_expirations"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, PieceExpirationDBName, "piece_expirations"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, V0PieceInfoDatabaseFilename, "pieceinfo_"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, PieceInfoDBName, "pieceinfo_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, PieceSpacedUsedDatabaseFilename, "piece_space_used"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, PieceSpaceUsedDBName, "piece_space_used"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, ReputationDatabaseFilename, "reputation"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, ReputationDBName, "reputation"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, StorageUsageDatabaseFilename, "storage_usage"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, StorageUsageDBName, "storage_usage"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := m.MigrateTablesToDatabase(ctx, VersionsDatabaseFilename, UsedSerialsDatabaseFilename, "used_serial_"); err != nil {
+					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, UsedSerialsDBName, "used_serial_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
 					// Clean up the legacy database.
-					if infoDB, found := db.sqlDatabases[VersionsDatabaseFilename]; found {
+					if infoDB, found := db.sqlDatabases[LegacyInfoDBName]; found {
 						err := m.KeepTables(ctx, infoDB, "versions")
 						if err != nil {
 							return ErrDatabase.Wrap(err)
@@ -790,9 +788,12 @@ func (db *DB) Migration() *migrate.Migration {
 
 					// Close all the existing database connections
 					// to allow VACUUM to free disk space.
-					db.closeDatabases()
+					err := db.closeDatabases()
+					if err != nil {
+						return ErrDatabase.Wrap(err)
+					}
 
-					err := db.openDatabases()
+					err = db.openDatabases()
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}
