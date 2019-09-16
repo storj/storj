@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
   <Product Id="*" Name="Storj V3 Storage Node 0.19.0" Language="1033" Version="0.19.0.0" Manufacturer="Storj Labs Inc." UpgradeCode="B32CF5FC-0665-4712-B88A-22D299565F9E">
     <Package Platform="x64" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of
@@ -19,6 +19,7 @@ Storj V3 Storage Node is already installed." />
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="storageNodeExe" Guid="{7292F032-A37F-4896-8CF7-EF0603251DEA}" Win64='yes'>
         <File Source="storagenode.exe" />
+        <fire:FirewallException Id="StoragenodePort" Name="storagenode.exe" Port="28967" Scope="any"/>
       </Component>
     </ComponentGroup>
     <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
