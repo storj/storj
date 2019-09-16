@@ -86,6 +86,8 @@ type DB struct {
 		Close() error
 	}
 
+	dbDirectory string
+
 	versionsDB        *versionsDB
 	v0PieceInfoDB     *v0PieceInfoDB
 	bandwidthDB       *bandwidthDB
@@ -121,11 +123,21 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		ndb:    dbs[1],
 		adb:    dbs[2],
 
-		sqlDatabases: make(map[string]*sql.DB),
+		dbDirectory: filepath.Dir(config.Info2),
+
+		sqlDatabases:      make(map[string]*sql.DB),
+		versionsDB:        newVersionsDB(),
+		v0PieceInfoDB:     newV0PieceInfoDB(),
+		bandwidthDB:       newBandwidthDB(),
+		ordersDB:          newOrdersDB(),
+		pieceExpirationDB: newPieceExpirationDB(),
+		pieceSpaceUsedDB:  newPieceSpaceUsedDB(),
+		reputationDB:      newReputationDB(),
+		storageUsageDB:    newStorageusageDB(),
+		usedSerialsDB:     newUsedSerialsDB(),
 	}
 
-	databasesPath := filepath.Dir(config.Info2)
-	err = db.openDatabases(databasesPath)
+	err = db.openDatabases()
 	if err != nil {
 		return nil, err
 	}
@@ -133,107 +145,71 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 }
 
 // openDatabases opens all the SQLite3 storage node databases and returns if any fails to open successfully.
-func (db *DB) openDatabases(databasesPath string) error {
+func (db *DB) openDatabases() error {
 	// We open the versions database first because this one has the DB schema versioning info
 	// we need before anything else.
-	versionsDB, err := db.openDatabase(filepath.Join(databasesPath, VersionsDatabaseFilename))
+	versionsDB, err := db.openDatabase(filepath.Join(db.dbDirectory, VersionsDatabaseFilename))
 	if err != nil {
 		db.closeDatabases()
 		return err
 	}
-	if db.versionsDB == nil {
-		db.versionsDB = newVersionsDB(versionsDB, filepath.Join(databasesPath, VersionsDatabaseFilename))
-	} else {
-		db.versionsDB.SQLDB = versionsDB
-	}
+	db.versionsDB.Configure(versionsDB)
 
-	bandwidthDB, err := db.openDatabase(filepath.Join(databasesPath, BandwidthDatabaseFilename))
+	bandwidthDB, err := db.openDatabase(filepath.Join(db.dbDirectory, BandwidthDatabaseFilename))
 	if err != nil {
 		db.closeDatabases()
 		return err
 	}
-	if db.bandwidthDB == nil {
-		db.bandwidthDB = newBandwidthDB(bandwidthDB)
-	} else {
-		db.bandwidthDB.SQLDB = bandwidthDB
-	}
+	db.bandwidthDB.Configure(bandwidthDB)
 
-	ordersDB, err := db.openDatabase(filepath.Join(databasesPath, OrdersDatabaseFilename))
+	ordersDB, err := db.openDatabase(filepath.Join(db.dbDirectory, OrdersDatabaseFilename))
 	if err != nil {
 		db.closeDatabases()
 		return err
 	}
-	if db.ordersDB == nil {
-		db.ordersDB = newOrdersDB(ordersDB)
-	} else {
-		db.ordersDB.SQLDB = ordersDB
-	}
+	db.ordersDB.Configure(ordersDB)
 
-	pieceExpirationDB, err := db.openDatabase(filepath.Join(databasesPath, PieceExpirationDatabaseFilename))
+	pieceExpirationDB, err := db.openDatabase(filepath.Join(db.dbDirectory, PieceExpirationDatabaseFilename))
 	if err != nil {
 		db.closeDatabases()
 		return err
 	}
-	if db.pieceExpirationDB == nil {
-		db.pieceExpirationDB = newPieceExpirationDB(pieceExpirationDB)
-	} else {
-		db.pieceExpirationDB.SQLDB = pieceExpirationDB
-	}
+	db.pieceExpirationDB.Configure(pieceExpirationDB)
 
-	v0PieceInfoDB, err := db.openDatabase(filepath.Join(databasesPath, V0PieceInfoDatabaseFilename))
+	v0PieceInfoDB, err := db.openDatabase(filepath.Join(db.dbDirectory, V0PieceInfoDatabaseFilename))
 	if err != nil {
 		db.closeDatabases()
 		return err
 	}
-	if db.v0PieceInfoDB == nil {
-		db.v0PieceInfoDB = newV0PieceInfoDB(v0PieceInfoDB)
-	} else {
-		db.v0PieceInfoDB.SQLDB = v0PieceInfoDB
-	}
+	db.v0PieceInfoDB.Configure(v0PieceInfoDB)
 
-	pieceSpaceUsedDB, err := db.openDatabase(filepath.Join(databasesPath, PieceSpacedUsedDatabaseFilename))
+	pieceSpaceUsedDB, err := db.openDatabase(filepath.Join(db.dbDirectory, PieceSpacedUsedDatabaseFilename))
 	if err != nil {
 		db.closeDatabases()
 		return err
 	}
-	if db.pieceSpaceUsedDB == nil {
-		db.pieceSpaceUsedDB = newPieceSpaceUsedDB(pieceSpaceUsedDB)
-	} else {
-		db.pieceSpaceUsedDB.SQLDB = pieceSpaceUsedDB
-	}
+	db.pieceSpaceUsedDB.Configure(pieceSpaceUsedDB)
 
-	reputationDB, err := db.openDatabase(filepath.Join(databasesPath, ReputationDatabaseFilename))
+	reputationDB, err := db.openDatabase(filepath.Join(db.dbDirectory, ReputationDatabaseFilename))
 	if err != nil {
 		db.closeDatabases()
 		return err
 	}
-	if db.reputationDB == nil {
-		db.reputationDB = newReputationDB(reputationDB)
-	} else {
-		db.reputationDB.SQLDB = reputationDB
-	}
+	db.reputationDB.Configure(reputationDB)
 
-	storageUsageDB, err := db.openDatabase(filepath.Join(databasesPath, StorageUsageDatabaseFilename))
+	storageUsageDB, err := db.openDatabase(filepath.Join(db.dbDirectory, StorageUsageDatabaseFilename))
 	if err != nil {
 		db.closeDatabases()
 		return err
 	}
-	if db.storageUsageDB == nil {
-		db.storageUsageDB = newStorageusageDB(storageUsageDB)
-	} else {
-		db.storageUsageDB.SQLDB = storageUsageDB
-	}
+	db.storageUsageDB.Configure(storageUsageDB)
 
-	usedSerialsDB, err := db.openDatabase(filepath.Join(databasesPath, UsedSerialsDatabaseFilename))
+	usedSerialsDB, err := db.openDatabase(filepath.Join(db.dbDirectory, UsedSerialsDatabaseFilename))
 	if err != nil {
 		db.closeDatabases()
 		return err
 	}
-	if db.usedSerialsDB == nil {
-		db.usedSerialsDB = newUsedSerialsDB(usedSerialsDB)
-	} else {
-		db.usedSerialsDB.SQLDB = usedSerialsDB
-	}
+	db.usedSerialsDB.Configure(usedSerialsDB)
 	return nil
 }
 
@@ -252,7 +228,7 @@ func (db *DB) openDatabase(path string) (*sql.DB, error) {
 
 	dbutil.Configure(sqlDB, mon)
 
-	db.log.Sugar().Debugf("opened database %s", filename)
+	db.log.Sugar().Debugf("opened database %s %s", path, filename)
 	return sqlDB, nil
 }
 
@@ -618,24 +594,19 @@ func (db *DB) Migration() *migrate.Migration {
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
-					// When using inmemory DB, skip deletion process
-					if db.versionsDB.location == "" {
-						return nil
-					}
-
-					err := os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
+					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
+					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
+					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
+					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
@@ -648,12 +619,7 @@ func (db *DB) Migration() *migrate.Migration {
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
-					// When using inmemory DB, skip deletion process
-					if db.versionsDB.location == "" {
-						return nil
-					}
-
-					err := os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "tmp"))
+					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
@@ -835,9 +801,7 @@ func (db *DB) Migration() *migrate.Migration {
 					// to allow VACUUM to free disk space.
 					db.closeDatabases()
 
-					// Re-open all the database connections.
-					versionsDBLocation := db.versionsDB.location
-					err := db.openDatabases(filepath.Dir(versionsDBLocation))
+					err := db.openDatabases()
 					if err != nil {
 						return ErrDatabase.Wrap(err)
 					}

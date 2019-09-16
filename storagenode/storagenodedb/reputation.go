@@ -26,11 +26,14 @@ type reputationDB struct {
 	SQLDB
 }
 
-// newReputationDB returns a new instance of reputationDB initialized with the specified database.
-func newReputationDB(db SQLDB) *reputationDB {
-	return &reputationDB{
-		SQLDB: db,
-	}
+// newReputationDB returns a new instance of reputationDB.
+func newReputationDB() *reputationDB {
+	return &reputationDB{}
+}
+
+// Configure sets the underlining SQLDB connection.
+func (db *reputationDB) Configure(sqlDB SQLDB) {
+	db.SQLDB = sqlDB
 }
 
 // Store inserts or updates reputation stats into the db.

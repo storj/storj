@@ -35,11 +35,14 @@ type bandwidthDB struct {
 	SQLDB
 }
 
-// newBandwidthDB returns a new instance of usedSerials initialized with the specified database.
-func newBandwidthDB(db SQLDB) *bandwidthDB {
-	return &bandwidthDB{
-		SQLDB: db,
-	}
+// newBandwidthDB returns a new instance of usedSerials.
+func newBandwidthDB() *bandwidthDB {
+	return &bandwidthDB{}
+}
+
+// Configure sets the underlining SQLDB connection.
+func (db *bandwidthDB) Configure(sqlDB SQLDB) {
+	db.SQLDB = sqlDB
 }
 
 // Add adds bandwidth usage to the table

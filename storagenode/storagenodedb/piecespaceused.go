@@ -24,11 +24,14 @@ type pieceSpaceUsedDB struct {
 	SQLDB
 }
 
-// newPieceSpaceUsedDB returns a new instance of pieceSpaceUsedDB initialized with the specified database.
-func newPieceSpaceUsedDB(db SQLDB) *pieceSpaceUsedDB {
-	return &pieceSpaceUsedDB{
-		SQLDB: db,
-	}
+// newPieceSpaceUsedDB returns a new instance of pieceSpaceUsedDB.
+func newPieceSpaceUsedDB() *pieceSpaceUsedDB {
+	return &pieceSpaceUsedDB{}
+}
+
+// Configure sets the underlining SQLDB connection.
+func (db *pieceSpaceUsedDB) Configure(sqlDB SQLDB) {
+	db.SQLDB = sqlDB
 }
 
 // Init creates the one total record if it doesn't already exist

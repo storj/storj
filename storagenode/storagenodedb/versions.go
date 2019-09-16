@@ -10,15 +10,16 @@ const (
 
 // versions represents the database that contains the database schema version history.
 type versionsDB struct {
-	location string
 	SQLDB
 }
 
-func newVersionsDB(db SQLDB, location string) *versionsDB {
-	return &versionsDB{
-		location: location,
-		SQLDB:    db,
-	}
+func newVersionsDB() *versionsDB {
+	return &versionsDB{}
+}
+
+// Configure sets the underlining SQLDB connection.
+func (db *versionsDB) Configure(sqlDB SQLDB) {
+	db.SQLDB = sqlDB
 }
 
 // Rebind rebind parameters

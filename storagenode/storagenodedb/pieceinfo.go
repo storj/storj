@@ -30,11 +30,14 @@ type v0PieceInfoDB struct {
 	SQLDB
 }
 
-// newV0PieceInfoDB returns a new instance of pieceinfo initialized with the specified database.
-func newV0PieceInfoDB(db SQLDB) *v0PieceInfoDB {
-	return &v0PieceInfoDB{
-		SQLDB: db,
-	}
+// newV0PieceInfoDB returns a new instance of pieceinfo.
+func newV0PieceInfoDB() *v0PieceInfoDB {
+	return &v0PieceInfoDB{}
+}
+
+// Configure sets the underlining SQLDB connection.
+func (db *v0PieceInfoDB) Configure(sqlDB SQLDB) {
+	db.SQLDB = sqlDB
 }
 
 // Add inserts piece information into the database.

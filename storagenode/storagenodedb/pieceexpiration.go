@@ -25,11 +25,14 @@ type pieceExpirationDB struct {
 	SQLDB
 }
 
-// newPieceExpirationDB returns a new instance of pieceExpirationDB initialized with the specified database.
-func newPieceExpirationDB(db SQLDB) *pieceExpirationDB {
-	return &pieceExpirationDB{
-		SQLDB: db,
-	}
+// newPieceExpirationDB returns a new instance of pieceExpirationDB.
+func newPieceExpirationDB() *pieceExpirationDB {
+	return &pieceExpirationDB{}
+}
+
+// Configure sets the underlining SQLDB connection.
+func (db *pieceExpirationDB) Configure(sqlDB SQLDB) {
+	db.SQLDB = sqlDB
 }
 
 // GetExpired gets piece IDs that expire or have expired before the given time
