@@ -101,7 +101,7 @@ func TestTransferQueueItem(t *testing.T) {
 		latestItem, err := geDB.GetTransferQueueItem(ctx, nodeID, path)
 		require.NoError(t, err)
 		require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
-		require.True(t, item.RequestedAt.Equal(latestItem.RequestedAt), item.RequestedAt.String(), latestItem.RequestedAt.String())
+		require.True(t, item.RequestedAt.Truncate(time.Microsecond).Equal(latestItem.RequestedAt.Truncate(time.Microsecond)))
 
 		err = geDB.DeleteTransferQueueItem(ctx, nodeID, path)
 		require.NoError(t, err)
