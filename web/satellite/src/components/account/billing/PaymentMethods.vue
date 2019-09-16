@@ -26,7 +26,10 @@
             </div>
         </div>
         <div class="payment-methods-area__adding-container storj" v-if="isAddingStorjState">
-            <p>Deposit STORJ Tokens via Coin Payments</p>
+            <div class="storj-container">
+                <p>Deposit STORJ Tokens via Coin Payments</p>
+                <StorjInput />
+            </div>
             <Button
                 label="Continue to Coin Payments"
                 width="251px"
@@ -52,6 +55,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CardComponent from '@/components/account/billing/CardComponent.vue';
+import StorjInput from '@/components/account/billing/StorjInput.vue';
 import StripeInput from '@/components/account/billing/StripeInput.vue';
 import Button from '@/components/common/Button.vue';
 
@@ -61,6 +65,7 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
     components: {
         Button,
         CardComponent,
+        StorjInput,
         StripeInput,
     }
 })
@@ -180,6 +185,15 @@ export default class PaymentMethods extends Vue {
             position: relative;
             padding-top: 12px;
             width: 100%;
+        }
+    }
+
+    .storj-container {
+        display: flex;
+        align-items: center;
+
+        p {
+            margin-right: 30px;
         }
     }
 </style>

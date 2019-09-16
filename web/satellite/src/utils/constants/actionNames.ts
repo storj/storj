@@ -19,6 +19,7 @@ export const APP_STATE_ACTIONS = {
     CLOSE_DELETE_PAYMENT_METHOD_POPUP: 'closeDeletePaymentMethodPopup',
     CLOSE_POPUPS: 'closePopups',
     CHANGE_STATE: 'changeFetchState',
+    TOGGLE_PAYMENT_SELECTION: 'TOGGLE_PAYMENT_SELECTION',
 };
 
 export const NOTIFICATION_ACTIONS = {
