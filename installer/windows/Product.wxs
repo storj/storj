@@ -15,6 +15,7 @@ Storj V3 Storage Node is already installed." />
         </Directory>
       </Directory>
       <Directory Id="IDENTITYDIR" />
+      <Directory Id="STORAGEDIR" />
     </Directory>
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="storageNodeExe" Guid="{7292F032-A37F-4896-8CF7-EF0603251DEA}" Win64='yes'>
@@ -24,6 +25,9 @@ Storj V3 Storage Node is already installed." />
     </ComponentGroup>
     <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
     <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
+    <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
+    <Property Id="STORJ_AVAILABLE_STORAGE">1.0 TB</Property>
+    <Property Id="STORJ_AVAILABLE_BANDWIDTH">2.0 TB</Property>
     <UIRef Id="CustomInstallDir" />
     <Icon Id="storj.ico" SourceFile="storj.ico"/>
     <Property Id="ARPPRODUCTICON" Value="storj.ico" />
@@ -33,7 +37,7 @@ Storj V3 Storage Node is already installed." />
     <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
 
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='commit' Impersonate='no' 
-                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot;"
+                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot; --kademlia.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_AVAILABLE_BANDWIDTH]&quot; --storage.allocated-disk-space &quot;[STORJ_AVAILABLE_STORAGE]&quot;"
     />
     <InstallExecuteSequence>
       <Custom Action='StoragenodeSetup' Before='InstallFinalize'/>
