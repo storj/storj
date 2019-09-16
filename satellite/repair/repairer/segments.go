@@ -248,9 +248,19 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// add pieces that failed piece hashes verification to the removal list
 	toRemove = append(toRemove, failedPieces...)
 
+	pointer.LastRepaired = time.Now().UTC()
+	pointer.RepairCount++
+
 	// Update the segment pointer in the metainfo
 	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
-	return err == nil, err
+	if err != nil {
+		return false, err
+	}
+
+	mon.IntVal("checker_segment_time_until_repair").Observe(int64(time.Since(pointer.LastRepaired)))
+	mon.IntVal("checker_segment_repair_count").Observe(int64(pointer.RepairCount))
+
+	return true, nil
 }
 
 func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failedNum int, err error) {

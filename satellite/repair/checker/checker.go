@@ -244,6 +244,8 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))
 	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy))
 
+	mon.IntVal("checker_segment_age").Observe(int64(time.Since(pointer.CreationDate)))
+
 	redundancy := pointer.Remote.Redundancy
 
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
@@ -292,6 +294,14 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 				obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
 			}
 		}
+
+		var segmentStart time.Time
+		if pointer.CreationDate.Unix() < pointer.LastRepaired.Unix() {
+			segmentStart = pointer.CreationDate
+		} else {
+			segmentStart = pointer.LastRepaired
+		}
+		mon.IntVal("checker_segment_irreparable_time_until_repair").Observe(int64(time.Since(segmentStart)))
 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
