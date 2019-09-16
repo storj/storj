@@ -57,7 +57,7 @@ describe('actions', () => {
     });
     it('success update account', async () => {
         jest.spyOn(usersApi, 'update').mockReturnValue(
-            Promise.resolve()
+            Promise.resolve(),
         );
 
         const user = new UpdatedUser('fullName1', 'shortName2');
@@ -96,7 +96,7 @@ describe('actions', () => {
         const user = new User('2', 'newFullName', 'newShortName', 'example2@email.com');
 
         jest.spyOn(usersApi, 'get').mockReturnValue(
-            Promise.resolve(user)
+            Promise.resolve(user),
         );
 
         await store.dispatch(GET);

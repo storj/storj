@@ -54,6 +54,9 @@ export default class Chart extends Vue {
             scales: {
                 yAxes: [{
                     display: false,
+                    ticks: {
+                        beginAtZero: true
+                    }
                 }],
                 xAxes: [{
                     display: true,

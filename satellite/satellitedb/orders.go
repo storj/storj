@@ -37,13 +37,12 @@ type ordersDB struct {
 // CreateSerialInfo creates serial number entry in database
 func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Create_SerialNumber(
+	return db.db.CreateNoReturn_SerialNumber(
 		ctx,
 		dbx.SerialNumber_SerialNumber(serialNumber.Bytes()),
 		dbx.SerialNumber_BucketId(bucketID),
 		dbx.SerialNumber_ExpiresAt(limitExpiration),
 	)
-	return err
 }
 
 // DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.

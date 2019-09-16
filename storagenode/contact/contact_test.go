@@ -39,3 +39,38 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 		require.True(t, secondPing.After(firstPing))
 	})
 }
+
+func TestContactChore(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		node := planet.StorageNodes[0]
+
+		node.Contact.Chore.Loop.Pause()
+
+		oldInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
+		require.NoError(t, err)
+
+		oldCapacity := oldInfo.Capacity
+
+		newCapacity := pb.NodeCapacity{
+			FreeBandwidth: 0,
+			FreeDisk:      0,
+		}
+		require.NotEqual(t, oldCapacity, newCapacity)
+
+		node.Kademlia.RoutingTable.UpdateSelf(&newCapacity)
+
+		node.Contact.Chore.Loop.TriggerWait()
+
+		newInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
+		require.NoError(t, err)
+
+		firstUptime := oldInfo.Reputation.LastContactSuccess
+		secondUptime := newInfo.Reputation.LastContactSuccess
+		require.True(t, secondUptime.After(firstUptime))
+
+		require.Equal(t, newCapacity, newInfo.Capacity)
+	})
+}

@@ -201,10 +201,11 @@ type Peer struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Service *audit.Service
-		Queue   *audit.Queue
-		Worker  *audit.Worker
-		Chore   *audit.Chore
+		Queue    *audit.Queue
+		Worker   *audit.Worker
+		Chore    *audit.Chore
+		Verifier *audit.Verifier
+		Reporter *audit.Reporter
 	}
 
 	GarbageCollection struct {
@@ -298,6 +299,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
+		pb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector)
 	}
 
 	{ // setup kademlia
@@ -359,16 +361,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, nil, peer.Kademlia.RoutingTable, nil)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
+		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
+		pb.DRPCRegisterKadInspector(peer.Server.PrivateDRPC(), peer.Kademlia.Inspector)
 	}
 
 	{ // setup contact service
 		log.Debug("Setting up contact service")
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Overlay.Service, peer.Transport)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact"), peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint)
 	}
 
 	{ // setup discovery
@@ -380,6 +385,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
+		pb.DRPCRegisterVouchers(peer.Server.DRPC(), peer.Vouchers.Endpoint)
 	}
 
 	{ // setup live accounting
@@ -423,6 +429,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Repairer.MaxExcessRateOptimalThreshold,
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
+		pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint.DRPC())
 	}
 
 	{ // setup metainfo
@@ -453,6 +460,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
+		pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2)
 	}
 
 	{ // setup datarepair
@@ -487,37 +495,45 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
 		pb.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
+		pb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector)
 	}
 
 	{ // setup audit
 		log.Debug("Setting up audits")
 		config := config.Audit
 
-		peer.Audit.Service, err = audit.NewService(peer.Log.Named("audit"),
-			config,
+		peer.Audit.Queue = &audit.Queue{}
+
+		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Service,
-			peer.Orders.Service,
 			peer.Transport,
 			peer.Overlay.Service,
 			peer.DB.Containment(),
+			peer.Orders.Service,
 			peer.Identity,
+			config.MinBytesPerSecond,
+			config.MinDownloadTimeout,
 		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
-		// setup audit 2.0
-		peer.Audit.Queue = &audit.Queue{}
+		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
+			peer.Overlay.Service,
+			peer.DB.Containment(),
+			config.MaxRetriesStatDB,
+			int32(config.MaxReverifyCount),
+		)
 
 		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
 			peer.Audit.Queue,
+			peer.Audit.Verifier,
+			peer.Audit.Reporter,
 			config,
 		)
+
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit reservoir chore"),
+		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit chore"),
 			peer.Audit.Queue,
 			peer.Metainfo.Loop,
 			config,
@@ -556,6 +572,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 
 		pb.RegisterHealthInspectorServer(peer.Server.PrivateGRPC(), peer.Inspector.Endpoint)
+		pb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint)
 	}
 
 	{ // setup mailservice
@@ -698,6 +715,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.StoragenodeAccounting())
 
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
+		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
 	}
 
 	return peer, nil
@@ -738,9 +756,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))

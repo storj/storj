@@ -22,7 +22,7 @@ describe('ApiKeysCopyPopup', () => {
     it('renders correctly', () => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,
-            localVue
+            localVue,
         });
 
         expect(wrapper).toMatchSnapshot();
