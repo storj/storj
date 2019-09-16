@@ -19,9 +19,6 @@ var ErrPieceExpiration = errs.Class("piece expiration error")
 const (
 	// PieceExpirationDBName represents the database filename.
 	PieceExpirationDBName = "piece_expiration"
-
-	// PieceExpirationDatabaseFilename represents the database filename.
-	PieceExpirationDatabaseFilename = "piece_expirations.db"
 )
 
 type pieceExpirationDB struct {
