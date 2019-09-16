@@ -7,7 +7,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// ErrSatellites represents errors from the satellites database.
+// ErrSatellitesDB represents errors from the satellites database.
 var ErrSatellitesDB = errs.Class("satellitesdb error")
 
 // reputation works with node reputation DB
