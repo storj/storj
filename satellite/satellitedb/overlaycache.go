@@ -1378,14 +1378,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 	case *pq.Driver:
 		// v is a single feedback value that allows us to update both alpha and beta
 		var v float64 = -1
-		uptimeSuccess := 0
-		lastContactSuccess := time.Time{}.UTC()
-		lastContactFailure := time.Time{}.UTC()
 		if node.IsUp {
 			v = 1
-			uptimeSuccess = 1
-			lastContactSuccess = time.Now().UTC()
-			lastContactFailure = time.Time{}.UTC()
 		}
 		uptimeReputationAlpha := config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
 		uptimeReputationBeta := config.UptimeReputationLambda*config.UptimeReputationBeta0 + config.UptimeReputationWeight*(1-v)/2
@@ -1395,61 +1389,62 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			(
 				id, address, last_net, protocol, type,
 				email, wallet, free_bandwidth, free_disk,
-				audit_success_count, total_audit_count, uptime_success_count, total_uptime_count,
-				created_at, updated_at, last_contact_success, last_contact_failure,
-				audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
-				contained, disqualified,
-				piece_count, major, minor, patch, hash, timestamp, release, latency_90
+				uptime_success_count, total_uptime_count, 
+				last_contact_success,
+				last_contact_failure,
+				audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8, $9,
-				0, 0, $10, 1,
-				current_timestamp, current_timestamp, $11, $12,
-				$21, $22, $13, $14,
-				false, null,
-				0, 0, 0, 0, '', $15, false, 0
+				$10::bool::int, 1,
+				CASE WHEN $10 IS TRUE THEN current_timestamp
+					ELSE '0001-01-01 00:00:00+00'
+				END,
+				CASE WHEN $10 IS FALSE THEN current_timestamp
+					ELSE '0001-01-01 00:00:00+00'
+				END,
+				$11, $12, $13, $14
 			)
 			ON CONFLICT (id)
 			DO UPDATE
 			SET
-				total_uptime_count=nodes.total_uptime_count+1,
-				uptime_reputation_alpha=$18::numeric*nodes.uptime_reputation_alpha + $19::numeric*(1+$20)/2,
-				uptime_reputation_beta=$18::numeric*nodes.uptime_reputation_beta + $19::numeric*(1-$20)/2,
+				address=$2,
+				last_net=$3,
 				email=$6,
 				wallet=$7,
 				free_bandwidth=$8,
 				free_disk=$9,
-				address = CASE WHEN $2 = nodes.address
-					THEN nodes.address
-					ELSE $2
-				END,
-				uptime_success_count = CASE WHEN $16 IS TRUE
-					THEN nodes.uptime_success_count+1
-					ELSE nodes.uptime_success_count
-				END,
-				last_contact_success = CASE WHEN $16 IS TRUE
+				total_uptime_count=nodes.total_uptime_count+1,
+				uptime_reputation_alpha=$16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int,
+				uptime_reputation_beta=$16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int,
+				uptime_success_count = nodes.uptime_success_count + $10::bool::int,
+				last_contact_success = CASE WHEN $10 IS TRUE
 					THEN current_timestamp
 					ELSE nodes.last_contact_success
 				END,
-				last_contact_failure = CASE WHEN $16 IS FALSE
+				last_contact_failure = CASE WHEN $10 IS FALSE
 					THEN current_timestamp
 					ELSE nodes.last_contact_failure
 				END,
 				-- this disqualified case statement resolves to: 
 				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
-				disqualified = CASE WHEN (($18::numeric*nodes.uptime_reputation_alpha + $19::numeric*(1+$20)/2)/(($18::numeric*nodes.uptime_reputation_alpha + $19::numeric*(1+$20)/2)+($18::numeric*nodes.uptime_reputation_beta + $19::numeric*(1-$20)/2))) <= $17
+				disqualified = CASE WHEN (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) / (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) + ($16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int))) <= $15
 					THEN current_timestamp
 					ELSE nodes.disqualified
 				END;
 			`
 		_, err := cache.db.ExecContext(ctx, query,
+			// args $1 - $5
 			node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
+			// args $6 - $9
 			node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
-			uptimeSuccess, lastContactSuccess, lastContactFailure,
-			uptimeReputationAlpha, uptimeReputationBeta, time.Time{}.UTC(),
-			node.IsUp, config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight, v,
-			config.AuditReputationAlpha0, config.AuditReputationBeta0,
+			// args $10
+			node.IsUp,
+			// args $11 - $14
+			config.AuditReputationAlpha0, config.AuditReputationBeta0, uptimeReputationAlpha, uptimeReputationBeta,
+			// args $15 - $17
+			config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
 		)
 		if err != nil {
 			return Error.Wrap(err)
