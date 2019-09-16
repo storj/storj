@@ -68,13 +68,13 @@ _Referral Link Redemption_
     
 _User Interface For Displaying Referral Link_
 
-1. Users will have a `Give me a link` button on the UI. On click, it will try to retrieve referral tokens from the backend:
+1. Users will have a referral tab on the UI. On click, it will try to retrieve referral tokens from the backend:
     - if the front-end receives tokens, it should display them.
     - if the front-end receives empty response payload, it should display a message `No available referral link. Try again later.`
 
 ## Rationale
 
-We could add a new column `referral_tokens` in users table to store user's unredeemed tokens, since the `registration_token` is a temporary table.
+We could add a new column `referral_tokens` in `users` table to store user's unredeemed tokens, since the `registration_token` is a temporary table.
 
 ## Implementation
 
