@@ -77,6 +77,8 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 // values without needing to recalculate since that could take a long time
 func (service *CacheService) PersistCacheTotals(ctx context.Context) error {
 	cache := service.usageCache
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
 	if err := service.store.spaceUsedDB.UpdateTotal(ctx, cache.totalSpaceUsed); err != nil {
 		return err
 	}
@@ -197,6 +199,8 @@ func (blobs *BlobsUsageCache) Update(ctx context.Context, satelliteID storj.Node
 }
 
 func (blobs *BlobsUsageCache) copyCacheTotals() BlobsUsageCache {
+	blobs.mu.Lock()
+	defer blobs.mu.Unlock()
 	var copyMap = map[storj.NodeID]int64{}
 	for k, v := range blobs.totalSpaceUsedBySatellite {
 		copyMap[k] = v
@@ -212,9 +216,7 @@ func (blobs *BlobsUsageCache) copyCacheTotals() BlobsUsageCache {
 // a long time, here we need to check if we missed any additions/deletions while we were iterating and
 // estimate how many bytes missed then add those to the space used result of iteration.
 func (blobs *BlobsUsageCache) Recalculate(ctx context.Context, newTotal, totalAtIterationStart int64, newTotalBySatellite, totalBySatelliteAtIterationStart map[storj.NodeID]int64) error {
-	blobs.mu.Lock()
 	totalsAtIterationEnd := blobs.copyCacheTotals()
-	blobs.mu.Unlock()
 
 	estimatedTotals := estimate(newTotal,
 		totalAtIterationStart,

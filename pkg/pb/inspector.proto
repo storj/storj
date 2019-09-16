@@ -189,6 +189,8 @@ message DashboardResponse {
   google.protobuf.Duration uptime = 8;
   google.protobuf.Timestamp last_pinged = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
   google.protobuf.Timestamp last_queried = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  bytes last_ping_from_id = 11 [(gogoproto.customtype) = "NodeID"];
+  string last_ping_from_address = 12;
 }
 
 message SegmentHealthRequest {

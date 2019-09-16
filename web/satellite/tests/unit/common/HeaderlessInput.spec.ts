@@ -19,7 +19,7 @@ describe('HeaderlessInput.vue', () => {
         const height = '20px';
 
         const wrapper = shallowMount(HeaderlessInput, {
-            propsData: {placeholder, width, height}
+            propsData: {placeholder, width, height},
         });
 
         expect(wrapper.find('input').element.style.width).toMatch(width);
@@ -29,7 +29,7 @@ describe('HeaderlessInput.vue', () => {
 
     it('renders correctly with isPassword prop', () => {
         const wrapper = mount(HeaderlessInput, {
-            propsData: {isPassword: true}
+            propsData: {isPassword: true},
         });
 
         expect(wrapper).toMatchSnapshot();

@@ -66,7 +66,7 @@ import {
         HeaderedInput,
         Checkbox,
         Button,
-    }
+    },
 })
 export default class NewProjectPopup extends Vue {
     private projectName: string = '';
@@ -101,8 +101,13 @@ export default class NewProjectPopup extends Vue {
             return;
         }
 
-        if (!await this.createProject()) {
+        try {
+            const project = await this.createProject();
+            this.createdProjectId = project.id;
+        } catch (e) {
             this.isLoading = false;
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
         }
@@ -151,17 +156,7 @@ export default class NewProjectPopup extends Vue {
             description: this.description,
         };
 
-        let newProject: Project = {} as Project;
-
-        try {
-            newProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-        } catch (error) {
-            this.notifyError(error.message);
-        }
-
-        this.createdProjectId = newProject.id;
-
-        return newProject;
+        return await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
     }
 
     private selectCreatedProject(): void {
@@ -195,10 +190,6 @@ export default class NewProjectPopup extends Vue {
     private clearBucketUsage(): void {
         this.$store.dispatch(BUCKET_ACTIONS.SET_SEARCH, '');
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-    }
-
-    private notifyError(message: string): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, message);
     }
 
     private notifySuccess(message: string): void {

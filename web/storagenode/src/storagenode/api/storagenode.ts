@@ -30,7 +30,9 @@ export class SNOApi {
     public async dashboard(): Promise<Dashboard> {
         const json = (await (await httpGet('/api/dashboard')).json() as any).data;
 
-        const satellites: SatelliteInfo[] = json.satellites.map((satellite: any) => {
+        const satellitesJson = json.satellites ? json.satellites : [];
+
+        const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
 
             return new SatelliteInfo(satellite.id, disqualified);
@@ -43,7 +45,7 @@ export class SNOApi {
         const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used, json.bandwidth.available);
 
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
-                                        new Date(json.lastPinged), new Date(json.lastQueried), version, json.upToDate);
+                                        new Date(json.lastPinged), version, json.upToDate);
     }
 
     /**
