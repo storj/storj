@@ -164,14 +164,14 @@ func TestDataRepair(t *testing.T) {
 	})
 }
 
-// TestCorruptDataRepair does the following:
+// TestCorruptDataRepair_Failed does the following:
 // - Uploads test data
 // - Kills all but the minimum number of nodes carrying the uploaded segment
 // - On one of the remaining nodes, corrupt the piece data being stored by that node
 // - Triggers data repair, which attempts to repair the data from the remaining nodes to
 //	 the numbers of nodes determined by the upload repair max threshold
 // - Expects that the repair failed and the pointer was not updated
-func TestCorruptDataRepair(t *testing.T) {
+func TestCorruptDataRepair_Failed(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
 	testplanet.Run(t, testplanet.Config{
@@ -222,23 +222,23 @@ func TestCorruptDataRepair(t *testing.T) {
 
 		var corruptedNode *storagenode.Peer
 		var corruptedNodeID storj.NodeID
-		var corruptedPiece storj.PieceID
+		var corruptedPieceID storj.PieceID
 
 		for i, piece := range remotePieces {
 			originalNodes[piece.NodeId] = true
 			if i >= toKill {
 				// this means the node will be kept alive for repair
 				// choose a node and pieceID to corrupt so repair fails
-				if corruptedNodeID.IsZero() || corruptedPiece.IsZero() {
+				if corruptedNodeID.IsZero() || corruptedPieceID.IsZero() {
 					corruptedNodeID = piece.NodeId
-					corruptedPiece = pointer.GetRemote().RootPieceId.Derive(corruptedNodeID, piece.PieceNum)
+					corruptedPieceID = pointer.GetRemote().RootPieceId.Derive(corruptedNodeID, piece.PieceNum)
 				}
 				continue
 			}
 			nodesToKill[piece.NodeId] = true
 		}
 		require.NotNil(t, corruptedNodeID)
-		require.NotNil(t, corruptedPiece)
+		require.NotNil(t, corruptedPieceID)
 
 		for _, node := range planet.StorageNodes {
 			if node.ID() == corruptedNodeID {
@@ -253,43 +253,12 @@ func TestCorruptDataRepair(t *testing.T) {
 		}
 		require.NotNil(t, corruptedNode)
 
-		blobRef := storage.BlobRef{
-			Namespace: satellite.ID().Bytes(),
-			Key:       corruptedPiece.Bytes(),
-		}
-
 		overlay := planet.Satellites[0].Overlay.Service
 		node, err := overlay.Get(ctx, corruptedNodeID)
 		require.NoError(t, err)
 		corruptedNodeReputation := node.Reputation
 
-		// get currently stored piece data from storagenode
-		reader, err := corruptedNode.Storage2.BlobsCache.Open(ctx, blobRef)
-		require.NoError(t, err)
-		pieceSize, err := reader.Size()
-		require.NoError(t, err)
-		require.True(t, pieceSize > 0)
-		pieceData := make([]byte, pieceSize)
-		n, err := io.ReadFull(reader, pieceData)
-		require.NoError(t, err)
-		require.EqualValues(t, n, pieceSize)
-
-		// delete piece data
-		err = corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
-		require.NoError(t, err)
-
-		// corrupt piece data (not PieceHeader) and write back to storagenode
-		// this means repair downloading should fail during piece hash verification
-		pieceData[pieceSize-1]++ // if we don't do this, this test should fail
-		writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef, pieceSize)
-		require.NoError(t, err)
-
-		n, err = writer.Write(pieceData)
-		require.NoError(t, err)
-		require.EqualValues(t, n, pieceSize)
-
-		err = writer.Commit(ctx)
-		require.NoError(t, err)
+		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
@@ -314,6 +283,130 @@ func TestCorruptDataRepair(t *testing.T) {
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
 			require.Contains(t, originalNodes, piece.NodeId, "there should be no new nodes in pointer")
+		}
+	})
+}
+
+// TestCorruptDataRepair does the following:
+// - Uploads test data
+// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+// - On one of the remaining nodes, corrupt the piece data being stored by that node
+// - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	 the numbers of nodes determined by the upload repair max threshold
+// - Expects that the repair succeed and the pointer should not contain the corrupted piece
+func TestCorruptDataRepair_Succeed(t *testing.T) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 14,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.OnlineWindow = 0
+				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
+		satellite.Discovery.Service.Discovery.Stop()
+		satellite.Discovery.Service.Refresh.Stop()
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     3,
+			RepairThreshold:  5,
+			SuccessThreshold: 7,
+			MaxThreshold:     9,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		pointer, path := getRemoteSegment(t, ctx, satellite)
+
+		// calculate how many storagenodes to kill
+		redundancy := pointer.GetRemote().GetRedundancy()
+		remotePieces := pointer.GetRemote().GetRemotePieces()
+		numPieces := len(remotePieces)
+		toKill := numPieces - int(redundancy.RepairThreshold)
+		require.True(t, toKill >= 1)
+
+		// kill nodes and track lost pieces
+		nodesToKill := make(map[storj.NodeID]bool)
+		originalNodes := make(map[storj.NodeID]bool)
+
+		var corruptedNode *storagenode.Peer
+		var corruptedNodeID storj.NodeID
+		var corruptedPieceID storj.PieceID
+		var corruptedPiece *pb.RemotePiece
+
+		for i, piece := range remotePieces {
+			originalNodes[piece.NodeId] = true
+			if i >= toKill {
+				// this means the node will be kept alive for repair
+				// choose a node and pieceID to corrupt so repair fails
+				if corruptedNodeID.IsZero() || corruptedPieceID.IsZero() {
+					corruptedNodeID = piece.NodeId
+					corruptedPieceID = pointer.GetRemote().RootPieceId.Derive(corruptedNodeID, piece.PieceNum)
+					corruptedPiece = piece
+				}
+				continue
+			}
+			nodesToKill[piece.NodeId] = true
+		}
+		require.NotNil(t, corruptedNodeID)
+		require.NotNil(t, corruptedPieceID)
+
+		for _, node := range planet.StorageNodes {
+			if node.ID() == corruptedNodeID {
+				corruptedNode = node
+			}
+			if nodesToKill[node.ID()] {
+				err = planet.StopPeer(node)
+				require.NoError(t, err)
+				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				require.NoError(t, err)
+			}
+		}
+		require.NotNil(t, corruptedNode)
+
+		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+
+		overlay := planet.Satellites[0].Overlay.Service
+		node, err := overlay.Get(ctx, corruptedNodeID)
+		require.NoError(t, err)
+		corruptedNodeReputation := node.Reputation
+
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.Limiter.Wait()
+
+		// repair should update audit status as fail
+		node, err = overlay.Get(ctx, corruptedNodeID)
+		require.NoError(t, err)
+		require.Equal(t, corruptedNodeReputation.AuditCount+1, node.Reputation.AuditCount)
+		require.True(t, corruptedNodeReputation.AuditReputationBeta < node.Reputation.AuditReputationBeta)
+		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= node.Reputation.AuditReputationAlpha)
+
+		// get the new pointer
+		metainfoService := satellite.Metainfo.Service
+		pointer, err = metainfoService.Get(ctx, path)
+		require.NoError(t, err)
+
+		remotePieces = pointer.GetRemote().GetRemotePieces()
+		for _, piece := range remotePieces {
+			require.NotEqual(t, piece.PieceNum, corruptedPiece.PieceNum, "there should be no corrupted piece in pointer")
 		}
 	})
 }
@@ -707,4 +800,42 @@ func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, 
 			break
 		}
 	}
+}
+
+// corruptPieceData manipulates piece data on a storage node.
+func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *storagenode.Peer, corruptedPieceID storj.PieceID) {
+	t.Helper()
+
+	blobRef := storage.BlobRef{
+		Namespace: planet.Satellites[0].ID().Bytes(),
+		Key:       corruptedPieceID.Bytes(),
+	}
+
+	// get currently stored piece data from storagenode
+	reader, err := corruptedNode.Storage2.BlobsCache.Open(ctx, blobRef)
+	require.NoError(t, err)
+	pieceSize, err := reader.Size()
+	require.NoError(t, err)
+	require.True(t, pieceSize > 0)
+	pieceData := make([]byte, pieceSize)
+	n, err := io.ReadFull(reader, pieceData)
+	require.NoError(t, err)
+	require.EqualValues(t, n, pieceSize)
+
+	// delete piece data
+	err = corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
+	require.NoError(t, err)
+
+	// corrupt piece data (not PieceHeader) and write back to storagenode
+	// this means repair downloading should fail during piece hash verification
+	pieceData[pieceSize-1]++ // if we don't do this, this test should fail
+	writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef, pieceSize)
+	require.NoError(t, err)
+
+	n, err = writer.Write(pieceData)
+	require.NoError(t, err)
+	require.EqualValues(t, n, pieceSize)
+
+	err = writer.Commit(ctx)
+	require.NoError(t, err)
 }
