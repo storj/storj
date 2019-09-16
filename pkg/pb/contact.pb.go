@@ -249,7 +249,7 @@ func (c *drpcContactClient) PingNode(ctx context.Context, in *ContactPingRequest
 }
 
 type DRPCContactServer interface {
-	PingNode(context.Context, *ContactPingRequest) (*ContactPingResponse, error)
+	DRPCPingNode(context.Context, *ContactPingRequest) (*ContactPingResponse, error)
 }
 
 type DRPCContactDescription struct{}
@@ -262,18 +262,14 @@ func (DRPCContactDescription) Method(n int) (string, drpc.Handler, interface{}, 
 		return "/contact.Contact/PingNode",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCContactServer).
-					PingNode(
+					DRPCPingNode(
 						ctx,
 						in1.(*ContactPingRequest),
 					)
-			}, DRPCContactServer.PingNode, true
+			}, DRPCContactServer.DRPCPingNode, true
 	default:
 		return "", nil, nil, false
 	}
-}
-
-func DRPCRegisterContact(srv drpc.Server, impl DRPCContactServer) {
-	srv.Register(impl, DRPCContactDescription{})
 }
 
 type DRPCContact_PingNodeStream interface {
@@ -318,7 +314,7 @@ func (c *drpcNodeClient) CheckIn(ctx context.Context, in *CheckInRequest) (*Chec
 }
 
 type DRPCNodeServer interface {
-	CheckIn(context.Context, *CheckInRequest) (*CheckInResponse, error)
+	DRPCCheckIn(context.Context, *CheckInRequest) (*CheckInResponse, error)
 }
 
 type DRPCNodeDescription struct{}
@@ -331,18 +327,14 @@ func (DRPCNodeDescription) Method(n int) (string, drpc.Handler, interface{}, boo
 		return "/contact.Node/CheckIn",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCNodeServer).
-					CheckIn(
+					DRPCCheckIn(
 						ctx,
 						in1.(*CheckInRequest),
 					)
-			}, DRPCNodeServer.CheckIn, true
+			}, DRPCNodeServer.DRPCCheckIn, true
 	default:
 		return "", nil, nil, false
 	}
-}
-
-func DRPCRegisterNode(srv drpc.Server, impl DRPCNodeServer) {
-	srv.Register(impl, DRPCNodeDescription{})
 }
 
 type DRPCNode_CheckInStream interface {

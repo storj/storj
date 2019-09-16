@@ -398,8 +398,8 @@ func (c *drpcNodeStatsClient) DailyStorageUsage(ctx context.Context, in *DailySt
 }
 
 type DRPCNodeStatsServer interface {
-	GetStats(context.Context, *GetStatsRequest) (*GetStatsResponse, error)
-	DailyStorageUsage(context.Context, *DailyStorageUsageRequest) (*DailyStorageUsageResponse, error)
+	DRPCGetStats(context.Context, *GetStatsRequest) (*GetStatsResponse, error)
+	DRPCDailyStorageUsage(context.Context, *DailyStorageUsageRequest) (*DailyStorageUsageResponse, error)
 }
 
 type DRPCNodeStatsDescription struct{}
@@ -412,27 +412,23 @@ func (DRPCNodeStatsDescription) Method(n int) (string, drpc.Handler, interface{}
 		return "/nodestats.NodeStats/GetStats",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCNodeStatsServer).
-					GetStats(
+					DRPCGetStats(
 						ctx,
 						in1.(*GetStatsRequest),
 					)
-			}, DRPCNodeStatsServer.GetStats, true
+			}, DRPCNodeStatsServer.DRPCGetStats, true
 	case 1:
 		return "/nodestats.NodeStats/DailyStorageUsage",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCNodeStatsServer).
-					DailyStorageUsage(
+					DRPCDailyStorageUsage(
 						ctx,
 						in1.(*DailyStorageUsageRequest),
 					)
-			}, DRPCNodeStatsServer.DailyStorageUsage, true
+			}, DRPCNodeStatsServer.DRPCDailyStorageUsage, true
 	default:
 		return "", nil, nil, false
 	}
-}
-
-func DRPCRegisterNodeStats(srv drpc.Server, impl DRPCNodeStatsServer) {
-	srv.Register(impl, DRPCNodeStatsDescription{})
 }
 
 type DRPCNodeStats_GetStatsStream interface {

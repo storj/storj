@@ -503,9 +503,9 @@ func (c *drpcNodesClient) RequestInfo(ctx context.Context, in *InfoRequest) (*In
 }
 
 type DRPCNodesServer interface {
-	Query(context.Context, *QueryRequest) (*QueryResponse, error)
-	Ping(context.Context, *PingRequest) (*PingResponse, error)
-	RequestInfo(context.Context, *InfoRequest) (*InfoResponse, error)
+	DRPCQuery(context.Context, *QueryRequest) (*QueryResponse, error)
+	DRPCPing(context.Context, *PingRequest) (*PingResponse, error)
+	DRPCRequestInfo(context.Context, *InfoRequest) (*InfoResponse, error)
 }
 
 type DRPCNodesDescription struct{}
@@ -518,36 +518,32 @@ func (DRPCNodesDescription) Method(n int) (string, drpc.Handler, interface{}, bo
 		return "/overlay.Nodes/Query",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCNodesServer).
-					Query(
+					DRPCQuery(
 						ctx,
 						in1.(*QueryRequest),
 					)
-			}, DRPCNodesServer.Query, true
+			}, DRPCNodesServer.DRPCQuery, true
 	case 1:
 		return "/overlay.Nodes/Ping",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCNodesServer).
-					Ping(
+					DRPCPing(
 						ctx,
 						in1.(*PingRequest),
 					)
-			}, DRPCNodesServer.Ping, true
+			}, DRPCNodesServer.DRPCPing, true
 	case 2:
 		return "/overlay.Nodes/RequestInfo",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCNodesServer).
-					RequestInfo(
+					DRPCRequestInfo(
 						ctx,
 						in1.(*InfoRequest),
 					)
-			}, DRPCNodesServer.RequestInfo, true
+			}, DRPCNodesServer.DRPCRequestInfo, true
 	default:
 		return "", nil, nil, false
 	}
-}
-
-func DRPCRegisterNodes(srv drpc.Server, impl DRPCNodesServer) {
-	srv.Register(impl, DRPCNodesDescription{})
 }
 
 type DRPCNodes_QueryStream interface {
