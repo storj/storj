@@ -92,9 +92,7 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 				continue
 			}
 			existing := pieceMap[piece.PieceNum]
-			if existing != nil &&
-				existing.NodeId == piece.NodeId &&
-				existing.Hash == piece.Hash {
+			if existing != nil && existing.NodeId == piece.NodeId {
 				delete(pieceMap, piece.PieceNum)
 			}
 		}
@@ -114,6 +112,8 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 		// copy the pieces from the map back to the pointer
 		var pieces []*pb.RemotePiece
 		for _, piece := range pieceMap {
+			// clear hashes so we don't store them
+			piece.Hash = nil
 			pieces = append(pieces, piece)
 		}
 		pointer.GetRemote().RemotePieces = pieces
