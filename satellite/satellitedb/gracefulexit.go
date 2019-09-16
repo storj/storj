@@ -15,7 +15,7 @@ type gracefulexitDB struct {
 	db *dbx.DB
 }
 
-// CreateProgress creates a graceful exit progress entry in the database
+// CreateProgress creates a graceful exit progress entry in the database.
 func (db *gracefulexitDB) CreateProgress(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return db.db.CreateNoReturn_GracefulExitProgress(
@@ -25,7 +25,7 @@ func (db *gracefulexitDB) CreateProgress(ctx context.Context, nodeID storj.NodeI
 	)
 }
 
-// UpdateProgress updates a graceful exit progress entry in the database
+// UpdateProgress updates a graceful exit progress entry in the database.
 func (db *gracefulexitDB) UpdateProgress(ctx context.Context, nodeID storj.NodeID, bytesTransferred int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return db.db.UpdateNoReturn_GracefulExitProgress_By_NodeId(
@@ -37,14 +37,14 @@ func (db *gracefulexitDB) UpdateProgress(ctx context.Context, nodeID storj.NodeI
 	)
 }
 
-// DeleteProgress deletes a graceful exit progress entry in the database
+// DeleteProgress deletes a graceful exit progress entry in the database.
 func (db *gracefulexitDB) DeleteProgress(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = db.db.Delete_GracefulExitProgress_By_NodeId(ctx, dbx.GracefulExitProgress_NodeId(nodeID.Bytes()))
 	return err
 }
 
-// IncrementProgressBytesTransferred increments bytes transferred value
+// IncrementProgressBytesTransferred increments bytes transferred value.
 func (db *gracefulexitDB) IncrementProgressBytesTransferred(ctx context.Context, nodeID storj.NodeID, bytesTransferred int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	statement := db.db.Rebind(
@@ -58,7 +58,7 @@ func (db *gracefulexitDB) IncrementProgressBytesTransferred(ctx context.Context,
 	return nil
 }
 
-// GetProgress gets a graceful exit progress entry in the database
+// GetProgress gets a graceful exit progress entry in the database.
 func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) (_ *gracefulexit.Progress, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxProgress, err := db.db.Get_GracefulExitProgress_By_NodeId(ctx, dbx.GracefulExitProgress_NodeId(nodeID.Bytes()))
@@ -79,7 +79,7 @@ func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) 
 	return progress, err
 }
 
-// GetAllProgress gets all graceful exit progress entries in the database
+// GetAllProgress gets all graceful exit progress entries in the database.
 func (db *gracefulexitDB) GetAllProgress(ctx context.Context) (_ []*gracefulexit.Progress, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxProgressRows, err := db.db.All_GracefulExitProgress(ctx)
@@ -104,7 +104,7 @@ func (db *gracefulexitDB) GetAllProgress(ctx context.Context) (_ []*gracefulexit
 	return progressRows, err
 }
 
-// CreateProgress creates a graceful exit transfer queue entry in the database
+// CreateTransferQueueItem creates a graceful exit transfer queue entry in the database.
 func (db *gracefulexitDB) CreateTransferQueueItem(ctx context.Context, item gracefulexit.TransferQueueItem) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -131,7 +131,7 @@ func (db *gracefulexitDB) CreateTransferQueueItem(ctx context.Context, item grac
 	)
 }
 
-// UpdateTransferQueueItem creates a graceful exit transfer queue entry in the database
+// UpdateTransferQueueItem creates a graceful exit transfer queue entry in the database.
 func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item gracefulexit.TransferQueueItem) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	update := dbx.GracefulExitTransferQueue_Update_Fields{
@@ -157,14 +157,14 @@ func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item grac
 	)
 }
 
-// DeleteTransferQueueItem deletes a graceful exit transfer queue entry in the database
+// DeleteTransferQueueItem deletes a graceful exit transfer queue entry in the database.
 func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(path))
 	return err
 }
 
-// GetTransferQueueItem gets a graceful exit transfer queue entry in the database
+// GetTransferQueueItem gets a graceful exit transfer queue entry in the database.
 func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (_ *gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxTransferQueue, err := db.db.Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx,
@@ -182,7 +182,7 @@ func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj
 	return transferQueueItem, err
 }
 
-// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets incomplete graceful exit transfer queue entries in the database ordered by the queued date ascending
+// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets incomplete graceful exit transfer queue entries in the database ordered by the queued date ascending.
 func (db *gracefulexitDB) GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxTransferQueueItemRows, err := db.db.Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), limit, offset)

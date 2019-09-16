@@ -35,27 +35,27 @@ type TransferQueueItem struct {
 //
 // architecture: Database
 type DB interface {
-	// CreateProgress creates a graceful exit progress entry in the database
+	// CreateProgress creates a graceful exit progress entry in the database.
 	CreateProgress(ctx context.Context, nodeID storj.NodeID) error
-	// UpdateProgress updates a graceful exit progress entry in the database
+	// UpdateProgress updates a graceful exit progress entry in the database.
 	UpdateProgress(ctx context.Context, nodeID storj.NodeID, bytesTransferred int64) error
-	// DeleteProgress deletes a graceful exit progress entry in the database
+	// DeleteProgress deletes a graceful exit progress entry in the database.
 	DeleteProgress(ctx context.Context, nodeID storj.NodeID) error
-	// IncrementProgressBytesTransferred increments bytes transferred value
+	// IncrementProgressBytesTransferred increments bytes transferred value.
 	IncrementProgressBytesTransferred(ctx context.Context, nodeID storj.NodeID, bytesTransferred int64) error
-	// GetProgress gets a graceful exit progress entry in the database
+	// GetProgress gets a graceful exit progress entry in the database.
 	GetProgress(ctx context.Context, nodeID storj.NodeID) (*Progress, error)
-	// GetAllProgress gets all graceful exit progress entries in the database
+	// GetAllProgress gets all graceful exit progress entries in the database.
 	GetAllProgress(ctx context.Context) ([]*Progress, error)
 
-	// CreateProgress creates a graceful exit progress entry in the database
+	// CreateTransferQueueItem creates a graceful exit transfer queue entry in the database.
 	CreateTransferQueueItem(ctx context.Context, item TransferQueueItem) error
-	// UpdateTransferQueueItem creates a graceful exit transfer queue entry in the database
+	// UpdateTransferQueueItem creates a graceful exit transfer queue entry in the database.
 	UpdateTransferQueueItem(ctx context.Context, item TransferQueueItem) error
-	// DeleteTransferQueueItem deletes a graceful exit transfer queue entry in the database
+	// DeleteTransferQueueItem deletes a graceful exit transfer queue entry in the database.
 	DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) error
-	// GetTransferQueueItem gets a graceful exit transfer queue entry in the database
+	// GetTransferQueueItem gets a graceful exit transfer queue entry in the database.
 	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (*TransferQueueItem, error)
-	// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets incomplete graceful exit transfer queue entries in the database ordered by the queued date ascending
+	// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets incomplete graceful exit transfer queue entries in the database ordered by the queued date ascending.
 	GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
 }
