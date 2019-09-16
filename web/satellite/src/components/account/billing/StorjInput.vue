@@ -6,9 +6,11 @@
         <div class="selected-container" v-if="!isCustomAmount">
             <div id="paymentSelectButton" class="selected-container__label-container" @click="toggleSelection">
                 <p>{{current.label}}</p>
-                <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
-                </svg>
+                <div class="selected-container__label-container__svg">
+                    <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
+                    </svg>
+                </div>
             </div>
             <div id="paymentSelect" class="options-container" v-if="isSelectionShown">
                 <div
@@ -16,9 +18,11 @@
                     v-for="option in paymentOptions"
                     @click.prevent="select(option)">
 
-                    <svg v-if="option.value === current.value" width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
-                    </svg>
+                    <div class="options-container__item__svg" v-if="option.value === current.value">
+                        <svg width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
+                        </svg>
+                    </div>
                     <p>{{option.label}}</p>
                 </div>
                 <div class="options-container__custom-container" @click.prevent="toggleCustomAmount">Custom Amount</div>
@@ -26,15 +30,18 @@
         </div>
         <label v-if="isCustomAmount">
             <input type="number" placeholder="Enter Amount" v-model="customAmount">
-            <svg @click="test" class="input-svg" width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
-            </svg>
+            <div class="input-svg" @click="toggleCustomAmount">
+                <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
+                </svg>
+            </div>
         </label>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { PaymentAmountOption } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
@@ -68,10 +75,6 @@ export default class StorjInput extends Vue {
         this.current = value;
         this.toggleSelection();
     }
-
-    public test() {
-        console.log('this.customAmount', this.customAmount)
-    }
 }
 </script>
 
@@ -87,12 +90,12 @@ export default class StorjInput extends Vue {
     }
 
     input {
-        width: 216px;
+        width: 200px;
         height: 48px;
         border: 1px solid #afb7c1;
         border-radius: 8px;
         background-color: transparent;
-        padding: 0 20px;
+        padding: 0 36px 0 20px;
         font-family: font_medium;
         font-size: 16px;
         line-height: 28px;
@@ -112,7 +115,7 @@ export default class StorjInput extends Vue {
     .input-svg {
         position: absolute;
         top: 50%;
-        right: 0;
+        right: 20px;
         transform: translate(0, -50%);
         cursor: pointer;
     }
@@ -141,6 +144,10 @@ export default class StorjInput extends Vue {
                 line-height: 28px;
                 color: #354049;
                 margin: 0;
+            }
+
+            &__svg {
+                cursor: pointer;
             }
         }
     }
@@ -177,7 +184,8 @@ export default class StorjInput extends Vue {
             padding: 0 20px;
             cursor: pointer;
 
-            svg {
+            &__svg {
+                cursor: pointer;
                 margin-right: 10px;
             }
 
