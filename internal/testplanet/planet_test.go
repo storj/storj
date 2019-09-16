@@ -44,6 +44,7 @@ func TestBasic(t *testing.T) {
 		require.NoError(t, err)
 		_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 			Address:  node.GetAddress().GetAddress(),
+			Version:  node.Version.GetVersion(),
 			Capacity: &node.Capacity,
 			Operator: &node.Operator,
 		})
