@@ -96,6 +96,7 @@ type DB struct {
 	reputationDB      *reputationDB
 	storageUsageDB    *storageusageDB
 	usedSerialsDB     *usedSerialsDB
+	satellitesDB      *satellitesDB
 
 	kdb, ndb, adb storage.KeyValueStore
 
@@ -134,6 +135,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		reputationDB:      newReputationDB(),
 		storageUsageDB:    newStorageusageDB(),
 		usedSerialsDB:     newUsedSerialsDB(),
+		satellitesDB:      newSatellitesDB(),
 	}
 
 	err = db.openDatabases()
@@ -145,8 +147,10 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 
 // openDatabases opens all the SQLite3 storage node databases and returns if any fails to open successfully.
 func (db *DB) openDatabases() error {
-	// We open the versions database first because this one has the DB schema versioning info
-	// we need before anything else.
+	// These objeccts have a Configure method to allow setting the underlining SQLDB connection
+	// that each uses internally to do data access to the SQLite3 databases.
+	// The reason it was done this way was because there's some outside consumers that are
+	// taking a reference to the business object.
 	legacyInfoDB, err := db.openDatabase(LegacyInfoDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
@@ -200,6 +204,12 @@ func (db *DB) openDatabases() error {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.usedSerialsDB.Configure(usedSerialsDB)
+
+	satellitesDB, err := db.openDatabase(SatellitesDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.satellitesDB.Configure(satellitesDB)
 	return nil
 }
 
@@ -218,7 +228,7 @@ func (db *DB) openDatabase(dbName string) (*sql.DB, error) {
 	db.sqlDatabases[dbName] = sqlDB
 	dbutil.Configure(sqlDB, mon)
 
-	db.log.Sugar().Debugf("opened database %s", path)
+	db.log.Sugar().Debugf("opened database %s", dbName)
 	return sqlDB, nil
 }
 
@@ -333,6 +343,7 @@ func (db *DB) RawDatabases() map[string]SQLDB {
 		UsedSerialsDBName:     db.usedSerialsDB,
 		PieceInfoDBName:       db.v0PieceInfoDB,
 		LegacyInfoDBName:      db.legacyInfoDB,
+		SatellitesDBName:      db.satellitesDB,
 	}
 }
 
@@ -776,6 +787,9 @@ func (db *DB) Migration() *migrate.Migration {
 						return ErrDatabase.Wrap(err)
 					}
 					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, UsedSerialsDBName, "used_serial_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := m.MigrateTablesToDatabase(ctx, LegacyInfoDBName, SatellitesDBName, "satellites", "satellite_exit_progress"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
