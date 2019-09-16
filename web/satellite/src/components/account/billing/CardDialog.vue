@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="dialog">
         <p class="dialog__make-default">Make Default</p>

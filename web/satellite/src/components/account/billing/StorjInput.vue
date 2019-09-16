@@ -78,8 +78,6 @@ export default class StorjInput extends Vue {
 }
 </script>
 
-
-
 <style scoped lang="scss">
     p {
         -webkit-touch-callout: none;
