@@ -106,30 +106,30 @@ Statuses: `unsent` (host satellite doesn't know about it yet), `unredeemed` (hos
 Referral Manager endpoints:
 ```
 // GetEligibleUsers retrieves a list of users who have 0 remaining invitation tokens
-// from each satellite provided
-GetEligibleUsers([]satelliteURLs) map[satelliteURL][]UserID {
+// from each satellite provided, and saves those users in memory
+GetEligibleUsers([]satelliteURLs) map[satelliteURL]int {
     eligibleUsers := make(map[satelliteURL][]UserID)
+    eligibleUsersCounts := make(map[satelliteURL]int)
     for _, satellite := range satelliteURL {
        users := satellite.GetUsersReferral() 
         eligibleUsers[satellite] = users
+        eligibleUsersCounts[satellite]++
     }
-
-    return eligibleUsers
-    
-}
-// GenerateInvitationTokens ,
-// and returns a count of tokens generated for each satellite
-GenerateInvitationTokens(eligibleUsers map[satelliteURL][]UserID) map[satelliteURL]int {
-
+    referralManager.eligibleUsers = eligibleUsers
+    return eligibleUsersCounts
 }
 
 // SendInvitationTokens generates tokens, saves those in the referral manager db
 // and then sends newly created tokens to each respective satellite
-SendInvitationTokens([]satelliteURL) map[satelliteURL]int {
+GenerateAndSendInvitationTokens([]satelliteURL, tokensPerUser int) map[satelliteURL]int {
+    eligibleUsers := referralManager.eligibleUsers
+    if eligibleUsers == nil {
+        return Error.New("No users to generate tokens for. Make sure to run GetEligibleUsers first")
+    }
     var tokens []Token
     for satellite, users := range eligibleUsers {
         for _, user := range users {
-            for i:=0; i<3; i++ {
+            for i:=0; i<tokensPerUser; i++ {
                 newToken := Token{data: generateRandomToken(), user: user, satellite: satellite}
                 db.CreateToken(newToken)
                 tokens = append(tokens, newToken)
