@@ -800,7 +800,7 @@ func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, 
 	}
 }
 
-// corruptPieceData manipulates piece data on a storagde node.
+// corruptPieceData manipulates piece data on a storage node.
 func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *storagenode.Peer, corruptedPieceID storj.PieceID) {
 	t.Helper()
 
