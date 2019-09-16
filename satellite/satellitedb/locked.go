@@ -742,6 +742,20 @@ func (m *lockedGracefulExit) DeleteTransferQueueItem(ctx context.Context, nodeID
 }
 
 // GetProgress gets a graceful exit progress entry in the database
+func (m *lockedGracefulExit) GetAllProgress(ctx context.Context) ([]*gracefulexit.Progress, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAllProgress(ctx)
+}
+
+// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets a graceful exit incomplete transfer queue entries in the database ordered by the queued date ascending
+func (m *lockedGracefulExit) GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx, nodeID, limit, offset)
+}
+
+// GetProgress gets a graceful exit progress entry in the database
 func (m *lockedGracefulExit) GetProgress(ctx context.Context, nodeID storj.NodeID) (*gracefulexit.Progress, error) {
 	m.Lock()
 	defer m.Unlock()

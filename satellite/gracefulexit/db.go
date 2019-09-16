@@ -45,6 +45,8 @@ type DB interface {
 	IncrementProgressBytesTransferred(ctx context.Context, nodeID storj.NodeID, bytesTransferred int64) error
 	// GetProgress gets a graceful exit progress entry in the database
 	GetProgress(ctx context.Context, nodeID storj.NodeID) (*Progress, error)
+	// GetProgress gets a graceful exit progress entry in the database
+	GetAllProgress(ctx context.Context) ([]*Progress, error)
 
 	// CreateProgress creates a graceful exit progress entry in the database
 	CreateTransferQueueItem(ctx context.Context, item TransferQueueItem) error
@@ -54,4 +56,6 @@ type DB interface {
 	DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) error
 	// GetTransferQueueItem gets a graceful exit transfer queue entry in the database
 	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (*TransferQueueItem, error)
+	// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets a graceful exit incomplete transfer queue entries in the database ordered by the queued date ascending
+	GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
 }

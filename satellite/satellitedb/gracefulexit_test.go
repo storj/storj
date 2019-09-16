@@ -53,6 +53,18 @@ func TestProgress(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, data.updAmt+data.incAmt, progress.BytesTransferred)
 		}
+		progresses, err := geDB.GetAllProgress(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(progresses))
+
+		for _, progress := range progresses {
+			err := geDB.DeleteProgress(ctx, progress.NodeID)
+			require.NoError(t, err)
+		}
+
+		progresses, err = geDB.GetAllProgress(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(progresses))
 	})
 }
 
@@ -73,6 +85,7 @@ func TestTransferQueueItem(t *testing.T) {
 			DurabilityRatio: 1.1,
 		}
 
+		// test basic create, update, get delete
 		err := geDB.CreateTransferQueueItem(ctx, *item)
 		require.NoError(t, err)
 
@@ -95,5 +108,34 @@ func TestTransferQueueItem(t *testing.T) {
 
 		_, err = geDB.GetTransferQueueItem(ctx, nodeID, path)
 		require.Error(t, err)
+
+		// test get transfer queue items limited
+		itemsCount := 5
+		nodeID = testrand.NodeID()
+		var finished *gracefulexit.TransferQueueItem
+		for i := 0; i < itemsCount; i++ {
+			path := testrand.Bytes(memory.B * 32)
+			item := &gracefulexit.TransferQueueItem{
+				NodeID:          nodeID,
+				Path:            path,
+				PieceNum:        1,
+				DurabilityRatio: 1.1,
+			}
+			err := geDB.CreateTransferQueueItem(ctx, *item)
+			require.NoError(t, err)
+
+			if i == 2 {
+				item.FinishedAt = time.Now()
+				geDB.UpdateTransferQueueItem(ctx, *item)
+				require.NoError(t, err)
+				finished = item
+			}
+		}
+		queueItems, err := geDB.GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx, nodeID, 10, 0)
+		require.NoError(t, err)
+		require.Equal(t, itemsCount-1, len(queueItems))
+		for _, queueItem := range queueItems {
+			require.NotEqual(t, finished.Path, queueItem.Path)
+		}
 	})
 }

@@ -79,16 +79,47 @@ func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) 
 	return progress, err
 }
 
+// GetAllProgress gets aall graceful exit progress entries in the database
+func (db *gracefulexitDB) GetAllProgress(ctx context.Context) (_ []*gracefulexit.Progress, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxProgressRows, err := db.db.All_GracefulExitProgress(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var progressRows = make([]*gracefulexit.Progress, len(dbxProgressRows))
+	for i, dbxProgress := range dbxProgressRows {
+		nID, err := storj.NodeIDFromBytes(dbxProgress.NodeId)
+		if err != nil {
+			return nil, err
+		}
+
+		progress := &gracefulexit.Progress{
+			NodeID:           nID,
+			BytesTransferred: dbxProgress.BytesTransferred,
+			UpdatedAt:        dbxProgress.UpdatedAt,
+		}
+		progressRows[i] = progress
+	}
+	return progressRows, err
+}
+
 // CreateProgress creates a graceful exit transfer queue entry in the database
 func (db *gracefulexitDB) CreateTransferQueueItem(ctx context.Context, item gracefulexit.TransferQueueItem) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	optional := dbx.GracefulExitTransferQueue_Create_Fields{
-		RequestedAt:    dbx.GracefulExitTransferQueue_RequestedAt_Raw(&item.RequestedAt),
-		LastFailedAt:   dbx.GracefulExitTransferQueue_LastFailedAt_Raw(&item.LastFailedAt),
 		LastFailedCode: dbx.GracefulExitTransferQueue_LastFailedCode_Raw(&item.LastFailedCode),
 		FailedCount:    dbx.GracefulExitTransferQueue_FailedCount_Raw(&item.FailedCount),
-		FinishedAt:     dbx.GracefulExitTransferQueue_FinishedAt_Raw(&item.FinishedAt),
+	}
+	if &item.RequestedAt != nil && !item.RequestedAt.IsZero() {
+		optional.RequestedAt = dbx.GracefulExitTransferQueue_RequestedAt_Raw(&item.RequestedAt)
+	}
+	if &item.LastFailedAt != nil && !item.LastFailedAt.IsZero() {
+		optional.LastFailedAt = dbx.GracefulExitTransferQueue_LastFailedAt_Raw(&item.LastFailedAt)
+	}
+	if &item.FinishedAt != nil && !item.FinishedAt.IsZero() {
+		optional.FinishedAt = dbx.GracefulExitTransferQueue_FinishedAt_Raw(&item.FinishedAt)
 	}
 
 	return db.db.CreateNoReturn_GracefulExitTransferQueue(ctx,
@@ -105,12 +136,20 @@ func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item grac
 	defer mon.Task()(&ctx)(&err)
 	update := dbx.GracefulExitTransferQueue_Update_Fields{
 		DurabilityRatio: dbx.GracefulExitTransferQueue_DurabilityRatio(item.DurabilityRatio),
-		RequestedAt:     dbx.GracefulExitTransferQueue_RequestedAt_Raw(&item.RequestedAt),
-		LastFailedAt:    dbx.GracefulExitTransferQueue_LastFailedAt_Raw(&item.LastFailedAt),
 		LastFailedCode:  dbx.GracefulExitTransferQueue_LastFailedCode_Raw(&item.LastFailedCode),
 		FailedCount:     dbx.GracefulExitTransferQueue_FailedCount_Raw(&item.FailedCount),
-		FinishedAt:      dbx.GracefulExitTransferQueue_FinishedAt_Raw(&item.FinishedAt),
 	}
+
+	if &item.RequestedAt != nil && !item.RequestedAt.IsZero() {
+		update.RequestedAt = dbx.GracefulExitTransferQueue_RequestedAt_Raw(&item.RequestedAt)
+	}
+	if &item.LastFailedAt != nil && !item.LastFailedAt.IsZero() {
+		update.LastFailedAt = dbx.GracefulExitTransferQueue_LastFailedAt_Raw(&item.LastFailedAt)
+	}
+	if &item.FinishedAt != nil && !item.FinishedAt.IsZero() {
+		update.FinishedAt = dbx.GracefulExitTransferQueue_FinishedAt_Raw(&item.FinishedAt)
+	}
+
 	return db.db.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx,
 		dbx.GracefulExitTransferQueue_NodeId(item.NodeID.Bytes()),
 		dbx.GracefulExitTransferQueue_Path(item.Path),
@@ -134,23 +173,60 @@ func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj
 	if err != nil {
 		return nil, err
 	}
+
+	transferQueueItem, err := dbxToTransferQueueItem(dbxTransferQueue)
+	if err != nil {
+		return nil, err
+	}
+
+	return transferQueueItem, err
+}
+
+// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets a graceful exit incomplete transfer queue entries in the database ordered by the queued date ascending
+func (db *gracefulexitDB) GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxTransferQueueItemRows, err := db.db.Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	var transferQueueItemRows = make([]*gracefulexit.TransferQueueItem, len(dbxTransferQueueItemRows))
+	for i, dbxTransferQueue := range dbxTransferQueueItemRows {
+		transferQueueItem, err := dbxToTransferQueueItem(dbxTransferQueue)
+		if err != nil {
+			return nil, err
+		}
+		transferQueueItemRows[i] = transferQueueItem
+	}
+
+	return transferQueueItemRows, err
+}
+
+func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (item *gracefulexit.TransferQueueItem, err error) {
 	nID, err := storj.NodeIDFromBytes(dbxTransferQueue.NodeId)
 	if err != nil {
 		return nil, err
 	}
 
-	transferQueueItem := &gracefulexit.TransferQueueItem{
+	item = &gracefulexit.TransferQueueItem{
 		NodeID:          nID,
 		Path:            dbxTransferQueue.Path,
 		PieceNum:        dbxTransferQueue.PieceNum,
 		DurabilityRatio: dbxTransferQueue.DurabilityRatio,
 		QueuedAt:        dbxTransferQueue.QueuedAt,
-		RequestedAt:     *dbxTransferQueue.RequestedAt,
-		LastFailedAt:    *dbxTransferQueue.LastFailedAt,
 		LastFailedCode:  *dbxTransferQueue.LastFailedCode,
 		FailedCount:     *dbxTransferQueue.FailedCount,
-		FinishedAt:      *dbxTransferQueue.FinishedAt,
 	}
 
-	return transferQueueItem, err
+	if dbxTransferQueue.RequestedAt != nil && !dbxTransferQueue.RequestedAt.IsZero() {
+		item.RequestedAt = *dbxTransferQueue.RequestedAt
+	}
+	if dbxTransferQueue.LastFailedAt != nil && !dbxTransferQueue.LastFailedAt.IsZero() {
+		item.LastFailedAt = *dbxTransferQueue.LastFailedAt
+	}
+	if dbxTransferQueue.FinishedAt != nil && !dbxTransferQueue.FinishedAt.IsZero() {
+		item.FinishedAt = *dbxTransferQueue.FinishedAt
+	}
+
+	return item, err
 }

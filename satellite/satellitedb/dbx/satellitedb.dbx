@@ -876,6 +876,9 @@ read one (
 	select graceful_exit_progress
 	where graceful_exit_progress.node_id = ? 
 )
+read all (
+	select graceful_exit_progress
+)
 
 //--- graceful exit transfer queue ---//
 
@@ -913,4 +916,10 @@ read one (
 	select graceful_exit_transfer_queue
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+)
+read limitoffset (
+	select graceful_exit_transfer_queue
+	where graceful_exit_transfer_queue.node_id = ?
+	where graceful_exit_transfer_queue.finished_at = null
+	orderby asc graceful_exit_transfer_queue.queued_at
 )
