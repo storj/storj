@@ -257,8 +257,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return false, err
 	}
 
-	mon.IntVal("checker_segment_time_until_repair").Observe(int64(time.Since(pointer.LastRepaired).Seconds()))
-	mon.IntVal("checker_segment_repair_count").Observe(int64(pointer.RepairCount))
+	mon.IntVal("segment_time_until_repair").Observe(int64(time.Since(pointer.LastRepaired).Seconds()))
+	mon.IntVal("segment_repair_count").Observe(int64(pointer.RepairCount))
 
 	return true, nil
 }

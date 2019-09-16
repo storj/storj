@@ -296,13 +296,13 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 			}
 		}
 
-		var segmentStart time.Time
+		var segmentAge time.Duration
 		if pointer.CreationDate.Before(pointer.LastRepaired) {
-			segmentStart = pointer.CreationDate
+			segmentAge = time.Since(pointer.CreationDate)
 		} else {
-			segmentStart = pointer.LastRepaired
+			segmentAge = time.Since(pointer.LastRepaired)
 		}
-		mon.IntVal("checker_segment_irreparable_time_until_repair").Observe(int64(time.Since(segmentStart).Seconds()))
+		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds()))
 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
