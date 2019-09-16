@@ -18,7 +18,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
@@ -811,7 +810,7 @@ func (db *DB) Migration() *migrate.Migration {
 			{
 				DB:          db.versionsDB,
 				Description: "Split into multiple sqlite databases",
-				Version:     21,
+				Version:     22,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					ctx := context.TODO()
 
