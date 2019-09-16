@@ -132,7 +132,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				extension = "." + extension
 			}
 
-			dir, _ := filepath.Split(binaryLocation)
+			dir := filepath.Dir(binaryLocation)
 			backupExec := filepath.Join(dir, "storagenode.old."+currentVersion.String()+extension)
 
 			if err = os.Rename(binaryLocation, backupExec); err != nil {
@@ -144,13 +144,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 				return err
 			}
 
-			newVersion, err := binaryVersion(binaryLocation)
+			downloadedVersion, err := binaryVersion(binaryLocation)
 			if err != nil {
 				return err
 			}
 
-			if suggestedVersion.Compare(newVersion) != 0 {
-				return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), newVersion.String())
+			if suggestedVersion.Compare(downloadedVersion) != 0 {
+				return errs.New("invalid version downloaded: wants %s got %s", suggestedVersion.String(), downloadedVersion.String())
 			}
 
 			log.Println("restarting service", snServiceName)
