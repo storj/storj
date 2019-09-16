@@ -42,8 +42,8 @@ func TestBasic(t *testing.T) {
 		node := planet.StorageNodes[0].Local()
 		conn, err := planet.StorageNodes[0].Transport.DialNode(ctx, &sat)
 		require.NoError(t, err)
-		_, err = pb.NewNodeClient(conn).Checkin(ctx, &pb.CheckinRequest{
-			Address:  node.Address,
+		_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
+			Address:  node.GetAddress().GetAddress(),
 			Capacity: &node.Capacity,
 			Operator: &node.Operator,
 		})
