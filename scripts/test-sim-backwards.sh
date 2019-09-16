@@ -45,7 +45,7 @@ fi
 # setup the network
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --config-dir $RELEASE_DIR --postgres=$STORJ_SIM_POSTGRES setup
 # run upload part of backward compatibility tests from the lastest release branch
-PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
+PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --config-dir $RELEASE_DIR test bash "$SCRIPTDIR"/test-backwards.sh upload
 
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_0_DIR`/config.yaml
@@ -63,7 +63,7 @@ ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_4_DIR`/storag
 PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --config-dir $BRANCH_DIR --postgres=$STORJ_SIM_POSTGRES setup
 
 # run download part of backward compatibility tests from the current branch, using new uplink
-PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
+PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --config-dir $BRANCH_DIR test bash "$SCRIPTDIR"/test-backwards.sh download
 
 ## Ensure that old uplink works
 
@@ -71,7 +71,7 @@ PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test
 cp $RELEASE_DIR/bin/uplink $BRANCH_DIR/bin/uplink
 
 # run download part of backward compatibility tests from the current branch
-PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
+PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --config-dir $BRANCH_DIR test bash "$SCRIPTDIR"/test-backwards.sh download
 
 # run a delete in the network
-PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh cleanup
+PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --config-dir $BRANCH_DIR test bash "$SCRIPTDIR"/test-backwards.sh cleanup
