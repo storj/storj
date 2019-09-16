@@ -18,8 +18,8 @@ var (
 
 const (
 	// defaultTransportDialTimeout is the default time to wait for a connection to be established.
-	defaultTransportDialTimeout = 60 * time.Second
+	defaultTransportDialTimeout = 20 * time.Second
 
 	// defaultTransportRequestTimeout is the default time to wait for a response.
-	defaultTransportRequestTimeout = 60 * time.Second
+	defaultTransportRequestTimeout = 20 * time.Second
 )

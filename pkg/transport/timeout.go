@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"fmt"
 	"net"
 	"time"
 )
@@ -19,6 +20,11 @@ func (tc *timeoutConn) Read(b []byte) (n int, err error) {
 	if err != nil {
 		return 0, err
 	}
+	start := time.Now()
+	defer func() {
+		took := time.Now().Unix() - start.Unix()
+		fmt.Println("Read took: ", took)
+	}()
 	return tc.conn.Read(b)
 }
 
