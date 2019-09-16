@@ -283,6 +283,11 @@ func TestCommitSegment(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
 		{
 			// error if pointer is nil
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit{})
@@ -305,16 +310,25 @@ func TestCommitSegment(t *testing.T) {
 			usedForPieces := addressedLimits[:redundancy.RepairThreshold-1]
 			pieces := make([]*pb.RemotePiece, len(usedForPieces))
 			for i, limit := range usedForPieces {
-				pieces[i] = &pb.RemotePiece{
+				newPiece := &pb.RemotePiece{
 					PieceNum: int32(i),
 					NodeId:   limit.Limit.StorageNodeId,
 					Hash: &pb.PieceHash{
 						PieceId:   limit.Limit.PieceId,
-						Hash:      []byte{},
 						PieceSize: 256,
 						Timestamp: time.Now(),
 					},
 				}
+
+				fullID := fullIDMap[limit.Limit.StorageNodeId]
+				require.NotNil(t, fullID)
+				signer := signing.SignerFromFullIdentity(fullID)
+				newHash, err := signing.SignPieceHash(ctx, signer, newPiece.Hash)
+				require.NoError(t, err)
+
+				newPiece.Hash = newHash
+
+				pieces[i] = newPiece
 			}
 
 			pointer := &pb.Pointer{
@@ -355,7 +369,7 @@ func TestCommitSegment(t *testing.T) {
 			usedForPieces := addressedLimits[:redundancy.SuccessThreshold-1]
 			pieces := make([]*pb.RemotePiece, len(usedForPieces))
 			for i, limit := range usedForPieces {
-				pieces[i] = &pb.RemotePiece{
+				newPiece := &pb.RemotePiece{
 					PieceNum: int32(i),
 					NodeId:   limit.Limit.StorageNodeId,
 					Hash: &pb.PieceHash{
@@ -364,6 +378,16 @@ func TestCommitSegment(t *testing.T) {
 						Timestamp: time.Now(),
 					},
 				}
+
+				fullID := fullIDMap[limit.Limit.StorageNodeId]
+				require.NotNil(t, fullID)
+				signer := signing.SignerFromFullIdentity(fullID)
+				newHash, err := signing.SignPieceHash(ctx, signer, newPiece.Hash)
+				require.NoError(t, err)
+
+				newPiece.Hash = newHash
+
+				pieces[i] = newPiece
 			}
 
 			pointer := &pb.Pointer{
