@@ -22,7 +22,10 @@ import (
 var ErrPieceInfo = errs.Class("v0pieceinfodb error")
 
 const (
-	PieceInfoDBName             = "pieceinfo"
+	// PieceInfoDBName represents the database name.
+	PieceInfoDBName = "pieceinfo"
+
+	// V0PieceInfoDatabaseFilename represents the database filename.
 	V0PieceInfoDatabaseFilename = "pieceinfo.db"
 )
 

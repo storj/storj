@@ -17,7 +17,10 @@ import (
 var ErrPieceExpiration = errs.Class("piece expiration error")
 
 const (
-	PieceExpirationDBName           = "piece_expiration"
+	// PieceExpirationDBName represents the database filename.
+	PieceExpirationDBName = "piece_expiration"
+
+	// PieceExpirationDatabaseFilename represents the database filename.
 	PieceExpirationDatabaseFilename = "piece_expirations.db"
 )
 

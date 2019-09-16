@@ -20,7 +20,10 @@ import (
 var ErrOrders = errs.Class("ordersdb error")
 
 const (
-	OrdersDBName           = "orders"
+	// OrdersDBName represents the database name.
+	OrdersDBName = "orders"
+
+	// OrdersDatabaseFilename represents the database filename.
 	OrdersDatabaseFilename = "orders.db"
 )
 

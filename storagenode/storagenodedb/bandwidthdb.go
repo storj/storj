@@ -22,7 +22,10 @@ import (
 var ErrBandwidth = errs.Class("bandwidthdb error")
 
 const (
-	BandwidthDBName           = "bandwidth"
+	// BandwidthDBName represents the database name.
+	BandwidthDBName = "bandwidth"
+
+	// BandwidthDatabaseFilename represents the database filename.
 	BandwidthDatabaseFilename = "bandwidth.db"
 )
 

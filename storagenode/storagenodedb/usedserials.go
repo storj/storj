@@ -17,7 +17,10 @@ import (
 var ErrUsedSerials = errs.Class("usedserialsdb error")
 
 const (
-	UsedSerialsDBName           = "used_serial"
+	// UsedSerialsDBName represents the database name.
+	UsedSerialsDBName = "used_serial"
+
+	// UsedSerialsDatabaseFilename represents the database filename.
 	UsedSerialsDatabaseFilename = "used_serial.db"
 )
 

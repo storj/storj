@@ -17,7 +17,10 @@ import (
 var ErrReputation = errs.Class("reputation error")
 
 const (
-	ReputationDBName           = "reputation"
+	// ReputationDBName represents the database name.
+	ReputationDBName = "reputation"
+
+	// ReputationDatabaseFilename represents the database filename.
 	ReputationDatabaseFilename = "reputation.db"
 )
 

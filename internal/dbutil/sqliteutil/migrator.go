@@ -49,7 +49,10 @@ func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcFilename stri
 	// We clean up the destination database because we've already opened it and it'll be empty
 	// during a migration. We've done this to simplify the connection logic within the common running code
 	// and placed the complexity in the one time migration code.
-	m.deleteDatabase(destDB, destPath)
+	err = m.deleteDatabase(destDB, destPath)
+	if err != nil {
+		return ErrSqlite3Migrator.Wrap(err)
+	}
 
 	// Create the new destination database.
 	destDB, err = sql.Open("sqlite3", "file:"+destPath+"?_journal=WAL&_busy_timeout=10000")
@@ -71,9 +74,9 @@ func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcFilename stri
 
 	// The references to the driver connections are only guaranteed to be valid
 	// for the life of the callback so we must do the work within both callbacks.
-	srcConn.Raw(func(srcDriverConn interface{}) error {
+	err = srcConn.Raw(func(srcDriverConn interface{}) error {
 		if srcSqliteConn, ok := srcDriverConn.(*sqlite3.SQLiteConn); ok {
-			destConn.Raw(func(destDriverConn interface{}) error {
+			err = destConn.Raw(func(destDriverConn interface{}) error {
 				if destSqliteConn, ok := destDriverConn.(*sqlite3.SQLiteConn); ok {
 					err = m.backup(ctx, srcSqliteConn, destSqliteConn)
 					if err != nil {
@@ -84,12 +87,17 @@ func (m *Migrator) MigrateTablesToDatabase(ctx context.Context, srcFilename stri
 				}
 				return nil
 			})
-
+			if err != nil {
+				return ErrSqlite3Migrator.Wrap(err)
+			}
 		} else {
 			return ErrSqlite3Migrator.New("unable to get database driver")
 		}
 		return nil
 	})
+	if err != nil {
+		return ErrSqlite3Migrator.Wrap(err)
+	}
 
 	// Remove tables we don't want to keep from the cloned destination database.
 	err = m.KeepTables(ctx, destDB, tablesToKeep...)
@@ -115,7 +123,7 @@ func (m *Migrator) getFilepathForDatabase(ctx context.Context, db *sql.DB) (file
 		return nil
 	})
 	if err != nil {
-		return filepath, err
+		return filepath, ErrSqlite3Migrator.Wrap(err)
 	}
 
 	return filepath, nil

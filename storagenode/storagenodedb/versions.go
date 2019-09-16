@@ -4,7 +4,10 @@
 package storagenodedb
 
 const (
-	VersionsDBName           = "info"
+	// VersionsDBName represents the database name.
+	VersionsDBName = "info"
+
+	// VersionsDatabaseFilename represents the database filename.
 	VersionsDatabaseFilename = "info.db"
 )
 

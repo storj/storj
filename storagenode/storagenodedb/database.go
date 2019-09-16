@@ -150,64 +150,55 @@ func (db *DB) openDatabases() error {
 	// we need before anything else.
 	versionsDB, err := db.openDatabase(filepath.Join(db.dbDirectory, VersionsDatabaseFilename))
 	if err != nil {
-		db.closeDatabases()
-		return err
+		return errs.Combine(err, db.closeDatabases())
 	}
 	db.versionsDB.Configure(versionsDB)
 
 	bandwidthDB, err := db.openDatabase(filepath.Join(db.dbDirectory, BandwidthDatabaseFilename))
 	if err != nil {
-		db.closeDatabases()
-		return err
+		return errs.Combine(err, db.closeDatabases())
 	}
 	db.bandwidthDB.Configure(bandwidthDB)
 
 	ordersDB, err := db.openDatabase(filepath.Join(db.dbDirectory, OrdersDatabaseFilename))
 	if err != nil {
-		db.closeDatabases()
-		return err
+		return errs.Combine(err, db.closeDatabases())
 	}
 	db.ordersDB.Configure(ordersDB)
 
 	pieceExpirationDB, err := db.openDatabase(filepath.Join(db.dbDirectory, PieceExpirationDatabaseFilename))
 	if err != nil {
-		db.closeDatabases()
-		return err
+		return errs.Combine(err, db.closeDatabases())
 	}
 	db.pieceExpirationDB.Configure(pieceExpirationDB)
 
 	v0PieceInfoDB, err := db.openDatabase(filepath.Join(db.dbDirectory, V0PieceInfoDatabaseFilename))
 	if err != nil {
-		db.closeDatabases()
-		return err
+		return errs.Combine(err, db.closeDatabases())
 	}
 	db.v0PieceInfoDB.Configure(v0PieceInfoDB)
 
 	pieceSpaceUsedDB, err := db.openDatabase(filepath.Join(db.dbDirectory, PieceSpacedUsedDatabaseFilename))
 	if err != nil {
-		db.closeDatabases()
-		return err
+		return errs.Combine(err, db.closeDatabases())
 	}
 	db.pieceSpaceUsedDB.Configure(pieceSpaceUsedDB)
 
 	reputationDB, err := db.openDatabase(filepath.Join(db.dbDirectory, ReputationDatabaseFilename))
 	if err != nil {
-		db.closeDatabases()
-		return err
+		return errs.Combine(err, db.closeDatabases())
 	}
 	db.reputationDB.Configure(reputationDB)
 
 	storageUsageDB, err := db.openDatabase(filepath.Join(db.dbDirectory, StorageUsageDatabaseFilename))
 	if err != nil {
-		db.closeDatabases()
-		return err
+		return errs.Combine(err, db.closeDatabases())
 	}
 	db.storageUsageDB.Configure(storageUsageDB)
 
 	usedSerialsDB, err := db.openDatabase(filepath.Join(db.dbDirectory, UsedSerialsDatabaseFilename))
 	if err != nil {
-		db.closeDatabases()
-		return err
+		return errs.Combine(err, db.closeDatabases())
 	}
 	db.usedSerialsDB.Configure(usedSerialsDB)
 	return nil
@@ -259,7 +250,7 @@ func (db *DB) closeDatabases() error {
 	var err error
 
 	for k, _ := range db.sqlDatabases {
-		errs.Combine(err, db.closeDatabase(k))
+		_ = errs.Combine(err, db.closeDatabase(k))
 	}
 	return err
 }
@@ -793,7 +784,7 @@ func (db *DB) Migration() *migrate.Migration {
 					if infoDB, found := db.sqlDatabases[VersionsDatabaseFilename]; found {
 						err := m.KeepTables(ctx, infoDB, "versions")
 						if err != nil {
-							ErrDatabase.Wrap(err)
+							return ErrDatabase.Wrap(err)
 						}
 					}
 

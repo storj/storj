@@ -16,7 +16,10 @@ import (
 var ErrPieceSpaceUsed = errs.Class("piece space used error")
 
 const (
-	PieceSpaceUsedDBName            = "piece_spaced_used"
+	// PieceSpaceUsedDBName represents the database name.
+	PieceSpaceUsedDBName = "piece_spaced_used"
+
+	// PieceSpacedUsedDatabaseFilename represents the database filename.
 	PieceSpacedUsedDatabaseFilename = "piece_spaced_used.db"
 )
 
