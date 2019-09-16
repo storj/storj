@@ -27,7 +27,7 @@ describe('ProjectMembersArea.vue', () => {
     it('renders correctly', () => {
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
-            localVue
+            localVue,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -36,7 +36,7 @@ describe('ProjectMembersArea.vue', () => {
     it('empty search result area render correctly', function () {
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
-            localVue
+            localVue,
         });
 
         const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
@@ -67,7 +67,7 @@ describe('ProjectMembersArea.vue', () => {
     it('team area renders correctly', function () {
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
-            localVue
+            localVue,
         });
 
         const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');

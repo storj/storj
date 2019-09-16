@@ -62,13 +62,7 @@ var RootCmd = &cobra.Command{
 func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	root.AddCommand(cmd)
 
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	confDirParam := cfgstruct.FindConfigDirParam()
-	if confDirParam != "" {
-		defaultConfDir = confDirParam
-	}
-
-	process.Bind(cmd, &cfg, defaults, cfgstruct.ConfDir(defaultConfDir))
+	process.Bind(cmd, &cfg, defaults, cfgstruct.ConfDir(getConfDir()))
 
 	return cmd
 }

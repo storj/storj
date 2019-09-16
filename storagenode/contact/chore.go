@@ -75,7 +75,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	chore.log.Sugar().Infof("node disk %d", chore.rt.Local().Capacity.FreeDisk)
+
 	var group errgroup.Group
 	self := chore.rt.Local()
 	satellites := chore.trust.GetSatellites(ctx)
@@ -102,8 +102,9 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 					err = errs.Combine(err, cerr)
 				}
 			}()
-			_, err = pb.NewNodeClient(conn).Checkin(ctx, &pb.CheckinRequest{
-				Address:  self.Address,
+			_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
+				Address:  self.Address.GetAddress(),
+				Version:  self.Version.GetVersion(),
 				Capacity: &self.Capacity,
 				Operator: &self.Operator,
 			})

@@ -18,7 +18,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
-        NotificationArea
+        NotificationArea,
     },
 })
 export default class App extends Vue {
@@ -36,7 +36,7 @@ export default class App extends Vue {
             ];
 
     private onClick(e: Event): void {
-        let target: any = e.target;            
+        let target: any = e.target;
         while (target) {
             if (this.$data.ids.includes(target.id)) {
                 return;

@@ -104,7 +104,7 @@ Update `nodes` table:
 ```
 model nodes (
     ...
-    field exit_loop_completed       timestamp ( updateable )
+    field exit_loop_completed_at    timestamp ( updateable )
     field exit_initiated_at         timestamp ( updateable )
     field exit_finished_at          timestamp ( updateable )
 }

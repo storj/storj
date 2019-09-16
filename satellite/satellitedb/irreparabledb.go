@@ -33,7 +33,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 	dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.Path))
 	if err != nil {
 		// no rows err, so create/insert an entry
-		_, err = tx.Create_Irreparabledb(
+		err = tx.CreateNoReturn_Irreparabledb(
 			ctx,
 			dbx.Irreparabledb_Segmentpath(segmentInfo.Path),
 			dbx.Irreparabledb_Segmentdetail(bytes),
@@ -50,7 +50,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 		updateFields := dbx.Irreparabledb_Update_Fields{}
 		updateFields.RepairAttemptCount = dbx.Irreparabledb_RepairAttemptCount(dbxInfo.RepairAttemptCount)
 		updateFields.SegDamagedUnixSec = dbx.Irreparabledb_SegDamagedUnixSec(segmentInfo.LastRepairAttempt)
-		_, err = tx.Update_Irreparabledb_By_Segmentpath(
+		err = tx.UpdateNoReturn_Irreparabledb_By_Segmentpath(
 			ctx,
 			dbx.Irreparabledb_Segmentpath(dbxInfo.Segmentpath),
 			updateFields,

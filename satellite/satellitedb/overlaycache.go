@@ -615,7 +615,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 
 	if err != nil {
 		// add the node to DB for first time
-		_, err = tx.Create_Node(
+		err = tx.CreateNoReturn_Node(
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
 			dbx.Node_Address(address.Address),
@@ -652,13 +652,12 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	} else {
-		update := dbx.Node_Update_Fields{
-			Address:  dbx.Node_Address(address.Address),
-			LastNet:  dbx.Node_LastNet(info.LastIp),
-			Protocol: dbx.Node_Protocol(int(address.Transport)),
-		}
-
-		_, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()), update)
+		err = tx.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()),
+			dbx.Node_Update_Fields{
+				Address:  dbx.Node_Address(address.Address),
+				LastNet:  dbx.Node_LastNet(info.LastIp),
+				Protocol: dbx.Node_Protocol(int(address.Transport)),
+			})
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}

@@ -5,7 +5,7 @@ import {
     addProjectPaymentMethodRequest,
     deletePaymentMethodRequest,
     fetchProjectPaymentMethods,
-    setDefaultPaymentMethodRequest
+    setDefaultPaymentMethodRequest,
 } from '@/api/paymentMethods';
 import { PROJECT_PAYMENT_METHODS_MUTATIONS } from '@/store/mutationConstants';
 import { RequestResponse } from '@/types/response';
@@ -21,7 +21,7 @@ export const projectPaymentsMethodsModule = {
         },
         [PROJECT_PAYMENT_METHODS_MUTATIONS.CLEAR](state: any) {
             state.paymentMethods = [] as PaymentMethod[];
-        }
+        },
     },
     actions: {
         [PROJECT_PAYMENT_METHODS_ACTIONS.ADD]: async function ({commit, rootGetters, state}, input: AddPaymentMethodInput): Promise<RequestResponse<null>> {
@@ -52,6 +52,6 @@ export const projectPaymentsMethodsModule = {
         },
         [PROJECT_PAYMENT_METHODS_ACTIONS.DELETE]: async function ({commit}, projectPaymentID: string) {
             return await deletePaymentMethodRequest(projectPaymentID);
-        }
+        },
     },
 };

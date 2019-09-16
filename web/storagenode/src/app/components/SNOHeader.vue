@@ -34,8 +34,13 @@ const {
 export default class SNOHeader extends Vue {
     public async onRefresh(): Promise<void> {
         const selectedSatellite = this.$store.state.node.selectedSatellite.id;
-        await this.$store.dispatch(GET_NODE_INFO);
-        await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
+
+        try {
+            await this.$store.dispatch(GET_NODE_INFO);
+            await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
+        } catch (error) {
+            console.error(`${error.message} satellite data.`);
+        }
     }
 
     public get nodeId(): string {
