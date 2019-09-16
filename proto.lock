@@ -5530,6 +5530,11 @@
                 "id": 8,
                 "name": "metadata",
                 "type": "bytes"
+              },
+              {
+                "id": 9,
+                "name": "piece_hashes_verified",
+                "type": "bool"
               }
             ]
           },
