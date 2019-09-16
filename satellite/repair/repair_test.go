@@ -147,6 +147,8 @@ func TestDataRepair(t *testing.T) {
 			require.NotContains(t, nodesToKill, piece.NodeId, "there shouldn't be pieces in killed nodes")
 			require.NotContains(t, nodesToDisqualify, piece.NodeId, "there shouldn't be pieces in DQ nodes")
 
+			require.Nil(t, piece.Hash, "piece hashes should be set to nil")
+
 			// Kill the original nodes which were kept alive to ensure that we can
 			// download from the new nodes that the repaired pieces have been uploaded
 			if _, ok := nodesToKeepAlive[piece.NodeId]; ok && nodesToKillForMinThreshold > 0 {
