@@ -1489,7 +1489,9 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &pb.SegmentCommitResponse{}, nil
+	return &pb.SegmentCommitResponse{
+		SuccessfulPieces: len(pointer.Remote.RemotePieces),
+	}, nil
 }
 
 // MakeInlineSegment makes inline segment on satellite

@@ -3168,7 +3168,14 @@
             ]
           },
           {
-            "name": "SegmentCommitResponse"
+            "name": "SegmentCommitResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "successful_pieces",
+                "type": "int32"
+              }
+            ]
           },
           {
             "name": "SegmentMakeInlineRequest",
