@@ -20,7 +20,7 @@ type client struct {
 }
 
 // newClient dials the target contact endpoint
-func newClient(ctx context.Context, transport transport.Client, target *pb.NodeAddress, peerIDFromContext storj.NodeID) (*client, error) {
+func newClient(ctx context.Context, transport transport.Client, targetAddress string, peerIDFromContext storj.NodeID) (*client, error) {
 	opts, err := tlsopts.NewOptions(transport.Identity(), tlsopts.Config{PeerIDVersions: "latest"}, nil)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -29,7 +29,7 @@ func newClient(ctx context.Context, transport transport.Client, target *pb.NodeA
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	conn, err := transport.DialAddress(ctx, target.Address, dialOption)
+	conn, err := transport.DialAddress(ctx, targetAddress, dialOption)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

@@ -23,8 +23,9 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-type CheckinRequest struct {
-	Address              *NodeAddress  `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+type CheckInRequest struct {
+	Address              string        `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Version              string        `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
 	Capacity             *NodeCapacity `protobuf:"bytes,3,opt,name=capacity,proto3" json:"capacity,omitempty"`
 	Operator             *NodeOperator `protobuf:"bytes,4,opt,name=operator,proto3" json:"operator,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
@@ -32,52 +33,59 @@ type CheckinRequest struct {
 	XXX_sizecache        int32         `json:"-"`
 }
 
-func (m *CheckinRequest) Reset()         { *m = CheckinRequest{} }
-func (m *CheckinRequest) String() string { return proto.CompactTextString(m) }
-func (*CheckinRequest) ProtoMessage()    {}
-func (*CheckinRequest) Descriptor() ([]byte, []int) {
+func (m *CheckInRequest) Reset()         { *m = CheckInRequest{} }
+func (m *CheckInRequest) String() string { return proto.CompactTextString(m) }
+func (*CheckInRequest) ProtoMessage()    {}
+func (*CheckInRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a5036fff2565fb15, []int{0}
 }
-func (m *CheckinRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_CheckinRequest.Unmarshal(m, b)
+func (m *CheckInRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CheckInRequest.Unmarshal(m, b)
 }
-func (m *CheckinRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_CheckinRequest.Marshal(b, m, deterministic)
+func (m *CheckInRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CheckInRequest.Marshal(b, m, deterministic)
 }
-func (m *CheckinRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CheckinRequest.Merge(m, src)
+func (m *CheckInRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckInRequest.Merge(m, src)
 }
-func (m *CheckinRequest) XXX_Size() int {
-	return xxx_messageInfo_CheckinRequest.Size(m)
+func (m *CheckInRequest) XXX_Size() int {
+	return xxx_messageInfo_CheckInRequest.Size(m)
 }
-func (m *CheckinRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_CheckinRequest.DiscardUnknown(m)
+func (m *CheckInRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CheckInRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CheckinRequest proto.InternalMessageInfo
+var xxx_messageInfo_CheckInRequest proto.InternalMessageInfo
 
-func (m *CheckinRequest) GetAddress() *NodeAddress {
+func (m *CheckInRequest) GetAddress() string {
 	if m != nil {
 		return m.Address
 	}
-	return nil
+	return ""
 }
 
-func (m *CheckinRequest) GetCapacity() *NodeCapacity {
+func (m *CheckInRequest) GetVersion() string {
+	if m != nil {
+		return m.Version
+	}
+	return ""
+}
+
+func (m *CheckInRequest) GetCapacity() *NodeCapacity {
 	if m != nil {
 		return m.Capacity
 	}
 	return nil
 }
 
-func (m *CheckinRequest) GetOperator() *NodeOperator {
+func (m *CheckInRequest) GetOperator() *NodeOperator {
 	if m != nil {
 		return m.Operator
 	}
 	return nil
 }
 
-type CheckinResponse struct {
+type CheckInResponse struct {
 	PingNodeSuccess      bool     `protobuf:"varint,1,opt,name=ping_node_success,json=pingNodeSuccess,proto3" json:"ping_node_success,omitempty"`
 	PingErrorMessage     string   `protobuf:"bytes,2,opt,name=ping_error_message,json=pingErrorMessage,proto3" json:"ping_error_message,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -85,38 +93,38 @@ type CheckinResponse struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *CheckinResponse) Reset()         { *m = CheckinResponse{} }
-func (m *CheckinResponse) String() string { return proto.CompactTextString(m) }
-func (*CheckinResponse) ProtoMessage()    {}
-func (*CheckinResponse) Descriptor() ([]byte, []int) {
+func (m *CheckInResponse) Reset()         { *m = CheckInResponse{} }
+func (m *CheckInResponse) String() string { return proto.CompactTextString(m) }
+func (*CheckInResponse) ProtoMessage()    {}
+func (*CheckInResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a5036fff2565fb15, []int{1}
 }
-func (m *CheckinResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_CheckinResponse.Unmarshal(m, b)
+func (m *CheckInResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CheckInResponse.Unmarshal(m, b)
 }
-func (m *CheckinResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_CheckinResponse.Marshal(b, m, deterministic)
+func (m *CheckInResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CheckInResponse.Marshal(b, m, deterministic)
 }
-func (m *CheckinResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CheckinResponse.Merge(m, src)
+func (m *CheckInResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckInResponse.Merge(m, src)
 }
-func (m *CheckinResponse) XXX_Size() int {
-	return xxx_messageInfo_CheckinResponse.Size(m)
+func (m *CheckInResponse) XXX_Size() int {
+	return xxx_messageInfo_CheckInResponse.Size(m)
 }
-func (m *CheckinResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_CheckinResponse.DiscardUnknown(m)
+func (m *CheckInResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CheckInResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CheckinResponse proto.InternalMessageInfo
+var xxx_messageInfo_CheckInResponse proto.InternalMessageInfo
 
-func (m *CheckinResponse) GetPingNodeSuccess() bool {
+func (m *CheckInResponse) GetPingNodeSuccess() bool {
 	if m != nil {
 		return m.PingNodeSuccess
 	}
 	return false
 }
 
-func (m *CheckinResponse) GetPingErrorMessage() string {
+func (m *CheckInResponse) GetPingErrorMessage() string {
 	if m != nil {
 		return m.PingErrorMessage
 	}
@@ -184,8 +192,8 @@ func (m *ContactPingResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_ContactPingResponse proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*CheckinRequest)(nil), "contact.CheckinRequest")
-	proto.RegisterType((*CheckinResponse)(nil), "contact.CheckinResponse")
+	proto.RegisterType((*CheckInRequest)(nil), "contact.CheckInRequest")
+	proto.RegisterType((*CheckInResponse)(nil), "contact.CheckInResponse")
 	proto.RegisterType((*ContactPingRequest)(nil), "contact.ContactPingRequest")
 	proto.RegisterType((*ContactPingResponse)(nil), "contact.ContactPingResponse")
 }
@@ -193,26 +201,26 @@ func init() {
 func init() { proto.RegisterFile("contact.proto", fileDescriptor_a5036fff2565fb15) }
 
 var fileDescriptor_a5036fff2565fb15 = []byte{
-	// 292 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0xb1, 0x4e, 0xc3, 0x30,
-	0x10, 0x86, 0x95, 0x12, 0x91, 0x70, 0x08, 0x4a, 0x0d, 0x88, 0x28, 0x30, 0x54, 0x99, 0x2a, 0x40,
-	0x19, 0xca, 0xca, 0x02, 0xa1, 0x23, 0x10, 0x99, 0x8d, 0x25, 0x72, 0x1d, 0x2b, 0x44, 0x15, 0xb6,
-	0xb1, 0xdd, 0x81, 0x87, 0xe1, 0x5d, 0x91, 0x63, 0x27, 0x55, 0x29, 0x63, 0xff, 0xef, 0xbb, 0xbf,
-	0x97, 0x33, 0x1c, 0x51, 0xc1, 0x0d, 0xa1, 0x26, 0x97, 0x4a, 0x18, 0x81, 0x22, 0xff, 0x33, 0x05,
-	0x2e, 0x6a, 0xe6, 0xc2, 0xec, 0x27, 0x80, 0xe3, 0xe2, 0x83, 0xd1, 0x55, 0xcb, 0x31, 0xfb, 0x5a,
-	0x33, 0x6d, 0xd0, 0x0d, 0x44, 0xa4, 0xae, 0x15, 0xd3, 0x3a, 0x09, 0xa6, 0xc1, 0xec, 0x70, 0x3e,
-	0xc9, 0xbb, 0x81, 0x17, 0x51, 0xb3, 0x07, 0x07, 0x70, 0x6f, 0xa0, 0x1c, 0x62, 0x4a, 0x24, 0xa1,
-	0xad, 0xf9, 0x4e, 0xf6, 0x3a, 0x1b, 0x6d, 0xec, 0xc2, 0x13, 0x3c, 0x38, 0xd6, 0x17, 0x92, 0x29,
-	0x62, 0x84, 0x4a, 0xc2, 0xbf, 0xfe, 0xab, 0x27, 0x78, 0x70, 0xb2, 0x15, 0x8c, 0x87, 0xf5, 0xb4,
-	0x14, 0x5c, 0x33, 0x74, 0x0d, 0x13, 0xd9, 0xf2, 0xa6, 0xb2, 0x63, 0x95, 0x5e, 0x53, 0xda, 0x6f,
-	0x1a, 0xe3, 0xb1, 0x05, 0xb6, 0xe9, 0xcd, 0xc5, 0xe8, 0x16, 0x50, 0xe7, 0x32, 0xa5, 0x84, 0xaa,
-	0x3e, 0x99, 0xd6, 0xa4, 0x61, 0xc9, 0x68, 0x1a, 0xcc, 0x0e, 0xf0, 0x89, 0x25, 0x0b, 0x0b, 0x9e,
-	0x5d, 0x9e, 0x9d, 0x01, 0x2a, 0xdc, 0x8d, 0xca, 0x96, 0x37, 0xfe, 0x1e, 0xd9, 0x39, 0x9c, 0x6e,
-	0xa5, 0x6e, 0x8d, 0x79, 0x09, 0x91, 0x8f, 0xd1, 0x02, 0xe2, 0xd2, 0xff, 0x31, 0xba, 0xcc, 0xfb,
-	0xab, 0xef, 0x56, 0xa5, 0x57, 0xff, 0x43, 0xdf, 0xf8, 0x04, 0x61, 0x57, 0x71, 0x0f, 0x91, 0xff,
-	0x66, 0x74, 0xb1, 0x19, 0xd8, 0x7a, 0xa4, 0x34, 0xd9, 0x05, 0xae, 0xe5, 0x31, 0x7c, 0x1f, 0xc9,
-	0xe5, 0x72, 0xbf, 0x7b, 0xde, 0xbb, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0xb5, 0xc7, 0x98, 0x61,
-	0x04, 0x02, 0x00, 0x00,
+	// 296 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0x3f, 0x4f, 0xc3, 0x30,
+	0x10, 0xc5, 0x95, 0x52, 0x91, 0x72, 0x08, 0x0a, 0x06, 0x84, 0x55, 0x18, 0xaa, 0x4c, 0x15, 0x42,
+	0x19, 0xca, 0xca, 0x44, 0xe8, 0xc0, 0x00, 0x44, 0x61, 0x63, 0x89, 0x5c, 0xe7, 0x14, 0xa2, 0x0a,
+	0xdb, 0xd8, 0x2e, 0x12, 0xdf, 0x87, 0x0f, 0x8a, 0x1c, 0x3b, 0x41, 0xa5, 0x8c, 0xf7, 0x7e, 0xcf,
+	0xcf, 0xf7, 0x07, 0x0e, 0xb8, 0x14, 0x96, 0x71, 0x9b, 0x2a, 0x2d, 0xad, 0x24, 0x71, 0x28, 0x27,
+	0x20, 0x64, 0x85, 0x5e, 0x4c, 0xbe, 0x23, 0x38, 0xcc, 0xde, 0x90, 0xaf, 0x1e, 0x44, 0x81, 0x1f,
+	0x6b, 0x34, 0x96, 0x50, 0x88, 0x59, 0x55, 0x69, 0x34, 0x86, 0x46, 0xd3, 0x68, 0xb6, 0x57, 0x74,
+	0xa5, 0x23, 0x9f, 0xa8, 0x4d, 0x23, 0x05, 0x1d, 0x78, 0x12, 0x4a, 0x92, 0xc2, 0x88, 0x33, 0xc5,
+	0x78, 0x63, 0xbf, 0xe8, 0xce, 0x34, 0x9a, 0xed, 0xcf, 0x49, 0xda, 0xfe, 0xf2, 0x24, 0x2b, 0xcc,
+	0x02, 0x29, 0x7a, 0x8f, 0xf3, 0x4b, 0x85, 0x9a, 0x59, 0xa9, 0xe9, 0xf0, 0xaf, 0xff, 0x39, 0x90,
+	0xa2, 0xf7, 0x24, 0x2b, 0x18, 0xf7, 0x5d, 0x1a, 0x25, 0x85, 0x41, 0x72, 0x05, 0xc7, 0xaa, 0x11,
+	0x75, 0xe9, 0x9e, 0x95, 0x66, 0xcd, 0x79, 0xd7, 0xf0, 0xa8, 0x18, 0x3b, 0xe0, 0x92, 0x5e, 0xbc,
+	0x4c, 0xae, 0x81, 0xb4, 0x5e, 0xd4, 0x5a, 0xea, 0xf2, 0x1d, 0x8d, 0x61, 0x35, 0x86, 0x19, 0x8e,
+	0x1c, 0x59, 0x38, 0xf0, 0xe8, 0xf5, 0xe4, 0x14, 0x48, 0xe6, 0x57, 0x95, 0x37, 0xa2, 0x0e, 0x6b,
+	0x49, 0xce, 0xe0, 0x64, 0x43, 0xf5, 0x6d, 0xcc, 0x73, 0x88, 0x83, 0x4c, 0x16, 0x30, 0xca, 0xc3,
+	0xc7, 0xe4, 0x22, 0xed, 0x96, 0xbf, 0x1d, 0x35, 0xb9, 0xfc, 0x1f, 0x86, 0xc4, 0x7b, 0x18, 0xb6,
+	0x11, 0xb7, 0x10, 0x87, 0x99, 0xc9, 0xf9, 0xef, 0x83, 0x8d, 0x5b, 0x4d, 0xe8, 0x36, 0xf0, 0x29,
+	0x77, 0xc3, 0xd7, 0x81, 0x5a, 0x2e, 0x77, 0xdb, 0x2b, 0xdf, 0xfc, 0x04, 0x00, 0x00, 0xff, 0xff,
+	0xbf, 0x07, 0xc0, 0x67, 0x0b, 0x02, 0x00, 0x00,
 }
 
 type DRPCContactClient interface {
@@ -287,7 +295,7 @@ func (x *drpcContactPingNodeStream) SendAndClose(m *ContactPingResponse) error {
 type DRPCNodeClient interface {
 	DRPCConn() drpc.Conn
 
-	Checkin(ctx context.Context, in *CheckinRequest) (*CheckinResponse, error)
+	CheckIn(ctx context.Context, in *CheckInRequest) (*CheckInResponse, error)
 }
 
 type drpcNodeClient struct {
@@ -300,9 +308,9 @@ func NewDRPCNodeClient(cc drpc.Conn) DRPCNodeClient {
 
 func (c *drpcNodeClient) DRPCConn() drpc.Conn { return c.cc }
 
-func (c *drpcNodeClient) Checkin(ctx context.Context, in *CheckinRequest) (*CheckinResponse, error) {
-	out := new(CheckinResponse)
-	err := c.cc.Invoke(ctx, "/contact.Node/Checkin", in, out)
+func (c *drpcNodeClient) CheckIn(ctx context.Context, in *CheckInRequest) (*CheckInResponse, error) {
+	out := new(CheckInResponse)
+	err := c.cc.Invoke(ctx, "/contact.Node/CheckIn", in, out)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +318,7 @@ func (c *drpcNodeClient) Checkin(ctx context.Context, in *CheckinRequest) (*Chec
 }
 
 type DRPCNodeServer interface {
-	Checkin(context.Context, *CheckinRequest) (*CheckinResponse, error)
+	CheckIn(context.Context, *CheckInRequest) (*CheckInResponse, error)
 }
 
 type DRPCNodeDescription struct{}
@@ -320,14 +328,14 @@ func (DRPCNodeDescription) NumMethods() int { return 1 }
 func (DRPCNodeDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
 	switch n {
 	case 0:
-		return "/contact.Node/Checkin",
+		return "/contact.Node/CheckIn",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCNodeServer).
-					Checkin(
+					CheckIn(
 						ctx,
-						in1.(*CheckinRequest),
+						in1.(*CheckInRequest),
 					)
-			}, DRPCNodeServer.Checkin, true
+			}, DRPCNodeServer.CheckIn, true
 	default:
 		return "", nil, nil, false
 	}
@@ -337,16 +345,16 @@ func DRPCRegisterNode(srv drpc.Server, impl DRPCNodeServer) {
 	srv.Register(impl, DRPCNodeDescription{})
 }
 
-type DRPCNode_CheckinStream interface {
+type DRPCNode_CheckInStream interface {
 	drpc.Stream
-	SendAndClose(*CheckinResponse) error
+	SendAndClose(*CheckInResponse) error
 }
 
-type drpcNodeCheckinStream struct {
+type drpcNodeCheckInStream struct {
 	drpc.Stream
 }
 
-func (x *drpcNodeCheckinStream) SendAndClose(m *CheckinResponse) error {
+func (x *drpcNodeCheckInStream) SendAndClose(m *CheckInResponse) error {
 	if err := x.MsgSend(m); err != nil {
 		return err
 	}
@@ -429,7 +437,7 @@ var _Contact_serviceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type NodeClient interface {
-	Checkin(ctx context.Context, in *CheckinRequest, opts ...grpc.CallOption) (*CheckinResponse, error)
+	CheckIn(ctx context.Context, in *CheckInRequest, opts ...grpc.CallOption) (*CheckInResponse, error)
 }
 
 type nodeClient struct {
@@ -440,9 +448,9 @@ func NewNodeClient(cc *grpc.ClientConn) NodeClient {
 	return &nodeClient{cc}
 }
 
-func (c *nodeClient) Checkin(ctx context.Context, in *CheckinRequest, opts ...grpc.CallOption) (*CheckinResponse, error) {
-	out := new(CheckinResponse)
-	err := c.cc.Invoke(ctx, "/contact.Node/Checkin", in, out, opts...)
+func (c *nodeClient) CheckIn(ctx context.Context, in *CheckInRequest, opts ...grpc.CallOption) (*CheckInResponse, error) {
+	out := new(CheckInResponse)
+	err := c.cc.Invoke(ctx, "/contact.Node/CheckIn", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -451,27 +459,27 @@ func (c *nodeClient) Checkin(ctx context.Context, in *CheckinRequest, opts ...gr
 
 // NodeServer is the server API for Node service.
 type NodeServer interface {
-	Checkin(context.Context, *CheckinRequest) (*CheckinResponse, error)
+	CheckIn(context.Context, *CheckInRequest) (*CheckInResponse, error)
 }
 
 func RegisterNodeServer(s *grpc.Server, srv NodeServer) {
 	s.RegisterService(&_Node_serviceDesc, srv)
 }
 
-func _Node_Checkin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CheckinRequest)
+func _Node_CheckIn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckInRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeServer).Checkin(ctx, in)
+		return srv.(NodeServer).CheckIn(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/contact.Node/Checkin",
+		FullMethod: "/contact.Node/CheckIn",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).Checkin(ctx, req.(*CheckinRequest))
+		return srv.(NodeServer).CheckIn(ctx, req.(*CheckInRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -481,8 +489,8 @@ var _Node_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*NodeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Checkin",
-			Handler:    _Node_Checkin_Handler,
+			MethodName: "CheckIn",
+			Handler:    _Node_CheckIn_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

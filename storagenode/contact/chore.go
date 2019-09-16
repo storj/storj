@@ -102,8 +102,9 @@ func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 					err = errs.Combine(err, cerr)
 				}
 			}()
-			_, err = pb.NewNodeClient(conn).Checkin(ctx, &pb.CheckinRequest{
-				Address:  self.Address,
+			_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
+				Address:  self.Address.GetAddress(),
+				Version:  self.Version.GetVersion(),
 				Capacity: &self.Capacity,
 				Operator: &self.Operator,
 			})
