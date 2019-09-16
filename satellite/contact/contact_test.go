@@ -37,8 +37,9 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 			},
 		}
 		peerCtx := peer.NewContext(ctx, &grpcPeer)
-		resp, err := planet.Satellites[0].Contact.Endpoint.Checkin(peerCtx, &pb.CheckinRequest{
-			Address:  nodeDossier.Address,
+		resp, err := planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
+			Address:  nodeDossier.Address.GetAddress(),
+			Version:  nodeDossier.Version.GetVersion(),
 			Capacity: &nodeDossier.Capacity,
 			Operator: &nodeDossier.Operator,
 		})
