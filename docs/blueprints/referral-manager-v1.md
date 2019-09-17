@@ -60,6 +60,7 @@ _Referral Link Distribution_
 4. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding host satellites.
 5. Host satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed on the satellite GUI.
 6. After receives success responses from satellites, Referral Manager CLI will call `ClearUsers` endpoint to set `eligibleUser` to be empty.
+7. If an error has occured during saving tokens into satellite's database, the satellite will roll back the transaction and respond with an error to the Referral Manager.
 
 _Referral Link Redemption_
 
@@ -91,7 +92,7 @@ We could add a new column `referral_tokens` in `users` table to store user's unr
 - Implementing an endpoint on satellite for gathering users whose current count of remaining invitation token is 0.
 - Implementing an endpoint on Referral Manager for setting in-memory `eligibleUsers` to be empty.
 - Implementing generating invitation tokens from Referral Manager CLI.
-- Implementing an endpoint on satellite for saving new referral links into users table.
+- Implementing an endpoint on satellite for saving new referral links into users table(using trasaction).
 - Implementing an endpoint on Referral Manager for verifying invitation tokens.
 - Replace existing registration token logic.
 
