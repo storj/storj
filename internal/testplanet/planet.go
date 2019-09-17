@@ -67,7 +67,7 @@ type Planet struct {
 
 	Bootstrap      *bootstrap.Peer
 	VersionControl *versioncontrol.Peer
-	Satellites     []*satellite.Peer
+	Satellites     []*SatelliteSystem
 	StorageNodes   []*storagenode.Peer
 	Uplinks        []*Uplink
 
@@ -76,6 +76,11 @@ type Planet struct {
 
 	run    errgroup.Group
 	cancel func()
+}
+
+// SatelliteSystem contains all the processes needed to run a full Satellite setup
+type SatelliteSystem struct {
+	satellite.Peer
 }
 
 type closablePeer struct {
