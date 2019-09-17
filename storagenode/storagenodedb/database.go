@@ -88,7 +88,7 @@ type DB struct {
 
 	dbDirectory string
 
-	legacyInfoDB      *legacyInfoDB
+	deprecatedInfoDB  *deprecatedInfoDB
 	v0PieceInfoDB     *v0PieceInfoDB
 	bandwidthDB       *bandwidthDB
 	ordersDB          *ordersDB
@@ -127,7 +127,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		dbDirectory: filepath.Dir(config.Info2),
 
 		sqlDatabases:      make(map[string]*sql.DB),
-		legacyInfoDB:      newLegacyInfoDB(),
+		deprecatedInfoDB:  newDeprecatedInfoDB(),
 		v0PieceInfoDB:     newV0PieceInfoDB(),
 		bandwidthDB:       newBandwidthDB(),
 		ordersDB:          newOrdersDB(),
@@ -152,20 +152,20 @@ func (db *DB) openDatabases() error {
 	// that each uses internally to do data access to the SQLite3 databases.
 	// The reason it was done this way was because there's some outside consumers that are
 	// taking a reference to the business object.
-	legacyInfoDB, err := db.openDatabase(LegacyInfoDBName)
+	deprecatedInfoDB, err := db.openDatabase(DeprecatedInfoDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.legacyInfoDB.Configure(legacyInfoDB)
-	db.bandwidthDB.Configure(legacyInfoDB)
-	db.ordersDB.Configure(legacyInfoDB)
-	db.pieceExpirationDB.Configure(legacyInfoDB)
-	db.v0PieceInfoDB.Configure(legacyInfoDB)
-	db.pieceSpaceUsedDB.Configure(legacyInfoDB)
-	db.reputationDB.Configure(legacyInfoDB)
-	db.storageUsageDB.Configure(legacyInfoDB)
-	db.usedSerialsDB.Configure(legacyInfoDB)
-	db.satellitesDB.Configure(legacyInfoDB)
+	db.deprecatedInfoDB.Configure(deprecatedInfoDB)
+	db.bandwidthDB.Configure(deprecatedInfoDB)
+	db.ordersDB.Configure(deprecatedInfoDB)
+	db.pieceExpirationDB.Configure(deprecatedInfoDB)
+	db.v0PieceInfoDB.Configure(deprecatedInfoDB)
+	db.pieceSpaceUsedDB.Configure(deprecatedInfoDB)
+	db.reputationDB.Configure(deprecatedInfoDB)
+	db.storageUsageDB.Configure(deprecatedInfoDB)
+	db.usedSerialsDB.Configure(deprecatedInfoDB)
+	db.satellitesDB.Configure(deprecatedInfoDB)
 	return nil
 }
 
@@ -235,9 +235,9 @@ func (db *DB) closeDatabase(dbName string) (err error) {
 	return err
 }
 
-// LegacyInfoDB returns the instance of the versions database.
-func (db *DB) LegacyInfoDB() SQLDB {
-	return db.legacyInfoDB
+// DeprecatedInfoDB returns the instance of the versions database.
+func (db *DB) DeprecatedInfoDB() SQLDB {
+	return db.deprecatedInfoDB
 }
 
 // V0PieceInfo returns the instance of the V0PieceInfoDB database.
@@ -301,7 +301,7 @@ func (db *DB) RawDatabases() map[string]SQLDB {
 		StorageUsageDBName:    db.storageUsageDB,
 		UsedSerialsDBName:     db.usedSerialsDB,
 		PieceInfoDBName:       db.v0PieceInfoDB,
-		LegacyInfoDBName:      db.legacyInfoDB,
+		DeprecatedInfoDBName:  db.deprecatedInfoDB,
 		SatellitesDBName:      db.satellitesDB,
 	}
 }
@@ -312,7 +312,7 @@ func (db *DB) Migration() *migrate.Migration {
 		Table: "versions",
 		Steps: []*migrate.Step{
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
@@ -394,7 +394,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Network Wipe #2",
 				Version:     1,
 				Action: migrate.SQL{
@@ -402,7 +402,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add tracking of deletion failures.",
 				Version:     2,
 				Action: migrate.SQL{
@@ -410,7 +410,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add vouchersDB for storing and retrieving vouchers.",
 				Version:     3,
 				Action: migrate.SQL{
@@ -422,7 +422,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add index on pieceinfo expireation",
 				Version:     4,
 				Action: migrate.SQL{
@@ -431,7 +431,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
@@ -443,7 +443,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add creation date.",
 				Version:     6,
 				Action: migrate.SQL{
@@ -451,7 +451,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop certificate table.",
 				Version:     7,
 				Action: migrate.SQL{
@@ -460,7 +460,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
 				Version:     8,
 				Action: migrate.SQL{
@@ -469,7 +469,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add order limit table.",
 				Version:     9,
 				Action: migrate.SQL{
@@ -477,7 +477,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
@@ -488,7 +488,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Create bandwidth_usage_rollup table.",
 				Version:     11,
 				Action: migrate.SQL{
@@ -502,7 +502,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{
@@ -550,7 +550,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
@@ -575,7 +575,7 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
@@ -588,7 +588,7 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Start piece_expirations table, deprecate pieceinfo table",
 				Version:     15,
 				Action: migrate.SQL{
@@ -605,7 +605,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add reputation and storage usage cache tables",
 				Version:     16,
 				Action: migrate.SQL{
@@ -633,7 +633,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Create piece_space_used table",
 				Version:     17,
 				Action: migrate.SQL{
@@ -647,7 +647,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop vouchers table",
 				Version:     18,
 				Action: migrate.SQL{
@@ -655,7 +655,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add disqualified field to reputation",
 				Version:     19,
 				Action: migrate.SQL{
@@ -679,7 +679,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
 				Version:     20,
 				Action: migrate.SQL{
@@ -693,7 +693,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.legacyInfoDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Create satellites table and satellites_exit_progress table",
 				Version:     21,
 				Action: migrate.SQL{
