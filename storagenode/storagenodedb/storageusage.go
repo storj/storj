@@ -19,18 +19,13 @@ const (
 	StorageUsageDBName = "storage_usage"
 )
 
-// storageusageDB storage usage DB
-type storageusageDB struct {
+// storageUsageDB storage usage DB
+type storageUsageDB struct {
 	migratableDB
 }
 
-// newStorageusageDB returns a new instance of storageusageDB initialized with the specified database.
-func newStorageusageDB() *storageusageDB {
-	return &storageusageDB{}
-}
-
 // Store stores storage usage stamps to db replacing conflicting entries
-func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp) (err error) {
+func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(stamps) == 0 {
@@ -55,7 +50,7 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 
 // GetDaily returns daily storage usage stamps for particular satellite
 // for provided time range
-func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
+func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT satellite_id,
@@ -99,7 +94,7 @@ func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 
 // GetDailyTotal returns daily storage usage stamps summed across all known satellites
 // for provided time range
-func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []storageusage.Stamp, err error) {
+func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT SUM(at_rest_total), interval_start 
@@ -137,7 +132,7 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 }
 
 // Summary returns aggregated storage usage across all satellites.
-func (db *storageusageDB) Summary(ctx context.Context, from, to time.Time) (_ float64, err error) {
+func (db *storageUsageDB) Summary(ctx context.Context, from, to time.Time) (_ float64, err error) {
 	defer mon.Task()(&ctx, from, to)(&err)
 	var summary sql.NullFloat64
 
@@ -150,7 +145,7 @@ func (db *storageusageDB) Summary(ctx context.Context, from, to time.Time) (_ fl
 }
 
 // SatelliteSummary returns aggregated storage usage for a particular satellite.
-func (db *storageusageDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ float64, err error) {
+func (db *storageUsageDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ float64, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 	var summary sql.NullFloat64
 
@@ -164,7 +159,7 @@ func (db *storageusageDB) SatelliteSummary(ctx context.Context, satelliteID stor
 }
 
 // withTx is a helper method which executes callback in transaction scope
-func (db *storageusageDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
+func (db *storageUsageDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err

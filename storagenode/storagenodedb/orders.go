@@ -28,11 +28,6 @@ type ordersDB struct {
 	migratableDB
 }
 
-// newOrdersDB returns a new instance of ordersDB.
-func newOrdersDB() *ordersDB {
-	return &ordersDB{}
-}
-
 // Enqueue inserts order to the unsent list
 func (db *ordersDB) Enqueue(ctx context.Context, info *orders.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)

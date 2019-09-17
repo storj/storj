@@ -30,11 +30,6 @@ type v0PieceInfoDB struct {
 	migratableDB
 }
 
-// newV0PieceInfoDB returns a new instance of pieceinfo.
-func newV0PieceInfoDB() *v0PieceInfoDB {
-	return &v0PieceInfoDB{}
-}
-
 // Add inserts piece information into the database.
 func (db *v0PieceInfoDB) Add(ctx context.Context, info *pieces.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)

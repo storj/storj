@@ -26,11 +26,6 @@ type reputationDB struct {
 	migratableDB
 }
 
-// newReputationDB returns a new instance of reputationDB.
-func newReputationDB() *reputationDB {
-	return &reputationDB{}
-}
-
 // Store inserts or updates reputation stats into the db.
 func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err error) {
 	defer mon.Task()(&ctx)(&err)

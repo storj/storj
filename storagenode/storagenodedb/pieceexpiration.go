@@ -25,11 +25,6 @@ type pieceExpirationDB struct {
 	migratableDB
 }
 
-// newPieceExpirationDB returns a new instance of pieceExpirationDB.
-func newPieceExpirationDB() *pieceExpirationDB {
-	return &pieceExpirationDB{}
-}
-
 // GetExpired gets piece IDs that expire or have expired before the given time
 func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiresBefore time.Time, limit int64) (expiredPieceIDs []pieces.ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)

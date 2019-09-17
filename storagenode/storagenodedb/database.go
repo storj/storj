@@ -95,7 +95,7 @@ type DB struct {
 	pieceExpirationDB *pieceExpirationDB
 	pieceSpaceUsedDB  *pieceSpaceUsedDB
 	reputationDB      *reputationDB
-	storageUsageDB    *storageusageDB
+	storageUsageDB    *storageUsageDB
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
 
@@ -127,16 +127,16 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		dbDirectory: filepath.Dir(config.Info2),
 
 		sqlDatabases:      make(map[string]*sql.DB),
-		deprecatedInfoDB:  newDeprecatedInfoDB(),
-		v0PieceInfoDB:     newV0PieceInfoDB(),
-		bandwidthDB:       newBandwidthDB(),
-		ordersDB:          newOrdersDB(),
-		pieceExpirationDB: newPieceExpirationDB(),
-		pieceSpaceUsedDB:  newPieceSpaceUsedDB(),
-		reputationDB:      newReputationDB(),
-		storageUsageDB:    newStorageusageDB(),
-		usedSerialsDB:     newUsedSerialsDB(),
-		satellitesDB:      newSatellitesDB(),
+		deprecatedInfoDB:  &deprecatedInfoDB{},
+		v0PieceInfoDB:     &v0PieceInfoDB{},
+		bandwidthDB:       &bandwidthDB{},
+		ordersDB:          &ordersDB{},
+		pieceExpirationDB: &pieceExpirationDB{},
+		pieceSpaceUsedDB:  &pieceSpaceUsedDB{},
+		reputationDB:      &reputationDB{},
+		storageUsageDB:    &storageUsageDB{},
+		usedSerialsDB:     &usedSerialsDB{},
+		satellitesDB:      &satellitesDB{},
 	}
 
 	err = db.openDatabases()

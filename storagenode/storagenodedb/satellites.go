@@ -19,8 +19,3 @@ const (
 type satellitesDB struct {
 	migratableDB
 }
-
-// newSatellitesDB returns a new instance of satellitesDB initialized with the specified database.
-func newSatellitesDB() *satellitesDB {
-	return &satellitesDB{}
-}

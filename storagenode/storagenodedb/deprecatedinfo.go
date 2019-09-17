@@ -12,7 +12,3 @@ const (
 type deprecatedInfoDB struct {
 	migratableDB
 }
-
-func newDeprecatedInfoDB() *deprecatedInfoDB {
-	return &deprecatedInfoDB{}
-}

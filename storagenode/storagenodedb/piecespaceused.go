@@ -24,11 +24,6 @@ type pieceSpaceUsedDB struct {
 	migratableDB
 }
 
-// newPieceSpaceUsedDB returns a new instance of pieceSpaceUsedDB.
-func newPieceSpaceUsedDB() *pieceSpaceUsedDB {
-	return &pieceSpaceUsedDB{}
-}
-
 // Init creates the one total record if it doesn't already exist
 func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
 	row := db.QueryRow(`

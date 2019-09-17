@@ -25,11 +25,6 @@ type usedSerialsDB struct {
 	migratableDB
 }
 
-// newUsedSerialsDB returns a new instance of usedSerials initialized with the specified database.
-func newUsedSerialsDB() *usedSerialsDB {
-	return &usedSerialsDB{}
-}
-
 // Add adds a serial to the database.
 func (db *usedSerialsDB) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)

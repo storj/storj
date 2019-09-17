@@ -35,11 +35,6 @@ type bandwidthDB struct {
 	migratableDB
 }
 
-// newBandwidthDB returns a new instance of usedSerials.
-func newBandwidthDB() *bandwidthDB {
-	return &bandwidthDB{}
-}
-
 // Add adds bandwidth usage to the table
 func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
