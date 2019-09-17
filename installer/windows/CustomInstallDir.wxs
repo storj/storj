@@ -84,12 +84,6 @@ Patch dialog sequence:
             <Publish Dialog="AvailableBandwidthConfigDlg" Control="Back" Event="NewDialog" Value="AvailableStorageConfigDlg" Order="1">1</Publish>
             <Publish Dialog="AvailableBandwidthConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">1</Publish>
           
-            <!--
-            <Publish Dialog="StorageConfigDlg" Control="Back" Event="NewDialog" Value="OperatorConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="StorageConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">STORJ_STORAGEDIR</Publish>
-            <Publish Dialog="StorageConfigDlg" Control="StorageChangeFolder" Property="_BrowseProperty" Value="[STORJ_STORAGEDIR]" Order="1">1</Publish>
-            <Publish Dialog="StorageConfigDlg" Control="StorageChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
-            -->
             <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AvailableBandwidthConfigDlg" Order="1">NOT Installed</Publish>
             <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH</Publish>
             <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2">Installed AND PATCH</Publish>
