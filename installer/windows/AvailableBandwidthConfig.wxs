@@ -11,14 +11,18 @@
           <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
         </Control>
 
-        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Enter operator information." />
-        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Operator Information" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="Enter how much bandwidth is available for transferring data." />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Bandwidth Configuration" />
         <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
         <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
 
         <Control Id="AvailableBandwidthLabel" Type="Text" X="20" Y="60" Width="320" Height="16" NoPrefix="yes" Text="Available bandwidth:" />
         <Control Id="AvailableBandwidth" Type="Edit" Property="STORJ_AVAILABLE_BANDWIDTH" X="20" Y="100" Width="320" Height="18" />
+        <Control Id="AvailableBandwidthDesc" Type="Text" X="20" Y="150" Width="320" Height="48" NoPrefix="yes" Text="How much bandwidth you can allocate to the Storj network. Be sure to allow for other use cases you have for your internet connection, and do not allocate more than your ISP supplied up and download speed can physically supply. The minimum bandwidth requirement is 2 TB." />
+        <Control Id="AvailableBandwidthHowto" Type="Hyperlink" X="20" Y="200" Width="320" Height="16">
+          <Text><![CDATA[<a href="https://support.storj.io/hc/en-us/articles/360026893111-How-do-I-calculate-my-Total-monthly-bandwidth-from-my-Mbit-s-up-and-download-speed-">Learn how to calculate the maximum monthly bandwidth you can enter here.</a>]]></Text>
+        </Control>
       </Dialog>
     </UI>
 	</Fragment>
