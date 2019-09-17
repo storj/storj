@@ -2,6 +2,13 @@
 // See LICENSE for copying information.
 
 // Implements support for running the storage node as a Windows Service.
+//
+// The Windows Service can be created with sc.exe, e.g.
+//
+// sc.exe create storagenode binpath= "C:\Users\MyUser\storagenode.exe run --config-dir C:\Users\MyUser\"
+//
+// The --config-dir argument can be omitted if the config.yaml is available at
+// C:\Windows\System32\config\systemprofile\AppData\Roaming\Storj\Storagenode\config.yaml
 
 // +build windows
 
