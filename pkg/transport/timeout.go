@@ -15,7 +15,7 @@ type timeoutConn struct {
 
 func (tc *timeoutConn) Read(b []byte) (n int, err error) {
 	// deadline needs to be set before each read operation
-	err = tc.SetReadDeadline(time.Now().Add(tc.timeout))
+	err = tc.SetDeadline(time.Now().Add(tc.timeout))
 	if err != nil {
 		return 0, err
 	}
@@ -24,7 +24,7 @@ func (tc *timeoutConn) Read(b []byte) (n int, err error) {
 
 func (tc *timeoutConn) Write(b []byte) (n int, err error) {
 	// deadline needs to be set before each write operation
-	err = tc.SetWriteDeadline(time.Now().Add(tc.timeout))
+	err = tc.SetDeadline(time.Now().Add(tc.timeout))
 	if err != nil {
 		return 0, err
 	}
