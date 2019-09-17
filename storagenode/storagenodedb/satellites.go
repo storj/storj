@@ -4,7 +4,12 @@
 package storagenodedb
 
 import (
+	"context"
+	"database/sql"
+	"time"
+
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/storj"
 )
 
 // ErrSatellitesDB represents errors from the satellites database.
@@ -22,4 +27,42 @@ func newSatellitesDB(db SQLDB, location string) *satellitesDB {
 		location: location,
 		SQLDB:    db,
 	}
+}
+
+// initiate graceful exit
+func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
+		query := `INSERT OR REPLACE INTO satellites (node_id, status) VALUES(?, 'EXITING')`
+		_, err = tx.ExecContext(ctx, query, satelliteID)
+		if err != nil {
+			return err
+		}
+		query = `INSERT INTO satellite_exit_progress (satellite_id, initiated_at, starting_disk_usage) VALUES (?,?,?)`
+		_, err = db.ExecContext(ctx, query, satelliteID, intitiatedAt, startingDiskUsage)
+		return err
+	}))
+}
+
+// increment graceful exit bytes deleted
+func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID storj.NodeID, bytesDeleted int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	query := `UPDATE satellite_exit_progress SET bytes_deleted = bytes_deleted + ? WHERE satellite_id = ?`
+	_, err = db.ExecContext(ctx, query, bytesDeleted, satelliteID)
+	return ErrSatellitesDB.Wrap(err)
+}
+
+// complete graceful exit
+func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus string, completionReceipt []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
+		query := `INSERT OR REPLACE INTO satellites (node_id, status) VALUES(?, ?)`
+		_, err = tx.ExecContext(ctx, query, satelliteID, exitStatus)
+		if err != nil {
+			return err
+		}
+		query = `UPDATE satellite_exit_progress SET finished_at = ?, completion_receipt = ? WHERE satellite_id = ?`
+		_, err = db.ExecContext(ctx, query, finishedAt, completionReceipt, satelliteID)
+		return err
+	}))
 }

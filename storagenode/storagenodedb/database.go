@@ -68,6 +68,23 @@ type SQLDB interface {
 	SetMaxOpenConns(n int)
 }
 
+// withTx is a helper method which executes callback in transaction scope
+func withTx(ctx context.Context, db SQLDB, cb func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+	return cb(tx)
+}
+
 // Config configures storage node database
 type Config struct {
 	// TODO: figure out better names
@@ -637,7 +654,7 @@ func (db *DB) Migration() *migrate.Migration {
 					)`,
 					`CREATE TABLE storage_usage (
 						satellite_id BLOB NOT NULL,
-						at_rest_total REAL NOT NUll,
+						at_rest_total REAL NOT NULL,
 						timestamp TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, timestamp)
 					)`,
@@ -697,7 +714,7 @@ func (db *DB) Migration() *migrate.Migration {
 					`DROP TABLE storage_usage`,
 					`CREATE TABLE storage_usage (
 						satellite_id BLOB NOT NULL,
-						at_rest_total REAL NOT NUll,
+						at_rest_total REAL NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, interval_start)
 					)`,
@@ -710,7 +727,7 @@ func (db *DB) Migration() *migrate.Migration {
 				Action: migrate.SQL{
 					`CREATE TABLE satellites (
 						node_id BLOB NOT NULL,
-						address TEXT NOT NUll,
+						address TEXT NOT NULL,
 						added_at TIMESTAMP NOT NULL,
 						status INTEGER NOT NULL,
 						PRIMARY KEY (node_id)

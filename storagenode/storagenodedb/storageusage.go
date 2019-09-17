@@ -39,7 +39,7 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_start) 
 			VALUES(?,?,?)`
 
-	return db.withTx(ctx, func(tx *sql.Tx) error {
+	return withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
 		for _, stamp := range stamps {
 			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalStart.UTC())
 
@@ -160,23 +160,4 @@ func (db *storageusageDB) SatelliteSummary(ctx context.Context, satelliteID stor
 
 	err = db.QueryRowContext(ctx, query, satelliteID, from.UTC(), to.UTC()).Scan(&summary)
 	return summary.Float64, err
-}
-
-// withTx is a helper method which executes callback in transaction scope
-func (db *storageusageDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-
-	return cb(tx)
 }
