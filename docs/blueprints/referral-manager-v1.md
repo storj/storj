@@ -95,7 +95,7 @@ We could add a new column `referral_tokens` in `users` table to store user's unr
 - Implementing an endpoint on Referral Manager for verifying invitation tokens.
 - Replace existing registration token logic.
 
-Pseudocode
+### Pseudocode
 
 The Token struct represents both a Go struct (on satellite and Referral Manager) as well as the schema for the `tokens` table on the Referral Manager
 
@@ -111,13 +111,13 @@ type Token struct {
 ```
 Statuses: `unsent` (host satellite doesn't know about it yet), `unredeemed` (host satellite knows about it but it has not been used), `redeemed` (someone has used this referral link to register alreadys)
 
-Referral Manager endpoints:
+**Referral Manager endpoints:**
 ```
 // GetEligibleUsers retrieves a list of users who have 0 remaining invitation tokens
 // from each satellite provided, and saves those users in memory
 GetEligibleUsers([]satelliteURLs) (map[satelliteURL]int, error) {
     if referralManager.eligibleUser != nil {
-        return nil, err
+        return nil, UsersAlreadyRetrievedErr
     }
 
     eligibleUsers := make(map[satelliteURL][]UserID)
@@ -131,12 +131,12 @@ GetEligibleUsers([]satelliteURLs) (map[satelliteURL]int, error) {
     return eligibleUsersCounts, nil
 }
 
-// SendInvitationTokens generates tokens, saves those in the referral manager db
+// GenerateAndSendInvitationTokens generates tokens, saves those in the referral manager db
 // and then sends newly created tokens to each respective satellite
-GenerateAndSendInvitationTokens([]satelliteURL, tokensPerUser int) map[satelliteURL]int {
+GenerateAndSendInvitationTokens([]satelliteURL, tokensPerUser int) (map[satelliteURL]int, error) {
     eligibleUsers := referralManager.eligibleUsers
     if eligibleUsers == nil {
-        return Error.New("No users to generate tokens for. Make sure to run GetEligibleUsers first")
+        return nil, Error.New("No users to generate tokens for. Make sure to run GetEligibleUsers first")
     }
     var tokens []Token
     for satellite, users := range eligibleUsers {
@@ -154,7 +154,7 @@ GenerateAndSendInvitationTokens([]satelliteURL, tokensPerUser int) map[satellite
         successCount := satellite.AddInvitationTokens(tokens)
         results[satellite] = successCount
     }
-    return results
+    return results, nil
 }
 
 // Redeem marks a token as redeemed and deletes the token from host satellite
@@ -180,7 +180,7 @@ func ClearUsers(ctx, satelliteURL) error {
 }
 ```
 
-New satellite endpoints:
+**New satellite endpoints:**
 ```
 // GetUsersReferral gets a list of users on this satellite who have 0 remaining invitation tokens
 GetUsersReferral() []userIDs {
@@ -201,6 +201,45 @@ AddInvitationTokens([]token) int {
 // DeleteInvitationToken deletes a token on a satellite because it has been redeemed
 DeleteInvitationToken(token Token) {
     db.DeleteToken(token.OwnerID
+}
+```
+
+**CLI code:**
+```
+startCmd(satelliteIDs []string) {
+    eligibleUsers, err := referralManager.GetEligibleUsers(satelliteIDs)
+    if err == UsersAlreadyRetrievedErr {
+        confirm := prompt("Referral token generation already in progress or canceled early. Do you want to continue anyway?")
+        if confirm != "y" {
+            exit
+        }
+        referralManager.ClearUsers()
+    } else if err != nil {
+        exit
+    }
+
+    total := 0
+    fmt.Println("User counts for satellites")
+    for sat, count := range eligibleUsers {
+        fmt.Printf("%s: %d\n", sat, count)
+        total += count
+    }
+
+    tokensPerUser := prompt("How many tokens do you want to generate per user?")
+    totalTokens := tokensPerUser * total
+    confirm := prompt("Are you sure you want to generate %d total tokens across %d satellites?", totalTokens, len(satelliteIDs))
+
+    if confirm != "y" {
+        referralManager.ClearUsers()
+        exit
+    }
+
+    newTokens := referralManager.GenerateAndSendInvitationTokens(satelliteIDs, tokensPerUser)
+
+    fmt.Println("Token counts for satellites")
+    for sat, count := range newTokens {
+        fmt.Printf("%s: %d\n", sat, count)
+    }
 }
 ```
 
