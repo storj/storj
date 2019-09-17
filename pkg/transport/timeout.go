@@ -5,30 +5,79 @@ package transport
 
 import (
 	"net"
+	"sync"
 	"time"
 )
 
 type timeoutConn struct {
 	conn    net.Conn
 	timeout time.Duration
+
+	mu         sync.Mutex
+	progressed time.Time
 }
 
 func (tc *timeoutConn) Read(b []byte) (n int, err error) {
-	// deadline needs to be set before each read operation
-	err = tc.SetReadDeadline(time.Now().Add(tc.timeout))
-	if err != nil {
-		return 0, err
-	}
-	return tc.conn.Read(b)
+	return tc.withDeadline(func(deadline time.Time) (n int, err error) {
+		err = tc.SetReadDeadline(deadline)
+		if err != nil {
+			return 0, err
+		}
+
+		return tc.conn.Read(b)
+	})
 }
 
 func (tc *timeoutConn) Write(b []byte) (n int, err error) {
-	// deadline needs to be set before each write operation
-	err = tc.SetWriteDeadline(time.Now().Add(tc.timeout))
-	if err != nil {
-		return 0, err
+	return tc.withDeadline(func(deadline time.Time) (n int, err error) {
+		err = tc.SetWriteDeadline(deadline)
+		if err != nil {
+			return 0, err
+		}
+
+		return tc.conn.Write(b)
+	})
+}
+
+// withDeadline ensures that Read/Write only return with timeout when neither have made progress for tc.timeout.
+func (tc *timeoutConn) withDeadline(op func(deadline time.Time) (n int, err error)) (n int, err error) {
+	started := time.Now()
+	deadline := started.Add(tc.timeout)
+
+	for {
+		n, err = op(deadline)
+		finished := time.Now()
+
+		tc.mu.Lock()
+		// did we make progress?
+		if n > 0 {
+			// update progress time
+			tc.progressed = finished
+			tc.mu.Unlock()
+			break
+		}
+		lastProgress := tc.progressed
+		tc.mu.Unlock()
+
+		// was it a timeout?
+		if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
+			// check whether something made progress
+			sinceProgress := finished.Sub(lastProgress)
+			if sinceProgress < 0 {
+				sinceProgress = 0
+			}
+
+			// since something made progress, setup a new deadline
+			if sinceProgress < tc.timeout {
+				deadline = finished.Add(sinceProgress)
+				continue
+			}
+		}
+
+		// some other error occurred
+		break
 	}
-	return tc.conn.Write(b)
+	return n, err
 }
 
 func (tc *timeoutConn) Close() error {
