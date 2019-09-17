@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// Implements support for running the storage node as a Windows Service.
+
 // +build windows
 
 package main
