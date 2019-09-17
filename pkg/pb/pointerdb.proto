@@ -57,7 +57,7 @@ message Pointer {
 
   bytes metadata = 8;
 
-  google.protobuf.Timestamp last_repaired = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];;
+  google.protobuf.Timestamp last_repaired = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
   int32 repair_count = 10;
 }
 
