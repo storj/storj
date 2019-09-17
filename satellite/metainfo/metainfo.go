@@ -492,8 +492,8 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		for _, piece := range remote.RemotePieces {
 
 			// Verify storagenode signature on piecehash
-			peerID := peerIDMap[piece.NodeId]
-			if peerID == nil {
+			peerID, ok := peerIDMap[piece.NodeId]
+			if !ok {
 				endpoint.log.Warn("Identity chain unknown for node", zap.String("nodeID", piece.NodeId.String()))
 				continue
 			}
