@@ -281,7 +281,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
 		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
-		peer.Transport = peer.Transport.WithObservers(peer.Overlay.Service)
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
