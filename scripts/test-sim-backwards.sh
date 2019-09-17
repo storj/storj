@@ -43,7 +43,7 @@ if [ -z ${STORJ_SIM_POSTGRES} ]; then
 fi
 
 # setup the network
-PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --config-dir $RELEASE_DIR --postgres=$STORJ_SIM_POSTGRES setup
+PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 # run upload part of backward compatibility tests from the lastest release branch
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
@@ -58,9 +58,6 @@ ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_1_DIR`/storag
 ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_2_DIR`/storagenode
 ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_3_DIR`/storagenode
 ln $RELEASE_DIR/bin/storagenode `storj-sim network env STORAGENODE_4_DIR`/storagenode
-
-# setup the network
-PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --config-dir $BRANCH_DIR --postgres=$STORJ_SIM_POSTGRES setup
 
 # run download part of backward compatibility tests from the current branch, using new uplink
 PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
