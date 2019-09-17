@@ -45,10 +45,10 @@ _Referral Manager CLI_
         * Someone else is using the Referral Manager at the same time and has not generated/sent tokens yet.
         * The CLI was terminated between the get `eligibleUsers` step and the generate/send tokens step.
     
-        Either one of the cases, We will return an error and display `Looks like there are existing selected users. By continuing the process, you will override the existing process. Do you still want to proceed? Yes/No.`. If they decide to continue, we call `ClearUsers` to sets eligibleUsers to empty and the Referral Manager contacts Tardigrade satellites to get users with 0 remaining invites.
-3. The Referral Manager aggregates the satellite responses and returns the number of users to the CLI.
-4. The CLI receives the number of users and displays: `How many invitation do you want to generate for each user?`
-5. After the user enters the number of invites to generate, the CLI displays: `Generating X amount of invitation tokens for Y amount of users. Yes/No.`
+        Either one of the cases, We will return an error and display `Referral token generation already in progress or canceled early. Do you want to continue anyway?`. If they decide to continue, we call `ClearUsers` to sets eligibleUsers to empty and the Referral Manager contacts Tardigrade satellites to get users with 0 remaining invites.
+2. The Referral Manager aggregates the satellite responses and returns the number of users to the CLI.
+3. The CLI receives the number of users and displays: `How many invitation do you want to generate for each user?`
+4. After the user enters the number of invites to generate, the CLI displays: `Generating X amount of invitation tokens for Y amount of users. Yes/No.`
    - If the input is `Yes`, it will follow the _Referral Link Distribution_ process below.
    - The CLI should exit if the input is `No`.
 
@@ -59,7 +59,7 @@ _Referral Link Distribution_
 3. Referral Manager adds the newly generated invitation tokens and the users each token associated with into Referral Manager database.
 4. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding host satellites.
 5. Host satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed on the satellite GUI.
-6. Host satellite calls `ClearUsers` endpoint on the Referral Manager to set its users in `eligibleUsers` to empty.
+6. After receives success responses from satellites, Referral Manager CLI will call `ClearUsers` endpoint to set `eligibleUser` to be empty.
 
 _Referral Link Redemption_
 
@@ -103,7 +103,7 @@ The Token struct represents both a Go struct (on satellite and Referral Manager)
 type Token struct {
 	Secret [32]byte
 	OwnerID uuid.UUID
-	RedeemedBy uuid.UUID
+	RedeemedID uuid.UUID
 	HostSatelliteURL string
     RedeemedSatelliteURL string
 	Status string
@@ -133,7 +133,7 @@ GetEligibleUsers([]satelliteURLs) (map[satelliteURL]int, error) {
 
 // GenerateAndSendInvitationTokens generates tokens, saves those in the referral manager db
 // and then sends newly created tokens to each respective satellite
-GenerateAndSendInvitationTokens([]satelliteURL, tokensPerUser int) (map[satelliteURL]int, error) {
+GenerateAndSendInvitationTokens(satelliteURL []string, tokensPerUser int) (map[string]int, error) {
     eligibleUsers := referralManager.eligibleUsers
     if eligibleUsers == nil {
         return nil, Error.New("No users to generate tokens for. Make sure to run GetEligibleUsers first")
@@ -170,9 +170,10 @@ func Redeem(ctx, token, newUserID) error {
 }
 
 // ClearUsers sets eligibleUsers to be empty
-func ClearUsers(ctx, satelliteURL) error {
+func ClearUsers(ctx, satelliteURL) {
     if _, ok := referralManager.eligibleUsers[satelliteURL]; !ok {
-        return err
+        // log the error
+        return
     }
 
     referralManager.eligibleUsers[satelliteURL] = nil
@@ -206,8 +207,8 @@ DeleteInvitationToken(token Token) {
 
 **CLI code:**
 ```
-startCmd(satelliteIDs []string) {
-    eligibleUsers, err := referralManager.GetEligibleUsers(satelliteIDs)
+startCmd(satelliteURLS []string) {
+    eligibleUsers, err := referralManager.GetEligibleUsers(satelliteURLs)
     if err == UsersAlreadyRetrievedErr {
         confirm := prompt("Referral token generation already in progress or canceled early. Do you want to continue anyway?")
         if confirm != "y" {
