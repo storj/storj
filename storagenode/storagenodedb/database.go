@@ -215,12 +215,12 @@ func (db *DB) Close() error {
 
 // closeDatabases closes all the SQLite database connections and removes them from the associated maps.
 func (db *DB) closeDatabases() error {
-	var err error
+	var errlist errs.Group
 
 	for k := range db.sqlDatabases {
-		err = errs.Combine(err, db.closeDatabase(k))
+		errlist.Add(db.closeDatabase(k))
 	}
-	return err
+	return errlist.Err()
 }
 
 // closeDatabase closes the specified SQLite database connections and removes them from the associated maps.
