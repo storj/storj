@@ -119,7 +119,7 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 	return &pb.DashboardResponse{
 		NodeId:              inspector.contact.Local().Id,
 		InternalAddress:     "",
-		ExternalAddress:     inspector.externalAddress,
+		ExternalAddress:     inspector.contact.Local().Address.Address,
 		LastPinged:          lastPingedAt,
 		LastPingFromId:      &lastPingFromID,
 		LastPingFromAddress: lastPingFromAddress,
