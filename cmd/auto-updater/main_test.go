@@ -33,7 +33,8 @@ func TestAutoUpdater(t *testing.T) {
 	content, err = ioutil.ReadFile("testdata/fake-storagenode.zip")
 	require.NoError(t, err)
 	mux.HandleFunc("/download", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(content)
+		_, err := w.Write(content)
+		require.NoError(t, err)
 	}))
 
 	ts := httptest.NewServer(&mux)
