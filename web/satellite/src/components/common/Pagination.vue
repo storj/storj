@@ -6,11 +6,11 @@
         <div class="pagination-container__pages">
             <div v-html="arrowLeft" @click="prevPage" class="pagination-container__button"></div>
             <div class="pagination-container__items">
-                <PagesBlock :pages="firstBlockPages" :check-selected="isSelected"/>
+                <PagesBlock :pages="firstBlockPages" :is-selected="isSelected"/>
                 <span v-if="isFirstDotsShown">...</span>
-                <PagesBlock :pages="middleBlockPages" :check-selected="isSelected"/>
+                <PagesBlock :pages="middleBlockPages" :is-selected="isSelected"/>
                 <span v-if="isSecondDotsShown">...</span>
-                <PagesBlock :pages="lastBlockPages" :check-selected="isSelected"/>
+                <PagesBlock :pages="lastBlockPages" :is-selected="isSelected"/>
             </div>
             <div v-html="arrowRight" @click="nextPage" class="pagination-container__button"></div>
         </div>

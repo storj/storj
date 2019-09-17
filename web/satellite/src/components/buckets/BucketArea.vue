@@ -7,7 +7,7 @@
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p>Buckets</p>
-                <HeaderComponent class="buckets-header-component" place-holder="Buckets" :search="fetch"/>
+                <HeaderComponent class="buckets-header-component" placeholder="Buckets" :search="fetch"/>
             </div>
             <div class="buckets-notification-container">
                 <div class="buckets-notification">

@@ -14,7 +14,7 @@
                 :api-key-secret="apiKeySecret"
                 @closePopup="closeCopyNewApiKeyPopup"/>
             <div v-if="!isEmpty || hasSearchQuery" class="api-keys-header">
-                <HeaderComponent ref="headerComponent" place-holder="API Key" :search="onSearchQueryCallback">
+                <HeaderComponent ref="headerComponent" placeholder="API Key" :search="onSearchQueryCallback">
                     <div class="header-default-state" v-if="headerState === 0">
                         <Button class="button" label="+Create API Key" width="180px" height="48px" :on-press="onCreateApiKeyClick"/>
                     </div>
