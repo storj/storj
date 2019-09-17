@@ -53,6 +53,12 @@ func (tc *timeoutConn) withDeadline(op func(deadline time.Time) (n int, err erro
 		if n > 0 {
 			// update progress time
 			tc.progressed = finished
+
+			if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
+				// clear if it's a timeout and we made progress
+				err = nil
+			}
+
 			tc.mu.Unlock()
 			break
 		}
