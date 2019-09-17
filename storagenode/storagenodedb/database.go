@@ -93,6 +93,7 @@ type DB struct {
 	reputationDB      *reputationDB
 	storageUsageDB    *storageusageDB
 	usedSerialsDB     *usedSerialsDB
+	satellitesDB      *satellitesDB
 }
 
 // New creates a new master database for storage node
@@ -124,6 +125,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		reputationDB:      newReputationDB(versionsDB, versionsPath),
 		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
 		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
+		satellitesDB:      newSatellitesDB(versionsDB, versionsPath),
 	}
 
 	return db, nil
@@ -158,6 +160,7 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 		reputationDB:      newReputationDB(versionsDB, versionsPath),
 		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
 		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
+		satellitesDB:      newSatellitesDB(versionsDB, versionsPath),
 	}
 	return db, nil
 }
@@ -217,6 +220,7 @@ func (db *DB) Close() error {
 		db.reputationDB.Close(),
 		db.storageUsageDB.Close(),
 		db.usedSerialsDB.Close(),
+		db.satellitesDB.Close(),
 	)
 }
 
