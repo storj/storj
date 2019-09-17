@@ -20,6 +20,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AvailableStorageConfig.wxs" />
+    <Compile Include="InstallDirConfig.wxs" />
     <Compile Include="CustomInstallDir.wxs" />
     <Compile Include="EmailConfig.wxs" />
     <Compile Include="AvailableBandwidthConfig.wxs" />
