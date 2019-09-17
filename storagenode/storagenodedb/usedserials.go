@@ -22,7 +22,7 @@ const (
 )
 
 type usedSerialsDB struct {
-	storageNodeSQLDB
+	migratableDB
 }
 
 // newUsedSerialsDB returns a new instance of usedSerials initialized with the specified database.

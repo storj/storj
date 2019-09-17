@@ -10,7 +10,7 @@ const (
 
 // legacyInfoDB represents the database that contains the original legacy sqlite3 database.
 type deprecatedInfoDB struct {
-	storageNodeSQLDB
+	migratableDB
 }
 
 func newDeprecatedInfoDB() *deprecatedInfoDB {

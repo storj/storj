@@ -23,7 +23,7 @@ const (
 
 // reputation works with node reputation DB
 type reputationDB struct {
-	storageNodeSQLDB
+	migratableDB
 }
 
 // newReputationDB returns a new instance of reputationDB.

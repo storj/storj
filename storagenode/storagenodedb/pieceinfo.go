@@ -27,7 +27,7 @@ const (
 )
 
 type v0PieceInfoDB struct {
-	storageNodeSQLDB
+	migratableDB
 }
 
 // newV0PieceInfoDB returns a new instance of pieceinfo.

@@ -32,7 +32,7 @@ type bandwidthDB struct {
 	usedMu    sync.RWMutex
 	usedSince time.Time
 
-	storageNodeSQLDB
+	migratableDB
 }
 
 // newBandwidthDB returns a new instance of usedSerials.

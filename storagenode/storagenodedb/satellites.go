@@ -17,7 +17,7 @@ const (
 
 // reputation works with node reputation DB
 type satellitesDB struct {
-	storageNodeSQLDB
+	migratableDB
 }
 
 // newSatellitesDB returns a new instance of satellitesDB initialized with the specified database.

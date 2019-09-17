@@ -21,7 +21,7 @@ const (
 
 // storageusageDB storage usage DB
 type storageusageDB struct {
-	storageNodeSQLDB
+	migratableDB
 }
 
 // newStorageusageDB returns a new instance of storageusageDB initialized with the specified database.

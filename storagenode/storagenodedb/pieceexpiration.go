@@ -22,7 +22,7 @@ const (
 )
 
 type pieceExpirationDB struct {
-	storageNodeSQLDB
+	migratableDB
 }
 
 // newPieceExpirationDB returns a new instance of pieceExpirationDB.

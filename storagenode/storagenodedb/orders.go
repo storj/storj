@@ -25,7 +25,7 @@ const (
 )
 
 type ordersDB struct {
-	storageNodeSQLDB
+	migratableDB
 }
 
 // newOrdersDB returns a new instance of ordersDB.

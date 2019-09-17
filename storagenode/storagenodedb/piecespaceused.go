@@ -21,7 +21,7 @@ const (
 )
 
 type pieceSpaceUsedDB struct {
-	storageNodeSQLDB
+	migratableDB
 }
 
 // newPieceSpaceUsedDB returns a new instance of pieceSpaceUsedDB.
