@@ -19,7 +19,10 @@
 
         <Control Id="PublicAddressLabel" Type="Text" X="20" Y="60" Width="320" Height="16" NoPrefix="yes" Text="External address (&lt;ip&gt;:&lt;port&gt;):" />
         <Control Id="PublicAddress" Type="Edit" Property="STORJ_PUBLIC_ADDRESS" X="20" Y="100" Width="320" Height="18" />
-        <Control Id="PublicAddressDesc" Type="Text" X="20" Y="150" Width="320" Height="48" NoPrefix="yes" Text="The storage node will listen for requests on port 28967. You must configure your router to make this port available for public access. When ready, enter the external IP address or the DDNS you configured and the port your opened on your router." />
+        <Control Id="PublicAddressDesc" Type="Text" X="20" Y="150" Width="320" Height="32" NoPrefix="yes" Text="The storage node will listen for requests on port 28967. You must configure your router to make this port available for public access. When ready, enter the external IP address or the DDNS you configured and the port your opened on your router." />
+        <Control Id="IdentityHowto" Type="Hyperlink" X="20" Y="190" Width="320" Height="16">
+          <Text><![CDATA[<a href="https://documentation.storj.io/setup/port-forwarding">Learn how to setup Port Forwarding.</a>]]></Text>
+        </Control>
       </Dialog>
     </UI>
 	</Fragment>
