@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode/satellites"
 )
 
 // ErrSatellitesDB represents errors from the satellites database.
@@ -33,8 +34,8 @@ func newSatellitesDB(db SQLDB, location string) *satellitesDB {
 func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
-		query := `INSERT OR REPLACE INTO satellites (node_id, status) VALUES(?, 'EXITING')`
-		_, err = tx.ExecContext(ctx, query, satelliteID)
+		query := `INSERT OR REPLACE INTO satellites (node_id, status) VALUES (?,?)`
+		_, err = tx.ExecContext(ctx, query, satelliteID, satellites.Exiting)
 		if err != nil {
 			return err
 		}
@@ -53,10 +54,10 @@ func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID stor
 }
 
 // complete graceful exit
-func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus string, completionReceipt []byte) (err error) {
+func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
-		query := `INSERT OR REPLACE INTO satellites (node_id, status) VALUES(?, ?)`
+		query := `INSERT OR REPLACE INTO satellites (node_id, status) VALUES (?,?)`
 		_, err = tx.ExecContext(ctx, query, satelliteID, exitStatus)
 		if err != nil {
 			return err

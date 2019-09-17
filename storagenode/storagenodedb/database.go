@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 )
 
@@ -310,6 +311,11 @@ func (db *DB) StorageUsage() storageusage.DB {
 // UsedSerials returns the instance of the UsedSerials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials {
 	return db.usedSerialsDB
+}
+
+// Satellites returns the instance of the Satellites database.
+func (db *DB) Satellites() satellites.DB {
+	return db.satellitesDB
 }
 
 // RoutingTable returns kademlia routing table
