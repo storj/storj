@@ -61,8 +61,8 @@ Patch dialog sequence:
 
             <Publish Dialog="IdentityDirDlg" Control="Back" Event="NewDialog" Value="InstallDirDlg" Order="1">1</Publish>
             <Publish Dialog="IdentityDirDlg" Control="Next" Event="NewDialog" Value="WalletConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="IdentityDirDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[STORJ_IDENTITYDIR]" Order="1">1</Publish>
-            <Publish Dialog="IdentityDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
+            <Publish Dialog="IdentityDirDlg" Control="IdentityChangeFolder" Property="_BrowseProperty" Value="[STORJ_IDENTITYDIR]" Order="1">1</Publish>
+            <Publish Dialog="IdentityDirDlg" Control="IdentityChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
 
             <Publish Dialog="WalletConfigDlg" Control="Back" Event="NewDialog" Value="IdentityDirDlg" Order="1">1</Publish>
             <Publish Dialog="WalletConfigDlg" Control="Next" Event="NewDialog" Value="EmailConfigDlg" Order="1">STORJ_WALLET AND STORJ_WALLET_VALID</Publish>
