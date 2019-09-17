@@ -309,7 +309,6 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Pause()
