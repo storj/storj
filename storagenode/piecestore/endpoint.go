@@ -5,6 +5,7 @@ package piecestore
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"sync/atomic"
@@ -146,6 +147,12 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
+	start := time.Now()
+	defer func() {
+		took := time.Now().Unix() - start.Unix()
+		fmt.Println("Upload on storage node took: ", took, err)
+	}()
+
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
@@ -182,6 +189,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
 		return err
 	}
+	took := time.Now().Unix() - start.Unix()
+	fmt.Println("Upload on storage node took 1: ", took)
 
 	var pieceWriter *pieces.Writer
 	defer func() {
@@ -216,6 +225,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
+	took = time.Now().Unix() - start.Unix()
+	fmt.Println("Upload on storage node took 2: ", took)
 	defer func() {
 		// cancel error if it hasn't been committed
 		if cancelErr := pieceWriter.Cancel(ctx); cancelErr != nil {
@@ -233,6 +244,9 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return ErrInternal.Wrap(err)
 	}
 
+	took = time.Now().Unix() - start.Unix()
+	fmt.Println("Upload on storage node took 3: ", took)
+
 	largestOrder := pb.Order{}
 	defer endpoint.saveOrder(ctx, limit, &largestOrder)
 
@@ -241,6 +255,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		if err == io.EOF {
 			return ErrProtocol.New("unexpected EOF")
 		} else if err != nil {
+			took := time.Now().Unix() - start.Unix()
+			fmt.Println("Upload on storage node took 4: ", took)
 			return ErrProtocol.Wrap(err) // TODO: report grpc status bad message
 		}
 		if message == nil {
