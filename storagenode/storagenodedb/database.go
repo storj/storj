@@ -225,14 +225,12 @@ func (db *DB) closeDatabases() error {
 
 // closeDatabase closes the specified SQLite database connections and removes them from the associated maps.
 func (db *DB) closeDatabase(dbName string) (err error) {
-	if conn, ok := db.sqlDatabases[dbName]; ok {
-		err = errs.Combine(err, conn.Close())
-		delete(db.sqlDatabases, dbName)
+	conn, ok := db.sqlDatabases[dbName]
+	if !ok {
+		return ErrDatabase.New("double close on database " + dbName)
 	}
-	if err == nil {
-		db.log.Debug(fmt.Sprintf("closed database %s", dbName))
-	}
-	return err
+	delete(db.sqlDatabases, dbName)
+	return ErrDatabase.Wrap(conn.Close())
 }
 
 // DeprecatedInfoDB returns the instance of the versions database.
