@@ -39,8 +39,13 @@ Redeemed Satellite
 
 _Referral Manager CLI_
 
-1. `referral manager start` initiates the invitation token generation process. This process begins by requesting users from the Referral Manager service.
-2. The Referral Manager contacts Tardigrade satellites to get users with 0 remaining invites.
+1. `referral manager start` initiates the invitation token generation process. This process begins by checking whether there are existing `eligibleUsers` in memory in Referral Manager.
+    - If `eligibleUsers` is empty, the Referral Manager contacts Tardigrade satellites to get users with 0 remaining invites.
+    - If `eligibleUsers` is not empty, it means one of two things:
+        * Someone else is using the Referral Manager at the same time and has not generated/sent tokens yet.
+        * The CLI was terminated between the get `eligibleUsers` step and the generate/send tokens step.
+    
+        Either one of the cases, We will return an error and display `Looks like there are existing selected users. By continuing the process, you will override the existing process. Do you still want to proceed? Yes/No.`. If they decide to continue, we call `ClearUsers` to sets eligibleUsers to empty and the Referral Manager contacts Tardigrade satellites to get users with 0 remaining invites.
 3. The Referral Manager aggregates the satellite responses and returns the number of users to the CLI.
 4. The CLI receives the number of users and displays: `How many invitation do you want to generate for each user?`
 5. After the user enters the number of invites to generate, the CLI displays: `Generating X amount of invitation tokens for Y amount of users. Yes/No.`
@@ -53,7 +58,8 @@ _Referral Link Distribution_
 2. Referral Manager receives all userIDs from satellites and then generates x amount of invitation tokens per user based on the input from CLI.
 3. Referral Manager adds the newly generated invitation tokens and the users each token associated with into Referral Manager database.
 4. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding host satellites.
-5. Host satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed on the satellite GUI
+5. Host satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed on the satellite GUI.
+6. Host satellite calls `ClearUsers` endpoint on the Referral Manager to set its users in `eligibleUsers` to empty.
 
 _Referral Link Redemption_
 
@@ -83,6 +89,7 @@ We could add a new column `referral_tokens` in `users` table to store user's unr
 - Create `tokens` and `satellites` table in Referral Manager database.
 - Create a `Delete` method for satellite `registration_tokendb`.
 - Implementing an endpoint on satellite for gathering users whose current count of remaining invitation token is 0.
+- Implementing an endpoint on Referral Manager for setting in-memory `eligibleUsers` to be empty.
 - Implementing generating invitation tokens from Referral Manager CLI.
 - Implementing an endpoint on satellite for saving new referral links into users table.
 - Implementing an endpoint on Referral Manager for verifying invitation tokens.
@@ -108,7 +115,11 @@ Referral Manager endpoints:
 ```
 // GetEligibleUsers retrieves a list of users who have 0 remaining invitation tokens
 // from each satellite provided, and saves those users in memory
-GetEligibleUsers([]satelliteURLs) map[satelliteURL]int {
+GetEligibleUsers([]satelliteURLs) (map[satelliteURL]int, error) {
+    if referralManager.eligibleUser != nil {
+        return nil, err
+    }
+
     eligibleUsers := make(map[satelliteURL][]UserID)
     eligibleUsersCounts := make(map[satelliteURL]int)
     for _, satellite := range satelliteURL {
@@ -117,7 +128,7 @@ GetEligibleUsers([]satelliteURLs) map[satelliteURL]int {
         eligibleUsersCounts[satellite]++
     }
     referralManager.eligibleUsers = eligibleUsers
-    return eligibleUsersCounts
+    return eligibleUsersCounts, nil
 }
 
 // SendInvitationTokens generates tokens, saves those in the referral manager db
@@ -156,6 +167,16 @@ func Redeem(ctx, token, newUserID) error {
 	}
 
     token.HostSatelliteURL.DeleteInvitationToken(token)
+}
+
+// ClearUsers sets eligibleUsers to be empty
+func ClearUsers(ctx, satelliteURL) error {
+    if _, ok := referralManager.eligibleUsers[satelliteURL]; !ok {
+        return err
+    }
+
+    referralManager.eligibleUsers[satelliteURL] = nil
+    return nil
 }
 ```
 
