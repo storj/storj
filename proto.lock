@@ -5540,6 +5540,26 @@
               },
               {
                 "id": 9,
+                "name": "last_repaired",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 10,
+                "name": "repair_count",
+                "type": "int32"
+              },
+              {
+                "id": 11,
                 "name": "piece_hashes_verified",
                 "type": "bool"
               }

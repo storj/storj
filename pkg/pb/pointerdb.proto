@@ -56,7 +56,10 @@ message Pointer {
   google.protobuf.Timestamp expiration_date = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
   bytes metadata = 8;
-  bool piece_hashes_verified = 9;
+
+  google.protobuf.Timestamp last_repaired = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  int32 repair_count = 10;
+  bool piece_hashes_verified = 11;
 }
 
 // ListResponse is a response message for the List rpc call
