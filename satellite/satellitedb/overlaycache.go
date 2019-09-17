@@ -1430,7 +1430,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END,
 				-- this disqualified case statement resolves to: 
 				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
-				disqualified = CASE WHEN (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) / (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) + ($16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int))) AND nodes.disqualified IS NULL <= $15
+				disqualified = CASE WHEN (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) / (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) + ($16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int))) <= $15 AND nodes.disqualified IS NULL
 					THEN current_timestamp
 					ELSE nodes.disqualified
 				END;
