@@ -65,7 +65,7 @@ func TestProgress(t *testing.T) {
 			err = geDB.DeleteProgress(ctx, progress.NodeID)
 			require.NoError(t, err)
 
-			progress, err = geDB.GetProgress(ctx, data.nodeID)
+			_, err = geDB.GetProgress(ctx, data.nodeID)
 			require.Error(t, err)
 		}
 	})
