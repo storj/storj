@@ -713,77 +713,70 @@ type lockedGracefulExit struct {
 	db gracefulexit.DB
 }
 
-// CreateProgress creates a graceful exit progress entry in the database
+// CreateProgress creates a graceful exit progress entry in the database.
 func (m *lockedGracefulExit) CreateProgress(ctx context.Context, nodeID storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateProgress(ctx, nodeID)
 }
 
-// CreateProgress creates a graceful exit progress entry in the database
+// CreateTransferQueueItem creates a graceful exit transfer queue entry in the database.
 func (m *lockedGracefulExit) CreateTransferQueueItem(ctx context.Context, item gracefulexit.TransferQueueItem) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateTransferQueueItem(ctx, item)
 }
 
-// DeleteProgress deletes a graceful exit progress entry in the database
+// DeleteProgress deletes a graceful exit progress entry in the database.
 func (m *lockedGracefulExit) DeleteProgress(ctx context.Context, nodeID storj.NodeID) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.DeleteProgress(ctx, nodeID)
 }
 
-// DeleteTransferQueueItem deletes a graceful exit transfer queue entry in the database
+// DeleteTransferQueueItem deletes a graceful exit transfer queue entry in the database.
 func (m *lockedGracefulExit) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.DeleteTransferQueueItem(ctx, nodeID, path)
 }
 
-// GetAllProgress gets all graceful exit progress entries in the database
-func (m *lockedGracefulExit) GetAllProgress(ctx context.Context) ([]*gracefulexit.Progress, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAllProgress(ctx)
-}
-
-// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets incomplete graceful exit transfer queue entries in the database ordered by the queued date ascending
+// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets incomplete graceful exit transfer queue entries in the database ordered by the queued date ascending.
 func (m *lockedGracefulExit) GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx, nodeID, limit, offset)
 }
 
-// GetProgress gets a graceful exit progress entry in the database
+// GetProgress gets a graceful exit progress entry in the database.
 func (m *lockedGracefulExit) GetProgress(ctx context.Context, nodeID storj.NodeID) (*gracefulexit.Progress, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetProgress(ctx, nodeID)
 }
 
-// GetTransferQueueItem gets a graceful exit transfer queue entry in the database
+// GetTransferQueueItem gets a graceful exit transfer queue entry in the database.
 func (m *lockedGracefulExit) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (*gracefulexit.TransferQueueItem, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetTransferQueueItem(ctx, nodeID, path)
 }
 
-// IncrementProgressBytesTransferred increments bytes transferred value
+// IncrementProgressBytesTransferred increments bytes transferred value.
 func (m *lockedGracefulExit) IncrementProgressBytesTransferred(ctx context.Context, nodeID storj.NodeID, bytesTransferred int64) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IncrementProgressBytesTransferred(ctx, nodeID, bytesTransferred)
 }
 
-// UpdateProgress updates a graceful exit progress entry in the database
+// UpdateProgress updates a graceful exit progress entry in the database.
 func (m *lockedGracefulExit) UpdateProgress(ctx context.Context, nodeID storj.NodeID, bytesTransferred int64) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateProgress(ctx, nodeID, bytesTransferred)
 }
 
-// UpdateTransferQueueItem creates a graceful exit transfer queue entry in the database
+// UpdateTransferQueueItem creates a graceful exit transfer queue entry in the database.
 func (m *lockedGracefulExit) UpdateTransferQueueItem(ctx context.Context, item gracefulexit.TransferQueueItem) error {
 	m.Lock()
 	defer m.Unlock()

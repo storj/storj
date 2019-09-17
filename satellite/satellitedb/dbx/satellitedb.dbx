@@ -876,9 +876,6 @@ read one (
 	select graceful_exit_progress
 	where graceful_exit_progress.node_id = ? 
 )
-read all (
-	select graceful_exit_progress
-)
 
 //--- graceful exit transfer queue ---//
 

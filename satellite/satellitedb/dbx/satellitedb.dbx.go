@@ -8584,38 +8584,6 @@ func (obj *postgresImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_GracefulExitProgress(ctx context.Context) (
-	rows []*GracefulExitProgress, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at FROM graceful_exit_progress")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		graceful_exit_progress := &GracefulExitProgress{}
-		err = __rows.Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, graceful_exit_progress)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
@@ -13015,38 +12983,6 @@ func (obj *sqlite3Impl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) All_GracefulExitProgress(ctx context.Context) (
-	rows []*GracefulExitProgress, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at FROM graceful_exit_progress")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		graceful_exit_progress := &GracefulExitProgress{}
-		err = __rows.Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, graceful_exit_progress)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *sqlite3Impl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
@@ -15551,15 +15487,6 @@ func (rx *Rx) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalSta
 	return tx.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx, bucket_storage_tally_project_id, bucket_storage_tally_bucket_name, bucket_storage_tally_interval_start_greater_or_equal, bucket_storage_tally_interval_start_less_or_equal)
 }
 
-func (rx *Rx) All_GracefulExitProgress(ctx context.Context) (
-	rows []*GracefulExitProgress, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_GracefulExitProgress(ctx)
-}
-
 func (rx *Rx) All_Node_Id(ctx context.Context) (
 	rows []*Id_Row, err error) {
 	var tx *Tx
@@ -16918,9 +16845,6 @@ type Methods interface {
 		bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
 		bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
 		rows []*BucketStorageTally, err error)
-
-	All_GracefulExitProgress(ctx context.Context) (
-		rows []*GracefulExitProgress, err error)
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)

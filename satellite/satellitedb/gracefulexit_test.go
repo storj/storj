@@ -24,14 +24,17 @@ func TestProgress(t *testing.T) {
 		ctx := context.Background()
 
 		geDB := db.GracefulExit()
-		for _, data := range []struct {
+
+		testData := []struct {
 			nodeID storj.NodeID
 			updAmt int64
 			incAmt int64
 		}{
 			{testrand.NodeID(), 1, 2},
 			{testrand.NodeID(), 3, 4},
-		} {
+		}
+
+		for _, data := range testData {
 			err := geDB.CreateProgress(ctx, data.nodeID)
 			require.NoError(t, err)
 
@@ -53,18 +56,18 @@ func TestProgress(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, data.updAmt+data.incAmt, progress.BytesTransferred)
 		}
-		progresses, err := geDB.GetAllProgress(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(progresses))
 
-		for _, progress := range progresses {
-			err := geDB.DeleteProgress(ctx, progress.NodeID)
+		// test delete
+		for _, data := range testData {
+			progress, err := geDB.GetProgress(ctx, data.nodeID)
 			require.NoError(t, err)
-		}
 
-		progresses, err = geDB.GetAllProgress(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(progresses))
+			err = geDB.DeleteProgress(ctx, progress.NodeID)
+			require.NoError(t, err)
+
+			progress, err = geDB.GetProgress(ctx, data.nodeID)
+			require.Error(t, err)
+		}
 	})
 }
 

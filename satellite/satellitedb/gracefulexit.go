@@ -79,31 +79,6 @@ func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) 
 	return progress, err
 }
 
-// GetAllProgress gets all graceful exit progress entries in the database.
-func (db *gracefulexitDB) GetAllProgress(ctx context.Context) (_ []*gracefulexit.Progress, err error) {
-	defer mon.Task()(&ctx)(&err)
-	dbxProgressRows, err := db.db.All_GracefulExitProgress(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var progressRows = make([]*gracefulexit.Progress, len(dbxProgressRows))
-	for i, dbxProgress := range dbxProgressRows {
-		nID, err := storj.NodeIDFromBytes(dbxProgress.NodeId)
-		if err != nil {
-			return nil, err
-		}
-
-		progress := &gracefulexit.Progress{
-			NodeID:           nID,
-			BytesTransferred: dbxProgress.BytesTransferred,
-			UpdatedAt:        dbxProgress.UpdatedAt,
-		}
-		progressRows[i] = progress
-	}
-	return progressRows, err
-}
-
 // CreateTransferQueueItem creates a graceful exit transfer queue entry in the database.
 func (db *gracefulexitDB) CreateTransferQueueItem(ctx context.Context, item gracefulexit.TransferQueueItem) (err error) {
 	defer mon.Task()(&ctx)(&err)
