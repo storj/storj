@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -69,13 +70,14 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		return errs.New("error opening log file: %v", err)
+	if logPath != "" {
+		logFile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			return errs.New("error opening log file: %v", err)
+		}
+		defer func() { err = errs.Combine(err, logFile.Close()) }()
+		log.SetOutput(logFile)
 	}
-	defer func() { err = errs.Combine(err, logFile.Close()) }()
-
-	log.SetOutput(logFile)
 
 	if !fileExists(binaryLocation) {
 		return errs.New("unable to find storage node executable binary")
@@ -91,13 +93,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		signal.Stop(c)
 		cancel()
 	}()
-
-	loopInterval, err := time.ParseDuration(interval)
-	if err != nil {
-		return errs.New("unable to parse interval parameter: %v", err)
-	}
-
-	loop := sync2.NewCycle(loopInterval)
 
 	update := func(ctx context.Context) (err error) {
 		currentVersion, err := binaryVersion(binaryLocation)
@@ -167,23 +162,35 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	}
 
-	err = loop.Run(ctx, func(ctx context.Context) (err error) {
+	loopInterval, err := time.ParseDuration(interval)
+	if err != nil {
+		return errs.New("unable to parse interval parameter: %v", err)
+	}
+
+	loopFunc := func(ctx context.Context) (err error) {
 		if err := update(ctx); err != nil {
 			// don't finish loop in case of error just wait for another execution
 			log.Println(err)
 		}
 		return nil
-	})
+	}
+
+	if loopInterval == 0 {
+		err = loopFunc(ctx)
+	} else {
+		loop := sync2.NewCycle(loopInterval)
+		err = loop.Run(ctx, loopFunc)
+	}
 	if err != context.Canceled {
 		return err
 	}
 	return nil
 }
 
-func binaryVersion(location string) (version.SemVer, error) {
+func binaryVersion(location string) (semver.Version, error) {
 	out, err := exec.Command(location, "version").Output()
 	if err != nil {
-		return version.SemVer{}, err
+		return semver.Version{}, err
 	}
 
 	scanner := bufio.NewScanner(bytes.NewReader(out))
@@ -191,13 +198,14 @@ func binaryVersion(location string) (version.SemVer, error) {
 		line := scanner.Text()
 		prefix := "Version: "
 		if strings.HasPrefix(line, prefix) {
-			return version.NewSemVer(line[len(prefix):])
+			// use version string without 'v'
+			return semver.Make(line[len(prefix)+1:])
 		}
 	}
-	return version.SemVer{}, errs.New("unable to determine binary version")
+	return semver.Version{}, errs.New("unable to determine binary version")
 }
 
-func suggestedVersion() (ver version.SemVer, url string, err error) {
+func suggestedVersion() (ver semver.Version, url string, err error) {
 	resp, err := http.Get(versionURL)
 	if err != nil {
 		return ver, url, err
@@ -216,7 +224,7 @@ func suggestedVersion() (ver version.SemVer, url string, err error) {
 	}
 
 	suggestedVersion := response.Processes.Storagenode.Suggested
-	ver, err = version.NewSemVer(suggestedVersion.Version)
+	ver, err = semver.Make(suggestedVersion.Version)
 	if err != nil {
 		return ver, url, err
 	}
