@@ -6,6 +6,7 @@ package sqliteutil
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
@@ -58,10 +59,10 @@ func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB *sql.DB, tablesT
 	}
 
 	if err := srcConn.Close(); err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	if err := destConn.Close(); err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	// Remove tables we don't want to keep from the cloned destination database.
@@ -145,7 +146,7 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) error {
 		var tableName string
 		err = rows.Scan(&tableName)
 		if err != nil {
-			return errs.Wrap(err)
+			return errs.Combine(err, rows.Close())
 		}
 		tables = append(tables, tableName)
 	}
@@ -158,14 +159,15 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) error {
 	for _, tableName := range tables {
 		if !tableToKeep(tableName, tablesToKeep) {
 			// Drop tables we aren't told to keep in the destination database.
-			_, err = db.Exec("DROP TABLE "+tableName+";", nil)
+			_, err = db.Exec(fmt.Sprintf("DROP TABLE %s;", tableName))
 			if err != nil {
 				return errs.Wrap(err)
 			}
 		}
 	}
 
-	// VACUUM the database to reclaim the space used by the dropped tables.
+	// VACUUM the database to reclaim the space used by the dropped tables. The
+	// data will not actually be reclaimed until the db has been closed.
 	_, err = db.Exec("VACUUM;")
 	if err != nil {
 		return errs.Wrap(err)

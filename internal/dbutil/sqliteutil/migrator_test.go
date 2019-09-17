@@ -31,7 +31,7 @@ func TestMigrateTablesToDatabase(t *testing.T) {
 
 	execSQL(t, srcDB, query)
 	// This table should be removed after migration
-	execSQL(t, destDB, "CREATE TABLE yoyo(I Int);")
+	execSQL(t, srcDB, "CREATE TABLE what(I Int);")
 
 	err := sqliteutil.MigrateTablesToDatabase(ctx, srcDB, destDB, "bobby_jones")
 	require.NoError(t, err)
