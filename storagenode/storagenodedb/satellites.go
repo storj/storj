@@ -10,10 +10,8 @@ import (
 // ErrSatellitesDB represents errors from the satellites database.
 var ErrSatellitesDB = errs.Class("satellitesdb error")
 
-const (
-	// SatellitesDBName represents the database name.
-	SatellitesDBName = "satellites"
-)
+// SatellitesDBName represents the database name.
+const SatellitesDBName = "satellites"
 
 // reputation works with node reputation DB
 type satellitesDB struct {

@@ -19,10 +19,8 @@ import (
 // ErrOrders represents errors from the ordersdb database.
 var ErrOrders = errs.Class("ordersdb error")
 
-const (
-	// OrdersDBName represents the database name.
-	OrdersDBName = "orders"
-)
+// OrdersDBName represents the database name.
+const OrdersDBName = "orders"
 
 type ordersDB struct {
 	migratableDB

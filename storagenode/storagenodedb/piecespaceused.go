@@ -15,10 +15,8 @@ import (
 // ErrPieceSpaceUsed represents errors from the piece spaced used database.
 var ErrPieceSpaceUsed = errs.Class("piece space used error")
 
-const (
-	// PieceSpaceUsedDBName represents the database name.
-	PieceSpaceUsedDBName = "piece_spaced_used"
-)
+// PieceSpaceUsedDBName represents the database name.
+const PieceSpaceUsedDBName = "piece_spaced_used"
 
 type pieceSpaceUsedDB struct {
 	migratableDB

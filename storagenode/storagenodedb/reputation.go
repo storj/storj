@@ -16,10 +16,8 @@ import (
 // ErrReputation represents errors from the reputation database.
 var ErrReputation = errs.Class("reputation error")
 
-const (
-	// ReputationDBName represents the database name.
-	ReputationDBName = "reputation"
-)
+// ReputationDBName represents the database name.
+const ReputationDBName = "reputation"
 
 // reputation works with node reputation DB
 type reputationDB struct {

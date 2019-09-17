@@ -21,10 +21,8 @@ import (
 // ErrBandwidth represents errors from the bandwidthdb database.
 var ErrBandwidth = errs.Class("bandwidthdb error")
 
-const (
-	// BandwidthDBName represents the database name.
-	BandwidthDBName = "bandwidth"
-)
+// BandwidthDBName represents the database name.
+const BandwidthDBName = "bandwidth"
 
 type bandwidthDB struct {
 	// Moved to top of struct to resolve alignment issue with atomic operations on ARM

@@ -3,12 +3,10 @@
 
 package storagenodedb
 
-const (
-	// LegacyInfoDBName represents the database name.
-	DeprecatedInfoDBName = "info"
-)
+// DeprecatedInfoDBName represents the database name.
+const DeprecatedInfoDBName = "info"
 
-// legacyInfoDB represents the database that contains the original legacy sqlite3 database.
+// deprecatedInfoDB represents the database that contains the original legacy sqlite3 database.
 type deprecatedInfoDB struct {
 	migratableDB
 }

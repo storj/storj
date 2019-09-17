@@ -16,10 +16,8 @@ import (
 // ErrPieceExpiration represents errors from the piece expiration database.
 var ErrPieceExpiration = errs.Class("piece expiration error")
 
-const (
-	// PieceExpirationDBName represents the database filename.
-	PieceExpirationDBName = "piece_expiration"
-)
+// PieceExpirationDBName represents the database filename.
+const PieceExpirationDBName = "piece_expiration"
 
 type pieceExpirationDB struct {
 	migratableDB
