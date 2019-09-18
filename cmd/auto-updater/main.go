@@ -61,7 +61,7 @@ var (
 func init() {
 	rootCmd.AddCommand(runCmd)
 
-	runCmd.Flags().StringVar(&interval, "interval", "06h", "interval for checking the new version, negative value will execute version check only once")
+	runCmd.Flags().StringVar(&interval, "interval", "06h", "interval for checking the new version, 0 or less value will execute version check only once")
 	runCmd.Flags().StringVar(&versionURL, "version-url", "https://version.storj.io/release/", "version server URL")
 	runCmd.Flags().StringVar(&binaryLocation, "binary-location", "storagenode.exe", "the storage node executable binary location")
 
@@ -199,11 +199,11 @@ func binaryVersion(location string) (semver.Version, error) {
 		prefix := "Version: "
 		if strings.HasPrefix(line, prefix) {
 			line = line[len(prefix):]
+			if strings.HasPrefix(line, "v") {
+				line = line[1:]
+			}
+			return semver.Make(line)
 		}
-		if strings.HasPrefix(line, "v") {
-			line = line[1:]
-		}
-		return semver.Make(line)
 	}
 	return semver.Version{}, errs.New("unable to determine binary version")
 }
