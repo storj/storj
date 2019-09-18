@@ -12,63 +12,66 @@ import (
 	"github.com/zeebo/errs"
 )
 
+var (
+	// ErrMigrateTables is error class for MigrateTables
+	ErrMigrateTables = errs.Class("migrate tables:")
+
+	// ErrKeepTables is error class for MigrateTables
+	ErrKeepTables = errs.Class("keep tables:")
+)
+
 // MigrateTablesToDatabase copies the specified tables from srcDB into destDB.
 // All tables in destDB will be dropped other than those specified in
 // tablesToKeep.
 func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB *sql.DB, tablesToKeep ...string) error {
-	// Retrieve the raw Sqlite3 driver connections for the src and dest so that
-	// we can execute the backup API for a corruption safe clone.
-	srcConn, err := srcDB.Conn(ctx)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	destConn, err := destDB.Conn(ctx)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	// The references to the driver connections are only guaranteed to be valid
-	// for the life of the callback so we must do the work within both callbacks.
-	err = srcConn.Raw(func(srcDriverConn interface{}) error {
-		srcSqliteConn, ok := srcDriverConn.(*sqlite3.SQLiteConn)
-		if !ok {
-			return errs.New("unable to get database driver")
-		}
-
-		err = destConn.Raw(func(destDriverConn interface{}) error {
-			destSqliteConn, ok := destDriverConn.(*sqlite3.SQLiteConn)
-			if !ok {
-				return errs.New("unable to get database driver")
-			}
-
-			err = backup(ctx, srcSqliteConn, destSqliteConn)
-			if err != nil {
-				return errs.New("unable to backup database")
-			}
-			return nil
-		})
+	err := func() error {
+		// Retrieve the raw Sqlite3 driver connections for the src and dest so that
+		// we can execute the backup API for a corruption safe clone.
+		srcConn, err := srcDB.Conn(ctx)
 		if err != nil {
-			return errs.Wrap(err)
+			return ErrMigrateTables.Wrap(err)
 		}
+		defer func() {
+			err = errs.Combine(err, ErrMigrateTables.Wrap(srcConn.Close()))
+		}()
 
-		return nil
-	})
+		destConn, err := destDB.Conn(ctx)
+		defer func() {
+			err = errs.Combine(err, ErrMigrateTables.Wrap(destConn.Close()))
+		}()
+
+		// The references to the driver connections are only guaranteed to be valid
+		// for the life of the callback so we must do the work within both callbacks.
+		return ErrMigrateTables.Wrap(
+			srcConn.Raw(func(srcDriverConn interface{}) error {
+				srcSqliteConn, ok := srcDriverConn.(*sqlite3.SQLiteConn)
+				if !ok {
+					return ErrMigrateTables.New("unable to get database driver")
+				}
+
+				return ErrMigrateTables.Wrap(
+					destConn.Raw(func(destDriverConn interface{}) error {
+						destSqliteConn, ok := destDriverConn.(*sqlite3.SQLiteConn)
+						if !ok {
+							return ErrMigrateTables.New("unable to get database driver, got %T", destDriverConn)
+						}
+
+						err = backup(ctx, srcSqliteConn, destSqliteConn)
+						if err != nil {
+							return ErrMigrateTables.New("unable to backup database: %v", err)
+						}
+						return nil
+					}))
+			}))
+	}()
 	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	if err := srcConn.Close(); err != nil {
-		return errs.Wrap(err)
-	}
-	if err := destConn.Close(); err != nil {
-		return errs.Wrap(err)
+		return ErrMigrateTables.Wrap(err)
 	}
 
 	// Remove tables we don't want to keep from the cloned destination database.
 	err = KeepTables(ctx, destDB, tablesToKeep...)
 	if err != nil {
-		return errs.Wrap(err)
+		return ErrMigrateTables.Wrap(err)
 	}
 	return nil
 }
@@ -80,53 +83,53 @@ func backup(ctx context.Context, sourceDB *sqlite3.SQLiteConn, destDB *sqlite3.S
 	// the database we want to backup, and the appropriate dest in the destDB
 	backup, err := destDB.Backup("main", sourceDB, "main")
 	if err != nil {
-		return errs.Wrap(err)
+		return ErrMigrateTables.Wrap(err)
 	}
 
 	isDone, err := backup.Step(0)
 	if err != nil {
-		return errs.Wrap(err)
+		return ErrMigrateTables.Wrap(err)
 	}
 	if isDone {
-		return errs.New("Backup is done")
+		return ErrMigrateTables.New("Backup is done")
 	}
 
 	// Check that the page count and remaining values are reasonable.
 	initialPageCount := backup.PageCount()
 	if initialPageCount <= 0 {
-		return errs.New("initialPageCount invalid")
+		return ErrMigrateTables.New("initialPageCount invalid")
 	}
 	initialRemaining := backup.Remaining()
 	if initialRemaining <= 0 {
-		return errs.New("initialRemaining invalid")
+		return ErrMigrateTables.New("initialRemaining invalid")
 	}
 	if initialRemaining != initialPageCount {
-		return errs.New("initialRemaining != initialPageCount")
+		return ErrMigrateTables.New("initialRemaining != initialPageCount")
 	}
 
 	// Step -1 is used to copy the entire source database to the destination.
 	isDone, err = backup.Step(-1)
 	if err != nil {
-		return errs.Wrap(err)
+		return ErrMigrateTables.Wrap(err)
 	}
 	if !isDone {
-		return errs.New("Backup not done")
+		return ErrMigrateTables.New("Backup not done")
 	}
 
 	// Check that the page count and remaining values are reasonable.
 	finalPageCount := backup.PageCount()
 	if finalPageCount != initialPageCount {
-		return errs.New("finalPageCount != initialPageCount")
+		return ErrMigrateTables.New("finalPageCount != initialPageCount")
 	}
 	finalRemaining := backup.Remaining()
 	if finalRemaining != 0 {
-		return errs.New("finalRemaining invalid")
+		return ErrMigrateTables.New("finalRemaining invalid")
 	}
 
 	// Finish the backup.
 	err = backup.Finish()
 	if err != nil {
-		return errs.Wrap(err)
+		return ErrMigrateTables.Wrap(err)
 	}
 	return nil
 }
@@ -136,7 +139,7 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) error {
 	// Get a list of tables excluding sqlite3 system tables.
 	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
 	if err != nil {
-		return errs.Wrap(err)
+		return ErrKeepTables.Wrap(err)
 	}
 
 	// Collect a list of the tables. We must do this because we can't do DDL
@@ -152,7 +155,7 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) error {
 	}
 	err = rows.Close()
 	if err != nil {
-		return errs.Wrap(err)
+		return ErrKeepTables.Wrap(err)
 	}
 
 	// Loop over the list of tables and decide which ones to keep and which to drop.
@@ -161,7 +164,7 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) error {
 			// Drop tables we aren't told to keep in the destination database.
 			_, err = db.Exec(fmt.Sprintf("DROP TABLE %s;", tableName))
 			if err != nil {
-				return errs.Wrap(err)
+				return ErrKeepTables.Wrap(err)
 			}
 		}
 	}
@@ -170,7 +173,7 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) error {
 	// data will not actually be reclaimed until the db has been closed.
 	_, err = db.Exec("VACUUM;")
 	if err != nil {
-		return errs.Wrap(err)
+		return ErrKeepTables.Wrap(err)
 	}
 	return nil
 }
