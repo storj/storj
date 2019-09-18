@@ -6,6 +6,7 @@ package gracefulexit_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -25,8 +26,47 @@ func TestSatelliteDBSetup(t *testing.T) {
 }
 
 func testGetExitingNodes(ctx context.Context, t *testing.T, cache overlay.DB) {
+	for _, tt := range []struct {
+		numNodesToExit       int
+		nodesTotal           int
+		expectedExitingNodes int
+	}{
+		{2, 2, 2},
+	} {
+		for i := 0; i < tt.nodesTotal; i++ {
+			var (
+				initiatedAt         *time.Time
+				completedAt         *time.Time
+				finishedAt          *time.Time
+				updateInitiated     bool
+				updateLoopCompleted bool
+				updateFinished      bool
+			)
+			// set nodes to have an exiting status
+			if i < tt.numNodesToExit {
+				timestamp := time.Now().UTC()
+				initiatedAt = &timestamp
+				completedAt = nil
+				updateInitiated = true
+				updateLoopCompleted = true
+			}
 
-	_, err := cache.GetExitingNodes(ctx)
-	require.NoError(t, err)
+			req := &overlay.ExitStatusRequest{
+				ExitInitiatedAt:     initiatedAt,
+				ExitLoopCompletedAt: completedAt,
+				ExitFinishedAt:      finishedAt,
+				UpdateInitiated:     updateInitiated,
+				UpdateLoopCompleted: updateLoopCompleted,
+				UpdateFinished:      updateFinished,
+			}
+
+			_, err := cache.UpdateExitStatus(ctx, req)
+			require.NoError(t, err)
+		}
+
+		nodes, err := cache.GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, nodes, tt.expectedExitingNodes)
+	}
 
 }
