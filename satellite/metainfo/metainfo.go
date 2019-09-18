@@ -1163,15 +1163,16 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 	if pointer.Remote != nil {
 		object.RedundancyScheme = pointer.Remote.Redundancy
-	} else if streamMeta.NumberOfSegments == 0 || streamMeta.NumberOfSegments > 1 {
-		// workaround
-		// new metainfo API redundancy scheme is on object level (not per segment) because
-		// of that RS is taken always from last segment, old implemetation were saving RS
-		// per segment and in some cases when for remote file last segment is inline segment
-		// then we are missing RS. This part will search for RS in othere segments than last one
 
 		// NumberOfSegments == 0 - pointer with encrypted num of segments
 		// NumberOfSegments > 1 - pointer with unencrypted num of segments and multiple segments
+	} else if streamMeta.NumberOfSegments == 0 || streamMeta.NumberOfSegments > 1 {
+		// workaround
+		// The new metainfo API redundancy scheme is on object level (not per segment).
+		// Because of that, RS is always taken from the last segment.
+		// The old implementation saves RS per segment, and in some cases
+		// when the remote file's last segment is an inline segment, we end up
+		// missing an RS scheme. This loop will search for RS in segments other than the last one.
 
 		index := int64(0)
 		for {
