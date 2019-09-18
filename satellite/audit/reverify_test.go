@@ -558,7 +558,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 
 		pointer1, err := satellite.Metainfo.Service.Get(ctx, path1)
 		require.NoError(t, err)
-		pointer2, err := satellite.Metainfo.Service.Get(ctx, path1)
+		pointer2, err := satellite.Metainfo.Service.Get(ctx, path2)
 		require.NoError(t, err)
 
 		// find a node that contains a piece for both files
@@ -577,7 +577,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 				break
 			}
 		}
-		require.NotNil(t, selectedNode)
+		require.NotEqual(t, selectedNode, storj.NodeID{})
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer1)
 		require.NoError(t, err)
