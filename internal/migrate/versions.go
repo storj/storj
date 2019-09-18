@@ -5,6 +5,7 @@ package migrate
 
 import (
 	"database/sql"
+	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
@@ -107,6 +108,7 @@ func (migration *Migration) Run(log *zap.Logger) error {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
 
+		fmt.Println("STEP", step)
 		err = migration.ensureVersionTable(log, step.DB)
 		if err != nil {
 			return Error.New("creating version table failed: %v", err)

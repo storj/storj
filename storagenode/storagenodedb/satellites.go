@@ -15,5 +15,5 @@ const SatellitesDBName = "satellites"
 
 // reputation works with node reputation DB
 type satellitesDB struct {
-	migratableDB
+	MigratableDB
 }

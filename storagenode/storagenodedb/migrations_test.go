@@ -22,7 +22,7 @@ import (
 // insertNewData will insert any NewData from the MultiDBState into the
 // appropriate rawDB. This prepares the rawDB for the test comparing schema and
 // data.
-func insertNewData(mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.SQLDB) error {
+func insertNewData(mdbs *testdata.MultiDBState, rawDBs map[string]*storagenodedb.MigratableDB) error {
 	for dbName, dbState := range mdbs.DBStates {
 		if dbState.NewData == "" {
 			continue
@@ -42,7 +42,7 @@ func insertNewData(mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.
 
 // getSchemas queries the schema of each rawDB and returns a map of each rawDB's
 // schema keyed by dbName
-func getSchemas(rawDBs map[string]storagenodedb.SQLDB) (map[string]*dbschema.Schema, error) {
+func getSchemas(rawDBs map[string]*storagenodedb.MigratableDB) (map[string]*dbschema.Schema, error) {
 	schemas := make(map[string]*dbschema.Schema)
 	for dbName, rawDB := range rawDBs {
 		schema, err := sqliteutil.QuerySchema(rawDB)
@@ -61,7 +61,7 @@ func getSchemas(rawDBs map[string]storagenodedb.SQLDB) (map[string]*dbschema.Sch
 
 // getSchemas queries the data of each rawDB and returns a map of each rawDB's
 // data keyed by dbName
-func getData(rawDBs map[string]storagenodedb.SQLDB, schemas map[string]*dbschema.Schema) (map[string]*dbschema.Data, error) {
+func getData(rawDBs map[string]*storagenodedb.MigratableDB, schemas map[string]*dbschema.Schema) (map[string]*dbschema.Data, error) {
 	data := make(map[string]*dbschema.Data)
 	for dbName, rawDB := range rawDBs {
 		datum, err := sqliteutil.QueryData(rawDB, schemas[dbName])
@@ -93,6 +93,8 @@ func TestMigrate(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
+	rawDBs := db.RawDatabases()
+
 	// get migration for this database
 	migrations := db.Migration(ctx)
 	for i, step := range migrations.Steps {
@@ -106,8 +108,6 @@ func TestMigrate(t *testing.T) {
 		// find the matching expected version
 		expected, ok := testdata.States.FindVersion(step.Version)
 		require.True(t, ok)
-
-		rawDBs := db.RawDatabases()
 
 		// insert data for new tables
 		err = insertNewData(expected, rawDBs)

@@ -30,7 +30,7 @@ type bandwidthDB struct {
 	usedMu    sync.RWMutex
 	usedSince time.Time
 
-	migratableDB
+	MigratableDB
 }
 
 // Add adds bandwidth usage to the table

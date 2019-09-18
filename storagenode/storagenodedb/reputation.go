@@ -21,7 +21,7 @@ const ReputationDBName = "reputation"
 
 // reputation works with node reputation DB
 type reputationDB struct {
-	migratableDB
+	MigratableDB
 }
 
 // Store inserts or updates reputation stats into the db.

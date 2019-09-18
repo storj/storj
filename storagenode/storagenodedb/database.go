@@ -104,7 +104,7 @@ type DB struct {
 
 	kdb, ndb, adb storage.KeyValueStore
 
-	sqlDatabases map[string]*sql.DB
+	sqlDatabases map[string]*MigratableDB
 }
 
 // New creates a new master database for storage node
@@ -129,7 +129,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 
 		dbDirectory: filepath.Dir(config.Info2),
 
-		sqlDatabases:      make(map[string]*sql.DB),
+		sqlDatabases:      make(map[string]*MigratableDB),
 		deprecatedInfoDB:  &deprecatedInfoDB{},
 		v0PieceInfoDB:     &v0PieceInfoDB{},
 		bandwidthDB:       &bandwidthDB{},
@@ -155,92 +155,88 @@ func (db *DB) openDatabases() error {
 	// that each uses internally to do data access to the SQLite3 databases.
 	// The reason it was done this way was because there's some outside consumers that are
 	// taking a reference to the business object.
-	deprecatedInfoDB, err := db.openDatabase(DeprecatedInfoDBName)
+	err := db.openDatabase(DeprecatedInfoDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.deprecatedInfoDB.Configure(deprecatedInfoDB)
 
-	bandwidthDB, err := db.openDatabase(BandwidthDBName)
+	err = db.openDatabase(BandwidthDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.bandwidthDB.Configure(bandwidthDB)
 
-	ordersDB, err := db.openDatabase(OrdersDBName)
+	err = db.openDatabase(OrdersDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.ordersDB.Configure(ordersDB)
 
-	pieceExpirationDB, err := db.openDatabase(PieceExpirationDBName)
+	err = db.openDatabase(PieceExpirationDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.pieceExpirationDB.Configure(pieceExpirationDB)
 
-	v0PieceInfoDB, err := db.openDatabase(PieceInfoDBName)
+	err = db.openDatabase(PieceInfoDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.v0PieceInfoDB.Configure(v0PieceInfoDB)
 
-	pieceSpaceUsedDB, err := db.openDatabase(PieceSpaceUsedDBName)
+	err = db.openDatabase(PieceSpaceUsedDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.pieceSpaceUsedDB.Configure(pieceSpaceUsedDB)
 
-	reputationDB, err := db.openDatabase(ReputationDBName)
+	err = db.openDatabase(ReputationDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.reputationDB.Configure(reputationDB)
 
-	storageUsageDB, err := db.openDatabase(StorageUsageDBName)
+	err = db.openDatabase(StorageUsageDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.storageUsageDB.Configure(storageUsageDB)
 
-	usedSerialsDB, err := db.openDatabase(UsedSerialsDBName)
+	err = db.openDatabase(UsedSerialsDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.usedSerialsDB.Configure(usedSerialsDB)
 
-	satellitesDB, err := db.openDatabase(SatellitesDBName)
+	err = db.openDatabase(SatellitesDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
-	db.satellitesDB.Configure(satellitesDB)
 	return nil
 }
 
-func (db *DB) rawDatabaseFromName(dbName string) *sql.DB {
+func (db *DB) rawDatabaseFromName(dbName string) *MigratableDB {
 	return db.sqlDatabases[dbName]
 }
 
 // openDatabase opens or creates a database at the specified path.
-func (db *DB) openDatabase(dbName string) (*sql.DB, error) {
+func (db *DB) openDatabase(dbName string) error {
 	path := db.filepathFromDBName(dbName)
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, err
+		return err
 	}
 
 	sqlDB, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
-		return nil, ErrDatabase.Wrap(err)
+		return ErrDatabase.Wrap(err)
 	}
 
-	// This isn't safe for concurrent access but we don't currently access this map concurrently.
-	// If we do in the future it needs some protection.
-	db.sqlDatabases[dbName] = sqlDB
+	mDB, ok := db.sqlDatabases[dbName]
+	if !ok {
+		mDB = &MigratableDB{}
+
+		// This isn't safe for concurrent access but we don't currently access this map concurrently.
+		// If we do in the future it needs some protection.
+		db.sqlDatabases[dbName] = mDB
+	}
 
 	dbutil.Configure(sqlDB, mon)
+	mDB.Configure(sqlDB)
 
 	db.log.Debug(fmt.Sprintf("opened database %s", dbName))
-	return sqlDB, nil
+	return nil
 }
 
 // filenameFromDBName returns a constructed filename for the specified database name.
@@ -345,19 +341,8 @@ func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
 }
 
 // RawDatabases are required for testing purposes
-func (db *DB) RawDatabases() map[string]SQLDB {
-	return map[string]SQLDB{
-		BandwidthDBName:       db.bandwidthDB,
-		OrdersDBName:          db.ordersDB,
-		PieceExpirationDBName: db.pieceExpirationDB,
-		PieceSpaceUsedDBName:  db.pieceSpaceUsedDB,
-		ReputationDBName:      db.reputationDB,
-		StorageUsageDBName:    db.storageUsageDB,
-		UsedSerialsDBName:     db.usedSerialsDB,
-		PieceInfoDBName:       db.v0PieceInfoDB,
-		DeprecatedInfoDBName:  db.deprecatedInfoDB,
-		SatellitesDBName:      db.satellitesDB,
-	}
+func (db *DB) RawDatabases() map[string]*MigratableDB {
+	return db.sqlDatabases
 }
 
 // migrateToDB is a helper method that performs the migration from the
@@ -379,13 +364,13 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		}
 	}
 
-	destDB, err := db.openDatabase(dbName)
+	err = db.openDatabase(dbName)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
 	//TODO(isaac): make sure we close properly
 
-	err = sqliteutil.MigrateTablesToDatabase(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), destDB, tablesToKeep...)
+	err = sqliteutil.MigrateTablesToDatabase(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName).SQLDB(), db.rawDatabaseFromName(dbName).SQLDB(), tablesToKeep...)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -397,7 +382,7 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		return ErrDatabase.Wrap(err)
 	}
 
-	_, err = db.openDatabase(dbName)
+	err = db.openDatabase(dbName)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -858,7 +843,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Drop unneeded tables in deprecatedInfoDB",
 				Version:     23,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
-					if err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), VersionTable); err != nil {
+					if err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName).SQLDB(), VersionTable); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -868,7 +853,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						return ErrDatabase.Wrap(err)
 					}
 
-					if _, err := db.openDatabase(DeprecatedInfoDBName); err != nil {
+					if err := db.openDatabase(DeprecatedInfoDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 

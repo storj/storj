@@ -23,7 +23,7 @@ var ErrOrders = errs.Class("ordersdb error")
 const OrdersDBName = "orders"
 
 type ordersDB struct {
-	migratableDB
+	MigratableDB
 }
 
 // Enqueue inserts order to the unsent list

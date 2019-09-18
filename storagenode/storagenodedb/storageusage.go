@@ -19,7 +19,7 @@ const StorageUsageDBName = "storage_usage"
 
 // storageUsageDB storage usage DB
 type storageUsageDB struct {
-	migratableDB
+	MigratableDB
 }
 
 // Store stores storage usage stamps to db replacing conflicting entries
