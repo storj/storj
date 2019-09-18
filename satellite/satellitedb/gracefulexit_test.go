@@ -26,47 +26,32 @@ func TestProgress(t *testing.T) {
 		geDB := db.GracefulExit()
 
 		testData := []struct {
-			nodeID storj.NodeID
-			updAmt int64
-			incAmt int64
+			nodeID      storj.NodeID
+			bytes       int64
+			transferred int64
+			failed      int64
 		}{
-			{testrand.NodeID(), 1, 2},
-			{testrand.NodeID(), 3, 4},
+			{testrand.NodeID(), 10, 2, 1},
+			{testrand.NodeID(), 1, 4, 0},
 		}
-
 		for _, data := range testData {
-			err := geDB.CreateProgress(ctx, data.nodeID)
+			err := geDB.IncrementProgress(ctx, data.nodeID, data.bytes, data.transferred, data.failed)
 			require.NoError(t, err)
 
 			progress, err := geDB.GetProgress(ctx, data.nodeID)
 			require.NoError(t, err)
-			require.Equal(t, int64(0), progress.BytesTransferred)
+			require.Equal(t, data.bytes, progress.BytesTransferred)
+			require.Equal(t, data.transferred, progress.PiecesTransferred)
+			require.Equal(t, data.failed, progress.PiecesFailed)
 
-			err = geDB.UpdateProgress(ctx, data.nodeID, data.updAmt)
+			err = geDB.IncrementProgress(ctx, data.nodeID, 1, 1, 1)
 			require.NoError(t, err)
 
 			progress, err = geDB.GetProgress(ctx, data.nodeID)
 			require.NoError(t, err)
-			require.Equal(t, data.updAmt, progress.BytesTransferred)
-
-			err = geDB.IncrementProgressBytesTransferred(ctx, data.nodeID, data.incAmt)
-			require.NoError(t, err)
-
-			progress, err = geDB.GetProgress(ctx, data.nodeID)
-			require.NoError(t, err)
-			require.Equal(t, data.updAmt+data.incAmt, progress.BytesTransferred)
-		}
-
-		// test delete
-		for _, data := range testData {
-			progress, err := geDB.GetProgress(ctx, data.nodeID)
-			require.NoError(t, err)
-
-			err = geDB.DeleteProgress(ctx, progress.NodeID)
-			require.NoError(t, err)
-
-			_, err = geDB.GetProgress(ctx, data.nodeID)
-			require.Error(t, err)
+			require.Equal(t, data.bytes+1, progress.BytesTransferred)
+			require.Equal(t, data.transferred+1, progress.PiecesTransferred)
+			require.Equal(t, data.failed+1, progress.PiecesFailed)
 		}
 	})
 }
@@ -78,67 +63,90 @@ func TestTransferQueueItem(t *testing.T) {
 
 		geDB := db.GracefulExit()
 
-		nodeID := testrand.NodeID()
-		path := testrand.Bytes(memory.B * 32)
-
-		item := &gracefulexit.TransferQueueItem{
-			NodeID:          nodeID,
-			Path:            path,
-			PieceNum:        1,
-			DurabilityRatio: 1.1,
+		nodeID1 := testrand.NodeID()
+		nodeID2 := testrand.NodeID()
+		path1 := testrand.Bytes(memory.B * 32)
+		path2 := testrand.Bytes(memory.B * 32)
+		items := []gracefulexit.TransferQueueItem{
+			{
+				NodeID:          nodeID1,
+				Path:            path1,
+				PieceNum:        1,
+				DurabilityRatio: 0.9,
+			},
+			{
+				NodeID:          nodeID1,
+				Path:            path2,
+				PieceNum:        2,
+				DurabilityRatio: 1.1,
+			},
+			{
+				NodeID:          nodeID2,
+				Path:            path1,
+				PieceNum:        2,
+				DurabilityRatio: 0.9,
+			},
+			{
+				NodeID:          nodeID2,
+				Path:            path2,
+				PieceNum:        1,
+				DurabilityRatio: 1.1,
+			},
 		}
 
 		// test basic create, update, get delete
-		err := geDB.CreateTransferQueueItem(ctx, *item)
+		err := geDB.Enqueue(ctx, items)
 		require.NoError(t, err)
 
-		item, err = geDB.GetTransferQueueItem(ctx, nodeID, path)
-		require.NoError(t, err)
-
-		item.DurabilityRatio = 1.2
-		item.RequestedAt = time.Now()
-
-		err = geDB.UpdateTransferQueueItem(ctx, *item)
-		require.NoError(t, err)
-
-		latestItem, err := geDB.GetTransferQueueItem(ctx, nodeID, path)
-		require.NoError(t, err)
-		require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
-		require.True(t, item.RequestedAt.Truncate(time.Millisecond).Equal(latestItem.RequestedAt.Truncate(time.Millisecond)))
-
-		err = geDB.DeleteTransferQueueItem(ctx, nodeID, path)
-		require.NoError(t, err)
-
-		_, err = geDB.GetTransferQueueItem(ctx, nodeID, path)
-		require.Error(t, err)
-
-		// test get transfer queue items limited
-		itemsCount := 5
-		nodeID = testrand.NodeID()
 		var finished *gracefulexit.TransferQueueItem
-		for i := 0; i < itemsCount; i++ {
-			path := testrand.Bytes(memory.B * 32)
-			item := &gracefulexit.TransferQueueItem{
-				NodeID:          nodeID,
-				Path:            path,
-				PieceNum:        1,
-				DurabilityRatio: 1.1,
-			}
-			err := geDB.CreateTransferQueueItem(ctx, *item)
+		for i, tqi := range items {
+			item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path)
 			require.NoError(t, err)
 
-			if i == 2 {
+			item.DurabilityRatio = 1.2
+			item.RequestedAt = time.Now()
+
+			err = geDB.UpdateTransferQueueItem(ctx, *item)
+			require.NoError(t, err)
+
+			latestItem, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path)
+			require.NoError(t, err)
+			require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
+			require.True(t, item.RequestedAt.Truncate(time.Millisecond).Equal(latestItem.RequestedAt.Truncate(time.Millisecond)))
+
+			// mark the first item finished
+			if i == 0 {
 				item.FinishedAt = time.Now()
 				err = geDB.UpdateTransferQueueItem(ctx, *item)
 				require.NoError(t, err)
 				finished = item
 			}
 		}
-		queueItems, err := geDB.GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx, nodeID, 10, 0)
+
+		queueItems, err := geDB.GetIncomplete(ctx, nodeID1, 10, 0)
 		require.NoError(t, err)
-		require.Equal(t, itemsCount-1, len(queueItems))
+		require.Equal(t, 1, len(queueItems))
 		for _, queueItem := range queueItems {
+			require.Equal(t, nodeID1, queueItem.NodeID)
 			require.NotEqual(t, finished.Path, queueItem.Path)
+
+			// test delete
+			err := geDB.DeleteTransferQueueItem(ctx, queueItem.NodeID, queueItem.Path)
+			require.NoError(t, err)
 		}
+		// test delete finished
+		err = geDB.DeleteFinishedTransferQueueItems(ctx, finished.NodeID)
+		require.NoError(t, err)
+
+		_, err = geDB.GetTransferQueueItem(ctx, finished.NodeID, finished.Path)
+		require.Error(t, err)
+
+		// test delete all for a node
+		err = geDB.DeleteTransferQueueItems(ctx, nodeID2)
+		require.NoError(t, err)
+
+		queueItems, err = geDB.GetIncomplete(ctx, nodeID1, 10, 0)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(queueItems))
 	})
 }

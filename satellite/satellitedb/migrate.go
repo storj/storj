@@ -1246,6 +1246,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ALTER COLUMN exit_loop_completed_at TYPE timestamp;`,
 					`ALTER TABLE nodes ALTER COLUMN exit_finished_at TYPE timestamp;`,
 					`UPDATE graceful_exit_progress set updated_at = TIMEZONE('UTC', updated_at);`,
+					`ALTER TABLE graceful_exit_progress ADD COLUMN pieces_transferred bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE graceful_exit_progress ADD COLUMN pieces_failed bigint NOT NULL DEFAULT 0;`,
 					`ALTER TABLE graceful_exit_progress ALTER COLUMN updated_at TYPE timestamp;`,
 					`UPDATE graceful_exit_transfer_queue set queued_at = TIMEZONE('UTC', queued_at), requested_at = TIMEZONE('UTC', requested_at),
 					     last_failed_at = TIMEZONE('UTC', last_failed_at), finished_at = TIMEZONE('UTC', finished_at);`,

@@ -66,6 +66,52 @@ func (nodes postgresNodeIDList) Value() (driver.Value, error) {
 	return out, nil
 }
 
+type postgresArrayList [][]byte
+
+// Value converts an array of byte arrays to a postgres array
+func (values postgresArrayList) Value() (driver.Value, error) {
+	const hextable = "0123456789abcdef"
+
+	if values == nil {
+		return nil, nil
+	}
+	if len(values) == 0 {
+		return []byte("{}"), nil
+	}
+
+	var total int
+	for _, path := range values {
+		total += len(path)
+	}
+	var wp, x int
+	out := make([]byte, 2+(6*len(values))+(total*2)-1)
+
+	x = copy(out[wp:], []byte(`{"\\x`))
+	wp += x
+
+	for i := range values {
+		for _, v := range values[i] {
+			out[wp] = hextable[v>>4]
+			out[wp+1] = hextable[v&0xf]
+			wp += 2
+		}
+
+		if i+1 < len(values) {
+			x = copy(out[wp:], []byte(`","\\x`))
+			wp += x
+		}
+	}
+
+	x = copy(out[wp:], `"}`)
+	wp += x
+
+	if wp != len(out) {
+		panic("unreachable")
+	}
+
+	return out, nil
+}
+
 // uuidScan used to represent uuid scan struct
 type uuidScan struct {
 	uuid *uuid.UUID

@@ -862,7 +862,9 @@ model graceful_exit_progress (
     key node_id
 
     field node_id              blob
-    field bytes_transferred    int64     ( updatable )
+    field bytes_transferred    int64 ( updatable )
+	field pieces_transferred   int64 ( autoinsert, updatable )
+	field pieces_failed        int64 ( autoinsert, updatable )
     field updated_at           utimestamp ( autoinsert, autoupdate )
 )
 
@@ -909,6 +911,12 @@ delete graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
 )
+
+delete graceful_exit_transfer_queue ( 
+	where graceful_exit_transfer_queue.node_id = ?
+	where graceful_exit_transfer_queue.finished_at != null
+)
+
 read one ( 
 	select graceful_exit_transfer_queue
 	where graceful_exit_transfer_queue.node_id = ?

@@ -58,6 +58,8 @@ CREATE TABLE bucket_usages (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
+	pieces_transferred bigint NOT NULL,
+	pieces_failed bigint NOT NULL,
 	updated_at timestamp NOT NULL,
 	PRIMARY KEY ( node_id )
 );

@@ -12,16 +12,18 @@ import (
 
 // Progress represents the persisted graceful exit progress record
 type Progress struct {
-	NodeID           storj.NodeID
-	BytesTransferred int64
-	UpdatedAt        time.Time
+	NodeID            storj.NodeID
+	BytesTransferred  int64
+	PiecesTransferred int64
+	PiecesFailed      int64
+	UpdatedAt         time.Time
 }
 
 // TransferQueueItem represents the persisted graceful exit queue record
 type TransferQueueItem struct {
 	NodeID          storj.NodeID
 	Path            []byte
-	PieceNum        int
+	PieceNum        int32
 	DurabilityRatio float64
 	QueuedAt        time.Time
 	RequestedAt     time.Time
@@ -35,25 +37,23 @@ type TransferQueueItem struct {
 //
 // architecture: Database
 type DB interface {
-	// CreateProgress creates a graceful exit progress entry in the database.
-	CreateProgress(ctx context.Context, nodeID storj.NodeID) error
-	// UpdateProgress updates a graceful exit progress entry in the database.
-	UpdateProgress(ctx context.Context, nodeID storj.NodeID, bytesTransferred int64) error
-	// DeleteProgress deletes a graceful exit progress entry in the database.
-	DeleteProgress(ctx context.Context, nodeID storj.NodeID) error
-	// IncrementProgressBytesTransferred increments bytes transferred value.
-	IncrementProgressBytesTransferred(ctx context.Context, nodeID storj.NodeID, bytesTransferred int64) error
-	// GetProgress gets a graceful exit progress entry in the database.
+	// IncrementProgress increments transfer stats for a node.
+	IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, transferred int64, failed int64) error
+	// GetProgress gets a graceful exit progress entry.
 	GetProgress(ctx context.Context, nodeID storj.NodeID) (*Progress, error)
 
-	// CreateTransferQueueItem creates a graceful exit transfer queue entry in the database.
-	CreateTransferQueueItem(ctx context.Context, item TransferQueueItem) error
-	// UpdateTransferQueueItem creates a graceful exit transfer queue entry in the database.
+	// Enqueue batch inserts graceful exit transfer queue entries it does not exist.
+	Enqueue(ctx context.Context, items []TransferQueueItem) error
+	// UpdateTransferQueueItem creates a graceful exit transfer queue entry.
 	UpdateTransferQueueItem(ctx context.Context, item TransferQueueItem) error
-	// DeleteTransferQueueItem deletes a graceful exit transfer queue entry in the database.
+	// DeleteTransferQueueItem deletes a graceful exit transfer queue entry.
 	DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) error
-	// GetTransferQueueItem gets a graceful exit transfer queue entry in the database.
+	// DeleteTransferQueueItem deletes a graceful exit transfer queue entries by nodeID.
+	DeleteTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error
+	// DeleteFinishedTransferQueueItem deletes finiahed graceful exit transfer queue entries.
+	DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error
+	// GetTransferQueueItem gets a graceful exit transfer queue entry.
 	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (*TransferQueueItem, error)
-	// GetIncompleteTransferQueueItemsByNodeIDWithLimits gets incomplete graceful exit transfer queue entries in the database ordered by the queued date ascending.
-	GetIncompleteTransferQueueItemsByNodeIDWithLimits(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
+	// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by the queued date ascending.
+	GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
 }
