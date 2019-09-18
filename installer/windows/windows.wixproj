@@ -19,12 +19,12 @@
     <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="AvailableStorageConfig.wxs" />
+    <Compile Include="AllocatedStorageConfig.wxs" />
     <Compile Include="ValidationError.wxs" />
     <Compile Include="InstallDirConfig.wxs" />
     <Compile Include="CustomInstallDir.wxs" />
     <Compile Include="EmailConfig.wxs" />
-    <Compile Include="AvailableBandwidthConfig.wxs" />
+    <Compile Include="AllocatedBandwidthConfig.wxs" />
     <Compile Include="PublicAddressConfig.wxs" />
     <Compile Include="StorageDirConfig.wxs" />
     <Compile Include="WalletConfig.wxs" />

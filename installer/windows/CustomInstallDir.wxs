@@ -21,6 +21,10 @@ Patch dialog sequence:
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
+        <CustomAction Id="CA.ValidateWallet" BinaryKey="StorjDLL" DllEntry="ValidateWallet" Return="check" />
+        <CustomAction Id="CA.ValidateStorage" BinaryKey="StorjDLL" DllEntry="ValidateStorage" Return="check" />
+        <CustomAction Id="CA.ValidateBandwidth" BinaryKey="StorjDLL" DllEntry="ValidateBandwidth" Return="check" />
+      
         <UI Id="CustomInstallDir">
             <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
             <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
@@ -65,9 +69,10 @@ Patch dialog sequence:
             <Publish Dialog="IdentityDirDlg" Control="IdentityChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
 
             <Publish Dialog="WalletConfigDlg" Control="Back" Event="NewDialog" Value="IdentityDirDlg" Order="1">1</Publish>
-            <Publish Dialog="WalletConfigDlg" Control="Next" Event="NewDialog" Value="EmailConfigDlg" Order="1">STORJ_WALLET AND STORJ_WALLET_VALID</Publish>
+            <Publish Dialog="WalletConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateWallet" Order="1">1</Publish>
             <Publish Dialog="WalletConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_WALLET_VALID]" Order="2">1</Publish>
             <Publish Dialog="WalletConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_WALLET_VALID<>"1"]]></Publish>
+            <Publish Dialog="WalletConfigDlg" Control="Next" Event="NewDialog" Value="EmailConfigDlg" Order="4">STORJ_WALLET_VALID="1"</Publish>
 
             <Publish Dialog="EmailConfigDlg" Control="Back" Event="NewDialog" Value="WalletConfigDlg" Order="1">1</Publish>
             <Publish Dialog="EmailConfigDlg" Control="Next" Event="NewDialog" Value="PublicAddressConfigDlg" Order="1">1</Publish>
@@ -76,17 +81,23 @@ Patch dialog sequence:
             <Publish Dialog="PublicAddressConfigDlg" Control="Next" Event="NewDialog" Value="StorageDirConfigDlg" Order="1">1</Publish>
 
             <Publish Dialog="StorageDirConfigDlg" Control="Back" Event="NewDialog" Value="PublicAddressConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="NewDialog" Value="AvailableStorageConfigDlg" Order="1">1</Publish>
+            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="1">1</Publish>
             <Publish Dialog="StorageDirConfigDlg" Control="StorageChangeFolder" Property="_BrowseProperty" Value="[STORJ_STORAGEDIR]" Order="1">1</Publish>
             <Publish Dialog="StorageDirConfigDlg" Control="StorageChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
 
-            <Publish Dialog="AvailableStorageConfigDlg" Control="Back" Event="NewDialog" Value="StorageDirConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="AvailableStorageConfigDlg" Control="Next" Event="NewDialog" Value="AvailableBandwidthConfigDlg" Order="1">1</Publish>
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Back" Event="NewDialog" Value="StorageDirConfigDlg" Order="1">1</Publish>
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateStorage" Order="1">1</Publish>
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_STORAGE_VALID]" Order="2">1</Publish>
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_STORAGE_VALID<>"1"]]></Publish>
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="NewDialog" Value="AllocatedBandwidthConfigDlg" Order="4">STORJ_STORAGE_VALID="1"</Publish>
 
-            <Publish Dialog="AvailableBandwidthConfigDlg" Control="Back" Event="NewDialog" Value="AvailableStorageConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="AvailableBandwidthConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="1">1</Publish>
+            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Back" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="1">1</Publish>
+            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateBandwidth" Order="1">1</Publish>
+            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_BANDWIDTH_VALID]" Order="2">1</Publish>
+            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_BANDWIDTH_VALID<>"1"]]></Publish>
+            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="4">STORJ_BANDWIDTH_VALID="1"</Publish>
           
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AvailableBandwidthConfigDlg" Order="1">NOT Installed</Publish>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AllocatedBandwidthConfigDlg" Order="1">NOT Installed</Publish>
             <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH</Publish>
             <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2">Installed AND PATCH</Publish>
 
