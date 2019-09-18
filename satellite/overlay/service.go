@@ -73,6 +73,9 @@ type DB interface {
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
 	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
+
+	// GetExitingNodes returns nodes in exiting status.
+	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.

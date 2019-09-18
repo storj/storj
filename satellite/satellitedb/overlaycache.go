@@ -987,6 +987,33 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 	return Error.Wrap(err)
 }
 
+// GetExitingNodes returns nodes in exiting status.
+func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE exit_loop_completed_at IS NULL
+		`),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		exitingNodes = append(exitingNodes, id)
+	}
+	return exitingNodes, nil
+}
+
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if info == nil {

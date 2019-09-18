@@ -871,6 +871,13 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
+// GetExitingNodes returns nodes in exiting status.
+func (m *lockedOverlayCache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetExitingNodes(ctx)
+}
+
 // IsVetted returns whether or not the node reaches reputable thresholds
 func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
 	m.Lock()
