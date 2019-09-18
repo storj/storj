@@ -15,9 +15,9 @@
                     </svg>
                 </div>
             </div>
-            <div class="header__content-holder__node-id">
-                <b>Node ID:</b>
-                <p>{{this.nodeId}}</p>
+            <div class="header__content-holder__node-id-container">
+                <b class="header__content-holder__node-id-container__title">Node ID:</b>
+                <p class="header__content-holder__node-id-container__id">{{this.nodeId}}</p>
             </div>
         </div>
     </div>
@@ -88,7 +88,7 @@ export default class SNOHeader extends Vue {
                 }
             }
 
-            &__node-id {
+            &__node-id-container {
                 color: #535F77;
                 height: 44px;
                 padding: 0 14px 0 14px;
@@ -98,12 +98,12 @@ export default class SNOHeader extends Vue {
                 border-radius: 12px;
                 font-size: 14px;
 
-                b {
+                &__title {
                     min-width: 55px;
                     margin-right: 5px;
                 }
 
-                p {
+                &__id {
                     font-size: 11px;
                 }
             }
