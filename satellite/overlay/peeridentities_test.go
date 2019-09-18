@@ -61,25 +61,34 @@ func TestPeerIdentities(t *testing.T) {
 			}
 		}
 
-		{ // get multiple
+		{ // get multiple with invalid
 			list := make(map[storj.NodeID]*identity.PeerIdentity)
-			var ids []storj.NodeID
+			ids := storj.NodeIDList{}
+			savedIDs := make(map[storj.NodeID]bool)
+			unsavedIDs := make(map[storj.NodeID]bool)
 
 			for i := 0; i < 10; i++ {
 				ident := testidentity.MustPregeneratedSignedIdentity(i, storj.LatestIDVersion())
 				list[ident.ID] = ident.PeerIdentity()
+				ids = append(ids, ident.ID)
 
+				// only place half in the table
+				if i%2 == 0 {
+					unsavedIDs[ident.ID] = true
+					continue
+				}
 				err := idents.Set(ctx, ident.ID, ident.PeerIdentity())
 				require.NoError(t, err)
-
-				ids = append(ids, ident.ID)
+				savedIDs[ident.ID] = true
 			}
 
 			got, err := idents.BatchGet(ctx, ids)
 			require.NoError(t, err)
-			require.Len(t, got, len(ids))
+			require.Len(t, got, len(savedIDs))
 			for _, gotIdent := range got {
 				require.Equal(t, encode(list[gotIdent.ID]), encode(gotIdent))
+				require.True(t, savedIDs[gotIdent.ID])
+				require.False(t, unsavedIDs[gotIdent.ID])
 			}
 		}
 	})

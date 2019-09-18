@@ -118,6 +118,9 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 		}
 		pointer.GetRemote().RemotePieces = pieces
 
+		pointer.LastRepaired = ref.LastRepaired
+		pointer.RepairCount = ref.RepairCount
+
 		// marshal the pointer
 		newPointerBytes, err := proto.Marshal(pointer)
 		if err != nil {
