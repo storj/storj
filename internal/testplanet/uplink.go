@@ -148,7 +148,7 @@ func (client *Uplink) Local() pb.Node { return client.Info }
 func (client *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
-func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (*metainfo.Client, error) {
+func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metainfo.Client, error) {
 	return metainfo.Dial(ctx, client.Transport, destination.Addr(), apikey)
 }
 
