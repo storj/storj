@@ -20,7 +20,7 @@ export const PROJECT_USAGE_MUTATIONS = {
 
 const defaultState = new ProjectUsage(0, 0, 0, new Date(), new Date());
 
-class UsageState {
+export class UsageState {
     public projectUsage: ProjectUsage = defaultState;
     public startDate: Date = new Date();
     public endDate: Date = new Date();

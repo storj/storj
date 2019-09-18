@@ -11,16 +11,19 @@ import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { ProjectUsageApiGql } from '@/api/usage';
 import { UsersApiGql } from '@/api/users';
-import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import router from '@/router';
+import { ApiKeysState, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
-import { makeBucketsModule } from '@/store/modules/buckets';
+import { BucketsState, makeBucketsModule } from '@/store/modules/buckets';
 import { makeCreditsModule } from '@/store/modules/credits';
-import { makeNotificationsModule } from '@/store/modules/notifications';
+import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
 import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
-import { makeProjectMembersModule } from '@/store/modules/projectMembers';
-import { makeProjectsModule } from '@/store/modules/projects';
-import { makeUsageModule } from '@/store/modules/usage';
+import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
+import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
+import { makeUsageModule, UsageState } from '@/store/modules/usage';
 import { makeUsersModule } from '@/store/modules/users';
+import { CreditUsage } from '@/types/credits';
+import { User } from '@/types/users';
 
 Vue.use(Vuex);
 
@@ -40,8 +43,21 @@ const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const projectUsageApi = new ProjectUsageApiGql();
 
+class ModulesState {
+    public notificationsModule: NotificationsState;
+    public apiKeysModule: ApiKeysState;
+    public appStateModule;
+    public creditsModule: CreditUsage;
+    public projectMembersModule: ProjectMembersState;
+    public projectPaymentsMethodsModule;
+    public usersModule: User;
+    public projectsModule: ProjectsState;
+    public usageModule: UsageState;
+    public bucketUsageModule: BucketsState;
+}
+
 // Satellite store (vuex)
-const store = new Vuex.Store({
+const store = new Vuex.Store<ModulesState>({
     modules: {
         notificationsModule: makeNotificationsModule(),
         apiKeysModule: makeApiKeysModule(apiKeysApi),
@@ -54,6 +70,12 @@ const store = new Vuex.Store({
         usageModule: makeUsageModule(projectUsageApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
     },
+});
+
+store.subscribe((mutation, state) => {
+    if (mutation.type === PROJECTS_MUTATIONS.SELECT_PROJECT) {
+        document.title = `${state.projectsModule.selectedProject.name} | ${router.currentRoute.name} | us-central-1 - Tardigrade`;
+    }
 });
 
 export default store;

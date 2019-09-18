@@ -33,7 +33,7 @@ const {
     SET_PAGE,
 } = PROJECT_MEMBER_MUTATIONS;
 
-class ProjectMembersState {
+export class ProjectMembersState {
     public cursor: ProjectMemberCursor = new ProjectMemberCursor();
     public page: ProjectMembersPage = new ProjectMembersPage();
 }
