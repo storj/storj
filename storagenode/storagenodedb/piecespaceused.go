@@ -15,17 +15,11 @@ import (
 // ErrPieceSpaceUsed represents errors from the piece spaced used database.
 var ErrPieceSpaceUsed = errs.Class("piece space used error")
 
-type pieceSpaceUsedDB struct {
-	location string
-	SQLDB
-}
+// PieceSpaceUsedDBName represents the database name.
+const PieceSpaceUsedDBName = "piece_spaced_used"
 
-// newPieceSpaceUsedDB returns a new instance of pieceSpaceUsedDB initialized with the specified database.
-func newPieceSpaceUsedDB(db SQLDB, location string) *pieceSpaceUsedDB {
-	return &pieceSpaceUsedDB{
-		location: location,
-		SQLDB:    db,
-	}
+type pieceSpaceUsedDB struct {
+	migratableDB
 }
 
 // Init creates the one total record if it doesn't already exist
