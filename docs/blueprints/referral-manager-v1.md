@@ -118,6 +118,17 @@ type Token struct {
 ```
 Statuses: `unsent` (host satellite doesn't know about it yet), `unredeemed` (host satellite knows about it but it has not been used), `redeemed` (someone has used this referral link to register alreadys)
 
+The Satellite struct represent both a Go struct as well as the schema for the `satellites` table on Referral Manager.
+
+```
+type Satellite struct {
+    ID int
+    Name string
+    URL string
+}
+```
+
+
 **Referral Manager endpoints:**
 ```
 // GetSatelliteURLs retrieves a list of satellite URLs from satellites table
