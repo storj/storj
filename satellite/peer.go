@@ -150,9 +150,9 @@ type Peer struct {
 
 	// services and endpoints
 	Contact struct {
-		Service    *contact.Service
-		Endpoint   *contact.Endpoint
-		NSEndpoint *contact.NodesServiceEndpoint
+		Service   *contact.Service
+		Endpoint  *contact.Endpoint
+		KEndpoint *contact.KademliaEndpoint
 	}
 
 	Overlay struct {
@@ -313,9 +313,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
-		peer.Contact.NSEndpoint = contact.NewNodesServiceEndpoint(peer.Log.Named("contact:nodes_service_endpoint"))
+		peer.Contact.KEndpoint = contact.NewKademliaEndpoint(peer.Log.Named("contact:nodes_service_endpoint"))
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.NSEndpoint)
+		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.KEndpoint)
 		pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint)
 	}
 

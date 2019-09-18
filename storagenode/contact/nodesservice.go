@@ -20,16 +20,16 @@ type SatelliteIDVerifier interface {
 	VerifySatelliteID(ctx context.Context, id storj.NodeID) error
 }
 
-// NodesServiceEndpoint implements the NodesServer Interface
-type NodesServiceEndpoint struct {
+// KademliaEndpoint implements the NodesServer Interface for backwards compatibility
+type KademliaEndpoint struct {
 	log     *zap.Logger
 	service *Service
 	trust   SatelliteIDVerifier
 }
 
-// NewNodesServiceEndpoint returns a new nodes service endpoint
-func NewNodesServiceEndpoint(log *zap.Logger, service *Service, trust SatelliteIDVerifier) *NodesServiceEndpoint {
-	return &NodesServiceEndpoint{
+// NewKademliaEndpoint returns a new endpoint
+func NewKademliaEndpoint(log *zap.Logger, service *Service, trust SatelliteIDVerifier) *KademliaEndpoint {
+	return &KademliaEndpoint{
 		log:     log,
 		service: service,
 		trust:   trust,
@@ -37,19 +37,19 @@ func NewNodesServiceEndpoint(log *zap.Logger, service *Service, trust SatelliteI
 }
 
 // Query is a node to node communication query
-func (endpoint *NodesServiceEndpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *pb.QueryResponse, err error) {
+func (endpoint *KademliaEndpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *pb.QueryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return &pb.QueryResponse{}, nil
 }
 
 // Ping provides an easy way to verify a node is online and accepting requests
-func (endpoint *NodesServiceEndpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.PingResponse, err error) {
+func (endpoint *KademliaEndpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.PingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return &pb.PingResponse{}, nil
 }
 
 // RequestInfo returns the node info
-func (endpoint *NodesServiceEndpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) (_ *pb.InfoResponse, err error) {
+func (endpoint *KademliaEndpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) (_ *pb.InfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	self := endpoint.service.Local()
 
