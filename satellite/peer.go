@@ -316,6 +316,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Contact.KEndpoint)
 		pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint)
+		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Contact.KEndpoint)
 	}
 
 	{ // setup discovery

@@ -27,7 +27,6 @@ var (
 // Config loads on the configuration values for the cache
 type Config struct {
 	RefreshInterval    time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
-	DiscoveryInterval  time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
 	RefreshLimit       int           `help:"the amount of nodes read from the overlay in a single pagination call" default:"100"`
 	RefreshConcurrency int           `help:"the amount of nodes refreshed in parallel" default:"8"`
 }
