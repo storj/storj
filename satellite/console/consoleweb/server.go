@@ -123,7 +123,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	server.server = http.Server{
 		Handler:        mux,
-		MaxHeaderBytes: ContentLengthLimit,
+		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
 	return &server
@@ -400,8 +400,10 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(nil)
 	w.Header().Set(contentType, applicationJSON)
 
+	r.Body = http.MaxBytesReader(w, r.Body, ContentLengthLimit.Int64())
+
 	token := getToken(r)
-	query, err := getQuery(w, r)
+	query, err := getQuery(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

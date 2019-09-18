@@ -12,11 +12,12 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
 
 // ContentLengthLimit describes 4KB limit
-const ContentLengthLimit = 1 << 12
+const ContentLengthLimit = 4 * memory.KB
 
 func init() {
 	err := mime.AddExtensionType(".ttf", "font/ttf")
@@ -52,21 +53,20 @@ func getToken(req *http.Request) string {
 }
 
 // getQuery retrieves graphql query from request
-func getQuery(writer http.ResponseWriter, req *http.Request) (query graphqlJSON, err error) {
+func getQuery(req *http.Request) (query graphqlJSON, err error) {
 	switch req.Method {
 	case http.MethodGet:
 		query.Query = req.URL.Query().Get(consoleql.Query)
 		return query, nil
 	case http.MethodPost:
-		return queryPOST(writer, req)
+		return queryPOST(req)
 	default:
 		return query, errs.New("wrong http request type")
 	}
 }
 
 // queryPOST retrieves graphql query from POST request
-func queryPOST(writer http.ResponseWriter, req *http.Request) (query graphqlJSON, err error) {
-	req.Body = http.MaxBytesReader(writer, req.Body, ContentLengthLimit)
+func queryPOST(req *http.Request) (query graphqlJSON, err error) {
 
 	switch typ := req.Header.Get(contentType); typ {
 	case applicationGraphql:
