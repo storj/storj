@@ -192,9 +192,7 @@ func (db *DB) CreateTables() error {
 
 // Close closes any resources.
 func (db *DB) Close() error {
-	return errs.Combine(
-		db.closeDatabases(),
-	)
+	return db.closeDatabases()
 }
 
 // closeDatabases closes all the SQLite database connections and removes them from the associated maps.
