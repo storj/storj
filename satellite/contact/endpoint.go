@@ -61,6 +61,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		IsUp:     pingNodeSuccess,
 		Capacity: req.Capacity,
 		Operator: req.Operator,
+		Version:  req.Version,
 	}
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo)
 

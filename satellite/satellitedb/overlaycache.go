@@ -1383,6 +1383,10 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		}
 		uptimeReputationAlpha := config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
 		uptimeReputationBeta := config.UptimeReputationLambda*config.UptimeReputationBeta0 + config.UptimeReputationWeight*(1-v)/2
+		semVer, err := version.NewSemVer(node.GetVersion().GetVersion())
+		if err != nil {
+			return Error.New("unable to convert version to semVer")
+		}
 		start := time.Now()
 		query := `
 			INSERT INTO nodes
@@ -1393,6 +1397,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_contact_success,
 				last_contact_failure,
 				audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
+				major, minor, patch, hash, timestamp, release
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
@@ -1404,7 +1409,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				CASE WHEN $10 IS FALSE THEN current_timestamp
 					ELSE '0001-01-01 00:00:00+00'
 				END,
-				$11, $12, $13, $14
+				$11, $12, $13, $14,
+				$18, $19, $20, $21, $22, $23
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1435,7 +1441,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					ELSE nodes.disqualified
 				END;
 			`
-		_, err := cache.db.ExecContext(ctx, query,
+		_, err = cache.db.ExecContext(ctx, query,
 			// args $1 - $5
 			node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
 			// args $6 - $9
@@ -1446,6 +1452,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			config.AuditReputationAlpha0, config.AuditReputationBeta0, uptimeReputationAlpha, uptimeReputationBeta,
 			// args $15 - $17
 			config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
+			// args $18 - $23
+			semVer.Major, semVer.Minor, semVer.Patch, node.GetVersion().GetCommitHash(), node.GetVersion().Timestamp, node.GetVersion().GetRelease(),
 		)
 		if err != nil {
 			return Error.Wrap(err)

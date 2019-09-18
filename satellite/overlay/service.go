@@ -85,6 +85,7 @@ type NodeCheckInInfo struct {
 	IsUp     bool
 	Operator *pb.NodeOperator
 	Capacity *pb.NodeCapacity
+	Version  *pb.NodeVersion
 }
 
 // FindStorageNodesRequest defines easy request parameters.
