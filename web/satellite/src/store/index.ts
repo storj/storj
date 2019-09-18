@@ -73,6 +73,10 @@ const store = new Vuex.Store<ModulesState>({
 });
 
 store.subscribe((mutation, state) => {
+    if (mutation.type === PROJECTS_MUTATIONS.REMOVE) {
+        document.title = `${router.currentRoute.name} | us-central-1 - Tardigrade`;
+    }
+
     if (mutation.type === PROJECTS_MUTATIONS.SELECT_PROJECT) {
         document.title = `${state.projectsModule.selectedProject.name} | ${router.currentRoute.name} | us-central-1 - Tardigrade`;
     }
