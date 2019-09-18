@@ -137,6 +137,12 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 					Address: &pb.NodeAddress{
 						Address: "1.2.3.4",
 					},
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
 				}
 				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info)
 				require.NoError(t, err)
