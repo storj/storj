@@ -4,6 +4,7 @@
 package storagenodedbtest_test
 
 import (
+	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
@@ -54,7 +55,16 @@ func TestInMemoryConcurrency(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 
-	db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
+	storageDir := ctx.Dir("storage")
+	cfg := storagenodedb.Config{
+		Pieces:   storageDir,
+		Storage:  storageDir,
+		Info:     filepath.Join(storageDir, "piecestore.db"),
+		Info2:    filepath.Join(storageDir, "info.db"),
+		Kademlia: filepath.Join(storageDir, "kademlia"),
+	}
+
+	db, err := storagenodedb.New(log, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
