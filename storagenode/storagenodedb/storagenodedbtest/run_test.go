@@ -57,11 +57,10 @@ func TestInMemoryConcurrency(t *testing.T) {
 
 	storageDir := ctx.Dir("storage")
 	cfg := storagenodedb.Config{
-		Pieces:   storageDir,
-		Storage:  storageDir,
-		Info:     filepath.Join(storageDir, "piecestore.db"),
-		Info2:    filepath.Join(storageDir, "info.db"),
-		Kademlia: filepath.Join(storageDir, "kademlia"),
+		Pieces:  storageDir,
+		Storage: storageDir,
+		Info:    filepath.Join(storageDir, "piecestore.db"),
+		Info2:   filepath.Join(storageDir, "info.db"),
 	}
 
 	db, err := storagenodedb.New(log, cfg)
