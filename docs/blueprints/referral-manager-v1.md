@@ -37,69 +37,64 @@ Redeemed Satellite
 
 ### How it will work
 
+_User Interface_
+
+1. Users will have a referral tab on the UI. On click, it will trigger satellite to send a request to retrieve referral links from Referral Manager:
+    - Referral Manager will query unredeemed tokens in `tokens` for this user ID.
+        - if there are unredeemed tokens, Referral Manager respond satellite's request with the tokens.
+        - if no unredeemed token is found for this user ID and such user ID doesn't exist in `users` table, Referral Manager will add an entry for this user ID in `users` table.
+    - Satellite receives the response from Referral Manager.
+        - if the response playload contains tokens, satellite will display them in the UI.
+        - if its an empty response payload, satellite will display a message `No available referral link. Try again later.`
+
+
 _Referral Manager CLI_
 
 1. `referral manager start` initiates the invitation token generation process. This process begins by checking whether there are existing `eligibleUsers` in memory in Referral Manager.
-    - If `eligibleUsers` is empty, the Referral Manager contacts Tardigrade satellites to get users with 0 remaining invites.
+    - If `eligibleUsers` is empty, the Referral Manager queries `users` table to get users with 0 remaining invites.
     - If `eligibleUsers` is not empty, it means one of two things:
         * Someone else is using the Referral Manager at the same time and has not generated/sent tokens yet.
         * The CLI was terminated between the get `eligibleUsers` step and the generate/send tokens step.
-
-        Either one of the cases, We will return an error and display `Referral token generation already in progress or canceled early. Do you want to continue anyway?`. If they decide to continue, we call `ClearUsers` to sets eligibleUsers to empty and the Referral Manager contacts Tardigrade satellites to get users with 0 remaining invites.
-2. The Referral Manager aggregates the satellite responses and returns the number of users to the CLI.
+    
+        Either one of the cases, We will return an error and display `Referral token generation already in progress or canceled early. Do you want to continue anyway?`. If they decide to continue, we call `ClearUsers` to sets eligibleUsers to empty and the Referral Manager queries `users` table to get users with 0 remaining invites. 
+2. The Referral Manager returns the number of users to the CLI.
 3. The CLI receives the number of users and displays: `How many invitation do you want to generate for each user?`
 4. After the user enters the number of invites to generate, the CLI displays: `Generating X amount of invitation tokens for Y amount of users. Yes/No.`
-   - If the input is `Yes`, it will follow the _Referral Link Distribution_ process below.
-   - The CLI should exit if the input is `No`.
-
-_Referral Link Distribution_
-
-1. Marketing team distributes new referral links through Referral Manager CLI.
-2. Referral Manager receives all userIDs from satellites and then generates x amount of invitation tokens per user based on the input from CLI.
-3. Referral Manager adds the newly generated invitation tokens and the users each token associated with into Referral Manager database.
-4. After storing tokens into the database, Referral Manager sends invitation tokens along with the owner IDs back to corresponding host satellites.
-5. Host satellite receives the data and then stores the invitation tokens into `registration_token` table so they can be displayed on the satellite GUI.
-6. After receives success responses from satellites, Referral Manager CLI will call `ClearUsers` endpoint to set `eligibleUser` to be empty.
-7. If an error has occured during saving tokens into satellite's database, the satellite will roll back the transaction and respond with an error to the Referral Manager.
+   - If the input is `Yes`, it will generate x amount of invitation tokens per user based on the input from CLI and save them into `tokens` table.
+   - The CLI will call `ClearUsers` endpoint to set `eligibleUser` to be empty if the input is `No`.
 
 _Referral Link Redemption_
 
 1. User Alice tries to register a new account through a referral link, which triggers redeemed satellite to verify invitation token using Referral manager.
 2. Referral Manager checks the status of the token:
-    - if it is not redeemed, Referral Manager sends back a success response to the redeemed satellite and mark the token as redeemed in the Referral Manager's database
-    - if it token is already redeemed, Referral Manager sends back a `invalid token` response to the redeemed satellite.
+    - if the token exists in `tokens` table:
+        - if it is not redeemed, Referral Manager sends back a success response to the redeemed satellite and mark the token as redeemed in the Referral Manager's database
+        - if it token is already redeemed, Referral Manager sends back a `invalid token` response to the redeemed satellite.
+        
+    - if the token doesn't exist in `tokens` table, Referral Manager sends back a `invalid token` response to the redeemed satellite.
 3. Redeemed satellite receives the response, which:
     - if it is a success, the satellite will proceed with the account creation and
-    then send a request to the Referral Manager to save the newly created user ID along with the used token.
+    then send a request to the Referral Manager, which: 
+        - updates the `tokens` table to store the newly created user ID in `redeemedID` column for that particular referral token.
+        - updates the `users` table to store the newly created user ID and the satellite URL the user belongs to.
     - if it is an invalid token, the satellite will display a proper message in the UI.
-4. Referral Manager reaches out to the host satellite holding the redeemed token, so that it can be removed from the UI.
-
-_User Interface For Displaying Referral Link_
-
-1. Users will have a referral tab on the UI. On click, it will try to retrieve referral tokens from the backend:
-    - if the front-end receives tokens, it should display them.
-    - if the front-end receives empty response payload, it should display a message `No available referral link. Try again later.`
-
-_Authentication_
-
-1. The below satellite endpoints should only be called by Referral Manager.
-2. Referral Manager should send an auth token with each of its requests.
-3. The auth token used by Referral Manager should match with the one that's stored in each satellite's config.yaml file.
-
+    
 ## Rationale
 
-We could add a new column `referral_tokens` in `users` table to store user's unredeemed tokens, since the `registration_token` is a temporary table.
+We will create a `inspector` port that's only listening on `localhost` so CLI could be only used by Referral Manager operators.
+
+We could also set the `inspector` port to only accept requests coming from storj vpn.
 
 ## Implementation
 
 - Create a private repository for Referral Manager.
-- Create `tokens` and `satellites` table in Referral Manager database.
-- Create a `Delete` method for satellite `registration_tokendb`.
-- Implementing an endpoint on satellite for gathering users whose current count of remaining invitation token is 0.
-- Implementing an endpoint on Referral Manager for setting in-memory `eligibleUsers` to be empty.
-- Implementing generating invitation tokens from Referral Manager CLI.
-- Implementing an endpoint on satellite for saving new referral links into users table(using trasaction).
-- Implementing an endpoint on Referral Manager for verifying invitation tokens.
+- Create `tokens` and `users` table in Referral Manager database.
+- Create an `inspector` endpoint on Referral Manager.
+    - Implementing a method `GenerateTokens` for generating referral tokens and save them into `tokens` table on Referral Manager.
+    - Implementing a mathod `GetEligibleUsers` for querying users who don't have any referral tokens associated with.
+- Implementing an endpoint `GetTokens` for requesting unredeemed tokens from Referral Manager. 
+- Implementing an endpoint `Redeem` on Referral Manager for verifying invitation tokens.
+- Implementing an endpoint `ClearUsers` on Referral Manager for setting in-memory `eligibleUsers` to be empty from Referral Manager CLI.
 - Replace existing registration token logic.
 
 ### Pseudocode
@@ -118,144 +113,84 @@ type Token struct {
 ```
 Statuses: `unsent` (host satellite doesn't know about it yet), `unredeemed` (host satellite knows about it but it has not been used), `redeemed` (someone has used this referral link to register alreadys)
 
-The Satellite struct represent both a Go struct as well as the schema for the `satellites` table on Referral Manager.
+The User struct represent both a Go struct as well as the schema for the `userss` table on Referral Manager.
 
 ```
-type Satellite struct {
-    ID int
-    Name string
-    URL string
+type User struct {
+    ID uuid.UUID
+    satelliteURL string
 }
 ```
 
 
-**Referral Manager endpoints:**
+**Endpoints for satellites:**
+
 ```
-// GetSatelliteURLs retrieves a list of satellite URLs from satellites table
-GetSatelliteURLs() ([]satelliteURL, error) {
-    return db.GetSatellites()
+// GetTokens retrieves a list of unredeemed tokens for a user.
+GetTokens(userID uuid.UUID, satelliteURL string) []tokens {
+    tokens := db.GetTokensByUserIDAndSatelliteURL(userID, satelliteURL)
+    if len(tokens) < 1 {
+        db.CreateUser(userID, satelliteURL)
+    }
+
+    return tokens
 }
 
+// Redeem marks a token as redeemed and deletes the token from host satellite
+func Redeem(ctx, token) error {
+	// only update the status if the status of a token is unredeems
+	tokenStatus, err := db.UpdateToken(ctx, token, "redeemed")
+	if err != nil {
+		return err
+	}
+}
+```
+
+**Endpoints for CLI:**
+
+```
 // GetEligibleUsers retrieves a list of users who have 0 remaining invitation tokens
-// from each satellite provided, and saves those users in memory
-GetEligibleUsers([]satelliteURLs) (map[satelliteURL]int, error) {
+// and saves those users in memory
+GetEligibleUsers() ([]User, error) {
     if referralManager.eligibleUser != nil {
         return nil, UsersAlreadyRetrievedErr
     }
 
-    // verify satellite urls
-    db.GetSatelliteURLs([]satelliteURLs)
-
-    eligibleUsers := make(map[satelliteURL][]UserID)
-    eligibleUsersCounts := make(map[satelliteURL]int)
-    for _, satellite := range satelliteURL {
-       users := satellite.GetUsersReferral()
-        eligibleUsers[satellite] = users
-        eligibleUsersCounts[satellite]++
-    }
+    users := db.GetUsers()
     referralManager.eligibleUsers = eligibleUsers
+
     return eligibleUsersCounts, nil
 }
 
-// GenerateAndSendInvitationTokens generates tokens, saves those in the referral manager db
-// and then sends newly created tokens to each respective satellite
-GenerateAndSendInvitationTokens(satelliteURL []string, tokensPerUser int) (map[string]int, error) {
+// GenerateTokens generates tokens, saves those in the referral manager db
+GenerateTokens(tokensPerUser int) (int, error) {
     eligibleUsers := referralManager.eligibleUsers
     if eligibleUsers == nil {
         return nil, Error.New("No users to generate tokens for. Make sure to run GetEligibleUsers first")
     }
     var tokens []Token
-    for satellite, users := range eligibleUsers {
-        for _, user := range users {
-            for i:=0; i<tokensPerUser; i++ {
-                newToken := Token{data: generateRandomToken(), user: user, satellite: satellite}
-                db.CreateToken(newToken)
-                tokens = append(tokens, newToken)
-            }
+    for _, users := range eligibleUsers {
+        for i:=0; i<tokensPerUser; i++ {
+            newToken := Token{data: generateRandomToken(), user: user.ID, satellite: user.satelliteURL}
+            db.CreateToken(newToken)
+            tokens = append(tokens, newToken)
         }
     }
 
-    results := make(map[satelliteURL]int)
-    for _, satellite := range satelliteURLs {
-        successCount := satellite.AddInvitationTokens(tokens)
-        results[satellite] = successCount
-    }
-    return results, nil
-}
-
-// Redeem marks a token as redeemed and deletes the token from host satellite
-func Redeem(ctx, token, newUserID) error {
-	// only update the status and invitee columns
-	// if the status of a token is unredeems
-	tokenStatus, err := db.UpdateToken(ctx, token, newUserID, "redeemed")
-	if err != nil {
-		return err
-	}
-
-    token.HostSatelliteURL.DeleteInvitationToken(token)
+    return len(tokens), nil
 }
 
 // ClearUsers sets eligibleUsers to be empty
-func ClearUsers(ctx, satelliteURL) {
-    if _, ok := referralManager.eligibleUsers[satelliteURL]; !ok {
-        // log the error
-        return
-    }
-
-    referralManager.eligibleUsers[satelliteURL] = nil
+func ClearUsers(ctx) {
+    referralManager.eligibleUsers = nil
     return nil
-}
-```
-
-**New satellite endpoints:**
-```
-// GetUsersReferral gets a list of users on this satellite who have 0 remaining invitation tokens
-GetUsersReferral() []userIDs {
-    err := verifyAuthToken()
-    if err != nil {
-        return err
-    }
-    return db.GetUsersWhere0RemainingInvitationTokens()
-}
-
-// AddInvitationTokens associates a list of tokens from the referral manager with users on the satellite
-// It returns the number of tokens added
-AddInvitationTokens([]token) int {
-    err := verifyAuthToken()
-    if err != nil {
-        return err
-    }
-
-    successCount := 0
-    for token := range tokens {
-        db.AddToken(token.user, token.data)
-        successCount++
-    }
-    return successCount
-}
-
-// DeleteInvitationToken deletes a token on a satellite because it has been redeemed
-DeleteInvitationToken(token Token) {
-    err := verifyAuthToken()
-    if err != nil {
-        return err
-    }
-
-    db.DeleteToken(token.OwnerID
 }
 ```
 
 **CLI code:**
 ```
 startCmd() {
-    satelliteURLs, err := referralManager.GetSatelliteURLs()
-    if err != nil {
-        fmt.Println("Something went wrong on our end. Please try again later.")
-        exit
-    }
-    fmt.Printf("Here are the list of satellites that referrlal manager will generate referral link for: %s", satelliteURLs)
-
-    eligibleUsers, err := referralManager.GetEligibleUsers(satelliteURLs)
+    eligibleUsers, err := referralManager.GetEligibleUsers()
     if err == UsersAlreadyRetrievedErr {
         confirm := prompt("Referral token generation already in progress or canceled early. Do you want to continue anyway?")
         if confirm != "y" {
@@ -266,28 +201,20 @@ startCmd() {
         exit
     }
 
-    total := 0
-    fmt.Println("User counts for satellites")
-    for sat, count := range eligibleUsers {
-        fmt.Printf("%s: %d\n", sat, count)
-        total += count
-    }
+    fmt.Printf("Total available user counts: %d\n", len(eligibleUsers))
 
-    tokensPerUser := prompt("How many tokens do you want to generate per user?")
+    tokensPerUser := prompt("How many tokens do you want to generate per user?\n")
     totalTokens := tokensPerUser * total
-    confirm := prompt("Are you sure you want to generate %d total tokens across %d satellites?", totalTokens, len(satelliteIDs))
+    confirm := prompt("Are you sure you want to generate %d total tokens?\n", totalTokens)
 
     if confirm != "y" {
         referralManager.ClearUsers()
         exit
     }
 
-    newTokens := referralManager.GenerateAndSendInvitationTokens(satelliteIDs, tokensPerUser)
+    newTokens := referralManager.GenerateTokens(tokensPerUser)
 
-    fmt.Println("Token counts for satellites")
-    for sat, count := range newTokens {
-        fmt.Printf("%s: %d\n", sat, count)
-    }
+    fmt.Printf("Successfully created %d tokens.\n", len(newTokens))
 }
 ```
 
@@ -299,7 +226,4 @@ Team Green will be responsible implementing this blueprint.
 1. The existing token is implemented with 32 random bytes.
      - Is it safe to use across satellites?
      - If not, what should we use instead?
-2. How do we deal with authentication/permission between the referral manager and satellites?
-     - We only want the referral manager to be able to use the new endpoints on the satellite. How do we do this?
-3. How do we deal with authentication/permission between the referral mangaer cli and the referral manager server?
 4. Where should the user interface on the satellite GUI be?
