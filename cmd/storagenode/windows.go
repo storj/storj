@@ -19,6 +19,7 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/windows/svc"
+
 	"storj.io/storj/pkg/process"
 )
 
