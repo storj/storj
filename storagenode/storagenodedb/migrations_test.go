@@ -95,7 +95,7 @@ func TestMigrate(t *testing.T) {
 	rawDBs := db.RawDatabases()
 
 	// get migration for this database
-	migrations := db.Migration()
+	migrations := db.Migration(ctx)
 	for i, step := range migrations.Steps {
 		// the schema is different when migration step is before the step, cannot test the layout
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)

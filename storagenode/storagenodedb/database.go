@@ -18,6 +18,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
@@ -157,16 +158,65 @@ func (db *DB) openDatabases() error {
 		return errs.Combine(err, db.closeDatabases())
 	}
 	db.deprecatedInfoDB.Configure(deprecatedInfoDB)
-	db.bandwidthDB.Configure(deprecatedInfoDB)
-	db.ordersDB.Configure(deprecatedInfoDB)
-	db.pieceExpirationDB.Configure(deprecatedInfoDB)
-	db.v0PieceInfoDB.Configure(deprecatedInfoDB)
-	db.pieceSpaceUsedDB.Configure(deprecatedInfoDB)
-	db.reputationDB.Configure(deprecatedInfoDB)
-	db.storageUsageDB.Configure(deprecatedInfoDB)
-	db.usedSerialsDB.Configure(deprecatedInfoDB)
-	db.satellitesDB.Configure(deprecatedInfoDB)
+
+	bandwidthDB, err := db.openDatabase(BandwidthDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.bandwidthDB.Configure(bandwidthDB)
+
+	ordersDB, err := db.openDatabase(OrdersDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.ordersDB.Configure(ordersDB)
+
+	pieceExpirationDB, err := db.openDatabase(PieceExpirationDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.pieceExpirationDB.Configure(pieceExpirationDB)
+
+	v0PieceInfoDB, err := db.openDatabase(PieceInfoDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.v0PieceInfoDB.Configure(v0PieceInfoDB)
+
+	pieceSpaceUsedDB, err := db.openDatabase(PieceSpaceUsedDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.pieceSpaceUsedDB.Configure(pieceSpaceUsedDB)
+
+	reputationDB, err := db.openDatabase(ReputationDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.reputationDB.Configure(reputationDB)
+
+	storageUsageDB, err := db.openDatabase(StorageUsageDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.storageUsageDB.Configure(storageUsageDB)
+
+	usedSerialsDB, err := db.openDatabase(UsedSerialsDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.usedSerialsDB.Configure(usedSerialsDB)
+
+	satellitesDB, err := db.openDatabase(SatellitesDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	db.satellitesDB.Configure(satellitesDB)
 	return nil
+}
+
+func (db *DB) rawDatabaseFromName(dbName string) *sql.DB {
+	return db.sqlDatabases[dbName]
 }
 
 // openDatabase opens or creates a database at the specified path.
@@ -197,8 +247,8 @@ func (db *DB) FilenameFromDBName(dbName string) string {
 }
 
 // CreateTables creates any necessary tables.
-func (db *DB) CreateTables() error {
-	migration := db.Migration()
+func (db *DB) CreateTables(ctx context.Context) error {
+	migration := db.Migration(ctx)
 	return migration.Run(db.log.Named("migration"))
 }
 
@@ -304,8 +354,22 @@ func (db *DB) RawDatabases() map[string]SQLDB {
 	}
 }
 
+// migrateAndCloseDB is a helper method that performs the migration from the
+// deprecatedInfoDB to the specified new db. It also closes the new database
+// after a successful migration so allow the system to recover used disk space.
+func (db *DB) migrateAndCloseDB(ctx context.Context, dbName string, tablesToKeep ...string) error {
+	err := sqliteutil.MigrateTablesToDatabase(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), db.rawDatabaseFromName(dbName), tablesToKeep...)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	// We need to close the database we have just migrated *to* in order to
+	// recover any excess disk usage that was freed in the VACUUM call
+	return ErrDatabase.Wrap(db.closeDatabase(dbName))
+}
+
 // Migration returns table migrations.
-func (db *DB) Migration() *migrate.Migration {
+func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
@@ -712,6 +776,61 @@ func (db *DB) Migration() *migrate.Migration {
 						PRIMARY KEY (satellite_id)
 					)`,
 				},
+			},
+			{
+				DB:          db.deprecatedInfoDB,
+				Description: "Split into multiple sqlite databases",
+				Version:     22,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+
+					// Migrate all the tables to new database files.
+					if err := db.migrateAndCloseDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateAndCloseDB(ctx, OrdersDBName, "unsent_order", "order_archive_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateAndCloseDB(ctx, PieceExpirationDBName, "piece_expirations"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateAndCloseDB(ctx, PieceInfoDBName, "pieceinfo_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateAndCloseDB(ctx, PieceSpaceUsedDBName, "piece_space_used"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateAndCloseDB(ctx, ReputationDBName, "reputation"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateAndCloseDB(ctx, StorageUsageDBName, "storage_usage"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateAndCloseDB(ctx, UsedSerialsDBName, "used_serial_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateAndCloseDB(ctx, SatellitesDBName, "satellites", "satellite_exit_progress"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					// Clean up the legacy database.
+					err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), "versions")
+					if err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					// Now close the deprecated db in order to free up unused
+					// disk space
+					if err := db.closeDatabase(DeprecatedInfoDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					// Reopen all databases now that the migration is complete
+					err = db.openDatabases()
+					if err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					return nil
+				}),
 			},
 		},
 	}
