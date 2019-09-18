@@ -260,8 +260,11 @@ versioncontrol_%:
 .PHONY: linksharing_%
 linksharing_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=linksharing $(MAKE) binary
+.PHONY: auto-updater_%
+auto-updater_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=auto-updater $(MAKE) binary	
 
-COMPONENTLIST := bootstrap certificates gateway identity inspector linksharing satellite storagenode uplink versioncontrol
+COMPONENTLIST := bootstrap certificates gateway identity inspector linksharing satellite storagenode uplink versioncontrol auto-updater
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
