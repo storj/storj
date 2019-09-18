@@ -175,13 +175,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	}
 
-	if loopInterval < 0 {
+	if loopInterval <= 0 {
 		err = loopFunc(ctx)
 	} else {
-		// value 0 is not valid for sync2.NewCycle
-		if loopInterval == 0 {
-			loopInterval = 1
-		}
 		loop := sync2.NewCycle(loopInterval)
 		err = loop.Run(ctx, loopFunc)
 	}

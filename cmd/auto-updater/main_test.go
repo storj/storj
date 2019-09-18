@@ -75,7 +75,7 @@ func TestAutoUpdater(t *testing.T) {
 	args = append(args, "--binary-location")
 	args = append(args, tmpExec)
 	args = append(args, "--interval")
-	args = append(args, "-1s")
+	args = append(args, "0")
 
 	out, err := exec.Command("go", args...).CombinedOutput()
 	assert.NoError(t, err)
