@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -29,6 +31,7 @@ var shareCfg struct {
 	NotBefore         string   `help:"disallow access before this time"`
 	NotAfter          string   `help:"disallow access after this time"`
 	AllowedPathPrefix []string `help:"whitelist of bucket path prefixes to require"`
+	ExportTo          string   `default:"" help:"path to export the shared scope to"`
 
 	// Share requires information about the current scope
 	uplink.ScopeConfig
@@ -45,13 +48,7 @@ func init() {
 	}
 	RootCmd.AddCommand(shareCmd)
 
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	confDirParam := cfgstruct.FindConfigDirParam()
-	if confDirParam != "" {
-		defaultConfDir = confDirParam
-	}
-
-	process.Bind(shareCmd, &shareCfg, defaults, cfgstruct.ConfDir(defaultConfDir))
+	process.Bind(shareCmd, &shareCfg, defaults, cfgstruct.ConfDir(getConfDir()))
 }
 
 const shareISO8601 = "2006-01-02T15:04:05-0700"
@@ -171,5 +168,17 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println("api key:", key.Serialize())
 	fmt.Println("enc ctx:", accessData)
 	fmt.Println("scope  :", scopeData)
+
+	if shareCfg.ExportTo != "" {
+		// convert to an absolute path, mostly for output purposes.
+		exportTo, err := filepath.Abs(shareCfg.ExportTo)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if err := ioutil.WriteFile(exportTo, []byte(scopeData+"\n"), 0600); err != nil {
+			return Error.Wrap(err)
+		}
+		fmt.Printf("exported to %s\n", exportTo)
+	}
 	return nil
 }

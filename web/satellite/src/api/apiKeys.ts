@@ -35,10 +35,10 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
                             name,
                             createdAt
                         }
-                        search, 
-                        limit, 
+                        search,
+                        limit,
                         order,
-                        pageCount, 
+                        pageCount,
                         currentPage,
                         totalCount
                     }

@@ -27,7 +27,7 @@ import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
 @Component({
     components: {
         ProjectSelectionDropdown,
-    }
+    },
 })
 export default class ProjectSelectionArea extends Vue {
     public async toggleSelection(): Promise<void> {

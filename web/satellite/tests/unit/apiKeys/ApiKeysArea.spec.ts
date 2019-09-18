@@ -73,7 +73,7 @@ describe('ApiKeysArea', () => {
 
         const wrapper = shallowMount(ApiKeysArea, {
             store,
-            localVue
+            localVue,
         });
 
         wrapper.vm.toggleSelection(apiKey);
@@ -84,7 +84,7 @@ describe('ApiKeysArea', () => {
     it('action on onClearSelection works correctly', () => {
         const wrapper = shallowMount(ApiKeysArea, {
             store,
-            localVue
+            localVue,
         });
 
         wrapper.vm.onClearSelection();

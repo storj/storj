@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 )
@@ -348,11 +349,16 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 	return nil
 }
 
-func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit) (err error) {
+func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit, signee signing.Signee) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if piece.Hash == nil {
 		return errs.New("no piece hash, removing from pointer %v (%v)", piece.NodeId, piece.PieceNum)
+	}
+
+	err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
+	if err != nil {
+		return errs.New("piece hash signature could not be verified for node %v: %v", piece.NodeId, err)
 	}
 
 	timestamp := piece.Hash.Timestamp

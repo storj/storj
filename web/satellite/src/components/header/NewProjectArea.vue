@@ -20,8 +20,8 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 // Button and popup for adding new Project
 @Component({
     components: {
-        NewProjectPopup
-    }
+        NewProjectPopup,
+    },
 })
 export default class NewProjectArea extends Vue {
     public toggleSelection(): void {

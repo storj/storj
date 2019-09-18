@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -331,4 +332,22 @@ func TestCacheCreateMultipleSatellites(t *testing.T) {
 		require.Equal(t, int64(23552), total2)
 	})
 
+}
+
+func TestConcurrency(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		satellite := planet.Satellites[0]
+
+		var group errgroup.Group
+		group.Go(func() error {
+			node.Storage2.BlobsCache.Update(ctx, satellite.ID(), 1000)
+			return nil
+		})
+		err := node.Storage2.CacheService.PersistCacheTotals(ctx)
+		require.NoError(t, err)
+		require.NoError(t, group.Wait())
+	})
 }
