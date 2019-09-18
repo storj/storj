@@ -99,7 +99,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			},
 			Console: consoleserver.Config{
 				Address:   "127.0.0.1:0",
-				StaticDir: filepath.Join(developmentRoot, "web/operator/"),
+				StaticDir: filepath.Join(developmentRoot, "web/storagenode/"),
 			},
 			Storage2: piecestore.Config{
 				CacheSyncInterval:     time.Hour,

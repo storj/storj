@@ -86,6 +86,7 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 
 	peer.Certificate.Endpoint = NewEndpoint(log.Named("certificate"), ca, authorizationDB, uint16(config.MinDifficulty))
 	pb.RegisterCertificatesServer(peer.Server.GRPC(), peer.Certificate.Endpoint)
+	pb.DRPCRegisterCertificates(peer.Server.DRPC(), peer.Certificate.Endpoint)
 
 	var err error
 	peer.Authorization.Listener, err = net.Listen("tcp", config.AuthorizationAddr)

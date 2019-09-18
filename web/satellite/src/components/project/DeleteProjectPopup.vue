@@ -86,12 +86,12 @@ import Button from '@/components/common/Button.vue';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
-import { API_KEYS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';    
+import { API_KEYS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
-        Button
-    }
+        Button,
+    },
 })
 export default class DeleteProjectPopup extends Vue {
     private projectName: string = '';
@@ -160,7 +160,7 @@ export default class DeleteProjectPopup extends Vue {
         // TODO: reuse select project functionality
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
         await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-        await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+        await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
         await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
         await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
     }

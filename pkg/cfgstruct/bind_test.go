@@ -244,3 +244,30 @@ func TestHiddenRelease(t *testing.T) {
 	assertEqual(flagInt64.Hidden, false)
 	assertEqual(flagInt.Hidden, false)
 }
+
+func TestSource(t *testing.T) {
+	var c struct {
+		Unset string
+		Any   string `source:"any"`
+		Flag  string `source:"flag"`
+	}
+
+	f := pflag.NewFlagSet("test", pflag.PanicOnError)
+	Bind(f, &c, UseReleaseDefaults())
+
+	unset := f.Lookup("unset")
+	require.NotNil(t, unset)
+	require.Empty(t, unset.Annotations)
+
+	any := f.Lookup("any")
+	require.NotNil(t, any)
+	require.Equal(t, map[string][]string{
+		"source": {"any"},
+	}, any.Annotations)
+
+	flag := f.Lookup("flag")
+	require.NotNil(t, flag)
+	require.Equal(t, map[string][]string{
+		"source": {"flag"},
+	}, flag.Annotations)
+}
