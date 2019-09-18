@@ -8,7 +8,7 @@ import "storj.io/storj/storagenode/storagenodedb"
 var v16 = MultiDBState{
 	Version: 16,
 	DBStates: DBStates{
-		storagenodedb.LegacyInfoDBName: &DBState{
+		storagenodedb.DeprecatedInfoDBName: &DBState{
 			SQL: `
 				-- table for keeping serials that need to be verified against
 				CREATE TABLE used_serial_ (
