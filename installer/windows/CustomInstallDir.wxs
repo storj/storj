@@ -21,6 +21,7 @@ Patch dialog sequence:
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
+        <CustomAction Id="CA.ValidateIdentityDir" BinaryKey="StorjDLL" DllEntry="ValidateIdentityDir" Return="check" />
         <CustomAction Id="CA.ValidateWallet" BinaryKey="StorjDLL" DllEntry="ValidateWallet" Return="check" />
         <CustomAction Id="CA.ValidateStorage" BinaryKey="StorjDLL" DllEntry="ValidateStorage" Return="check" />
         <CustomAction Id="CA.ValidateBandwidth" BinaryKey="StorjDLL" DllEntry="ValidateBandwidth" Return="check" />
@@ -64,7 +65,10 @@ Patch dialog sequence:
             <Publish Dialog="InstallDirConfigDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
 
             <Publish Dialog="IdentityDirDlg" Control="Back" Event="NewDialog" Value="InstallDirConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="IdentityDirDlg" Control="Next" Event="NewDialog" Value="WalletConfigDlg" Order="1">1</Publish>
+            <Publish Dialog="IdentityDirDlg" Control="Next" Event="DoAction" Value="CA.ValidateIdentityDir" Order="1">1</Publish>
+            <Publish Dialog="IdentityDirDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_IDENTITYDIR_VALID]" Order="2">1</Publish>
+            <Publish Dialog="IdentityDirDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_IDENTITYDIR_VALID<>"1"]]></Publish>
+            <Publish Dialog="IdentityDirDlg" Control="Next" Event="NewDialog" Value="WalletConfigDlg" Order="4">STORJ_IDENTITYDIR_VALID="1"</Publish>
             <Publish Dialog="IdentityDirDlg" Control="IdentityChangeFolder" Property="_BrowseProperty" Value="[STORJ_IDENTITYDIR]" Order="1">1</Publish>
             <Publish Dialog="IdentityDirDlg" Control="IdentityChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
 

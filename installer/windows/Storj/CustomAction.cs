@@ -1,9 +1,56 @@
 using Microsoft.Deployment.WindowsInstaller;
+using System.IO;
 
 namespace Storj
 {
     public class CustomActions
     {
+        [CustomAction]
+        public static ActionResult ValidateIdentityDir(Session session)
+        {
+            string identityDir = session["IDENTITYDIR"];
+
+            if (string.IsNullOrEmpty(identityDir))
+            {
+                session["STORJ_IDENTITYDIR_VALID"] = "You must select an identity folder.";
+                return ActionResult.Success;
+            }
+
+            if (!Directory.Exists(identityDir))
+            {
+                session["STORJ_IDENTITYDIR_VALID"] = string.Format("Folder '{0}' does not exist.", identityDir);
+                return ActionResult.Success;
+            }
+
+            if (!File.Exists(Path.Combine(identityDir, "ca.cert")))
+            {
+                session["STORJ_IDENTITYDIR_VALID"] = "File 'ca.cert' not found in the selected folder.";
+                return ActionResult.Success;
+            }
+
+            if (!File.Exists(Path.Combine(identityDir, "ca.key")))
+            {
+                session["STORJ_IDENTITYDIR_VALID"] = "File 'ca.key' not found in the selected folder.";
+                return ActionResult.Success;
+            }
+
+            if (!File.Exists(Path.Combine(identityDir, "identity.cert")))
+            {
+                session["STORJ_IDENTITYDIR_VALID"] = "File 'identity.cert' not found in the selected folder.";
+                return ActionResult.Success;
+            }
+
+            if (!File.Exists(Path.Combine(identityDir, "identity.key")))
+            {
+                session["STORJ_IDENTITYDIR_VALID"] = "File 'identity.key' not found in the selected folder.";
+                return ActionResult.Success;
+            }
+
+            // Identity dir is valid
+            session["STORJ_IDENTITYDIR_VALID"] = "1";
+            return ActionResult.Success;
+        }
+
         [CustomAction]
         public static ActionResult ValidateWallet(Session session)
         {
