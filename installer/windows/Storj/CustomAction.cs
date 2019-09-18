@@ -1,4 +1,5 @@
 using Microsoft.Deployment.WindowsInstaller;
+using System;
 using System.IO;
 
 namespace Storj
@@ -100,7 +101,8 @@ namespace Storj
 
             if (drive.AvailableFreeSpace < minFreeSpace)
             {
-                session["STORJ_STORAGEDIR_VALID"] = string.Format("The selected drive '{0}' has only {1:0.##} GB free space. The minimum required is 550 GB.", drive.Name, decimal.Divide(drive.AvailableFreeSpace, 1000000000));
+                session["STORJ_STORAGEDIR_VALID"] = string.Format("The selected drive '{0}' has only {1:0.##} GB free space. The minimum required is 550 GB.",
+                    drive.Name, decimal.Divide(drive.AvailableFreeSpace, 1000000000));
                 return ActionResult.Success;
             }
 
@@ -128,6 +130,16 @@ namespace Storj
 
             if (storage < 0.5) {
                 session["STORJ_STORAGE_VALID"] = "The allocated disk space cannot be less than 0.5 TB.";
+                return ActionResult.Success;
+            }
+
+            DirectoryInfo dir = new DirectoryInfo(session["STORAGEDIR"]);
+            DriveInfo drive = new DriveInfo(dir.Root.FullName);
+            long storagePlusOverhead = Convert.ToInt64(storage * 1.1 * 1000000000000);
+            if (drive.AvailableFreeSpace < storagePlusOverhead)
+            {
+                session["STORJ_STORAGE_VALID"] = string.Format("The avialble disk space ({0:0.##} TB) on the selected drive {1} is less than the allocated disk space plus the 10% overhead ({2:0.##} TB total).",
+                    decimal.Divide(drive.AvailableFreeSpace, 1000000000000), drive.Name, decimal.Divide(storagePlusOverhead, 1000000000000));
                 return ActionResult.Success;
             }
 
