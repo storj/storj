@@ -227,7 +227,7 @@ func (db *DB) closeDatabases() error {
 func (db *DB) closeDatabase(dbName string) (err error) {
 	conn, ok := db.sqlDatabases[dbName]
 	if !ok {
-		return ErrDatabase.New("double close on database " + dbName)
+		return ErrDatabase.New("double close on database %s", dbName)
 	}
 	delete(db.sqlDatabases, dbName)
 	return ErrDatabase.Wrap(conn.Close())
