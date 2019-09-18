@@ -14,8 +14,8 @@ Storj V3 Storage Node is already installed." />
           <Directory Id="INSTALLFOLDER" Name="Storage Node" />
         </Directory>
       </Directory>
-      <Directory Id="IDENTITYDIR" />
-      <Directory Id="STORAGEDIR" />
+      <Directory Id="IDENTITYDIR" Name="Identity"/>
+      <Directory Id="STORAGEDIR" Name="Storage" />
     </Directory>
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="Executable" Guid="{4571F06C-D46B-4AAF-B015-255311A5B404}" Win64='yes'>
@@ -38,7 +38,7 @@ Storj V3 Storage Node is already installed." />
     <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
     <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
-  
+    
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='commit' Impersonate='no' 
                   ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot; --kademlia.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot;"
     />
