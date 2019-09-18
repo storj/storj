@@ -73,9 +73,6 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
-# the interval at which the satellite attempts to find new nodes via random node ID lookups
-# discovery.discovery-interval: 1s
-
 # the amount of nodes refreshed in parallel
 # discovery.refresh-concurrency: 8
 
@@ -263,7 +260,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.new-node-percentage: 0.05
 
 # the amount of time without seeing a node before its considered offline
-# overlay.node.online-window: 1h0m0s
+# overlay.node.online-window: 4h0m0s
 
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 100
