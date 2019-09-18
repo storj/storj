@@ -67,7 +67,6 @@ func getQuery(req *http.Request) (query graphqlJSON, err error) {
 
 // queryPOST retrieves graphql query from POST request
 func queryPOST(req *http.Request) (query graphqlJSON, err error) {
-
 	switch typ := req.Header.Get(contentType); typ {
 	case applicationGraphql:
 		body, err := ioutil.ReadAll(req.Body)
