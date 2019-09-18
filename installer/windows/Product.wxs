@@ -26,8 +26,8 @@ Storj V3 Storage Node is already installed." />
     <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
     <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
     <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
-    <Property Id="STORJ_AVAILABLE_STORAGE">1.0 TB</Property>
-    <Property Id="STORJ_AVAILABLE_BANDWIDTH">2.0 TB</Property>
+    <Property Id="STORJ_AVAILABLE_STORAGE">1.0</Property>
+    <Property Id="STORJ_AVAILABLE_BANDWIDTH">2.0</Property>
     <UIRef Id="CustomInstallDir" />
     <Icon Id="storj.ico" SourceFile="storj.ico"/>
     <Property Id="ARPPRODUCTICON" Value="storj.ico" />
@@ -37,7 +37,7 @@ Storj V3 Storage Node is already installed." />
     <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
 
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='commit' Impersonate='no' 
-                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot; --kademlia.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_AVAILABLE_BANDWIDTH]&quot; --storage.allocated-disk-space &quot;[STORJ_AVAILABLE_STORAGE]&quot;"
+                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot; --kademlia.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_AVAILABLE_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_AVAILABLE_STORAGE] TB&quot;"
     />
     <InstallExecuteSequence>
       <Custom Action='StoragenodeSetup' Before='InstallFinalize'/>

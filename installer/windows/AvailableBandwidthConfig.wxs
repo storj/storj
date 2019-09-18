@@ -18,7 +18,8 @@
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
 
         <Control Id="AvailableBandwidthLabel" Type="Text" X="20" Y="60" Width="320" Height="16" NoPrefix="yes" Text="Available bandwidth:" />
-        <Control Id="AvailableBandwidth" Type="Edit" Property="STORJ_AVAILABLE_BANDWIDTH" X="20" Y="100" Width="320" Height="18" />
+        <Control Id="AvailableBandwidth" Type="Edit" RightAligned="yes" Property="STORJ_AVAILABLE_BANDWIDTH" X="20" Y="100" Width="60" Height="18" />
+        <Control Id="AvailableBandwidthTB" Type="Text" X="84" Y="103" Width="20" Height="16" NoPrefix="yes" Text="TB" />
         <Control Id="AvailableBandwidthDesc" Type="Text" X="20" Y="150" Width="320" Height="48" NoPrefix="yes" Text="How much bandwidth you can allocate to the Storj network. Be sure to allow for other use cases you have for your internet connection, and do not allocate more than the total up and download bandwidth your ISP can physically supply. The minimum bandwidth requirement is 2 TB." />
         <Control Id="AvailableBandwidthHowto" Type="Hyperlink" X="20" Y="200" Width="320" Height="16">
           <Text><![CDATA[<a href="https://support.storj.io/hc/en-us/articles/360026893111-How-do-I-calculate-my-Total-monthly-bandwidth-from-my-Mbit-s-up-and-download-speed-">Learn how to calculate the maximum monthly bandwidth you can enter here.</a>]]></Text>

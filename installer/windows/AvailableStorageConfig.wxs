@@ -18,7 +18,8 @@
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
 
         <Control Id="AvailableStorageLabel" Type="Text" X="20" Y="60" Width="320" Height="16" NoPrefix="yes" Text="Available disk space:" />
-        <Control Id="AvailableStorage" Type="Edit" Property="STORJ_AVAILABLE_STORAGE" X="20" Y="100" Width="320" Height="18" />
+        <Control Id="AvailableStorage" Type="Edit" RightAligned="yes" Property="STORJ_AVAILABLE_STORAGE" X="20" Y="100" Width="60" Height="18" />
+        <Control Id="AvailableStorageTB" Type="Text" X="84" Y="103" Width="20" Height="16" NoPrefix="yes" Text="TB" />
         <Control Id="AvailableStorageDesc" Type="Text" X="20" Y="150" Width="320" Height="48" NoPrefix="yes" Text="The storage node will consume up to this amount of disk space on the selected storage location. Be sure not to over-allocate space! Allow at least 10% extra for overhead. If you over-allocate space, you may corrupt your database when the system attempts to store pieces when no more physical space is actually available on your drive. " />
       </Dialog>
     </UI>
