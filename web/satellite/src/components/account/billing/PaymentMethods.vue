@@ -67,7 +67,7 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
         CardComponent,
         StorjInput,
         StripeInput,
-    }
+    },
 })
 export default class PaymentMethods extends Vue {
     public areaState: number = PaymentMethodsBlockState.DEFAULT;

@@ -39,8 +39,8 @@ import CardDialog from '@/components/account/billing/CardDialog.vue';
 
 @Component({
     components: {
-        CardDialog
-    }
+        CardDialog,
+    },
 })
 export default class CardComponent extends Vue {}
 </script>
