@@ -7,7 +7,6 @@
             <div id="card-element">
                 <!-- A Stripe Element will be inserted here. -->
             </div>
-
             <div id="card-errors" role="alert"></div>
         </div>
     </form>
@@ -83,6 +82,10 @@ export default class StripeInput extends Vue {
 
         await this.onStripeResponseCallback(result);
         this.cardElement.clear();
+    }
+
+    public beforeDestroy() {
+        this.cardElement.removeEventListener('change');
     }
 
     private onSubmit(): void {

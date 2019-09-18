@@ -12,13 +12,13 @@
                         label="Add STORJ"
                         width="123px"
                         height="48px"
-                        :onPress="onAddSTORJ"/>
+                        :on-press="onAddSTORJ"/>
                     <Button
                         class="button"
                         label="Add Card"
                         width="123px"
                         height="48px"
-                        :onPress="onAddCard"/>
+                        :on-press="onAddCard"/>
                 </div>
                 <div class="payment-methods-area__button-area__cancel" v-if="!isDefaultState" @click="onCancel">
                     <p class="payment-methods-area__button-area__cancel__text">Cancel</p>
@@ -34,7 +34,7 @@
                 label="Continue to Coin Payments"
                 width="251px"
                 height="48px"
-                :onPress="onConfirmAddSTORJ"/>
+                :on-press="onConfirmAddSTORJ"/>
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p>Add Credit or Debit Card</p>
@@ -43,7 +43,7 @@
                 label="Add card"
                 width="123px"
                 height="48px"
-                :onPress="onConfirmAddSTORJ"/>
+                :on-press="onConfirmAddSTORJ"/>
         </div>
         <div class="payment-methods-area__existing-cards-container">
             <CardComponent />
@@ -70,7 +70,7 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
     },
 })
 export default class PaymentMethods extends Vue {
-    public areaState: number = PaymentMethodsBlockState.DEFAULT;
+    private areaState: number = PaymentMethodsBlockState.DEFAULT;
 
     public get isDefaultState(): boolean {
         return this.areaState === PaymentMethodsBlockState.DEFAULT;
@@ -157,6 +157,7 @@ export default class PaymentMethods extends Vue {
             }
 
             &__cancel {
+
                 &__text {
                     font-family: 'font_medium';
                     font-size: 16px;
