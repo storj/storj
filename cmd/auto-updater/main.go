@@ -61,7 +61,7 @@ var (
 func init() {
 	rootCmd.AddCommand(runCmd)
 
-	runCmd.Flags().StringVar(&interval, "interval", "06h", "interval for checking the new version")
+	runCmd.Flags().StringVar(&interval, "interval", "06h", "interval for checking the new version, negative value will execute version check only once")
 	runCmd.Flags().StringVar(&versionURL, "version-url", "https://version.storj.io/release/", "version server URL")
 	runCmd.Flags().StringVar(&binaryLocation, "binary-location", "storagenode.exe", "the storage node executable binary location")
 
@@ -175,9 +175,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	}
 
-	if loopInterval == 0 {
+	if loopInterval < 0 {
 		err = loopFunc(ctx)
 	} else {
+		// value 0 is not valid for sync2.NewCycle
+		if loopInterval == 0 {
+			loopInterval = 1
+		}
 		loop := sync2.NewCycle(loopInterval)
 		err = loop.Run(ctx, loopFunc)
 	}
