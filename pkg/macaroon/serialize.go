@@ -78,6 +78,12 @@ func appendVarint(data []byte, x int) []byte {
 func ParseMacaroon(data []byte) (_ *Macaroon, err error) {
 	ctx := context.TODO()
 	defer mon.Task()(&ctx)(&err)
+	if len(data) < 2 {
+		return nil, errors.New("empty macaroon")
+	}
+	if data[0] != 2 {
+		return nil, errors.New("invalid macaroon version")
+	}
 	// skip version
 	data = data[1:]
 	// Parse Location
