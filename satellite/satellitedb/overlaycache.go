@@ -1049,32 +1049,23 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 }
 
 func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fields {
-	prepared := prepareUpdateExitStatus{
-		NodeID:              req.NodeID,
-		ExitInitiatedAt:     timeField{set: req.UpdateInitiated, value: req.ExitInitiatedAt.UTC()},
-		ExitLoopCompletedAt: timeField{set: req.UpdateLoopCompleted, value: req.ExitLoopCompletedAt.UTC()},
-		ExitFinishedAt:      timeField{set: req.UpdateFinished, value: req.ExitFinishedAt.UTC()},
-	}
 	dbxUpdateFields := dbx.Node_Update_Fields{}
 
-	if prepared.ExitInitiatedAt.set {
-		dbxUpdateFields.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(prepared.ExitInitiatedAt.value)
+	if req.UpdateInitiated {
+		dbxUpdateFields.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(*req.ExitInitiatedAt)
 	}
-	if prepared.ExitLoopCompletedAt.set {
-		dbxUpdateFields.ExitLoopCompletedAt = dbx.Node_ExitLoopCompletedAt(prepared.ExitLoopCompletedAt.value)
+	if req.UpdateLoopCompleted {
+		if req.ExitLoopCompletedAt == nil {
+			dbxUpdateFields.ExitLoopCompletedAt = dbx.Node_ExitLoopCompletedAt_Null()
+		} else {
+			dbxUpdateFields.ExitLoopCompletedAt = dbx.Node_ExitLoopCompletedAt(*req.ExitLoopCompletedAt)
+		}
 	}
-	if prepared.ExitFinishedAt.set {
-		dbxUpdateFields.ExitFinishedAt = dbx.Node_ExitFinishedAt(prepared.ExitFinishedAt.value)
+	if req.UpdateFinished {
+		dbxUpdateFields.ExitFinishedAt = dbx.Node_ExitFinishedAt(*req.ExitFinishedAt)
 	}
 
 	return dbxUpdateFields
-}
-
-type prepareUpdateExitStatus struct {
-	NodeID              storj.NodeID
-	ExitInitiatedAt     timeField
-	ExitLoopCompletedAt timeField
-	ExitFinishedAt      timeField
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
@@ -1302,6 +1293,11 @@ type boolField struct {
 type timeField struct {
 	set   bool
 	value time.Time
+}
+
+type timePointerField struct {
+	set   bool
+	value *time.Time
 }
 
 type updateNodeStats struct {

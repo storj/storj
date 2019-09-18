@@ -42,6 +42,14 @@ func testGetExitingNodes(ctx context.Context, t *testing.T, cache overlay.DB) {
 				updateLoopCompleted bool
 				updateFinished      bool
 			)
+
+			updateInitiated = false
+			updateLoopCompleted = false
+			updateFinished = false
+			initiatedAt = nil
+			completedAt = nil
+			finishedAt = nil
+
 			// set nodes to have an exiting status
 			if i < tt.numNodesToExit {
 				timestamp := time.Now().UTC()
@@ -59,6 +67,8 @@ func testGetExitingNodes(ctx context.Context, t *testing.T, cache overlay.DB) {
 				UpdateLoopCompleted: updateLoopCompleted,
 				UpdateFinished:      updateFinished,
 			}
+
+			// TODO: actually put the nodes in the overlay cache
 
 			_, err := cache.UpdateExitStatus(ctx, req)
 			require.NoError(t, err)
