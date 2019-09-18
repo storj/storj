@@ -39,7 +39,7 @@ type Uplink struct {
 	Transport        transport.Client
 	StorageNodeCount int
 
-	APIKey    map[storj.NodeID]string
+	APIKey    map[storj.NodeID]*macaroon.APIKey
 	ProjectID map[storj.NodeID]uuid.UUID
 }
 
@@ -75,7 +75,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		Log:              planet.log.Named(name),
 		Identity:         identity,
 		StorageNodeCount: storageNodeCount,
-		APIKey:           map[storj.NodeID]string{},
+		APIKey:           map[storj.NodeID]*macaroon.APIKey{},
 		ProjectID:        map[storj.NodeID]uuid.UUID{},
 	}
 
@@ -126,7 +126,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 			return nil, err
 		}
 
-		uplink.APIKey[satellite.ID()] = key.Serialize()
+		uplink.APIKey[satellite.ID()] = key
 		uplink.ProjectID[satellite.ID()] = project.ID
 	}
 
@@ -338,7 +338,9 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *SatelliteSyst
 func (client *Uplink) GetConfig(satellite *SatelliteSystem) uplink.Config {
 	config := getDefaultConfig()
 
-	apiKey, err := libuplink.ParseAPIKey(client.APIKey[satellite.ID()])
+	// client.APIKey[satellite.ID()] is a *macaroon.APIKey, but we want a
+	// *libuplink.APIKey, so, serialize and parse for now
+	apiKey, err := libuplink.ParseAPIKey(client.APIKey[satellite.ID()].Serialize())
 	if err != nil {
 		panic(err)
 	}

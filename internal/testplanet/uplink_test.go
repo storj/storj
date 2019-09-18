@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -267,9 +266,7 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test-bucket", "test-file")
 		require.Error(t, err)
 
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		key, err := macaroon.ParseAPIKey(apiKey)
-		require.NoError(t, err)
+		key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], key)
 		require.NoError(t, err)

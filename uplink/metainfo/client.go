@@ -1272,3 +1272,8 @@ func (client *Client) Batch(ctx context.Context, requests ...BatchItem) (resp []
 
 	return resp, nil
 }
+
+// SetRawAPIKey sets the client's raw API key. Mainly used for testing.
+func (client *Client) SetRawAPIKey(key []byte) {
+	client.apiKeyRaw = key
+}

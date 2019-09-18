@@ -26,7 +26,7 @@ func TestBucketExamples(t *testing.T) {
 			cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 			satelliteAddr := planet.Satellites[0].Local().Address.Address
-			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize()
 
 			out := bytes.NewBuffer(nil)
 			err := ListBucketsExample(ctx, satelliteAddr, apiKey, &cfg, out)
