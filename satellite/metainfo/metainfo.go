@@ -19,6 +19,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
@@ -76,6 +77,7 @@ type Endpoint struct {
 	orders           *orders.Service
 	overlay          *overlay.Service
 	partnerinfo      attribution.DB
+	peerIdentities   overlay.PeerIdentities
 	projectUsage     *accounting.ProjectUsage
 	containment      Containment
 	apiKeys          APIKeys
@@ -85,7 +87,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB,
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
 	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
@@ -94,6 +96,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		orders:           orders,
 		overlay:          cache,
 		partnerinfo:      partnerinfo,
+		peerIdentities:   peerIdentities,
 		containment:      containment,
 		apiKeys:          apiKeys,
 		projectUsage:     projectUsage,
@@ -270,6 +273,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 	for _, piece := range req.GetPointer().GetRemote().GetRemotePieces() {
 		piece.Hash = nil
 	}
+	req.Pointer.PieceHashesVerified = true
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
 
@@ -475,18 +479,30 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 	defer mon.Task()(&ctx)(&err)
 
 	if pointer.Type == pb.Pointer_REMOTE {
-		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
+
+		peerIDMap, err := endpoint.mapNodesFor(ctx, remote.RemotePieces)
+		if err != nil {
+			return err
+		}
+
+		var remotePieces []*pb.RemotePiece
 		allSizesValid := true
 		lastPieceSize := int64(0)
 		for _, piece := range remote.RemotePieces {
 
-			// TODO enable piece hash signature verification
+			// Verify storagenode signature on piecehash
+			peerID, ok := peerIDMap[piece.NodeId]
+			if !ok {
+				endpoint.log.Warn("Identity chain unknown for node", zap.String("nodeID", piece.NodeId.String()))
+				continue
+			}
+			signee := signing.SigneeFromPeerIdentity(peerID)
 
-			err = endpoint.validatePieceHash(ctx, piece, limits)
+			err = endpoint.validatePieceHash(ctx, piece, limits, signee)
 			if err != nil {
 				// TODO maybe this should be logged also to uplink too
-				endpoint.log.Sugar().Warn(err)
+				endpoint.log.Warn("Problem validating piece hash", zap.Error(err))
 				continue
 			}
 
@@ -532,6 +548,23 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		remote.RemotePieces = remotePieces
 	}
 	return nil
+}
+
+func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePiece) (map[storj.NodeID]*identity.PeerIdentity, error) {
+	nodeIDList := storj.NodeIDList{}
+	for _, piece := range pieces {
+		nodeIDList = append(nodeIDList, piece.NodeId)
+	}
+	peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
+	for _, peerID := range peerIDList {
+		peerIDMap[peerID.ID] = peerID
+	}
+
+	return peerIDMap, nil
 }
 
 // CreatePath will create a Segment path
@@ -1393,6 +1426,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		CreationDate:   streamID.CreationDate,
 		ExpirationDate: streamID.ExpirationDate,
 		Metadata:       metadata,
+
+		PieceHashesVerified: true,
 	}
 
 	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
@@ -1454,7 +1489,9 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &pb.SegmentCommitResponse{}, nil
+	return &pb.SegmentCommitResponse{
+		SuccessfulPieces: int32(len(pointer.Remote.RemotePieces)),
+	}, nil
 }
 
 // MakeInlineSegment makes inline segment on satellite
