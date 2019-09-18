@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
-  <Product Id="{19631C3E-2E32-49E4-A75D-9614B8BAC42B}" Name="Storj V3 Storage Node" Language="1033" Version="0.19.0.0" Manufacturer="Storj Labs Inc." UpgradeCode="B32CF5FC-0665-4712-B88A-22D299565F9E">
-    <Package Id="*" Platform="x64" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+  <Product Id="*" Name="Storj V3 Storage Node" Language="1033" Version="0.19.0.0" Manufacturer="Storj Labs Inc." UpgradeCode="B32CF5FC-0665-4712-B88A-22D299565F9E">
+    <Package Platform="x64" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of
 Storj V3 Storage Node is already installed." />
     <MediaTemplate EmbedCab="yes" />
