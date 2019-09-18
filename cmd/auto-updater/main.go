@@ -198,9 +198,12 @@ func binaryVersion(location string) (semver.Version, error) {
 		line := scanner.Text()
 		prefix := "Version: "
 		if strings.HasPrefix(line, prefix) {
-			// use version string without 'v'
-			return semver.Make(line[len(prefix)+1:])
+			line = line[len(prefix):]
 		}
+		if strings.HasPrefix(line, "v") {
+			line = line[1:]
+		}
+		return semver.Make(line)
 	}
 	return semver.Version{}, errs.New("unable to determine binary version")
 }
