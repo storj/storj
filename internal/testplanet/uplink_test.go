@@ -138,7 +138,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 						Address: "1.2.3.4",
 					},
 					Version: &pb.NodeVersion{
-						Version:    "",
+						Version:    "v0.0.0",
 						CommitHash: "",
 						Timestamp:  time.Time{},
 						Release:    false,

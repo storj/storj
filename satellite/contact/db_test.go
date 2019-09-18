@@ -40,6 +40,12 @@ func TestUpdateCheckIn(t *testing.T) {
 				Email:  expectedEmail,
 				Wallet: "0x123",
 			},
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
 		}
 		expectedNode := &overlay.NodeDossier{
 			Node: pb.Node{
@@ -116,6 +122,12 @@ func TestUpdateCheckIn(t *testing.T) {
 			Capacity: &pb.NodeCapacity{
 				FreeBandwidth: int64(12355),
 			},
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
 		}
 		// confirm that the updated node is in the nodes table with the
 		// correct updated fields set
@@ -140,6 +152,12 @@ func TestUpdateCheckIn(t *testing.T) {
 			Capacity: &pb.NodeCapacity{
 				FreeBandwidth: int64(12355),
 			},
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
 		}
 		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, config)
 		require.NoError(t, err)
@@ -148,6 +166,5 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.True(t, updated2Node.Reputation.LastContactSuccess.Equal(updatedNode.Reputation.LastContactSuccess))
 		require.Equal(t, updated2Node.Reputation.UptimeSuccessCount, updatedNode.Reputation.UptimeSuccessCount)
 		require.True(t, updated2Node.Reputation.LastContactFailure.After(startOfUpdateTest2))
-
 	})
 }

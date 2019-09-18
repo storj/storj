@@ -1396,7 +1396,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				uptime_success_count, total_uptime_count, 
 				last_contact_success,
 				last_contact_failure,
-				audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
+				audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
 				major, minor, patch, hash, timestamp, release
 			)
 			VALUES (

@@ -201,6 +201,12 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 				Address: "1.2.3.4",
 			},
 			IsUp: false,
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
 		}
 		config := overlay.NodeSelectionConfig{
 			UptimeReputationLambda: lambda,

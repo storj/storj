@@ -211,6 +211,12 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 			Address: &pb.NodeAddress{
 				Address: "1.2.3.4",
 			},
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
 		}
 		config := overlay.NodeSelectionConfig{
 			UptimeReputationLambda: 0,
@@ -251,6 +257,12 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplane
 		IsUp:   false,
 		Address: &pb.NodeAddress{
 			Address: "1.2.3.4",
+		},
+		Version: &pb.NodeVersion{
+			Version:    "v0.0.0",
+			CommitHash: "",
+			Timestamp:  time.Time{},
+			Release:    false,
 		},
 	}
 	config := overlay.NodeSelectionConfig{

@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/pb"
@@ -43,6 +44,12 @@ var node = overlay.NodeCheckInInfo{
 	Operator: &pb.NodeOperator{
 		Email:  "test@email.com",
 		Wallet: "0x123",
+	},
+	Version: &pb.NodeVersion{
+		Version:    "v0.0.0",
+		CommitHash: "",
+		Timestamp:  time.Time{},
+		Release:    false,
 	},
 }
 var config = overlay.NodeSelectionConfig{
