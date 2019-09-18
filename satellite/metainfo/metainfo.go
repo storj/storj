@@ -1082,6 +1082,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Errorf(codes.NotFound, "unable to find object: %q/%q", streamID.Bucket, streamID.EncryptedPath)
 	}
 
+	if lastSegmentPointer.Remote == nil {
+		lastSegmentPointer.Remote = &pb.RemoteSegment{}
+	}
+	// RS is set always for last segment to emulate RS per object
+	lastSegmentPointer.Remote.Redundancy = streamID.Redundancy
 	lastSegmentPointer.Metadata = req.EncryptedMetadata
 
 	err = endpoint.metainfo.Delete(ctx, lastSegmentPath)
@@ -1158,6 +1163,33 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 	if pointer.Remote != nil {
 		object.RedundancyScheme = pointer.Remote.Redundancy
+	} else if streamMeta.NumberOfSegments == 0 || streamMeta.NumberOfSegments > 1 {
+		// workaround
+		// new metainfo API redundancy scheme is on object level (not per segment) because
+		// of that RS is taken always from last segment, old implemetation were saving RS
+		// per segment and in some cases when for remote file last segment is inline segment
+		// then we are missing RS. This part will search for RS in othere segments than last one
+
+		// NumberOfSegments == 0 - pointer with encrypted num of segments
+		// NumberOfSegments > 1 - pointer with unencrypted num of segments and multiple segments
+
+		index := int64(0)
+		for {
+			pointer, _, err = endpoint.getPointer(ctx, keyInfo.ProjectID, index, req.Bucket, req.EncryptedPath)
+			if err != nil {
+				if storage.ErrKeyNotFound.Has(err) {
+					break
+				}
+
+				endpoint.log.Error("unable to get pointer", zap.Error(err))
+				return nil, status.Error(codes.Internal, "unable to get object")
+			}
+			if pointer.Remote != nil {
+				object.RedundancyScheme = pointer.Remote.Redundancy
+				break
+			}
+			index++
+		}
 	}
 
 	return &pb.ObjectGetResponse{
@@ -1541,12 +1573,18 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
+	metadata, err := proto.Marshal(&pb.SegmentMeta{
+		EncryptedKey: req.EncryptedKey,
+		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
+	})
+
 	pointer := &pb.Pointer{
 		Type:           pb.Pointer_INLINE,
 		SegmentSize:    inlineUsed,
 		CreationDate:   streamID.CreationDate,
 		ExpirationDate: streamID.ExpirationDate,
 		InlineSegment:  req.EncryptedInlineData,
+		Metadata:       metadata,
 	}
 
 	err = endpoint.metainfo.Put(ctx, path, pointer)
@@ -1840,6 +1878,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			}
 			segmentMeta = streamMeta.LastSegmentMeta
 		} else {
+			segmentMeta = &pb.SegmentMeta{}
 			err = proto.Unmarshal(pointer.Metadata, segmentMeta)
 			if err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
