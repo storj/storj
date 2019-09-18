@@ -4,11 +4,14 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
+	"sort"
 	"time"
 
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/gracefulexit"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -80,6 +83,14 @@ func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.Tran
 			}
 		}
 	case *pq.Driver:
+		sort.Slice(items, func(i, k int) bool {
+			compare := bytes.Compare(items[i].NodeID.Bytes(), items[k].NodeID.Bytes())
+			if compare == 0 {
+				return bytes.Compare(items[i].Path, items[k].Path) < 0
+			}
+			return compare < 0
+		})
+
 		var nodeIDs []storj.NodeID
 		var paths [][]byte
 		var pieceNums []int32
