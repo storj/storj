@@ -6,6 +6,10 @@ namespace Storj
 {
     public class CustomActions
     {
+        private const long GB = 1000 * 1000 * 1000;
+        private const long TB = (long) 1000 * 1000 * 1000 * 1000;
+        private const long MinFreeSpace = 550 * GB; // (500 GB + 10% overhead)
+
         [CustomAction]
         public static ActionResult ValidateIdentityDir(Session session)
         {
@@ -95,14 +99,13 @@ namespace Storj
                 return ActionResult.Success;
             }
 
-            long minFreeSpace = 550000000000; // 550 GB (500 GB + 10% overhead)
             DirectoryInfo dir = new DirectoryInfo(identityDir);
             DriveInfo drive = new DriveInfo(dir.Root.FullName);
 
-            if (drive.AvailableFreeSpace < minFreeSpace)
+            if (drive.AvailableFreeSpace < MinFreeSpace)
             {
                 session["STORJ_STORAGEDIR_VALID"] = string.Format("The selected drive '{0}' has only {1:0.##} GB free space. The minimum required is 550 GB.",
-                    drive.Name, decimal.Divide(drive.AvailableFreeSpace, 1000000000));
+                    drive.Name, decimal.Divide(drive.AvailableFreeSpace, GB));
                 return ActionResult.Success;
             }
 
@@ -135,11 +138,12 @@ namespace Storj
 
             DirectoryInfo dir = new DirectoryInfo(session["STORAGEDIR"]);
             DriveInfo drive = new DriveInfo(dir.Root.FullName);
-            long storagePlusOverhead = Convert.ToInt64(storage * 1.1 * 1000000000000);
+            long storagePlusOverhead = Convert.ToInt64(storage * 1.1 * TB);
+
             if (drive.AvailableFreeSpace < storagePlusOverhead)
             {
                 session["STORJ_STORAGE_VALID"] = string.Format("The avialble disk space ({0:0.##} TB) on the selected drive {1} is less than the allocated disk space plus the 10% overhead ({2:0.##} TB total).",
-                    decimal.Divide(drive.AvailableFreeSpace, 1000000000000), drive.Name, decimal.Divide(storagePlusOverhead, 1000000000000));
+                    decimal.Divide(drive.AvailableFreeSpace, TB), drive.Name, decimal.Divide(storagePlusOverhead, TB));
                 return ActionResult.Success;
             }
 
