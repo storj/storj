@@ -830,6 +830,12 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Drop unneeded tables in deprecatedInfoDB",
 				Version:     23,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
+					// in migration step 23 because if we were to keep that as part of step 22
+					// and an error occured it would replay the entire migration but some tables
+					// may have successfully dropped and we would experience unrecoverable data loss.
+					// This way if step 22 completes it never gets replayed even if a drop table or
+					// VACUUM call fails.
 					if err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), VersionTable); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
