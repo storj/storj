@@ -15,7 +15,7 @@ require (
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
 
-replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190814103321-ef17d024197d
+replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190918084400-1c4561bf5127
 
 replace git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
 
