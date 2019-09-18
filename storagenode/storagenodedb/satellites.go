@@ -10,16 +10,10 @@ import (
 // ErrSatellitesDB represents errors from the satellites database.
 var ErrSatellitesDB = errs.Class("satellitesdb error")
 
+// SatellitesDBName represents the database name.
+const SatellitesDBName = "satellites"
+
 // reputation works with node reputation DB
 type satellitesDB struct {
-	location string
-	SQLDB
-}
-
-// newSatellitesDB returns a new instance of satellitesDB initialized with the specified database.
-func newSatellitesDB(db SQLDB, location string) *satellitesDB {
-	return &satellitesDB{
-		location: location,
-		SQLDB:    db,
-	}
+	migratableDB
 }
