@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zeebo/assert"
+	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
