@@ -33,6 +33,8 @@ import (
 	"storj.io/storj/storagenode/storageusage"
 )
 
+const VersionTable = "versions"
+
 var (
 	mon = monkit.Package()
 
@@ -221,7 +223,7 @@ func (db *DB) rawDatabaseFromName(dbName string) *sql.DB {
 
 // openDatabase opens or creates a database at the specified path.
 func (db *DB) openDatabase(dbName string) (*sql.DB, error) {
-	path := filepath.Join(db.dbDirectory, db.FilenameFromDBName(dbName))
+	path := db.filepathFromDBName(dbName)
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
@@ -241,9 +243,13 @@ func (db *DB) openDatabase(dbName string) (*sql.DB, error) {
 	return sqlDB, nil
 }
 
-// FilenameFromDBName returns a constructed filename for the specified database name.
-func (db *DB) FilenameFromDBName(dbName string) string {
+// filenameFromDBName returns a constructed filename for the specified database name.
+func (db *DB) filenameFromDBName(dbName string) string {
 	return dbName + ".db"
+}
+
+func (db *DB) filepathFromDBName(dbName string) string {
+	return filepath.Join(db.dbDirectory, db.filenameFromDBName(dbName))
 }
 
 // CreateTables creates any necessary tables.
@@ -354,24 +360,55 @@ func (db *DB) RawDatabases() map[string]SQLDB {
 	}
 }
 
-// migrateAndCloseDB is a helper method that performs the migration from the
-// deprecatedInfoDB to the specified new db. It also closes the new database
-// after a successful migration so allow the system to recover used disk space.
-func (db *DB) migrateAndCloseDB(ctx context.Context, dbName string, tablesToKeep ...string) error {
-	err := sqliteutil.MigrateTablesToDatabase(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), db.rawDatabaseFromName(dbName), tablesToKeep...)
+// migrateToDB is a helper method that performs the migration from the
+// deprecatedInfoDB to the specified new db. It first closes and deletes any
+// existing database to guarantee idempotence. After migration it also closes
+// and re-opens the new database to allow the system to recover used disk space.
+func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...string) error {
+	err := db.closeDatabase(dbName)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
 
-	// We need to close the database we have just migrated *to* in order to
-	// recover any excess disk usage that was freed in the VACUUM call
-	return ErrDatabase.Wrap(db.closeDatabase(dbName))
+	path := db.filepathFromDBName(dbName)
+
+	if _, err := os.Stat(path); err == nil {
+		err = os.Remove(path)
+		if err != nil {
+			return ErrDatabase.Wrap(err)
+		}
+	}
+
+	destDB, err := db.openDatabase(dbName)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+	//TODO(isaac): make sure we close properly
+
+	err = sqliteutil.MigrateTablesToDatabase(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), destDB, tablesToKeep...)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	// We need to close and re-open the database we have just migrated *to* in
+	// order to recover any excess disk usage that was freed in the VACUUM call
+	err = db.closeDatabase(dbName)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	_, err = db.openDatabase(dbName)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	return nil
 }
 
 // Migration returns table migrations.
 func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 	return &migrate.Migration{
-		Table: "versions",
+		Table: VersionTable,
 		Steps: []*migrate.Step{
 			{
 				DB:          db.deprecatedInfoDB,
@@ -782,53 +819,59 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Split into multiple sqlite databases",
 				Version:     22,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					// TODO(isaac): Delete the databases to make this idempotent
 
 					// Migrate all the tables to new database files.
-					if err := db.migrateAndCloseDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
+					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.migrateAndCloseDB(ctx, OrdersDBName, "unsent_order", "order_archive_"); err != nil {
+					if err := db.migrateToDB(ctx, OrdersDBName, "unsent_order", "order_archive_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.migrateAndCloseDB(ctx, PieceExpirationDBName, "piece_expirations"); err != nil {
+					if err := db.migrateToDB(ctx, PieceExpirationDBName, "piece_expirations"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.migrateAndCloseDB(ctx, PieceInfoDBName, "pieceinfo_"); err != nil {
+					if err := db.migrateToDB(ctx, PieceInfoDBName, "pieceinfo_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.migrateAndCloseDB(ctx, PieceSpaceUsedDBName, "piece_space_used"); err != nil {
+					if err := db.migrateToDB(ctx, PieceSpaceUsedDBName, "piece_space_used"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.migrateAndCloseDB(ctx, ReputationDBName, "reputation"); err != nil {
+					if err := db.migrateToDB(ctx, ReputationDBName, "reputation"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.migrateAndCloseDB(ctx, StorageUsageDBName, "storage_usage"); err != nil {
+					if err := db.migrateToDB(ctx, StorageUsageDBName, "storage_usage"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.migrateAndCloseDB(ctx, UsedSerialsDBName, "used_serial_"); err != nil {
+					if err := db.migrateToDB(ctx, UsedSerialsDBName, "used_serial_"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.migrateAndCloseDB(ctx, SatellitesDBName, "satellites", "satellite_exit_progress"); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					// Clean up the legacy database.
-					err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), "versions")
-					if err != nil {
+					if err := db.migrateToDB(ctx, SatellitesDBName, "satellites", "satellite_exit_progress"); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
-					// Now close the deprecated db in order to free up unused
+					return nil
+				}),
+			},
+			{
+				DB:          db.deprecatedInfoDB,
+				Description: "Drop unneeded tables in deprecatedInfoDB",
+				Version:     23,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					if err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), VersionTable); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					// Close the deprecated db in order to free up unused
 					// disk space
 					if err := db.closeDatabase(DeprecatedInfoDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
-					// Reopen all databases now that the migration is complete
-					err = db.openDatabases()
-					if err != nil {
+					if _, err := db.openDatabase(DeprecatedInfoDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
+
 					return nil
 				}),
 			},

@@ -47,6 +47,7 @@ func getSchemas(rawDBs map[string]storagenodedb.SQLDB) (map[string]*dbschema.Sch
 	for dbName, rawDB := range rawDBs {
 		schema, err := sqliteutil.QuerySchema(rawDB)
 		if err != nil {
+			fmt.Println("ERR", dbName, err)
 			return nil, err
 		}
 
@@ -92,8 +93,6 @@ func TestMigrate(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
-	rawDBs := db.RawDatabases()
-
 	// get migration for this database
 	migrations := db.Migration(ctx)
 	for i, step := range migrations.Steps {
@@ -107,6 +106,8 @@ func TestMigrate(t *testing.T) {
 		// find the matching expected version
 		expected, ok := testdata.States.FindVersion(step.Version)
 		require.True(t, ok)
+
+		rawDBs := db.RawDatabases()
 
 		// insert data for new tables
 		err = insertNewData(expected, rawDBs)
