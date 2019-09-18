@@ -41,10 +41,13 @@ func TestInvalidAPIKey(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
+	throwawayKey, err := macaroon.NewAPIKey([]byte("secret"))
+	require.NoError(t, err)
+
 	planet.Start(ctx)
 
 	for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
-		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], macaroon.NewAPIKey([]byte("secret")))
+		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
@@ -80,8 +83,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 
 	planet.Start(ctx)
 
-	key, err := macaroon.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
-	require.NoError(t, err)
+	key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 	tests := []struct {
 		Caveat               macaroon.Caveat
