@@ -1383,7 +1383,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		}
 		uptimeReputationAlpha := config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
 		uptimeReputationBeta := config.UptimeReputationLambda*config.UptimeReputationBeta0 + config.UptimeReputationWeight*(1-v)/2
-		semVer, err := version.NewSemVer(node.GetVersion().GetVersion())
+		semVer, err := version.NewSemVer(node.Version.GetVersion())
 		if err != nil {
 			return Error.New("unable to convert version to semVer")
 		}
@@ -1453,7 +1453,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			// args $15 - $17
 			config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
 			// args $18 - $23
-			semVer.Major, semVer.Minor, semVer.Patch, node.GetVersion().GetCommitHash(), node.GetVersion().Timestamp, node.GetVersion().GetRelease(),
+			semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
 		)
 		if err != nil {
 			return Error.Wrap(err)
