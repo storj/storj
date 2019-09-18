@@ -24,32 +24,32 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { NODE_ACTIONS } from '@/app/store/modules/node';
 
-    const {
-        GET_NODE_INFO,
-        SELECT_SATELLITE,
-    } = NODE_ACTIONS;
+const {
+    GET_NODE_INFO,
+    SELECT_SATELLITE,
+} = NODE_ACTIONS;
 
-    @Component
-    export default class SNOHeader extends Vue {
-        public async onRefresh(): Promise<void> {
-            const selectedSatellite = this.$store.state.node.selectedSatellite.id;
+@Component
+export default class SNOHeader extends Vue {
+    public async onRefresh(): Promise<void> {
+        const selectedSatellite = this.$store.state.node.selectedSatellite.id;
 
-            try {
-                await this.$store.dispatch(GET_NODE_INFO);
-                await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
-            } catch (error) {
-                console.error(`${error.message} satellite data.`);
-            }
-        }
-
-        public get nodeId(): string {
-            return this.$store.state.node.info.id;
+        try {
+            await this.$store.dispatch(GET_NODE_INFO);
+            await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
+        } catch (error) {
+            console.error(`${error.message} satellite data.`);
         }
     }
+
+    public get nodeId(): string {
+        return this.$store.state.node.info.id;
+    }
+}
 </script>
 
 <style lang="scss">
