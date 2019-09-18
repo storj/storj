@@ -3168,7 +3168,14 @@
             ]
           },
           {
-            "name": "SegmentCommitResponse"
+            "name": "SegmentCommitResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "successful_pieces",
+                "type": "int32"
+              }
+            ]
           },
           {
             "name": "SegmentMakeInlineRequest",
@@ -5550,6 +5557,11 @@
                 "id": 10,
                 "name": "repair_count",
                 "type": "int32"
+              },
+              {
+                "id": 11,
+                "name": "piece_hashes_verified",
+                "type": "bool"
               }
             ]
           },
