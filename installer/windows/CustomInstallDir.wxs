@@ -23,6 +23,7 @@ Patch dialog sequence:
     <Fragment>
         <CustomAction Id="CA.ValidateIdentityDir" BinaryKey="StorjDLL" DllEntry="ValidateIdentityDir" Return="check" />
         <CustomAction Id="CA.ValidateWallet" BinaryKey="StorjDLL" DllEntry="ValidateWallet" Return="check" />
+        <CustomAction Id="CA.ValidateStorageDir" BinaryKey="StorjDLL" DllEntry="ValidateStorageDir" Return="check" />
         <CustomAction Id="CA.ValidateStorage" BinaryKey="StorjDLL" DllEntry="ValidateStorage" Return="check" />
         <CustomAction Id="CA.ValidateBandwidth" BinaryKey="StorjDLL" DllEntry="ValidateBandwidth" Return="check" />
       
@@ -85,7 +86,10 @@ Patch dialog sequence:
             <Publish Dialog="PublicAddressConfigDlg" Control="Next" Event="NewDialog" Value="StorageDirConfigDlg" Order="1">1</Publish>
 
             <Publish Dialog="StorageDirConfigDlg" Control="Back" Event="NewDialog" Value="PublicAddressConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="1">1</Publish>
+            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateStorageDir" Order="1">1</Publish>
+            <Publish Dialog="StorageDirConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_STORAGEDIR_VALID]" Order="2">1</Publish>
+            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_STORAGEDIR_VALID<>"1"]]></Publish>
+            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="4">STORJ_STORAGEDIR_VALID="1"</Publish>
             <Publish Dialog="StorageDirConfigDlg" Control="StorageChangeFolder" Property="_BrowseProperty" Value="[STORJ_STORAGEDIR]" Order="1">1</Publish>
             <Publish Dialog="StorageDirConfigDlg" Control="StorageChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
 

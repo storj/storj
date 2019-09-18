@@ -83,6 +83,31 @@ namespace Storj
             session["STORJ_WALLET_VALID"] = "1";
             return ActionResult.Success;
         }
+        [CustomAction]
+        public static ActionResult ValidateStorageDir(Session session)
+        {
+            string identityDir = session["STORAGEDIR"];
+
+            if (string.IsNullOrEmpty(identityDir))
+            {
+                session["STORJ_STORAGEDIR_VALID"] = "You must select a storage folder.";
+                return ActionResult.Success;
+            }
+
+            long minFreeSpace = 550000000000; // 550 GB (500 GB + 10% overhead)
+            DirectoryInfo dir = new DirectoryInfo(identityDir);
+            DriveInfo drive = new DriveInfo(dir.Root.FullName);
+
+            if (drive.AvailableFreeSpace < minFreeSpace)
+            {
+                session["STORJ_STORAGEDIR_VALID"] = string.Format("The selected drive '{0}' has only {1:0.##} GB free space. The minimum required is 550 GB.", drive.Name, decimal.Divide(drive.AvailableFreeSpace, 1000000000));
+                return ActionResult.Success;
+            }
+
+            // Storage dir is valid
+            session["STORJ_STORAGEDIR_VALID"] = "1";
+            return ActionResult.Success;
+        }
 
         [CustomAction]
         public static ActionResult ValidateStorage(Session session)
