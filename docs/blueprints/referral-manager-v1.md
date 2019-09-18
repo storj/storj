@@ -44,7 +44,7 @@ _Referral Manager CLI_
     - If `eligibleUsers` is not empty, it means one of two things:
         * Someone else is using the Referral Manager at the same time and has not generated/sent tokens yet.
         * The CLI was terminated between the get `eligibleUsers` step and the generate/send tokens step.
-    
+
         Either one of the cases, We will return an error and display `Referral token generation already in progress or canceled early. Do you want to continue anyway?`. If they decide to continue, we call `ClearUsers` to sets eligibleUsers to empty and the Referral Manager contacts Tardigrade satellites to get users with 0 remaining invites.
 2. The Referral Manager aggregates the satellite responses and returns the number of users to the CLI.
 3. The CLI receives the number of users and displays: `How many invitation do you want to generate for each user?`
@@ -73,12 +73,18 @@ _Referral Link Redemption_
     then send a request to the Referral Manager to save the newly created user ID along with the used token.
     - if it is an invalid token, the satellite will display a proper message in the UI.
 4. Referral Manager reaches out to the host satellite holding the redeemed token, so that it can be removed from the UI.
-    
+
 _User Interface For Displaying Referral Link_
 
 1. Users will have a referral tab on the UI. On click, it will try to retrieve referral tokens from the backend:
     - if the front-end receives tokens, it should display them.
     - if the front-end receives empty response payload, it should display a message `No available referral link. Try again later.`
+
+_Authentication_
+
+1. The below satellite endpoints should only be called by Referral Manager.
+2. Referral Manager should send an auth token with each of its requests.
+3. The auth token used by Referral Manager should match with the one that's stored in each satellite's config.yaml file.
 
 ## Rationale
 
@@ -114,6 +120,11 @@ Statuses: `unsent` (host satellite doesn't know about it yet), `unredeemed` (hos
 
 **Referral Manager endpoints:**
 ```
+// GetSatelliteURLs retrieves a list of satellite URLs from satellites table
+GetSatelliteURLs() ([]satelliteURL, error) {
+    return db.GetSatellites()
+}
+
 // GetEligibleUsers retrieves a list of users who have 0 remaining invitation tokens
 // from each satellite provided, and saves those users in memory
 GetEligibleUsers([]satelliteURLs) (map[satelliteURL]int, error) {
@@ -121,10 +132,13 @@ GetEligibleUsers([]satelliteURLs) (map[satelliteURL]int, error) {
         return nil, UsersAlreadyRetrievedErr
     }
 
+    // verify satellite urls
+    db.GetSatelliteURLs([]satelliteURLs)
+
     eligibleUsers := make(map[satelliteURL][]UserID)
     eligibleUsersCounts := make(map[satelliteURL]int)
     for _, satellite := range satelliteURL {
-       users := satellite.GetUsersReferral() 
+       users := satellite.GetUsersReferral()
         eligibleUsers[satellite] = users
         eligibleUsersCounts[satellite]++
     }
@@ -160,7 +174,7 @@ GenerateAndSendInvitationTokens(satelliteURL []string, tokensPerUser int) (map[s
 
 // Redeem marks a token as redeemed and deletes the token from host satellite
 func Redeem(ctx, token, newUserID) error {
-	// only update the status and invitee columns 
+	// only update the status and invitee columns
 	// if the status of a token is unredeems
 	tokenStatus, err := db.UpdateToken(ctx, token, newUserID, "redeemed")
 	if err != nil {
@@ -186,12 +200,21 @@ func ClearUsers(ctx, satelliteURL) {
 ```
 // GetUsersReferral gets a list of users on this satellite who have 0 remaining invitation tokens
 GetUsersReferral() []userIDs {
+    err := verifyAuthToken()
+    if err != nil {
+        return err
+    }
     return db.GetUsersWhere0RemainingInvitationTokens()
 }
 
 // AddInvitationTokens associates a list of tokens from the referral manager with users on the satellite
 // It returns the number of tokens added
 AddInvitationTokens([]token) int {
+    err := verifyAuthToken()
+    if err != nil {
+        return err
+    }
+
     successCount := 0
     for token := range tokens {
         db.AddToken(token.user, token.data)
@@ -202,13 +225,25 @@ AddInvitationTokens([]token) int {
 
 // DeleteInvitationToken deletes a token on a satellite because it has been redeemed
 DeleteInvitationToken(token Token) {
+    err := verifyAuthToken()
+    if err != nil {
+        return err
+    }
+
     db.DeleteToken(token.OwnerID
 }
 ```
 
 **CLI code:**
 ```
-startCmd(satelliteURLS []string) {
+startCmd() {
+    satelliteURLs, err := referralManager.GetSatelliteURLs()
+    if err != nil {
+        fmt.Println("Something went wrong on our end. Please try again later.")
+        exit
+    }
+    fmt.Printf("Here are the list of satellites that referrlal manager will generate referral link for: %s", satelliteURLs)
+
     eligibleUsers, err := referralManager.GetEligibleUsers(satelliteURLs)
     if err == UsersAlreadyRetrievedErr {
         confirm := prompt("Referral token generation already in progress or canceled early. Do you want to continue anyway?")
