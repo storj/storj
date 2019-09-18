@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Implements support for running the storage node as a Windows Service.
+// Implements support for running the auto-updater as a Windows Service.
 //
 // The Windows Service can be created with sc.exe, e.g.
 //
@@ -63,7 +63,7 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 
 				cancel()
 				// Sleep some time to give chance for goroutines finish cleanup after cancelling the context
-				time.Sleep(15 * time.Second)
+				time.Sleep(3 * time.Second)
 				// After returning the Windows Service is stopped and the process terminates
 				return
 			default:
