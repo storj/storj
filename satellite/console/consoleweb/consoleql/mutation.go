@@ -451,24 +451,21 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 			AddPaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
-				Args: graphql.FieldConfigArgument{
-				},
+				Args: graphql.FieldConfigArgument{},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					return nil, nil
 				},
 			},
 			DeletePaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
-				Args: graphql.FieldConfigArgument{
-				},
+				Args: graphql.FieldConfigArgument{},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					return nil, nil
 				},
 			},
 			SetDefaultPaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
-				Args: graphql.FieldConfigArgument{
-				},
+				Args: graphql.FieldConfigArgument{},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					return nil, nil
 				},
