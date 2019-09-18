@@ -59,6 +59,7 @@ message Pointer {
 
   google.protobuf.Timestamp last_repaired = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
   int32 repair_count = 10;
+  bool piece_hashes_verified = 11;
 }
 
 // ListResponse is a response message for the List rpc call
