@@ -421,7 +421,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				}
 				if errs2.IsRPC(err, codes.NotFound) {
 					// Get the original segment pointer in the metainfo
-					oldPtr, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pointer)
+					oldPtr, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer)
 					if err != nil {
 						ch <- result{nodeID: pending.NodeID, status: success}
 						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.String("Segment Path", path), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
@@ -453,7 +453,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				ch <- result{nodeID: pending.NodeID, status: success}
 				verifier.log.Debug("Reverify: hashes match (audit success)", zap.String("Segment Path", path), zap.Stringer("Node ID", pending.NodeID))
 			} else {
-				oldPtr, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pointer)
+				oldPtr, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer)
 				if err != nil {
 					ch <- result{nodeID: pending.NodeID, status: success}
 					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.String("Segment Path", path), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
