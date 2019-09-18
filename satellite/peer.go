@@ -306,9 +306,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 					Address: c.ExternalAddress,
 				},
 			},
-			Type:     pb.NodeType_SATELLITE,
-			Operator: pb.NodeOperator{},
-			Version:  *pbVersion,
+			Type:    pb.NodeType_SATELLITE,
+			Version: *pbVersion,
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Transport)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)

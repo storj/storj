@@ -110,7 +110,6 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				UpdateStatsBatchSize: 100,
 			},
 			Discovery: discovery.Config{
-				DiscoveryInterval:  1 * time.Second,
 				RefreshInterval:    1 * time.Second,
 				RefreshLimit:       100,
 				RefreshConcurrency: 2,
