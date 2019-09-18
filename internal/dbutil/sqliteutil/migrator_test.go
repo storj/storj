@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 )
 
-func TestMigrateTablesToDatabase(t *testing.T) {
+func TestMigrateTables(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -33,7 +33,7 @@ func TestMigrateTablesToDatabase(t *testing.T) {
 	// This table should be removed after migration
 	execSQL(t, srcDB, "CREATE TABLE what(I Int);")
 
-	err := sqliteutil.MigrateTablesToDatabase(ctx, srcDB, destDB, "bobby_jones")
+	err := sqliteutil.MigrateTables(ctx, srcDB, destDB, "bobby_jones")
 	require.NoError(t, err)
 
 	destSchema, err := sqliteutil.QuerySchema(destDB)

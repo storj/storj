@@ -20,10 +20,10 @@ var (
 	ErrKeepTables = errs.Class("keep tables:")
 )
 
-// MigrateTablesToDatabase copies the specified tables from srcDB into destDB.
+// MigrateTables copies the specified tables from srcDB into destDB.
 // All tables in destDB will be dropped other than those specified in
 // tablesToKeep.
-func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB *sql.DB, tablesToKeep ...string) error {
+func MigrateTables(ctx context.Context, srcDB, destDB *sql.DB, tablesToKeep ...string) error {
 	err := func() error {
 		// Retrieve the raw Sqlite3 driver connections for the src and dest so that
 		// we can execute the backup API for a corruption safe clone.
