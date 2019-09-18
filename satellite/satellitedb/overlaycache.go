@@ -1014,6 +1014,69 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes st
 	return exitingNodes, nil
 }
 
+// UpdateExitStatus returns nodes in exiting status.
+func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (stats *overlay.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodeID := request.NodeID
+
+	updateFields := populateExitStatusFields(request)
+
+	tx, err := cache.db.Open(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	dbNode, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	// Cleanup containment table too
+	_, err = tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(nodeID.Bytes()))
+	if err != nil {
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
+	}
+
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+}
+
+func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fields {
+	prepared := prepareUpdateExitStatus{
+		NodeID:              req.NodeID,
+		ExitInitiatedAt:     timeField{set: req.UpdateInitiated, value: req.ExitInitiatedAt.UTC()},
+		ExitLoopCompletedAt: timeField{set: req.UpdateLoopCompleted, value: req.ExitLoopCompletedAt.UTC()},
+		ExitFinishedAt:      timeField{set: req.UpdateFinished, value: req.ExitFinishedAt.UTC()},
+	}
+	dbxUpdateFields := dbx.Node_Update_Fields{}
+
+	if prepared.ExitInitiatedAt.set {
+		dbxUpdateFields.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(prepared.ExitInitiatedAt.value)
+	}
+	if prepared.ExitLoopCompletedAt.set {
+		dbxUpdateFields.ExitLoopCompletedAt = dbx.Node_ExitLoopCompletedAt(prepared.ExitLoopCompletedAt.value)
+	}
+	if prepared.ExitFinishedAt.set {
+		dbxUpdateFields.ExitFinishedAt = dbx.Node_ExitFinishedAt(prepared.ExitFinishedAt.value)
+	}
+
+	return dbxUpdateFields
+}
+
+type prepareUpdateExitStatus struct {
+	NodeID              storj.NodeID
+	ExitInitiatedAt     timeField
+	ExitLoopCompletedAt timeField
+	ExitFinishedAt      timeField
+}
+
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if info == nil {

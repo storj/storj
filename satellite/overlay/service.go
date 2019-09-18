@@ -74,6 +74,8 @@ type DB interface {
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
 	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
 
+	// UpdateExitStatus is used to update a node's graceful exit status.
+	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (stats *NodeStats, err error)
 	// GetExitingNodes returns nodes in exiting status.
 	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
 }
@@ -115,6 +117,17 @@ type UpdateRequest struct {
 	UptimeLambda float64
 	UptimeWeight float64
 	UptimeDQ     float64
+}
+
+// ExitStatusRequest is used to update a node's graceful exit status.
+type ExitStatusRequest struct {
+	NodeID              storj.NodeID
+	ExitInitiatedAt     time.Time
+	ExitLoopCompletedAt time.Time
+	ExitFinishedAt      time.Time
+	UpdateInitiated     bool
+	UpdateLoopCompleted bool
+	UpdateFinished      bool
 }
 
 // NodeDossier is the complete info that the satellite tracks for a storage node
