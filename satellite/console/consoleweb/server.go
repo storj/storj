@@ -59,6 +59,13 @@ type Config struct {
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
+
+	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
+	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SEOLink               string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 }
 
 // Server represents console web server
