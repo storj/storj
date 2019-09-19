@@ -452,6 +452,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
+			peer.DB.PeerIdentities(),
 			peer.DB.Containment(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
