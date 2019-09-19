@@ -275,7 +275,7 @@ func (db *DB) closeDatabases() error {
 func (db *DB) closeDatabase(dbName string) (err error) {
 	mdb, ok := db.sqlDatabases[dbName]
 	if !ok {
-		return ErrDatabase.New("no database with name %s", dbName)
+		return ErrDatabase.New("no database with name %s found. database was never opened or already closed.", dbName)
 	}
 	return ErrDatabase.Wrap(mdb.GetDB().Close())
 }

@@ -139,7 +139,7 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) (err er
 	}
 
 	// Get a list of tables excluding sqlite3 system tables.
-	rows, err := txn.Query("SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
+	rows, err := txn.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -164,7 +164,7 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) (err er
 	for _, tableName := range tables {
 		if !tableToKeep(tableName, tablesToKeep) {
 			// Drop tables we aren't told to keep in the destination database.
-			_, err = txn.Exec(fmt.Sprintf("DROP TABLE %s;", tableName))
+			_, err = txn.ExecContext(ctx, fmt.Sprintf("DROP TABLE %s;", tableName))
 			if err != nil {
 				return errs.Wrap(err)
 			}
