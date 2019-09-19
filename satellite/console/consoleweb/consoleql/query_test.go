@@ -301,17 +301,22 @@ func TestGraphqlQuery(t *testing.T) {
 
 		t.Run("Project query api keys", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {project(id:\"%s\"){apiKeys{name,id,createdAt,projectID}}}",
+				"query {project(id: \"%s\") {apiKeys( cursor: { limit: %d, search: \"%s\", page: %d, order: %d, orderDirection: %d } ) { apiKeys { id, name, createdAt, projectID }, search, limit, order, offset, pageCount, currentPage, totalCount } } }",
 				createdProject.ID.String(),
-			)
+				5,
+				"",
+				1,
+				1,
+				2)
 
 			result := testQuery(t, query)
 
 			data := result.(map[string]interface{})
 			project := data[consoleql.ProjectQuery].(map[string]interface{})
-			keys := project[consoleql.FieldAPIKeys].([]interface{})
+			keys := project[consoleql.FieldAPIKeys].(map[string]interface{})
+			apiKeys := keys[consoleql.FieldAPIKeys].([]interface{})
 
-			assert.Equal(t, 2, len(keys))
+			assert.Equal(t, 2, len(apiKeys))
 
 			testAPIKey := func(t *testing.T, actual map[string]interface{}, expected *console.APIKeyInfo) {
 				assert.Equal(t, expected.Name, actual[consoleql.FieldName])
@@ -326,7 +331,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 			var foundKey1, foundKey2 bool
 
-			for _, entry := range keys {
+			for _, entry := range apiKeys {
 				key := entry.(map[string]interface{})
 
 				id := key[consoleql.FieldID].(string)

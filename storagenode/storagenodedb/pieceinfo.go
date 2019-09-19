@@ -21,17 +21,11 @@ import (
 // ErrPieceInfo represents errors from the piece info database.
 var ErrPieceInfo = errs.Class("v0pieceinfodb error")
 
-type v0PieceInfoDB struct {
-	location string
-	SQLDB
-}
+// PieceInfoDBName represents the database name.
+const PieceInfoDBName = "pieceinfo"
 
-// newV0PieceInfoDB returns a new instance of pieceinfo initialized with the specified database.
-func newV0PieceInfoDB(db SQLDB, location string) *v0PieceInfoDB {
-	return &v0PieceInfoDB{
-		location: location,
-		SQLDB:    db,
-	}
+type v0PieceInfoDB struct {
+	migratableDB
 }
 
 // Add inserts piece information into the database.

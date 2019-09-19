@@ -35,7 +35,7 @@ describe('Checkbox.vue', () => {
     it('renders correctly with error', () => {
 
         const wrapper = shallowMount(Checkbox, {
-            propsData: {isCheckboxError: true}
+            propsData: {isCheckboxError: true},
         });
 
         expect(wrapper).toMatchSnapshot();

@@ -162,9 +162,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revDB extensions.R
 
 		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, nil, peer.Kademlia.RoutingTable, nil)
 		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
+		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Kademlia.Endpoint)
 
 		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
 		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
+		pb.DRPCRegisterKadInspector(peer.Server.PrivateDRPC(), peer.Kademlia.Inspector)
 	}
 
 	{ // setup bootstrap web ui

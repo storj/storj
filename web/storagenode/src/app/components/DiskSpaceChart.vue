@@ -26,11 +26,11 @@ import { Stamp } from '@/storagenode/satellite';
  */
 class StampTooltip {
     public atRestTotal: string;
-    public intervalStart: string;
+    public date: string;
 
     public constructor(stamp: Stamp) {
         this.atRestTotal = formatBytes(stamp.atRestTotal);
-        this.intervalStart = stamp.intervalStart.toLocaleString();
+        this.date = stamp.intervalStart.toUTCString();
     }
 }
 
@@ -81,8 +81,8 @@ export default class DiskSpaceChart extends Vue {
             const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
 
             tooltipEl.innerHTML = `<div class='tooltip-body'>
-                                       <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}</b></p>
-                                       <p class='tooltip-body__footer'>${dataPoint.intervalStart}</p>
+                                       <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}*h</b></p>
+                                       <p class='tooltip-body__footer'>${dataPoint.date}</p>
                                    </div>`;
         }
 

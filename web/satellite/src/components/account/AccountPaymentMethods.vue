@@ -51,7 +51,7 @@ import Button from '@/components/common/Button.vue';
 @Component({
     components: {
         Button,
-    }
+    },
 })
 export default class AccountPaymentMethods extends Vue {}
 </script>
