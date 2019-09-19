@@ -232,11 +232,16 @@ waitformore:
 // handlePointer deals with a pointer for a single observer
 // if there is some error on the observer, handle the error and return false. Otherwise, return true
 func handlePointer(ctx context.Context, observer *observerContext, path ScopedPath, isLastSegment bool, pointer *pb.Pointer) bool {
-	if pointer.GetRemote() != nil {
+	switch pointer.GetType() {
+	case pb.Pointer_REMOTE:
 		if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
 			return false
 		}
-	} else if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
+	case pb.Pointer_INLINE:
+		if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
+			return false
+		}
+	default:
 		return false
 	}
 	if isLastSegment {

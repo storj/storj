@@ -21,22 +21,16 @@ import (
 // ErrBandwidth represents errors from the bandwidthdb database.
 var ErrBandwidth = errs.Class("bandwidthdb error")
 
+// BandwidthDBName represents the database name.
+const BandwidthDBName = "bandwidth"
+
 type bandwidthDB struct {
 	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
 	usedSpace int64
 	usedMu    sync.RWMutex
 	usedSince time.Time
 
-	location string
-	SQLDB
-}
-
-// newBandwidthDB returns a new instance of usedSerials initialized with the specified database.
-func newBandwidthDB(db SQLDB, location string) *bandwidthDB {
-	return &bandwidthDB{
-		location: location,
-		SQLDB:    db,
-	}
+	migratableDB
 }
 
 // Add adds bandwidth usage to the table
