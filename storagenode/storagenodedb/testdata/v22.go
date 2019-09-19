@@ -3,8 +3,8 @@
 
 package testdata
 
-var v21 = MultiDBState{
-	Version: 21,
+var v22 = MultiDBState{
+	Version: 22,
 	DBStates: DBStates{
 		"versions": &DBState{
 			SQL: `
