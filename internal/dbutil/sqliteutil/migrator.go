@@ -24,7 +24,7 @@ var (
 // All tables in destDB will be dropped other than those specified in
 // tablesToKeep.
 func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB *sql.DB, tablesToKeep ...string) error {
-	err := migrateDBs(ctx, srcDB, destDB)
+	err := backupDBs(ctx, srcDB, destDB)
 	if err != nil {
 		return ErrMigrateTables.Wrap(err)
 	}
@@ -33,7 +33,7 @@ func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB *sql.DB, tablesT
 	return ErrMigrateTables.Wrap(KeepTables(ctx, destDB, tablesToKeep...))
 }
 
-func migrateDBs(ctx context.Context, srcDB, destDB *sql.DB) error {
+func backupDBs(ctx context.Context, srcDB, destDB *sql.DB) error {
 	// Retrieve the raw Sqlite3 driver connections for the src and dest so that
 	// we can execute the backup API for a corruption safe clone.
 	srcConn, err := srcDB.Conn(ctx)
@@ -68,11 +68,7 @@ func migrateDBs(ctx context.Context, srcDB, destDB *sql.DB) error {
 				return ErrMigrateTables.New("unable to get database driver")
 			}
 
-			err := backup(ctx, srcSqliteConn, destSqliteConn)
-			if err != nil {
-				return ErrMigrateTables.Wrap(err)
-			}
-			return nil
+			return ErrMigrateTables.Wrap(backupConns(ctx, srcSqliteConn, destSqliteConn))
 		})
 		if err != nil {
 			return ErrMigrateTables.Wrap(err)
@@ -83,9 +79,9 @@ func migrateDBs(ctx context.Context, srcDB, destDB *sql.DB) error {
 	return ErrMigrateTables.Wrap(err)
 }
 
-// backup executes the sqlite3 backup process that safely ensures that no other
+// backupConns executes the sqlite3 backup process that safely ensures that no other
 // connections to the database accidentally corrupt the source or destination.
-func backup(ctx context.Context, sourceDB *sqlite3.SQLiteConn, destDB *sqlite3.SQLiteConn) error {
+func backupConns(ctx context.Context, sourceDB *sqlite3.SQLiteConn, destDB *sqlite3.SQLiteConn) error {
 	// "main" represents the main (ie not "temp") database in sqlite3, which is
 	// the database we want to backup, and the appropriate dest in the destDB
 	backup, err := destDB.Backup("main", sourceDB, "main")
