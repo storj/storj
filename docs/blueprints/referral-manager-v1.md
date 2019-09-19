@@ -106,12 +106,12 @@ The Token struct represents both a Go struct (on satellite and Referral Manager)
 
 ```
 type Token struct {
-	Secret [32]byte
-	OwnerID uuid.UUID
-	RedeemedID uuid.UUID
+    Secret [32]byte
+    OwnerID uuid.UUID
+    RedeemedID uuid.UUID
     OwnerSatelliteURL string
     RedeemedSatelliteURL string
-	Status string
+    Status string
 }
 ```
 Statuses: `unsent` (owner's satellite doesn't know about it yet), `unredeemed` (owner's satellite knows about it but it has not been used), `redeemed` (someone has used this referral link to register alreadys)
