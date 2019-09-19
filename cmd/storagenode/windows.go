@@ -15,6 +15,7 @@
 package main
 
 import (
+	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -24,6 +25,7 @@ import (
 )
 
 func init() {
+	// Check if session is interactive
 	interactive, err := svc.IsAnInteractiveSession()
 	if err != nil {
 		zap.S().Fatalf("Failed to determine if session is interactive: %v", err)
@@ -33,6 +35,16 @@ func init() {
 		return
 	}
 
+	// Check if the 'run' command is invoked
+	if len(os.Args) < 2 {
+		return
+	}
+
+	if os.Args[1] != "run" {
+		return
+	}
+
+	// Initialize the Windows Service handler
 	err = svc.Run("storagenode", &service{})
 	if err != nil {
 		zap.S().Fatalf("Service failed: %v", err)
