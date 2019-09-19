@@ -89,7 +89,7 @@
     <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
     
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='commit' Impersonate='no' 
-                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot; --kademlia.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot;"
+                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --kademlia.operator.email &quot;[STORJ_EMAIL]&quot; --kademlia.operator.wallet &quot;[STORJ_WALLET]&quot; --kademlia.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;"
     />
     <InstallExecuteSequence>
       <Custom Action='StoragenodeSetup' Before='InstallFinalize'>NOT Installed</Custom>
