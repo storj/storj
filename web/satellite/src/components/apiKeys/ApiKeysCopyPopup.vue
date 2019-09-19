@@ -3,7 +3,7 @@
 
 <template>
     <div class="save-api-popup" v-if="isPopupShown">
-        <h2>Name Your API Key</h2>
+        <h2>Save Your API Key! It Will Appear Only Once.</h2>
         <div class="save-api-popup__copy-area">
             <div class="save-api-popup__copy-area__key-area">
                 <p>{{apiKeySecret}}</p>
