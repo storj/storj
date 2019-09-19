@@ -19,6 +19,10 @@ const (
 	fieldSignature      fieldType = 6
 )
 
+const (
+	version byte = 2
+)
+
 type packet struct {
 	fieldType fieldType
 	data      []byte
@@ -29,7 +33,7 @@ func (m *Macaroon) Serialize() (data []byte) {
 	ctx := context.TODO()
 	defer mon.Task()(&ctx)(nil)
 	// Start data from version int
-	data = append(data, 2)
+	data = append(data, version)
 
 	// Serilize Identity
 	data = serializePacket(data, packet{
@@ -81,7 +85,7 @@ func ParseMacaroon(data []byte) (_ *Macaroon, err error) {
 	if len(data) < 2 {
 		return nil, errors.New("empty macaroon")
 	}
-	if data[0] != 2 {
+	if data[0] != version {
 		return nil, errors.New("invalid macaroon version")
 	}
 	// skip version

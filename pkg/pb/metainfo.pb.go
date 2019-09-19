@@ -3706,7 +3706,8 @@ func (m *SegmentDownloadResponse) GetNext() *SegmentPosition {
 }
 
 type BatchRequest struct {
-	Header               *RequestHeader      `protobuf:"bytes,15,opt,name=header,proto3" json:"header,omitempty"`
+	Header *RequestHeader `protobuf:"bytes,15,opt,name=header,proto3" json:"header,omitempty"`
+	// headers for specific BatchRequestItems are ignored entirely
 	Requests             []*BatchRequestItem `protobuf:"bytes,1,rep,name=requests,proto3" json:"requests,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`

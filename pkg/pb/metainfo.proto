@@ -560,8 +560,9 @@ message SegmentDownloadResponse {
 }
 
 message BatchRequest {
-    RequestHeader header = 15; // only used for BatchRequestItems without their own header
+    RequestHeader header = 15; // the only header that matters in a batch.
 
+    // headers for specific BatchRequestItems are ignored entirely
     repeated BatchRequestItem requests = 1;
 }
 
