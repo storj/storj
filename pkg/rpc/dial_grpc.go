@@ -61,12 +61,13 @@ type captureStateCreds struct {
 	credentials.TransportCredentials
 	once  sync.Once
 	state tls.ConnectionState
+	ok    bool
 }
 
 // Get returns the stored tls connection state.
 func (c *captureStateCreds) Get() (state tls.ConnectionState, ok bool) {
-	c.once.Do(func() { ok = true })
-	return c.state, ok
+	c.once.Do(func() {})
+	return c.state, c.ok
 }
 
 // ClientHandshake dispatches to the underlying credentials and tries to store the
@@ -76,7 +77,7 @@ func (c *captureStateCreds) ClientHandshake(ctx context.Context, authority strin
 
 	conn, auth, err := c.TransportCredentials.ClientHandshake(ctx, authority, rawConn)
 	if tlsInfo, ok := auth.(credentials.TLSInfo); ok {
-		c.once.Do(func() { c.state = tlsInfo.State })
+		c.once.Do(func() { c.state, c.ok = tlsInfo.State, true })
 	}
 	return conn, auth, err
 }
@@ -88,7 +89,7 @@ func (c *captureStateCreds) ServerHandshake(rawConn net.Conn) (
 
 	conn, auth, err := c.TransportCredentials.ServerHandshake(rawConn)
 	if tlsInfo, ok := auth.(credentials.TLSInfo); ok {
-		c.once.Do(func() { c.state = tlsInfo.State })
+		c.once.Do(func() { c.state, c.ok = tlsInfo.State, true })
 	}
 	return conn, auth, err
 }

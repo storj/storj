@@ -28,12 +28,16 @@ func (ctx *Context) Compile(pkg string) string {
 
 	exe := ctx.File("build", path.Base(pkg)+".exe")
 
-	var cmd *exec.Cmd
+	args := []string{"build"}
 	if raceEnabled {
-		cmd = exec.Command("go", "build", "-race", "-o", exe, pkg)
-	} else {
-		cmd = exec.Command("go", "build", "-o", exe, pkg)
+		args = append(args, "-race")
 	}
+	if drpcEnabled {
+		args = append(args, "-tags=drpc")
+	}
+	args = append(args, "-o", exe, pkg)
+
+	cmd := exec.Command("go", args...)
 	ctx.test.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()
@@ -53,8 +57,14 @@ func (ctx *Context) CompileShared(t *testing.T, name string, pkg string) Include
 
 	base := ctx.File("build", name)
 
+	args := []string{"build", "-buildmode", "c-shared"}
+	if drpcEnabled {
+		args = append(args, "-tags=drpc")
+	}
+	args = append(args, "-o", base+".so", pkg)
+
 	// not using race detector for c-shared
-	cmd := exec.Command("go", "build", "-buildmode", "c-shared", "-o", base+".so", pkg)
+	cmd := exec.Command("go", args...)
 	t.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()
