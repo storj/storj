@@ -25,7 +25,7 @@ func init() {
 }
 
 func makeBucket(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	if len(args) == 0 {
 		return fmt.Errorf("No bucket specified for creation")

@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/uplink"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -127,10 +128,27 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 				require.NoError(t, err)
 
 				// mark node as offline in overlay
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				info := overlay.NodeCheckInInfo{
+					NodeID: node.ID(),
+					IsUp:   false,
+					Address: &pb.NodeAddress{
+						Address: "1.2.3.4",
+					},
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
+				}
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info)
 				require.NoError(t, err)
 			}
 		}
+		// confirm that we marked the correct number of storage nodes as offline
+		nodes, err := satellite.Overlay.DB.SelectStorageNodes(ctx, len(planet.StorageNodes), &overlay.NodeCriteria{})
+		require.NoError(t, err)
+		require.Len(t, nodes, len(planet.StorageNodes)-len(nodesToKill))
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
@@ -263,9 +281,9 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test-bucket", "test-file")
 		require.Error(t, err)
 
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], key)
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
