@@ -87,7 +87,7 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string) error {
 
 // cmdSetupInteractive sets up uplink interactively.
 func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {

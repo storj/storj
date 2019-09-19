@@ -63,7 +63,7 @@ func init() {
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
 	uplink, err := uplink.NewUplink(ctx, nil)

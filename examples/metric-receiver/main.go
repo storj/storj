@@ -26,7 +26,7 @@ func main() {
 }
 
 func run(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	s, err := telemetry.Listen(*addr)
 	if err != nil {
 		return err
