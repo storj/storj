@@ -5,18 +5,26 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of
 Storj V3 Storage Node is already installed." />
     <MediaTemplate EmbedCab="yes" />
+    
     <Feature Id="ProductFeature" Title="Storage Node" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
     </Feature>
+    
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
         <Directory Id="StorjFolder" Name="Storj">
           <Directory Id="INSTALLFOLDER" Name="Storage Node" />
         </Directory>
       </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="StorjStartMenuFolder"  Name="Storj">
+          <Directory Id="StorageNodeStartMenuFolder"  Name="Storage Node" />
+        </Directory>
+      </Directory>
       <Directory Id="IDENTITYDIR" Name="Identity"/>
       <Directory Id="STORAGEDIR" Name="Storage" />
     </Directory>
+    
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="Executable" Guid="{4571F06C-D46B-4AAF-B015-255311A5B404}" Win64='yes'>
         <File Id='Storagenodeexe' Source="storagenode.exe" Name="storagenode.exe" KeyPath="yes" />
@@ -25,7 +33,16 @@ Storj V3 Storage Node is already installed." />
       <Component Id="RemoveFiles" Guid="{26A01B8E-A9F3-4BF8-9FFC-50CDE0A4DF68}" Win64="yes">
         <RemoveFile Id="ConfigFile" Name="config.yaml" On="uninstall" />
       </Component>
+      <Component Id="dashboardShortcut" Guid="{C48A862E-869D-4FD4-A215-D47092A40BAA}" Win64="yes">
+        <Shortcut Id="DashboardShortcut"  Name="Storage Node Dashboard" Description="Open the dashboard for the storage node" Directory="StorageNodeStartMenuFolder" Target="[System64Folder]cmd.exe" Arguments="/K &quot;&quot;[INSTALLFOLDER]storagenode.exe&quot; dashboard --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --color&quot;">
+          <Icon Id="DashboardIco" SourceFile="storj.ico"/>
+        </Shortcut>
+        <RemoveFolder Id="RemoveStorageNodeMenuFolder" Directory="StorageNodeStartMenuFolder" On="uninstall" />
+        <RemoveFolder Id="RemoveStorjMenuFolder" Directory="StorjStartMenuFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\Storj\Storage Node" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
     </ComponentGroup>
+    
     <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
     <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
     <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
