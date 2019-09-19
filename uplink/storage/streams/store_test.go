@@ -270,7 +270,7 @@ func storeTestSetup(t *testing.T, ctx *testcontext.Context, planet *testplanet.P
 	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
 	require.NoError(t, err)
 
-	TestAPIKey := apiKey.Serialize()
+	TestAPIKey := apiKey
 
 	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 	require.NoError(t, err)

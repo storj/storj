@@ -18,7 +18,7 @@ service Node {
 
 message CheckInRequest {
     string address = 1;
-    string version = 2;
+    node.NodeVersion version = 2;
     node.NodeCapacity capacity = 3;
     node.NodeOperator operator = 4;
 }

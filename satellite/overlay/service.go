@@ -68,11 +68,24 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
+	// UpdateCheckIn updates a single storagenode's check-in stats.
+	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, config NodeSelectionConfig) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
 	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
+}
+
+// NodeCheckInInfo contains all the info that will be updated when a node checkins
+type NodeCheckInInfo struct {
+	NodeID   storj.NodeID
+	Address  *pb.NodeAddress
+	LastIP   string
+	IsUp     bool
+	Operator *pb.NodeOperator
+	Capacity *pb.NodeCapacity
+	Version  *pb.NodeVersion
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -381,6 +394,12 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 	uptimeDQ := service.config.Node.UptimeReputationDQ
 
 	return service.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
+}
+
+// UpdateCheckIn updates a single storagenode's check-in info.
+func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.UpdateCheckIn(ctx, node, service.config.Node)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function
