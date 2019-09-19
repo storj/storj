@@ -934,6 +934,13 @@ func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node, 
 	return m.db.UpdateAddress(ctx, value, defaults)
 }
 
+// UpdateCheckIn updates a single storagenode's check-in stats.
+func (m *lockedOverlayCache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateCheckIn(ctx, node, config)
+}
+
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	m.Lock()

@@ -121,15 +121,24 @@ func (requests *createRequests) cleanup() {
 	}
 }
 
-func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
+func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
-	keyData, ok := auth.GetAPIKey(ctx)
-	if !ok {
-		endpoint.log.Debug("unauthorized request")
-		return nil, status.Error(codes.Unauthenticated, "Missing API credentials")
+	if header != nil {
+		return macaroon.ParseRawAPIKey(header.ApiKey)
 	}
 
-	key, err := macaroon.ParseAPIKey(string(keyData))
+	keyData, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return nil, errs.New("missing credentials")
+	}
+
+	return macaroon.ParseAPIKey(string(keyData))
+}
+
+func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	key, err := getAPIKey(ctx, header)
 	if err != nil {
 		endpoint.log.Debug("invalid request", zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, "Invalid API credentials")
