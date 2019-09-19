@@ -47,18 +47,3 @@ func TestPostgresNodeIDsArray(t *testing.T) {
 
 	assert.Equal(t, expected.(string), string(got.([]byte)))
 }
-
-func TestPostgresPathsArray(t *testing.T) {
-	ids := make([][]byte, 10)
-	for i := range ids {
-		ids[i] = testrand.BytesInt(testrand.Intn(1000))
-	}
-
-	got, err := postgresArrayList(ids).Value() // returns a []byte
-	require.NoError(t, err)
-
-	expected, err := pq.ByteaArray(ids).Value() // returns a string
-	require.NoError(t, err)
-
-	assert.Equal(t, expected.(string), string(got.([]byte)))
-}

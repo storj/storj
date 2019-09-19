@@ -38,7 +38,7 @@ type TransferQueueItem struct {
 // architecture: Database
 type DB interface {
 	// IncrementProgress increments transfer stats for a node.
-	IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, transferred int64, failed int64) error
+	IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, successfulTransfers int64, failedTransfers int64) error
 	// GetProgress gets a graceful exit progress entry.
 	GetProgress(ctx context.Context, nodeID storj.NodeID) (*Progress, error)
 

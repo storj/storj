@@ -22,7 +22,7 @@ type gracefulexitDB struct {
 }
 
 // IncrementProgress increments transfer stats for a node.
-func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, transferred int64, failed int64) (err error) {
+func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, successfulTransfers int64, failedTransfers int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	statement := db.db.Rebind(
@@ -34,7 +34,7 @@ func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.No
 		 	updated_at = excluded.updated_at;`,
 	)
 	now := time.Now().UTC()
-	_, err = db.db.ExecContext(ctx, statement, nodeID, bytes, transferred, failed, now)
+	_, err = db.db.ExecContext(ctx, statement, nodeID, bytes, successfulTransfers, failedTransfers, now)
 	if err != nil {
 		return Error.Wrap(err)
 	}
