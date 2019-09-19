@@ -167,7 +167,7 @@
               {
                 "id": 2,
                 "name": "version",
-                "type": "string"
+                "type": "node.NodeVersion"
               },
               {
                 "id": 3,
