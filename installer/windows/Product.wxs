@@ -26,9 +26,28 @@
     
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <Component Id="Executable" Guid="{4571F06C-D46B-4AAF-B015-255311A5B404}" Win64='yes'>
-        <File Id='Storagenodeexe' Source="storagenode.exe" Name="storagenode.exe" KeyPath="yes" />
+        <File Id='Storagenodeexe' Source="storagenode.exe" Name="storagenode.exe" />
+
         <fire:FirewallException Id="StoragenodePort" Name="storagenode.exe" Port="28967" Scope="any"/>
       </Component>
+      
+      <Component Id="ExecutableUpdater" Guid="{CBD06EA1-73F7-4B3E-9D31-EEB2A8175542}" Win64='yes'>
+        <File Id='Storagenodeupdaterexe' Source="storagenode-updater.exe" Name="storagenode-updater.exe" />
+        <ServiceInstall
+          Id="StoragenodeUpdaterService"
+          Type="ownProcess"
+          Name="Storagenode-updater"
+          DisplayName="Storagenode-updater"
+          Description="Storj Storagenode Updater"
+          Start="auto"
+          Account="[SERVICEACCOUNT]"
+          Password="[SERVICEPASSWORD]"
+          ErrorControl="normal"
+          Arguments=" run --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
+          />
+        <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="Storagenode-updater" Wait="yes" />
+      </Component>
+      
       <Component Id="RemoveFiles" Guid="{26A01B8E-A9F3-4BF8-9FFC-50CDE0A4DF68}" Win64="yes">
         <RemoveFile Id="ConfigFile" Name="config.yaml" On="uninstall" />
       </Component>
