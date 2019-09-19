@@ -171,10 +171,14 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) (err er
 		}
 	}
 
-	if err == nil {
-		err = errs.Wrap(txn.Commit())
-	} else {
+	if err != nil {
 		err = errs.Combine(err, txn.Rollback())
+		return err
+	}
+	err = txn.Commit()
+	if err != nil {
+		err = errs.Wrap(err)
+		return err
 	}
 
 	// VACUUM the database to reclaim the space used by the dropped tables. The
