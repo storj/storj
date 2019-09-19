@@ -41,12 +41,17 @@ func TestInvalidAPIKey(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
+	throwawayKey, err := macaroon.NewAPIKey([]byte("secret"))
+	require.NoError(t, err)
+
 	planet.Start(ctx)
 
 	for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
-		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], invalidAPIKey)
+		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
+
+		client.SetRawAPIKey([]byte(invalidAPIKey))
 
 		_, _, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, false)
@@ -78,8 +83,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 
 	planet.Start(ctx)
 
-	key, err := macaroon.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
-	require.NoError(t, err)
+	key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 	tests := []struct {
 		Caveat               macaroon.Caveat
@@ -158,7 +162,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 		restrictedKey, err := key.Restrict(test.Caveat)
 		require.NoError(t, err)
 
-		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey.Serialize())
+		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey)
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
