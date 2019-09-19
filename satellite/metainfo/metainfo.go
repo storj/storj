@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
@@ -113,7 +112,7 @@ func (endpoint *Endpoint) Close() error { return nil }
 func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInfoRequestOld) (resp *pb.SegmentInfoResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -140,7 +139,7 @@ func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInf
 func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -228,7 +227,7 @@ func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
 func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentCommitRequestOld) (resp *pb.SegmentCommitResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -322,7 +321,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.SegmentDownloadRequestOld) (resp *pb.SegmentDownloadResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -377,7 +376,7 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentDeleteRequestOld) (resp *pb.SegmentDeleteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -436,7 +435,7 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegmentsRequestOld) (resp *pb.ListSegmentsResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Prefix,
@@ -594,7 +593,7 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 func (endpoint *Endpoint) SetAttributionOld(ctx context.Context, req *pb.SetAttributionRequestOld) (_ *pb.SetAttributionResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.setBucketAttribution(ctx, req.BucketName, req.PartnerId)
+	err = endpoint.setBucketAttribution(ctx, req.Header, req.BucketName, req.PartnerId)
 
 	return &pb.SetAttributionResponseOld{}, err
 }
@@ -615,7 +614,7 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:   macaroon.ActionProjectInfo,
 		Time: time.Now(),
 	})
@@ -634,7 +633,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
 		Time:   time.Now(),
@@ -665,7 +664,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionWrite,
 		Bucket: req.Name,
 		Time:   time.Now(),
@@ -742,7 +741,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionDelete,
 		Bucket: req.Name,
 		Time:   time.Now(),
@@ -771,12 +770,12 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		Op:   macaroon.ActionRead,
 		Time: time.Now(),
 	}
-	keyInfo, err := endpoint.validateAuth(ctx, action)
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, action)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	allowedBuckets, err := getAllowedBuckets(ctx, action)
+	allowedBuckets, err := getAllowedBuckets(ctx, req.Header, action)
 	if err != nil {
 		return nil, err
 	}
@@ -805,12 +804,8 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}, nil
 }
 
-func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
-	keyData, ok := auth.GetAPIKey(ctx)
-	if !ok {
-		return macaroon.AllowedBuckets{}, status.Errorf(codes.Unauthenticated, "Missing API credentials: %v", err)
-	}
-	key, err := macaroon.ParseAPIKey(string(keyData))
+func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
+	key, err := getAPIKey(ctx, header)
 	if err != nil {
 		return macaroon.AllowedBuckets{}, status.Errorf(codes.InvalidArgument, "Invalid API credentials: %v", err)
 	}
@@ -825,13 +820,13 @@ func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.
 func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.setBucketAttribution(ctx, req.Name, req.PartnerId)
+	err = endpoint.setBucketAttribution(ctx, req.Header, req.Name, req.PartnerId)
 
 	return &pb.BucketSetAttributionResponse{}, err
 }
 
-func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, bucketName []byte, parterID []byte) error {
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, parterID []byte) error {
+	keyInfo, err := endpoint.validateAuth(ctx, header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        bucketName,
 		EncryptedPath: []byte(""),
@@ -957,7 +952,7 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *p
 func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
@@ -1047,7 +1042,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Error(codes.InvalidArgument, "stream ID expired")
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1111,7 +1106,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
@@ -1208,7 +1203,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
 		EncryptedPath: []byte{},
@@ -1258,7 +1253,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
@@ -1324,7 +1319,7 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 		return nil, status.Error(codes.InvalidArgument, "stream ID expired")
 	}
 
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1348,7 +1343,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1424,7 +1419,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	streamID := segmentID.StreamId
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1542,7 +1537,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1616,7 +1611,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1666,7 +1661,7 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 
 	streamID := segmentID.StreamId
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1705,7 +1700,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1843,7 +1838,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,

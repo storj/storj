@@ -1702,6 +1702,16 @@
         ],
         "messages": [
           {
+            "name": "RequestHeader",
+            "fields": [
+              {
+                "id": 1,
+                "name": "api_key",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
             "name": "Bucket",
             "fields": [
               {
@@ -1780,6 +1790,11 @@
             "name": "BucketCreateRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "name",
                 "type": "bytes"
@@ -1825,6 +1840,11 @@
             "name": "BucketGetRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "name",
                 "type": "bytes"
@@ -1845,6 +1865,11 @@
             "name": "BucketDeleteRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "name",
                 "type": "bytes"
@@ -1857,6 +1882,11 @@
           {
             "name": "BucketListRequest",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "cursor",
@@ -1894,6 +1924,11 @@
             "name": "BucketSetAttributionRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "name",
                 "type": "bytes"
@@ -1926,6 +1961,11 @@
           {
             "name": "SegmentWriteRequestOld",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "bucket",
@@ -2013,6 +2053,11 @@
             "name": "SegmentCommitRequestOld",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "bucket",
                 "type": "bytes"
@@ -2053,6 +2098,11 @@
           {
             "name": "SegmentDownloadRequestOld",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "bucket",
@@ -2105,6 +2155,11 @@
             "name": "SegmentInfoRequestOld",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "bucket",
                 "type": "bytes"
@@ -2134,6 +2189,11 @@
           {
             "name": "SegmentDeleteRequestOld",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "bucket",
@@ -2180,6 +2240,11 @@
           {
             "name": "ListSegmentsRequestOld",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "bucket",
@@ -2259,6 +2324,11 @@
             "name": "SetAttributionRequestOld",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "bucket_name",
                 "type": "bytes"
@@ -2274,7 +2344,14 @@
             "name": "SetAttributionResponseOld"
           },
           {
-            "name": "ProjectInfoRequest"
+            "name": "ProjectInfoRequest",
+            "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
           },
           {
             "name": "ProjectInfoResponse",
@@ -2425,6 +2502,11 @@
             "name": "ObjectBeginRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "bucket",
                 "type": "bytes"
@@ -2515,6 +2597,11 @@
             "name": "ObjectCommitRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "stream_id",
                 "type": "bytes",
@@ -2558,6 +2645,11 @@
             "name": "ObjectGetRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "bucket",
                 "type": "bytes"
@@ -2587,6 +2679,11 @@
           {
             "name": "ObjectListRequest",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "bucket",
@@ -2734,6 +2831,11 @@
             "name": "ObjectBeginDeleteRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "bucket",
                 "type": "bytes"
@@ -2773,6 +2875,11 @@
           {
             "name": "ObjectFinishDeleteRequest",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "stream_id",
@@ -2958,6 +3065,11 @@
             "name": "SegmentBeginRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "stream_id",
                 "type": "bytes",
@@ -3028,6 +3140,11 @@
           {
             "name": "SegmentCommitRequest",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "segment_id",
@@ -3181,6 +3298,11 @@
             "name": "SegmentMakeInlineRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "stream_id",
                 "type": "bytes",
@@ -3233,6 +3355,11 @@
           {
             "name": "SegmentBeginDeleteRequest",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "stream_id",
@@ -3289,6 +3416,11 @@
           {
             "name": "SegmentFinishDeleteRequest",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "segment_id",
@@ -3349,6 +3481,11 @@
             "name": "SegmentListRequest",
             "fields": [
               {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
                 "id": 1,
                 "name": "stream_id",
                 "type": "bytes"
@@ -3394,6 +3531,11 @@
           {
             "name": "SegmentDownloadRequest",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "stream_id",
@@ -3495,6 +3637,11 @@
           {
             "name": "BatchRequest",
             "fields": [
+              {
+                "id": 15,
+                "name": "header",
+                "type": "RequestHeader"
+              },
               {
                 "id": 1,
                 "name": "requests",

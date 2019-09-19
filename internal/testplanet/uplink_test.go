@@ -266,9 +266,9 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test-bucket", "test-file")
 		require.Error(t, err)
 
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], key)
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
