@@ -31,16 +31,16 @@
         <ServiceInstall
           Id="StoragenodeService"
           Type="ownProcess"
-          Name="Storagenode"
-          DisplayName="Storagenode"
-          Description="Storj Storagenode"
+          Name="storagenode"
+          DisplayName="Storj V3 Storage Node"
+          Description="Runs Storj V3 Storage Node as a background service."
           Start="auto"
           Account="[SERVICEACCOUNT]"
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
           Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot;"
           />
-        <ServiceControl Id="StoragenodeStartService" Start="install" Stop="both" Remove="uninstall" Name="Storagenode" Wait="yes" />
+        <ServiceControl Id="StoragenodeStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode" Wait="yes" />
 
         <fire:FirewallException Id="StoragenodePort" Name="storagenode.exe" Port="28967" Scope="any"/>
       </Component>
@@ -50,16 +50,16 @@
         <ServiceInstall
           Id="StoragenodeUpdaterService"
           Type="ownProcess"
-          Name="Storagenode-updater"
-          DisplayName="Storagenode-updater"
-          Description="Storj Storagenode Updater"
+          Name="storagenode-updater"
+          DisplayName="Storj V3 Storage Node Updater"
+          Description="Automatically updates the Storj V3 Storage Node service when a new version is available."
           Start="auto"
           Account="[SERVICEACCOUNT]"
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
           Arguments="run --binary-location &quot;[INSTALLFOLDER]\storagenode.exe&quot; --log &quot;[INSTALLFOLDER]\storagenode-updater.log&quot;"
           />
-        <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="Storagenode-updater" Wait="yes" />
+        <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="uninstall" Name="storagenode-updater" Wait="yes" />
       </Component>
       
       <Component Id="RemoveFiles" Guid="{26A01B8E-A9F3-4BF8-9FFC-50CDE0A4DF68}" Win64="yes">
