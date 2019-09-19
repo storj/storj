@@ -402,44 +402,6 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo)
 	return service.db.UpdateCheckIn(ctx, node, service.config.Node)
 }
 
-// ConnFailure implements the Transport Observer `ConnFailure` function
-func (service *Service) ConnFailure(ctx context.Context, node *pb.Node, failureError error) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	lambda := service.config.Node.UptimeReputationLambda
-	weight := service.config.Node.UptimeReputationWeight
-	uptimeDQ := service.config.Node.UptimeReputationDQ
-
-	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
-	// from our routing table, but this is the service so maybe we want to treat
-	// it differently.
-	_, err = service.db.UpdateUptime(ctx, node.Id, false, lambda, weight, uptimeDQ)
-	if err != nil {
-		service.log.Debug("error updating uptime for node", zap.Error(err))
-	}
-}
-
-// ConnSuccess implements the Transport Observer `ConnSuccess` function
-func (service *Service) ConnSuccess(ctx context.Context, node *pb.Node) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	err = service.Put(ctx, node.Id, *node)
-	if err != nil {
-		service.log.Debug("error updating uptime for node", zap.Error(err))
-	}
-
-	lambda := service.config.Node.UptimeReputationLambda
-	weight := service.config.Node.UptimeReputationWeight
-	uptimeDQ := service.config.Node.UptimeReputationDQ
-
-	_, err = service.db.UpdateUptime(ctx, node.Id, true, lambda, weight, uptimeDQ)
-	if err != nil {
-		service.log.Debug("error updating node connection info", zap.Error(err))
-	}
-}
-
 // GetMissingPieces returns the list of offline nodes
 func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
 	defer mon.Task()(&ctx)(&err)
