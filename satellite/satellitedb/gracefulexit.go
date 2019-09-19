@@ -105,7 +105,7 @@ func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.Tran
 		_, err := db.db.ExecContext(ctx, `
 			INSERT INTO graceful_exit_transfer_queue(node_id, path, piece_num, durability_ratio, queued_at)
 			SELECT unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::integer[]), unnest($4::float8[]), $5
-			ON CONFLICT DO NOTHING;`, postgresNodeIDList(nodeIDs), postgresArrayList(paths), pq.Array(pieceNums), pq.Array(durabilities), time.Now().UTC())
+			ON CONFLICT DO NOTHING;`, postgresNodeIDList(nodeIDs), pq.ByteaArray(paths), pq.Array(pieceNums), pq.Array(durabilities), time.Now().UTC())
 		if err != nil {
 			return Error.Wrap(err)
 		}

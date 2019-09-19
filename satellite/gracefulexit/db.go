@@ -10,7 +10,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Progress represents the persisted graceful exit progress record
+// Progress represents the persisted graceful exit progress record.
 type Progress struct {
 	NodeID            storj.NodeID
 	BytesTransferred  int64
@@ -19,7 +19,7 @@ type Progress struct {
 	UpdatedAt         time.Time
 }
 
-// TransferQueueItem represents the persisted graceful exit queue record
+// TransferQueueItem represents the persisted graceful exit queue record.
 type TransferQueueItem struct {
 	NodeID          storj.NodeID
 	Path            []byte
