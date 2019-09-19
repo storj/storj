@@ -182,12 +182,12 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 	}
 
-	{ // TestUpdateUptimeExists
+	{ // test UpdateCheckIn updates the reputation correctly when the node is offline/online
 		nodeID := storj.NodeID{1}
 
+		// get the existing node info that is stored in nodes table
 		node, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
-
 		alpha := node.Reputation.UptimeReputationAlpha
 		beta := node.Reputation.UptimeReputationBeta
 
@@ -195,23 +195,50 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		weight := 0.876
 		dq := float64(0) // don't disqualify for any reason
 
-		stats, err := cache.UpdateUptime(ctx, nodeID, false, lambda, weight, dq)
+		info := overlay.NodeCheckInInfo{
+			NodeID: nodeID,
+			Address: &pb.NodeAddress{
+				Address: "1.2.3.4",
+			},
+			IsUp: false,
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
+		}
+		config := overlay.NodeSelectionConfig{
+			UptimeReputationLambda: lambda,
+			UptimeReputationWeight: weight,
+			UptimeReputationDQ:     dq,
+		}
+		// update check-in when node is offline
+		err = cache.UpdateCheckIn(ctx, info, config)
+		require.NoError(t, err)
+		node, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
 		expectedAlpha := lambda * alpha
 		expectedBeta := lambda*beta + weight
-		require.EqualValues(t, stats.UptimeReputationAlpha, expectedAlpha)
-		require.EqualValues(t, stats.UptimeReputationBeta, expectedBeta)
+		// confirm the reputation is updated correctly when node is offline
+		require.EqualValues(t, node.Reputation.UptimeReputationAlpha, expectedAlpha)
+		require.EqualValues(t, node.Reputation.UptimeReputationBeta, expectedBeta)
 
 		alpha = expectedAlpha
 		beta = expectedBeta
 
-		stats, err = cache.UpdateUptime(ctx, nodeID, true, lambda, weight, dq)
+		info.IsUp = true
+		// update check-in when node is online
+		err = cache.UpdateCheckIn(ctx, info, config)
+		require.NoError(t, err)
+		node, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
 		expectedAlpha = lambda*alpha + weight
 		expectedBeta = lambda * beta
-		require.EqualValues(t, stats.UptimeReputationAlpha, expectedAlpha)
-		require.EqualValues(t, stats.UptimeReputationBeta, expectedBeta)
+		// confirm the reputation is updated correctly when node is online
+		require.EqualValues(t, node.Reputation.UptimeReputationAlpha, expectedAlpha)
+		require.EqualValues(t, node.Reputation.UptimeReputationBeta, expectedBeta)
 	}
 }
