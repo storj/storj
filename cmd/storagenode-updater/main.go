@@ -33,12 +33,12 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "auto-updater",
-		Short: "Auto-updater for storage node",
+		Use:   "storagenode-updater",
+		Short: "Version updater for storage node",
 	}
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Run the auto updater for storage node",
+		Short: "Run the storagenode-updater for storage node",
 		Args:  cobra.OnlyValidArgs,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			err = cmdRun(cmd, args)
