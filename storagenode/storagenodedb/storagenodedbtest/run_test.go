@@ -4,7 +4,6 @@
 package storagenodedbtest_test
 
 import (
-	"context"
 	"runtime"
 	"sync"
 	"testing"
@@ -27,7 +26,7 @@ import (
 )
 
 func TestDatabase(t *testing.T) {
-	storagenodedbtest.Run(t, func(ctx context.Context, t *testing.T, db storagenode.DB) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 	})
 }
 
