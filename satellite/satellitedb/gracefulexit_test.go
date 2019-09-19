@@ -147,8 +147,9 @@ func TestTransferQueueItem(t *testing.T) {
 		_, err = geDB.GetTransferQueueItem(ctx, nodeID1, path1)
 		require.Error(t, err)
 
-		_, err = geDB.GetTransferQueueItem(ctx, nodeID1, path1)
-		require.Error(t, err)
+		queueItems, err = geDB.GetIncomplete(ctx, nodeID2, 10, 0)
+		require.NoError(t, err)
+		require.Len(t, queueItems, 2)
 
 		// test delete all for a node
 		err = geDB.DeleteTransferQueueItems(ctx, nodeID2)
