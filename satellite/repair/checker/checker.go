@@ -145,7 +145,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// TODO figure out how to reduce duplicate code between here and checkerObs.RemoteSegment
 	defer mon.Task()(&ctx)(&err)
 	remote := pointer.GetRemote()
-	if remote == nil {
+	if pointer.GetType() == pb.Pointer_INLINE || remote == nil {
 		return nil
 	}
 
