@@ -737,7 +737,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Remove address from satellites table",
 				Version:     22,
 				Action: migrate.SQL{
