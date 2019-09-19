@@ -104,7 +104,6 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 			node := node
 
 			limiter.Go(ctx, func() {
-				// NB: FetchInfo updates node uptime already
 				info, err := discovery.contact.FetchInfo(ctx, *node)
 				if ctx.Err() != nil {
 					return
