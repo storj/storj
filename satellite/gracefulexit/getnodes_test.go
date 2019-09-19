@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -34,23 +36,21 @@ func testGetExitingNodes(ctx context.Context, t *testing.T, cache overlay.DB) {
 		{2, 2, 2},
 	} {
 		for i := 0; i < tt.nodesTotal; i++ {
+			newID := testrand.NodeID()
+			// add nodes to cache
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
+
 			var (
-				initiatedAt         *time.Time
-				completedAt         *time.Time
-				finishedAt          *time.Time
-				updateInitiated     bool
-				updateLoopCompleted bool
-				updateFinished      bool
+				initiatedAt         *time.Time = nil
+				completedAt         *time.Time = nil
+				finishedAt          *time.Time = nil
+				updateInitiated                = false
+				updateLoopCompleted            = false
+				updateFinished                 = false
 			)
 
-			updateInitiated = false
-			updateLoopCompleted = false
-			updateFinished = false
-			initiatedAt = nil
-			completedAt = nil
-			finishedAt = nil
-
-			// set nodes to have an exiting status
+			// set some nodes to have an exiting status
 			if i < tt.numNodesToExit {
 				timestamp := time.Now().UTC()
 				initiatedAt = &timestamp
@@ -60,6 +60,7 @@ func testGetExitingNodes(ctx context.Context, t *testing.T, cache overlay.DB) {
 			}
 
 			req := &overlay.ExitStatusRequest{
+				NodeID:              newID,
 				ExitInitiatedAt:     initiatedAt,
 				ExitLoopCompletedAt: completedAt,
 				ExitFinishedAt:      finishedAt,
@@ -68,9 +69,7 @@ func testGetExitingNodes(ctx context.Context, t *testing.T, cache overlay.DB) {
 				UpdateFinished:      updateFinished,
 			}
 
-			// TODO: actually put the nodes in the overlay cache
-
-			_, err := cache.UpdateExitStatus(ctx, req)
+			_, err = cache.UpdateExitStatus(ctx, req)
 			require.NoError(t, err)
 		}
 
