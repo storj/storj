@@ -18,7 +18,7 @@ exports[`HeaderlessInput.vue renders correctly with isPassword prop 1`] = `
     <!---->
     <!---->
     <!---->
-  </div> <input placeholder="default" type="password" class="" style="width: 100%; height: 48px;"> <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  </div> <input placeholder="default" type="password" class="password" style="width: 100%; height: 48px;"> <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M10 4C4.70642 4 1 10 1 10C1 10 3.6999 16 10 16C16.3527 16 19 10 19 10C19 10 15.3472 4 10 4ZM10 13.8176C7.93537 13.8176 6.2946 12.1271 6.2946 10C6.2946 7.87285 7.93537 6.18239 10 6.18239C12.0646 6.18239 13.7054 7.87285 13.7054 10C13.7054 12.1271 12.0646 13.8176 10 13.8176Z" fill="#AFB7C1"></path>
     <path d="M11.6116 9.96328C11.6116 10.8473 10.8956 11.5633 10.0116 11.5633C9.12763 11.5633 8.41162 10.8473 8.41162 9.96328C8.41162 9.07929 9.12763 8.36328 10.0116 8.36328C10.8956 8.36328 11.6116 9.07929 11.6116 9.96328Z" fill="#AFB7C1"></path>
   </svg>

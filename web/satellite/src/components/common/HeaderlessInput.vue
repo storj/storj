@@ -9,7 +9,7 @@
             <h3 class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</h3>
         </div>
         <input
-            :class="{'inputError' : error}"
+            :class="{'inputError' : error, 'password': isPassword}"
             @input="onInput"
             @change="onInput"
             v-model="value"
@@ -124,8 +124,8 @@
         line-height: 21px;
         resize: none;
         height: 46px;
-        padding: 0;
-        width: 100%;
+        padding: 0 30px 0 0;
+        width: calc(100% - 30px) !important;
         text-indent: 20px;
         border-color: rgba(56, 75, 101, 0.4);
         border-radius: 6px;
@@ -193,5 +193,10 @@
                 fill: #2683FF !important;
             }
         }
+    }
+
+    .password {
+        width: calc(100% - 75px) !important;
+        padding-right: 75px;
     }
 </style>
