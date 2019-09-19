@@ -161,7 +161,8 @@ func (s *segmentStore) Get(ctx context.Context, streamID storj.StreamID, segment
 	}
 
 	switch {
-	case len(info.EncryptedInlineData) != 0:
+	// no order limits also means its inline segment
+	case len(info.EncryptedInlineData) != 0 || len(limits) == 0:
 		return ranger.ByteRanger(info.EncryptedInlineData), info.SegmentEncryption, nil
 	default:
 		needed := CalcNeededNodes(objectRS)
