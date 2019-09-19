@@ -1352,6 +1352,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		value := pb.Node{
 			Id: node.NodeID,
 			Address: node.Address,
+			LastIp: node.LastIP,
 		}
 		err := cache.UpdateAddress(ctx, &value, config)
 		if err != nil {
