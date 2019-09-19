@@ -28,6 +28,20 @@
       <Component Id="Executable" Guid="{4571F06C-D46B-4AAF-B015-255311A5B404}" Win64='yes'>
         <File Id='Storagenodeexe' Source="storagenode.exe" Name="storagenode.exe" />
 
+        <ServiceInstall
+          Id="StoragenodeService"
+          Type="ownProcess"
+          Name="Storagenode"
+          DisplayName="Storagenode"
+          Description="Storj Storagenode"
+          Start="auto"
+          Account="[SERVICEACCOUNT]"
+          Password="[SERVICEPASSWORD]"
+          ErrorControl="normal"
+          Arguments=" run --config-dir &quot;[INSTALLFOLDER]\&quot;"
+          />
+        <ServiceControl Id="StoragenodeStartService" Start="install" Stop="both" Remove="uninstall" Name="Storagenode" Wait="yes" />
+
         <fire:FirewallException Id="StoragenodePort" Name="storagenode.exe" Port="28967" Scope="any"/>
       </Component>
       
