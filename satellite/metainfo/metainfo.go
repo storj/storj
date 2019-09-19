@@ -1176,7 +1176,13 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 		index := int64(0)
 		for {
-			pointer, _, err = endpoint.getPointer(ctx, keyInfo.ProjectID, index, req.Bucket, req.EncryptedPath)
+			path, err := CreatePath(ctx, keyInfo.ProjectID, index, req.Bucket, req.EncryptedPath)
+			if err != nil {
+				endpoint.log.Error("unable to get pointer path", zap.Error(err))
+				return nil, status.Error(codes.Internal, "unable to get object")
+			}
+
+			pointer, err = endpoint.metainfo.Get(ctx, path)
 			if err != nil {
 				if storage.ErrKeyNotFound.Has(err) {
 					break

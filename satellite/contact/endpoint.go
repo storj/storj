@@ -11,7 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -42,18 +44,18 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	peerID, err := peerIDFromContext(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 	nodeID := peerID.ID
 
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
 	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
 	err = endpoint.service.overlay.Put(ctx, nodeID, pb.Node{
@@ -64,7 +66,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		},
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
 	// TODO(jg): We are making 2 requests to the database, one to update uptime and
@@ -72,13 +74,13 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	// one to reduce db connections. Consider adding batching and using a stored procedure.
 	_, err = endpoint.service.overlay.UpdateUptime(ctx, nodeID, pingNodeSuccess)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
 	nodeInfo := pb.InfoResponse{Operator: req.GetOperator(), Capacity: req.GetCapacity(), Version: &pb.NodeVersion{Version: req.Version}}
 	_, err = endpoint.service.overlay.UpdateNodeInfo(ctx, nodeID, &nodeInfo)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
 	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node succes", pingNodeSuccess))
