@@ -519,3 +519,113 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
+
+func TestReverifyDifferentShare(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// - uploads random data to two files
+		// - get a random stripe to audit from file 1
+		// - creates one pending audit for a node holding a piece for that stripe
+		// - the actual share is downloaded to make sure ExpectedShareHash is correct
+		// - delete piece for file 1 from the selected node
+		// - calls reverify on some stripe from file 2
+		// - expects one storage node to be marked as a fail in the audit report
+		// - (if file 2 is used during reverify, the node will pass the audit and the test should fail)
+
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData1 := testrand.Bytes(8 * memory.KiB)
+		testData2 := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
+		require.NoError(t, err)
+
+		err = ul.Upload(ctx, satellite, "testbucket", "test/path2", testData2)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path1, err := queue.Next()
+		require.NoError(t, err)
+		path2, err := queue.Next()
+		require.NoError(t, err)
+		require.NotEqual(t, path1, path2)
+
+		pointer1, err := satellite.Metainfo.Service.Get(ctx, path1)
+		require.NoError(t, err)
+		pointer2, err := satellite.Metainfo.Service.Get(ctx, path2)
+		require.NoError(t, err)
+
+		// find a node that contains a piece for both files
+		// save that node ID and the piece number associated with it for pointer1
+		var selectedNode storj.NodeID
+		var selectedPieceNum int32
+		p1Nodes := make(map[storj.NodeID]int32)
+		for _, piece := range pointer1.GetRemote().GetRemotePieces() {
+			p1Nodes[piece.NodeId] = piece.PieceNum
+		}
+		for _, piece := range pointer2.GetRemote().GetRemotePieces() {
+			pieceNum, ok := p1Nodes[piece.NodeId]
+			if ok {
+				selectedNode = piece.NodeId
+				selectedPieceNum = pieceNum
+				break
+			}
+		}
+		require.NotEqual(t, selectedNode, storj.NodeID{})
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer1)
+		require.NoError(t, err)
+
+		orders := satellite.Orders.Service
+		containment := satellite.DB.Containment()
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		shareSize := pointer1.GetRemote().GetRedundancy().GetErasureShareSize()
+
+		rootPieceID := pointer1.GetRemote().RootPieceId
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		require.NoError(t, err)
+
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(selectedPieceNum))
+		require.NoError(t, err)
+
+		pending := &audit.PendingAudit{
+			NodeID:            selectedNode,
+			PieceID:           rootPieceID,
+			StripeIndex:       randomIndex,
+			ShareSize:         shareSize,
+			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
+			ReverifyCount:     0,
+			Path:              path1,
+		}
+
+		err = containment.IncrementPending(ctx, pending)
+		require.NoError(t, err)
+
+		// delete the piece for pointer1 from the selected node
+		pieceID := pointer1.GetRemote().RootPieceId.Derive(selectedNode, selectedPieceNum)
+		node := getStorageNode(planet, selectedNode)
+		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
+		require.NoError(t, err)
+
+		// reverify with path 2. Since the selected node was put in containment for path1,
+		// it should be audited for path1 and fail
+		report, err := audits.Verifier.Reverify(ctx, path2)
+		require.NoError(t, err)
+
+		require.Len(t, report.Successes, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+		require.Len(t, report.Fails, 1)
+		require.Equal(t, report.Fails[0], selectedNode)
+	})
+}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -104,6 +105,9 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, 
 		endpoint.log.Info("pingBack internal error", zap.String("error", err.Error()))
 		return false, "", Error.New("couldn't connect to client at addr: %s due to internal error.", req.Address)
 	}
+	defer func() {
+		err = errs.Combine(err, client.close())
+	}()
 
 	pingNodeSuccess := true
 	var pingErrorMessage string
@@ -119,7 +123,7 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, 
 		}
 	}
 
-	return pingNodeSuccess, pingErrorMessage, nil
+	return pingNodeSuccess, pingErrorMessage, err
 }
 
 func peerIDFromContext(ctx context.Context) (*identity.PeerIdentity, error) {
