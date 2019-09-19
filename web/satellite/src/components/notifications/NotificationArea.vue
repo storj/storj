@@ -17,7 +17,7 @@ import { DelayedNotification } from '@/types/DelayedNotification';
 @Component({
     components: {
         Notification,
-    }
+    },
 })
 export default class NotificationArea extends Vue {
     public get notifications(): DelayedNotification[] {

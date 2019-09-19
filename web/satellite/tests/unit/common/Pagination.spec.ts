@@ -18,18 +18,18 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(Pagination, {
             propsData: {
                 totalPageCount: 10,
-                onPageClickCallback: () => new Promise(() => false)
+                onPageClickCallback: () => new Promise(() => false),
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: 2
-                    }
+                        pageNumber: 2,
+                    },
                 },
                 $router: {
-                    replace: () => false
-                }
-            }
+                    replace: () => false,
+                },
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -39,18 +39,18 @@ describe('Pagination.vue', () => {
         const wrapper = mount(Pagination, {
             propsData: {
                 totalPageCount: 10,
-                onPageClickCallback: () => new Promise(() => false)
+                onPageClickCallback: () => new Promise(() => false),
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: 2
-                    }
+                        pageNumber: 2,
+                    },
                 },
                 $router: {
-                    replace: () => false
-                }
-            }
+                    replace: () => false,
+                },
+            },
         });
 
         const wrapperData = wrapper.vm.$data;
@@ -67,18 +67,18 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(Pagination, {
             propsData: {
                 totalPageCount: 12,
-                onPageClickCallback: () => new Promise(() => false)
+                onPageClickCallback: () => new Promise(() => false),
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: 5
-                    }
+                        pageNumber: 5,
+                    },
                 },
                 $router: {
-                    replace: () => false
-                }
-            }
+                    replace: () => false,
+                },
+            },
         });
 
         const wrapperData = wrapper.vm.$data;
@@ -94,18 +94,18 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(Pagination, {
             propsData: {
                 totalPageCount: 13,
-                onPageClickCallback: () => new Promise(() => false)
+                onPageClickCallback: () => new Promise(() => false),
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: 12
-                    }
+                        pageNumber: 12,
+                    },
                 },
                 $router: {
-                    replace: () => false
-                }
-            }
+                    replace: () => false,
+                },
+            },
         });
 
         const wrapperData = wrapper.vm.$data;
@@ -121,18 +121,18 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(Pagination, {
             propsData: {
                 totalPageCount: 4,
-                onPageClickCallback: () => new Promise(() => false)
+                onPageClickCallback: () => new Promise(() => false),
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: null
-                    }
+                        pageNumber: null,
+                    },
                 },
                 $router: {
-                    replace: () => false
-                }
-            }
+                    replace: () => false,
+                },
+            },
         });
 
         const wrapperData = wrapper.vm.$data;
@@ -151,18 +151,18 @@ describe('Pagination.vue', () => {
         const wrapper = mount(Pagination, {
             propsData: {
                 totalPageCount: 9,
-                onPageClickCallback: callbackSpy
+                onPageClickCallback: callbackSpy,
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: null
-                    }
+                        pageNumber: null,
+                    },
                 },
                 $router: {
-                    replace: routerReplaceSpy
-                }
-            }
+                    replace: routerReplaceSpy,
+                },
+            },
         });
 
         const wrapperData = wrapper.vm.$data;
@@ -184,18 +184,18 @@ describe('Pagination.vue', () => {
         const wrapper = mount(Pagination, {
             propsData: {
                 totalPageCount: 9,
-                onPageClickCallback: callbackSpy
+                onPageClickCallback: callbackSpy,
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: null
-                    }
+                        pageNumber: null,
+                    },
                 },
                 $router: {
-                    replace: routerReplaceSpy
-                }
-            }
+                    replace: routerReplaceSpy,
+                },
+            },
         });
 
         const wrapperData = wrapper.vm.$data;
@@ -217,18 +217,18 @@ describe('Pagination.vue', () => {
         const wrapper = mount(Pagination, {
             propsData: {
                 totalPageCount: 9,
-                onPageClickCallback: callbackSpy
+                onPageClickCallback: callbackSpy,
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: 8
-                    }
+                        pageNumber: 8,
+                    },
                 },
                 $router: {
-                    replace: routerReplaceSpy
-                }
-            }
+                    replace: routerReplaceSpy,
+                },
+            },
         });
 
         const wrapperData = wrapper.vm.$data;
@@ -250,18 +250,18 @@ describe('Pagination.vue', () => {
         const wrapper = mount(Pagination, {
             propsData: {
                 totalPageCount: 9,
-                onPageClickCallback: callbackSpy
+                onPageClickCallback: callbackSpy,
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: null
-                    }
+                        pageNumber: null,
+                    },
                 },
                 $router: {
-                    replace: routerReplaceSpy
-                }
-            }
+                    replace: routerReplaceSpy,
+                },
+            },
         });
 
         const wrapperData = wrapper.vm.$data;
@@ -283,18 +283,18 @@ describe('Pagination.vue', () => {
         const wrapper = mount(Pagination, {
             propsData: {
                 totalPageCount: 9,
-                onPageClickCallback: callbackSpy
+                onPageClickCallback: callbackSpy,
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: 9
-                    }
+                        pageNumber: 9,
+                    },
                 },
                 $router: {
-                    replace: routerReplaceSpy
-                }
-            }
+                    replace: routerReplaceSpy,
+                },
+            },
         });
 
         const wrapperData = wrapper.vm.$data;
@@ -313,18 +313,18 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(Pagination, {
             propsData: {
                 totalPageCount: 4,
-                onPageClickCallback: () => Promise.resolve({})
+                onPageClickCallback: () => Promise.resolve({}),
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: null
-                    }
+                        pageNumber: null,
+                    },
                 },
                 $router: {
-                    replace: () => false
-                }
-            }
+                    replace: () => false,
+                },
+            },
         });
 
         await wrapper.vm.nextPage();
@@ -343,18 +343,18 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(Pagination, {
             propsData: {
                 totalPageCount: 4,
-                onPageClickCallback: () => Promise.resolve({})
+                onPageClickCallback: () => Promise.resolve({}),
             },
             mocks: {
                 $route: {
                     query: {
-                        pageNumber: null
-                    }
+                        pageNumber: null,
+                    },
                 },
                 $router: {
-                    replace: () => false
-                }
-            }
+                    replace: () => false,
+                },
+            },
         });
 
         await wrapper.vm.nextPage();

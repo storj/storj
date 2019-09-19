@@ -42,7 +42,7 @@ describe('mutations', () => {
         expect(state.projects[0].id).toBe(project.id);
         expect(state.projects[0].name).toBe(project.name);
         expect(state.projects[0].description).toBe(project.description);
-        expect(state.projects[0].createdAt).toBe(project.createdAt );
+        expect(state.projects[0].createdAt).toBe(project.createdAt);
     });
 
     it('set projects', () => {
@@ -95,7 +95,7 @@ describe('actions', () => {
 
     it('success fetch projects', async () => {
         jest.spyOn(projectsApi, 'get').mockReturnValue(
-            Promise.resolve(projects)
+            Promise.resolve(projects),
         );
 
         await store.dispatch(FETCH);
@@ -117,10 +117,10 @@ describe('actions', () => {
     it('success create project', async () => {
         state.projects = [];
         jest.spyOn(projectsApi, 'create').mockReturnValue(
-            Promise.resolve(project)
+            Promise.resolve(project),
         );
 
-        await store.dispatch(CREATE, {name:'', description: ''});
+        await store.dispatch(CREATE, {name: '', description: ''});
         expect(state.projects.length).toBe(1);
     });
 
@@ -138,7 +138,7 @@ describe('actions', () => {
 
     it('success delete apiKeys', async () => {
         jest.spyOn(projectsApi, 'delete').mockReturnValue(
-            Promise.resolve()
+            Promise.resolve(),
         );
 
         state.projects = projects;
@@ -172,7 +172,7 @@ describe('actions', () => {
 
     it('success update project', async () => {
         jest.spyOn(projectsApi, 'update').mockReturnValue(
-            Promise.resolve()
+            Promise.resolve(),
         );
 
         state.projects = projects;

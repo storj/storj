@@ -61,8 +61,8 @@ const {
         NoBucketArea,
         HeaderComponent,
         Pagination,
-        List
-    }
+        List,
+    },
 })
 export default class BucketArea extends Vue {
     public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;

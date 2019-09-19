@@ -64,10 +64,10 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
                             },
                             joinedAt
                         },
-                        search, 
-                        limit, 
+                        search,
+                        limit,
                         order,
-                        pageCount, 
+                        pageCount,
                         currentPage,
                         totalCount
                     }

@@ -110,7 +110,6 @@ export default class SNOContentTitle extends Vue {
         color: #535F77;
 
         &__name {
-            margin-right: 45px;
             display: flex;
             align-items: center;
 

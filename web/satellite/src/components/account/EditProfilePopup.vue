@@ -56,7 +56,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actio
     components: {
         HeaderedInput,
         Button,
-    }
+    },
 })
 export default class EditProfilePopup extends Vue {
     private fullNameError: string = '';

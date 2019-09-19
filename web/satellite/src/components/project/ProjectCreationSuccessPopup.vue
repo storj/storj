@@ -59,7 +59,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 @Component({
     components: {
         Button,
-    }
+    },
 })
 export default class ProjectCreationSuccessPopup extends Vue {
     private onCloseClick(): void {

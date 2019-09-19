@@ -77,8 +77,8 @@ import { validateEmail } from '@/utils/validation';
 
 @Component({
     components: {
-        Button
-    }
+        Button,
+    },
 })
 export default class AddUserPopup extends Vue {
     public imageSource: string = EMPTY_STATE_IMAGES.ADD_USER;

@@ -39,7 +39,7 @@ import { RouteConfig } from '@/router';
         PaginationArea,
         BillingItem,
         SortingHeader,
-    }
+    },
 })
 export default class BillingHistory extends Vue {
     public onBackToAccountClick(): void {

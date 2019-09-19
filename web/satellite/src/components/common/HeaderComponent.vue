@@ -17,13 +17,13 @@ import SearchComponent from '@/components/common/SearchComponent.vue';
 
 declare type searchCallback = (search: string) => Promise<void>;
 declare interface ClearSearch {
-    clearSearch: () => void;
+    clearSearch(): void;
 }
 
 @Component({
     components: {
         SearchComponent,
-    }
+    },
 })
 export default class HeaderComponent extends Vue {
     @Prop({default: ''})

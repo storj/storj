@@ -28,7 +28,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 @Component({
     components: {
         PagesBlock,
-    }
+    },
 })
 export default class Pagination extends Vue {
     // TODO: use svg loader

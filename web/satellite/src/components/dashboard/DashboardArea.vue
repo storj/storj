@@ -19,7 +19,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 @Component({
     components: {
         EmptyState,
-    }
+    },
 })
 export default class DashboardArea extends Vue {
     public emptyImage: string = EMPTY_STATE_IMAGES.PROJECT;

@@ -31,18 +31,18 @@ export default class Button extends Vue {
     private isDisabled: boolean;
     @Prop({default: () => { return; }})
     private readonly onPress: Function;
-    
+
     public get style(): Object {
         return { width: this.width, height: this.height };
     }
 
     public get containerClassName(): string {
         if (this.isDisabled) return 'container disabled';
-    
+
         if (this.isWhite) return 'container white';
-    
+
         if (this.isDeletion) return 'container red';
-    
+
         return 'container';
     }
 }

@@ -33,8 +33,8 @@ import InfoComponent from '@/components/common/InfoComponent.vue';
 @Component({
     components: {
         InfoComponent,
-        Button
-    }
+        Button,
+    },
 })
 export default class AccountBalance extends Vue {
     public onEarnCredits(): void {

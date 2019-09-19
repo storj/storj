@@ -23,7 +23,7 @@ import NewPaymentMethodPopup from '@/components/project/paymentMethods/NewPaymen
     components: {
         NewPaymentMethodPopup,
         CardComponent,
-    }
+    },
 })
 export default class ProjectPaymentMethods extends Vue {
     public get paymentMethods(): PaymentMethod[] {

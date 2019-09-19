@@ -82,7 +82,9 @@ type StoragenodeAccounting interface {
 // architecture: Database
 type ProjectAccounting interface {
 	// SaveTallies saves the latest project info
-	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) ([]BucketTally, error)
+	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) error
+	// GetTallies retrieves all tallies
+	GetTallies(ctx context.Context) ([]BucketTally, error)
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame

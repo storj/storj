@@ -117,7 +117,7 @@ describe('actions', () => {
         testApiKeysPage.pageCount = 1;
 
         jest.spyOn(apiKeysApi, 'get').mockReturnValue(
-            Promise.resolve(testApiKeysPage)
+            Promise.resolve(testApiKeysPage),
         );
 
         await store.dispatch(FETCH, FIRST_PAGE);
@@ -174,7 +174,7 @@ describe('actions', () => {
 
     it('success delete apiKeys', async () => {
         jest.spyOn(apiKeysApi, 'delete').mockReturnValue(
-            Promise.resolve()
+            Promise.resolve(),
         );
 
         try {
@@ -228,8 +228,8 @@ describe('actions', () => {
                 6,
                 2,
                 1,
-                2
-            ))
+                2,
+            )),
         );
 
         await store.dispatch(API_KEYS_ACTIONS.FETCH, FIRST_PAGE);

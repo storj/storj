@@ -29,7 +29,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     components: {
         EmptyState,
         TabNavigation,
-    }
+    },
 })
 export default class ProjectOverviewArea extends Vue {
     // TODO: make type for project routes

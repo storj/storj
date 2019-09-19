@@ -13,10 +13,11 @@ setup(){
     random_bytes_file () {
         size=$1
         output=$2
-        dd if=/dev/urandom of="$output" count=1 bs="$size" >/dev/null 2>&1
+	    head -c $size </dev/urandom > $output
     }
-    random_bytes_file 2x1024      "$TEST_FILES_DIR/small-upload-testfile" # create 2kb file of random bytes (inline)
-    random_bytes_file 5x1024x1024 "$TEST_FILES_DIR/big-upload-testfile"   # create 5mb file of random bytes (remote)
+    random_bytes_file "2K"   "$TEST_FILES_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
+    random_bytes_file "5M"   "$TEST_FILES_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
+    random_bytes_file "128M" "$TEST_FILES_DIR/multisegment-upload-testfile"   # create 128mb file of random bytes (remote)
 
     echo "setup test successfully"
 }
@@ -26,11 +27,13 @@ if [[ "$1" == "upload" ]]; then
 
     uplink --config-dir "$GATEWAY_0_DIR" mb "sj://$BUCKET/"
 
-    uplink --config-dir "$GATEWAY_0_DIR" cp "$TEST_FILES_DIR/small-upload-testfile" "sj://$BUCKET/"
-    uplink --config-dir "$GATEWAY_0_DIR" cp "$TEST_FILES_DIR/big-upload-testfile" "sj://$BUCKET/"
+    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "$TEST_FILES_DIR/small-upload-testfile" "sj://$BUCKET/"
+    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "$TEST_FILES_DIR/big-upload-testfile" "sj://$BUCKET/"
+    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "$TEST_FILES_DIR/multisegment-upload-testfile" "sj://$BUCKET/"
 
-    uplink --config-dir "$GATEWAY_0_DIR" cp "sj://$BUCKET/small-upload-testfile" "$RELEASE_DST_DIR"
-    uplink --config-dir "$GATEWAY_0_DIR" cp "sj://$BUCKET/big-upload-testfile" "$RELEASE_DST_DIR"
+    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/small-upload-testfile" "$RELEASE_DST_DIR"
+    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/big-upload-testfile" "$RELEASE_DST_DIR"
+    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/multisegment-upload-testfile" "$RELEASE_DST_DIR"
 
     if cmp "$TEST_FILES_DIR/small-upload-testfile" "$RELEASE_DST_DIR/small-upload-testfile"
     then
@@ -47,11 +50,24 @@ if [[ "$1" == "upload" ]]; then
         echo "upload test on release tag: big upload testfile does not match uploaded file"
         exit 1
     fi
+
+    if cmp "$TEST_FILES_DIR/multisegment-upload-testfile" "$RELEASE_DST_DIR/multisegment-upload-testfile"
+    then
+        echo "upload test on release tag: multisegment upload testfile matches uploaded file"
+    else
+        echo "upload test on release tag: multisegment upload testfile does not match uploaded file"
+        exit 1
+    fi
+
+    rm "$RELEASE_DST_DIR/small-upload-testfile"
+    rm "$RELEASE_DST_DIR/big-upload-testfile"
+    rm "$RELEASE_DST_DIR/multisegment-upload-testfile"
 fi
 
 if [[ "$1" == "download" ]]; then
-    uplink --config-dir "$GATEWAY_0_DIR" cp "sj://$BUCKET/small-upload-testfile" "$BRANCH_DST_DIR"
-    uplink --config-dir "$GATEWAY_0_DIR" cp "sj://$BUCKET/big-upload-testfile" "$BRANCH_DST_DIR"
+    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/small-upload-testfile" "$BRANCH_DST_DIR"
+    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/big-upload-testfile" "$BRANCH_DST_DIR"
+    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/multisegment-upload-testfile" "$BRANCH_DST_DIR"
 
     if cmp "$TEST_FILES_DIR/small-upload-testfile" "$BRANCH_DST_DIR/small-upload-testfile"
     then
@@ -68,10 +84,23 @@ if [[ "$1" == "download" ]]; then
         echo "download test on current branch: big upload testfile does not match uploaded file"
         exit 1
     fi
+
+    if cmp "$TEST_FILES_DIR/multisegment-upload-testfile" "$BRANCH_DST_DIR/multisegment-upload-testfile"
+    then
+        echo "download test on current branch: multisegment upload testfile matches uploaded file"
+    else
+        echo "download test on current branch: multisegment upload testfile does not match uploaded file"
+        exit 1
+    fi
+
+    rm "$BRANCH_DST_DIR/small-upload-testfile"
+    rm "$BRANCH_DST_DIR/big-upload-testfile"
+    rm "$BRANCH_DST_DIR/multisegment-upload-testfile"
 fi
 
 if [[ "$1" == "cleanup" ]]; then
     uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/small-upload-testfile"
     uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/big-upload-testfile"
+    uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/multisegment-upload-testfile"
     uplink --config-dir "$GATEWAY_0_DIR" rb "sj://$BUCKET"
 fi

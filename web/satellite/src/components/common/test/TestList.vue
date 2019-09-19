@@ -17,13 +17,13 @@ import TestListItem from '@/components/common/test/TestListItem.vue';
 @Component({
     components: {
         List,
-    }
+    },
 })
 export default class TestList extends Vue {
     @Prop({
         default: () => {
             console.error('onItemClick is not initialized');
-        }
+        },
     })
     private readonly onItemClick: (item: any) => Promise<void>;
 

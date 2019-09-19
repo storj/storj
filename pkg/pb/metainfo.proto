@@ -432,7 +432,9 @@ message SatSegmentID {
     bytes satellite_signature = 8;
 }
 
-message SegmentCommitResponse {}
+message SegmentCommitResponse {
+    int32 successful_pieces = 1;
+}
 
 message SegmentMakeInlineRequest {
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
