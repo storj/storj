@@ -51,13 +51,22 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, Error.Wrap(err)
 	}
 
+	lastIP, err := overlay.GetNetwork(ctx, req.Address)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	nodeInfo := overlay.NodeCheckInInfo{
-		NodeID:   peerID.ID,
-		Address:  &pb.NodeAddress{Address: req.Address},
+		NodeID: peerID.ID,
+		Address: &pb.NodeAddress{
+			Address:   req.Address,
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+		},
+		LastIP:   lastIP,
 		IsUp:     pingNodeSuccess,
 		Capacity: req.Capacity,
 		Operator: req.Operator,
