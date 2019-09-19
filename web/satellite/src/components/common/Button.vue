@@ -12,41 +12,40 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue, Prop } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    // Custom button component with label
-    @Component
-    export default class Button extends Vue {
-        @Prop({default: 'Default'})
-        private readonly label: string;
-        @Prop({default: 'inherit'})
-        private readonly width: string;
-        @Prop({default: 'inherit'})
-        private readonly height: string;
-        @Prop({default: false})
-        private readonly isWhite: boolean;
-        @Prop({default: false})
-        private readonly isDeletion: boolean;
-        @Prop({default: false})
-        private isDisabled: boolean;
-        // TODO: improve default implementation
-        @Prop({default: () => console.error('onPress is not reinitialized')})
-        private readonly onPress: Function;
-        
-        public get style(): Object {
-            return { width: this.width, height: this.height };
-        }
-    
-        public get containerClassName(): string {
-            if (this.isDisabled) return 'container disabled';
-        
-            if (this.isWhite) return 'container white';
-        
-            if (this.isDeletion) return 'container red';
-        
-            return 'container';
-        }
+// Custom button component with label
+@Component
+export default class Button extends Vue {
+    @Prop({default: 'Default'})
+    private readonly label: string;
+    @Prop({default: 'inherit'})
+    private readonly width: string;
+    @Prop({default: 'inherit'})
+    private readonly height: string;
+    @Prop({default: false})
+    private readonly isWhite: boolean;
+    @Prop({default: false})
+    private readonly isDeletion: boolean;
+    @Prop({default: false})
+    private isDisabled: boolean;
+    @Prop({default: () => { return; }})
+    private readonly onPress: Function;
+
+    public get style(): Object {
+        return { width: this.width, height: this.height };
     }
+
+    public get containerClassName(): string {
+        if (this.isDisabled) return 'container disabled';
+
+        if (this.isWhite) return 'container white';
+
+        if (this.isDeletion) return 'container red';
+
+        return 'container';
+    }
+}
 </script>
 
 <style scoped lang="scss">

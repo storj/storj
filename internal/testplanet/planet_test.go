@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -37,20 +38,17 @@ func TestBasic(t *testing.T) {
 			t.Log("UPLINK", uplink.ID(), uplink.Addr())
 		}
 
-		// ping a satellite
-		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local().Node)
+		sat := planet.Satellites[0].Local().Node
+		node := planet.StorageNodes[0].Local()
+		conn, err := planet.StorageNodes[0].Transport.DialNode(ctx, &sat)
 		require.NoError(t, err)
-
-		// ping a storage node
-		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local().Node)
+		_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
+			Address:  node.GetAddress().GetAddress(),
+			Version:  &node.Version,
+			Capacity: &node.Capacity,
+			Operator: &node.Operator,
+		})
 		require.NoError(t, err)
-
-		err = planet.StopPeer(planet.StorageNodes[1])
-		require.NoError(t, err)
-
-		// ping a stopped storage node
-		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local().Node)
-		require.Error(t, err)
 
 		// wait a bit to see whether some failures occur
 		time.Sleep(time.Second)
@@ -59,6 +57,23 @@ func TestBasic(t *testing.T) {
 	for _, version := range storj.IDVersions {
 		test(version)
 	}
+}
+
+// test that nodes get put into each satellite's overlay cache
+func TestContact(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 2, StorageNodeCount: 5, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite0 := planet.Satellites[0]
+		satellite1 := planet.Satellites[1]
+
+		for _, n := range planet.StorageNodes {
+			_, err := satellite0.Overlay.Service.Get(ctx, n.ID())
+			require.NoError(t, err)
+			_, err = satellite1.Overlay.Service.Get(ctx, n.ID())
+			require.NoError(t, err)
+		}
+	})
 }
 
 func BenchmarkCreate(b *testing.B) {

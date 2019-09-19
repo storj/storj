@@ -54,7 +54,7 @@ func (dash *dashboardClient) close() error {
 }
 
 func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {
@@ -100,9 +100,6 @@ func printDashboard(data *pb.DashboardResponse) error {
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
 
-	if data.LastQueried.After(data.LastPinged) {
-		data.LastPinged = data.LastQueried
-	}
 	switch {
 	case data.LastPinged.IsZero():
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("OFFLINE"))

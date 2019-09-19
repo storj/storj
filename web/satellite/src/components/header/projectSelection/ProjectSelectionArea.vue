@@ -7,8 +7,8 @@
         <div class="project-selection-toggle-container" @click="toggleSelection" v-if="hasProjects">
             <h1>{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
-                <img v-if="!isDropdownShown" src="../../../../static/images/register/BlueExpand.svg"/>
-                <img v-if="isDropdownShown" src="../../../../static/images/register/BlueHide.svg"/>
+                <img v-if="!isDropdownShown" src="../../../../static/images/register/BlueExpand.svg" alt="expand project list" />
+                <img v-if="isDropdownShown" src="../../../../static/images/register/BlueHide.svg" alt="hide project list" />
             </div>
         </div>
         <ProjectSelectionDropdown v-if="isDropdownShown"/>
@@ -16,42 +16,44 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { Project } from '@/types/projects';
-    import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            ProjectSelectionDropdown,
-        }
-    })
-    export default class ProjectSelectionArea extends Vue {
-        public async toggleSelection(): Promise<void> {
-            try {
-                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
-            }
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { Project } from '@/types/projects';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
-        }
+import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
 
-        public get name(): string {
-            let selectedProject: Project = this.$store.state.projectsModule.selectedProject;
-
-            return selectedProject.id ? selectedProject.name : 'Choose project';
+@Component({
+    components: {
+        ProjectSelectionDropdown,
+    },
+})
+export default class ProjectSelectionArea extends Vue {
+    public async toggleSelection(): Promise<void> {
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+        } catch (e) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
         }
 
-        public get isDropdownShown(): boolean {
-            return this.$store.state.appStateModule.appState.isProjectsDropdownShown;
-        }
-
-        public get hasProjects(): boolean {
-            return !!this.$store.state.projectsModule.projects.length;
-        }
+        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
     }
+
+    public get name(): string {
+        const selectedProject: Project = this.$store.state.projectsModule.selectedProject;
+
+        return selectedProject.id ? selectedProject.name : 'Choose project';
+    }
+
+    public get isDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isProjectsDropdownShown;
+    }
+
+    public get hasProjects(): boolean {
+        return !!this.$store.state.projectsModule.projects.length;
+    }
+}
 </script>
 
 <style scoped lang="scss">

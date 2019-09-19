@@ -7,13 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
@@ -35,12 +33,11 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/vouchers"
 )
 
 // newSatellites initializes satellites
-func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
-	var xs []*satellite.Peer
+func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
+	var xs []*SatelliteSystem
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, closablePeer{peer: x})
@@ -87,16 +84,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					},
 				},
 			},
-			Kademlia: kademlia.Config{
-				Alpha:                5,
-				BootstrapBackoffBase: 500 * time.Millisecond,
-				BootstrapBackoffMax:  2 * time.Second,
-				DBPath:               storageDir, // TODO: replace with master db
-				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@mail.test",
-					Wallet: "0x" + strings.Repeat("00", 20),
-				},
-			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
 					UptimeCount:       0,
@@ -123,7 +110,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				UpdateStatsBatchSize: 100,
 			},
 			Discovery: discovery.Config{
-				DiscoveryInterval:  1 * time.Second,
 				RefreshInterval:    1 * time.Second,
 				RefreshLimit:       100,
 				RefreshConcurrency: 2,
@@ -144,7 +130,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					Validate:         false,
 				},
 				Loop: metainfo.LoopConfig{
-					CoalesceDuration: 5 * time.Second,
+					CoalesceDuration: 1 * time.Second,
 				},
 			},
 			Orders: orders.Config{
@@ -164,9 +150,13 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB:   0,
-				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
+				MaxReverifyCount:   3,
+				ChoreInterval:      30 * time.Second,
+				QueueInterval:      1 * time.Hour,
+				Slots:              3,
+				WorkerConcurrency:  1,
 			},
 			GarbageCollection: gc.Config{
 				Interval:          1 * time.Minute,
@@ -202,9 +192,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Address:   "127.0.0.1:0",
 				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
 			},
-			Vouchers: vouchers.Config{
-				Expiration: 30 * 24 * time.Hour,
-			},
 			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.Satellite != nil {
@@ -231,7 +218,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
-		xs = append(xs, peer)
+
+		system := SatelliteSystem{Peer: *peer}
+		xs = append(xs, &system)
 	}
 	return xs, nil
 }

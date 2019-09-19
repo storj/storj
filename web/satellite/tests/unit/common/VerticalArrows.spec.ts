@@ -1,17 +1,18 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount } from '@vue/test-utils';
 import VerticalArrows from '@/components/common/VerticalArrows.vue';
+
 import { SortingDirectionEnum } from '@/types/sortingArrows';
+import { mount } from '@vue/test-utils';
 
 describe('VerticalArrows.vue', () => {
     it('should render with bottom arrow highlighted', function () {
         const wrapper = mount(VerticalArrows, {
             propsData: {
                 isActive: true,
-                direction: SortingDirectionEnum.BOTTOM
-            }
+                direction: SortingDirectionEnum.BOTTOM,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -21,8 +22,8 @@ describe('VerticalArrows.vue', () => {
         const wrapper = mount(VerticalArrows, {
             propsData: {
                 isActive: false,
-                direction: SortingDirectionEnum.BOTTOM
-            }
+                direction: SortingDirectionEnum.BOTTOM,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -32,11 +33,10 @@ describe('VerticalArrows.vue', () => {
         const wrapper = mount(VerticalArrows, {
             propsData: {
                 isActive: true,
-                direction: SortingDirectionEnum.TOP
-            }
+                direction: SortingDirectionEnum.TOP,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
     });
 });
-

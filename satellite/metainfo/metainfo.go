@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
@@ -47,27 +47,36 @@ var (
 )
 
 // APIKeys is api keys store methods used by endpoint
+//
+// architecture: Database
 type APIKeys interface {
 	GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error)
 }
 
 // Revocations is the revocations store methods used by the endpoint
+//
+// architecture: Database
 type Revocations interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
 }
 
 // Containment is a copy/paste of containment interface to avoid import cycle error
+//
+// architecture: Database
 type Containment interface {
 	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
 }
 
 // Endpoint metainfo endpoint
+//
+// architecture: Endpoint
 type Endpoint struct {
 	log              *zap.Logger
 	metainfo         *Service
 	orders           *orders.Service
 	overlay          *overlay.Service
 	partnerinfo      attribution.DB
+	peerIdentities   overlay.PeerIdentities
 	projectUsage     *accounting.ProjectUsage
 	containment      Containment
 	apiKeys          APIKeys
@@ -77,7 +86,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB,
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
 	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
@@ -86,6 +95,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		orders:           orders,
 		overlay:          cache,
 		partnerinfo:      partnerinfo,
+		peerIdentities:   peerIdentities,
 		containment:      containment,
 		apiKeys:          apiKeys,
 		projectUsage:     projectUsage,
@@ -102,7 +112,7 @@ func (endpoint *Endpoint) Close() error { return nil }
 func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInfoRequestOld) (resp *pb.SegmentInfoResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -129,7 +139,7 @@ func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInf
 func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -217,7 +227,7 @@ func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
 func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentCommitRequestOld) (resp *pb.SegmentCommitResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -262,6 +272,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 	for _, piece := range req.GetPointer().GetRemote().GetRemotePieces() {
 		piece.Hash = nil
 	}
+	req.Pointer.PieceHashesVerified = true
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
 
@@ -310,7 +321,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.SegmentDownloadRequestOld) (resp *pb.SegmentDownloadResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -365,7 +376,7 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentDeleteRequestOld) (resp *pb.SegmentDeleteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Path,
@@ -424,7 +435,7 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegmentsRequestOld) (resp *pb.ListSegmentsResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.Prefix,
@@ -467,18 +478,30 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 	defer mon.Task()(&ctx)(&err)
 
 	if pointer.Type == pb.Pointer_REMOTE {
-		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
+
+		peerIDMap, err := endpoint.mapNodesFor(ctx, remote.RemotePieces)
+		if err != nil {
+			return err
+		}
+
+		var remotePieces []*pb.RemotePiece
 		allSizesValid := true
 		lastPieceSize := int64(0)
 		for _, piece := range remote.RemotePieces {
 
-			// TODO enable piece hash signature verification
+			// Verify storagenode signature on piecehash
+			peerID, ok := peerIDMap[piece.NodeId]
+			if !ok {
+				endpoint.log.Warn("Identity chain unknown for node", zap.String("nodeID", piece.NodeId.String()))
+				continue
+			}
+			signee := signing.SigneeFromPeerIdentity(peerID)
 
-			err = endpoint.validatePieceHash(ctx, piece, limits)
+			err = endpoint.validatePieceHash(ctx, piece, limits, signee)
 			if err != nil {
 				// TODO maybe this should be logged also to uplink too
-				endpoint.log.Sugar().Warn(err)
+				endpoint.log.Warn("Problem validating piece hash", zap.Error(err))
 				continue
 			}
 
@@ -526,6 +549,23 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 	return nil
 }
 
+func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePiece) (map[storj.NodeID]*identity.PeerIdentity, error) {
+	nodeIDList := storj.NodeIDList{}
+	for _, piece := range pieces {
+		nodeIDList = append(nodeIDList, piece.NodeId)
+	}
+	peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
+	for _, peerID := range peerIDList {
+		peerIDMap[peerID.ID] = peerID
+	}
+
+	return peerIDMap, nil
+}
+
 // CreatePath will create a Segment path
 func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (_ storj.Path, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -553,7 +593,7 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 func (endpoint *Endpoint) SetAttributionOld(ctx context.Context, req *pb.SetAttributionRequestOld) (_ *pb.SetAttributionResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.setBucketAttribution(ctx, req.BucketName, req.PartnerId)
+	err = endpoint.setBucketAttribution(ctx, req.Header, req.BucketName, req.PartnerId)
 
 	return &pb.SetAttributionResponseOld{}, err
 }
@@ -574,7 +614,7 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:   macaroon.ActionProjectInfo,
 		Time: time.Now(),
 	})
@@ -593,7 +633,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
 		Time:   time.Now(),
@@ -624,7 +664,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionWrite,
 		Bucket: req.Name,
 		Time:   time.Now(),
@@ -701,7 +741,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionDelete,
 		Bucket: req.Name,
 		Time:   time.Now(),
@@ -730,12 +770,12 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		Op:   macaroon.ActionRead,
 		Time: time.Now(),
 	}
-	keyInfo, err := endpoint.validateAuth(ctx, action)
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, action)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	allowedBuckets, err := getAllowedBuckets(ctx, action)
+	allowedBuckets, err := getAllowedBuckets(ctx, req.Header, action)
 	if err != nil {
 		return nil, err
 	}
@@ -764,12 +804,8 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}, nil
 }
 
-func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
-	keyData, ok := auth.GetAPIKey(ctx)
-	if !ok {
-		return macaroon.AllowedBuckets{}, status.Errorf(codes.Unauthenticated, "Missing API credentials: %v", err)
-	}
-	key, err := macaroon.ParseAPIKey(string(keyData))
+func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
+	key, err := getAPIKey(ctx, header)
 	if err != nil {
 		return macaroon.AllowedBuckets{}, status.Errorf(codes.InvalidArgument, "Invalid API credentials: %v", err)
 	}
@@ -784,13 +820,13 @@ func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.
 func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.setBucketAttribution(ctx, req.Name, req.PartnerId)
+	err = endpoint.setBucketAttribution(ctx, req.Header, req.Name, req.PartnerId)
 
 	return &pb.BucketSetAttributionResponse{}, err
 }
 
-func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, bucketName []byte, parterID []byte) error {
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, parterID []byte) error {
+	keyInfo, err := endpoint.validateAuth(ctx, header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        bucketName,
 		EncryptedPath: []byte(""),
@@ -916,7 +952,7 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *p
 func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
@@ -1006,7 +1042,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Error(codes.InvalidArgument, "stream ID expired")
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1041,6 +1077,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Errorf(codes.NotFound, "unable to find object: %q/%q", streamID.Bucket, streamID.EncryptedPath)
 	}
 
+	if lastSegmentPointer.Remote == nil {
+		lastSegmentPointer.Remote = &pb.RemoteSegment{}
+	}
+	// RS is set always for last segment to emulate RS per object
+	lastSegmentPointer.Remote.Redundancy = streamID.Redundancy
 	lastSegmentPointer.Metadata = req.EncryptedMetadata
 
 	err = endpoint.metainfo.Delete(ctx, lastSegmentPath)
@@ -1065,7 +1106,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
@@ -1117,6 +1158,40 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 	if pointer.Remote != nil {
 		object.RedundancyScheme = pointer.Remote.Redundancy
+
+		// NumberOfSegments == 0 - pointer with encrypted num of segments
+		// NumberOfSegments > 1 - pointer with unencrypted num of segments and multiple segments
+	} else if streamMeta.NumberOfSegments == 0 || streamMeta.NumberOfSegments > 1 {
+		// workaround
+		// The new metainfo API redundancy scheme is on object level (not per segment).
+		// Because of that, RS is always taken from the last segment.
+		// The old implementation saves RS per segment, and in some cases
+		// when the remote file's last segment is an inline segment, we end up
+		// missing an RS scheme. This loop will search for RS in segments other than the last one.
+
+		index := int64(0)
+		for {
+			path, err := CreatePath(ctx, keyInfo.ProjectID, index, req.Bucket, req.EncryptedPath)
+			if err != nil {
+				endpoint.log.Error("unable to get pointer path", zap.Error(err))
+				return nil, status.Error(codes.Internal, "unable to get object")
+			}
+
+			pointer, err = endpoint.metainfo.Get(ctx, path)
+			if err != nil {
+				if storage.ErrKeyNotFound.Has(err) {
+					break
+				}
+
+				endpoint.log.Error("unable to get pointer", zap.Error(err))
+				return nil, status.Error(codes.Internal, "unable to get object")
+			}
+			if pointer.Remote != nil {
+				object.RedundancyScheme = pointer.Remote.Redundancy
+				break
+			}
+			index++
+		}
 	}
 
 	return &pb.ObjectGetResponse{
@@ -1128,7 +1203,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
 		EncryptedPath: []byte{},
@@ -1178,7 +1253,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
@@ -1244,7 +1319,7 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 		return nil, status.Error(codes.InvalidArgument, "stream ID expired")
 	}
 
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1268,7 +1343,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1344,7 +1419,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	streamID := segmentID.StreamId
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1385,6 +1460,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		CreationDate:   streamID.CreationDate,
 		ExpirationDate: streamID.ExpirationDate,
 		Metadata:       metadata,
+
+		PieceHashesVerified: true,
 	}
 
 	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
@@ -1446,7 +1523,9 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &pb.SegmentCommitResponse{}, nil
+	return &pb.SegmentCommitResponse{
+		SuccessfulPieces: int32(len(pointer.Remote.RemotePieces)),
+	}, nil
 }
 
 // MakeInlineSegment makes inline segment on satellite
@@ -1458,7 +1537,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1496,12 +1575,18 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
+	metadata, err := proto.Marshal(&pb.SegmentMeta{
+		EncryptedKey: req.EncryptedKey,
+		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
+	})
+
 	pointer := &pb.Pointer{
 		Type:           pb.Pointer_INLINE,
 		SegmentSize:    inlineUsed,
 		CreationDate:   streamID.CreationDate,
 		ExpirationDate: streamID.ExpirationDate,
 		InlineSegment:  req.EncryptedInlineData,
+		Metadata:       metadata,
 	}
 
 	err = endpoint.metainfo.Put(ctx, path, pointer)
@@ -1526,7 +1611,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1576,7 +1661,7 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 
 	streamID := segmentID.StreamId
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1615,7 +1700,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1630,27 +1715,92 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		limit = listLimit
 	}
 
-	index := int64(req.CursorPosition.Index)
-	more := false
+	path, err := CreatePath(ctx, keyInfo.ProjectID, lastSegment, streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	pointer, err := endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	streamMeta := &pb.StreamMeta{}
+	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if streamMeta.NumberOfSegments > 0 {
+		// use unencrypted number of segments
+		// TODO cleanup int32 vs int64
+		return endpoint.listSegmentsFromNumberOfSegment(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
+	}
+
+	// list segments by requesting each segment from cursor index to n until n segment is not found
+	return endpoint.listSegmentsManually(ctx, keyInfo.ProjectID, streamID, req.CursorPosition.Index, limit)
+}
+
+func (endpoint *Endpoint) listSegmentsFromNumberOfSegment(ctx context.Context, numberOfSegments, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
+	numberOfSegments -= cursorIndex
+
 	segmentItems := make([]*pb.SegmentListItem, 0)
-	// TODO think about better implementation
+	more := false
+
+	if numberOfSegments > 0 {
+		if numberOfSegments > limit {
+			more = true
+			numberOfSegments = limit
+		} else {
+			// remove last segment to avoid if statements in loop to detect last segment,
+			// last segment will be added manually at the end of this block
+			numberOfSegments--
+		}
+		for index := int32(0); index < numberOfSegments; index++ {
+			segmentItems = append(segmentItems, &pb.SegmentListItem{
+				Position: &pb.SegmentPosition{
+					Index: index + cursorIndex,
+				},
+			})
+		}
+		if !more {
+			// last segment is always the last one
+			segmentItems = append(segmentItems, &pb.SegmentListItem{
+				Position: &pb.SegmentPosition{
+					Index: lastSegment,
+				},
+			})
+		}
+	}
+
+	return &pb.SegmentListResponse{
+		Items: segmentItems,
+		More:  more,
+	}, nil
+}
+
+func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uuid.UUID, streamID *pb.SatStreamID, cursorIndex int32, limit int32) (resp *pb.SegmentListResponse, err error) {
+	index := int64(cursorIndex)
+
+	segmentItems := make([]*pb.SegmentListItem, 0)
+	more := false
+
 	for {
-		path, err := CreatePath(ctx, keyInfo.ProjectID, index, streamID.Bucket, streamID.EncryptedPath)
+		path, err := CreatePath(ctx, projectID, index, streamID.Bucket, streamID.EncryptedPath)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 		_, err = endpoint.metainfo.Get(ctx, path)
 		if err != nil {
 			if storage.ErrKeyNotFound.Has(err) {
-				if index == lastSegment {
-					break
-				}
-				index = lastSegment
-				continue
+				break
 			}
 			return nil, status.Error(codes.Internal, err.Error())
 		}
-		if limit == 0 {
+		if limit == int32(len(segmentItems)) {
 			more = true
 			break
 		}
@@ -1660,11 +1810,17 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 			},
 		})
 
-		if index == lastSegment {
-			break
-		}
 		index++
-		limit--
+	}
+
+	if limit > int32(len(segmentItems)) {
+		segmentItems = append(segmentItems, &pb.SegmentListItem{
+			Position: &pb.SegmentPosition{
+				Index: lastSegment,
+			},
+		})
+	} else {
+		more = true
 	}
 
 	return &pb.SegmentListResponse{
@@ -1682,7 +1838,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1724,6 +1880,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			}
 			segmentMeta = streamMeta.LastSegmentMeta
 		} else {
+			segmentMeta = &pb.SegmentMeta{}
 			err = proto.Unmarshal(pointer.Metadata, segmentMeta)
 			if err != nil {
 				return nil, status.Error(codes.Internal, err.Error())

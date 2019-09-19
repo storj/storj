@@ -85,6 +85,8 @@ func (v *Status) String() string {
 }
 
 // Service queues and processes retain requests from satellites.
+//
+// architecture: Worker
 type Service struct {
 	log    *zap.Logger
 	config Config

@@ -684,7 +684,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 		return nil, nil, nil, err
 	}
 
-	m, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey.Serialize())
+	m, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -710,7 +710,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
-	strms, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
+	strms, err := streams.NewStreamStore(m, segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, nil, err
 	}

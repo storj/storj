@@ -3,7 +3,7 @@
 
 <template>
     <div class="save-api-popup" v-if="isPopupShown">
-        <h2>Name Your API Key</h2>
+        <h2>Save Your API Key! It Will Appear Only Once.</h2>
         <div class="save-api-popup__copy-area">
             <div class="save-api-popup__copy-area__key-area">
                 <p>{{apiKeySecret}}</p>
@@ -37,35 +37,37 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import Button from '@/components/common/Button.vue';
-    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            HeaderlessInput,
-            Button,
-        },
-    })
-    export default class ApiKeysCopyPopup extends Vue {
-        @Prop({default: false})
-        private readonly isPopupShown: boolean;
-        @Prop({default: ''})
-        private readonly apiKeySecret: string;
+import Button from '@/components/common/Button.vue';
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-        private isCopiedButtonShown: boolean = false;
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        public onCloseClick(): void {
-            this.isCopiedButtonShown = false;
-            this.$emit('closePopup');
-        }
+@Component({
+    components: {
+        HeaderlessInput,
+        Button,
+    },
+})
+export default class ApiKeysCopyPopup extends Vue {
+    @Prop({default: false})
+    private readonly isPopupShown: boolean;
+    @Prop({default: ''})
+    private readonly apiKeySecret: string;
 
-        public onCopyClick(): void {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
-            this.isCopiedButtonShown = true;
-        }
+    private isCopiedButtonShown: boolean = false;
+
+    public onCloseClick(): void {
+        this.isCopiedButtonShown = false;
+        this.$emit('closePopup');
     }
+
+    public onCopyClick(): void {
+        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
+        this.isCopiedButtonShown = true;
+    }
+}
 </script>
 
 <style scoped lang="scss">

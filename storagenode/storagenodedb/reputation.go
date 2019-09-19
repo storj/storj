@@ -5,6 +5,7 @@ package storagenodedb
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/zeebo/errs"
 
@@ -15,21 +16,15 @@ import (
 // ErrReputation represents errors from the reputation database.
 var ErrReputation = errs.Class("reputation error")
 
+// ReputationDBName represents the database name.
+const ReputationDBName = "reputation"
+
 // reputation works with node reputation DB
 type reputationDB struct {
-	location string
-	SQLDB
+	migratableDB
 }
 
-// newReputationDB returns a new instance of reputationDB initialized with the specified database.
-func newReputationDB(db SQLDB, location string) *reputationDB {
-	return &reputationDB{
-		location: location,
-		SQLDB:    db,
-	}
-}
-
-// Store inserts or updates reputation stats into the db
+// Store inserts or updates reputation stats into the db.
 func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -74,15 +69,16 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 	return ErrReputation.Wrap(err)
 }
 
-// Get retrieves stats for specific satellite
+// Get retrieves stats for specific satellite.
 func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var stats reputation.Stats
+	stats := reputation.Stats{
+		SatelliteID: satelliteID,
+	}
 
 	row := db.QueryRowContext(ctx,
-		`SELECT satellite_id, 
-			uptime_success_count,
+		`SELECT uptime_success_count,
 			uptime_total_count,
 			uptime_reputation_alpha,
 			uptime_reputation_beta,
@@ -98,7 +94,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		satelliteID,
 	)
 
-	err = row.Scan(&stats.SatelliteID,
+	err = row.Scan(
 		&stats.Uptime.SuccessCount,
 		&stats.Uptime.TotalCount,
 		&stats.Uptime.Alpha,
@@ -113,10 +109,14 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.UpdatedAt,
 	)
 
+	if err == sql.ErrNoRows {
+		err = nil
+	}
+
 	return &stats, ErrReputation.Wrap(err)
 }
 
-// All retrieves all stats from DB
+// All retrieves all stats from DB.
 func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 

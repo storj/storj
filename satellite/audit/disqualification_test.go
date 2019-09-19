@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
@@ -45,9 +46,6 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Service.Close()
-		require.NoError(t, err)
-
 		var (
 			satellitePeer = planet.Satellites[0]
 			nodeID        = planet.StorageNodes[0].ID()
@@ -55,6 +53,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 				Fails: storj.NodeIDList{nodeID},
 			}
 		)
+		satellitePeer.Audit.Worker.Loop.Pause()
 
 		dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -65,10 +64,10 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		prevReputation := calcReputation(dossier)
 
 		// Report the audit failure until the node gets disqualified due to many
-		// failed audits
+		// failed audits.
 		iterations := 1
 		for ; ; iterations++ {
-			_, err := satellitePeer.Audit.Service.Reporter.RecordAudits(ctx, report)
+			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
 			require.NoError(t, err)
 
 			dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
@@ -120,13 +119,11 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
-
-		err := satellitePeer.Audit.Service.Close()
-		require.NoError(t, err)
+		satellitePeer.Audit.Worker.Loop.Pause()
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = uplinkPeer.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err := uplinkPeer.Upload(ctx, satellitePeer, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
@@ -169,9 +166,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
 		disqualifiedNode := planet.StorageNodes[0]
-
-		err := satellitePeer.Audit.Service.Close()
-		require.NoError(t, err)
+		satellitePeer.Audit.Worker.Loop.Pause()
 
 		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode.ID())
 
@@ -205,14 +200,30 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
-
-		err := satellitePeer.Audit.Service.Close()
-		require.NoError(t, err)
+		satellitePeer.Audit.Worker.Loop.Pause()
 
 		disqualifiedNode := planet.StorageNodes[0]
 		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode.ID())
 
-		_, err = satellitePeer.DB.OverlayCache().UpdateUptime(ctx, disqualifiedNode.ID(), true, 0, 1, 0)
+		info := overlay.NodeCheckInInfo{
+			NodeID: disqualifiedNode.ID(),
+			IsUp:   true,
+			Address: &pb.NodeAddress{
+				Address: "1.2.3.4",
+			},
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
+		}
+		config := overlay.NodeSelectionConfig{
+			UptimeReputationLambda: 0,
+			UptimeReputationWeight: 1,
+			UptimeReputationDQ:     0,
+		}
+		err := satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, config)
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
@@ -234,24 +245,32 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 	})
 }
 
-func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) bool {
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) bool {
 	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
 	require.NoError(t, err)
 
 	return node.Disqualified != nil
 }
-func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) {
-	_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
-		NodeID:       nodeID,
-		IsUp:         true,
-		AuditSuccess: false,
-		AuditLambda:  0,
-		AuditWeight:  1,
-		AuditDQ:      0.5,
-		UptimeLambda: 1,
-		UptimeWeight: 1,
-		UptimeDQ:     0.5,
-	}}, 100)
+func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
+	info := overlay.NodeCheckInInfo{
+		NodeID: nodeID,
+		IsUp:   false,
+		Address: &pb.NodeAddress{
+			Address: "1.2.3.4",
+		},
+		Version: &pb.NodeVersion{
+			Version:    "v0.0.0",
+			CommitHash: "",
+			Timestamp:  time.Time{},
+			Release:    false,
+		},
+	}
+	config := overlay.NodeSelectionConfig{
+		UptimeReputationLambda: 1,
+		UptimeReputationWeight: 1,
+		UptimeReputationDQ:     1,
+	}
+	err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, config)
 	require.NoError(t, err)
 	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }

@@ -21,71 +21,81 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-    import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { ApiKey } from '@/types/apiKeys';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    const CREATE = API_KEYS_ACTIONS.CREATE;
+import Button from '@/components/common/Button.vue';
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-    @Component({
-        components: {
-            HeaderlessInput,
-            Button,
-        },
-    })
-    export default class ApiKeysCreationPopup extends Vue {
-        @Prop({default: false})
-        private readonly isPopupShown: boolean;
+import { ApiKey } from '@/types/apiKeys';
+import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-        private name: string = '';
-        private errorMessage: string = '';
-        private isLoading: boolean = false;
-        private key: string = '';
+const CREATE = API_KEYS_ACTIONS.CREATE;
 
-        public onChangeName(value: string): void {
-            this.name = value.trim();
-            this.errorMessage = '';
+@Component({
+    components: {
+        HeaderlessInput,
+        Button,
+    },
+})
+export default class ApiKeysCreationPopup extends Vue {
+    @Prop({default: false})
+    private readonly isPopupShown: boolean;
+
+    private name: string = '';
+    private errorMessage: string = '';
+    private isLoading: boolean = false;
+    private key: string = '';
+
+    private FIRST_PAGE = 1;
+
+    public onChangeName(value: string): void {
+        this.name = value.trim();
+        this.errorMessage = '';
+    }
+
+    public onCloseClick(): void {
+        this.onChangeName('');
+        this.$emit('closePopup');
+    }
+
+    public async onNextClick(): Promise<void> {
+        if (this.isLoading) {
+            return;
         }
 
-        public onCloseClick(): void {
-            this.onChangeName('');
-            this.$emit('closePopup');
+        if (!this.name) {
+            this.errorMessage = 'API Key name can`t be empty';
+
+            return;
         }
 
-        public async onNextClick(): Promise<void> {
-            if (this.isLoading) {
-                return;
-            }
+        this.isLoading = true;
 
-            if (!this.name) {
-                this.errorMessage = 'API Key name can`t be empty';
+        let createdApiKey: ApiKey;
 
-                return;
-            }
-
-            this.isLoading = true;
-
-            let createdApiKey: ApiKey;
-
-            try {
-                createdApiKey = await this.$store.dispatch(CREATE, this.name);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                this.isLoading = false;
-
-                return;
-            }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
-            this.key = createdApiKey.secret;
+        try {
+            createdApiKey = await this.$store.dispatch(CREATE, this.name);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
             this.isLoading = false;
 
-            this.$emit('closePopup');
-            this.$emit('showCopyPopup', this.key);
+            return;
         }
+
+        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
+        this.key = createdApiKey.secret;
+        this.isLoading = false;
+
+        try {
+            this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch API keys. ${error.message}`);
+        }
+
+        this.$emit('closePopup');
+        this.$emit('showCopyPopup', this.key);
     }
+}
 </script>
 
 <style scoped lang="scss">

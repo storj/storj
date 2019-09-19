@@ -1,9 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount, shallowMount } from '@vue/test-utils';
 import * as sinon from 'sinon';
+
 import SearchComponent from '@/components/common/SearchComponent.vue';
+
+import { mount, shallowMount } from '@vue/test-utils';
 
 describe('SearchComponent.vue', () => {
     it('renders correctly', () => {
@@ -33,12 +35,12 @@ describe('SearchComponent.vue', () => {
     });
 
     it('function clearSearch works correctly', () => {
-        let processSearchQuerySpy = sinon.spy();
+        const processSearchQuerySpy = sinon.spy();
 
         const wrapper = mount(SearchComponent, {
             methods: {
                 processSearchQuery: processSearchQuerySpy,
-            }
+            },
         });
 
         wrapper.vm.clearSearch();

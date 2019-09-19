@@ -11,7 +11,7 @@
                         <path d="M29.5001 34.5196C30.1001 34.5196 30.5865 34.0452 30.5865 33.46C30.5865 32.8748 30.1001 32.4004 29.5001 32.4004C28.9 32.4004 28.4136 32.8748 28.4136 33.46C28.4136 34.0452 28.9 34.5196 29.5001 34.5196Z" fill="#FEFEFF"/>
                         <path d="M39.9405 40.2152C40.1781 40 40.3139 39.6854 40.3139 39.3709V25.5464C40.3139 24.9007 39.7707 24.3709 39.1086 24.3709H35.7473V21.0927C35.7473 17.7318 32.9462 15 29.5 15C26.0538 15 23.2527 17.7318 23.2527 21.0927V24.3709H19.8914C19.2293 24.3709 18.686 24.9007 18.686 25.5464V39.3709C18.686 39.6854 18.8218 40 19.0595 40.2152L23.7959 44.6689C24.0166 44.8841 24.3222 45 24.6278 45H34.3552C34.6608 45 34.9664 44.8841 35.1871 44.6689L39.9405 40.2152ZM30.7053 36.6391V38.1291C30.7053 38.7748 30.1621 39.3046 29.5 39.3046C28.8379 39.3046 28.2947 38.7748 28.2947 38.1291V36.6391C26.9705 36.1589 26.0198 34.9172 26.0198 33.4437C26.0198 31.5728 27.5817 30.0497 29.5 30.0497C31.4183 30.0497 32.9801 31.5728 32.9801 33.4437C32.9801 34.9172 32.0295 36.1589 30.7053 36.6391ZM33.3367 24.3709H25.6464V21.0927C25.6464 19.0232 27.3779 17.351 29.483 17.351C31.5881 17.351 33.3197 19.0397 33.3197 21.0927V24.3709H33.3367Z" fill="#FEFEFF"/>
                         <defs>
-                            <clipPath id="clip0">
+                            <clipPath id="clipChangePassword">
                                 <rect width="21.6279" height="30" fill="#FFFFFF" transform="translate(18.686 15)"/>
                             </clipPath>
                         </defs>
@@ -60,86 +60,88 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-    import Button from '@/components/common/Button.vue';
-    import { NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import { validatePassword } from '@/utils/validation';
-    import { AuthApi } from '@/api/auth';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            HeaderlessInput,
-            Button,
-        }
-    })
-    export default class ChangePasswordPopup extends Vue {
-        private oldPassword: string = '';
-        private newPassword: string = '';
-        private confirmationPassword: string = '';
-        private oldPasswordError: string = '';
-        private newPasswordError: string = '';
-        private confirmationPasswordError: string = '';
+import Button from '@/components/common/Button.vue';
+import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-        private readonly auth: AuthApi = new AuthApi();
+import { AuthApi } from '@/api/auth';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { validatePassword } from '@/utils/validation';
 
-        public setOldPassword(value: string): void {
-            this.oldPassword = value;
-            this.oldPasswordError = '';
-        }
+@Component({
+    components: {
+        HeaderlessInput,
+        Button,
+    },
+})
+export default class ChangePasswordPopup extends Vue {
+    private oldPassword: string = '';
+    private newPassword: string = '';
+    private confirmationPassword: string = '';
+    private oldPasswordError: string = '';
+    private newPasswordError: string = '';
+    private confirmationPasswordError: string = '';
 
-        public setNewPassword(value: string): void {
-            this.newPassword = value;
-            this.newPasswordError = '';
-        }
+    private readonly auth: AuthApi = new AuthApi();
 
-        public setPasswordConfirmation(value: string): void {
-            this.confirmationPassword = value;
-            this.confirmationPasswordError = '';
-        }
-
-        public async onUpdateClick(): Promise<void> {
-            let hasError = false;
-            if (!this.oldPassword) {
-                this.oldPasswordError = 'Password required';
-                hasError = true;
-            }
-
-            if (!validatePassword(this.newPassword)) {
-                this.newPasswordError = 'Invalid password. Use 6 or more characters';
-                hasError = true;
-            }
-
-            if (!this.confirmationPassword) {
-                this.confirmationPasswordError = 'Password required';
-                hasError = true;
-            }
-
-            if (this.newPassword !== this.confirmationPassword) {
-                this.confirmationPasswordError = 'Password not match to new one';
-                hasError = true;
-            }
-
-            if (hasError) {
-                return;
-            }
-
-            try {
-                await this.auth.changePassword(this.oldPassword, this.newPassword);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-
-                return;
-            }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-        }
-
-        public onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-        }
+    public setOldPassword(value: string): void {
+        this.oldPassword = value;
+        this.oldPasswordError = '';
     }
+
+    public setNewPassword(value: string): void {
+        this.newPassword = value;
+        this.newPasswordError = '';
+    }
+
+    public setPasswordConfirmation(value: string): void {
+        this.confirmationPassword = value;
+        this.confirmationPasswordError = '';
+    }
+
+    public async onUpdateClick(): Promise<void> {
+        let hasError = false;
+        if (!this.oldPassword) {
+            this.oldPasswordError = 'Password required';
+            hasError = true;
+        }
+
+        if (!validatePassword(this.newPassword)) {
+            this.newPasswordError = 'Invalid password. Use 6 or more characters';
+            hasError = true;
+        }
+
+        if (!this.confirmationPassword) {
+            this.confirmationPasswordError = 'Password required';
+            hasError = true;
+        }
+
+        if (this.newPassword !== this.confirmationPassword) {
+            this.confirmationPasswordError = 'Password not match to new one';
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        try {
+            await this.auth.changePassword(this.oldPassword, this.newPassword);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+
+            return;
+        }
+
+        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+    }
+
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+    }
+}
 </script>
 
 <style scoped lang="scss">

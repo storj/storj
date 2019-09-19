@@ -49,30 +49,32 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import { RouteConfig } from '@/router';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button,
-        }
-    })
-    export default class ProjectCreationSuccessPopup extends Vue {
-        private onCloseClick(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
-        }
+import Button from '@/components/common/Button.vue';
 
-        public onCreateAPIKeyClick(): void {
-            this.$router.push(RouteConfig.ApiKeys.path);
-            this.onCloseClick();
-        }
+import { RouteConfig } from '@/router';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-        public get isPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isSuccessfulProjectCreationPopupShown;
-        }
+@Component({
+    components: {
+        Button,
+    },
+})
+export default class ProjectCreationSuccessPopup extends Vue {
+    private onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
     }
+
+    public onCreateAPIKeyClick(): void {
+        this.$router.push(RouteConfig.ApiKeys.path);
+        this.onCloseClick();
+    }
+
+    public get isPopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isSuccessfulProjectCreationPopupShown;
+    }
+}
 </script>
 
 <style scoped lang="scss">

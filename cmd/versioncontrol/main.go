@@ -60,7 +60,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	err = controlserver.Run(ctx)
 	return err
 }

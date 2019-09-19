@@ -1,20 +1,35 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { API_KEYS_MUTATIONS } from '../mutationConstants';
-import { ApiKey, ApiKeysApi } from '@/types/apiKeys';
 import { StoreModule } from '@/store';
+import { ApiKey, ApiKeyCursor, ApiKeyOrderBy, ApiKeysApi, ApiKeysPage } from '@/types/apiKeys';
+import { SortDirection } from '@/types/common';
+
+export const API_KEYS_MUTATIONS = {
+    SET_PAGE: 'setApiKeys',
+    TOGGLE_SELECTION: 'toggleApiKeysSelection',
+    CLEAR_SELECTION: 'clearApiKeysSelection',
+    CLEAR: 'clearApiKeys',
+    CHANGE_SORT_ORDER: 'changeApiKeysSortOrder',
+    CHANGE_SORT_ORDER_DIRECTION: 'changeApiKeysSortOrderDirection',
+    SET_SEARCH_QUERY: 'setApiKeysSearchQuery',
+    SET_PAGE_NUMBER: 'setApiKeysPage',
+};
 
 const {
-    FETCH,
-    ADD,
-    DELETE,
+    SET_PAGE,
     TOGGLE_SELECTION,
     CLEAR_SELECTION,
+    CLEAR,
+    CHANGE_SORT_ORDER,
+    CHANGE_SORT_ORDER_DIRECTION,
+    SET_SEARCH_QUERY,
+    SET_PAGE_NUMBER,
 } = API_KEYS_MUTATIONS;
 
 class ApiKeysState {
-    public apiKeys: ApiKey[] = [];
+    public cursor: ApiKeyCursor = new ApiKeyCursor();
+    public page: ApiKeysPage = new ApiKeysPage();
 }
 
 /**
@@ -25,25 +40,24 @@ class ApiKeysState {
 export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
     return {
         state: new ApiKeysState(),
-
         mutations: {
-            setAPIKeys(state: any, apiKeys: ApiKey[]) {
-                state.apiKeys = apiKeys;
+            [SET_PAGE](state: ApiKeysState, page: ApiKeysPage) {
+                state.page = page;
             },
-            addAPIKey(state: any, apiKey: ApiKey) {
-                state.apiKeys.push(apiKey);
+            [SET_PAGE_NUMBER](state: ApiKeysState, pageNumber: number) {
+                state.cursor.page = pageNumber;
             },
-            deleteAPIKey(state: any, ids: string[]) {
-                const keysCount = ids.length;
-
-                for (let j = 0; j < keysCount; j++) {
-                    state.apiKeys = state.apiKeys.filter((element: ApiKey) => {
-                        return element.id !== ids[j];
-                    });
-                }
+            [SET_SEARCH_QUERY](state: ApiKeysState, search: string) {
+                state.cursor.search = search;
             },
-            toggleSelection(state: any, apiKeyID: string) {
-                state.apiKeys = state.apiKeys.map((apiKey: ApiKey) => {
+            [CHANGE_SORT_ORDER](state: ApiKeysState, order: ApiKeyOrderBy) {
+                state.cursor.order = order;
+            },
+            [CHANGE_SORT_ORDER_DIRECTION](state: ApiKeysState, direction: SortDirection) {
+                state.cursor.orderDirection = direction;
+            },
+            [TOGGLE_SELECTION](state: ApiKeysState, apiKeyID: string) {
+                state.page.apiKeys = state.page.apiKeys.map((apiKey: ApiKey) => {
                     if (apiKey.id === apiKeyID) {
                         apiKey.isSelected = !apiKey.isSelected;
                     }
@@ -51,66 +65,62 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
                     return apiKey;
                 });
             },
-            clearSelection(state: any) {
-                state.apiKeys = state.apiKeys.map((apiKey: ApiKey) => {
+            [CLEAR_SELECTION](state: ApiKeysState) {
+                state.page.apiKeys = state.page.apiKeys.map((apiKey: ApiKey) => {
                     apiKey.isSelected = false;
 
                     return apiKey;
                 });
             },
+            [CLEAR](state: ApiKeysState) {
+                state.cursor = new ApiKeyCursor();
+                state.page = new ApiKeysPage();
+            },
         },
         actions: {
-            setAPIKeys: async function ({commit, rootGetters}): Promise<ApiKey[]> {
+            fetchApiKeys: async function ({commit, rootGetters, state}, pageNumber: number): Promise<ApiKeysPage> {
                 const projectId = rootGetters.selectedProject.id;
+                commit(SET_PAGE_NUMBER, pageNumber);
 
-                let apiKeys = await api.get(projectId);
-
-                commit(FETCH, apiKeys);
+                const apiKeys = await api.get(projectId, state.cursor);
+                commit(SET_PAGE, apiKeys);
 
                 return apiKeys;
             },
-            createAPIKey: async function ({commit, rootGetters}: any, name: string): Promise<ApiKey> {
+            createApiKey: async function ({commit, rootGetters}: any, name: string): Promise<ApiKey> {
                 const projectId = rootGetters.selectedProject.id;
 
-                let apiKey = await api.create(projectId, name);
-
-                commit(ADD, apiKey);
+                const apiKey = await api.create(projectId, name);
 
                 return apiKey;
             },
-            deleteAPIKey: async function({commit}: any, ids: string[]): Promise<null> {
-                let result = await api.delete(ids);
-
-                commit(DELETE, ids);
-
-                return result;
+            deleteApiKey: async function({commit}: any, ids: string[]): Promise<void> {
+                return await api.delete(ids);
             },
-            toggleAPIKeySelection: function({commit}, apiKeyID: string): void {
+            setApiKeysSearchQuery: function ({commit}, search: string) {
+                commit(SET_SEARCH_QUERY, search);
+            },
+            setApiKeysSortingBy: function ({commit}, order: ApiKeyOrderBy) {
+                commit(CHANGE_SORT_ORDER, order);
+            },
+            setApiKeysSortingDirection: function ({commit}, direction: SortDirection) {
+                commit(CHANGE_SORT_ORDER_DIRECTION, direction);
+            },
+            toggleApiKeySelection: function ({commit}, apiKeyID: string): void {
                 commit(TOGGLE_SELECTION, apiKeyID);
             },
-            clearAPIKeySelection: function({commit}): void {
+            clearApiKeySelection: function ({commit}): void {
                 commit(CLEAR_SELECTION);
             },
-            clearAPIKeys: function ({commit}): void {
-                commit(FETCH, []);
+            clearApiKeys: function ({commit}): void {
+                commit(CLEAR);
             },
         },
         getters: {
-            selectedAPIKeys: function (state: any): ApiKey[] {
-                let keys: ApiKey[] = state.apiKeys;
-                let selectedKeys: ApiKey[] = [];
-
-                for (let i = 0; i < keys.length; i++ ) {
-                    if (keys[i].isSelected) {
-                        selectedKeys.push(keys[i]);
-                    }
-                }
-
-                return selectedKeys;
+            selectedApiKeys: (state: ApiKeysState) => state.page.apiKeys.filter((key: ApiKey) => key.isSelected),
+            apiKeys: function (state: ApiKeysState): ApiKey[] {
+                return state.page.apiKeys;
             },
-            apiKeys: function (state: any): ApiKey[] {
-                return state.apiKeys;
-            }
         },
     };
 }

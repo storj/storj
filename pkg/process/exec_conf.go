@@ -5,6 +5,7 @@ package process
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -38,6 +39,7 @@ var (
 
 	commandMtx sync.Mutex
 	contexts   = map[*cobra.Command]context.Context{}
+	cancels    = map[*cobra.Command]context.CancelFunc{}
 	configs    = map[*cobra.Command][]interface{}{}
 	vipers     = map[*cobra.Command]*viper.Viper{}
 )
@@ -73,24 +75,33 @@ func Exec(cmd *cobra.Command) {
 }
 
 // Ctx returns the appropriate context.Context for ExecuteWithConfig commands
-func Ctx(cmd *cobra.Command) context.Context {
+func Ctx(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	commandMtx.Lock()
 	defer commandMtx.Unlock()
 
 	ctx := contexts[cmd]
 	if ctx == nil {
 		ctx = context.Background()
+		contexts[cmd] = ctx
 	}
-	ctx, cancel := context.WithCancel(ctx)
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-c
-		log.Printf("Got a signal from the OS: %q", sig)
-		signal.Stop(c)
-		cancel()
-	}()
-	return ctx
+
+	cancel := cancels[cmd]
+	if cancel == nil {
+		ctx, cancel = context.WithCancel(ctx)
+		contexts[cmd] = ctx
+		cancels[cmd] = cancel
+
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			sig := <-c
+			log.Printf("Got a signal from the OS: %q", sig)
+			signal.Stop(c)
+			cancel()
+		}()
+	}
+
+	return ctx, cancel
 }
 
 // Viper returns the appropriate *viper.Viper for the command, creating if necessary.
@@ -245,7 +256,8 @@ func cleanup(cmd *cobra.Command) {
 
 		err = initDebug(logger, monkit.Default)
 		if err != nil {
-			logger.Error("failed to start debug endpoints", zap.Error(err))
+			withoutStack := errors.New(err.Error())
+			logger.Debug("failed to start debug endpoints", zap.Error(withoutStack))
 		}
 
 		var workErr error
@@ -256,6 +268,7 @@ func cleanup(cmd *cobra.Command) {
 			defer func() {
 				commandMtx.Lock()
 				delete(contexts, cmd)
+				delete(cancels, cmd)
 				commandMtx.Unlock()
 			}()
 

@@ -21,5 +21,5 @@ const (
 	defaultTransportDialTimeout = 20 * time.Second
 
 	// defaultTransportRequestTimeout is the default time to wait for a response.
-	defaultTransportRequestTimeout = 20 * time.Second
+	defaultTransportRequestTimeout = 10 * time.Minute
 )

@@ -24,6 +24,8 @@ type Config struct {
 }
 
 // Service implements collecting expired pieces on the storage node.
+//
+// architecture: Chore
 type Service struct {
 	log         *zap.Logger
 	pieces      *pieces.Store

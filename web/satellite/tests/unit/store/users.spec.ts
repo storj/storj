@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
+
 import { UsersApiGql } from '@/api/users';
-import { makeUsersModule } from '@/store/modules/users';
+import { makeUsersModule, USER_ACTIONS, USER_MUTATIONS } from '@/store/modules/users';
 import { UpdatedUser, User } from '@/types/users';
-import { USER_MUTATIONS, USER_ACTIONS } from '@/store/modules/users';
+import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const usersApi = new UsersApiGql();
@@ -57,7 +57,7 @@ describe('actions', () => {
     });
     it('success update account', async () => {
         jest.spyOn(usersApi, 'update').mockReturnValue(
-            Promise.resolve()
+            Promise.resolve(),
         );
 
         const user = new UpdatedUser('fullName1', 'shortName2');
@@ -96,7 +96,7 @@ describe('actions', () => {
         const user = new User('2', 'newFullName', 'newShortName', 'example2@email.com');
 
         jest.spyOn(usersApi, 'get').mockReturnValue(
-            Promise.resolve(user)
+            Promise.resolve(user),
         );
 
         await store.dispatch(GET);

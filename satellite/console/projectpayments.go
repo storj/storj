@@ -11,6 +11,8 @@ import (
 )
 
 // ProjectPayments is project payment infos store interface
+//
+// architecture: Database
 type ProjectPayments interface {
 	Create(ctx context.Context, info ProjectPayment) (*ProjectPayment, error)
 	Update(ctx context.Context, info ProjectPayment) error

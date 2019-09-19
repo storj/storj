@@ -14,7 +14,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
@@ -24,6 +23,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
@@ -71,15 +71,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					},
 				},
 			},
-			Kademlia: kademlia.Config{
-				BootstrapBackoffBase: 500 * time.Millisecond,
-				BootstrapBackoffMax:  2 * time.Second,
-				Alpha:                5,
-				DBPath:               filepath.Join(storageDir, "kademlia/"),
-				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@mail.test",
-					Wallet: "0x" + strings.Repeat("00", 20),
-				},
+			Operator: storagenode.OperatorConfig{
+				Email:  prefix + "@mail.test",
+				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 			Storage: piecestore.OldConfig{
 				Path:                   filepath.Join(storageDir, "pieces/"),
@@ -98,7 +92,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			},
 			Console: consoleserver.Config{
 				Address:   "127.0.0.1:0",
-				StaticDir: filepath.Join(developmentRoot, "web/operator/"),
+				StaticDir: filepath.Join(developmentRoot, "web/storagenode/"),
 			},
 			Storage2: piecestore.Config{
 				CacheSyncInterval:     time.Hour,
@@ -124,6 +118,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Bandwidth: bandwidth.Config{
 				Interval: time.Hour,
 			},
+			Contact: contact.Config{
+				Interval: 30 * time.Second,
+				MaxSleep: 0 * time.Second,
+			},
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)
@@ -140,11 +138,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		verisonInfo := planet.NewVersionInfo()
 
 		storageConfig := storagenodedb.Config{
-			Storage:  config.Storage.Path,
-			Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
-			Info2:    filepath.Join(config.Storage.Path, "info.db"),
-			Pieces:   config.Storage.Path,
-			Kademlia: config.Kademlia.DBPath,
+			Storage: config.Storage.Path,
+			Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
+			Info2:   filepath.Join(config.Storage.Path, "info.db"),
+			Pieces:  config.Storage.Path,
 		}
 
 		var db storagenode.DB

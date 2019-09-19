@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue } from '@vue/test-utils';
+
 import { BucketsApiGql } from '@/api/buckets';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { makeBucketsModule } from '@/store/modules/buckets';
+import { ProjectsApiGql } from '@/api/projects';
+import { BUCKET_ACTIONS, makeBucketsModule } from '@/store/modules/buckets';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { Bucket, BucketCursor, BucketPage } from '@/types/buckets';
 import { Project } from '@/types/projects';
-import { ProjectsApiGql } from '@/api/projects';
+import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const bucketsApi = new BucketsApiGql();
@@ -27,7 +27,7 @@ Vue.use(Vuex);
 const store = new Vuex.Store({modules: { projectsModule, bucketsModule } });
 const state = (store.state as any).bucketsModule;
 const bucket = new Bucket('test', 10, 10, 1, new Date(), new Date());
-const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 8, search: 'test', totalCount: 1 };
+const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 7, search: 'test', totalCount: 1 };
 
 describe('actions', () => {
     beforeEach(() => {
@@ -36,7 +36,7 @@ describe('actions', () => {
 
     it('success fetch buckets', async () => {
         jest.spyOn(bucketsApi, 'get').mockReturnValue(
-            Promise.resolve(page)
+            Promise.resolve(page),
         );
 
         await store.dispatch(FETCH, 1);
@@ -64,17 +64,17 @@ describe('actions', () => {
     it('success clear', () => {
         store.dispatch(CLEAR);
 
-        expect(state.cursor).toEqual(new BucketCursor('', 8, 1));
-        expect(state.page).toEqual(new BucketPage([], '', 8, 0, 1, 1, 0));
+        expect(state.cursor).toEqual(new BucketCursor('', 7, 1));
+        expect(state.page).toEqual(new BucketPage([], '', 7, 0, 1, 1, 0));
     });
 });
 
 describe('getters', () => {
-    const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 8, search: 'test', totalCount: 1 };
+    const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 7, search: 'test', totalCount: 1 };
 
     it('page of buckets', async () => {
         jest.spyOn(bucketsApi, 'get').mockReturnValue(
-            Promise.resolve(page)
+            Promise.resolve(page),
         );
 
         await store.dispatch(FETCH, 1);
@@ -89,6 +89,6 @@ describe('getters', () => {
 
         const cursor = store.getters.cursor;
 
-        expect(cursor).toEqual(new BucketCursor('', 8, 1));
+        expect(cursor).toEqual(new BucketCursor('', 7, 1));
     });
 });

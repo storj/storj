@@ -1,17 +1,17 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { createLocalVue } from '@vue/test-utils';
 import Vuex from 'vuex';
 
 import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { ProjectsApiGql } from '@/api/projects';
+import { createLocalVue } from '@vue/test-utils';
 
 const projectsApi = new ProjectsApiGql();
 const projectsModule = makeProjectsModule(projectsApi);
@@ -178,7 +178,7 @@ describe('actions', async () => {
                 6,
                 1,
                 1,
-                1))
+                1)),
         );
 
         await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
@@ -211,19 +211,19 @@ describe('actions', async () => {
         fail(UNREACHABLE_ERROR);
     });
 
-    it('set project members search query', async function () {
+    it('set project members search query', function () {
         store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, 'search');
 
         expect(state.cursor.search).toBe('search');
     });
 
-    it('set project members sort by', async function () {
+    it('set project members sort by', function () {
         store.dispatch(PM_ACTIONS.SET_SORT_BY, ProjectMemberOrderBy.CREATED_AT);
 
         expect(state.cursor.order).toBe(ProjectMemberOrderBy.CREATED_AT);
     });
 
-    it('set sort direction', async function () {
+    it('set sort direction', function () {
         store.dispatch(PM_ACTIONS.SET_SORT_DIRECTION, SortDirection.DESCENDING);
 
         expect(state.cursor.orderDirection).toBe(SortDirection.DESCENDING);
@@ -239,7 +239,7 @@ describe('actions', async () => {
                 6,
                 1,
                 1,
-                2))
+                2)),
         );
 
         await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);

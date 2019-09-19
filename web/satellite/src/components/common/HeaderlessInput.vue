@@ -36,81 +36,81 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    // Custom input component for login page
-    @Component
-    export default class HeaderlessInput extends Vue {
-        private readonly textType: string = 'text';
-        private readonly passwordType: string = 'password';
+// Custom input component for login page
+@Component
+export default class HeaderlessInput extends Vue {
+    private readonly textType: string = 'text';
+    private readonly passwordType: string = 'password';
 
-        private type: string = this.textType;
-        private isPasswordShown: boolean = false;
+    private type: string = this.textType;
+    private isPasswordShown: boolean = false;
 
-        protected value: string = '';
+    protected value: string = '';
 
-        @Prop({default: ''})
-        protected readonly label: string;
-        @Prop({default: 'default'})
-        protected readonly placeholder: string;
-        @Prop({default: false})
-        protected readonly isPassword: boolean;
-        @Prop({default: '48px'})
-        protected readonly height: string;
-        @Prop({default: '100%'})
-        protected readonly width: string;
-        @Prop({default: ''})
-        protected readonly error: string;
-        @Prop({default: Number.MAX_SAFE_INTEGER})
-        protected readonly maxSymbols: number;
+    @Prop({default: ''})
+    protected readonly label: string;
+    @Prop({default: 'default'})
+    protected readonly placeholder: string;
+    @Prop({default: false})
+    protected readonly isPassword: boolean;
+    @Prop({default: '48px'})
+    protected readonly height: string;
+    @Prop({default: '100%'})
+    protected readonly width: string;
+    @Prop({default: ''})
+    protected readonly error: string;
+    @Prop({default: Number.MAX_SAFE_INTEGER})
+    protected readonly maxSymbols: number;
 
-        @Prop({default: false})
-        private readonly isWhite: boolean;
+    @Prop({default: false})
+    private readonly isWhite: boolean;
 
-        public constructor() {
-            super();
+    public constructor() {
+        super();
 
-            this.type = this.isPassword ? this.passwordType : this.textType;
+        this.type = this.isPassword ? this.passwordType : this.textType;
+    }
+
+    // Used to set default value from parent component
+    public setValue(value: string): void {
+        this.value = value;
+    }
+
+    // triggers on input
+    public onInput({ target }): void {
+        if (target.value.length > this.maxSymbols) {
+            this.value = target.value.slice(0, this.maxSymbols);
+        } else {
+            this.value = target.value;
         }
 
-        // Used to set default value from parent component
-        public setValue(value: string): void {
-            this.value = value;
-        }
+        this.$emit('setData', this.value);
+    }
 
-        // triggers on input
-        public onInput({ target }): void {
-            if (target.value.length > this.maxSymbols) {
-                this.value = target.value.slice(0, this.maxSymbols);
-            } else {
-                this.value = target.value;
-            }
-
-            this.$emit('setData', this.value);
-        }
-
-        private changeVision(): void {
-            this.isPasswordShown = !this.isPasswordShown;
-            if (this.isPasswordShown) {
-                this.type = this.type == this.passwordType ? this.textType : this.passwordType;
-            }
-        }
-
-        protected get style(): object {
-            return {
-                inputStyle: {
-                    width: this.width,
-                    height: this.height
-                },
-                labelStyle: {
-                    color: this.isWhite ? 'white' : '#354049'
-                },
-                errorStyle: {
-                    color: this.isWhite ? 'white' : '#FF5560'
-                },
-            };
+    private changeVision(): void {
+        this.isPasswordShown = !this.isPasswordShown;
+        if (this.isPasswordShown) {
+            this.type = this.type === this.passwordType ? this.textType : this.passwordType;
         }
     }
+
+    protected get style(): object {
+        return {
+            inputStyle: {
+                width: this.width,
+                height: this.height,
+            },
+            labelStyle: {
+                color: this.isWhite ? 'white' : '#354049',
+            },
+            errorStyle: {
+                color: this.isWhite ? 'white' : '#FF5560',
+            },
+        };
+    }
+}
 </script>
 
 <style scoped lang="scss">

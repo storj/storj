@@ -11,33 +11,34 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import SearchComponent from '@/components/common/SearchComponent.vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    declare type searchCallback = (search: string) => Promise<void>;
-    declare interface ClearSearch {
-        clearSearch: () => void;
+import SearchComponent from '@/components/common/SearchComponent.vue';
+
+declare type searchCallback = (search: string) => Promise<void>;
+declare interface ClearSearch {
+    clearSearch(): void;
+}
+
+@Component({
+    components: {
+        SearchComponent,
+    },
+})
+export default class HeaderComponent extends Vue {
+    @Prop({default: ''})
+    private readonly placeHolder: string;
+    @Prop({default: () => ''})
+    private readonly search: searchCallback;
+
+    public $refs!: {
+        search: SearchComponent & ClearSearch;
+    };
+
+    public clearSearch() {
+        this.$refs.search.clearSearch();
     }
-
-    @Component({
-        components: {
-            SearchComponent,
-        }
-    })
-    export default class HeaderComponent extends Vue {
-        @Prop({default: ''})
-        private readonly placeHolder: string;
-        @Prop({default: () => { return ''; }})
-        private readonly search: searchCallback;
-
-        public $refs!: {
-            search: SearchComponent & ClearSearch;
-        };
-
-        public clearSearch() {
-            this.$refs.search.clearSearch();
-        }
-    }
+}
 </script>
 
 <style scoped lang="scss">

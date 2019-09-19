@@ -3,7 +3,7 @@
 
 import { ProjectUsageApiGql } from '@/api/usage';
 import { StoreModule } from '@/store';
-import { ProjectUsage, DateRange } from '@/types/usage';
+import { DateRange, ProjectUsage } from '@/types/usage';
 
 export const PROJECT_USAGE_ACTIONS = {
     FETCH: 'fetchProjectUsage',
@@ -15,7 +15,7 @@ export const PROJECT_USAGE_ACTIONS = {
 export const PROJECT_USAGE_MUTATIONS = {
     SET_PROJECT_USAGE: 'SET_PROJECT_USAGE',
     SET_DATE: 'SET_DATE_PROJECT_USAGE',
-    CLEAR: 'CLEAR_PROJECT_USAGE'
+    CLEAR: 'CLEAR_PROJECT_USAGE',
 };
 
 const defaultState = new ProjectUsage(0, 0, 0, new Date(), new Date());
@@ -41,13 +41,13 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
                 state.projectUsage = defaultState;
                 state.startDate = new Date();
                 state.endDate = new Date();
-            }
+            },
         },
         actions: {
             [PROJECT_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters}: any, dateRange: DateRange): Promise<ProjectUsage> {
                 const projectID = rootGetters.selectedProject.id;
 
-                let usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
+                const usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
 
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, dateRange);
                 commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, usage);
@@ -61,7 +61,7 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
                 const startDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1));
                 const dateRange = new DateRange(startDate, endDate);
 
-                let usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
+                const usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
 
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, dateRange);
                 commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, usage);
@@ -76,7 +76,7 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
                 const endDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 0, 23, 59, 59));
                 const dateRange = new DateRange(startDate, endDate);
 
-                let usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
+                const usage: ProjectUsage = await api.get(projectID, dateRange.startDate, dateRange.endDate);
 
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, dateRange);
                 commit(PROJECT_USAGE_MUTATIONS.SET_PROJECT_USAGE, usage);
@@ -85,7 +85,7 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
             },
             [PROJECT_USAGE_ACTIONS.CLEAR]: function({commit}): void {
                 commit(PROJECT_USAGE_MUTATIONS.CLEAR);
-            }
+            },
         },
     };
 }

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { ApiKey, ApiKeysApi } from '@/types/apiKeys';
+import { ApiKey, ApiKeyCursor, ApiKeysApi, ApiKeysPage } from '@/types/apiKeys';
 
 /**
  * ApiKeysApiGql is a graphql implementation of ApiKeys API.
@@ -15,27 +15,48 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
      * @returns ApiKey
      * @throws Error
      */
-    public async get(projectId: string): Promise<ApiKey[]> {
+    public async get(projectId: string, cursor: ApiKeyCursor): Promise<ApiKeysPage> {
         const query =
-            ` query($projectId: String!) {
-                project(
+            `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
+                project (
                     id: $projectId,
                 ) {
-                    apiKeys {
-                        id,
-                        name,
-                        createdAt
+                    apiKeys (
+                        cursor: {
+                            limit: $limit,
+                            search: $search,
+                            page: $page,
+                            order: $order,
+                            orderDirection: $orderDirection
+                        }
+                    ) {
+                        apiKeys {
+                            id,
+                            name,
+                            createdAt
+                        }
+                        search,
+                        limit,
+                        order,
+                        pageCount,
+                        currentPage,
+                        totalCount
                     }
                 }
             }`;
 
         const variables = {
-            projectId
+            projectId: projectId,
+            limit: cursor.limit,
+            search: cursor.search,
+            page: cursor.page,
+            order: cursor.order,
+            orderDirection: cursor.orderDirection,
         };
 
         const response = await this.query(query, variables);
 
-        return this.getApiKeysList(response.data.project.apiKeys);
+        return this.getApiKeysPage(response.data.project.apiKeys);
     }
 
     /**
@@ -68,8 +89,8 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
         };
 
         const response = await this.mutate(query, variables);
-        let key: any = response.data.createAPIKey.keyInfo;
-        let secret: string = response.data.createAPIKey.key;
+        const key: any = response.data.createAPIKey.keyInfo;
+        const secret: string = response.data.createAPIKey.key;
 
         return new ApiKey(key.id, key.name, key.createdAt, secret);
     }
@@ -80,7 +101,7 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
      * @param ids - ids of apiKeys that will be deleted
      * @throws Error
      */
-    public async delete(ids: string[]): Promise<null> {
+    public async delete(ids: string[]): Promise<void> {
         const query =
             `mutation($id: [String!]!) {
                 deleteAPIKeys(id: $id) {
@@ -97,11 +118,23 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
         return response.data.deleteAPIKeys;
     }
 
-    private getApiKeysList(apiKeys: ApiKey[]): ApiKey[] {
-        if (!apiKeys) {
-            return [];
+    private getApiKeysPage(page: any): ApiKeysPage {
+        if (!page) {
+            return new ApiKeysPage();
         }
 
-        return apiKeys.map(key => new ApiKey(key.id, key.name, key.createdAt, ''));
+        const apiKeysPage: ApiKeysPage = new ApiKeysPage();
+
+        apiKeysPage.apiKeys = page.apiKeys.map(key => new ApiKey(key.id, key.name, key.createdAt, ''));
+
+        apiKeysPage.search = page.search;
+        apiKeysPage.limit = page.limit;
+        apiKeysPage.order = page.order;
+        apiKeysPage.orderDirection = page.orderDirection;
+        apiKeysPage.pageCount = page.pageCount;
+        apiKeysPage.currentPage = page.currentPage;
+        apiKeysPage.totalCount = page.totalCount;
+
+        return apiKeysPage;
     }
 }

@@ -45,7 +45,7 @@
                         <path class="blue" d="M25.6491 19.2809L21.2192 23.5281C20.891 23.8427 20.3988 24 20.0707 24C19.7425 24 19.2503 23.8427 19.0862 23.5281L14.4922 19.2809C13.8359 18.6517 13.8359 17.8652 14.4922 17.236C14.8204 16.9213 15.1485 16.9213 15.6407 16.9213C15.9689 16.9213 16.4611 17.0787 16.6252 17.3933L18.594 19.1236L18.594 11.4157C18.594 10.6292 19.2503 10 20.0707 10C20.891 10 21.5473 10.6292 21.5473 11.4157L21.5473 19.1236L23.5162 17.236C23.6803 16.9213 24.1725 16.9213 24.5006 16.9213C24.8288 16.9213 25.321 17.0787 25.4851 17.3933C26.1414 17.8652 26.1414 18.809 25.6491 19.2809Z"/>
                         <rect class="blue" x="11" y="28" width="18" height="2" rx="1"/>
                         <defs>
-                            <clipPath id="clip0">
+                            <clipPath>
                                 <rect width="22" height="22" fill="white" transform="translate(10 10)"/>
                             </clipPath>
                         </defs>
@@ -57,182 +57,184 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import { RouteConfig } from '@/router';
-    import Datepicker from '@/components/project/DatePicker.vue';
-    import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-    import { toUnixTimestamp } from '@/utils/time';
-    import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
-    import { DateRange } from '@/types/usage';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Datepicker,
-        }
-    })
-    export default class UsageReport extends Vue {
-        public startTime: any = {
-            time: '',
+import Datepicker from '@/components/project/DatePicker.vue';
+
+import { RouteConfig } from '@/router';
+import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
+import { DateRange } from '@/types/usage';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { toUnixTimestamp } from '@/utils/time';
+
+@Component({
+    components: {
+        Datepicker,
+    },
+})
+export default class UsageReport extends Vue {
+    public startTime: any = {
+        time: '',
+    };
+    private readonly dateRange: any;
+
+    public constructor() {
+        super();
+
+        const currentDate = new Date();
+        const previousDate = new Date();
+        previousDate.setMonth(currentDate.getMonth() - 1);
+
+        this.dateRange = {
+            startDate: previousDate,
+            endDate: currentDate,
         };
-        private readonly dateRange: any;
+    }
 
-        public constructor() {
-            super();
+    public get startDate(): Date {
+        return this.$store.state.usageModule.startDate;
+    }
 
-            const currentDate = new Date();
-            const previousDate = new Date();
-            previousDate.setMonth(currentDate.getMonth() - 1);
+    public get endDate(): Date {
+        return this.$store.state.usageModule.endDate;
+    }
 
-            this.dateRange = {
-                startDate: previousDate,
-                endDate: currentDate,
-            };
-        }
+    public get storage(): string {
+        return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
+    }
 
-        public get startDate(): Date {
-            return this.$store.state.usageModule.startDate;
-        }
+    public get egress(): string {
+        return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
+    }
 
-        public get endDate(): Date {
-            return this.$store.state.usageModule.endDate;
-        }
+    public get objectsCount(): string {
+        return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
+    }
 
-        public get storage(): string {
-            return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
-        }
-
-        public get egress(): string {
-            return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
-        }
-
-        public get objectsCount(): string {
-            return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
-        }
-
-        public async mounted(): Promise<void> {
-            try {
-                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
-            }
-        }
-
-        public async beforeRouteLeave(to, from, next): Promise<void> {
-            try {
-                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.dateRange);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
-            }
-
-            const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
-            buttons.forEach(option => {
-                option.classList.remove('active');
-            });
-
-            buttons[0].classList.add('active');
-            next();
-        }
-
-        public onBackClick(): void {
-            this.$router.push(RouteConfig.ProjectOverview.path);
-        }
-
-        public async onCurrentRollupClick(event: any): Promise<void> {
-            this.onButtonClickAction(event);
-
-            try {
-                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
-            }
-        }
-
-        public async onPreviousRollupClick(event: any): Promise<void> {
-            this.onButtonClickAction(event);
-
-            try {
-                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
-            }
-        }
-
-        public onCustomDateClick(event: any): void {
-            (this as any).$refs.datePicker.showCheck();
-            this.onButtonClickAction(event);
-        }
-
-        public onReportClick(): void {
-            const projectID = this.$store.getters.selectedProject.id;
-            const startDate = this.$store.state.usageModule.startDate;
-            const endDate = this.$store.state.usageModule.endDate;
-
-            let url = new URL(location.origin);
-
-            url.pathname = 'usage-report';
-            url.searchParams.append('projectID', projectID);
-            url.searchParams.append('since', toUnixTimestamp(startDate).toString());
-            url.searchParams.append('before', toUnixTimestamp(endDate).toString());
-
-            window.open(url.href, '_blank');
-        }
-
-        public async getDates(datesArray: string[]): Promise<void> {
-            const now = new Date();
-            const firstDate = new Date(datesArray[0]);
-            const secondDate = new Date(datesArray[1]);
-            const isInverted = firstDate > secondDate;
-
-            let startDate = isInverted ? secondDate : firstDate;
-            let endDate = isInverted ? firstDate : secondDate;
-
-            endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
-
-            if (now.getUTCFullYear() === endDate.getUTCFullYear() &&
-                now.getUTCMonth() === endDate.getUTCMonth() &&
-                now.getUTCDate() === endDate.getUTCDate()) {
-                endDate = now;
-            }
-
-            const dateRange: DateRange = new DateRange(startDate, endDate);
-
-            try {
-                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, dateRange);
-            } catch (e) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
-            }
-        }
-
-        public toLocaleDateString(date: Date): string {
-            return date.toLocaleDateString('en-US', {timeZone: 'UTC'});
-        }
-
-        private onButtonClickAction(event: any): void {
-            let eventTarget = event.target;
-
-            if (eventTarget.children.length === 0) {
-                eventTarget = eventTarget.parentNode;
-            }
-
-            if (eventTarget.classList.contains('active')) {
-                return;
-            }
-
-            this.changeActiveClass(eventTarget);
-        }
-
-        private changeActiveClass(target: any): void {
-            this.removeActiveClass();
-            target.classList.add('active');
-        }
-
-        private removeActiveClass(): void {
-            const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
-            buttons.forEach(option => {
-                option.classList.remove('active');
-            });
+    public async mounted(): Promise<void> {
+        try {
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+        } catch (e) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
         }
     }
+
+    public async beforeRouteLeave(to, from, next): Promise<void> {
+        try {
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.dateRange);
+        } catch (e) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+        }
+
+        const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
+        buttons.forEach(option => {
+            option.classList.remove('active');
+        });
+
+        buttons[0].classList.add('active');
+        next();
+    }
+
+    public onBackClick(): void {
+        this.$router.push(RouteConfig.ProjectOverview.path);
+    }
+
+    public async onCurrentRollupClick(event: any): Promise<void> {
+        this.onButtonClickAction(event);
+
+        try {
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+        } catch (e) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
+        }
+    }
+
+    public async onPreviousRollupClick(event: any): Promise<void> {
+        this.onButtonClickAction(event);
+
+        try {
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
+        } catch (e) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
+        }
+    }
+
+    public onCustomDateClick(event: any): void {
+        (this as any).$refs.datePicker.showCheck();
+        this.onButtonClickAction(event);
+    }
+
+    public onReportClick(): void {
+        const projectID = this.$store.getters.selectedProject.id;
+        const startDate = this.$store.state.usageModule.startDate;
+        const endDate = this.$store.state.usageModule.endDate;
+
+        const url = new URL(location.origin);
+
+        url.pathname = 'usage-report';
+        url.searchParams.append('projectID', projectID);
+        url.searchParams.append('since', toUnixTimestamp(startDate).toString());
+        url.searchParams.append('before', toUnixTimestamp(endDate).toString());
+
+        window.open(url.href, '_blank');
+    }
+
+    public async getDates(datesArray: string[]): Promise<void> {
+        const now = new Date();
+        const firstDate = new Date(datesArray[0]);
+        const secondDate = new Date(datesArray[1]);
+        const isInverted = firstDate > secondDate;
+
+        const startDate = isInverted ? secondDate : firstDate;
+        let endDate = isInverted ? firstDate : secondDate;
+
+        endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
+
+        if (now.getUTCFullYear() === endDate.getUTCFullYear() &&
+            now.getUTCMonth() === endDate.getUTCMonth() &&
+            now.getUTCDate() === endDate.getUTCDate()) {
+            endDate = now;
+        }
+
+        const dateRange: DateRange = new DateRange(startDate, endDate);
+
+        try {
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, dateRange);
+        } catch (e) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${e.message}`);
+        }
+    }
+
+    public toLocaleDateString(date: Date): string {
+        return date.toLocaleDateString('en-US', {timeZone: 'UTC'});
+    }
+
+    private onButtonClickAction(event: any): void {
+        let eventTarget = event.target;
+
+        if (eventTarget.children.length === 0) {
+            eventTarget = eventTarget.parentNode;
+        }
+
+        if (eventTarget.classList.contains('active')) {
+            return;
+        }
+
+        this.changeActiveClass(eventTarget);
+    }
+
+    private changeActiveClass(target: any): void {
+        this.removeActiveClass();
+        target.classList.add('active');
+    }
+
+    private removeActiveClass(): void {
+        const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
+        buttons.forEach(option => {
+            option.classList.remove('active');
+        });
+    }
+}
 </script>
 
 <style scoped lang="scss">

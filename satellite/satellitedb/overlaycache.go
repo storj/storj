@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -614,7 +615,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 
 	if err != nil {
 		// add the node to DB for first time
-		_, err = tx.Create_Node(
+		err = tx.CreateNoReturn_Node(
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
 			dbx.Node_Address(address.Address),
@@ -651,13 +652,12 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	} else {
-		update := dbx.Node_Update_Fields{
-			Address:  dbx.Node_Address(address.Address),
-			LastNet:  dbx.Node_LastNet(info.LastIp),
-			Protocol: dbx.Node_Protocol(int(address.Transport)),
-		}
-
-		_, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()), update)
+		err = tx.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()),
+			dbx.Node_Update_Fields{
+				Address:  dbx.Node_Address(address.Address),
+				LastNet:  dbx.Node_LastNet(info.LastIp),
+				Protocol: dbx.Node_Protocol(int(address.Transport)),
+			})
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
@@ -781,7 +781,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
-// UpdateNodeInfo updates the email and wallet for a given node ID for satellite payments.
+// UpdateNodeInfo updates the following fields for a given node ID:
+// wallet, email for node operator, free disk and bandwidth capacity, and version
 func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -915,7 +916,6 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 	}
 
 	pieceCounts := make(map[storj.NodeID]int)
-
 	nodeIDErrs := errs.Group{}
 	for _, row := range rows {
 		nodeID, err := storj.NodeIDFromBytes(row.Id)
@@ -925,53 +925,66 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 		}
 		pieceCounts[nodeID] = int(row.PieceCount)
 	}
+
 	return pieceCounts, nodeIDErrs.Err()
 }
 
 func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
-	// TODO: add monkit stuff
 	defer mon.Task()(&ctx)(&err)
-
 	if len(pieceCounts) == 0 {
 		return nil
 	}
 
-	switch cache.db.Driver().(type) {
+	// TODO: pass in the apprioriate struct to database, rather than constructing it here
+	type NodeCount struct {
+		ID    storj.NodeID
+		Count int64
+	}
+	var counts []NodeCount
+
+	for nodeid, count := range pieceCounts {
+		counts = append(counts, NodeCount{
+			ID:    nodeid,
+			Count: int64(count),
+		})
+	}
+	sort.Slice(counts, func(i, k int) bool {
+		return counts[i].ID.Less(counts[k].ID)
+	})
+
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			query := tx.Rebind(`UPDATE nodes SET piece_count = ? WHERE id = ?`)
+			for _, count := range counts {
+				_, err := tx.Tx.ExecContext(ctx, query, count.Count, count.ID)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+			return nil
+		})
 	case *pq.Driver:
-		return Error.Wrap(cache.postgresUpdatePieceCounts(ctx, pieceCounts))
+		var nodeIDs []storj.NodeID
+		var countNumbers []int64
+		for _, count := range counts {
+			nodeIDs = append(nodeIDs, count.ID)
+			countNumbers = append(countNumbers, count.Count)
+		}
+
+		_, err = cache.db.ExecContext(ctx, `
+			UPDATE nodes
+				SET piece_count = update.count
+			FROM (
+				SELECT unnest($1::bytea[]) as id, unnest($2::bigint[]) as count
+			) as update
+			WHERE nodes.id = update.id
+		`, postgresNodeIDList(nodeIDs), pq.Array(countNumbers))
 	default:
-		return Error.Wrap(cache.sqliteUpdatePieceCounts(ctx, pieceCounts))
+		return Error.New("Unsupported database %t", t)
 	}
-}
 
-func (cache *overlaycache) postgresUpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	sqlQuery := `UPDATE nodes SET piece_count = newvals.piece_count FROM ( VALUES `
-	args := make([]interface{}, 0, len(pieceCounts)*2)
-	for nodeID, pieceCount := range pieceCounts {
-		sqlQuery += `(?::BYTEA, ?::BIGINT), `
-		args = append(args, nodeID, pieceCount)
-	}
-	sqlQuery = sqlQuery[:len(sqlQuery)-2]
-	// trim off the last comma+space
-	sqlQuery += `) newvals(nodeid, piece_count) WHERE nodes.id = newvals.nodeid`
-	_, err = cache.db.DB.ExecContext(ctx, cache.db.Rebind(sqlQuery), args...)
-	return err
-}
-
-func (cache *overlaycache) sqliteUpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var args []interface{}
-	sqlQuery := ""
-	updateSQL := "UPDATE nodes SET ( piece_count ) = ( ? ) WHERE id == ?;"
-	for nodeID, pieceCount := range pieceCounts {
-		sqlQuery += updateSQL
-		args = append(args, pieceCount, nodeID)
-	}
-	_, err = cache.db.DB.ExecContext(ctx, cache.db.Rebind(sqlQuery), args...)
-	return err
+	return Error.Wrap(err)
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
@@ -1324,4 +1337,129 @@ func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) db
 	}
 
 	return updateFields
+}
+
+// UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
+func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if node.Address.GetAddress() == "" {
+		return Error.New("error UpdateCheckIn: missing the storage node address")
+	}
+
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		value := pb.Node{
+			Id:      node.NodeID,
+			Address: node.Address,
+			LastIp:  node.LastIP,
+		}
+		err := cache.UpdateAddress(ctx, &value, config)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		_, err = cache.UpdateUptime(ctx, node.NodeID, node.IsUp, config.UptimeReputationLambda, config.UptimeReputationWeight, config.UptimeReputationDQ)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		pbInfo := pb.InfoResponse{
+			Operator: node.Operator,
+			Capacity: node.Capacity,
+			Type:     pb.NodeType_STORAGE,
+		}
+		_, err = cache.UpdateNodeInfo(ctx, node.NodeID, &pbInfo)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	case *pq.Driver:
+		// v is a single feedback value that allows us to update both alpha and beta
+		var v float64 = -1
+		if node.IsUp {
+			v = 1
+		}
+		uptimeReputationAlpha := config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
+		uptimeReputationBeta := config.UptimeReputationLambda*config.UptimeReputationBeta0 + config.UptimeReputationWeight*(1-v)/2
+		semVer, err := version.NewSemVer(node.Version.GetVersion())
+		if err != nil {
+			return Error.New("unable to convert version to semVer")
+		}
+		start := time.Now()
+		query := `
+			INSERT INTO nodes
+			(
+				id, address, last_net, protocol, type,
+				email, wallet, free_bandwidth, free_disk,
+				uptime_success_count, total_uptime_count, 
+				last_contact_success,
+				last_contact_failure,
+				audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
+				major, minor, patch, hash, timestamp, release
+			)
+			VALUES (
+				$1, $2, $3, $4, $5,
+				$6, $7, $8, $9,
+				$10::bool::int, 1,
+				CASE WHEN $10 IS TRUE THEN current_timestamp
+					ELSE '0001-01-01 00:00:00+00'
+				END,
+				CASE WHEN $10 IS FALSE THEN current_timestamp
+					ELSE '0001-01-01 00:00:00+00'
+				END,
+				$11, $12, $13, $14,
+				$18, $19, $20, $21, $22, $23
+			)
+			ON CONFLICT (id)
+			DO UPDATE
+			SET
+				address=$2,
+				last_net=$3,
+				protocol=$4,
+				email=$6,
+				wallet=$7,
+				free_bandwidth=$8,
+				free_disk=$9,
+				total_uptime_count=nodes.total_uptime_count+1,
+				uptime_reputation_alpha=$16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int,
+				uptime_reputation_beta=$16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int,
+				uptime_success_count = nodes.uptime_success_count + $10::bool::int,
+				last_contact_success = CASE WHEN $10 IS TRUE
+					THEN current_timestamp
+					ELSE nodes.last_contact_success
+				END,
+				last_contact_failure = CASE WHEN $10 IS FALSE
+					THEN current_timestamp
+					ELSE nodes.last_contact_failure
+				END,
+				-- this disqualified case statement resolves to: 
+				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
+				disqualified = CASE WHEN (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) / (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) + ($16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int))) <= $15 AND nodes.disqualified IS NULL
+					THEN current_timestamp
+					ELSE nodes.disqualified
+				END;
+			`
+		_, err = cache.db.ExecContext(ctx, query,
+			// args $1 - $5
+			node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
+			// args $6 - $9
+			node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
+			// args $10
+			node.IsUp,
+			// args $11 - $14
+			config.AuditReputationAlpha0, config.AuditReputationBeta0, uptimeReputationAlpha, uptimeReputationBeta,
+			// args $15 - $17
+			config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
+			// args $18 - $23
+			semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
+		)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		mon.FloatVal("UpdateCheckIn query execution time (seconds)").Observe(time.Since(start).Seconds())
+	default:
+		return Error.New("Unsupported database %t", t)
+	}
+
+	return nil
 }

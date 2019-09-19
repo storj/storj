@@ -1,13 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 import { StoreModule } from '@/store';
+import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 
 export const BUCKET_ACTIONS = {
     FETCH: 'setBuckets',
     SET_SEARCH: 'setBucketSearch',
-    CLEAR: 'clearBuckets'
+    CLEAR: 'clearBuckets',
 };
 
 export const BUCKET_MUTATIONS = {
@@ -18,7 +18,7 @@ export const BUCKET_MUTATIONS = {
 };
 
 const {
-    FETCH
+    FETCH,
 } = BUCKET_ACTIONS;
 const {
     SET,
@@ -26,7 +26,7 @@ const {
     SET_SEARCH,
     CLEAR,
 } = BUCKET_MUTATIONS;
-const bucketPageLimit = 8;
+const bucketPageLimit = 7;
 const firstPage = 1;
 
 class BucketsState {
@@ -56,7 +56,7 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
             [CLEAR](state: BucketsState) {
                 state.cursor = new BucketCursor('', bucketPageLimit, firstPage);
                 state.page = new BucketPage([], '', bucketPageLimit, 0, 1, 1, 0);
-            }
+            },
         },
         actions: {
             [FETCH]: async function({commit, rootGetters, state}: any, page: number): Promise<BucketPage> {
@@ -66,7 +66,7 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
 
                 commit(SET_PAGE, page);
 
-                let result = await api.get(projectID, before, state.cursor);
+                const result = await api.get(projectID, before, state.cursor);
 
                 commit(SET, result);
 
@@ -77,11 +77,11 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
             },
             [BUCKET_ACTIONS.CLEAR]: function({commit}) {
                 commit(CLEAR);
-            }
+            },
         },
         getters: {
             page: (state: BucketsState): BucketPage => state.page,
             cursor: (state: BucketsState): BucketCursor => state.cursor,
-        }
+        },
     };
 }

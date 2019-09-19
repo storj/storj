@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
@@ -63,6 +64,19 @@ func TestInspectorStats(t *testing.T) {
 	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
 	assert.NoError(t, err)
 
+	// wait until all requests have been handled
+	for {
+		total := int32(0)
+		for _, storageNode := range planet.StorageNodes {
+			total += storageNode.Storage2.Endpoint.TestLiveRequestCount()
+		}
+		if total == 0 {
+			break
+		}
+
+		sync2.Sleep(ctx, 100*time.Millisecond)
+	}
+
 	var downloaded int
 	for _, storageNode := range planet.StorageNodes {
 		response, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
@@ -70,7 +84,7 @@ func TestInspectorStats(t *testing.T) {
 
 		// TODO set more accurate assertions
 		if response.UsedSpace > 0 {
-			assert.True(t, response.UsedBandwidth > 0)
+			assert.NotZero(t, response.UsedBandwidth)
 			assert.Equal(t, response.UsedBandwidth, response.UsedIngress+response.UsedEgress)
 			assert.Equal(t, availableBandwidth-response.UsedBandwidth, response.AvailableBandwidth)
 			assert.Equal(t, availableSpace-response.UsedSpace, response.AvailableSpace)
@@ -87,7 +101,7 @@ func TestInspectorStats(t *testing.T) {
 			assert.Equal(t, availableSpace, response.AvailableSpace)
 		}
 	}
-	assert.True(t, downloaded >= rs.MinThreshold)
+	assert.True(t, downloaded >= rs.MinThreshold, "downloaded=%v, rs.MinThreshold=%v", downloaded, rs.MinThreshold)
 }
 
 func TestInspectorDashboard(t *testing.T) {
@@ -116,13 +130,11 @@ func TestInspectorDashboard(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.True(t, response.LastPinged.After(testStartedTime))
-
-			assert.True(t, response.LastQueried.After(testStartedTime))
+			assert.NotEmpty(t, response.LastPingFromAddress)
 
 			assert.True(t, response.Uptime.Nanos > 0)
 			assert.Equal(t, storageNode.ID(), response.NodeId)
 			assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
-			assert.Equal(t, int64(len(planet.StorageNodes)+len(planet.Satellites)), response.NodeConnections)
 			assert.NotNil(t, response.Stats)
 		}
 	})

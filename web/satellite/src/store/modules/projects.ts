@@ -1,9 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ProjectsApiGql } from '@/api/projects';
-import { CreateProjectModel, Project, UpdateProjectModel } from '@/types/projects';
 import { StoreModule } from '@/store';
+import { CreateProjectModel, Project, ProjectsApi, UpdateProjectModel } from '@/types/projects';
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',
@@ -48,7 +47,7 @@ const {
     CLEAR_PROJECTS,
 } = PROJECTS_MUTATIONS;
 
-export function makeProjectsModule(api: ProjectsApiGql): StoreModule<ProjectsState> {
+export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState> {
     return {
         state: new ProjectsState(),
         mutations: {
@@ -62,10 +61,10 @@ export function makeProjectsModule(api: ProjectsApiGql): StoreModule<ProjectsSta
                     return;
                 }
 
-                let projectsCount = state.projects.length;
+                const projectsCount = state.projects.length;
 
                 for (let i = 0; i < projectsCount; i++) {
-                    let project = state.projects[i];
+                    const project = state.projects[i];
 
                     if (project.id !== state.selectedProject.id) {
                         continue;
@@ -109,14 +108,14 @@ export function makeProjectsModule(api: ProjectsApiGql): StoreModule<ProjectsSta
         },
         actions: {
             [FETCH]: async function ({commit}: any): Promise<Project[]> {
-                let projects = await api.get();
+                const projects = await api.get();
 
                 commit(SET_PROJECTS, projects);
 
                 return projects;
             },
             [CREATE]: async function ({commit}: any, createProjectModel: CreateProjectModel): Promise<Project> {
-                let project = await api.create(createProjectModel);
+                const project = await api.create(createProjectModel);
 
                 commit(ADD, project);
 
@@ -137,7 +136,7 @@ export function makeProjectsModule(api: ProjectsApiGql): StoreModule<ProjectsSta
             },
             [CLEAR]: function({commit}: any): void {
                 commit(CLEAR_PROJECTS);
-            }
+            },
         },
         getters: {
             projects: (state: any): Project[] => {

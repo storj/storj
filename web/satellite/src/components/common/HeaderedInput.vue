@@ -38,27 +38,28 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import HeaderlessInput from './HeaderlessInput.vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    // Custom input component with labeled header
-    @Component
-    export default class HeaderedInput extends HeaderlessInput {
-        @Prop({default: ''})
-        private readonly initValue: string;
-        @Prop({default: ''})
-        private readonly additionalLabel: string;
-        @Prop({default: false})
-        private readonly isOptional: boolean;
-        @Prop({default: false})
-        private readonly isMultiline: boolean;
-        
-        public constructor() {
-            super();
-            
-            this.value = this.initValue;
-        }
+import HeaderlessInput from './HeaderlessInput.vue';
+
+// Custom input component with labeled header
+@Component
+export default class HeaderedInput extends HeaderlessInput {
+    @Prop({default: ''})
+    private readonly initValue: string;
+    @Prop({default: ''})
+    private readonly additionalLabel: string;
+    @Prop({default: false})
+    private readonly isOptional: boolean;
+    @Prop({default: false})
+    private readonly isMultiline: boolean;
+
+    public constructor() {
+        super();
+
+        this.value = this.initValue;
     }
+}
 </script>
 
 <style scoped lang="scss">

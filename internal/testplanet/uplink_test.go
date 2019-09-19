@@ -25,7 +25,9 @@ import (
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/metainfo"
 )
 
 func TestUplinksParallel(t *testing.T) {
@@ -79,9 +81,6 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
-
 		testData := testrand.Bytes(memory.MiB)
 
 		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
@@ -129,10 +128,27 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 				require.NoError(t, err)
 
 				// mark node as offline in overlay
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				info := overlay.NodeCheckInInfo{
+					NodeID: node.ID(),
+					IsUp:   false,
+					Address: &pb.NodeAddress{
+						Address: "1.2.3.4",
+					},
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  time.Time{},
+						Release:    false,
+					},
+				}
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info)
 				require.NoError(t, err)
 			}
 		}
+		// confirm that we marked the correct number of storage nodes as offline
+		nodes, err := satellite.Overlay.DB.SelectStorageNodes(ctx, len(planet.StorageNodes), &overlay.NodeCriteria{})
+		require.NoError(t, err)
+		require.Len(t, nodes, len(planet.StorageNodes)-len(nodesToKill))
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
@@ -243,5 +259,38 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, expectedData, data)
+	})
+}
+
+func TestDeleteWithOfflineStoragenode(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedData := testrand.Bytes(5 * memory.MiB)
+
+		config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
+		config.Client.SegmentSize = 1 * memory.MiB
+		err := planet.Uplinks[0].UploadWithClientConfig(ctx, planet.Satellites[0], config, "test-bucket", "test-file", expectedData)
+		require.NoError(t, err)
+
+		for _, node := range planet.StorageNodes {
+			err = planet.StopPeer(node)
+			require.NoError(t, err)
+		}
+
+		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test-bucket", "test-file")
+		require.Error(t, err)
+
+		key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], key)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		objects, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("test-bucket"),
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, len(objects))
 	})
 }

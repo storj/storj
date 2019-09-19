@@ -11,29 +11,31 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { Component, Vue } from 'vue-property-decorator';
 
-    // Button and popup for adding new Project
-    @Component({
-        components: {
-            NewProjectPopup
-        }
-    })
-    export default class NewProjectArea extends Vue {
-        public toggleSelection(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-        }
+import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
 
-        public get isPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isNewProjectPopupShown;
-        }
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-        public get hasProjects(): boolean {
-            return this.$store.state.projectsModule.projects.length;
-        }
+// Button and popup for adding new Project
+@Component({
+    components: {
+        NewProjectPopup,
+    },
+})
+export default class NewProjectArea extends Vue {
+    public toggleSelection(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
     }
+
+    public get isPopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isNewProjectPopupShown;
+    }
+
+    public get hasProjects(): boolean {
+        return this.$store.state.projectsModule.projects.length;
+    }
+}
 </script>
 
 <style scoped lang="scss">

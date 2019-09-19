@@ -19,14 +19,16 @@ import (
 )
 
 // Service structure
+//
+// architecture: Service
 type Service struct {
 	logger    *zap.Logger
-	DB        storage.KeyValueStore
+	DB        PointerDB
 	bucketsDB BucketsDB
 }
 
 // NewService creates new metainfo service
-func NewService(logger *zap.Logger, db storage.KeyValueStore, bucketsDB BucketsDB) *Service {
+func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service {
 	return &Service{logger: logger, DB: db, bucketsDB: bucketsDB}
 }
 
@@ -90,9 +92,7 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 				continue
 			}
 			existing := pieceMap[piece.PieceNum]
-			if existing != nil &&
-				existing.NodeId == piece.NodeId &&
-				existing.Hash == piece.Hash {
+			if existing != nil && existing.NodeId == piece.NodeId {
 				delete(pieceMap, piece.PieceNum)
 			}
 		}
@@ -112,9 +112,14 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 		// copy the pieces from the map back to the pointer
 		var pieces []*pb.RemotePiece
 		for _, piece := range pieceMap {
+			// clear hashes so we don't store them
+			piece.Hash = nil
 			pieces = append(pieces, piece)
 		}
 		pointer.GetRemote().RemotePieces = pieces
+
+		pointer.LastRepaired = ref.LastRepaired
+		pointer.RepairCount = ref.RepairCount
 
 		// marshal the pointer
 		newPointerBytes, err := proto.Marshal(pointer)
