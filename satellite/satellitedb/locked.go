@@ -763,10 +763,10 @@ func (m *lockedGracefulExit) GetTransferQueueItem(ctx context.Context, nodeID st
 }
 
 // IncrementProgress increments transfer stats for a node.
-func (m *lockedGracefulExit) IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, transferred int64, failed int64) error {
+func (m *lockedGracefulExit) IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, successfulTransfers int64, failedTransfers int64) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.IncrementProgress(ctx, nodeID, bytes, transferred, failed)
+	return m.db.IncrementProgress(ctx, nodeID, bytes, successfulTransfers, failedTransfers)
 }
 
 // UpdateTransferQueueItem creates a graceful exit transfer queue entry.
