@@ -37,7 +37,7 @@ describe('ApiKeysCreationPopup', () => {
     it('renders correctly', () => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
-            localVue
+            localVue,
         });
 
         expect(wrapper).toMatchSnapshot();

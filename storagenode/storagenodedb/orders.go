@@ -19,17 +19,11 @@ import (
 // ErrOrders represents errors from the ordersdb database.
 var ErrOrders = errs.Class("ordersdb error")
 
-type ordersDB struct {
-	location string
-	SQLDB
-}
+// OrdersDBName represents the database name.
+const OrdersDBName = "orders"
 
-// newOrdersDB returns a new instance of ordersdb initialized with the specified database.
-func newOrdersDB(db SQLDB, location string) *ordersDB {
-	return &ordersDB{
-		location: location,
-		SQLDB:    db,
-	}
+type ordersDB struct {
+	migratableDB
 }
 
 // Enqueue inserts order to the unsent list

@@ -42,7 +42,7 @@ export const PM_ACTIONS = {
     SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
     SET_SORT_BY: 'setProjectMembersSortingBy',
     SET_SORT_DIRECTION: 'setProjectMembersSortingDirection',
-    CLEAR_OFFSET: 'clearProjectMembersOffset'
+    CLEAR_OFFSET: 'clearProjectMembersOffset',
 };
 
 export const API_KEYS_ACTIONS = {
@@ -54,7 +54,7 @@ export const API_KEYS_ACTIONS = {
     SET_SORT_BY: 'setApiKeysSortingBy',
     SET_SORT_DIRECTION: 'setApiKeysSortingDirection',
     TOGGLE_SELECTION: 'toggleApiKeySelection',
-    CLEAR_SELECTION: 'clearApiKeySelection'
+    CLEAR_SELECTION: 'clearApiKeySelection',
 };
 
 export const PROJECT_PAYMENT_METHODS_ACTIONS = {
@@ -62,5 +62,5 @@ export const PROJECT_PAYMENT_METHODS_ACTIONS = {
     FETCH: 'fetchProjectPaymentMethods',
     CLEAR: 'clearProjectPaymentMethods',
     SET_DEFAULT: 'setDefaultPaymentMethod',
-    DELETE: 'deletePaymentMethod'
+    DELETE: 'deletePaymentMethod',
 };

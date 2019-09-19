@@ -35,7 +35,7 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
                         offset,
                         pageCount,
                         currentPage,
-                        totalCount 
+                        totalCount
                     }
                 }
             }`;

@@ -33,12 +33,12 @@ export default class ProjectMemberListItem extends Vue {
         const letter = fullName.slice(0, 1).toLocaleUpperCase();
 
         const style = {
-            background: getColor(letter)
+            background: getColor(letter),
         };
 
         return {
             letter,
-            style
+            style,
         };
     }
 }

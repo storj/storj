@@ -19,6 +19,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/signing"
@@ -76,6 +77,7 @@ type Endpoint struct {
 	orders           *orders.Service
 	overlay          *overlay.Service
 	partnerinfo      attribution.DB
+	peerIdentities   overlay.PeerIdentities
 	projectUsage     *accounting.ProjectUsage
 	containment      Containment
 	apiKeys          APIKeys
@@ -85,7 +87,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB,
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
 	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
@@ -94,6 +96,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		orders:           orders,
 		overlay:          cache,
 		partnerinfo:      partnerinfo,
+		peerIdentities:   peerIdentities,
 		containment:      containment,
 		apiKeys:          apiKeys,
 		projectUsage:     projectUsage,
@@ -270,6 +273,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 	for _, piece := range req.GetPointer().GetRemote().GetRemotePieces() {
 		piece.Hash = nil
 	}
+	req.Pointer.PieceHashesVerified = true
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
 
@@ -475,18 +479,30 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 	defer mon.Task()(&ctx)(&err)
 
 	if pointer.Type == pb.Pointer_REMOTE {
-		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
+
+		peerIDMap, err := endpoint.mapNodesFor(ctx, remote.RemotePieces)
+		if err != nil {
+			return err
+		}
+
+		var remotePieces []*pb.RemotePiece
 		allSizesValid := true
 		lastPieceSize := int64(0)
 		for _, piece := range remote.RemotePieces {
 
-			// TODO enable piece hash signature verification
+			// Verify storagenode signature on piecehash
+			peerID, ok := peerIDMap[piece.NodeId]
+			if !ok {
+				endpoint.log.Warn("Identity chain unknown for node", zap.String("nodeID", piece.NodeId.String()))
+				continue
+			}
+			signee := signing.SigneeFromPeerIdentity(peerID)
 
-			err = endpoint.validatePieceHash(ctx, piece, limits)
+			err = endpoint.validatePieceHash(ctx, piece, limits, signee)
 			if err != nil {
 				// TODO maybe this should be logged also to uplink too
-				endpoint.log.Sugar().Warn(err)
+				endpoint.log.Warn("Problem validating piece hash", zap.Error(err))
 				continue
 			}
 
@@ -532,6 +548,23 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		remote.RemotePieces = remotePieces
 	}
 	return nil
+}
+
+func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePiece) (map[storj.NodeID]*identity.PeerIdentity, error) {
+	nodeIDList := storj.NodeIDList{}
+	for _, piece := range pieces {
+		nodeIDList = append(nodeIDList, piece.NodeId)
+	}
+	peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
+	for _, peerID := range peerIDList {
+		peerIDMap[peerID.ID] = peerID
+	}
+
+	return peerIDMap, nil
 }
 
 // CreatePath will create a Segment path
@@ -1049,6 +1082,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Errorf(codes.NotFound, "unable to find object: %q/%q", streamID.Bucket, streamID.EncryptedPath)
 	}
 
+	if lastSegmentPointer.Remote == nil {
+		lastSegmentPointer.Remote = &pb.RemoteSegment{}
+	}
+	// RS is set always for last segment to emulate RS per object
+	lastSegmentPointer.Remote.Redundancy = streamID.Redundancy
 	lastSegmentPointer.Metadata = req.EncryptedMetadata
 
 	err = endpoint.metainfo.Delete(ctx, lastSegmentPath)
@@ -1125,6 +1163,34 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 	if pointer.Remote != nil {
 		object.RedundancyScheme = pointer.Remote.Redundancy
+
+		// NumberOfSegments == 0 - pointer with encrypted num of segments
+		// NumberOfSegments > 1 - pointer with unencrypted num of segments and multiple segments
+	} else if streamMeta.NumberOfSegments == 0 || streamMeta.NumberOfSegments > 1 {
+		// workaround
+		// The new metainfo API redundancy scheme is on object level (not per segment).
+		// Because of that, RS is always taken from the last segment.
+		// The old implementation saves RS per segment, and in some cases
+		// when the remote file's last segment is an inline segment, we end up
+		// missing an RS scheme. This loop will search for RS in segments other than the last one.
+
+		index := int64(0)
+		for {
+			pointer, _, err = endpoint.getPointer(ctx, keyInfo.ProjectID, index, req.Bucket, req.EncryptedPath)
+			if err != nil {
+				if storage.ErrKeyNotFound.Has(err) {
+					break
+				}
+
+				endpoint.log.Error("unable to get pointer", zap.Error(err))
+				return nil, status.Error(codes.Internal, "unable to get object")
+			}
+			if pointer.Remote != nil {
+				object.RedundancyScheme = pointer.Remote.Redundancy
+				break
+			}
+			index++
+		}
 	}
 
 	return &pb.ObjectGetResponse{
@@ -1393,6 +1459,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		CreationDate:   streamID.CreationDate,
 		ExpirationDate: streamID.ExpirationDate,
 		Metadata:       metadata,
+
+		PieceHashesVerified: true,
 	}
 
 	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
@@ -1454,7 +1522,9 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &pb.SegmentCommitResponse{}, nil
+	return &pb.SegmentCommitResponse{
+		SuccessfulPieces: int32(len(pointer.Remote.RemotePieces)),
+	}, nil
 }
 
 // MakeInlineSegment makes inline segment on satellite
@@ -1504,12 +1574,18 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
+	metadata, err := proto.Marshal(&pb.SegmentMeta{
+		EncryptedKey: req.EncryptedKey,
+		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
+	})
+
 	pointer := &pb.Pointer{
 		Type:           pb.Pointer_INLINE,
 		SegmentSize:    inlineUsed,
 		CreationDate:   streamID.CreationDate,
 		ExpirationDate: streamID.ExpirationDate,
 		InlineSegment:  req.EncryptedInlineData,
+		Metadata:       metadata,
 	}
 
 	err = endpoint.metainfo.Put(ctx, path, pointer)
@@ -1803,6 +1879,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			}
 			segmentMeta = streamMeta.LastSegmentMeta
 		} else {
+			segmentMeta = &pb.SegmentMeta{}
 			err = proto.Unmarshal(pointer.Metadata, segmentMeta)
 			if err != nil {
 				return nil, status.Error(codes.Internal, err.Error())

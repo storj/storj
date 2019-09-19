@@ -57,8 +57,8 @@ func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, path metain
 	return nil
 }
 
-// RemoteObject returns nil because gc does not interact with remote objects
-func (pieceTracker *PieceTracker) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+// Object returns nil because gc does not interact with remote objects
+func (pieceTracker *PieceTracker) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }
 

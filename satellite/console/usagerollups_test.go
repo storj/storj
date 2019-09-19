@@ -100,13 +100,11 @@ func TestUsageRollups(t *testing.T) {
 
 				tally1 := &accounting.BucketTally{
 					BucketName:     []byte(bucket),
-					ProjectID:      project1[:],
+					ProjectID:      project1,
+					ObjectCount:    value1,
 					Segments:       value1,
 					InlineSegments: value1,
 					RemoteSegments: value1,
-					Files:          value1,
-					InlineFiles:    value1,
-					RemoteFiles:    value1,
 					Bytes:          value1,
 					InlineBytes:    value1,
 					RemoteBytes:    value1,
@@ -115,13 +113,11 @@ func TestUsageRollups(t *testing.T) {
 
 				tally2 := &accounting.BucketTally{
 					BucketName:     []byte(bucket),
-					ProjectID:      project2[:],
+					ProjectID:      project2,
+					ObjectCount:    value2,
 					Segments:       value2,
 					InlineSegments: value2,
 					RemoteSegments: value2,
-					Files:          value2,
-					InlineFiles:    value2,
-					RemoteFiles:    value2,
 					Bytes:          value2,
 					InlineBytes:    value2,
 					RemoteBytes:    value2,

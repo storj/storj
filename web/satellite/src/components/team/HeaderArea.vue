@@ -40,7 +40,7 @@ import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers'
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 declare interface ClearSearch {
-    clearSearch: () => void;
+    clearSearch(): void;
 }
 
 @Component({
@@ -48,7 +48,7 @@ declare interface ClearSearch {
         Button,
         HeaderComponent,
         AddUserPopup,
-    }
+    },
 })
 export default class HeaderArea extends Vue {
     @Prop({default: ProjectMemberHeaderState.DEFAULT})

@@ -96,8 +96,8 @@ func TestLoop(t *testing.T) {
 
 		projectID := ul.ProjectID[satellite.ID()]
 		for _, obs := range []*testObserver{obs1, obs2} {
+			assert.EqualValues(t, 7, obs.objectCount)
 			assert.EqualValues(t, 5, obs.remoteSegCount)
-			assert.EqualValues(t, 5, obs.remoteFileCount)
 			assert.EqualValues(t, 2, obs.inlineSegCount)
 			assert.EqualValues(t, 7, len(obs.uniquePaths))
 			for _, path := range obs.uniquePaths {
@@ -282,20 +282,20 @@ func TestLoopCancel(t *testing.T) {
 }
 
 type testObserver struct {
-	remoteSegCount  int
-	remoteFileCount int
-	inlineSegCount  int
-	uniquePaths     map[string]metainfo.ScopedPath
-	onSegment       func(context.Context) error // if set, run this during RemoteSegment()
+	objectCount    int
+	remoteSegCount int
+	inlineSegCount int
+	uniquePaths    map[string]metainfo.ScopedPath
+	onSegment      func(context.Context) error // if set, run this during RemoteSegment()
 }
 
 func newTestObserver(onSegment func(context.Context) error) *testObserver {
 	return &testObserver{
-		remoteSegCount:  0,
-		remoteFileCount: 0,
-		inlineSegCount:  0,
-		uniquePaths:     make(map[string]metainfo.ScopedPath),
-		onSegment:       onSegment,
+		objectCount:    0,
+		remoteSegCount: 0,
+		inlineSegCount: 0,
+		uniquePaths:    make(map[string]metainfo.ScopedPath),
+		onSegment:      onSegment,
 	}
 }
 
@@ -315,8 +315,8 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, path metainfo.Scoped
 	return nil
 }
 
-func (obs *testObserver) RemoteObject(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
-	obs.remoteFileCount++
+func (obs *testObserver) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
+	obs.objectCount++
 	return nil
 }
 

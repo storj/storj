@@ -12,8 +12,8 @@ describe('', () => {
 
         const wrapper = mount(ProjectMemberListItem, {
             propsData: {
-                itemData: member
-            }
+                itemData: member,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -25,8 +25,8 @@ describe('', () => {
 
         const wrapper = mount(ProjectMemberListItem, {
             propsData: {
-                itemData: member
-            }
+                itemData: member,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();

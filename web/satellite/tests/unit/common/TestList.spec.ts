@@ -11,8 +11,8 @@ describe('TestList.vue', () => {
     it('should render list of primitive types', function () {
         const wrapper = mount(TestList, {
             propsData: {
-                onItemClick: sinon.stub()
-            }
+                onItemClick: sinon.stub(),
+            },
         });
         expect(wrapper).toMatchSnapshot();
     });
@@ -23,7 +23,7 @@ describe('TestList.vue', () => {
         const wrapper = mount(TestList, {
             propsData: {
                 onItemClick: onPressSpy,
-            }
+            },
         });
         wrapper.find('.item-component__item').trigger('click');
         expect(onPressSpy.callCount).toBe(1);
