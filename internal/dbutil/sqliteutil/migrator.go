@@ -24,6 +24,16 @@ var (
 // All tables in destDB will be dropped other than those specified in
 // tablesToKeep.
 func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB *sql.DB, tablesToKeep ...string) error {
+	err := migrateDBs(ctx, srcDB, destDB)
+	if err != nil {
+		return ErrMigrateTables.Wrap(err)
+	}
+
+	// Remove tables we don't want to keep from the cloned destination database.
+	return ErrMigrateTables.Wrap(KeepTables(ctx, destDB, tablesToKeep...))
+}
+
+func migrateDBs(ctx context.Context, srcDB, destDB *sql.DB) error {
 	// Retrieve the raw Sqlite3 driver connections for the src and dest so that
 	// we can execute the backup API for a corruption safe clone.
 	srcConn, err := srcDB.Conn(ctx)
@@ -70,18 +80,7 @@ func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB *sql.DB, tablesT
 
 		return nil
 	})
-	if err != nil {
-		return ErrMigrateTables.Wrap(err)
-	}
-
-	err = errs.Combine(err, srcConn.Close(), destConn.Close())
-	if err != nil {
-		return ErrMigrateTables.Wrap(err)
-	}
-
-	// Remove tables we don't want to keep from the cloned destination database.
-	err = ErrMigrateTables.Wrap(KeepTables(ctx, destDB, tablesToKeep...))
-	return err
+	return ErrMigrateTables.Wrap(err)
 }
 
 // backup executes the sqlite3 backup process that safely ensures that no other
