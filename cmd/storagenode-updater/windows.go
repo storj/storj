@@ -1,11 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Implements support for running the auto-updater as a Windows Service.
+// Implements support for running the storagenode-updater as a Windows Service.
 //
 // The Windows Service can be created with sc.exe, e.g.
 //
-// sc.exe create sn-auto-updater binpath= "C:\Users\MyUser\auto-updater.exe run ..."
+// sc.exe create storagenode-updater binpath= "C:\Users\MyUser\storagenode-updater.exe run ..."
 
 // +build windows
 
@@ -28,7 +28,7 @@ func init() {
 		return
 	}
 
-	err = svc.Run("auto-updater", &service{})
+	err = svc.Run("storagenode-updater", &service{})
 	if err != nil {
 		panic("Service failed: " + err.Error())
 	}
