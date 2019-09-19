@@ -65,7 +65,7 @@ func parseEmailsList(fileName, delimiter string) (emails []string, err error) {
 }
 
 func cmdCreateAuth(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	count, err := strconv.Atoi(args[0])
 	if err != nil {
 		return errs.New("Count couldn't be parsed: %s", args[0])
@@ -98,7 +98,7 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 }
 
 func cmdInfoAuth(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	authDB, err := authorization.NewDBFromCfg(authCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
@@ -193,7 +193,7 @@ func writeTokenInfo(claimed, open authorization.Group, w io.Writer) error {
 }
 
 func cmdExportAuth(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	authDB, err := authorization.NewDBFromCfg(authCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
