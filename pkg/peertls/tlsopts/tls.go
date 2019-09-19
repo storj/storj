@@ -48,6 +48,12 @@ func (opts *Options) ClientTLSConfig(id storj.NodeID) *tls.Config {
 	return opts.tlsConfig(false, verifyIdentity(id))
 }
 
+// UnverifiedClientTLSConfig returns a TLSConfig for use as a client in handshaking with
+// an unknown peer.
+func (opts *Options) UnverifiedClientTLSConfig() *tls.Config {
+	return opts.tlsConfig(false)
+}
+
 func (opts *Options) tlsConfig(isServer bool, verificationFuncs ...peertls.PeerCertVerificationFunc) *tls.Config {
 	verificationFuncs = append(
 		[]peertls.PeerCertVerificationFunc{
