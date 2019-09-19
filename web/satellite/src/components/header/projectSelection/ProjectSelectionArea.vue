@@ -109,4 +109,14 @@ export default class ProjectSelectionArea extends Vue {
             height: 28px;
         }
     }
+
+    @media screen and (max-width: 1024px) {
+        .project-selection-toggle-container {
+            justify-content: space-between;
+
+            &__expander-area {
+                padding-right: 15px;
+            }
+        }
+    }
 </style>

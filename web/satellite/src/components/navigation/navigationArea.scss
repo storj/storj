@@ -149,56 +149,37 @@ a {
     margin: 10px 0 0 65px;
 }
 
+.project-selection-area {
+    display: none;
+}
+
 @media screen and (max-width: 1024px) {
     .navigation-area {
-        width: 80px;
-        max-width: 80px;
-        min-width: 80px;
+        z-index: 200;
 
-        &__logo {
-            margin-left: 20px;
+        &__item-container {
+            padding-left: 40px;
         }
 
-        &__logo__text,
         &__project-title,
         &__resources-title,
-        &__account-title,
-        .account-item {
+        &__account-title {
+            margin-left: 45px;
+        }
+
+        &__project-title {
+            border-top: 1px solid rgba(169, 181, 193, 0.3);
+            padding-top: 20px;
+            margin-top: 5px;
+        }
+
+        &__logo {
             display: none;
         }
 
-        &__item-container {
-            padding-left: 26px;
-
-            &__link-container {
-
-                h1 {
-                    display: none;
-                }
-
-                &__add-button {
-                    display: none;
-                }
-            }
+        .project-selection-area {
+            display: block;
+            margin-left: 35px;
         }
     }
 }
-
-@media screen and (max-height: 800px) {
-    .navigation-area {
-
-        &__item-container {
-            height: 45px;
-        }
-    }
-}
-
-@media screen and (max-height: 730px) {
-    .navigation-area {
-
-        &__item-container {
-            height: 40px;
-        }
-    }
-}
-
