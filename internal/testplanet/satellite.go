@@ -38,8 +38,8 @@ import (
 )
 
 // newSatellites initializes satellites
-func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
-	var xs []*satellite.Peer
+func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
+	var xs []*SatelliteSystem
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, closablePeer{peer: x})
@@ -231,7 +231,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
-		xs = append(xs, peer)
+
+		system := SatelliteSystem{Peer: *peer}
+		xs = append(xs, &system)
 	}
 	return xs, nil
 }

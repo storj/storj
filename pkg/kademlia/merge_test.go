@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/storj/storagenode"
 )
 
@@ -53,7 +52,7 @@ func TestMergePlanets(t *testing.T) {
 	alpha.Start(ctx)
 	beta.Start(ctx)
 
-	allSatellites := []*satellite.Peer{}
+	allSatellites := []*testplanet.SatelliteSystem{}
 	allSatellites = append(allSatellites, alpha.Satellites...)
 	allSatellites = append(allSatellites, beta.Satellites...)
 
@@ -71,7 +70,7 @@ func TestMergePlanets(t *testing.T) {
 	}
 	_ = group.Wait()
 
-	test := func(tag string, satellites []*satellite.Peer, storageNodes []*storagenode.Peer) string {
+	test := func(tag string, satellites []*testplanet.SatelliteSystem, storageNodes []*storagenode.Peer) string {
 		found, missing := 0, 0
 		for _, satellite := range satellites {
 			for _, storageNode := range storageNodes {

@@ -118,7 +118,7 @@ func databaseConfig(config storagenode.Config) storagenodedb.Config {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// inert constructors only ====
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
 	identity, err := runCfg.Identity.Load()
@@ -236,7 +236,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	diagDir, err := filepath.Abs(confDir)
 	if err != nil {

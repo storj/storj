@@ -161,7 +161,7 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	m, err := metainfo.Dial(ctx, u.tc, satelliteAddr, apiKey.Serialize())
+	m, err := metainfo.Dial(ctx, u.tc, satelliteAddr, apiKey.key)
 	if err != nil {
 		return nil, err
 	}

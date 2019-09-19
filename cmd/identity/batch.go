@@ -6,7 +6,6 @@ package main
 import (
 	"archive/tar"
 	"bytes"
-	"context"
 	"crypto"
 	"fmt"
 	"io"
@@ -56,7 +55,7 @@ func init() {
 }
 
 func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
-	ctx, cancel := context.WithCancel(process.Ctx(cmd))
+	ctx, cancel := process.Ctx(cmd)
 	defer cancel()
 
 	err = os.MkdirAll(keyCfg.OutputDir, 0700)
