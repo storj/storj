@@ -1351,10 +1351,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 	case *sqlite3.SQLiteDriver:
 		value := pb.Node{
 			Id: node.NodeID,
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   node.Address.GetAddress(),
-			},
+			Address: node.Address,
 		}
 		err := cache.UpdateAddress(ctx, &value, config)
 		if err != nil {
