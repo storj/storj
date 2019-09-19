@@ -43,7 +43,7 @@ Redeemed Satellite
 _User Interface_
 
 1. Users will have a referral tab on the UI. On click, it will trigger satellite to send a request to retrieve referral links from Referral Manager:
-    - Referral Manager will query unredeemed tokens in `tokens` table for this user ID.
+    - Referral Manager will query unredeemed tokens in `tokens` table for this user ID and satellite.
         - if there are unredeemed tokens, Referral Manager respond satellite's request with the tokens.
         - if no unredeemed token is found for this user ID and such user ID doesn't exist in `users` table, Referral Manager will add an entry for this user ID in `users` table.
     - Satellite receives the response from Referral Manager.
@@ -96,7 +96,7 @@ We could also set the `inspector` port to only accept requests coming from storj
     - Implementing a method `GenerateTokens` for generating referral tokens and save them into `tokens` table on Referral Manager.
     - Implementing a mathod `GetEligibleUsers` for querying users who don't have any referral tokens associated with.
 - Implementing an endpoint `GetTokens` for requesting unredeemed tokens from Referral Manager. 
-- Implementing an endpoint `Redeem` on Referral Manager for verifying invitation tokens.
+- Implementing an endpoint `Redeem` on Referral Manager for verifying invitation tokens and storing newly created user ID into `users` table.
 - Implementing an endpoint `ClearUsers` on Referral Manager for setting in-memory `eligibleUsers` to be empty from Referral Manager CLI.
 - Replace existing registration token logic.
 
@@ -139,13 +139,21 @@ GetTokens(userID uuid.UUID, satelliteURL string) []tokens {
     return tokens
 }
 
-// Redeem marks a token as redeemed and deletes the token from owner's satellite
-func Redeem(ctx, token) error {
+// Redeem marks a token as redeemed and stores user info into database
+func Redeem(ctx, token, userID, satelliteURL) error {
 	// only update the status if the status of a token is unredeems
 	tokenStatus, err := db.UpdateToken(ctx, token, "redeemed")
 	if err != nil {
 		return err
 	}
+
+    // save user info into users table
+    err := db.CreateUser(ctx, userID, satelliteURL)
+    if err != nil {
+        // log the error, but we shouldn't return an error to stop user registration process if we don't get their info here
+        log(err)
+        return
+    }
 }
 ```
 
@@ -226,7 +234,3 @@ startCmd() {
 Team Green will be responsible implementing this blueprint.
 
 ## Open issues
-1. The existing token is implemented with 32 random bytes.
-     - Is it safe to use across satellites?
-     - If not, what should we use instead?
-4. Where should the user interface on the satellite GUI be?
