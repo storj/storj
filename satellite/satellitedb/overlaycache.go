@@ -994,6 +994,7 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes st
 	rows, err := cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE exit_loop_completed_at IS NULL
+		AND exit_initiated_at IS NOT NULL
 		`),
 	)
 	if err != nil {
@@ -1052,7 +1053,11 @@ func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fi
 	dbxUpdateFields := dbx.Node_Update_Fields{}
 
 	if req.UpdateInitiated {
-		dbxUpdateFields.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(*req.ExitInitiatedAt)
+		if req.ExitInitiatedAt == nil {
+			dbxUpdateFields.ExitInitiatedAt = dbx.Node_ExitInitiatedAt_Null()
+		} else {
+			dbxUpdateFields.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(*req.ExitInitiatedAt)
+		}
 	}
 	if req.UpdateLoopCompleted {
 		if req.ExitLoopCompletedAt == nil {
@@ -1062,7 +1067,11 @@ func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fi
 		}
 	}
 	if req.UpdateFinished {
-		dbxUpdateFields.ExitFinishedAt = dbx.Node_ExitFinishedAt(*req.ExitFinishedAt)
+		if req.ExitFinishedAt == nil {
+			dbxUpdateFields.ExitFinishedAt = dbx.Node_ExitFinishedAt_Null()
+		} else {
+			dbxUpdateFields.ExitFinishedAt = dbx.Node_ExitFinishedAt(*req.ExitFinishedAt)
+		}
 	}
 
 	return dbxUpdateFields
