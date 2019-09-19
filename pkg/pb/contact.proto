@@ -28,8 +28,6 @@ message CheckInResponse {
     string ping_error_message = 2;
 }
 
-message ContactPingRequest {
-}
+message ContactPingRequest {}
 
-message ContactPingResponse {
-}
+message ContactPingResponse {}

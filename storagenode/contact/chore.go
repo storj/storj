@@ -11,30 +11,19 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storagenode/trust"
 )
-
-var mon = monkit.Package()
-
-// Config contains configurable parameters for contact chore
-type Config struct {
-	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
-	// MaxSleep should remain at default value to decrease traffic congestion to satellite
-	MaxSleep time.Duration `help:"maximum duration to wait before pinging satellites" releaseDefault:"45m" devDefault:"0s" hidden:"true"`
-}
 
 // Chore is the contact chore for nodes announcing themselves to their trusted satellites
 //
 // architecture: Chore
 type Chore struct {
 	log       *zap.Logger
-	rt        *kademlia.RoutingTable
+	service   *Service
 	transport transport.Client
 
 	trust *trust.Pool
@@ -44,10 +33,10 @@ type Chore struct {
 }
 
 // NewChore creates a new contact chore
-func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, transport transport.Client, rt *kademlia.RoutingTable) *Chore {
+func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, transport transport.Client, service *Service) *Chore {
 	return &Chore{
 		log:       log,
-		rt:        rt,
+		service:   service,
 		transport: transport,
 
 		trust: trust,
@@ -75,9 +64,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	var group errgroup.Group
-	self := chore.rt.Local()
+	self := chore.service.Local()
 	satellites := chore.trust.GetSatellites(ctx)
 	for _, satellite := range satellites {
 		satellite := satellite
