@@ -41,12 +41,12 @@ func TestGetExitingNodes(t *testing.T) {
 				require.NoError(t, err)
 
 				var (
-					initiatedAt         *time.Time = nil
-					completedAt         *time.Time = nil
-					finishedAt          *time.Time = nil
-					updateInitiated                = false
-					updateLoopCompleted            = false
-					updateFinished                 = false
+					initiatedAt         *time.Time
+					completedAt         *time.Time
+					finishedAt          *time.Time
+					updateInitiated     = false
+					updateLoopCompleted = false
+					updateFinished      = false
 				)
 
 				// set some nodes to have an exiting status
