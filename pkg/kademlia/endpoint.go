@@ -113,11 +113,8 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
-	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
 	if endpoint.pingStats != nil {
 		endpoint.pingStats.WasPinged(time.Now(), peerID.ID, p.Addr.String())
-	} else {
-		endpoint.log.Debug("not updating pingStats because nil")
 	}
 	return &pb.PingResponse{}, nil
 }
