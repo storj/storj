@@ -35,13 +35,13 @@ func newSatellitesDB(db SQLDB, location string) *satellitesDB {
 func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
-		query := `INSERT OR REPLACE INTO satellites (node_id, status) VALUES (?,?)`
-		_, err = tx.ExecContext(ctx, query, satelliteID, satellites.Exiting)
+		query := `INSERT OR REPLACE INTO satellites (node_id, status, added_at) VALUES (?,?, COALESCE((SELECT added_at FROM satellites WHERE node_id = ?), ?))`
+		_, err = tx.ExecContext(ctx, query, satelliteID, satellites.Exiting, satelliteID, intitiatedAt.UTC()) // assume intitiatedAt < time.Now()
 		if err != nil {
 			return err
 		}
-		query = `INSERT INTO satellite_exit_progress (satellite_id, initiated_at, starting_disk_usage) VALUES (?,?,?)`
-		_, err = db.ExecContext(ctx, query, satelliteID, intitiatedAt, startingDiskUsage)
+		query = `INSERT INTO satellite_exit_progress (satellite_id, initiated_at, starting_disk_usage, bytes_deleted) VALUES (?,?,?,0)`
+		_, err = tx.ExecContext(ctx, query, satelliteID, intitiatedAt.UTC(), startingDiskUsage)
 		return err
 	}))
 }
@@ -58,13 +58,13 @@ func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID stor
 func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
-		query := `INSERT OR REPLACE INTO satellites (node_id, status) VALUES (?,?)`
+		query := `UPDATE satellites SET status = ? WHERE node_id = ?`
 		_, err = tx.ExecContext(ctx, query, satelliteID, exitStatus)
 		if err != nil {
 			return err
 		}
 		query = `UPDATE satellite_exit_progress SET finished_at = ?, completion_receipt = ? WHERE satellite_id = ?`
-		_, err = db.ExecContext(ctx, query, finishedAt, completionReceipt, satelliteID)
+		_, err = tx.ExecContext(ctx, query, finishedAt.UTC(), completionReceipt, satelliteID)
 		return err
 	}))
 }

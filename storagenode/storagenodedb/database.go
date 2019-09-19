@@ -749,6 +749,24 @@ func (db *DB) Migration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				DB:          db.versionsDB,
+				Description: "Remove address from satellites table",
+				Version:     22,
+				Action: migrate.SQL{
+					`ALTER TABLE satellites RENAME TO _satellites_old`,
+					`CREATE TABLE satellites (
+						node_id BLOB NOT NULL,
+						added_at TIMESTAMP NOT NULL,
+						status INTEGER NOT NULL,
+						PRIMARY KEY (node_id)
+					)`,
+					`INSERT INTO satellites (node_id, added_at, status)
+						SELECT node_id, added_at, status
+						FROM _satellites_old`,
+					`DROP TABLE _satellites_old`,
+				},
+			},
 		},
 	}
 }

@@ -4,12 +4,12 @@
 package storagenodedbtest_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/satellites"
@@ -18,18 +18,14 @@ import (
 
 // initiate graceful exit doesn't explode
 func TestInitiateGracefulExitDoesNotExplode(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+	storagenodedbtest.Run(t, func(ctx context.Context, t *testing.T, db storagenode.DB) {
 		assert.NoError(t, db.Satellites().InitiateGracefulExit(ctx, storj.NodeID{}, time.Now(), 5000))
 	})
 }
 
 // increment graceful exit bytes deleted doesn't explode
 func TestUpdateGracefulExitDoesNotExplode(t *testing.T) { // satelliteID storj.NodeID, bytesDeleted int64) (err error) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+	storagenodedbtest.Run(t, func(ctx context.Context, t *testing.T, db storagenode.DB) {
 		assert.NoError(t, db.Satellites().InitiateGracefulExit(ctx, storj.NodeID{}, time.Now(), 5000))
 		assert.NoError(t, db.Satellites().UpdateGracefulExit(ctx, storj.NodeID{}, 1000))
 	})
@@ -37,9 +33,7 @@ func TestUpdateGracefulExitDoesNotExplode(t *testing.T) { // satelliteID storj.N
 
 // complete graceful exit doesn't explode
 func TestCompleteGracefulExitDoesNotExplode(t *testing.T) { //satelliteID storj.NodeID, finishedAt time.Time, exitStatus satelliteStatus, completionReceipt []byte) (err error) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+	storagenodedbtest.Run(t, func(ctx context.Context, t *testing.T, db storagenode.DB) {
 		assert.NoError(t, db.Satellites().InitiateGracefulExit(ctx, storj.NodeID{}, time.Now(), 5000))
 		assert.NoError(t, db.Satellites().CompleteGracefulExit(ctx, storj.NodeID{}, time.Now(), satellites.ExitedOk, []byte{0, 0, 0}))
 	})
