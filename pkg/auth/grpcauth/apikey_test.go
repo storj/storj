@@ -52,7 +52,7 @@ func TestAPIKey(t *testing.T) {
 		{"good key", codes.OK},
 	} {
 		conn, err := grpc.DialContext(ctx, listener.Addr().String(),
-			grpc.WithPerRPCCredentials(grpcauth.NewAPIKeyCredentials(test.apikey)),
+			grpc.WithPerRPCCredentials(grpcauth.NewDeprecatedAPIKeyCredentials(test.apikey)),
 			grpc.WithBlock(),
 			grpc.WithInsecure(),
 		)

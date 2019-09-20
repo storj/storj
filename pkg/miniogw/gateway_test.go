@@ -684,7 +684,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 		return nil, nil, nil, err
 	}
 
-	m, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey.Serialize())
+	m, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}

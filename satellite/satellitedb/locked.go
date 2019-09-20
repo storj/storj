@@ -941,6 +941,13 @@ func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node, 
 	return m.db.UpdateAddress(ctx, value, defaults)
 }
 
+// UpdateCheckIn updates a single storagenode's check-in stats.
+func (m *lockedOverlayCache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateCheckIn(ctx, node, config)
+}
+
 // UpdateExitStatus is used to update a node's graceful exit status.
 func (m *lockedOverlayCache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (stats *overlay.NodeStats, err error) {
 	m.Lock()

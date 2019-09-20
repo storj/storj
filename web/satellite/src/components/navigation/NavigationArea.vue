@@ -6,10 +6,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
+
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 
-@Component
+@Component({
+    components: {
+        ProjectSelectionArea,
+    },
+})
 export default class NavigationArea extends Vue {
     public areResourceItemsShown: boolean = true;
     public isResourceButtonShown: boolean = false;

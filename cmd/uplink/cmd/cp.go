@@ -261,7 +261,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("No destination specified")
 	}
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	src, err := fpath.New(args[0])
 	if err != nil {

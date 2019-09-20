@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
@@ -199,19 +198,6 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	// init Satellites
-	for _, satellite := range planet.Satellites {
-		if len(satellite.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
-		}
-	}
-	// init storage nodes
-	for _, storageNode := range planet.StorageNodes {
-		if len(storageNode.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			storageNode.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
-		}
-	}
-
 	return planet, nil
 }
 
@@ -231,56 +217,11 @@ func (planet *Planet) Start(ctx context.Context) {
 			return peer.peer.Run(peer.ctx)
 		})
 	}
+	for _, peer := range planet.StorageNodes {
+		peer.Contact.Chore.Loop.TriggerWait()
+	}
 
 	planet.started = true
-
-	planet.Bootstrap.Kademlia.Service.WaitForBootstrap()
-
-	for _, peer := range planet.StorageNodes {
-		peer.Kademlia.Service.WaitForBootstrap()
-	}
-
-	for _, peer := range planet.Satellites {
-		peer.Kademlia.Service.WaitForBootstrap()
-	}
-
-	planet.Reconnect(ctx)
-}
-
-// Reconnect reconnects all nodes with each other.
-func (planet *Planet) Reconnect(ctx context.Context) {
-	log := planet.log.Named("reconnect")
-
-	var group errgroup.Group
-
-	// TODO: instead of pinging try to use Lookups or natural discovery to ensure
-	// everyone finds everyone else
-
-	for _, storageNode := range planet.StorageNodes {
-		storageNode := storageNode
-		group.Go(func() error {
-			_, err := storageNode.Kademlia.Service.Ping(ctx, planet.Bootstrap.Local().Node)
-			if err != nil {
-				log.Error("storage node did not find bootstrap", zap.Error(err))
-			}
-			return nil
-		})
-	}
-
-	for _, satellite := range planet.Satellites {
-		satellite := satellite
-		group.Go(func() error {
-			for _, storageNode := range planet.StorageNodes {
-				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local().Node)
-				if err != nil {
-					log.Error("satellite did not find storage node", zap.Error(err))
-				}
-			}
-			return nil
-		})
-	}
-
-	_ = group.Wait() // none of the goroutines return an error
 }
 
 // StopPeer stops a single peer in the planet

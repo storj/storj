@@ -457,6 +457,12 @@ export default class ApiKeysArea extends Vue {
         width: 0;
     }
 
+    @media screen and (max-width: 1024px) {
+        .api-keys-area {
+            padding: 40px 40px 55px 40px;
+        }
+    }
+
     @media screen and (max-height: 800px) {
         .api-keys-items {
 
