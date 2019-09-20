@@ -13,14 +13,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia/routinggraph"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
@@ -55,11 +52,7 @@ var (
 	// Commander CLI
 	rootCmd = &cobra.Command{
 		Use:   "inspector",
-		Short: "CLI for interacting with Storj Kademlia network",
-	}
-	kadCmd = &cobra.Command{
-		Use:   "kad",
-		Short: "commands for kademlia/overlay",
+		Short: "CLI for interacting with Storj network",
 	}
 	statsCmd = &cobra.Command{
 		Use:   "statdb",
@@ -73,39 +66,6 @@ var (
 		Use:   "irreparable",
 		Short: "list segments in irreparable database",
 		RunE:  getSegments,
-	}
-	countNodeCmd = &cobra.Command{
-		Use:   "count",
-		Short: "count nodes in kademlia and overlay",
-		RunE:  CountNodes,
-	}
-	pingNodeCmd = &cobra.Command{
-		Use:   "ping <node_id> <ip:port>",
-		Short: "ping node at provided ID",
-		Args:  cobra.MinimumNArgs(2),
-		RunE:  PingNode,
-	}
-	lookupNodeCmd = &cobra.Command{
-		Use:   "lookup <node_id>",
-		Short: "lookup a node by ID only",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  LookupNode,
-	}
-	nodeInfoCmd = &cobra.Command{
-		Use:   "node-info <node_id>",
-		Short: "get node info directly from node",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  NodeInfo,
-	}
-	dumpNodesCmd = &cobra.Command{
-		Use:   "dump-nodes",
-		Short: "dump all nodes in the routing table",
-		RunE:  DumpNodes,
-	}
-	drawTableCmd = &cobra.Command{
-		Use:   "routing-graph",
-		Short: "Dumps a graph of the routing table in the dot format",
-		RunE:  DrawTableAsGraph,
 	}
 	objectHealthCmd = &cobra.Command{
 		Use:   "object <project-id> <bucket> <encrypted-path>",
@@ -121,16 +81,15 @@ var (
 	}
 )
 
-// Inspector gives access to kademlia and overlay.
+// Inspector gives access to overlay.
 type Inspector struct {
 	identity      *identity.FullIdentity
-	kadclient     pb.KadInspectorClient
 	overlayclient pb.OverlayInspectorClient
 	irrdbclient   pb.IrreparableInspectorClient
 	healthclient  pb.HealthInspectorClient
 }
 
-// NewInspector creates a new gRPC inspector client for access to kademlia and overlay.
+// NewInspector creates a new gRPC inspector client for access to overlay.
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
 
@@ -149,158 +108,10 @@ func NewInspector(address, path string) (*Inspector, error) {
 
 	return &Inspector{
 		identity:      id,
-		kadclient:     pb.NewKadInspectorClient(conn),
 		overlayclient: pb.NewOverlayInspectorClient(conn),
 		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
 		healthclient:  pb.NewHealthInspectorClient(conn),
 	}, nil
-}
-
-// CountNodes returns the number of nodes in kademlia
-func CountNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	kadcount, err := i.kadclient.CountNodes(context.Background(), &pb.CountNodesRequest{})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Printf("Kademlia node count: %+v\n", kadcount.Count)
-	return nil
-}
-
-// LookupNode starts a Kademlia lookup for the provided Node ID
-func LookupNode(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-		Id: args[0],
-	})
-
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Println(prettyPrint(n))
-
-	return nil
-}
-
-// NodeInfo get node info directly from the node with provided Node ID
-func NodeInfo(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	// first lookup the node to get its address
-	n, err := i.kadclient.LookupNode(context.Background(), &pb.LookupNodeRequest{
-		Id: args[0],
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	// now ask the node directly for its node info
-	info, err := i.kadclient.NodeInfo(context.Background(), &pb.NodeInfoRequest{
-		Id:      n.GetNode().Id,
-		Address: n.GetNode().GetAddress(),
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Println(prettyPrint(info))
-
-	return nil
-}
-
-// DrawTableAsGraph outputs the table routing as a graph
-func DrawTableAsGraph(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-	// retrieve buckets
-	info, err := i.kadclient.GetBucketList(context.Background(), &pb.GetBucketListRequest{})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	err = routinggraph.Draw(os.Stdout, info)
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	return nil
-}
-
-// DumpNodes outputs a json list of every node in every bucket in the satellite
-func DumpNodes(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	nodes, err := i.kadclient.FindNear(context.Background(), &pb.FindNearRequest{
-		Start: storj.NodeID{},
-		Limit: 100000,
-	})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(prettyPrint(nodes))
-
-	return nil
-}
-
-func prettyPrint(unformatted proto.Message) string {
-	m := jsonpb.Marshaler{Indent: "  ", EmitDefaults: true}
-	formatted, err := m.MarshalToString(unformatted)
-	if err != nil {
-		fmt.Println("Error", err)
-		os.Exit(1)
-	}
-	return formatted
-}
-
-// PingNode sends a PING RPC across the Kad network to check node availability
-func PingNode(cmd *cobra.Command, args []string) (err error) {
-	nodeID, err := storj.NodeIDFromString(args[0])
-	if err != nil {
-		return err
-	}
-
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	fmt.Printf("Pinging node %s at %s", args[0], args[1])
-
-	p, err := i.kadclient.PingNode(context.Background(), &pb.PingNodeRequest{
-		Id:      nodeID,
-		Address: args[1],
-	})
-
-	var okayString string
-	if p != nil && p.Ok {
-		okayString = "OK"
-	} else {
-		okayString = "Error"
-	}
-	fmt.Printf("\n -- Ping response: %s\n", okayString)
-	if err != nil {
-		fmt.Printf(" -- Error: %v\n", err)
-	}
-	return nil
 }
 
 // ObjectHealth gets information about the health of an object on the network
@@ -604,17 +415,9 @@ func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.Irreparabl
 }
 
 func init() {
-	rootCmd.AddCommand(kadCmd)
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(irreparableCmd)
 	rootCmd.AddCommand(healthCmd)
-
-	kadCmd.AddCommand(countNodeCmd)
-	kadCmd.AddCommand(pingNodeCmd)
-	kadCmd.AddCommand(lookupNodeCmd)
-	kadCmd.AddCommand(nodeInfoCmd)
-	kadCmd.AddCommand(dumpNodesCmd)
-	kadCmd.AddCommand(drawTableCmd)
 
 	healthCmd.AddCommand(objectHealthCmd)
 	healthCmd.AddCommand(segmentHealthCmd)

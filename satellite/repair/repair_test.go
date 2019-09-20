@@ -52,7 +52,6 @@ func TestDataRepair(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Pause()
@@ -188,7 +187,6 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Pause()
@@ -311,7 +309,6 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Pause()
@@ -428,7 +425,6 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Stop()
@@ -513,7 +509,6 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
@@ -629,7 +624,6 @@ func TestDataRepairUploadLimit(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Pause()
@@ -735,14 +729,14 @@ func TestDataRepairUploadLimit(t *testing.T) {
 	})
 }
 
-func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) bool {
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) bool {
 	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
 	require.NoError(t, err)
 
 	return node.Disqualified != nil
 }
 
-func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) {
+func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) {
 	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 		NodeID:       nodeID,
 		IsUp:         true,
@@ -761,7 +755,7 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite
 // getRemoteSegment returns a remote pointer its path from satellite.
 // nolint:golint
 func getRemoteSegment(
-	t *testing.T, ctx context.Context, satellite *satellite.Peer,
+	t *testing.T, ctx context.Context, satellite *testplanet.SatelliteSystem,
 ) (_ *pb.Pointer, path string) {
 	t.Helper()
 

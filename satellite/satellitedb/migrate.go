@@ -1235,6 +1235,26 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Add defaults to nodes table",
+				Version:     57,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ALTER COLUMN contained SET DEFAULT false;`,
+					`ALTER TABLE nodes ALTER COLUMN piece_count SET DEFAULT 0;`,
+					`ALTER TABLE nodes ALTER COLUMN major SET DEFAULT 0;`,
+					`ALTER TABLE nodes ALTER COLUMN minor SET DEFAULT 0;`,
+					`ALTER TABLE nodes ALTER COLUMN audit_success_count SET DEFAULT 0;`,
+					`ALTER TABLE nodes ALTER COLUMN total_audit_count SET DEFAULT 0;`,
+					`ALTER TABLE nodes ALTER COLUMN patch SET DEFAULT 0;`,
+					`ALTER TABLE nodes ALTER COLUMN hash SET DEFAULT '';`,
+					`ALTER TABLE nodes ALTER COLUMN release SET DEFAULT false;`,
+					`ALTER TABLE nodes ALTER COLUMN latency_90 SET DEFAULT 0;`,
+					`ALTER TABLE nodes ALTER COLUMN timestamp SET DEFAULT '0001-01-01 00:00:00+00';`,
+					`ALTER TABLE nodes ALTER COLUMN created_at SET DEFAULT current_timestamp;`,
+					`ALTER TABLE nodes ALTER COLUMN updated_at SET DEFAULT current_timestamp;`,
+				},
+			},
 		},
 	}
 }
