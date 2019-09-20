@@ -1304,11 +1304,6 @@ type timeField struct {
 	value time.Time
 }
 
-type timePointerField struct {
-	set   bool
-	value *time.Time
-}
-
 type updateNodeStats struct {
 	NodeID                storj.NodeID
 	TotalAuditCount       int64Field
