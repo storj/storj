@@ -30,7 +30,7 @@ Referral Link
 : A one-time-use URL that contains a unique invitation token.
 
 Eligible Users
-: Users who have 0 unredeemed referral links.
+: Users who have fewer than the desired number of unredeemed referral links.
 
 Owner's Satellite
 : The satellite that the owner of a particular token belongs to.
@@ -43,9 +43,10 @@ Redeemed Satellite
 _User Interface_
 
 1. Users will have a referral tab on the UI. When clicked, it will trigger the satellite to send a request to retrieve referral links from the Referral Manager:
-    - The Referral Manager will query unredeemed tokens in the `tokens` table for this user ID and satellite.
-        - If there are unredeemed tokens, the Referral Manager will respond to the satellite's request with the tokens.
-        - If no unredeemed tokens are found for this user ID and such user ID doesn't exist in the Referral Manager's `users` table, the Referral Manager will add an entry for this user ID and in the `users` table.
+    - The Referral Manager will attempt to generate and/or fetch unredeemed tokens in the `tokens` table for this user ID and satellite.
+        - If the user ID doesn't exist in the Referral Manager's `users` table, the Referral Manager will add an entry for this user ID and satellite in the `users` table and return an empty response to the satellite.
+        - If the `users` table contains a value larger than `0` for `new_tokens` for this user ID, the Referral Manager will generate that number of new tokens, add the new unredeemed tokens to the `tokens` table, and set the value of `new_tokens` for that user to `0` in the `users` table.
+        - If there are unredeemed tokens in the `tokens` table, the Referral Manager will respond to the satellite's request with the tokens. Otherwise, it will return an empty response.
     - The satellite receives the response from Referral Manager.
         - If the response payload contains tokens, the satellite will display them in the UI.
         - If it's an empty response payload, the satellite will display a message `No available referral links. Try again later.`
@@ -53,51 +54,36 @@ _User Interface_
 
 _Referral Manager CLI_
 
-1. `referral-manager start` initiates the invitation token generation process. This process begins by checking whether there are existing `eligibleUsers` in memory in Referral Manager.
-    - If `eligibleUsers` is empty, the Referral Manager queries `users` table to get users with 0 remaining invites.
-    - If `eligibleUsers` is not empty, it means one of two things:
-        * Someone else is using the Referral Manager at the same time and has not generated/sent tokens yet.
-        * The CLI was terminated between the get `eligibleUsers` step and the generate/send tokens step.
-    
-        Either one of the cases, We will return an error and display `Referral token generation already in progress or canceled early. Do you want to continue anyway?`. If they decide to continue, we call `ClearUsers` to set `eligibleUsers` to empty and the Referral Manager queries the `users` table to get users with 0 remaining invites. 
-2. The Referral Manager returns the number of users for each satellite to the CLI.
-3. The CLI receives the number of users and displays: `How many invitations do you want to generate for each user?`
-4. After the operator enters the number of invites per user to generate, the CLI displays: `Generating X invitation tokens for Y users on Z satellites. Yes/No.`
-   - If the input is `Yes`, it will generate the amount of invitation tokens per user based on the input from CLI and save them into `tokens` table.
-   - The CLI will call `ClearUsers` endpoint to set `eligibleUser` to be empty if the input is `No`.
+1. `referral-manager start --tokens-per-user=3 <satelliteURL1> <satelliteURL2> ...` initiates the invitation token generation process. The `--dry-run` flag can optionally be added to run the process without actually generating tokens. The dry run allows for estimating how many new tokens would be created by the command.
+2. The Referral Manager queries the `users` table for all users where `new_tokens < flags.tokens_per_user` and where the satellite matches one of the CLI-provided satellite URLs. These are the "eligible users".
+3. The Referral Manager will count the number of eligible users and calculate the number of tokens needed to bring each user up to `tokens_per_user`. If `--dry-run` is set, these values will be returned to the CLI for output and the process will end. Otherwise, the `users` table will be updated to set `new_tokens` to `tokens_per_user` for each eligible user, and the values will be returned to the CLI for output.
 
 _Referral Link Redemption_
 
-1. User Alice tries to register a new account through a referral link, which triggers the redeemed satellite to verify invitation token using Referral manager.
+1. User Alice tries to register a new account through a referral link, which triggers the redeemed satellite to verify invitation token using Referral manager. The satellite preemptively generates a new user ID and sends this ID along with the token to the Referral Manager.
 2. Referral Manager checks the status of the token:
-    - if the token exists in `tokens` table:
-        - if it is not redeemed, Referral Manager sends back a success response to the redeemed satellite and mark the token as redeemed in the Referral Manager's database
-        - if it token is already redeemed, Referral Manager sends back a `invalid token` response to the redeemed satellite.
-        
-    - if the token doesn't exist in `tokens` table, Referral Manager sends back a `invalid token` response to the redeemed satellite.
+    - If the token exists in `tokens` table:
+        - If it is not redeemed, Referral Manager sends back a success response to the redeemed satellite and marks the token as redeemed by the new user ID in the Referral Manager's `tokens` table. It also adds an entry for the new user ID in the `users` table.
+        - If the token is already redeemed, the Referral Manager sends back an `invalid token` response to the redeemed satellite. 
+    - If the token doesn't exist in `tokens` table, Referral Manager sends back an `invalid token` response to the redeemed satellite.
 3. Redeemed satellite receives the response, which:
-    - if it is a success, the satellite will proceed with the account creation and
-    then send a request to the Referral Manager, which: 
-        - updates the `tokens` table to store the newly created user ID in `redeemedID` column for that particular referral token.
-        - updates the `users` table to store the newly created user ID and the satellite URL the user belongs to.
-    - if it is an invalid token, the satellite will display a proper message in the UI.
+    - If it is a success, the satellite will proceed with the account creation
+    - If it is an invalid token, the satellite will display a proper message in the UI.
     
 ## Rationale
 
-We will create a `inspector` port that's only listening on `localhost` so CLI could be only used by Referral Manager operators.
+We will create an admin port that's only listening on `localhost` so CLI could be only used by Referral Manager operators.
 
-We could also set the `inspector` port to only accept requests coming from storj vpn.
+We could also set the admin port to only accept requests coming from storj vpn.
 
 ## Implementation
 
 - Create a private repository for Referral Manager.
 - Create `tokens` and `users` table in Referral Manager database.
-- Create an `inspector` endpoint on Referral Manager.
-    - Implementing a method `GenerateTokens` for generating referral tokens and save them into `tokens` table on Referral Manager.
-    - Implementing a mathod `GetEligibleUsers` for querying users who don't have any referral tokens associated with.
+- Create an admin endpoint on Referral Manager.
+    - Implementing a method `GenerateTokens` for upadting the `users` table on Referral Manager to contain new tokens for eligible users.
 - Implementing an endpoint `GetTokens` for requesting unredeemed tokens from Referral Manager. 
 - Implementing an endpoint `Redeem` on Referral Manager for verifying invitation tokens and storing newly created user ID into `users` table.
-- Implementing an endpoint `ClearUsers` on Referral Manager for setting in-memory `eligibleUsers` to be empty from Referral Manager CLI.
 - Replace existing registration token logic.
 
 ### Pseudocode
@@ -131,10 +117,20 @@ type User struct {
 ```
 // GetTokens retrieves a list of unredeemed tokens for a user.
 GetTokens(userID uuid.UUID, satelliteURL string) []tokens {
-    tokens := db.GetTokensByUserIDAndSatelliteURL(userID, satelliteURL)
-    if len(tokens) < 1 {
+    user, err := db.GetUser(userID, satelliteURL)
+    if err == UserNotFound {
         db.CreateUser(userID, satelliteURL)
+        return nil
     }
+    if user.NewTokens > 0 {
+        for i:=0; i<user.NewTokens; i++ {
+            newToken := Token{data: generateRandomToken(), user: user.ID, satellite: user.satelliteURL}
+            db.CreateToken(newToken)
+            tokens = append(tokens, newToken)
+        }
+        db.UpdateUserNewTokens(userID, satelliteURL, 0)
+    }
+    tokens := db.GetTokensByUserIDAndSatelliteURL(userID, satelliteURL)
 
     return tokens
 }
@@ -142,7 +138,7 @@ GetTokens(userID uuid.UUID, satelliteURL string) []tokens {
 // Redeem marks a token as redeemed and stores user info into database
 func Redeem(ctx, token, userID, satelliteURL) error {
 	// only update the status if the status of a token is unredeems
-	tokenStatus, err := db.UpdateToken(ctx, token, "redeemed")
+	tokenStatus, err := db.RedeemToken(ctx, token, userID)
 	if err != nil {
 		return err
 	}
@@ -160,72 +156,38 @@ func Redeem(ctx, token, userID, satelliteURL) error {
 **Endpoints for CLI:**
 
 ```
-// GetEligibleUsers retrieves a list of users who have 0 remaining invitation tokens
-// and saves those users in memory
-GetEligibleUsers() ([]User, error) {
-    if referralManager.eligibleUser != nil {
-        return nil, UsersAlreadyRetrievedErr
-    }
-
-    users := db.GetUsers()
-    referralManager.eligibleUsers = eligibleUsers
-
-    return eligibleUsersCounts, nil
-}
 
 // GenerateTokens generates tokens, saves those in the referral manager db
-GenerateTokens(tokensPerUser int) (int, error) {
-    eligibleUsers := referralManager.eligibleUsers
+GenerateTokens(tokensPerUser int, satelliteURLs []string, dryRun bool) (tokenCount, eligibleUserCount int, error) {
+    eligibleUsers := db.GetEligibleUsers(satelliteURLs, tokensPerUser)
     if eligibleUsers == nil {
-        return nil, Error.New("No users to generate tokens for. Make sure to run GetEligibleUsers first")
+        return nil, Error.New("No users to generate tokens for.")
     }
-    var tokens []Token
-    for _, users := range eligibleUsers {
-        for i:=0; i<tokensPerUser; i++ {
-            newToken := Token{data: generateRandomToken(), user: user.ID, satellite: user.satelliteURL}
-            db.CreateToken(newToken)
-            tokens = append(tokens, newToken)
+    newTokenCount := 0
+    eligibleUserCount := len(eligibleUsers)
+    for _, user := range eligibleUsers {
+        for i:=user.NewTokens; i<tokensPerUser; i++ {
+            newTokenCount++
         }
     }
 
-    return len(tokens), nil
-}
+    if !dryRun {
+        db.UpdateUserNewTokensBatch(eligibleUsers, tokensPerUser)
+    }
 
-// ClearUsers sets eligibleUsers to be empty
-func ClearUsers(ctx) {
-    referralManager.eligibleUsers = nil
-    return nil
+    return newTokenCount, eligibleUserCount, nil
 }
 ```
 
 **CLI code:**
 ```
 startCmd() {
-    eligibleUsers, err := referralManager.GetEligibleUsers()
-    if err == UsersAlreadyRetrievedErr {
-        confirm := prompt("Referral token generation already in progress or canceled early. Do you want to continue anyway?")
-        if confirm != "y" {
-            exit
-        }
-        referralManager.ClearUsers()
-    } else if err != nil {
-        exit
+    tokenCount, userCount := referralManager.GenerateTokens(tokensPerUser, args.SatelliteURLs, flags.dryRun)
+
+    fmt.Printf("Successfully created %d tokens for %d users.\n", tokenCount, userCount)
+    if flags.dryRun {
+        fmt.Println("This was a dry run. Run again without the --dry-run flag to actually generate tokens.")
     }
-
-    fmt.Printf("Total available user counts: %d\n", len(eligibleUsers))
-
-    tokensPerUser := prompt("How many tokens do you want to generate per user?\n")
-    totalTokens := tokensPerUser * total
-    confirm := prompt("Are you sure you want to generate %d total tokens?\n", totalTokens)
-
-    if confirm != "y" {
-        referralManager.ClearUsers()
-        exit
-    }
-
-    newTokens := referralManager.GenerateTokens(tokensPerUser)
-
-    fmt.Printf("Successfully created %d tokens.\n", len(newTokens))
 }
 ```
 
@@ -234,3 +196,5 @@ startCmd() {
 Team Green will be responsible implementing this blueprint.
 
 ## Open issues
+
+Should we have another CLI command for querying the global number of unredeemed tokens + ungenerated tokens?
