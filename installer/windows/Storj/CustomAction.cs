@@ -102,10 +102,11 @@ namespace Storj
             DirectoryInfo dir = new DirectoryInfo(identityDir);
             DriveInfo drive = new DriveInfo(dir.Root.FullName);
 
-            if (drive.AvailableFreeSpace < MinFreeSpace)
+            // TODO: Find a way to calculate the available free space + total size of existing pieces
+            if (drive.TotalSize < MinFreeSpace)
             {
-                session["STORJ_STORAGEDIR_VALID"] = string.Format("The selected drive '{0}' has only {1:0.##} GB free space. The minimum required is 550 GB.",
-                    drive.Name, decimal.Divide(drive.AvailableFreeSpace, GB));
+                session["STORJ_STORAGEDIR_VALID"] = string.Format("The selected drive '{0}' has only {1:0.##} GB disk size. The minimum required is 550 GB.",
+                    drive.Name, decimal.Divide(drive.TotalSize, GB));
                 return ActionResult.Success;
             }
 
@@ -140,10 +141,11 @@ namespace Storj
             DriveInfo drive = new DriveInfo(dir.Root.FullName);
             long storagePlusOverhead = Convert.ToInt64(storage * 1.1 * TB);
 
-            if (drive.AvailableFreeSpace < storagePlusOverhead)
+            // TODO: Find a way to calculate the available free space + total size of existing pieces
+            if (drive.TotalSize < storagePlusOverhead)
             {
-                session["STORJ_STORAGE_VALID"] = string.Format("The avialble disk space ({0:0.##} TB) on the selected drive {1} is less than the allocated disk space plus the 10% overhead ({2:0.##} TB total).",
-                    decimal.Divide(drive.AvailableFreeSpace, TB), drive.Name, decimal.Divide(storagePlusOverhead, TB));
+                session["STORJ_STORAGE_VALID"] = string.Format("The disk size ({0:0.##} TB) on the selected drive {1} is less than the allocated disk space plus the 10% overhead ({2:0.##} TB total).",
+                    decimal.Divide(drive.TotalSize, TB), drive.Name, decimal.Divide(storagePlusOverhead, TB));
                 return ActionResult.Success;
             }
 
