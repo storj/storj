@@ -115,7 +115,8 @@ func init() {
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) error {
-	_, err := newCACfg.CA.Create(process.Ctx(cmd), os.Stdout)
+	ctx, _ := process.Ctx(cmd)
+	_, err := newCACfg.CA.Create(ctx, os.Stdout)
 	return err
 }
 
@@ -162,7 +163,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	if len(args) > 0 {
 		revokePeerCACfg.CA = identity.FullCAConfig{
 			CertPath: filepath.Join(identityDir, args[0], "ca.cert"),

@@ -73,10 +73,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				},
 			},
 			Kademlia: kademlia.Config{
-				BootstrapBackoffBase: 500 * time.Millisecond,
-				BootstrapBackoffMax:  2 * time.Second,
-				Alpha:                5,
-				DBPath:               filepath.Join(storageDir, "kademlia/"),
 				Operator: kademlia.OperatorConfig{
 					Email:  prefix + "@mail.test",
 					Wallet: "0x" + strings.Repeat("00", 20),
@@ -145,11 +141,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		verisonInfo := planet.NewVersionInfo()
 
 		storageConfig := storagenodedb.Config{
-			Storage:  config.Storage.Path,
-			Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
-			Info2:    filepath.Join(config.Storage.Path, "info.db"),
-			Pieces:   config.Storage.Path,
-			Kademlia: config.Kademlia.DBPath,
+			Storage: config.Storage.Path,
+			Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
+			Info2:   filepath.Join(config.Storage.Path, "info.db"),
+			Pieces:  config.Storage.Path,
 		}
 
 		var db storagenode.DB

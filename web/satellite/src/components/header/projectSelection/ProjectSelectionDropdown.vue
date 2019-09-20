@@ -146,4 +146,10 @@ export default class ProjectSelectionDropdown extends Vue {
         border-radius: 6px;
         height: 5px;
     }
+
+    @media screen and (max-width: 1024px) {
+        .project-selection-choice-container {
+            top: 50px;
+        }
+    }
 </style>

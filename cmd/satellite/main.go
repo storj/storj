@@ -114,7 +114,7 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// inert constructors only ====
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
 	identity, err := runCfg.Identity.Load()
@@ -218,7 +218,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	layout := "2006-01-02"
 	start, err := time.Parse(layout, args[0])
@@ -257,7 +257,7 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	log := zap.L().Named("satellite-cli")
 	// Parse the UUID
 	partnerID, err := uuid.Parse(args[0])
