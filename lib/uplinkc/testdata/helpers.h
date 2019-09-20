@@ -39,7 +39,7 @@ void with_test_project(void (*handleProject)(ProjectRef)) {
         cfg.Volatile.tls.skip_peer_ca_whitelist = true; // TODO: add CA Whitelist
 
         // New uplink
-        UplinkRef uplink = new_uplink(cfg, err);
+        UplinkRef uplink = new_uplink(cfg, err, "inmemory");
         require_noerror(*err);
         requiref(uplink._handle != 0, "got empty uplink\n");
 
