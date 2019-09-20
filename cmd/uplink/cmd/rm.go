@@ -21,7 +21,7 @@ func init() {
 }
 
 func deleteObject(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	if len(args) == 0 {
 		return fmt.Errorf("No object specified for deletion")

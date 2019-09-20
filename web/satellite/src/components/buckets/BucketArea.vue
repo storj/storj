@@ -120,7 +120,7 @@ export default class BucketArea extends Vue {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        padding: 40px 40px 20px 60px;
+        padding: 40px 60px 20px 60px;
         
         p {
             font-family: 'font_bold';
@@ -139,7 +139,7 @@ export default class BucketArea extends Vue {
     
     .buckets-container,
     .buckets-notification-container {
-        padding: 0 40px 0 60px;
+        padding: 0 60px 0 60px;
     }
 
     .buckets-notification {
@@ -156,6 +156,17 @@ export default class BucketArea extends Vue {
             font-family: 'font_medium';
             font-size: 14px;
             margin-left: 26px;
+        }
+    }
+
+    @media screen and (max-width: 1024px) {
+        .buckets-header {
+            padding: 40px 40px 20px 40px;
+        }
+
+        .buckets-container,
+        .buckets-notification-container {
+            padding: 0 40px 0 40px;
         }
     }
 

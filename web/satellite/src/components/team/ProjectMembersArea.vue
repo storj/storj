@@ -187,6 +187,12 @@ export default class ProjectMembersArea extends Vue {
         margin-left: -25px;
     }
 
+    @media screen and (max-width: 1024px) {
+        .team-area {
+            padding: 40px 40px 55px 40px;
+        }
+    }
+
     @media screen and (max-height: 800px) {
         .team-area {
 
