@@ -15,7 +15,6 @@
         <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
 
-
         <Control Id="StorageFolderLabel" Type="Text" X="20" Y="60" Width="320" Height="16" NoPrefix="yes" Text="Store data to:" />
         <Control Id="StorageFolder" Type="PathEdit" X="20" Y="100" Width="320" Height="18" Property="STORJ_STORAGEDIR" Indirect="yes"/>
         <Control Id="StorageChangeFolder" Type="PushButton" X="20" Y="120" Width="56" Height="17" Text="Browse..." />

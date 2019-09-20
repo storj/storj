@@ -19,7 +19,7 @@
 
         <Control Id="EmailLabel" Type="Text" X="20" Y="60" Width="320" Height="16" NoPrefix="yes" Text="E-mail address:" />
         <Control Id="Email" Type="Edit" Property="STORJ_EMAIL" X="20" Y="100" Width="320" Height="18" />
-        <Control Id="WalletDesc" Type="Text" X="20" Y="150" Width="320" Height="48" NoPrefix="yes" Text="Optional. We will notify you on this email address when a new version has been released." />
+        <Control Id="EmailDesc" Type="Text" X="20" Y="150" Width="320" Height="48" NoPrefix="yes" Text="We will notify you on this email address when a new version has been released." />
       </Dialog>
     </UI> 
 	</Fragment>
