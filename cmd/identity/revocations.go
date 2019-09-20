@@ -38,7 +38,7 @@ func init() {
 }
 
 func cmdRevocations(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	if len(args) > 0 {
 		revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
 	}

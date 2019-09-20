@@ -33,6 +33,8 @@ import (
 )
 
 var (
+	cancel context.CancelFunc
+
 	rootCmd = &cobra.Command{
 		Use:   "storagenode-updater",
 		Short: "Version updater for storage node",
@@ -83,7 +85,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("unable to find storage node executable binary")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	var ctx context.Context
+	ctx, cancel = context.WithCancel(context.Background())
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 
