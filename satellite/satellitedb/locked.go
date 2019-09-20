@@ -871,11 +871,18 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
-// GetExitingNodes returns nodes in exiting status.
+// GetExitingNodes returns nodes who have initiated a graceful exit.
 func (m *lockedOverlayCache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetExitingNodes(ctx)
+}
+
+// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
+func (m *lockedOverlayCache) GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetExitingNodesLoopIncomplete(ctx)
 }
 
 // IsVetted returns whether or not the node reaches reputable thresholds

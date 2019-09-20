@@ -78,8 +78,10 @@ type DB interface {
 
 	// UpdateExitStatus is used to update a node's graceful exit status.
 	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (stats *NodeStats, err error)
-	// GetExitingNodes returns nodes in exiting status.
+	// GetExitingNodes returns nodes who have initiated a graceful exit.
 	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
+	// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
+	GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
