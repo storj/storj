@@ -95,7 +95,7 @@ func TestRequestInfoEndpointTrustedSatellite(t *testing.T) {
 		require.Equal(t, nodeDossier.Type, resp.Type)
 		require.Equal(t, &nodeDossier.Operator, resp.Operator)
 		require.Equal(t, &nodeDossier.Capacity, resp.Capacity)
-		require.Equal(t, nodeDossier.Version.Version, resp.Version.Version)
+		require.Equal(t, nodeDossier.Version.GetVersion(), resp.Version.GetVersion())
 	})
 }
 
