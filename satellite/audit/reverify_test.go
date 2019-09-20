@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/uplink"
 )
 
 func TestReverifySuccess(t *testing.T) {
@@ -542,11 +543,17 @@ func TestReverifyDifferentShare(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		testData2 := testrand.Bytes(8 * memory.KiB)
-
-		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
+		// upload to three nodes so there is definitely at least one node overlap between the two files
+		rs := &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  2,
+			SuccessThreshold: 3,
+			MaxThreshold:     3,
+		}
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, satellite, "testbucket", "test/path2", testData2)
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testData2)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
