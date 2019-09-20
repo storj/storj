@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
@@ -71,9 +72,11 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					},
 				},
 			},
-			Operator: storagenode.OperatorConfig{
-				Email:  prefix + "@mail.test",
-				Wallet: "0x" + strings.Repeat("00", 20),
+			Kademlia: kademlia.Config{
+				Operator: kademlia.OperatorConfig{
+					Email:  prefix + "@mail.test",
+					Wallet: "0x" + strings.Repeat("00", 20),
+				},
 			},
 			Storage: piecestore.OldConfig{
 				Path:                   filepath.Join(storageDir, "pieces/"),
