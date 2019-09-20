@@ -95,68 +95,74 @@ func TestTransferQueueItem(t *testing.T) {
 		}
 
 		// test basic create, update, get delete
-		err := geDB.Enqueue(ctx, items)
-		require.NoError(t, err)
-
-		for _, tqi := range items {
-			item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path)
+		{
+			err := geDB.Enqueue(ctx, items)
 			require.NoError(t, err)
 
-			item.DurabilityRatio = 1.2
-			item.RequestedAt = time.Now()
+			for _, tqi := range items {
+				item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path)
+				require.NoError(t, err)
 
+				item.DurabilityRatio = 1.2
+				item.RequestedAt = time.Now()
+
+				err = geDB.UpdateTransferQueueItem(ctx, *item)
+				require.NoError(t, err)
+
+				latestItem, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path)
+				require.NoError(t, err)
+				require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
+				require.True(t, item.RequestedAt.Truncate(time.Millisecond).Equal(latestItem.RequestedAt.Truncate(time.Millisecond)))
+			}
+
+			queueItems, err := geDB.GetIncomplete(ctx, nodeID1, 10, 0)
+			require.NoError(t, err)
+			require.Len(t, queueItems, 2)
+		}
+		// mark the first item finished and test that only 1 item gets returned from the GetIncomplete
+		{
+			item, err := geDB.GetTransferQueueItem(ctx, nodeID1, path1)
+			require.NoError(t, err)
+
+			item.FinishedAt = time.Now()
 			err = geDB.UpdateTransferQueueItem(ctx, *item)
 			require.NoError(t, err)
 
-			latestItem, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Path)
+			queueItems, err := geDB.GetIncomplete(ctx, nodeID1, 10, 0)
 			require.NoError(t, err)
-			require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
-			require.True(t, item.RequestedAt.Truncate(time.Millisecond).Equal(latestItem.RequestedAt.Truncate(time.Millisecond)))
+			require.Len(t, queueItems, 1)
+			for _, queueItem := range queueItems {
+				require.Equal(t, nodeID1, queueItem.NodeID)
+				require.Equal(t, path2, queueItem.Path)
+			}
 		}
 
-		queueItems, err := geDB.GetIncomplete(ctx, nodeID1, 10, 0)
-		require.NoError(t, err)
-		require.Len(t, queueItems, 2)
-
-		// mark the first item finished
-		item, err := geDB.GetTransferQueueItem(ctx, nodeID1, path1)
-		require.NoError(t, err)
-
-		item.FinishedAt = time.Now()
-		err = geDB.UpdateTransferQueueItem(ctx, *item)
-		require.NoError(t, err)
-
-		queueItems, err = geDB.GetIncomplete(ctx, nodeID1, 10, 0)
-		require.NoError(t, err)
-		require.Len(t, queueItems, 1)
-		for _, queueItem := range queueItems {
-			require.Equal(t, nodeID1, queueItem.NodeID)
-			require.NotEqual(t, path1, queueItem.Path)
-
-			_, err = geDB.GetTransferQueueItem(ctx, queueItem.NodeID, queueItem.Path)
+		// test delete finished queue items. Only path1 should be removed
+		{
+			err := geDB.DeleteFinishedTransferQueueItems(ctx, nodeID1)
 			require.NoError(t, err)
 
-			// test delete
-			err = geDB.DeleteTransferQueueItem(ctx, queueItem.NodeID, queueItem.Path)
+			// path1 should no longer exist for nodeID1
+			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, path1)
+			require.Error(t, err)
+
+			// path2 should still exist for nodeID1
+			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, path2)
 			require.NoError(t, err)
 		}
-		// test delete finished
-		err = geDB.DeleteFinishedTransferQueueItems(ctx, nodeID1)
-		require.NoError(t, err)
-
-		_, err = geDB.GetTransferQueueItem(ctx, nodeID1, path1)
-		require.Error(t, err)
-
-		queueItems, err = geDB.GetIncomplete(ctx, nodeID2, 10, 0)
-		require.NoError(t, err)
-		require.Len(t, queueItems, 2)
 
 		// test delete all for a node
-		err = geDB.DeleteTransferQueueItems(ctx, nodeID2)
-		require.NoError(t, err)
+		{
+			queueItems, err := geDB.GetIncomplete(ctx, nodeID2, 10, 0)
+			require.NoError(t, err)
+			require.Len(t, queueItems, 2)
 
-		queueItems, err = geDB.GetIncomplete(ctx, nodeID2, 10, 0)
-		require.NoError(t, err)
-		require.Len(t, queueItems, 0)
+			err = geDB.DeleteTransferQueueItems(ctx, nodeID2)
+			require.NoError(t, err)
+
+			queueItems, err = geDB.GetIncomplete(ctx, nodeID2, 10, 0)
+			require.NoError(t, err)
+			require.Len(t, queueItems, 0)
+		}
 	})
 }
