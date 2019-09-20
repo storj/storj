@@ -67,16 +67,15 @@ func getQuery(w http.ResponseWriter, req *http.Request) (query graphqlJSON, err 
 
 // queryPOST retrieves graphql query from POST request
 func queryPOST(w http.ResponseWriter, req *http.Request) (query graphqlJSON, err error) {
+	limitedReader := http.MaxBytesReader(w, req.Body, ContentLengthLimit.Int64())
 	switch typ := req.Header.Get(contentType); typ {
 	case applicationGraphql:
-		limitedReader := http.MaxBytesReader(w, req.Body, ContentLengthLimit.Int64())
-
 		body, err := ioutil.ReadAll(limitedReader)
 		query.Query = string(body)
-		return query, errs.Combine(err, req.Body.Close())
+		return query, errs.Combine(err, limitedReader.Close())
 	case applicationJSON:
-		err := json.NewDecoder(req.Body).Decode(&query)
-		return query, errs.Combine(err, req.Body.Close())
+		err := json.NewDecoder(limitedReader).Decode(&query)
+		return query, errs.Combine(err, limitedReader.Close())
 	default:
 		return query, errs.New("can't parse request body of type %s", typ)
 	}
