@@ -1,0 +1,94 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+.dashboard-header-container {
+    font-family: 'font_medium';
+    height: 100px;
+    min-height: 100px;
+    background-color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 55px;
+    position: relative;
+
+    &__left-area,
+    &__right-area {
+        display: flex;
+        align-items: center;
+
+        &__menu-button {
+            display: none;
+        }
+
+        &__close-button {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+
+            &__title {
+                margin-left: 13px;
+                font-size: 16px;
+                line-height: 23px;
+                color: #A9B5C1;
+            }
+        }
+
+        &__new-project {
+            margin-right: 25px;
+        }
+    }
+}
+
+.storj-title {
+    display: none;
+}
+
+.adapted-navigation {
+    position: absolute;
+    top: 100px;
+    left: 0;
+}
+
+.navigation-blur {
+    height: 100vh;
+    width: 744px;
+    position: absolute;
+    top: 100px;
+    left: 280px;
+    z-index: 100;
+    background: rgba(134, 134, 148, 0.4);
+}
+
+@media screen and (min-width: 1025px) {
+    .adapted-navigation,
+    .navigation-blur,
+    .dashboard-header-container__left-area__close-button {
+        display: none;
+    }
+}
+
+@media screen and (max-width: 1024px) {
+    .dashboard-header-container {
+        padding: 0 40px;
+
+        &__left-area {
+
+            &__project-selection {
+                display: none;
+            }
+
+            &__menu-button {
+                display: block;
+                cursor: pointer;
+            }
+        }
+    }
+
+    .storj-title {
+        display: block;
+        cursor: pointer;
+        position: absolute;
+        left: calc(50% - 41px);
+    }
+}
