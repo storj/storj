@@ -18,7 +18,7 @@
             <h1 class="no-buckets-header__title">Buckets</h1>
         </div>
         <h3 class="no-buckets-header-info">To create a bucket, please use the following CLI documentation. We will soon enable client-side encryption through the browser, at which time you will be able to create buckets and upload objects directly from this dashboard.</h3>
-        <div class="divider"></div>
+        <div class="buckets-divider"></div>
         <h2 class="no-buckets-subtitle">Create Buckets and Upload Objects from the Command Line</h2>
         <div class="no-buckets-example-container">
             <div class="no-buckets-example-container__info">
@@ -126,8 +126,7 @@ export default class NoBucketArea extends Vue {}
         justify-content: flex-start;
     }
 
-    .divider {
-        width: 100%;
+    .buckets-divider {
         height: 1px;
         background-color: #AFB7C1;
         margin-top: 12px;
@@ -218,7 +217,7 @@ export default class NoBucketArea extends Vue {}
 
     @media screen and (max-width: 1024px) {
         .no-buckets-area {
-            padding: 52px 40px 52px 34px;
+            padding: 52px 40px 52px 40px;
         }
     }
 
