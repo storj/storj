@@ -22,6 +22,7 @@
                 <path d="M60.92 3.11795V0H69V10.3385C69 12.2256 68.52 13.6205 67.56 14.6051C66.6 15.5077 65.4 16 63.88 16C62.04 16 60.36 15.2615 59 13.7846L60.76 11.241C61.72 12.3077 62.68 12.8 63.72 12.8C64.2 12.8 64.6 12.6359 65 12.2256C65.32 11.8154 65.56 11.241 65.56 10.5026V3.0359L60.92 3.11795Z" fill="#2683FF"/>
             </svg>
         </div>
+        <ProjectSelectionArea class="project-selection-area"/>
         <p class="navigation-area__project-title">PROJECT</p>
         <router-link :aria-label="navItem.name" class="navigation-area__item-container" v-bind:class="{disabled: isProjectNotSelected && navItem.path !== '/project-details'}" v-for="navItem in navigation" v-bind:key="navItem.name" :to="navItem.path">
             <div class="navigation-area__item-container__link-container" >
