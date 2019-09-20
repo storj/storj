@@ -46,7 +46,7 @@ func TestPutGetList(t *testing.T) {
 		StorageNodeCount: 1,
 		UplinkCount:      1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize()
 			satelliteAddr := planet.Satellites[0].Local().Address.Address
 
 			tests := []putGetListTest{

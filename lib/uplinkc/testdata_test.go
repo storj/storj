@@ -80,7 +80,7 @@ func TestC(t *testing.T) {
 					cmd.Dir = filepath.Dir(testexe)
 					cmd.Env = append(os.Environ(),
 						"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
-						"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
+						"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize(),
 					)
 
 					out, err := cmd.CombinedOutput()

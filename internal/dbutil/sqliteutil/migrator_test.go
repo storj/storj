@@ -4,7 +4,6 @@
 package sqliteutil_test
 
 import (
-	"context"
 	"database/sql"
 	"testing"
 
@@ -12,17 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/dbutil/sqliteutil"
+	"storj.io/storj/internal/testcontext"
 )
 
 func TestMigrateTablesToDatabase(t *testing.T) {
-	ctx := context.Background()
-	srcDB := newMemDB(t)
-	destDB := newMemDB(t)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	defer func() {
-		require.NoError(t, srcDB.Close())
-		require.NoError(t, destDB.Close())
-	}()
+	srcDB := newMemDB(t)
+	defer ctx.Check(srcDB.Close)
+	destDB := newMemDB(t)
+	defer ctx.Check(srcDB.Close)
 
 	query := `
 		CREATE TABLE bobby_jones(I Int);
@@ -50,8 +49,11 @@ func TestMigrateTablesToDatabase(t *testing.T) {
 }
 
 func TestKeepTables(t *testing.T) {
-	ctx := context.Background()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	db := newMemDB(t)
+	defer ctx.Check(db.Close)
 
 	table1SQL := `
 		CREATE TABLE table_one(I int);
