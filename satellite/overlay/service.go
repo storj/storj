@@ -140,9 +140,6 @@ type ExitStatusRequest struct {
 	ExitInitiatedAt     *time.Time
 	ExitLoopCompletedAt *time.Time
 	ExitFinishedAt      *time.Time
-	UpdateInitiated     bool
-	UpdateLoopCompleted bool
-	UpdateFinished      bool
 }
 
 // NodeDossier is the complete info that the satellite tracks for a storage node

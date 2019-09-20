@@ -36,19 +36,15 @@ func TestGetExitingNodes(t *testing.T) {
 			require.NoError(t, err)
 
 			var (
-				initiatedAt         *time.Time
-				completedAt         *time.Time
-				finishedAt          *time.Time
-				updateInitiated     = false
-				updateLoopCompleted = false
-				updateFinished      = false
+				initiatedAt *time.Time
+				completedAt *time.Time
+				finishedAt  *time.Time
 			)
 
 			// set some nodes to have an exiting status
 			if i < numExitingNodes {
 				timestamp := time.Now().UTC()
 				initiatedAt = &timestamp
-				updateInitiated = true
 			}
 
 			req := &overlay.ExitStatusRequest{
@@ -56,9 +52,6 @@ func TestGetExitingNodes(t *testing.T) {
 				ExitInitiatedAt:     initiatedAt,
 				ExitLoopCompletedAt: completedAt,
 				ExitFinishedAt:      finishedAt,
-				UpdateInitiated:     updateInitiated,
-				UpdateLoopCompleted: updateLoopCompleted,
-				UpdateFinished:      updateFinished,
 			}
 			_, err = cache.UpdateExitStatus(ctx, req)
 			require.NoError(t, err)
@@ -89,26 +82,20 @@ func TestGetExitingNodesLoopIncomplete(t *testing.T) {
 			require.NoError(t, err)
 
 			var (
-				initiatedAt         *time.Time
-				completedAt         *time.Time
-				finishedAt          *time.Time
-				updateInitiated     = false
-				updateLoopCompleted = false
-				updateFinished      = false
+				initiatedAt *time.Time
+				completedAt *time.Time
+				finishedAt  *time.Time
 			)
 
 			// set some nodes to have an exiting status
 			if i < numExitingNodesLoopInc {
 				timestamp := time.Now().UTC()
 				initiatedAt = &timestamp
-				updateInitiated = true
 			} else {
 				ts1 := time.Now().UTC()
 				ts2 := time.Now().UTC()
 				initiatedAt = &ts1
-				updateInitiated = true
 				completedAt = &ts2
-				updateLoopCompleted = true
 			}
 
 			req := &overlay.ExitStatusRequest{
@@ -116,9 +103,6 @@ func TestGetExitingNodesLoopIncomplete(t *testing.T) {
 				ExitInitiatedAt:     initiatedAt,
 				ExitLoopCompletedAt: completedAt,
 				ExitFinishedAt:      finishedAt,
-				UpdateInitiated:     updateInitiated,
-				UpdateLoopCompleted: updateLoopCompleted,
-				UpdateFinished:      updateFinished,
 			}
 			_, err = cache.UpdateExitStatus(ctx, req)
 			require.NoError(t, err)
