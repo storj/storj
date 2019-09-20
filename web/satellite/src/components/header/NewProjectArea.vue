@@ -40,8 +40,6 @@ export default class NewProjectArea extends Vue {
 
 <style scoped lang="scss">
     .new-project-container {
-        padding-left: 10px;
-        padding-right: 10px;
         background-color: #FFFFFF;
     }
 
@@ -68,7 +66,7 @@ export default class NewProjectArea extends Vue {
         &:hover {
             background-color: #2683FF;
             border: 1px solid #2683FF;
-            box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
+            box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
 
             h1 {
                 color: white;
@@ -79,7 +77,7 @@ export default class NewProjectArea extends Vue {
     .new-project-button-container.active {
         background-color: #2683FF;
         border: 1px solid #2683FF;
-        box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
+        box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
 
         h1 {
             color: white;

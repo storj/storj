@@ -8,13 +8,17 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 )
 
 // Endpoint implements the contact service Endpoints.
@@ -41,43 +45,39 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	peerID, err := peerIDFromContext(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 	nodeID := peerID.ID
 
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
+	}
+
+	lastIP, err := overlay.GetNetwork(ctx, req.Address)
+	if err != nil {
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
 	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
-
-	err = endpoint.service.overlay.Put(ctx, nodeID, pb.Node{
-		Id: nodeID,
+	nodeInfo := overlay.NodeCheckInInfo{
+		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   req.Address,
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 		},
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
+		LastIP:   lastIP,
+		IsUp:     pingNodeSuccess,
+		Capacity: req.Capacity,
+		Operator: req.Operator,
+		Version:  req.Version,
 	}
-
-	// TODO(jg): We are making 2 requests to the database, one to update uptime and
-	// the other to update the capacity and operator info. We should combine these into
-	// one to reduce db connections. Consider adding batching and using a stored procedure.
-	_, err = endpoint.service.overlay.UpdateUptime(ctx, nodeID, pingNodeSuccess)
+	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo)
 	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	nodeInfo := pb.InfoResponse{Operator: req.GetOperator(), Capacity: req.GetCapacity(), Version: &pb.NodeVersion{Version: req.Version}}
-	_, err = endpoint.service.overlay.UpdateNodeInfo(ctx, nodeID, &nodeInfo)
-	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
 	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node succes", pingNodeSuccess))
@@ -102,6 +102,9 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, 
 		endpoint.log.Info("pingBack internal error", zap.String("error", err.Error()))
 		return false, "", Error.New("couldn't connect to client at addr: %s due to internal error.", req.Address)
 	}
+	defer func() {
+		err = errs.Combine(err, client.close())
+	}()
 
 	pingNodeSuccess := true
 	var pingErrorMessage string
@@ -117,7 +120,7 @@ func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, 
 		}
 	}
 
-	return pingNodeSuccess, pingErrorMessage, nil
+	return pingNodeSuccess, pingErrorMessage, err
 }
 
 func peerIDFromContext(ctx context.Context) (*identity.PeerIdentity, error) {

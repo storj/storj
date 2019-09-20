@@ -64,7 +64,7 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// inert constructors only ====
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
 	identity, err := runCfg.Identity.Load()
