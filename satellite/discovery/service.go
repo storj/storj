@@ -5,7 +5,6 @@ package discovery
 
 import (
 	"context"
-	"crypto/rand"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -14,8 +13,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -29,7 +27,6 @@ var (
 // Config loads on the configuration values for the cache
 type Config struct {
 	RefreshInterval    time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
-	DiscoveryInterval  time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
 	RefreshLimit       int           `help:"the amount of nodes read from the overlay in a single pagination call" default:"100"`
 	RefreshConcurrency int           `help:"the amount of nodes refreshed in parallel" default:"8"`
 }
@@ -38,38 +35,33 @@ type Config struct {
 //
 // architecture: Chore
 type Discovery struct {
-	log   *zap.Logger
-	cache *overlay.Service
-	kad   *kademlia.Kademlia
+	log     *zap.Logger
+	cache   *overlay.Service
+	contact *contact.Service
 
 	refreshLimit       int
 	refreshConcurrency int
 
-	Refresh   sync2.Cycle
-	Discovery sync2.Cycle
+	Refresh sync2.Cycle
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Service, kad *kademlia.Kademlia, config Config) *Discovery {
+func New(logger *zap.Logger, ol *overlay.Service, contact *contact.Service, config Config) *Discovery {
 	discovery := &Discovery{
-		log:   logger,
-		cache: ol,
-		kad:   kad,
-
+		log:                logger,
+		cache:              ol,
+		contact:            contact,
 		refreshLimit:       config.RefreshLimit,
 		refreshConcurrency: config.RefreshConcurrency,
 	}
 
 	discovery.Refresh.SetInterval(config.RefreshInterval)
-	discovery.Discovery.SetInterval(config.DiscoveryInterval)
-
 	return discovery
 }
 
 // Close closes resources
 func (discovery *Discovery) Close() error {
 	discovery.Refresh.Close()
-	discovery.Discovery.Close()
 	return nil
 }
 
@@ -82,13 +74,6 @@ func (discovery *Discovery) Run(ctx context.Context) (err error) {
 		err := discovery.refresh(ctx)
 		if err != nil {
 			discovery.log.Error("error with cache refresh: ", zap.Error(err))
-		}
-		return nil
-	})
-	discovery.Discovery.Start(ctx, &group, func(ctx context.Context) error {
-		err := discovery.discover(ctx)
-		if err != nil {
-			discovery.log.Error("error with cache discovery: ", zap.Error(err))
 		}
 		return nil
 	})
@@ -119,8 +104,7 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 			node := node
 
 			limiter.Go(ctx, func() {
-				// NB: FetchInfo updates node uptime already
-				info, err := discovery.kad.FetchInfo(ctx, *node)
+				info, err := discovery.contact.FetchInfo(ctx, *node)
 				if ctx.Err() != nil {
 					return
 				}
@@ -143,28 +127,4 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 
 	limiter.Wait()
 	return nil
-}
-
-// Discovery runs lookups for random node ID's to find new nodes in the network
-func (discovery *Discovery) discover(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	r, err := randomID()
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	_, err = discovery.kad.FindNode(ctx, r)
-	if err != nil && !kademlia.NodeNotFound.Has(err) {
-		return Error.Wrap(err)
-	}
-	return nil
-}
-
-func randomID() (storj.NodeID, error) {
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
-		return storj.NodeID{}, Error.Wrap(err)
-	}
-	return storj.NodeIDFromBytes(b)
 }

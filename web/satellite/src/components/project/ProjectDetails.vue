@@ -226,7 +226,7 @@ export default class ProjectDetailsArea extends Vue {
                 flex-direction: column;
                 justify-content: center;
                 align-items: flex-start;
-                width: 65vw;
+                margin-right: 20px;
                 
                 h3 {
                     width: 100%;
