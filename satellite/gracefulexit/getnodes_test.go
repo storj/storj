@@ -18,60 +18,54 @@ import (
 )
 
 func TestGetExitingNodes(t *testing.T) {
-	for _, tt := range []struct {
-		numNodesToExit       int
-		nodesTotal           int
-		expectedExitingNodes int
-	}{
-		{2, 2, 2},
-		{2, 6, 2},
-		{0, 3, 0},
-		{1, 3, 1},
-	} {
-		satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-			ctx := testcontext.New(t)
-			defer ctx.Cleanup()
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
-			cache := db.OverlayCache()
+		var (
+			cache = db.OverlayCache()
 
-			for i := 0; i < tt.nodesTotal; i++ {
-				newID := testrand.NodeID()
-				// add nodes to cache
-				err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, overlay.NodeSelectionConfig{})
-				require.NoError(t, err)
+			numTotalNodes   = 5
+			numExitingNodes = 2
+		)
 
-				var (
-					initiatedAt         *time.Time
-					completedAt         *time.Time
-					finishedAt          *time.Time
-					updateInitiated     = false
-					updateLoopCompleted = false
-					updateFinished      = false
-				)
+		for i := 0; i < numTotalNodes; i++ {
+			newID := testrand.NodeID()
+			// add nodes to cache
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
 
-				// set some nodes to have an exiting status
-				if i < tt.numNodesToExit {
-					timestamp := time.Now().UTC()
-					initiatedAt = &timestamp
-					updateInitiated = true
-				}
+			var (
+				initiatedAt         *time.Time
+				completedAt         *time.Time
+				finishedAt          *time.Time
+				updateInitiated     = false
+				updateLoopCompleted = false
+				updateFinished      = false
+			)
 
-				req := &overlay.ExitStatusRequest{
-					NodeID:              newID,
-					ExitInitiatedAt:     initiatedAt,
-					ExitLoopCompletedAt: completedAt,
-					ExitFinishedAt:      finishedAt,
-					UpdateInitiated:     updateInitiated,
-					UpdateLoopCompleted: updateLoopCompleted,
-					UpdateFinished:      updateFinished,
-				}
-				_, err = cache.UpdateExitStatus(ctx, req)
-				require.NoError(t, err)
+			// set some nodes to have an exiting status
+			if i < numExitingNodes {
+				timestamp := time.Now().UTC()
+				initiatedAt = &timestamp
+				updateInitiated = true
 			}
 
-			nodes, err := cache.GetExitingNodes(ctx)
+			req := &overlay.ExitStatusRequest{
+				NodeID:              newID,
+				ExitInitiatedAt:     initiatedAt,
+				ExitLoopCompletedAt: completedAt,
+				ExitFinishedAt:      finishedAt,
+				UpdateInitiated:     updateInitiated,
+				UpdateLoopCompleted: updateLoopCompleted,
+				UpdateFinished:      updateFinished,
+			}
+			_, err = cache.UpdateExitStatus(ctx, req)
 			require.NoError(t, err)
-			require.Len(t, nodes, tt.expectedExitingNodes)
-		})
-	}
+		}
+
+		nodes, err := cache.GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, nodes, numExitingNodes)
+	})
 }
