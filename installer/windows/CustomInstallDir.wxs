@@ -5,9 +5,15 @@ Customized to collect user input for storage node config.
 First-time install dialog sequence:
  - WixUI_WelcomeDlg
  - WixUI_LicenseAgreementDlg
- - WixUI_InstallDirDlg
+ - InstallDirConfigDlg
+ - IdentityDirDlg
+ - WalletConfigDlg
+ - EmailConfigDlg
+ - PublicAddressConfigDlg
+ - StorageDirConfigDlg
+ - AllocatedStorageConfigDlg
+ - AllocatedBandwidthConfigDlg
  - WixUI_VerifyReadyDlg
- - WixUI_DiskCostDlg
 
 Maintenance dialog sequence:
  - WixUI_MaintenanceWelcomeDlg
