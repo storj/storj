@@ -30,7 +30,7 @@ API_KEYS_ACTIONS,
 APP_STATE_ACTIONS,
 NOTIFICATION_ACTIONS,
 PM_ACTIONS,
-PROJECT_PAYMENT_METHODS_ACTIONS
+PROJECT_PAYMENT_METHODS_ACTIONS,
 } from '@/utils/constants/actionNames';
 
 @Component
@@ -145,5 +145,11 @@ export default class ProjectSelectionDropdown extends Vue {
         background: #AFB7C1;
         border-radius: 6px;
         height: 5px;
+    }
+
+    @media screen and (max-width: 1024px) {
+        .project-selection-choice-container {
+            top: 50px;
+        }
     }
 </style>

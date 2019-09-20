@@ -30,7 +30,7 @@ func init() {
 }
 
 func list(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	project, err := cfg.GetProject(ctx)
 	if err != nil {

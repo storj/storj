@@ -15,7 +15,6 @@ import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { setUserId } from '@/utils/consoleLocalStorage';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import EVENTS from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
 
@@ -82,11 +81,9 @@ export default class Register extends Vue {
         this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
     }
     public onLogoClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGO);
         location.reload();
     }
     public onLoginClick(): void {
-        this.$segment.track(EVENTS.CLICKED_LOGIN);
         this.$router.push(RouteConfig.Login.path);
     }
     public setEmail(value: string): void {

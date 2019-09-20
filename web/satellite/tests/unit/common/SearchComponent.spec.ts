@@ -40,7 +40,7 @@ describe('SearchComponent.vue', () => {
         const wrapper = mount(SearchComponent, {
             methods: {
                 processSearchQuery: processSearchQuerySpy,
-            }
+            },
         });
 
         wrapper.vm.clearSearch();

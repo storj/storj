@@ -29,7 +29,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     components: {
         EmptyState,
         TabNavigation,
-    }
+    },
 })
 export default class ProjectOverviewArea extends Vue {
     // TODO: make type for project routes
@@ -59,6 +59,16 @@ export default class ProjectOverviewArea extends Vue {
             right: 55px;
             top: 44px;
             z-index: 99;
+        }
+    }
+
+    @media screen and (max-width: 1024px) {
+        .project-overview {
+            padding: 44px 40px 55px 40px;
+
+            &__navigation {
+                right: 40px;
+            }
         }
     }
 </style>

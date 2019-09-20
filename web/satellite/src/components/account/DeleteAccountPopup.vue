@@ -76,8 +76,8 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actio
 @Component({
     components: {
         HeaderedInput,
-        Button
-    }
+        Button,
+    },
 })
 export default class DeleteAccountPopup extends Vue {
     public passwordError: string = '';
