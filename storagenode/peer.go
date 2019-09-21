@@ -196,7 +196,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup contact service
-		c := config.Contact
+		c := config.Kademlia
 		if c.ExternalAddress == "" {
 			c.ExternalAddress = peer.Addr()
 		}
@@ -364,7 +364,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Bandwidth(),
 			config.Storage,
 			peer.Console.Listener.Addr(),
-			config.Contact.ExternalAddress,
+			config.Kademlia.ExternalAddress,
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 		pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector)

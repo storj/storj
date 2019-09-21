@@ -22,8 +22,6 @@ var mon = monkit.Package()
 
 // Config contains configurable values for contact service
 type Config struct {
-	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
-
 	// Chore config values
 	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
 	// MaxSleep should remain at default value to decrease traffic congestion to satellite

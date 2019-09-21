@@ -10,7 +10,7 @@ RUN_PARAMS="${RUN_PARAMS:-} --identity-dir identity"
 
 RUN_PARAMS="${RUN_PARAMS:-} --metrics.app-suffix=-alpha"
 RUN_PARAMS="${RUN_PARAMS:-} --metrics.interval=30m"
-RUN_PARAMS="${RUN_PARAMS:-} --contact.external-address=${ADDRESS}"
+RUN_PARAMS="${RUN_PARAMS:-} --kademlia.external-address=${ADDRESS}"
 RUN_PARAMS="${RUN_PARAMS:-} --kademlia.operator.email=${EMAIL}"
 RUN_PARAMS="${RUN_PARAMS:-} --kademlia.operator.wallet=${WALLET}"
 RUN_PARAMS="${RUN_PARAMS:-} --console.address=:14002"
