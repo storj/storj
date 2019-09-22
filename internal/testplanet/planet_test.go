@@ -51,6 +51,7 @@ func TestBasic(t *testing.T) {
 					Operator: &node.Operator,
 				})
 				require.NoError(t, err)
+				conn.Close()
 			}
 
 		}
