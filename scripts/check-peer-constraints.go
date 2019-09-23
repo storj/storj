@@ -36,6 +36,7 @@ var Peers = []string{
 	"storj.io/storj/bootstrap/...",
 	"storj.io/storj/versioncontrol/...",
 	"storj.io/storj/linksharing/...",
+	"storj.io/storj/pkg/certificates/...",
 }
 
 var Cmds = []string{
