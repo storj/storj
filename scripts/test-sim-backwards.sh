@@ -50,13 +50,6 @@ PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network tes
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_0_DIR`/config.yaml
 
-# remove kademlia from config
-sed -i -e 's/kademlia.//g' `storj-sim network env STORAGENODE_5_DIR`/config.yaml
-sed -i -e 's/kademlia.//g' `storj-sim network env STORAGENODE_6_DIR`/config.yaml
-sed -i -e 's/kademlia.//g' `storj-sim network env STORAGENODE_7_DIR`/config.yaml
-sed -i -e 's/kademlia.//g' `storj-sim network env STORAGENODE_8_DIR`/config.yaml
-sed -i -e 's/kademlia.//g' `storj-sim network env STORAGENODE_9_DIR`/config.yaml
-
 ## Ensure that partially upgraded network works
 
 # keep half of the storage nodes on the old version
