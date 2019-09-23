@@ -63,7 +63,7 @@ export default class BillingHistory extends Vue {
             display: flex;
             align-items: center;
             cursor: pointer;
-            width: 183px;
+            width: 184px;
             margin-bottom: 27px;
 
             &__back-button {

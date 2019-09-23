@@ -7,7 +7,7 @@
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p>Buckets</p>
-                <HeaderComponent class="buckets-header-component" placeHolder="Buckets" :search="fetch"/>
+                <HeaderComponent class="buckets-header-component" placeholder="Buckets" :search="fetch"/>
             </div>
             <div class="buckets-notification-container">
                 <div class="buckets-notification">
@@ -20,14 +20,14 @@
             </div>
             <div v-if="buckets.length" class="buckets-container">
                 <SortingHeader />
-                <List :dataSet="buckets" :itemComponent="itemComponent" :onItemClick="doNothing"/>
-                <Pagination v-if="totalPageCount > 1" :totalPageCount="totalPageCount" :onPageClickCallback="onPageClick" />
+                <List :data-set="buckets" :item-component="itemComponent" :on-item-click="doNothing"/>
+                <Pagination v-if="totalPageCount > 1" :total-page-count="totalPageCount" :on-page-click-callback="onPageClick" />
             </div>
             <EmptyState
                 class="empty-container"
                 v-if="!totalPageCount && search"
-                mainTitle="Nothing found :("
-                :imageSource="emptyImage" />
+                main-title="Nothing found :("
+                :image-source="emptyImage" />
         </div>
     </div>
 </template>
@@ -120,7 +120,7 @@ export default class BucketArea extends Vue {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        padding: 40px 40px 20px 60px;
+        padding: 40px 60px 20px 60px;
         
         p {
             font-family: 'font_bold';
@@ -139,7 +139,7 @@ export default class BucketArea extends Vue {
     
     .buckets-container,
     .buckets-notification-container {
-        padding: 0 40px 0 60px;
+        padding: 0 60px 0 60px;
     }
 
     .buckets-notification {
@@ -156,6 +156,17 @@ export default class BucketArea extends Vue {
             font-family: 'font_medium';
             font-size: 14px;
             margin-left: 26px;
+        }
+    }
+
+    @media screen and (max-width: 1024px) {
+        .buckets-header {
+            padding: 40px 40px 20px 40px;
+        }
+
+        .buckets-container,
+        .buckets-notification-container {
+            padding: 0 40px 0 40px;
         }
     }
 

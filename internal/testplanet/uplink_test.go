@@ -31,9 +31,7 @@ import (
 )
 
 func TestUplinksParallel(t *testing.T) {
-	t.Skip("flaky")
-
-	const uplinkCount = 3
+	const uplinkCount = 2
 	const parallelCount = 2
 
 	testplanet.Run(t, testplanet.Config{

@@ -38,18 +38,22 @@ func TestBasic(t *testing.T) {
 			t.Log("UPLINK", uplink.ID(), uplink.Addr())
 		}
 
-		sat := planet.Satellites[0].Local().Node
-		node := planet.StorageNodes[0].Local()
-		conn, err := planet.StorageNodes[0].Transport.DialNode(ctx, &sat)
-		require.NoError(t, err)
-		_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
-			Address:  node.GetAddress().GetAddress(),
-			Version:  &node.Version,
-			Capacity: &node.Capacity,
-			Operator: &node.Operator,
-		})
-		require.NoError(t, err)
+		for _, sat := range planet.Satellites {
+			satellite := sat.Local().Node
+			for _, sn := range planet.StorageNodes {
+				node := sn.Local()
+				conn, err := sn.Transport.DialNode(ctx, &satellite)
+				require.NoError(t, err)
+				_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
+					Address:  node.GetAddress().GetAddress(),
+					Version:  &node.Version,
+					Capacity: &node.Capacity,
+					Operator: &node.Operator,
+				})
+				require.NoError(t, err)
+			}
 
+		}
 		// wait a bit to see whether some failures occur
 		time.Sleep(time.Second)
 	}

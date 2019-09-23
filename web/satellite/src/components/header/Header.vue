@@ -1,24 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template>
-    <div class="header-container">
-        <div class="header-container__left-area">
-            <ProjectSelectionArea class="header-container__left-area__project-selection"/>
-        </div>
-        <div class="header-container__right-area">
-            <NewProjectArea class="header-container__right-area__new-project" />
-            <AccountButton class="header-container__right-area__account-button" />
-        </div>
-        <ProjectCreationSuccessPopup/>
-    </div>
-</template>
+<template src="./header.html"></template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
 import NewProjectArea from '@/components/header/NewProjectArea.vue';
 import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
+import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
 import AccountButton from './AccountButton.vue';
@@ -29,42 +19,20 @@ import AccountButton from './AccountButton.vue';
         ProjectSelectionArea,
         NewProjectArea,
         AccountButton,
+        NavigationArea,
     },
 })
-export default class DashboardHeader extends Vue {}
+export default class DashboardHeader extends Vue {
+    public isNavigationVisible: boolean = false;
+
+    public toggleNavigationVisibility(): void {
+        this.isNavigationVisible = !this.isNavigationVisible;
+    }
+
+    public onLogoClick(): void {
+        location.reload();
+    }
+}
 </script>
 
-<style scoped lang="scss">
-    .header-container {
-        width: 100%;
-        height: 100px;
-        min-height: 100px;
-        background-color: white;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        padding-left: 60px;
-        padding-right: 60px;
-
-        &__left-area {
-            width: 100%;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: flex-start;
-        }
-
-        &__right-area {
-            @extend .header-container__left-area;
-            justify-content: flex-end;
-            position: absolute;
-            right: 60px;
-            width: 30%;
-
-            &__new-project {
-                margin-right: 24px;
-            }
-        }
-    }
-</style>
+<style src="./header.scss" lang="scss"></style>

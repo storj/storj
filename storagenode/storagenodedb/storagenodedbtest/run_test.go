@@ -76,7 +76,7 @@ func testConcurrency(t *testing.T, ctx *testcontext.Context, db *storagenodedb.D
 	t.Run("Sqlite", func(t *testing.T) {
 		runtime.GOMAXPROCS(2)
 
-		err := db.CreateTables()
+		err := db.CreateTables(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

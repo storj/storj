@@ -22,6 +22,14 @@ import (
 	"storj.io/storj/internal/testcontext"
 )
 
+func TestBasicMigrationSqliteNoRebind(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	basicMigration(t, db, db)
+}
+
 func TestBasicMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
