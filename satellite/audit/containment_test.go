@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/uplink"
 )
 
 func TestContainIncrementAndGet(t *testing.T) {
@@ -153,5 +154,92 @@ func TestContainUpdateStats(t *testing.T) {
 		_, err = containment.Get(ctx, info1.NodeID)
 		assert.Error(t, err, audit.ErrContainedNotFound.New("%v", info1.NodeID))
 		assert.True(t, audit.ErrContainedNotFound.Has(err))
+	})
+}
+
+func TestContainGetDeleted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// stop audit
+		planet.Satellites[0].Audit.Worker.Pause()
+
+		// upload file
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  1,
+			SuccessThreshold: 2,
+			MaxThreshold:     2,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		// add to containment with specific path and piece ID
+		info1 := &audit.PendingAudit{
+			NodeID:            planet.StorageNodes[0].ID(),
+			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
+		}
+
+		err := containment.IncrementPending(ctx, info1)
+		require.NoError(t, err)
+
+		// expect that node is in containment mode
+
+		// delete file
+		// get from containment
+		// expect not found error
+	})
+}
+
+// TODO better name
+// this is to make sure that we don't delete from containment if a *different* file that a node is storing is deleted
+func TestContainGetNotDeleted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// stop audit
+		planet.Satellites[0].Audit.Worker.Pause()
+
+		// upload two files
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  1,
+			SuccessThreshold: 2,
+			MaxThreshold:     2,
+		}, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		// add to containment with file 0
+		info1 := &audit.PendingAudit{
+			NodeID:            planet.StorageNodes[0].ID(),
+			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
+		}
+
+		err := containment.IncrementPending(ctx, info1)
+		require.NoError(t, err)
+
+		// expect that node is in containment mode
+
+		// delete file 1
+		// get from containment
+		// expect still exists in containment
+	})
+}
+
+func TestContainIncrementDeleted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// stop audit
+		planet.Satellites[0].Audit.Worker.Pause()
+
+		// upload 2 files
+		// add to containment with specific path and piece ID (file 1)
+		// increment containment for node with file 2
+		// get from containment mode
+		// expect to see file 1
+		// delete file 1
+		// increment containment for node with file 2
+		// get from containment mode
+		// expect to see file 2, not file 1
 	})
 }
