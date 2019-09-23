@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"storj.io/storj/pkg/certificate/authorization"
+	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 )

@@ -12,7 +12,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
-	"storj.io/storj/pkg/certificate/authorization"
+	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"

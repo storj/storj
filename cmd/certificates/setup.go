@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/certificate/authorization"
+	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/pkg/process"
 )
 

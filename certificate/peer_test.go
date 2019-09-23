@@ -18,9 +18,9 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/pkg/certificate"
-	"storj.io/storj/pkg/certificate/authorization"
-	"storj.io/storj/pkg/certificate/certificateclient"
+	"storj.io/storj/certificate"
+	"storj.io/storj/certificate/authorization"
+	"storj.io/storj/certificate/certificateclient"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
