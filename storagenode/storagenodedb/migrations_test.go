@@ -47,7 +47,6 @@ func getSchemas(rawDBs map[string]storagenodedb.SQLDB) (map[string]*dbschema.Sch
 	for dbName, rawDB := range rawDBs {
 		schema, err := sqliteutil.QuerySchema(rawDB.GetDB())
 		if err != nil {
-			fmt.Println("ERR", dbName, err)
 			return nil, err
 		}
 

@@ -139,13 +139,39 @@ func backupConns(ctx context.Context, sourceDB *sqlite3.SQLiteConn, destDB *sqli
 
 // KeepTables drops all the tables except the specified tables to keep.
 func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) (err error) {
-	txn, err := db.BeginTx(ctx, nil)
+	err = dropTables(ctx, db, tablesToKeep...)
 	if err != nil {
-		return errs.Wrap(err)
+		return ErrKeepTables.Wrap(err)
 	}
 
+	// VACUUM the database to reclaim the space used by the dropped tables. The
+	// data will not actually be reclaimed until the db has been closed.
+	// We don't include this in the above transaction because
+	// you can't VACUUM within a transaction with SQLite3.
+	_, err = db.Exec("VACUUM;")
+	if err != nil {
+		return ErrKeepTables.Wrap(err)
+	}
+	return err
+}
+
+// dropTables performs the table drops in a single transaction
+func dropTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) (err error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return ErrKeepTables.Wrap(err)
+	}
+
+	defer func() {
+		if err != nil {
+			err = ErrKeepTables.Wrap(errs.Combine(err, tx.Rollback()))
+		} else {
+			err = ErrKeepTables.Wrap(errs.Combine(err, tx.Commit()))
+		}
+	}()
+
 	// Get a list of tables excluding sqlite3 system tables.
-	rows, err := txn.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
+	rows, err := tx.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
 	if err != nil {
 		return ErrKeepTables.Wrap(err)
 	}
@@ -170,32 +196,14 @@ func KeepTables(ctx context.Context, db *sql.DB, tablesToKeep ...string) (err er
 	for _, tableName := range tables {
 		if !tableToKeep(tableName, tablesToKeep) {
 			// Drop tables we aren't told to keep in the destination database.
-			_, err = txn.ExecContext(ctx, fmt.Sprintf("DROP TABLE %s;", tableName))
+			_, err = tx.ExecContext(ctx, fmt.Sprintf("DROP TABLE %s;", tableName))
 			if err != nil {
 				return ErrKeepTables.Wrap(err)
 			}
 		}
 	}
 
-	if err != nil {
-		err = errs.Combine(err, txn.Rollback())
-		return err
-	}
-	err = txn.Commit()
-	if err != nil {
-		err = errs.Wrap(err)
-		return err
-	}
-
-	// VACUUM the database to reclaim the space used by the dropped tables. The
-	// data will not actually be reclaimed until the db has been closed.
-	// We don't include this in the above transaction because
-	// you can't VACUUM within a transaction with SQLite3.
-	_, err = db.Exec("VACUUM;")
-	if err != nil {
-		return ErrKeepTables.Wrap(err)
-	}
-	return err
+	return nil
 }
 
 func tableToKeep(table string, tables []string) bool {
