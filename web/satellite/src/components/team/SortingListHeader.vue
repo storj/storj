@@ -6,19 +6,19 @@
         <div class="sort-header-container__name-container" @click="onHeaderItemClick(ProjectMemberOrderBy.NAME)">
             <p>Name</p>
             <VerticalArrows
-                :isActive="getSortBy === ProjectMemberOrderBy.NAME"
+                :is-active="getSortBy === ProjectMemberOrderBy.NAME"
                 :direction="getSortDirection"/>
         </div>
         <div class="sort-header-container__added-container" @click="onHeaderItemClick(ProjectMemberOrderBy.CREATED_AT)">
             <p>Added</p>
             <VerticalArrows
-                :isActive="getSortBy === ProjectMemberOrderBy.CREATED_AT"
+                :is-active="getSortBy === ProjectMemberOrderBy.CREATED_AT"
                 :direction="getSortDirection"/>
         </div>
         <div class="sort-header-container__email-container" @click="onHeaderItemClick(ProjectMemberOrderBy.EMAIL)">
             <p>Email</p>
             <VerticalArrows
-                :isActive="getSortBy === ProjectMemberOrderBy.EMAIL"
+                :is-active="getSortBy === ProjectMemberOrderBy.EMAIL"
                 :direction="getSortDirection"/>
         </div>
     </div>

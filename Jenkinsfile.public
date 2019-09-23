@@ -7,7 +7,7 @@ pipeline {
         }
     }
     options {
-          timeout(time: 14, unit: 'MINUTES')
+          timeout(time: 26, unit: 'MINUTES')
     }
     environment {
         NPM_CONFIG_CACHE = '/tmp/npm/cache'
@@ -58,7 +58,7 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 12m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
+                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit.go -out .build/tests.xml'
                         sh 'go run scripts/check-clean-directory.go'
                     }
 

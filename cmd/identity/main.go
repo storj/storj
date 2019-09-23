@@ -88,7 +88,7 @@ func serviceDirectory(serviceName string) string {
 }
 
 func cmdNewService(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	err := version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
@@ -150,7 +150,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 }
 
 func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	err = version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {

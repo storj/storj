@@ -13,14 +13,12 @@ import (
 	_ "github.com/mattn/go-sqlite3" // used indirectly.
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/migrate"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
@@ -52,10 +50,9 @@ type SQLDB interface {
 // Config configures storage node database
 type Config struct {
 	// TODO: figure out better names
-	Storage  string
-	Info     string
-	Info2    string
-	Kademlia string
+	Storage string
+	Info    string
+	Info2   string
 
 	Pieces string
 }
@@ -82,8 +79,6 @@ type DB struct {
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
 
-	kdb, ndb, adb storage.KeyValueStore
-
 	sqlDatabases map[string]SQLDB
 }
 
@@ -94,11 +89,6 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		return nil, err
 	}
 	pieces := filestore.New(log, piecesDir)
-
-	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
-	if err != nil {
-		return nil, err
-	}
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}
@@ -114,9 +104,6 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	db := &DB{
 		log:    log,
 		pieces: pieces,
-		kdb:    dbs[0],
-		ndb:    dbs[1],
-		adb:    dbs[2],
 
 		dbDirectory: filepath.Dir(config.Info2),
 
@@ -252,13 +239,7 @@ func (db *DB) CreateTables(ctx context.Context) error {
 
 // Close closes any resources.
 func (db *DB) Close() error {
-	return errs.Combine(
-		db.kdb.Close(),
-		db.ndb.Close(),
-		db.adb.Close(),
-
-		db.closeDatabases(),
-	)
+	return db.closeDatabases()
 }
 
 // closeDatabases closes all the SQLite database connections and removes them from the associated maps.
@@ -323,11 +304,6 @@ func (db *DB) StorageUsage() storageusage.DB {
 // UsedSerials returns the instance of the UsedSerials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials {
 	return db.usedSerialsDB
-}
-
-// RoutingTable returns kademlia routing table
-func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
-	return db.kdb, db.ndb, db.adb
 }
 
 // RawDatabases are required for testing purposes

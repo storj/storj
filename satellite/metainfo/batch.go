@@ -25,6 +25,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		switch singleRequest := request.Request.(type) {
 		// BUCKET
 		case *pb.BatchRequestItem_BucketCreate:
+			singleRequest.BucketCreate.Header = req.Header
 			response, err := endpoint.CreateBucket(ctx, singleRequest.BucketCreate)
 			if err != nil {
 				return resp, err
@@ -35,6 +36,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_BucketGet:
+			singleRequest.BucketGet.Header = req.Header
 			response, err := endpoint.GetBucket(ctx, singleRequest.BucketGet)
 			if err != nil {
 				return resp, err
@@ -45,6 +47,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_BucketDelete:
+			singleRequest.BucketDelete.Header = req.Header
 			response, err := endpoint.DeleteBucket(ctx, singleRequest.BucketDelete)
 			if err != nil {
 				return resp, err
@@ -55,6 +58,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_BucketList:
+			singleRequest.BucketList.Header = req.Header
 			response, err := endpoint.ListBuckets(ctx, singleRequest.BucketList)
 			if err != nil {
 				return resp, err
@@ -65,6 +69,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_BucketSetAttribution:
+			singleRequest.BucketSetAttribution.Header = req.Header
 			response, err := endpoint.SetBucketAttribution(ctx, singleRequest.BucketSetAttribution)
 			if err != nil {
 				return resp, err
@@ -76,6 +81,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			})
 		//OBJECT
 		case *pb.BatchRequestItem_ObjectBegin:
+			singleRequest.ObjectBegin.Header = req.Header
 			response, err := endpoint.BeginObject(ctx, singleRequest.ObjectBegin)
 			if err != nil {
 				return resp, err
@@ -86,6 +92,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_ObjectCommit:
+			singleRequest.ObjectCommit.Header = req.Header
 			response, err := endpoint.CommitObject(ctx, singleRequest.ObjectCommit)
 			if err != nil {
 				return resp, err
@@ -96,6 +103,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_ObjectGet:
+			singleRequest.ObjectGet.Header = req.Header
 			response, err := endpoint.GetObject(ctx, singleRequest.ObjectGet)
 			if err != nil {
 				return resp, err
@@ -106,6 +114,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_ObjectList:
+			singleRequest.ObjectList.Header = req.Header
 			response, err := endpoint.ListObjects(ctx, singleRequest.ObjectList)
 			if err != nil {
 				return resp, err
@@ -116,6 +125,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_ObjectBeginDelete:
+			singleRequest.ObjectBeginDelete.Header = req.Header
 			response, err := endpoint.BeginDeleteObject(ctx, singleRequest.ObjectBeginDelete)
 			if err != nil {
 				return resp, err
@@ -126,6 +136,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_ObjectFinishDelete:
+			singleRequest.ObjectFinishDelete.Header = req.Header
 			response, err := endpoint.FinishDeleteObject(ctx, singleRequest.ObjectFinishDelete)
 			if err != nil {
 				return resp, err
@@ -137,6 +148,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			})
 		// SEGMENT
 		case *pb.BatchRequestItem_SegmentBegin:
+			singleRequest.SegmentBegin.Header = req.Header
 			response, err := endpoint.BeginSegment(ctx, singleRequest.SegmentBegin)
 			if err != nil {
 				return resp, err
@@ -147,6 +159,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_SegmentCommit:
+			singleRequest.SegmentCommit.Header = req.Header
 			response, err := endpoint.CommitSegment(ctx, singleRequest.SegmentCommit)
 			if err != nil {
 				return resp, err
@@ -157,6 +170,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_SegmentList:
+			singleRequest.SegmentList.Header = req.Header
 			response, err := endpoint.ListSegments(ctx, singleRequest.SegmentList)
 			if err != nil {
 				return resp, err
@@ -167,6 +181,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_SegmentMakeInline:
+			singleRequest.SegmentMakeInline.Header = req.Header
 			response, err := endpoint.MakeInlineSegment(ctx, singleRequest.SegmentMakeInline)
 			if err != nil {
 				return resp, err
@@ -177,6 +192,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_SegmentDownload:
+			singleRequest.SegmentDownload.Header = req.Header
 			response, err := endpoint.DownloadSegment(ctx, singleRequest.SegmentDownload)
 			if err != nil {
 				return resp, err
@@ -187,6 +203,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_SegmentBeginDelete:
+			singleRequest.SegmentBeginDelete.Header = req.Header
 			response, err := endpoint.BeginDeleteSegment(ctx, singleRequest.SegmentBeginDelete)
 			if err != nil {
 				return resp, err
@@ -197,6 +214,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 		case *pb.BatchRequestItem_SegmentFinishDelete:
+			singleRequest.SegmentFinishDelete.Header = req.Header
 			response, err := endpoint.FinishDeleteSegment(ctx, singleRequest.SegmentFinishDelete)
 			if err != nil {
 				return resp, err

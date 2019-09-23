@@ -39,7 +39,7 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 		peerCtx := peer.NewContext(ctx, &grpcPeer)
 		resp, err := planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
 			Address:  nodeDossier.Address.GetAddress(),
-			Version:  nodeDossier.Version.GetVersion(),
+			Version:  &nodeDossier.Version,
 			Capacity: &nodeDossier.Capacity,
 			Operator: &nodeDossier.Operator,
 		})
@@ -49,5 +49,22 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 		peerID, err := planet.Satellites[0].DB.PeerIdentities().Get(ctx, nodeDossier.Id)
 		require.NoError(t, err)
 		require.Equal(t, ident.PeerIdentity(), peerID)
+	})
+}
+
+func TestFetchInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeDossier := planet.StorageNodes[0].Local()
+		node := pb.Node{Id: nodeDossier.Id, Address: nodeDossier.Address}
+
+		resp, err := planet.Satellites[0].Contact.Service.FetchInfo(ctx, node)
+		require.NotNil(t, resp)
+		require.NoError(t, err)
+		require.Equal(t, nodeDossier.Type, resp.Type)
+		require.Equal(t, &nodeDossier.Operator, resp.Operator)
+		require.Equal(t, &nodeDossier.Capacity, resp.Capacity)
+		require.Equal(t, nodeDossier.Version.GetVersion(), resp.Version.GetVersion())
 	})
 }
