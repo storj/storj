@@ -48,7 +48,7 @@ PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --p
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
 # set the segment size lower to make test run faster
-echo client.segment-size: 6MB >> `storj-sim network env GATEWAY_0_DIR`/config.yaml
+echo client.segment-size: 6MiB >> `storj-sim network env GATEWAY_0_DIR`/config.yaml
 
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
 sed -i -e 's#/release/#/branch/#g' `storj-sim network env SATELLITE_0_DIR`/config.yaml
