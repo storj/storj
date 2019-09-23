@@ -137,9 +137,9 @@ type UpdateRequest struct {
 // ExitStatusRequest is used to update a node's graceful exit status.
 type ExitStatusRequest struct {
 	NodeID              storj.NodeID
-	ExitInitiatedAt     *time.Time
-	ExitLoopCompletedAt *time.Time
-	ExitFinishedAt      *time.Time
+	ExitInitiatedAt     time.Time
+	ExitLoopCompletedAt time.Time
+	ExitFinishedAt      time.Time
 }
 
 // NodeDossier is the complete info that the satellite tracks for a storage node

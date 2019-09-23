@@ -1081,14 +1081,14 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fields {
 	dbxUpdateFields := dbx.Node_Update_Fields{}
 
-	if req.ExitInitiatedAt != nil {
-		dbxUpdateFields.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(*req.ExitInitiatedAt)
+	if !req.ExitInitiatedAt.IsZero() {
+		dbxUpdateFields.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(req.ExitInitiatedAt)
 	}
-	if req.ExitLoopCompletedAt != nil {
-		dbxUpdateFields.ExitLoopCompletedAt = dbx.Node_ExitLoopCompletedAt(*req.ExitLoopCompletedAt)
+	if !req.ExitLoopCompletedAt.IsZero() {
+		dbxUpdateFields.ExitLoopCompletedAt = dbx.Node_ExitLoopCompletedAt(req.ExitLoopCompletedAt)
 	}
-	if req.ExitFinishedAt != nil {
-		dbxUpdateFields.ExitFinishedAt = dbx.Node_ExitFinishedAt(*req.ExitFinishedAt)
+	if !req.ExitFinishedAt.IsZero() {
+		dbxUpdateFields.ExitFinishedAt = dbx.Node_ExitFinishedAt(req.ExitFinishedAt)
 	}
 
 	return dbxUpdateFields

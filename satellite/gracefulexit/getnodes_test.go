@@ -36,15 +36,14 @@ func TestGetExitingNodes(t *testing.T) {
 			require.NoError(t, err)
 
 			var (
-				initiatedAt *time.Time
-				completedAt *time.Time
-				finishedAt  *time.Time
+				initiatedAt time.Time
+				completedAt time.Time
+				finishedAt  time.Time
 			)
 
 			// set some nodes to have an exiting status
 			if i < numExitingNodes {
-				timestamp := time.Now().UTC()
-				initiatedAt = &timestamp
+				initiatedAt = time.Now().UTC()
 			}
 
 			req := &overlay.ExitStatusRequest{
@@ -82,20 +81,17 @@ func TestGetExitingNodesLoopIncomplete(t *testing.T) {
 			require.NoError(t, err)
 
 			var (
-				initiatedAt *time.Time
-				completedAt *time.Time
-				finishedAt  *time.Time
+				initiatedAt time.Time
+				completedAt time.Time
+				finishedAt  time.Time
 			)
 
 			// set some nodes to have an exiting status
 			if i < numExitingNodesLoopInc {
-				timestamp := time.Now().UTC()
-				initiatedAt = &timestamp
+				initiatedAt = time.Now().UTC()
 			} else {
-				ts1 := time.Now().UTC()
-				ts2 := time.Now().UTC()
-				initiatedAt = &ts1
-				completedAt = &ts2
+				initiatedAt = time.Now().UTC()
+				completedAt = time.Now().UTC()
 			}
 
 			req := &overlay.ExitStatusRequest{
