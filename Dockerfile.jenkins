@@ -39,6 +39,6 @@ RUN go get github.com/mfridman/tparse
 RUN go get github.com/axw/gocov/gocov
 RUN go get github.com/AlekSi/gocov-xml
 
-# Set our entrypoint to close after 28 minutes, and forcefully close at 30 minutes.
+# Set our entrypoint to close after 30 minutes, and forcefully close at 28 minutes.
 # This is to prevent Jenkins collecting cats.
-ENTRYPOINT ["timeout", "-k30m", "28m"]
+ENTRYPOINT ["timeout", "-k60m", "58m"]

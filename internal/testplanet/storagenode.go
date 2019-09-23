@@ -86,26 +86,26 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				WhitelistedSatellites:  whitelistedSatellites,
 			},
 			Collector: collector.Config{
-				Interval: time.Minute,
+				Interval: 2 * time.Second,
 			},
 			Nodestats: nodestats.Config{
 				MaxSleep:       0,
-				ReputationSync: 1 * time.Minute,
-				StorageSync:    1 * time.Minute,
+				ReputationSync: 2 * time.Second,
+				StorageSync:    2 * time.Second,
 			},
 			Console: consoleserver.Config{
 				Address:   "127.0.0.1:0",
 				StaticDir: filepath.Join(developmentRoot, "web/storagenode/"),
 			},
 			Storage2: piecestore.Config{
-				CacheSyncInterval:     time.Hour,
+				CacheSyncInterval:     2 * time.Second,
 				ExpirationGracePeriod: 0,
 				MaxConcurrentRequests: 100,
 				OrderLimitGracePeriod: time.Hour,
 				Orders: orders.Config{
-					SenderInterval:  time.Hour,
+					SenderInterval:  2 * time.Second,
 					SenderTimeout:   time.Hour,
-					CleanupInterval: time.Hour,
+					CleanupInterval: 2 * time.Second,
 					ArchiveTTL:      time.Hour,
 				},
 				Monitor: monitor.Config{
@@ -119,10 +119,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			},
 			Version: planet.NewVersionConfig(),
 			Bandwidth: bandwidth.Config{
-				Interval: time.Hour,
+				Interval: 2 * time.Second,
 			},
 			Contact: contact.Config{
-				Interval: 30 * time.Second,
+				Interval: 2 * time.Second,
 				MaxSleep: 0 * time.Second,
 			},
 		}
