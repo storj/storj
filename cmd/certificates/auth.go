@@ -201,20 +201,20 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 
 	var emails []string
 	switch {
-	case len(args) > 0 && !authCfg.All:
+	case len(args) >= 0 && !authCfg.All:
 		if authCfg.EmailsPath != "" {
 			return errs.New("Either use `--emails-path` or positional args, not both.")
 		}
 		emails = args
-	case len(args) == 0 || authCfg.All:
-		emails, err = authDB.UserIDs(ctx)
-		if err != nil {
-			return err
-		}
-	default:
+	case authCfg.EmailsPath != "" && !authCfg.All:
 		emails, err = parseEmailsList(authCfg.EmailsPath, authCfg.Delimiter)
 		if err != nil {
 			return errs.Wrap(err)
+		}
+	default:
+		emails, err = authDB.UserIDs(ctx)
+		if err != nil {
+			return err
 		}
 	}
 
