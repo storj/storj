@@ -7,7 +7,7 @@
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p>Buckets</p>
-                <HeaderComponent class="buckets-header-component" placeHolder="Buckets" :search="fetch"/>
+                <HeaderComponent class="buckets-header-component" placeholder="Buckets" :search="fetch"/>
             </div>
             <div class="buckets-notification-container">
                 <div class="buckets-notification">
@@ -20,14 +20,14 @@
             </div>
             <div v-if="buckets.length" class="buckets-container">
                 <SortingHeader />
-                <List :dataSet="buckets" :itemComponent="itemComponent" :onItemClick="doNothing"/>
-                <Pagination v-if="totalPageCount > 1" :totalPageCount="totalPageCount" :onPageClickCallback="onPageClick" />
+                <List :data-set="buckets" :item-component="itemComponent" :on-item-click="doNothing"/>
+                <Pagination v-if="totalPageCount > 1" :total-page-count="totalPageCount" :on-page-click-callback="onPageClick" />
             </div>
             <EmptyState
                 class="empty-container"
                 v-if="!totalPageCount && search"
-                mainTitle="Nothing found :("
-                :imageSource="emptyImage" />
+                main-title="Nothing found :("
+                :image-source="emptyImage" />
         </div>
     </div>
 </template>
