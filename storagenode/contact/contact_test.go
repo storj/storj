@@ -121,3 +121,9 @@ func TestRequestInfoEndpointUntrustedSatellite(t *testing.T) {
 		require.Equal(t, status.Errorf(codes.PermissionDenied, "untrusted peer %v", planet.Satellites[0].Local().Id), err)
 	})
 }
+
+func TestLocalAndUpdateSelf(t *testing.T) {
+	//local
+	//update
+	//local
+}
