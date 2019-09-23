@@ -32,9 +32,43 @@ func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service 
 	return &Service{logger: logger, DB: db, bucketsDB: bucketsDB}
 }
 
+func verifyPointer(pointer *pb.Pointer) (err error) {
+	if pointer.Type == pb.Pointer_INLINE && pointer.Remote != nil {
+		return Error.New("pointer type is INLINE but remote segment is set")
+	}
+
+	if pointer.Type == pb.Pointer_REMOTE {
+		remote := pointer.Remote
+
+		switch {
+		case remote.RootPieceId.IsZero():
+			return Error.New("piece id zero")
+		case remote == nil:
+			return Error.New("no remote segment specified")
+		case remote.RemotePieces == nil:
+			return Error.New("no remote segment pieces specified")
+		case remote.Redundancy == nil:
+			return Error.New("no redundancy scheme specified")
+		}
+
+		redundancy := remote.Redundancy
+		if redundancy.MinReq <= 0 || redundancy.Total <= 0 ||
+			redundancy.RepairThreshold <= 0 || redundancy.SuccessThreshold <= 0 ||
+			redundancy.ErasureShareSize <= 0 {
+			return Error.New("invalid redundancy: %+v", redundancy)
+		}
+	}
+
+	return nil
+}
+
 // Put puts pointer to db under specific path
 func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := verifyPointer(pointer); err != nil {
+		return Error.Wrap(err)
+	}
 
 	// Update the pointer with the creation date
 	pointer.CreationDate = time.Now()
@@ -59,6 +93,10 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 // piece to both toAdd and toRemove.
 func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := verifyPointer(ref); err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	for {
 		// read the pointer
