@@ -27,7 +27,7 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(PagesBlock, {
             propsData: {
                 pages: pagesArray,
-                checkSelected: (i: number) => i === SELECTED_PAGE_INDEX,
+                isSelected: (i: number) => i === SELECTED_PAGE_INDEX,
             },
         });
 
@@ -47,7 +47,7 @@ describe('Pagination.vue', () => {
         const wrapper = shallowMount(PagesBlock, {
             propsData: {
                 pages: pagesArray,
-                checkSelected: () => false,
+                isSelected: () => false,
             },
         });
 

@@ -5,7 +5,7 @@
     <div class="pages-container">
         <span
             v-for="page in pages"
-            :class="{'selected': checkSelected(page.index)}"
+            :class="{'selected': isSelected(page.index)}"
             @click="page.select()"
             :key="page.index">{{page.index}}</span>
     </div>
@@ -21,7 +21,7 @@ export default class PagesBlock extends Vue {
     @Prop({default: () => []})
     public readonly pages: Page[];
     @Prop({default: () => false})
-    public readonly checkSelected: CheckSelected;
+    public readonly isSelected: CheckSelected;
 }
 </script>
 
