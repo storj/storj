@@ -17,7 +17,7 @@ setup(){
     }
     random_bytes_file "2K"   "$TEST_FILES_DIR/small-upload-testfile"        # create 2kb file of random bytes (inline)
     random_bytes_file "5M"   "$TEST_FILES_DIR/big-upload-testfile"          # create 5mb file of random bytes (remote)
-    random_bytes_file "13M" "$TEST_FILES_DIR/multisegment-upload-testfile"  # create 13mb file of random bytes (remote)
+    random_bytes_file "12.1M" "$TEST_FILES_DIR/multisegment-upload-testfile"  # create 12.1mb file of random bytes (remote)
 
     echo "setup test successfully"
 }
