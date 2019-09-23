@@ -65,7 +65,7 @@
 # console.terms-and-conditions-url: "https://storj.io/storage-sla/"
 
 # used to communicate with web crawlers and other web robots
-# console.seo-link: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/)"
+# console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/)"
 
 # satellite database connection string
 # database: postgres://

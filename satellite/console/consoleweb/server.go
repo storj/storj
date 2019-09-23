@@ -65,7 +65,7 @@ type Config struct {
 	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
 	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SEOLink               string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 }
 
 // Server represents console web server
@@ -448,7 +448,7 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	header.Set(contentType, mime.TypeByExtension(".txt"))
 	header.Set("X-Content-Type-Options", "nosniff")
 
-	_, err := w.Write([]byte("User-agent: *\nDisallow: \nDisallow: /cgi-bin/)"))
+	_, err := w.Write([]byte(server.config.SEO))
 	if err != nil {
 		server.log.Error(err.Error())
 	}
