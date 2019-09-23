@@ -20,20 +20,32 @@ const (
 	Normal
 	//Exiting reflects an active graceful exit
 	Exiting
-	//ExitedOk reflects a graceful exit that succeeded
-	ExitedOk
-	//ExitedFailed reflects a graceful exit that failed
-	ExitedFailed
+	//ExitSucceeded reflects a graceful exit that succeeded
+	ExitSucceeded
+	//ExitFailed reflects a graceful exit that failed
+	ExitFailed
 )
+
+//ExitProcess contains the status of a graceful exit
+type ExitProcess struct {
+	SatelliteID       storj.NodeID
+	InitiatedAt       *time.Time
+	FinishedAt        *time.Time
+	StartingDiskUsage int64
+	BytesDeleted      int64
+	CompletionReceipt []byte
+}
 
 // DB works with satellite database
 //
 // architecture: Database
 type DB interface {
-	// initiate graceful exit
+	// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
 	InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) error
-	// increment graceful exit bytes deleted
+	// UpdateGracefulExit increments the total bytes deleted during a graceful exit
 	UpdateGracefulExit(ctx context.Context, satelliteID storj.NodeID, bytesDeleted int64) error
-	// complete graceful exit
+	// CompleteGracefulExit updates the database when a graceful exit is completed or failed
 	CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus Status, completionReceipt []byte) error
+	// ListGracefulExits lists all graceful exit records
+	ListGracefulExits(ctx context.Context) ([]ExitProcess, error)
 }

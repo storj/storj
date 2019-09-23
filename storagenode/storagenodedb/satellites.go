@@ -25,7 +25,7 @@ type satellitesDB struct {
 	migratableDB
 }
 
-// initiate graceful exit
+// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
 func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
@@ -40,15 +40,15 @@ func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID st
 	}))
 }
 
-// increment graceful exit bytes deleted
-func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID storj.NodeID, bytesDeleted int64) (err error) {
+// UpdateGracefulExit increments the total bytes deleted during a graceful exit
+func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID storj.NodeID, addToBytesDeleted int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	query := `UPDATE satellite_exit_progress SET bytes_deleted = bytes_deleted + ? WHERE satellite_id = ?`
-	_, err = db.ExecContext(ctx, query, bytesDeleted, satelliteID)
+	_, err = db.ExecContext(ctx, query, addToBytesDeleted, satelliteID)
 	return ErrSatellitesDB.Wrap(err)
 }
 
-// complete graceful exit
+// CompleteGracefulExit updates the database when a graceful exit is completed or failed
 func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
@@ -60,5 +60,29 @@ func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID st
 		query = `UPDATE satellite_exit_progress SET finished_at = ?, completion_receipt = ? WHERE satellite_id = ?`
 		_, err = tx.ExecContext(ctx, query, finishedAt.UTC(), completionReceipt, satelliteID)
 		return err
+	}))
+}
+
+// ListGracefulExits lists all graceful exit records
+func (db *satellitesDB) ListGracefulExits(ctx context.Context) (exitList []satellites.ExitProcess, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return exitList, ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
+		query := `SELECT satellite_id, initiated_at, finished_at, starting_disk_usage, bytes_deleted, completion_receipt FROM satellite_exit_progress`
+		rows, err := db.QueryContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, rows.Close()) }()
+		for rows.Next() {
+			var exit satellites.ExitProcess
+			//var initiatedAt interface{}
+			//var finishedAt interface{}
+			err := rows.Scan(&exit.SatelliteID, &exit.InitiatedAt, &exit.FinishedAt, &exit.StartingDiskUsage, &exit.BytesDeleted, &exit.CompletionReceipt)
+			if err != nil {
+				return err
+			}
+			exitList = append(exitList, exit)
+		}
+		return nil
 	}))
 }
