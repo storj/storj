@@ -111,27 +111,28 @@ func findLockedFnNames(pkg *packages.Package) []string {
 			return true
 		})
 
-		// transform the ast.FuncDecl to representative string, sort them, unique them, and output them
-		for _, fn := range lockedFns {
-			object := pkg.TypesInfo.Defs[fn.Name]
+	}
 
-			var receiver string
-			if fn.Recv != nil {
-				typ := fn.Recv.List[0].Type
-				if star, ok := typ.(*ast.StarExpr); ok {
-					receiver = ".*"
-					typ = star.X
-				} else {
-					receiver = "."
-				}
-				recvObj := pkg.TypesInfo.Uses[typ.(*ast.Ident)]
-				receiver += recvObj.Name()
+	// transform the ast.FuncDecl to representative string, sort them, unique them, and output them
+	for _, fn := range lockedFns {
+		object := pkg.TypesInfo.Defs[fn.Name]
+
+		var receiver string
+		if fn.Recv != nil {
+			typ := fn.Recv.List[0].Type
+			if star, ok := typ.(*ast.StarExpr); ok {
+				receiver = ".*"
+				typ = star.X
+			} else {
+				receiver = "."
 			}
-
-			lockedFnInfo := object.Pkg().Path() + receiver + "." + object.Name()
-			lockedFnNames = append(lockedFnNames, lockedFnInfo)
-
+			recvObj := pkg.TypesInfo.Uses[typ.(*ast.Ident)]
+			receiver += recvObj.Name()
 		}
+
+		lockedFnInfo := object.Pkg().Path() + receiver + "." + object.Name()
+		lockedFnNames = append(lockedFnNames, lockedFnInfo)
+
 	}
 	return lockedFnNames
 }
