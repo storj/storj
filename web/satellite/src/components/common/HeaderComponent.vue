@@ -6,7 +6,7 @@
         <div class="header-container__buttons-area">
             <slot></slot>
         </div>
-        <SearchComponent ref="search" :placeHolder="placeHolder" :search="search"/>
+        <SearchComponent ref="search" :placeholder="placeholder" :search="search"/>
     </div>
 </template>
 
@@ -27,7 +27,7 @@ declare interface ClearSearch {
 })
 export default class HeaderComponent extends Vue {
     @Prop({default: ''})
-    private readonly placeHolder: string;
+    private readonly placeholder: string;
     @Prop({default: () => ''})
     private readonly search: searchCallback;
 
