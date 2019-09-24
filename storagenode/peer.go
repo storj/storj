@@ -51,7 +51,7 @@ var (
 // architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
-	CreateTables() error
+	CreateTables(ctx context.Context) error
 	// Close closes the database
 	Close() error
 
