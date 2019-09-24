@@ -200,22 +200,24 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	}
 
 	var emails []string
-	switch {
-	case len(args) > 0 && !authCfg.All:
+	if authCfg.All {
 		if authCfg.EmailsPath != "" {
-			return errs.New("Either use `--emails-path` or positional args, not both.")
+			return errs.New("Cannot use `--emails-path` with --all.")
 		}
-		emails = args
-	case len(args) == 0 || authCfg.All:
 		emails, err = authDB.UserIDs(ctx)
 		if err != nil {
 			return err
 		}
-	default:
-		emails, err = parseEmailsList(authCfg.EmailsPath, authCfg.Delimiter)
-		if err != nil {
-			return errs.Wrap(err)
+	} else {
+		if authCfg.EmailsPath != "" {
+			emails, err = parseEmailsList(authCfg.EmailsPath, authCfg.Delimiter)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+		} else if len(args) == 0 {
+			return errs.New("Need either `--emails-path` or positional args.")
 		}
+		emails = append(emails, args...)
 	}
 
 	var (
