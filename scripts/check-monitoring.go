@@ -31,8 +31,7 @@ func main() {
 
 	var lockedFnNames []string
 	for _, pkg := range pkgs {
-		_lockedFnNames := findLockedFnNames(pkg)
-		lockedFnNames = append(lockedFnNames, _lockedFnNames...)
+		lockedFnNames = append(lockedFnNames, findLockedFnNames(pkg)...)
 	}
 	sortedNames := sortAndUnique(lockedFnNames)
 
@@ -90,7 +89,7 @@ func findLockedFnNames(pkg *packages.Package) []string {
 			}
 			// adds other types of monkit calls that have one string argument
 			if basicLit.Kind == token.STRING {
-				lockedFnInfo := sel.Sel.Name + " " + pkg.PkgPath + "." + basicLit.Value
+				lockedFnInfo := pkg.PkgPath + "." + basicLit.Value  + " " + sel.Sel.Name
 				lockedFnNames = append(lockedFnNames, lockedFnInfo)
 			}
 			return true
@@ -129,7 +128,7 @@ func findLockedFnNames(pkg *packages.Package) []string {
 			receiver += recvObj.Name()
 		}
 
-		lockedFnInfo := "Task " + object.Pkg().Path() + receiver + "." + object.Name()
+		lockedFnInfo := object.Pkg().Path() + receiver + "." + object.Name() + " Task"
 		lockedFnNames = append(lockedFnNames, lockedFnInfo)
 
 	}
@@ -145,7 +144,6 @@ func isMonkitCall(pkg *packages.Package, in ast.Node) bool {
 }
 
 func sortAndUnique(input []string) (unique []string) {
-	sort.Strings(input)
 	set := make(map[string]struct{})
 	for _, item := range input {
 		if _, ok := set[item]; ok {
@@ -157,5 +155,6 @@ func sortAndUnique(input []string) (unique []string) {
 	for item := range set {
 		unique = append(unique, item)
 	}
+	sort.Strings(unique)
 	return unique
 }
