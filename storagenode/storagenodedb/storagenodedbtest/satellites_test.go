@@ -52,7 +52,7 @@ func TestGracefulExitDB(t *testing.T) { //satelliteID storj.NodeID, finishedAt t
 		exits, err = db.Satellites().ListGracefulExits(ctx)
 		require.NoError(t, err)
 		require.Equal(t, len(exits), 1)
-		require.Equal(t, exits[0].BytesDeleted, int64(2000))
+		require.Equal(t, exits[0].BytesDeleted, int64(3000))
 		require.Equal(t, exits[0].CompletionReceipt, []byte{0, 0, 0})
 		require.Equal(t, *exits[0].InitiatedAt, start.UTC())
 		require.Equal(t, *exits[0].FinishedAt, stop.UTC())
