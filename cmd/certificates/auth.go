@@ -214,10 +214,8 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return errs.Wrap(err)
 			}
-		} else {
-			if len(args) == 0 {
-				return errs.New("Need either `--emails-path` or positional args.")
-			}
+		} else if len(args) == 0 {
+			return errs.New("Need either `--emails-path` or positional args.")
 		}
 		emails = append(emails, args...)
 	}
