@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/sync2"
@@ -122,11 +122,11 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		return err
 	}
 
-	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked) // locked
-	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked) // locked
+	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)                        // locked
+	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)              // locked
 	mon.IntVal("remote_segments_needing_repair").Observe(observer.monStats.remoteSegmentsNeedingRepair) // locked
-	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost) // locked
-	mon.IntVal("remote_files_lost").Observe(int64(len(observer.monStats.remoteSegmentInfo))) // locked
+	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost)                    // locked
+	mon.IntVal("remote_files_lost").Observe(int64(len(observer.monStats.remoteSegmentInfo)))            // locked
 
 	return nil
 }
@@ -241,7 +241,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 	}
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
-	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces))) // locked
+	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))  // locked
 	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy)) // locked
 
 	segmentAge := time.Since(pointer.CreationDate)

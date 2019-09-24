@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/pb"
@@ -1240,7 +1240,7 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 		dbNode.TotalAuditCount,
 	)
 	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha) // locked
-	mon.FloatVal("audit_reputation_beta").Observe(auditBeta) // locked
+	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)   // locked
 
 	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
 		updateReq.IsUp,
