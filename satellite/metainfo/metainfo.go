@@ -412,13 +412,6 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		for _, piece := range pointer.GetRemote().GetRemotePieces() {
-			_, err := endpoint.containment.Delete(ctx, piece.NodeId)
-			if err != nil {
-				return nil, status.Error(codes.Internal, err.Error())
-			}
-		}
-
 		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 		limits, privateKey, err := endpoint.orders.CreateDeleteOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
@@ -1638,13 +1631,6 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 
 	// moved from FinishDeleteSegment to avoid inconsistency if someone will not
 	// call FinishDeleteSegment on uplink side
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		_, err := endpoint.containment.Delete(ctx, piece.NodeId)
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-	}
-
 	err = endpoint.metainfo.Delete(ctx, path)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
