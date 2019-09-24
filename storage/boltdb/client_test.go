@@ -93,7 +93,7 @@ type boltLongBenchmarkStore struct {
 	dirPath string
 }
 
-func (store *boltLongBenchmarkStore) BulkImport(iter storage.Iterator) (err error) {
+func (store *boltLongBenchmarkStore) BulkImport(ctx context.Context, iter storage.Iterator) (err error) {
 	// turn off syncing during import
 	oldval := store.db.NoSync
 	store.db.NoSync = true
@@ -109,7 +109,7 @@ func (store *boltLongBenchmarkStore) BulkImport(iter storage.Iterator) (err erro
 	return store.db.Sync()
 }
 
-func (store *boltLongBenchmarkStore) BulkDeleteAll() error {
+func (store *boltLongBenchmarkStore) BulkDeleteAll(ctx context.Context) error {
 	// do nothing here; everything will be cleaned up later after the test completes. it's not
 	// worth it to wait for BoltDB to remove every key, one by one, and we can't just
 	// os.RemoveAll() the whole test directory at this point because those files are still open

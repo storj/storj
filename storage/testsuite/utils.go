@@ -25,7 +25,7 @@ func newItem(key, value string, isPrefix bool) storage.ListItem {
 func cleanupItems(t testing.TB, store storage.KeyValueStore, items storage.Items) {
 	bulkDeleter, ok := store.(BulkDeleter)
 	if ok {
-		err := bulkDeleter.BulkDelete(items)
+		err := bulkDeleter.BulkDelete(ctx, items)
 		if err != nil {
 			t.Fatalf("could not do bulk cleanup of items: %v", err)
 		}
@@ -43,17 +43,17 @@ func cleanupItems(t testing.TB, store storage.KeyValueStore, items storage.Items
 // BulkImporter identifies KV storage facilities that can do bulk importing of items more
 // efficiently than inserting one-by-one.
 type BulkImporter interface {
-	BulkImport(storage.Iterator) error
+	BulkImport(context.Context, storage.Iterator) error
 }
 
 // BulkDeleter identifies KV storage facilities that can delete multiple items efficiently.
 type BulkDeleter interface {
-	BulkDelete(storage.Items) error
+	BulkDelete(context.Context, storage.Items) error
 }
 
 // BulkCleaner identifies KV storage facilities that can delete all items efficiently.
 type BulkCleaner interface {
-	BulkDeleteAll() error
+	BulkDeleteAll(ctx context.Context) error
 }
 
 type iterationTest struct {

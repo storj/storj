@@ -216,7 +216,7 @@ func importBigPathset(tb testing.TB, store storage.KeyValueStore) {
 	importer, ok := store.(BulkImporter)
 	if ok {
 		tb.Log("Performing bulk import...")
-		err := importer.BulkImport(inputIter)
+		err := importer.BulkImport(ctx, inputIter)
 
 		if err != nil {
 			errStr := "Provided KeyValueStore failed to import data"
@@ -736,7 +736,7 @@ func cleanupBigPathset(tb testing.TB, store storage.KeyValueStore) {
 	cleaner, ok := store.(BulkCleaner)
 	if ok {
 		tb.Log("Performing bulk cleanup...")
-		err := cleaner.BulkDelete()
+		err := cleaner.BulkDeleteAll(ctx)
 
 		if err != nil {
 			tb.Fatalf("Provided KeyValueStore failed to perform bulk delete: %v", err)
