@@ -191,11 +191,30 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	}
 
 	for _, bucketTally := range bucketTallies {
-		bucketTally.Report("bucket")
+		mon.IntVal("bucket.objects").Observe(s.ObjectCount)
+
+		mon.IntVal("bucket.segments").Observe(s.Segments)
+		mon.IntVal("bucket.inline_segments").Observe(s.InlineSegments)
+		mon.IntVal("bucket.remote_segments").Observe(s.RemoteSegments)
+		mon.IntVal("bucket.unknown_segments").Observe(s.UnknownSegments)
+
+		mon.IntVal("bucket.bytes").Observe(s.Bytes)
+		mon.IntVal("bucket.inline_bytes").Observe(s.InlineBytes)
+		mon.IntVal("bucket.remote_bytes").Observe(s.RemoteBytes)
 		totalTallies.Combine(bucketTally)
 	}
 
-	totalTallies.Report("total")
+	mon.IntVal("total.objects").Observe(s.ObjectCount) // locked
+
+	mon.IntVal("total.segments").Observe(s.Segments) // locked
+	mon.IntVal("total.inline_segments").Observe(s.InlineSegments) // locked
+	mon.IntVal("total.remote_segments").Observe(s.RemoteSegments) // locked
+	mon.IntVal("total.unknown_segments").Observe(s.UnknownSegments) // locked
+
+	mon.IntVal("total.bytes").Observe(s.Bytes) // lecked
+	mon.IntVal("total.inline_bytes").Observe(s.InlineBytes) // locked
+	mon.IntVal("total.remote_bytes").Observe(s.RemoteBytes) // locked
+
 
 	//store byte hours, not just bytes
 	numHours := time.Since(latestTally).Hours()
