@@ -69,10 +69,28 @@ done
 
 # stage 1
 # select storj-sim directory for stage 1 satellite version
+STAGE1_DIR=$(version_dir ${stage1_sat_version})
+
 # iterate over every storagenode for that instance of storj-sim and symlink to storagenode binary for desired stage 2 storagenode version
+COUNTER=0
+for sn_version in ${stage1_storagenode_versions}; do
+    $SN_VERSION_DIR=$(version_dir ${sn_version})
+    PATH=$STAGE1_DIR/bin:$PATH ln $SN_VERSION_DIR/bin/storagenode `storj-sim network env STORAGENODE_${COUNTER}_DIR`/storagenode
+    let COUNTER+=1
+done
+
 # run backwards compatibility test with stage 1 uplink version
 
 # stage 2
 # select storj-sim directory for stage 2 satellite version
+STAGE2_DIR=$(version_dir ${stage2_sat_version})
+
 # iterate over every storagenode for that instance of storj-sim and symlink to storagenode binary for desired stage 2 storagenode version
+COUNTER=0
+for sn_version in ${stage2_storagenode_versions}; do
+    $SN_VERSION_DIR=$(version_dir ${sn_version})
+    PATH=$STAGE2_DIR/bin:$PATH ln $SN_VERSION_DIR/bin/storagenode `storj-sim network env STORAGENODE_${COUNTER}_DIR`/storagenode
+    let COUNTER+=1
+done
+
 # run backwards compatibility test with stage 2 uplink version
