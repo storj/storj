@@ -206,10 +206,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 
 	mon.IntVal("total.objects").Observe(totalTallies.ObjectCount) // locked
 
-	mon.IntVal("total.segments").Observe(totalTallies.Segments)                // locked
-	mon.IntVal("total.inline_segments").Observe(totalTallies.InlineSegments)   // locked
-	mon.IntVal("total.remote_segments").Observe(totalTallies.RemoteSegments)   // locked
-	mon.IntVal("total.unknown_segments").Observe(totalTallies.UnknownSegments) // locked
+	mon.IntVal("total.segments").Observe(totalTallies.Segments) // locked
 
 	mon.IntVal("total.bytes").Observe(totalTallies.Bytes)              // lecked
 	mon.IntVal("total.inline_bytes").Observe(totalTallies.InlineBytes) // locked
