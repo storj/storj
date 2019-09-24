@@ -50,6 +50,8 @@ func init() {
 	if err != nil {
 		zap.S().Fatalf("Service failed: %v", err)
 	}
+	// avoid starting main() when service was stopped
+	os.Exit(0)
 }
 
 type service struct{}
