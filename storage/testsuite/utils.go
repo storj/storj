@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/storage"
 )
@@ -21,9 +22,21 @@ func newItem(key, value string, isPrefix bool) storage.ListItem {
 	}
 }
 
-func cleanupItems(store storage.KeyValueStore, items storage.Items) {
-	for _, item := range items {
-		_ = store.Delete(ctx, item.Key)
+func cleanupItems(t testing.TB, store storage.KeyValueStore, items storage.Items) {
+	bulkDeleter, ok := store.(BulkDeleter)
+	if ok {
+		err := bulkDeleter.BulkDelete(items)
+		if err != nil {
+			t.Fatalf("could not do bulk cleanup of items: %v", err)
+		}
+	} else {
+		var errList errs.Group
+		for _, item := range items {
+			errList.Add(store.Delete(ctx, item.Key))
+		}
+		if err := errList.Err(); err != nil {
+			t.Fatalf("could not clean up items: %v", err)
+		}
 	}
 }
 
@@ -31,6 +44,11 @@ func cleanupItems(store storage.KeyValueStore, items storage.Items) {
 // efficiently than inserting one-by-one.
 type BulkImporter interface {
 	BulkImport(storage.Iterator) error
+}
+
+// BulkDeleter identifies KV storage facilities that can delete multiple items efficiently.
+type BulkDeleter interface {
+	BulkDelete(storage.Items) error
 }
 
 // BulkCleaner identifies KV storage facilities that can delete all items efficiently.

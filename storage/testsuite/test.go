@@ -53,7 +53,7 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 	if err := group.Wait(); err != nil {
 		t.Fatalf("Put failed: %v", err)
 	}
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, store, items)
 
 	t.Run("Put Empty", func(t *testing.T) {
 		var key storage.Key

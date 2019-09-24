@@ -19,7 +19,7 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 		newItem("c", "3", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, store, items)
 
 	for idx := range items {
 		i := idx

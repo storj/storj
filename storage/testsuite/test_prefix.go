@@ -24,7 +24,7 @@ func testPrefix(t *testing.T, store storage.KeyValueStore) {
 		newItem("y-h", "h", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, store, items)
 	if err := storage.PutAll(ctx, store, items...); err != nil {
 		t.Fatalf("failed to setup: %v", err)
 	}

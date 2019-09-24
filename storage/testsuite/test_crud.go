@@ -25,7 +25,7 @@ func testCRUD(t *testing.T, store storage.KeyValueStore) {
 		newItem("öö", "üü", false),
 	}
 	rand.Shuffle(len(items), items.Swap)
-	defer cleanupItems(store, items)
+	defer cleanupItems(t, store, items)
 
 	t.Run("Put", func(t *testing.T) {
 		for _, item := range items {

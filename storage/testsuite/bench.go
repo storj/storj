@@ -39,7 +39,7 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 		}
 	}
 
-	defer cleanupItems(store, items)
+	defer cleanupItems(b, store, items)
 
 	b.Run("Put", func(b *testing.B) {
 		b.SetBytes(int64(len(items)))
