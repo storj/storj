@@ -1621,7 +1621,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
+	pointer, path, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1634,6 +1634,20 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
+	}
+
+	// moved from FinishDeleteSegment to avoid inconsistency if someone will not
+	// call FinishDeleteSegment on uplink side
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		_, err := endpoint.containment.Delete(ctx, piece.NodeId)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	}
+
+	err = endpoint.metainfo.Delete(ctx, path)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{
@@ -1661,7 +1675,7 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 
 	streamID := segmentID.StreamId
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1671,22 +1685,7 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	pointer, path, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		_, err := endpoint.containment.Delete(ctx, piece.NodeId)
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-	}
-
-	err = endpoint.metainfo.Delete(ctx, path)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
+	// at the moment logic is in BeginDeleteSegment
 
 	return &pb.SegmentFinishDeleteResponse{}, nil
 }

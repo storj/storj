@@ -78,7 +78,7 @@ for i in {0..4}; do
   fi
 done
 
-exported_auths=$(_certificates auth export)
+exported_auths=$(_certificates auth export --all)
 _certificates run --min-difficulty 0 --authorization-addr $AUTHS_HTTP_ADDR &
 CERTS_PID=$!
 
@@ -96,7 +96,7 @@ done
 kill_certificates_server
 
 # Expect 10 authorizations total.
-auths=$(_certificates auth export)
+auths=$(_certificates auth export --all)
 require_lines 10 "$auths" $LINENO
 
 for i in {1..4}; do

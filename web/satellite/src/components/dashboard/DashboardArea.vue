@@ -4,8 +4,8 @@
 <template>
     <div>
         <EmptyState
-            mainTitle="Create your first new project"
-            :imageSource="emptyImage" />
+            main-title="Create your first new project"
+            :image-source="emptyImage" />
     </div>
 </template>
 
