@@ -32,6 +32,7 @@ func main() {
 		_lockedFnNames := findLockedFnNames(pkg)
 		lockedFnNames = append(lockedFnNames, _lockedFnNames...)
 	}
+	lockedFnNames = sortAndUnique(fnNames)
 
 	outputStr := strings.Join(lockedFnNames, "\n")
 	if len(os.Args) == 2 {
@@ -60,7 +61,7 @@ func findLockedFnNames(pkg *packages.Package) []string {
 			}
 		}
 
-		// find calls to mon.Task() // locked on the same line as a locked comment and keep track of their position
+		// find calls to mon.Task() on the same line as a locked comment and keep track of their position
 		ast.Inspect(file, func(node ast.Node) bool {
 			call, ok := node.(*ast.CallExpr)
 			if !ok {
@@ -133,4 +134,20 @@ func findLockedFnNames(pkg *packages.Package) []string {
 		}
 	}
 	return lockedFnNames
+}
+
+func sortAndUnique(input []string) (unique []string) {
+	sort.Strings(input)
+	set := make(map[string]struct{})
+	for _, item := range input {
+		if _, ok := set[item]; ok {
+			continue
+		} else {
+			set[item] = struct{}{}
+		}
+	}
+	for item := range set {
+		unique = append(unique, item)
+	}
+	return unique
 }
