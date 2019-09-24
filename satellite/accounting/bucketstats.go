@@ -68,17 +68,3 @@ func (s *BucketTally) AddSegment(pointer *pb.Pointer, last bool) {
 		s.ObjectCount++
 	}
 }
-
-// Report reports the stats thru monkit
-func (s *BucketTally) Report(prefix string) {
-	mon.IntVal(prefix + ".objects").Observe(s.ObjectCount)
-
-	mon.IntVal(prefix + ".segments").Observe(s.Segments)
-	mon.IntVal(prefix + ".inline_segments").Observe(s.InlineSegments)
-	mon.IntVal(prefix + ".remote_segments").Observe(s.RemoteSegments)
-	mon.IntVal(prefix + ".unknown_segments").Observe(s.UnknownSegments)
-
-	mon.IntVal(prefix + ".bytes").Observe(s.Bytes)
-	mon.IntVal(prefix + ".inline_bytes").Observe(s.InlineBytes)
-	mon.IntVal(prefix + ".remote_bytes").Observe(s.RemoteBytes)
-}

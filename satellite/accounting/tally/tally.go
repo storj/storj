@@ -191,29 +191,29 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	}
 
 	for _, bucketTally := range bucketTallies {
-		mon.IntVal("bucket.objects").Observe(s.ObjectCount)
+		mon.IntVal("bucket.objects").Observe(bucketTally.ObjectCount)
 
-		mon.IntVal("bucket.segments").Observe(s.Segments)
-		mon.IntVal("bucket.inline_segments").Observe(s.InlineSegments)
-		mon.IntVal("bucket.remote_segments").Observe(s.RemoteSegments)
-		mon.IntVal("bucket.unknown_segments").Observe(s.UnknownSegments)
+		mon.IntVal("bucket.segments").Observe(bucketTally.Segments)
+		mon.IntVal("bucket.inline_segments").Observe(bucketTally.InlineSegments)
+		mon.IntVal("bucket.remote_segments").Observe(bucketTally.RemoteSegments)
+		mon.IntVal("bucket.unknown_segments").Observe(bucketTally.UnknownSegments)
 
-		mon.IntVal("bucket.bytes").Observe(s.Bytes)
-		mon.IntVal("bucket.inline_bytes").Observe(s.InlineBytes)
-		mon.IntVal("bucket.remote_bytes").Observe(s.RemoteBytes)
+		mon.IntVal("bucket.bytes").Observe(bucketTally.Bytes)
+		mon.IntVal("bucket.inline_bytes").Observe(bucketTally.InlineBytes)
+		mon.IntVal("bucket.remote_bytes").Observe(bucketTally.RemoteBytes)
 		totalTallies.Combine(bucketTally)
 	}
 
-	mon.IntVal("total.objects").Observe(s.ObjectCount) // locked
+	mon.IntVal("total.objects").Observe(totalTallies.ObjectCount) // locked
 
-	mon.IntVal("total.segments").Observe(s.Segments) // locked
-	mon.IntVal("total.inline_segments").Observe(s.InlineSegments) // locked
-	mon.IntVal("total.remote_segments").Observe(s.RemoteSegments) // locked
-	mon.IntVal("total.unknown_segments").Observe(s.UnknownSegments) // locked
+	mon.IntVal("total.segments").Observe(totalTallies.Segments) // locked
+	mon.IntVal("total.inline_segments").Observe(totalTallies.InlineSegments) // locked
+	mon.IntVal("total.remote_segments").Observe(totalTallies.RemoteSegments) // locked
+	mon.IntVal("total.unknown_segments").Observe(totalTallies.UnknownSegments) // locked
 
-	mon.IntVal("total.bytes").Observe(s.Bytes) // lecked
-	mon.IntVal("total.inline_bytes").Observe(s.InlineBytes) // locked
-	mon.IntVal("total.remote_bytes").Observe(s.RemoteBytes) // locked
+	mon.IntVal("total.bytes").Observe(totalTallies.Bytes) // lecked
+	mon.IntVal("total.inline_bytes").Observe(totalTallies.InlineBytes) // locked
+	mon.IntVal("total.remote_bytes").Observe(totalTallies.RemoteBytes) // locked
 
 
 	//store byte hours, not just bytes
