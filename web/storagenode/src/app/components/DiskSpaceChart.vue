@@ -5,10 +5,10 @@
     <div class="chart">
         <Chart
             id="disk-space-chart"
-            :chartData="chartData"
+            :chart-data="chartData"
             :width="400"
             :height="200"
-            :tooltipConstructor="diskSpaceTooltip" />
+            :tooltip-constructor="diskSpaceTooltip" />
     </div>
 </template>
 

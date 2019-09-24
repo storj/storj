@@ -24,7 +24,7 @@
         </div>
         <ProjectSelectionArea class="project-selection-area"/>
         <p class="navigation-area__project-title">PROJECT</p>
-        <router-link :aria-label="navItem.name" class="navigation-area__item-container" v-bind:class="{disabled: isProjectNotSelected && navItem.path !== '/project-details'}" v-for="navItem in navigation" v-bind:key="navItem.name" :to="navItem.path">
+        <router-link :aria-label="navItem.name" class="navigation-area__item-container" :class="{disabled: isProjectNotSelected && navItem.path !== '/project-details'}" v-for="navItem in navigation" :key="navItem.name" :to="navItem.path">
             <div class="navigation-area__item-container__link-container" >
                 <div v-html="navItem.icon"></div>
                 <h1>{{navItem.name}}</h1>
@@ -60,7 +60,7 @@
             <p v-if="!areAccountItemsShown && isAccountButtonShown" @click="toggleAccountItemsVisibility" class="navigation-area__account-title__button">Show</p>
             <p v-if="areAccountItemsShown && isAccountButtonShown" @click="toggleAccountItemsVisibility" class="navigation-area__account-title__button">Hide</p>
         </div>
-        <router-link v-if="areAccountItemsShown" class="navigation-area__item-container account-item" v-for="navItem in accountNavigation" v-bind:key="navItem.name" :to="navItem.path">
+        <router-link v-if="areAccountItemsShown" class="navigation-area__item-container account-item" v-for="navItem in accountNavigation" :key="navItem.name" :to="navItem.path">
             <div class="navigation-area__item-container__link-container" >
                 <h1 class="account-item">{{navItem.name}}</h1>
             </div>

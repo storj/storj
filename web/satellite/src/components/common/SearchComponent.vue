@@ -8,7 +8,7 @@
         @mouseleave="onMouseLeave"
         @input="processSearchQuery"
         v-model="searchQuery"
-        :placeholder="`Search ${placeHolder}`"
+        :placeholder="`Search ${placeholder}`"
         :style="style"
         type="text"
         autocomplete="off">
@@ -25,7 +25,7 @@ declare interface SearchStyle {
 @Component
 export default class SearchComponent extends Vue {
     @Prop({default: ''})
-    private readonly placeHolder: string;
+    private readonly placeholder: string;
     @Prop({default: () => ''})
     private readonly search: searchCallback;
 

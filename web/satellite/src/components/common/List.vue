@@ -7,7 +7,7 @@
             v-for="item in dataSet"
             class="item-component__item"
             :is="itemComponent"
-            :itemData="item"
+            :item-data="item"
             @click.native="onItemClick(item)"
             :class="{ selected: item.isSelected }"/>
     </div>
