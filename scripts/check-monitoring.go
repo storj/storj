@@ -12,6 +12,7 @@ import (
 	"go/types"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -32,9 +33,9 @@ func main() {
 		_lockedFnNames := findLockedFnNames(pkg)
 		lockedFnNames = append(lockedFnNames, _lockedFnNames...)
 	}
-	lockedFnNames = sortAndUnique(fnNames)
+	sortedNames := sortAndUnique(lockedFnNames)
 
-	outputStr := strings.Join(lockedFnNames, "\n")
+	outputStr := strings.Join(sortedNames, "\n")
 	if len(os.Args) == 2 {
 		ioutil.WriteFile(os.Args[1], []byte(outputStr+"\n"), 0644)
 	} else {
