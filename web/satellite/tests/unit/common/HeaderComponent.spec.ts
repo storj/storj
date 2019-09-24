@@ -17,7 +17,7 @@ describe('HeaderComponent.vue', () => {
     it('renders correctly with default props', () => {
         const wrapper = mount(HeaderComponent);
 
-        expect(wrapper.vm.$props.placeHolder).toMatch('');
+        expect(wrapper.vm.$props.placeholder).toMatch('');
         expect(wrapper.vm.$props.search).toMatch('');
     });
 
