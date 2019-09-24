@@ -4,6 +4,7 @@
 package testplanet
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -171,7 +172,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			return xs, err
 		}
 
-		err = db.CreateTables()
+		err = db.CreateTables(context.TODO())
 		if err != nil {
 			return nil, err
 		}

@@ -36,21 +36,21 @@
         <div v-if="selectedSatellite.id">
             <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
             <div class="info-area__checks-area">
-                <ChecksAreaContainer label="Uptime Checks" :amount="checks.uptime" infoText="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."/>
-                <ChecksAreaContainer label="Audit Checks" :amount="checks.audit" infoText="Percentage of successful pings/communication between the node & satellite."/>
+                <ChecksAreaContainer label="Uptime Checks" :amount="checks.uptime" info-text="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."/>
+                <ChecksAreaContainer label="Audit Checks" :amount="checks.audit" info-text="Percentage of successful pings/communication between the node & satellite."/>
             </div>
         </div>
         <div>
             <p class="info-area__title">Remaining on the Node</p>
             <div class="info-area__remaining-space-area">
                 <BarInfoContainer label="Bandwidth Remaining" :amount="bandwidth.remaining"
-                    infoText="of bandwidth left" :currentBarAmount="bandwidth.used" :maxBarAmount="bandwidth.available" />
+                    info-text="of bandwidth left" :current-bar-amount="bandwidth.used" :max-bar-amount="bandwidth.available" />
                 <BarInfoContainer label="Disk Space Remaining" :amount="diskSpace.remaining"
-                    infoText="of disk space left" :currentBarAmount="diskSpace.used" :maxBarAmount="diskSpace.available" />
+                    info-text="of disk space left" :current-bar-amount="diskSpace.used" :max-bar-amount="diskSpace.available" />
             </div>
         </div>
         <p class="info-area__title">Payout</p>
-        <PayoutContainer label="STORJ Wallet Address" :walletAddress="wallet" />
+        <PayoutContainer label="STORJ Wallet Address" :wallet-address="wallet" />
     </div>
 </template>
 

@@ -5,10 +5,10 @@
     <div class="chart">
         <Chart
             id="bandwidth-chart"
-            :chartData="chartData"
+            :chart-data="chartData"
             :width="400"
             :height="200"
-            :tooltipConstructor="bandwidthTooltip" />
+            :tooltip-constructor="bandwidthTooltip" />
     </div>
 </template>
 
