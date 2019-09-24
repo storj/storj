@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//go:generate go run check-monitoring.go ../monkit.lock
+
 // +build ignore
 
 package main
