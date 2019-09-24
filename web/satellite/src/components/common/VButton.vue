@@ -110,6 +110,7 @@ export default class Button extends Vue {
     .container.disabled {
         background-color: #DADDE5;
         border-color: #DADDE5;
+
         .label {
             color: #ACB0BC;
         }

@@ -76,10 +76,6 @@ export default class RegistrationSuccessPopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    b {
-        color: #2683FF;
-    }
-
     .register-success-popup-container {
         position: fixed;
         top: 0;
@@ -143,6 +139,10 @@ export default class RegistrationSuccessPopup extends Vue {
                 color: #354049;
                 padding: 27px 0 0 0;
                 margin: 0;
+
+                &__bold-text {
+                    color: #2683FF;
+                }
             }
 
             &__button-container {
@@ -166,7 +166,7 @@ export default class RegistrationSuccessPopup extends Vue {
             width: 24px;
             cursor: pointer;
 
-            &:hover svg path {
+            &:hover .close-cross-svg-path {
                 fill: #2683FF;
             }
         }

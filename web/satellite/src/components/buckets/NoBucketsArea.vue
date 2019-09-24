@@ -4,7 +4,7 @@
 <template>
     <div class="no-buckets-area">
         <div class="no-buckets-area__header">
-            <svg width="78" height="78" viewBox="0 0 78 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg class="no-buckets-area__header__image" width="78" height="78" viewBox="0 0 78 78" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M39 74C58.335 74 74 58.3243 74 38.9877C74 19.6511 58.335 4 39 4C19.665 4 4 19.6757 4 39.0123C4 58.3489 19.665 74 39 74Z" fill="#E8EAF2"/>
                 <path d="M38.842 25.8065V25.2764C38.842 24.4101 38.1258 23.7119 37.2438 23.7119H20.5455C19.6635 23.7119 18.9473 24.4101 18.9473 25.2699V53.4107H58.7367V27.358C58.7367 26.4982 58.0205 25.8 57.1385 25.8H38.842V25.8065Z" fill="#B0B6C9"/>
                 <path d="M57.3376 28.0498H20.7114V53.6952H57.3376V28.0498Z" fill="white"/>
@@ -83,7 +83,7 @@ export default class NoBucketArea extends Vue {}
                 color: #384B65;
             }
 
-            svg {
+            &__image {
                 margin-right: 22px;
             }
         }

@@ -4,7 +4,7 @@
 <template>
     <div class="dashboard-container">
         <div v-if="isLoading" class="loading-overlay active">
-            <img src="../../static/images/register/Loading.gif">
+            <img class="loading-image" src="../../static/images/register/Loading.gif">
         </div>
         <div v-if="!isLoading" class="dashboard-container__wrap">
             <NavigationArea class="regular-navigation" />
@@ -191,7 +191,7 @@ export default class DashboardArea extends Vue {
         -o-transition: all 0.5s linear;
         transition: all 0.5s linear;
 
-        img {
+        .loading-image {
             z-index: 200;
         }
     }

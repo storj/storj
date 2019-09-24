@@ -166,7 +166,7 @@ export default class AccountPaymentMethods extends Vue {}
                     }
                 }
                 
-                svg {
+                &__delete-button {
                     cursor: pointer;
                 }
             }

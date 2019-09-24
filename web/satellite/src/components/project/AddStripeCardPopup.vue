@@ -5,7 +5,7 @@
     <div class="add-stripe-card-popup-container-overflow">
         <div class="add-stripe-card-popup-container">
             <div class="add-stripe-card-popup-container__title-container">
-                <svg width="113" height="90" viewBox="0 0 113 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg class="add-stripe-card-popup-container__title-container__image" width="113" height="90" viewBox="0 0 113 90" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <g filter="url(#filter0_d)">
                         <path d="M86.0972 64.0932L26.9457 64.329C23.7672 64.329 21.2089 61.7346 21.2089 58.5898L21.1313 23.0537C21.1313 19.8303 23.6897 17.2359 26.7907 17.2359L85.9422 17C89.1207 17 91.679 19.5944 91.679 22.7392L91.8341 58.3539C91.7565 61.4987 89.2757 64.0932 86.0972 64.0932Z" fill="#2683FF"/>
                     </g>
@@ -113,7 +113,7 @@ export default class AddStripeCardPopup extends Vue {}
         justify-content: flex-start;
         width: 100%;
         
-        svg {
+        &__image {
             margin-left: -21px;
         }
 

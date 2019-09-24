@@ -14,21 +14,21 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class InfoComponent extends Vue {
-        private isVisible: boolean = false;
+@Component
+export default class InfoComponent extends Vue {
+    private isVisible: boolean = false;
 
-        @Prop({default: ''})
-        private readonly text: String;
-        @Prop({default: ''})
-        private readonly boldText: String;
+    @Prop({default: ''})
+    private readonly text: String;
+    @Prop({default: ''})
+    private readonly boldText: String;
 
-        public toggleVisibility(): void {
-            this.isVisible = !this.isVisible;
-        }
+    public toggleVisibility(): void {
+        this.isVisible = !this.isVisible;
     }
+}
 </script>
 
 <style scoped lang="scss">

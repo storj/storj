@@ -39,7 +39,5 @@ export default class TestList extends Vue {
 }
 </script>
 
-<style scoped lang="scss">
-
-</style>
+<style scoped lang="scss"></style>
 

@@ -4,12 +4,20 @@
 <template>
     <div class="pagination-container">
         <div class="pagination-container__pages">
-            <div v-html="arrowLeft" class="pagination-container__button"></div>
+            <div class="pagination-container__button" @click="prevPage">
+                <svg class="pagination-container__button__image" width="6" height="9" viewBox="0 0 6 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path class="pagination-svg-path" d="M2.80077e-07 4.26316L6 0L6 9L2.80077e-07 4.26316Z" fill="#354049"/>
+                </svg>
+            </div>
             <div class="pagination-container__items">
                 <span class="pagination-container__items__page-number selected">1</span>
                 <span class="pagination-container__items__page-number">2</span>
             </div>
-            <div v-html="arrowRight" class="pagination-container__button"></div>
+            <div class="pagination-container__button">
+                <svg class="pagination-container__button__image" width="6" height="9" viewBox="0 0 6 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path class="pagination-svg-path" d="M6 4.73684L0 9L1.20219e-06 -9.53674e-07L6 4.73684Z" fill="#354049"/>
+                </svg>
+            </div>
         </div>
     </div>
 </template>
@@ -20,11 +28,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component
-export default class PaginationArea extends Vue {
-    // TODO: use svg loader in future
-    public arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
-    public arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
-}
+export default class PaginationArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -50,12 +54,9 @@ export default class PaginationArea extends Vue {
             height: 30px;
         
             &:hover {
-            
-                svg {
-                
-                    path {
-                        fill: #fff !important;
-                    }
+
+                .pagination-svg-path {
+                    fill: #fff !important;
                 }
             }
         }
