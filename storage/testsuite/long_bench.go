@@ -166,17 +166,6 @@ func openTestData(tb testing.TB) *KVInputIterator {
 	return inputIter
 }
 
-// BulkImporter identifies KV storage facilities that can do bulk importing of items more
-// efficiently than inserting one-by-one.
-type BulkImporter interface {
-	BulkImport(storage.Iterator) error
-}
-
-// BulkCleaner identifies KV storage facilities that can delete all items efficiently.
-type BulkCleaner interface {
-	BulkDelete() error
-}
-
 // BenchmarkPathOperationsInLargeDb runs the "long benchmarks" suite for KeyValueStore instances.
 func BenchmarkPathOperationsInLargeDb(b *testing.B, store storage.KeyValueStore) {
 	if *longBenchmarksData == "" {

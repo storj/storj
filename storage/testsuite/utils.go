@@ -27,6 +27,17 @@ func cleanupItems(store storage.KeyValueStore, items storage.Items) {
 	}
 }
 
+// BulkImporter identifies KV storage facilities that can do bulk importing of items more
+// efficiently than inserting one-by-one.
+type BulkImporter interface {
+	BulkImport(storage.Iterator) error
+}
+
+// BulkCleaner identifies KV storage facilities that can delete all items efficiently.
+type BulkCleaner interface {
+	BulkDeleteAll() error
+}
+
 type iterationTest struct {
 	Name     string
 	Options  storage.IterateOptions

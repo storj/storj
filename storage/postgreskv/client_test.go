@@ -87,7 +87,7 @@ func bulkImport(db *sql.DB, iter storage.Iterator) (err error) {
 	return nil
 }
 
-func bulkDelete(db *sql.DB) error {
+func bulkDeleteAll(db *sql.DB) error {
 	_, err := db.Exec("TRUNCATE pathdata")
 	if err != nil {
 		return errs.New("Failed to TRUNCATE pathdata table: %v", err)
@@ -103,8 +103,8 @@ func (store *pgLongBenchmarkStore) BulkImport(iter storage.Iterator) error {
 	return bulkImport(store.pgConn, iter)
 }
 
-func (store *pgLongBenchmarkStore) BulkDelete() error {
-	return bulkDelete(store.pgConn)
+func (store *pgLongBenchmarkStore) BulkDeleteAll() error {
+	return bulkDeleteAll(store.pgConn)
 }
 
 func BenchmarkSuiteLong(b *testing.B) {

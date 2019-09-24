@@ -60,9 +60,12 @@ func (store *pgAltLongBenchmarkStore) BulkImport(iter storage.Iterator) error {
 	return bulkImport(store.pgConn, iter)
 }
 
-func (store *pgAltLongBenchmarkStore) BulkDelete() error {
-	return bulkDelete(store.pgConn)
+func (store *pgAltLongBenchmarkStore) BulkDeleteAll() error {
+	return bulkDeleteAll(store.pgConn)
 }
+
+var _ testsuite.BulkImporter = &pgAltLongBenchmarkStore{}
+var _ testsuite.BulkCleaner = &pgAltLongBenchmarkStore{}
 
 func BenchmarkSuiteLongAlt(b *testing.B) {
 	store, cleanup := newTestAlternatePostgres(b)

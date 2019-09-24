@@ -109,13 +109,16 @@ func (store *boltLongBenchmarkStore) BulkImport(iter storage.Iterator) (err erro
 	return store.db.Sync()
 }
 
-func (store *boltLongBenchmarkStore) BulkDelete() error {
+func (store *boltLongBenchmarkStore) BulkDeleteAll() error {
 	// do nothing here; everything will be cleaned up later after the test completes. it's not
 	// worth it to wait for BoltDB to remove every key, one by one, and we can't just
 	// os.RemoveAll() the whole test directory at this point because those files are still open
 	// and unremoveable on Windows.
 	return nil
 }
+
+var _ testsuite.BulkImporter = &boltLongBenchmarkStore{}
+var _ testsuite.BulkCleaner = &boltLongBenchmarkStore{}
 
 func BenchmarkSuiteLong(b *testing.B) {
 	tempdir, err := ioutil.TempDir("", "storj-bolt")
