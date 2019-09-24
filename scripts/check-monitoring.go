@@ -24,9 +24,8 @@ var (
 
 func main() {
 	pkgs, _ := packages.Load(&packages.Config{
-		Mode: packages.NeedCompiledGoFiles | packages.NeedSyntax | packages.NeedName |
-			packages.NeedFiles | packages.NeedImports | packages.NeedTypes | packages.NeedTypesInfo,
-	}, "storj.io/storj/...")
+		Mode: packages.NeedCompiledGoFiles | packages.NeedSyntax | packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo,
+	}, "storj.io/storj/lib/uplink")
 
 	var lockedFnNames []string
 	for _, pkg := range pkgs {
