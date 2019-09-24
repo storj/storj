@@ -21,13 +21,13 @@ import (
 )
 
 var (
-	monkitpath = "gopkg.in/spacemonkeygo/monkit.v2"
+	monkitPath = "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 func main() {
 	pkgs, _ := packages.Load(&packages.Config{
 		Mode: packages.NeedCompiledGoFiles | packages.NeedSyntax | packages.NeedName | packages.NeedTypes | packages.NeedTypesInfo,
-	}, "storj.io/storj/lib/uplink")
+	}, "storj.io/storj/...")
 
 	var lockedFnNames []string
 	for _, pkg := range pkgs {
@@ -65,36 +65,33 @@ func findLockedFnNames(pkg *packages.Package) []string {
 
 		// find calls to mon.Task() on the same line as a locked comment and keep track of their position
 		ast.Inspect(file, func(node ast.Node) bool {
-			call, ok := node.(*ast.CallExpr)
-			if !ok {
+			if node == nil {
 				return true
 			}
-			sel, ok := call.Fun.(*ast.SelectorExpr)
-			if !ok {
+			if !isMonkitCall(pkg, node) {
 				return true
 			}
-			ident, ok := sel.X.(*ast.Ident)
-			if !ok {
-				return true
-			}
-			varType, ok := pkg.TypesInfo.Uses[ident].(*types.Var)
-			if !ok {
-				return true
-			}
-			pointerType, ok := varType.Type().(*types.Pointer)
-			if !ok {
-				return true
-			}
-			namedType, ok := pointerType.Elem().(*types.Named)
-			if !ok {
-				return true
-			}
-
 			callLine := pkg.Fset.Position(node.End()).Line
-			if namedType.Obj().Pkg().Path() == monkitpath && sel.Sel.Name == "Task" {
-				if _, ok := lockedLines[callLine]; ok {
-					lockedCalls = append(lockedCalls, node.End())
-				}
+			if _, ok := lockedLines[callLine]; !ok {
+				return true
+			}
+			// we are already checking to ensure that these type assertions are valid in isMonkitCall
+			sel := node.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
+			if sel.Sel.Name == "Task" {
+				lockedCalls = append(lockedCalls, node.End())
+				return true
+			}
+			if len(node.(*ast.CallExpr).Args) != 1 {
+				return true
+			}
+			basicLit, ok := node.(*ast.CallExpr).Args[0].(*ast.BasicLit)
+			if !ok {
+				return true
+			}
+			// adds other types of monkit calls that have one string argument
+			if basicLit.Kind == token.STRING {
+				lockedFnInfo := sel.Sel.Name + " " + pkg.PkgPath + "." + basicLit.Value
+				lockedFnNames = append(lockedFnNames, lockedFnInfo)
 			}
 			return true
 		})
@@ -132,11 +129,19 @@ func findLockedFnNames(pkg *packages.Package) []string {
 			receiver += recvObj.Name()
 		}
 
-		lockedFnInfo := object.Pkg().Path() + receiver + "." + object.Name()
+		lockedFnInfo := "Task " + object.Pkg().Path() + receiver + "." + object.Name()
 		lockedFnNames = append(lockedFnNames, lockedFnInfo)
 
 	}
 	return lockedFnNames
+}
+
+func isMonkitCall(pkg *packages.Package, in ast.Node) bool {
+	defer func() { recover() }()
+
+	ident := in.(*ast.CallExpr).Fun.(*ast.SelectorExpr).X.(*ast.Ident)
+
+	return pkg.TypesInfo.Uses[ident].(*types.Var).Type().(*types.Pointer).Elem().(*types.Named).Obj().Pkg().Path() == monkitPath
 }
 
 func sortAndUnique(input []string) (unique []string) {
