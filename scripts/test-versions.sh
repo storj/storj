@@ -31,15 +31,17 @@ echo "Shasum for storj-sim:"
 shasum $(which storj-sim)
 
 echo -e "\nConfig directory for uplink:"
-mkdir ${main_cfg_dir}/uplink
 echo "${main_cfg_dir}/uplink"
 echo "which uplink: $(which uplink)"
 echo "Shasum for uplink:"
 shasum $(which uplink)
 
-api_key=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_API_KEY)
-sat_addr=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ADDR)
-uplink setup --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --config-dir="${main_cfg_dir}/uplink"
+if [ ! -d ${main_cfg_dir}/uplink ]; then
+    mkdir -p ${main_cfg_dir}/uplink
+    api_key=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_API_KEY)
+    sat_addr=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ADDR)
+    uplink setup --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --config-dir="${main_cfg_dir}/uplink" --enc.encryption-key="TestEncKey"
+fi
 
 echo -e "\nConfig directory for satellite:"
 echo "${main_cfg_dir}/satellite/0"
@@ -101,6 +103,7 @@ fi
 if [[ "$command" == "download" ]]; then
     existing_bucket_name_suffixes=$3
 
+    # download all uploaded files from stage 1 with currently selected uplink
     for suffix in ${existing_bucket_name_suffixes}; do
         bucket_name=${bucket}-${suffix}
         original_dst_dir=${stage1_dst_dir}/${suffix}
