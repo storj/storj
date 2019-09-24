@@ -10,6 +10,10 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"io/ioutil"
+	"os"
+	"strings"
+
 	"golang.org/x/tools/go/packages"
 )
 
@@ -23,16 +27,26 @@ func main() {
 			packages.NeedFiles | packages.NeedImports | packages.NeedTypes | packages.NeedTypesInfo,
 	}, "storj.io/storj/...")
 
+	var lockedFnNames []string
 	for _, pkg := range pkgs {
-		findLockedMonTaskCalls(pkg)
+		_lockedFnNames := findLockedFnNames(pkg)
+		lockedFnNames = append(lockedFnNames, _lockedFnNames...)
+	}
+
+	outputStr := strings.Join(lockedFnNames, "\n")
+	if len(os.Args) == 2 {
+		ioutil.WriteFile(os.Args[1], []byte(outputStr+"\n"), 0644)
+	} else {
+		fmt.Println(outputStr)
 	}
 }
 
-func findLockedMonTaskCalls(pkg *packages.Package) {
+func findLockedFnNames(pkg *packages.Package) []string {
 	var (
-		lockedCalls = []token.Pos{}
-		lockedLines = map[int]struct{}{}
-		lockedFns   = []*ast.FuncDecl{}
+		lockedCalls   []token.Pos
+		lockedFns     []*ast.FuncDecl
+		lockedFnNames []string
+		lockedLines   = make(map[int]struct{})
 	)
 
 	// collect locked comments and what line they are on
@@ -40,12 +54,13 @@ func findLockedMonTaskCalls(pkg *packages.Package) {
 		for _, group := range file.Comments {
 			for _, comment := range group.List {
 				if comment.Text == "// locked" {
-					lockedLines[pkg.Fset.Position(comment.Pos()).Line] = struct{}{}
+					commentLine := pkg.Fset.Position(comment.Pos()).Line
+					lockedLines[commentLine] = struct{}{}
 				}
 			}
 		}
 
-		// find calls to mon.Task() on the same line as a locked comment and keep track of their position
+		// find calls to mon.Task() // locked on the same line as a locked comment and keep track of their position
 		ast.Inspect(file, func(node ast.Node) bool {
 			call, ok := node.(*ast.CallExpr)
 			if !ok {
@@ -59,11 +74,11 @@ func findLockedMonTaskCalls(pkg *packages.Package) {
 			if !ok {
 				return true
 			}
-			specialVar, ok := pkg.TypesInfo.Uses[ident].(*types.Var)
+			varType, ok := pkg.TypesInfo.Uses[ident].(*types.Var)
 			if !ok {
 				return true
 			}
-			pointerType, ok := specialVar.Type().(*types.Pointer)
+			pointerType, ok := varType.Type().(*types.Pointer)
 			if !ok {
 				return true
 			}
@@ -71,8 +86,10 @@ func findLockedMonTaskCalls(pkg *packages.Package) {
 			if !ok {
 				return true
 			}
+
+			callLine := pkg.Fset.Position(node.End()).Line
 			if namedType.Obj().Pkg().Path() == monkitpath && sel.Sel.Name == "Task" {
-				if _, ok := lockedLines[pkg.Fset.Position(node.End()).Line]; ok {
+				if _, ok := lockedLines[callLine]; ok {
 					lockedCalls = append(lockedCalls, node.End())
 				}
 			}
@@ -94,7 +111,6 @@ func findLockedMonTaskCalls(pkg *packages.Package) {
 		})
 
 		// transform the ast.FuncDecl to representative string, sort them, unique them, and output them
-		var lockedFnInfos []string
 		for _, fn := range lockedFns {
 			object := pkg.TypesInfo.Defs[fn.Name]
 
@@ -102,17 +118,19 @@ func findLockedMonTaskCalls(pkg *packages.Package) {
 			if fn.Recv != nil {
 				typ := fn.Recv.List[0].Type
 				if star, ok := typ.(*ast.StarExpr); ok {
+					receiver = ".*"
 					typ = star.X
+				} else {
+					receiver = "."
 				}
 				recvObj := pkg.TypesInfo.Uses[typ.(*ast.Ident)]
-				receiver = "." + recvObj.Name()
+				receiver += recvObj.Name()
 			}
 
-			lockedFnInfos = append(lockedFnInfos, object.Pkg().Path()+receiver+"."+object.Name())
+			lockedFnInfo := object.Pkg().Path() + receiver + "." + object.Name()
+			lockedFnNames = append(lockedFnNames, lockedFnInfo)
 
 		}
-		for _, info := range lockedFnInfos {
-			fmt.Println(info)
-		}
 	}
+	return lockedFnNames
 }
