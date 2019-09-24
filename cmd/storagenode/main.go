@@ -31,6 +31,15 @@ type StorageNodeFlags struct {
 	EditConf bool `default:"false" help:"open config in default editor"`
 
 	storagenode.Config
+
+	Deprecated
+}
+
+type Deprecated struct {
+	Kademlia struct {
+		ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:"abc"`
+		Operator        storagenode.OperatorConfig
+	}
 }
 
 var (
@@ -119,6 +128,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
+
+	mapConfigs(log)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
@@ -289,6 +300,41 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return nil
+}
+
+func mapConfigs(log *zap.Logger) {
+	// External Address
+	if runCfg.Contact.ExternalAddress != "" && runCfg.Kademlia.ExternalAddress != "" {
+		log.Warn("Both contact.external-address and kademlia.external-address are designated in your config.yaml. " +
+			"kademlia.external-address is deprecated. " + "Using contact.external-address. " + "Please update your config")
+	}
+	if runCfg.Contact.ExternalAddress == "" {
+		externalAddress := runCfg.Kademlia.ExternalAddress
+		runCfg.Contact.ExternalAddress = externalAddress
+		log.Warn("kademlia.external-address is deprecated. Please update your config file with contact.external-address.")
+	}
+
+	// Operator Wallet
+	if runCfg.Operator.Wallet != "" && runCfg.Kademlia.Operator.Wallet != "" {
+		log.Warn("Both operator.wallet and kademlia.operator.wallet are designated in your config.yaml. " +
+			"kademlia.operator.wallet is deprecated. " + "Using operator.wallet. " + "Please update your config")
+	}
+	if runCfg.Operator.Wallet == "" {
+		wallet := runCfg.Kademlia.Operator.Wallet
+		runCfg.Operator.Wallet = wallet
+		log.Warn("kademlia.operator.wallet is deprecated. Please update your config file with operator.wallet.")
+	}
+
+	// Operator Email
+	if runCfg.Operator.Email != "" && runCfg.Kademlia.Operator.Email != "" {
+		log.Warn("Both operator.email and kademlia.operator.email are designated in your config.yaml. " +
+			"kademlia.operator.email is deprecated. " + "Using operator.email. " + "Please update your config")
+	}
+	if runCfg.Operator.Email == "" {
+		email := runCfg.Kademlia.Operator.Email
+		runCfg.Operator.Email = email
+		log.Warn("kademlia.operator.email is deprecated. Please update your config file with operator.email.")
+	}
 }
 
 func main() {
