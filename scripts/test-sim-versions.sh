@@ -66,3 +66,13 @@ for version in ${unique_versions}; do
 
     echo "Finished setting up:" $(ls ${dir}/local-network)
 done
+
+# stage 1
+# select storj-sim directory for stage 1 satellite version
+# iterate over every storagenode for that instance of storj-sim and symlink to storagenode binary for desired stage 2 storagenode version
+# run backwards compatibility test with stage 1 uplink version
+
+# stage 2
+# select storj-sim directory for stage 2 satellite version
+# iterate over every storagenode for that instance of storj-sim and symlink to storagenode binary for desired stage 2 storagenode version
+# run backwards compatibility test with stage 2 uplink version
