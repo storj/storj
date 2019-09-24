@@ -73,7 +73,7 @@ stage1_dir=$(version_dir ${stage1_sat_version})
 
 # iterate over every storagenode for that instance of storj-sim and symlink to storagenode binary for desired stage 2 storagenode version
 counter=0
-for sn_version in ${stage1_storagenode_versions}; do
+for sn_version in ${stage1_storagenode_versions}; do # TODO make sure the number of storagenode versions matches the number of sns from setup
     $sn_version_dir=$(version_dir ${sn_version})
 
     PATH=$sn_version_dir/bin:$PATH desired_sn_cfg_dir=`storj-sim network env STORAGENODE_${counter}_DIR`
@@ -103,7 +103,7 @@ ln $ul_version_dir/bin/uplink $stage1_dir/bin/uplink
 # run upload part of backward compatibility tests (TODO set SCRIPTDIR)
 PATH=$stage1_dir/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
-# stage 2
+# stage 2 TODO make sure data from stage1 is used for the stage2 satellite (if changed)
 # select storj-sim directory for stage 2 satellite version
 stage2_dir=$(version_dir ${stage2_sat_version})
 
