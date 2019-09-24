@@ -9,6 +9,23 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    stage('Run Versions Test') {
+      echo "Running migration test"
+
+      env.STORJ_SIM_POSTGRES = 'postgres://postgres@localhost:58723/teststorj?sslmode=disable'
+
+      echo "$STORJ_SIM_POSTGRES"
+      sh 'docker run --rm -p 58723:5432 -d --name postgres postgres:9.6'
+      sh '''until $(docker logs postgres | grep "database system is ready to accept connections" > /dev/null)
+            do printf '.'
+            sleep 5
+            done
+        '''
+      sh 'docker exec postgres createdb -U postgres teststorj'
+      sh './scripts/test-sim-versions.sh'
+      sh 'docker rm -f postgres'
+    }
+
     stage('Build Binaries') {
       sh 'make binaries'
 
@@ -62,6 +79,7 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
+    /*
     slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed during stage ${env.STAGE_NAME} ${env.BUILD_URL}"
 
     mail from: 'builds@storj.io',
@@ -69,6 +87,7 @@ node('node') {
       to: 'builds@storj.io',
       subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
       body: "Project build log: ${env.BUILD_URL}"
+    */
 
       throw err
 
@@ -76,6 +95,7 @@ node('node') {
   finally {
 
     stage('Cleanup') {
+      sh 'docker rm -f postgres || true'
       sh 'make clean-images'
       deleteDir()
     }
