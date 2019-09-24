@@ -6,11 +6,17 @@
         <div class="pagination-container__pages">
             <div v-html="arrowLeft" @click="prevPage" class="pagination-container__button"></div>
             <div class="pagination-container__items">
-                <PagesBlock :pages="firstBlockPages" :is-selected="isSelected"/>
-                <span v-if="isFirstDotsShown">...</span>
-                <PagesBlock :pages="middleBlockPages" :is-selected="isSelected"/>
-                <span v-if="isSecondDotsShown">...</span>
-                <PagesBlock :pages="lastBlockPages" :is-selected="isSelected"/>
+                <PagesBlock
+                    :pages="firstBlockPages"
+                    :is-selected="isSelected"/>
+                <span class="pages-divider" v-if="isFirstDotsShown">...</span>
+                <PagesBlock
+                    :pages="middleBlockPages"
+                    :is-selected="isSelected"/>
+                <span class="pages-divider" v-if="isSecondDotsShown">...</span>
+                <PagesBlock
+                    :pages="lastBlockPages"
+                    :is-selected="isSelected"/>
             </div>
             <div v-html="arrowRight" @click="nextPage" class="pagination-container__button"></div>
         </div>
@@ -235,15 +241,6 @@ export default class Pagination extends Vue {
             align-items: center;
         }
 
-        &__counter {
-
-            p {
-                font-family: 'font_medium';
-                font-size: 16px;
-                color: #AFB7C1;
-            }
-        }
-
         &__button {
             display: flex;
             align-items: center;
@@ -269,7 +266,7 @@ export default class Pagination extends Vue {
             margin: 0 20px;
             display: flex;
 
-            span {
+            .pages-divider {
                 margin: 0 20px;
             }
         }

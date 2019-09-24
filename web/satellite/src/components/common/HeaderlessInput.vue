@@ -5,10 +5,11 @@
     <div class="input-wrap">
         <div class="label-container">
             <img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
-            <h3 v-if="!error && label" :style="style.labelStyle">{{label}}</h3>
+            <h3 class="label-container__label" v-if="!error && label" :style="style.labelStyle">{{label}}</h3>
             <h3 class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</h3>
         </div>
         <input
+            class="headerless-input"
             :class="{'inputError' : error, 'password': isPassword}"
             @input="onInput"
             @change="onInput"
@@ -118,68 +119,10 @@ export default class HeaderlessInput extends Vue {
 </script>
 
 <style scoped lang="scss">
-    input {
-        font-family: 'font_regular';
-        font-size: 16px;
-        line-height: 21px;
-        resize: none;
-        height: 46px;
-        padding: 0 30px 0 0;
-        width: calc(100% - 30px) !important;
-        text-indent: 20px;
-        border-color: rgba(56, 75, 101, 0.4);
-        border-radius: 6px;
-    }
-    
-    input::placeholder {
-        color: #384B65;
-        opacity: 0.4;
-    }
-    
-    .inputError::placeholder {
-        color: #EB5757;
-        opacity: 0.4;
-    }
-    
-    h3 {
-        font-family: 'font_regular';
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-    }
-    
-    .label-container {
-        display: flex;
-        justify-content: flex-start;
-        align-items: flex-end;
-        padding-bottom: 8px;
-        flex-direction: row;
-        
-        h3 {
-            margin-bottom: 0;
-        }
-        
-        &__add-label {
-            margin-left: 5px;
-            font-family: 'font_regular';
-            font-size: 16px;
-            line-height: 21px;
-            color: rgba(56, 75, 101, 0.4);
-        }
-        
-        &__error {
-            margin-left: 10px;
-        }
-    }
-    
-    .error {
-        color: #FF5560;
-        margin-left: 10px;
-    }
-    
     .input-wrap {
         position: relative;
         width: 100%;
+        font-family: 'font_regular';
     
         svg {
             position: absolute;
@@ -193,6 +136,60 @@ export default class HeaderlessInput extends Vue {
                 fill: #2683FF !important;
             }
         }
+    }
+
+    .label-container {
+        display: flex;
+        justify-content: flex-start;
+        align-items: flex-end;
+        padding-bottom: 8px;
+        flex-direction: row;
+
+        &__label {
+            font-size: 16px;
+            line-height: 21px;
+            color: #354049;
+            margin-bottom: 0;
+        }
+
+        &__add-label {
+            margin-left: 5px;
+            font-size: 16px;
+            line-height: 21px;
+            color: rgba(56, 75, 101, 0.4);
+        }
+
+        &__error {
+            font-size: 16px;
+            margin: 18px 0 0 10px;
+        }
+    }
+
+    .headerless-input {
+        font-size: 16px;
+        line-height: 21px;
+        resize: none;
+        height: 46px;
+        padding: 0 30px 0 0;
+        width: calc(100% - 30px) !important;
+        text-indent: 20px;
+        border: 1px solid rgba(56, 75, 101, 0.4);
+        border-radius: 6px;
+    }
+
+    .headerless-input::placeholder {
+        color: #384B65;
+        opacity: 0.4;
+    }
+
+    .inputError::placeholder {
+        color: #EB5757;
+        opacity: 0.4;
+    }
+
+    .error {
+        color: #FF5560;
+        margin-left: 10px;
     }
 
     .password {

@@ -38,7 +38,7 @@
                 </svg>
             </div>
             <div class='delete-account__form-container'>
-                <p>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever.(drop from the satellite)</p>
+                <p class='delete-account__form-container__confirmation-text'>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever. (drop from the satellite)</p>
                 <HeaderedInput 
                     label='Enter your password' 
                     placeholder='Your Password'
@@ -49,8 +49,17 @@
                     @setData='setPassword'>
                 </HeaderedInput>
                 <div class='delete-account__form-container__button-container'>
-                    <Button label='Cancel' width='205px' height='48px' :on-press='onCloseClick' is-white="true"/>
-                    <Button label='Delete' width='205px' height='48px' class='red' :on-press='onDeleteAccountClick'/>
+                    <Button
+                        label='Cancel'
+                        width='205px' height='48px'
+                        :on-press='onCloseClick'
+                        is-white="true"/>
+                    <Button
+                        label='Delete'
+                        width='205px'
+                        height='48px'
+                        class='red'
+                        :on-press='onDeleteAccountClick'/>
                 </div>
             </div>
             <div class='delete-account__close-cross-container' @click='onCloseClick'>
@@ -65,8 +74,8 @@
 <script lang='ts'>
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import Button from '@/components/common/VButton.vue';
 
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -129,6 +138,7 @@ export default class DeleteAccountPopup extends Vue {
         display: flex;
         justify-content: center;
         align-items: center;
+        font-family: 'font_regular';
     }
 
     .input-container.full-input {
@@ -140,9 +150,7 @@ export default class DeleteAccountPopup extends Vue {
     }
 
     .text {
-        margin: 0;
-        margin-bottom: 0 !important;
-        font-family: 'font_regular' !important;
+        margin: 0 !important;
         font-size: 16px;
         line-height: 25px;
     }
@@ -171,8 +179,7 @@ export default class DeleteAccountPopup extends Vue {
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
-                margin-bottom: 60px;
-                margin-top: 0;
+                margin: 0 0 60px 0;
             }
         }
 
@@ -180,9 +187,8 @@ export default class DeleteAccountPopup extends Vue {
             width: 100%;
             max-width: 450px;
 
-            p {
-                margin: 0;
-                margin-bottom: 25px;
+            &__confirmation-text {
+                margin: 0 0 25px 0;
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 25px;
@@ -190,12 +196,6 @@ export default class DeleteAccountPopup extends Vue {
                 &:nth-child(2) {
                     margin-top: 20px;
                 }
-            }
-
-            a {
-                font-family: 'font_medium';
-                font-size: 16px;
-                color: #2683FF;
             }
 
             &__button-container {

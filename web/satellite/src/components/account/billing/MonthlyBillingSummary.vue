@@ -73,7 +73,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
+import Button from '@/components/common/VButton.vue';
 
 @Component({
     components: {

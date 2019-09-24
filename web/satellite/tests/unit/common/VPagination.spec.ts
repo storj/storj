@@ -3,7 +3,7 @@
 
 import * as sinon from 'sinon';
 
-import Pagination from '@/components/common/Pagination.vue';
+import Pagination from '@/components/common/VPagination.vue';
 
 import { mount, shallowMount } from '@vue/test-utils';
 

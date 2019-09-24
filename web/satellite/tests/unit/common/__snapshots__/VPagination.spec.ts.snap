@@ -28,7 +28,7 @@ exports[`Pagination.vue renders correctly with props 1`] = `
         <path d="M2.80077e-07 4.26316L6 0L6 9L2.80077e-07 4.26316Z" fill="#354049"></path>
       </svg></div>
     <div class="pagination-container__items">
-      <pagesblock-stub pages="[object Object],[object Object],[object Object]" isselected="function () { [native code] }"></pagesblock-stub> <span>...</span>
+      <pagesblock-stub pages="[object Object],[object Object],[object Object]" isselected="function () { [native code] }"></pagesblock-stub> <span class="pages-divider">...</span>
       <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
       <!---->
       <pagesblock-stub pages="[object Object]" isselected="function () { [native code] }"></pagesblock-stub>

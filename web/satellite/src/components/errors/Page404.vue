@@ -31,13 +31,14 @@
         -ms-user-select: none; 
         user-select: none;
 
-        h1 {
+        &__title {
             font-family: 'font_regular';
             margin-bottom: 60px;
             font-size: 32px;
         }
 
-        img, a {
+        img,
+        a {
             -webkit-user-drag: none;
             -khtml-user-drag: none;
             -moz-user-drag: none;

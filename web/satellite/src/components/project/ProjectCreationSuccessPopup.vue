@@ -3,7 +3,7 @@
 
 <template>
     <div v-if="isPopupShown" class="project-creation-success-popup-container">
-        <div  class="project-creation-success-popup" id='successfulProjectCreationPopup'>
+        <div class="project-creation-success-popup" id='successfulProjectCreationPopup'>
             <div class="project-creation-success-popup__info-panel-container">
                 <svg width="300" height="233" viewBox="0 0 300 233" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M175.712 232.904C239.885 232.904 291.878 180.748 291.878 116.411C291.878 52.0744 239.885 0 175.712 0C111.539 0 59.5459 52.1561 59.5459 116.493C59.5459 180.83 111.539 232.904 175.712 232.904Z" fill="#2683FF"/>
@@ -31,12 +31,21 @@
             </div>
             <div class="project-creation-success-popup__form-container">
                 <h2 class="project-creation-success-popup__form-container__main-label-text">Congrats!</h2>
-                <p>You just created your project. Next, we recommend you create your first API Key for this project. API Keys allow developers to manage their projects and build applications on top of the Storj network through our
-                    <a href="https://github.com/storj/storj/wiki/Uplink-CLI" target="_blank">Uplink CLI.</a>
+                <p class="project-creation-success-popup__form-container__confirmation-text">You just created your project. Next, we recommend you create your first API Key for this project. API Keys allow developers to manage their projects and build applications on top of the Storj network through our
+                    <a class="project-creation-success-popup__form-container__confirmation-text__link" href="https://github.com/storj/storj/wiki/Uplink-CLI" target="_blank">Uplink CLI.</a>
                 </p>
                 <div class="project-creation-success-popup__form-container__button-container">
-                    <Button label="I will do it later" width="214px" height="50px" :on-press="onCloseClick" is-white="true" />
-                    <Button label="Create first API Key" width="214px" height="50px" :on-press="onCreateAPIKeyClick" />
+                    <Button
+                        label="I will do it later"
+                        width="214px"
+                        height="50px"
+                        :on-press="onCloseClick"
+                        is-white="true" />
+                    <Button
+                        label="Create first API Key"
+                        width="214px"
+                        height="50px"
+                        :on-press="onCreateAPIKeyClick" />
                 </div>
             </div>
             <div class="project-creation-success-popup__close-cross-container" @click="onCloseClick">
@@ -51,7 +60,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
+import Button from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
@@ -78,20 +87,6 @@ export default class ProjectCreationSuccessPopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    p {
-        font-family: 'font_medium';
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-        padding: 27px 0 0 0;
-        margin: 0;
-    }
-    
-    a {
-        font-family: 'font_bold';
-        color: #2683ff;
-    }
-    
     .project-creation-success-popup-container {
         position: fixed;
         top: 0;
@@ -146,6 +141,20 @@ export default class ProjectCreationSuccessPopup extends Vue {
                 justify-content: space-between;
                 align-items: center;
                 margin-top: 40px;
+            }
+
+            &__confirmation-text {
+                font-family: 'font_medium';
+                font-size: 16px;
+                line-height: 21px;
+                color: #354049;
+                padding: 27px 0 0 0;
+                margin: 0;
+
+                &__link {
+                    font-family: 'font_bold';
+                    color: #2683ff;
+                }
             }
         }
         

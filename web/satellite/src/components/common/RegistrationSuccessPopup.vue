@@ -6,7 +6,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
+import Button from '@/components/common/VButton.vue';
 
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -76,31 +76,8 @@ export default class RegistrationSuccessPopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    p {
-        font-family: 'font_medium';
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-        padding: 27px 0 0 0;
-        margin: 0;
-    }
-
-    h3 {
-        font-family: 'font_medium';
-        font-size: 12px;
-        line-height: 16px;
-        color: #354049;
-        padding: 27px 0 0 0;
-        margin: 0;
-    }
-
     b {
         color: #2683FF;
-    }
-
-    a {
-        font-family: 'font_bold';
-        color: #2683ff;
     }
 
     .register-success-popup-container {
@@ -142,11 +119,29 @@ export default class RegistrationSuccessPopup extends Vue {
             max-width: 440px;
             margin-top: 10px;
 
-            &__main-label-text {
+            &__title {
                 font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 39px;
                 color: #384B65;
+                margin: 0;
+            }
+
+            &__text {
+                font-family: 'font_medium';
+                font-size: 16px;
+                line-height: 21px;
+                color: #354049;
+                padding: 27px 0 0 0;
+                margin: 0;
+            }
+
+            &__verification-cooldown {
+                font-family: 'font_medium';
+                font-size: 12px;
+                line-height: 16px;
+                color: #354049;
+                padding: 27px 0 0 0;
                 margin: 0;
             }
 
@@ -182,7 +177,6 @@ export default class RegistrationSuccessPopup extends Vue {
 
             &__info-panel-container {
                 display: none;
-
             }
 
             &__form-container {

@@ -100,7 +100,7 @@
             justify-content: flex-start;
             align-items: center;
 
-            h1 {
+            &__title {
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 23px;
@@ -123,7 +123,7 @@
 
         &.router-link-active {
 
-            h1 {
+            .account-item {
                 color: #2683FF;
             }
         }

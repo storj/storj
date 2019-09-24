@@ -12,7 +12,7 @@
                         <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
                     </svg>
                 </div>
-                <h2 :class="[project.isSelected ? 'project-selection-overflow-container__project-choice--selected' : 'project-selection-overflow-container__project-choice--unselected']">{{project.name}}</h2>
+                <h2 class="project-selection-overflow-container__project-choice__unselected" :class="{'selected': project.isSelected}">{{project.name}}</h2>
             </div>
         </div>
     </div>
@@ -26,11 +26,10 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { Project } from '@/types/projects';
 import {
-API_KEYS_ACTIONS,
-APP_STATE_ACTIONS,
-NOTIFICATION_ACTIONS,
-PM_ACTIONS,
-PROJECT_PAYMENT_METHODS_ACTIONS,
+    API_KEYS_ACTIONS,
+    APP_STATE_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 
 @Component
@@ -93,6 +92,7 @@ export default class ProjectSelectionDropdown extends Vue {
         height: auto;
         max-height: 240px;
         background-color: #FFFFFF;
+        font-family: 'font_regular';
 
         &__project-choice {
             display: flex;
@@ -102,7 +102,7 @@ export default class ProjectSelectionDropdown extends Vue {
             padding-left: 20px;
             padding-right: 20px;
 
-            h2{
+            &__unselected {
                 margin-left: 20px;
                 font-size: 14px;
                 line-height: 20px;
@@ -113,21 +113,18 @@ export default class ProjectSelectionDropdown extends Vue {
                 background-color: #F2F2F6;
             }
 
-            &--selected {
-                font-family: 'font_bold';
-            }
-
-            &--unselected {
-                font-family: 'font_regular';
-            }
-
             &__mark-container {
-                width: 10px;;
+                width: 10px;
+
                 svg {
                     object-fit: cover;
                 }
             }
         }
+    }
+
+    .selected {
+        font-family: 'font_bold';
     }
 
     /* width */

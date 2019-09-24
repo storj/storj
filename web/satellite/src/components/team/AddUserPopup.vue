@@ -42,8 +42,18 @@
                         </div>
                     </div>
                     <div class='add-user__form-container__button-container'>
-                        <Button label='Cancel' width='205px' height='48px' :on-press="onClose" is-white="true"/>
-                        <Button label='Add Team Members' width='205px' height='48px' :on-press="onAddUsersClick" :is-disabled="!isButtonActive"/>
+                        <Button
+                            label='Cancel'
+                            width='205px'
+                            height='48px'
+                            :on-press="onClose"
+                            is-white="true"/>
+                        <Button
+                            label='Add Team Members'
+                            width='205px'
+                            height='48px'
+                            :on-press="onAddUsersClick"
+                            :is-disabled="!isButtonActive"/>
                     </div>
                 </div>
                 <div class='add-user__close-cross-container' @click='onClose'>
@@ -68,7 +78,7 @@
 <script lang='ts'>
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
+import Button from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';

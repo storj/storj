@@ -3,6 +3,7 @@
 
 <template>
     <input
+        class="common-search-input"
         ref="input"
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
@@ -71,7 +72,7 @@ export default class SearchComponent extends Vue {
 </script>
 
 <style scoped lang="scss">
-    input {
+    .common-search-input {
         position: absolute;
         right: 0;
         bottom: 0;

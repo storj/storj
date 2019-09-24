@@ -118,23 +118,10 @@ export default class ApiKeysItem extends Vue {
                 }
             }
         }
-        
-        p {
-            &:nth-child(2) {
-                color: #fff;
-            }
-            
-            &:nth-child(3) {
-                color: #fff;
-            }
-        }
 
-        .white {
-            fill: #2683FF;
+        .name,
+        .date {
+            color: #FFFFFF;
         }
-    }
-
-    .apikey-item-container.deleted {
-        background-color: red;
     }
 </style>

@@ -6,14 +6,17 @@
         <div class="header-container__buttons-area">
             <slot></slot>
         </div>
-        <SearchComponent ref="search" :placeholder="placeholder" :search="search"/>
+        <SearchComponent
+            ref="search"
+            :placeholder="placeholder"
+            :search="search"/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import SearchComponent from '@/components/common/SearchComponent.vue';
+import SearchComponent from '@/components/common/VSearch.vue';
 
 declare type searchCallback = (search: string) => Promise<void>;
 declare interface ClearSearch {

@@ -3,7 +3,7 @@
 
 import * as sinon from 'sinon';
 
-import Button from '@/components/common/Button.vue';
+import Button from '@/components/common/VButton.vue';
 
 import { mount, shallowMount } from '@vue/test-utils';
 

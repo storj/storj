@@ -9,14 +9,14 @@ import { ApiKeysApiGql } from '@/api/apiKeys';
 import { API_KEYS_MUTATIONS, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { ApiKey, ApiKeysPage } from '@/types/apiKeys';
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const notificationsModule = makeNotificationsModule();
-const { SET_PAGE, SET_SEARCH_QUERY, CLEAR } = API_KEYS_MUTATIONS;
+const { SET_PAGE, CLEAR } = API_KEYS_MUTATIONS;
 const store = new Vuex.Store({ modules: { apiKeysModule, notificationsModule }});
 
 describe('ApiKeysArea', () => {

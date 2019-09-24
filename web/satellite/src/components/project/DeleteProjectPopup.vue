@@ -45,21 +45,27 @@
                 </svg>
             </div>
             <div class="delete-project-popup__form-container">
-                <p>Are you sure that you want to delete your project? You will lose all your buckets and files that linked to this project.</p>
+                <p class="delete-project-popup__form-container__confirmation-text">Are you sure that you want to delete your project? You will lose all your buckets and files that linked to this project.</p>
                 <div>
                     <p class="text" v-if="!nameError">To confirm, enter the project name</p>
                     <div v-if="nameError" class="delete-project-popup__form-container__label">
                         <img src="../../../static/images/register/ErrorInfo.svg"/>
                         <p class="text">{{nameError}}</p>
                     </div>
-                    <input 
+                    <input
+                        class="delete-project-input"
                         type="text" 
                         placeholder="Enter Project Name"
                         v-model="projectName"
                         @keyup="resetError" >
                 </div>
                 <div class="delete-project-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :on-press="onCloseClick" is-white="true"/>
+                    <Button
+                        label="Cancel"
+                        width="205px"
+                        height="48px"
+                        :on-press="onCloseClick"
+                        is-white="true"/>
                     <Button 
                         label="Delete"
                         width="205px" 
@@ -81,12 +87,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
+import Button from '@/components/common/VButton.vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
-import { API_KEYS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import {
+    API_KEYS_ACTIONS,
+    APP_STATE_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PM_ACTIONS,
+} from '@/utils/constants/actionNames';
 
 @Component({
     components: {
@@ -179,6 +190,7 @@ export default class DeleteProjectPopup extends Vue {
         display: flex;
         justify-content: center;
         align-items: center;
+        font-family: 'font_medium';
     }
 
     .input-container.full-input {
@@ -200,7 +212,7 @@ export default class DeleteProjectPopup extends Vue {
         align-items: center;
         position: relative;
         justify-content: space-between;
-        padding: 20px 100px 0px 100px;
+        padding: 20px 100px 0 100px;
 
         &__info-panel-container {
             display: flex;
@@ -224,7 +236,7 @@ export default class DeleteProjectPopup extends Vue {
             max-width: 440px;
             height: 335px;
 
-            p {
+            &__confirmation-text {
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 21px;
@@ -236,18 +248,18 @@ export default class DeleteProjectPopup extends Vue {
                 flex-direction: row;
                 align-items: center;
 
-                p {
+                .text {
+                    font-family: 'font_medium';
                     padding-left: 10px;
                     color: #EB5757;
-                    margin: 0;
                 }
             }
 
             .text {
-                margin: 0px;
+                margin: 0;
             }
 
-            input {
+            .delete-project-input {
                 font-family: 'font_regular';
                 font-size: 16px;
                 line-height: 21px;

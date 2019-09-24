@@ -17,8 +17,9 @@ body {
     display: flex;
     justify-content: flex-start;
     flex-direction: column;
-    align-items: flex-start; padding: 60px 0px 0px 104px;
+    align-items: flex-start; padding: 60px 0 0 104px;
     background-color: #F5F6FA;
+    font-family: 'font_regular';
 
     .register-input {
         position: relative;
@@ -61,7 +62,7 @@ body {
         width: 160px;
         height: 48px;
 
-        p {
+        &__label {
             font-family: 'font_bold';
             font-size: 14px;
             line-height: 19px;
@@ -74,7 +75,7 @@ body {
             background-color: #2683FF;
             border: 1px solid #2683FF;
 
-            p {
+            .register-container__register-button__label {
                 color: white;
             }
         }
@@ -108,27 +109,13 @@ body {
         margin-bottom: 20px;
         width: 100%;
 
-        h1 {
+        &__title {
             font-family: 'font_bold';
             font-size: 22px;
             color: #384B65;
             line-height: 27px;
             margin-block-start: 0;
             margin-block-end: 0;
-        }
-
-        p {
-            font-family: 'font_regular';
-            font-size: 16px;
-            color: #384B65;
-            line-height: 21px;
-            margin-block-start: 0;
-            margin-block-end: 0;
-
-            b {
-                font-family: 'font_bold';
-                margin-left: 7px;
-            }
         }
     }
 
@@ -150,8 +137,7 @@ body {
                 align-self: center;
             }
 
-            h2 {
-                font-family: 'font_regular';
+            &__terms-confirmation {
                 font-size: 14px;
                 line-height: 20px;
                 margin-top: 14px;
@@ -159,7 +145,7 @@ body {
                 color: #384B65;
             }
 
-            a {
+            &__link {
                 color: #2683FF;
                 font-family: 'font_bold';
 
@@ -248,7 +234,7 @@ body {
             height: 48px;
             box-shadow: none;
 
-            p {
+            &__label {
                 font-family: 'font_bold';
                 font-size: 14px;
                 line-height: 19px;
@@ -276,7 +262,6 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    left: 0;
     height: 100vh;
     z-index: 100;
     background-color: rgba(134, 134, 148, 0.7);
@@ -307,6 +292,7 @@ body {
 
 @media screen and (max-width: 1500px) {
     .register-container {
+
         &__wrapper {
             min-width: 45%;
         }
@@ -314,10 +300,12 @@ body {
 }
 @media screen and (max-width: 1300px) {
     .register-container {
+
         &__wrapper {
             min-width: 75%;
         }
     }
+
     .image {
         display: none;
     }
@@ -342,6 +330,7 @@ body {
 }
 @media screen and (max-height: 810px) {
     .register-container {
+
         &__wrapper {
             height: 700px;
         }
@@ -360,6 +349,7 @@ body {
 }
 @media screen and (max-width: 650px) {
     .register-container {
+
         &__wrapper {
             width: 500px;
         }
@@ -367,6 +357,7 @@ body {
 }
 @media screen and (max-width: 520px) {
     .register-container {
+
         &__wrapper {
             width: 400px;
         }
@@ -374,6 +365,7 @@ body {
 }
 @media screen and (max-width: 420px) {
     .register-container {
+
         &__wrapper {
             width: 350px;
         }
@@ -381,6 +373,7 @@ body {
 }
 @media screen and (max-width: 320px) {
     .register-container {
+
         &__wrapper {
             width: 300px;
         }
@@ -395,25 +388,28 @@ body {
         }
     }
     .register-area {
+
         &__title-container {
-            h1 {
+
+            &__title {
                 font-size: 20px;
                 line-height: 22px;
             }
-            p {
-                font-size: 13px;
-                line-height: 17px;
-            }
         }
+
         &__submit-container {
+
             &__terms-area {
-                h2 {
+
+                &__terms-confirmation {
                     font-size: 12px;
                 }
             }
+
             &__create-button {
                 height: 40px;
-                p {
+
+                &__label {
                     font-size: 12px;
                 }
             }

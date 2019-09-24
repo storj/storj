@@ -4,18 +4,18 @@
 <template>
     <div>
         <div class="project-details">
-            <h1>Project Details</h1>
+            <h1 class="project-details__title">Project Details</h1>
             <div class="project-details-info-container">
                 <div class="project-details-info-container__name-container">
-                    <h2>Project Name</h2>
-                    <h3>{{name}}</h3>
+                    <h2 class="project-details-info-container__name-container__title">Project Name</h2>
+                    <h3 class="project-details-info-container__name-container__project-name">{{name}}</h3>
                 </div>
             </div>
             <div class="project-details-info-container">
                 <div class="project-details-info-container__description-container" v-if="!isEditing">
                     <div class="project-details-info-container__description-container__text">
-                        <h2>Description</h2>
-                        <h3>{{description}}</h3>
+                        <h2 class="project-details-info-container__description-container__text__title">Description</h2>
+                        <h3 class="project-details-info-container__description-container__text__project-description">{{description}}</h3>
                     </div>
                     <div title="Edit">
                         <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" @click="toggleEditing">
@@ -28,18 +28,33 @@
                     <HeaderedInput
                         label="Description"
                         placeholder="Enter Description"
-                        width="70vw"
+                        width="205%"
                         height="10vh"
                         is-multiline="true"
                         @setData="setNewDescription" />
                     <div class="project-details-info-container__description-container__buttons-area">
-                        <Button label="Cancel" width="180px" height="48px" :on-press="toggleEditing" is-white="true"/>
-                        <Button label="Save" width="180px" height="48px" :on-press="onSaveButtonClick"/>
+                        <Button
+                            label="Cancel"
+                            width="180px"
+                            height="48px"
+                            :on-press="toggleEditing"
+                            is-white="true"/>
+                        <Button
+                            label="Save"
+                            width="180px"
+                            height="48px"
+                            :on-press="onSaveButtonClick"/>
                     </div>
                 </div>
             </div>
             <div class="project-details__button-area" id="deleteProjectPopupButton">
-                <Button class="delete-project" label="Delete project" width="180px" height="48px" :on-press="toggleDeleteDialog" is-deletion="true"/>
+                <Button
+                    class="delete-project"
+                    label="Delete project"
+                    width="180px"
+                    height="48px"
+                    :on-press="toggleDeleteDialog"
+                    is-deletion="true"/>
             </div>
         </div>
         <DeleteProjectPopup v-if="isPopupShown" />
@@ -49,10 +64,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
-import Checkbox from '@/components/common/Checkbox.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import Button from '@/components/common/VButton.vue';
+import Checkbox from '@/components/common/VCheckbox.vue';
 import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
 
 import { RouteConfig } from '@/router';
@@ -105,8 +120,8 @@ export default class ProjectDetailsArea extends Vue {
                 PROJECTS_ACTIONS.UPDATE,
                 new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
-        } catch (e) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.message);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
         }
 
         this.toggleEditing();
@@ -130,61 +145,24 @@ export default class ProjectDetailsArea extends Vue {
 </script>
 
 <style scoped lang="scss">
+    h1,
+    h2,
+    h3 {
+        margin-block-start: 0.5em;
+        margin-block-end: 0.5em;
+    }
+
     .project-details {
         position: relative;
         overflow: hidden;
         height: 85vh;
+        font-family: 'font_regular';
         
-        h1 {
+        &__title {
             font-family: 'font_bold';
             font-size: 24px;
             line-height: 29px;
             color: #354049;
-            margin-block-start: 0.5em;
-            margin-block-end: 0.5em;
-        }
-        
-        h2 {
-            @extend h1;
-            font-family: 'font_regular';
-            font-size: 16px;
-            line-height: 21px;
-            color: rgba(56, 75, 101, 0.4);
-        }
-        
-        h3 {
-            @extend h2;
-            color: #354049;
-        }
-        
-        h4 {
-            @extend h1;
-            font-size: 18px;
-            line-height: 27px;
-        }
-        
-        &__terms-area {
-            display: flex;
-            flex-direction: row;
-            justify-content: flex-start;
-            align-items: center;
-            margin-top: 20px;
-            
-            img {
-                margin-top: 20px;
-            }
-            
-            &__checkbox {
-                align-self: center;
-            }
-            
-            h2 {
-                font-family: 'font_regular';
-                font-size: 14px;
-                line-height: 20px;
-                margin-top: 30px;
-                margin-left: 10px;
-            }
         }
         
         &__button-area {
@@ -211,6 +189,18 @@ export default class ProjectDetailsArea extends Vue {
             align-items: flex-start;
             padding: 28px;
             background-color: #fff;
+
+            &__title {
+                font-size: 16px;
+                line-height: 21px;
+                color: rgba(56, 75, 101, 0.4);
+            }
+
+            &__project-name {
+                font-size: 16px;
+                line-height: 21px;
+                color: #354049;
+            }
         }
         
         &__description-container {
@@ -227,8 +217,17 @@ export default class ProjectDetailsArea extends Vue {
                 justify-content: center;
                 align-items: flex-start;
                 margin-right: 20px;
+
+                &__title {
+                    font-size: 16px;
+                    line-height: 21px;
+                    color: rgba(56, 75, 101, 0.4);
+                }
                 
-                h3 {
+                &__project-description {
+                    font-size: 16px;
+                    line-height: 21px;
+                    color: #354049;
                     width: 100%;
                     word-wrap: break-word;
                 }
@@ -284,11 +283,6 @@ export default class ProjectDetailsArea extends Vue {
                 @extend .project-details-info-container__portability-container__info;
                 width: 380px;
                 justify-content: space-between;
-            }
-            
-            img {
-                width: 6vw;
-                height: 10vh;
             }
         }
     }

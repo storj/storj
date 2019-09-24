@@ -6,7 +6,7 @@
         <div class="new-project-popup" id="newProjectPopup" >
             <div class="new-project-popup__info-panel-container">
                 <h2 class="new-project-popup__info-panel-container__main-label-text">Create a Project</h2>
-                <img src="@/../static/images/dashboard/CreateNewProject.png" alt="">
+                <img src="@/../static/images/dashboard/CreateNewProject.png" alt="create project image">
             </div>
             <div class="new-project-popup__form-container">
                 <HeaderedInput
@@ -30,8 +30,17 @@
                     @setData="setProjectDescription">
                 </HeaderedInput>
                 <div class="new-project-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :on-press="onCloseClick" is-white="true"/>
-                    <Button label="Next" width="205px" height="48px" :on-press="createProjectClick"/>
+                    <Button
+                        label="Cancel"
+                        width="205px"
+                        height="48px"
+                        :on-press="onCloseClick"
+                        is-white="true"/>
+                    <Button
+                        label="Next"
+                        width="205px"
+                        height="48px"
+                        :on-press="createProjectClick"/>
                 </div>
             </div>
             <div class="new-project-popup__close-cross-container" @click="onCloseClick">
@@ -46,9 +55,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
-import Checkbox from '@/components/common/Checkbox.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import Button from '@/components/common/VButton.vue';
+import Checkbox from '@/components/common/VCheckbox.vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';

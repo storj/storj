@@ -11,8 +11,8 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import List from '@/components/common/List.vue';
 import TestListItem from '@/components/common/test/TestListItem.vue';
+import List from '@/components/common/VList.vue';
 
 @Component({
     components: {

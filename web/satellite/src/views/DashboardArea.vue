@@ -21,7 +21,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import DashboardHeader from '@/components/header/Header.vue';
+import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 import { RouteConfig } from '@/router';
@@ -46,7 +46,7 @@ import { AppState } from '@/utils/constants/appStateEnum';
         DashboardHeader,
     },
 })
-export default class Dashboard extends Vue {
+export default class DashboardArea extends Vue {
     public mounted(): void {
         setTimeout(async () => {
             // TODO: combine all project related requests in one
@@ -166,6 +166,7 @@ export default class Dashboard extends Vue {
 
     @media screen and (max-width: 720px) {
         .dashboard-container {
+
             &__main-area{
                 left: 60px;
             }

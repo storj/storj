@@ -4,9 +4,9 @@
 <template>
     <div class="empty-state">
         <div class="empty-state__wrap">
-            <h1>{{mainTitle}}</h1>
+            <h1 class="empty-state__wrap__title">{{mainTitle}}</h1>
             <div class="empty-state__wrap__additional-text" v-html="additionalText"/>
-            <div id="addApiKeysPopupEmptyButton" v-if="isButtonShown">
+            <div v-if="isButtonShown">
                 <Button
                     :on-press="onButtonClick"
                     :label="buttonLabel"
@@ -21,7 +21,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
+import Button from '@/components/common/VButton.vue';
 
 @Component({
     components: {
@@ -54,8 +54,9 @@ export default class EmptyStateProjectArea extends Vue {
         width: 100%;
         display: flex;
         justify-content: center;
-        margin-top: 120px;
+        margin-top: 100px;
         color: rgba(56, 75, 101, 0.7);
+        font-family: 'font_regular';
 
         &__wrap {
             text-align: center;
@@ -65,38 +66,23 @@ export default class EmptyStateProjectArea extends Vue {
             align-items: center;
 
             &__additional-text {
-                font-family: 'font_regular';
+                font-family: 'font_medium';
                 font-size: 16px;
                 width: 60%;
                 margin-bottom: 10px;
-
-                b {
-                    font-family: 'font_bold' !important;
-                    font-size: 16px;
-                }
             }
 
             &__img {
                 margin-top: 50px;
             }
 
-            h1 {
+            &__title {
                 font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 35px;
                 margin-bottom: 15px;
                 min-width: 900px;
                 color: #354049;
-            }
-
-            p {
-                font-family: 'font_regular';
-                font-size: 16px;
-                line-height: 21px;
-            }
-
-            img {
-                margin-top: 42px;
             }
         }
     }

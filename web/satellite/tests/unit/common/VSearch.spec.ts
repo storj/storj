@@ -3,7 +3,7 @@
 
 import * as sinon from 'sinon';
 
-import SearchComponent from '@/components/common/SearchComponent.vue';
+import SearchComponent from '@/components/common/VSearch.vue';
 
 import { mount, shallowMount } from '@vue/test-utils';
 

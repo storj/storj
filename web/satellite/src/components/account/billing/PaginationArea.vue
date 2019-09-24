@@ -6,8 +6,8 @@
         <div class="pagination-container__pages">
             <div v-html="arrowLeft" class="pagination-container__button"></div>
             <div class="pagination-container__items">
-                <span class="selected">1</span>
-                <span>2</span>
+                <span class="pagination-container__items__page-number selected">1</span>
+                <span class="pagination-container__items__page-number">2</span>
             </div>
             <div v-html="arrowRight" class="pagination-container__button"></div>
         </div>
@@ -37,15 +37,6 @@ export default class PaginationArea extends Vue {
         &__pages {
             display: flex;
             align-items: center;
-        }
-    
-        &__counter {
-            
-            p {
-                font-family: 'font_medium';
-                font-size: 16px;
-                color: #AFB7C1;
-            }
         }
     
         &__button {
@@ -89,7 +80,7 @@ export default class PaginationArea extends Vue {
                 }
             }
         
-            span {
+            &__page-number {
                 font-family: 'font_medium';
                 font-size: 16px;
                 margin-right: 15px;

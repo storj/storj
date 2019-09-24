@@ -6,8 +6,11 @@
         <NoBucketArea v-if="!totalCount && !search" />
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
-                <p>Buckets</p>
-                <HeaderComponent class="buckets-header-component" placeholder="Buckets" :search="fetch"/>
+                <p class="buckets-header__title">Buckets</p>
+                <HeaderComponent
+                    class="buckets-header-component"
+                    placeholder="Buckets"
+                    :search="fetch"/>
             </div>
             <div class="buckets-notification-container">
                 <div class="buckets-notification">
@@ -20,8 +23,14 @@
             </div>
             <div v-if="buckets.length" class="buckets-container">
                 <SortingHeader />
-                <List :data-set="buckets" :item-component="itemComponent" :on-item-click="doNothing"/>
-                <Pagination v-if="totalPageCount > 1" :total-page-count="totalPageCount" :on-page-click-callback="onPageClick" />
+                <List
+                    :data-set="buckets"
+                    :item-component="itemComponent"
+                    :on-item-click="doNothing"/>
+                <Pagination
+                    v-if="totalPageCount > 1"
+                    :total-page-count="totalPageCount"
+                    :on-page-click-callback="onPageClick" />
             </div>
             <EmptyState
                 class="empty-container"
@@ -39,9 +48,9 @@ import BucketItem from '@/components/buckets/BucketItem.vue';
 import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
 import SortingHeader from '@/components/buckets/SortingHeader.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
-import HeaderComponent from '@/components/common/HeaderComponent.vue';
-import List from '@/components/common/List.vue';
-import Pagination from '@/components/common/Pagination.vue';
+import HeaderComponent from '@/components/common/VHeader.vue';
+import List from '@/components/common/VList.vue';
+import Pagination from '@/components/common/VPagination.vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Bucket } from '@/types/buckets';
@@ -122,7 +131,7 @@ export default class BucketArea extends Vue {
         justify-content: space-between;
         padding: 40px 60px 20px 60px;
         
-        p {
+        &__title {
             font-family: 'font_bold';
             font-size: 32px;
             line-height: 39px;
