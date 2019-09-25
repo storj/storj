@@ -33,10 +33,6 @@ func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service 
 }
 
 func verifyPointer(pointer *pb.Pointer) (err error) {
-	if pointer.Type == pb.Pointer_INLINE && pointer.Remote != nil {
-		return Error.New("pointer type is INLINE but remote segment is set")
-	}
-
 	if pointer.Type == pb.Pointer_REMOTE {
 		remote := pointer.Remote
 
