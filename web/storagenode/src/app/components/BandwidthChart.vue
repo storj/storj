@@ -3,7 +3,7 @@
 
 <template>
     <div class="chart">
-        <Chart
+        <VChart
             id="bandwidth-chart"
             :chart-data="chartData"
             :width="400"
@@ -15,7 +15,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Chart from '@/app/components/VChart.vue';
+import VChart from '@/app/components/VChart.vue';
 import { ChartData } from '@/app/types/chartData';
 import { ChartUtils } from '@/app/utils/chartUtils';
 import { formatBytes } from '@/app/utils/converter';
@@ -44,7 +44,7 @@ class BandwidthTooltip {
 
 @Component ({
     components: {
-        Chart,
+        VChart,
     },
 })
 export default class BandwidthChart extends Vue {
