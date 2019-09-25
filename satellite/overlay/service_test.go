@@ -515,7 +515,7 @@ func TestUpdateCheckIn(t *testing.T) {
 			Version: &pb.NodeVersion{
 				Version:    "v0.1.0",
 				CommitHash: "abc123",
-				Timestamp:  time.Now().UTC(),
+				Timestamp:  time.Now(),
 				Release:    true,
 			},
 		}
@@ -533,7 +533,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.Equal(t, updatedInfo.Version.GetVersion(), updatedNode.Version.GetVersion())
 		require.Equal(t, updatedInfo.Version.GetCommitHash(), updatedNode.Version.GetCommitHash())
 		require.Equal(t, updatedInfo.Version.GetRelease(), updatedNode.Version.GetRelease())
-		// require.True(t, updatedNode.Version.GetTimestamp().After(info.Version.GetTimestamp()))
+		require.Equal(t, updatedInfo.Version.GetTimestamp().UTC(), updatedNode.Version.GetTimestamp().UTC())
 
 		// confirm we can udpate IsUp field
 		startOfUpdateTest2 := time.Now().UTC()
