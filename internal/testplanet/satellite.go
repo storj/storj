@@ -137,14 +137,14 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				Expiration: 7 * 24 * time.Hour,
 			},
 			Checker: checker.Config{
-				Interval:                  2 * time.Second,
-				IrreparableInterval:       2 * time.Second,
-				ReliabilityCacheStaleness: 2 * time.Second,
+				Interval:                  defaultInterval,
+				IrreparableInterval:       defaultInterval,
+				ReliabilityCacheStaleness: 1 * time.Minute,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,
-				Interval:                      2 * time.Second,
-				Timeout:                       2 * time.Second, // Repairs can take up to 10 seconds. Leaving room for outliers
+				Interval:                      time.Hour,
+				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
 				MaxBufferMem:                  4 * memory.MiB,
 				MaxExcessRateOptimalThreshold: 0.05,
 			},
@@ -153,26 +153,26 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
 				MaxReverifyCount:   3,
-				ChoreInterval:      2 * time.Second,
-				QueueInterval:      2 * time.Second,
+				ChoreInterval:      defaultInterval,
+				QueueInterval:      defaultInterval,
 				Slots:              3,
 				WorkerConcurrency:  1,
 			},
 			GarbageCollection: gc.Config{
-				Interval:          2 * time.Second,
+				Interval:          defaultInterval,
 				Enabled:           true,
 				InitialPieces:     10,
 				FalsePositiveRate: 0.1,
 				ConcurrentSends:   1,
 			},
 			DBCleanup: dbcleanup.Config{
-				SerialsInterval: 2 * time.Second,
+				SerialsInterval: defaultInterval,
 			},
 			Tally: tally.Config{
-				Interval: 2 * time.Second,
+				Interval: defaultInterval,
 			},
 			Rollup: rollup.Config{
-				Interval:      2 * time.Second,
+				Interval:      defaultInterval,
 				MaxAlphaUsage: 25 * memory.GB,
 				DeleteTallies: false,
 			},
