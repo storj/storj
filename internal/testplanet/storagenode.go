@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -69,6 +70,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 						WhitelistSignedLeaf: false,
 					},
 				},
+			},
+			Operator: storagenode.OperatorConfig{
+				Email:  prefix + "@mail.test",
+				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 			Storage: piecestore.OldConfig{
 				Path:                   filepath.Join(storageDir, "pieces/"),
