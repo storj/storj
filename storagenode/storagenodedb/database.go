@@ -6,25 +6,20 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"time"
 
-	_ "github.com/mattn/go-sqlite3" // used indirectly
+	_ "github.com/mattn/go-sqlite3" // used indirectly.
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
+	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/internal/migrate"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/filestore"
-	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/orders"
@@ -33,6 +28,9 @@ import (
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 )
+
+// VersionTable is the table that stores the version info in each db
+const VersionTable = "versions"
 
 var (
 	mon = monkit.Package()
@@ -43,38 +41,18 @@ var (
 
 var _ storagenode.DB = (*DB)(nil)
 
-// SQLDB defines interface that matches *sql.DB
-// this is such that we can use utccheck.DB for the backend
-//
-// TODO: wrap the connector instead of *sql.DB
+// SQLDB defines an interface to allow accessing and setting an sql.DB
 type SQLDB interface {
-	Begin() (*sql.Tx, error)
-	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
-	Close() error
-	Conn(ctx context.Context) (*sql.Conn, error)
-	Driver() driver.Driver
-	Exec(query string, args ...interface{}) (sql.Result, error)
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	Ping() error
-	PingContext(ctx context.Context) error
-	Prepare(query string) (*sql.Stmt, error)
-	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
-	SetConnMaxLifetime(d time.Duration)
-	SetMaxIdleConns(n int)
-	SetMaxOpenConns(n int)
+	Configure(sqlDB *sql.DB)
+	GetDB() *sql.DB
 }
 
 // Config configures storage node database
 type Config struct {
 	// TODO: figure out better names
-	Storage  string
-	Info     string
-	Info2    string
-	Kademlia string
+	Storage string
+	Info    string
+	Info2   string
 
 	Pieces string
 }
@@ -88,18 +66,20 @@ type DB struct {
 		Close() error
 	}
 
-	versionsDB        *versionsDB
+	dbDirectory string
+
+	deprecatedInfoDB  *deprecatedInfoDB
 	v0PieceInfoDB     *v0PieceInfoDB
 	bandwidthDB       *bandwidthDB
 	ordersDB          *ordersDB
 	pieceExpirationDB *pieceExpirationDB
 	pieceSpaceUsedDB  *pieceSpaceUsedDB
 	reputationDB      *reputationDB
-	storageUsageDB    *storageusageDB
+	storageUsageDB    *storageUsageDB
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
 
-	kdb, ndb, adb storage.KeyValueStore
+	sqlDatabases map[string]SQLDB
 }
 
 // New creates a new master database for storage node
@@ -110,144 +90,175 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	}
 	pieces := filestore.New(log, piecesDir)
 
-	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
-	if err != nil {
-		return nil, err
-	}
-
-	versionsPath := config.Info2
-	versionsDB, err := openDatabase(versionsPath)
-	if err != nil {
-		return nil, err
-	}
+	deprecatedInfoDB := &deprecatedInfoDB{}
+	v0PieceInfoDB := &v0PieceInfoDB{}
+	bandwidthDB := &bandwidthDB{}
+	ordersDB := &ordersDB{}
+	pieceExpirationDB := &pieceExpirationDB{}
+	pieceSpaceUsedDB := &pieceSpaceUsedDB{}
+	reputationDB := &reputationDB{}
+	storageUsageDB := &storageUsageDB{}
+	usedSerialsDB := &usedSerialsDB{}
+	satellitesDB := &satellitesDB{}
 
 	db := &DB{
 		log:    log,
 		pieces: pieces,
-		kdb:    dbs[0],
-		ndb:    dbs[1],
-		adb:    dbs[2],
 
-		// Initialize databases. Currently shares one info.db database file but
-		// in the future these will initialize their own database connections.
-		versionsDB:        newVersionsDB(versionsDB, versionsPath),
-		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
-		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
-		ordersDB:          newOrdersDB(versionsDB, versionsPath),
-		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
-		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
-		reputationDB:      newReputationDB(versionsDB, versionsPath),
-		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
-		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
-		satellitesDB:      newSatellitesDB(versionsDB, versionsPath),
+		dbDirectory: filepath.Dir(config.Info2),
+
+		deprecatedInfoDB:  deprecatedInfoDB,
+		v0PieceInfoDB:     v0PieceInfoDB,
+		bandwidthDB:       bandwidthDB,
+		ordersDB:          ordersDB,
+		pieceExpirationDB: pieceExpirationDB,
+		pieceSpaceUsedDB:  pieceSpaceUsedDB,
+		reputationDB:      reputationDB,
+		storageUsageDB:    storageUsageDB,
+		usedSerialsDB:     usedSerialsDB,
+		satellitesDB:      satellitesDB,
+
+		sqlDatabases: map[string]SQLDB{
+			DeprecatedInfoDBName:  deprecatedInfoDB,
+			PieceInfoDBName:       v0PieceInfoDB,
+			BandwidthDBName:       bandwidthDB,
+			OrdersDBName:          ordersDB,
+			PieceExpirationDBName: pieceExpirationDB,
+			PieceSpaceUsedDBName:  pieceSpaceUsedDB,
+			ReputationDBName:      reputationDB,
+			StorageUsageDBName:    storageUsageDB,
+			UsedSerialsDBName:     usedSerialsDB,
+			SatellitesDBName:      satellitesDB,
+		},
 	}
 
+	err = db.openDatabases()
+	if err != nil {
+		return nil, err
+	}
 	return db, nil
 }
 
-// NewTest creates new test database for storage node.
-func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
-	piecesDir, err := filestore.NewDir(storageDir)
+// openDatabases opens all the SQLite3 storage node databases and returns if any fails to open successfully.
+func (db *DB) openDatabases() error {
+	// These objects have a Configure method to allow setting the underlining SQLDB connection
+	// that each uses internally to do data access to the SQLite3 databases.
+	// The reason it was done this way was because there's some outside consumers that are
+	// taking a reference to the business object.
+	err := db.openDatabase(DeprecatedInfoDBName)
 	if err != nil {
-		return nil, err
+		return errs.Combine(err, db.closeDatabases())
 	}
-	pieces := filestore.New(log, piecesDir)
 
-	versionsPath := ""
-	versionsDB, err := openTestDatabase()
+	err = db.openDatabase(BandwidthDBName)
 	if err != nil {
-		return nil, err
+		return errs.Combine(err, db.closeDatabases())
 	}
 
-	db := &DB{
-		log:    log,
-		pieces: pieces,
-		kdb:    teststore.New(),
-		ndb:    teststore.New(),
-		adb:    teststore.New(),
-
-		// Initialize databases. Currently shares one info.db database file but
-		// in the future these will initialize their own database connections.
-		versionsDB:        newVersionsDB(versionsDB, versionsPath),
-		v0PieceInfoDB:     newV0PieceInfoDB(versionsDB, versionsPath),
-		bandwidthDB:       newBandwidthDB(versionsDB, versionsPath),
-		ordersDB:          newOrdersDB(versionsDB, versionsPath),
-		pieceExpirationDB: newPieceExpirationDB(versionsDB, versionsPath),
-		pieceSpaceUsedDB:  newPieceSpaceUsedDB(versionsDB, versionsPath),
-		reputationDB:      newReputationDB(versionsDB, versionsPath),
-		storageUsageDB:    newStorageusageDB(versionsDB, versionsPath),
-		usedSerialsDB:     newUsedSerialsDB(versionsDB, versionsPath),
-		satellitesDB:      newSatellitesDB(versionsDB, versionsPath),
+	err = db.openDatabase(OrdersDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
 	}
-	return db, nil
+
+	err = db.openDatabase(PieceExpirationDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(PieceInfoDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(PieceSpaceUsedDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(ReputationDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(StorageUsageDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(UsedSerialsDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(SatellitesDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+	return nil
+}
+
+func (db *DB) rawDatabaseFromName(dbName string) *sql.DB {
+	return db.sqlDatabases[dbName].GetDB()
 }
 
 // openDatabase opens or creates a database at the specified path.
-func openDatabase(path string) (*sql.DB, error) {
+func (db *DB) openDatabase(dbName string) error {
+	path := db.filepathFromDBName(dbName)
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, err
+		return ErrDatabase.Wrap(err)
 	}
 
-	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	sqlDB, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
-		return nil, ErrDatabase.Wrap(err)
+		return ErrDatabase.Wrap(err)
 	}
 
-	dbutil.Configure(db, mon)
-	return db, nil
+	mDB := db.sqlDatabases[dbName]
+	mDB.Configure(sqlDB)
+
+	dbutil.Configure(sqlDB, mon)
+
+	db.log.Debug(fmt.Sprintf("opened database %s", dbName))
+	return nil
 }
 
-// // openTestDatabase creates an in memory database.
-func openTestDatabase() (*sql.DB, error) {
-	// create memory DB with a shared cache and a unique name to avoid collisions
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()))
-	if err != nil {
-		return nil, ErrDatabase.Wrap(err)
-	}
+// filenameFromDBName returns a constructed filename for the specified database name.
+func (db *DB) filenameFromDBName(dbName string) string {
+	return dbName + ".db"
+}
 
-	// Set max idle and max open to 1 to control concurrent access to the memory DB
-	// Setting max open higher than 1 results in table locked errors
-	db.SetMaxIdleConns(1)
-	db.SetMaxOpenConns(1)
-	db.SetConnMaxLifetime(-1)
-
-	mon.Chain("db_stats", monkit.StatSourceFunc(
-		func(cb func(name string, val float64)) {
-			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
-		}))
-
-	return db, nil
+func (db *DB) filepathFromDBName(dbName string) string {
+	return filepath.Join(db.dbDirectory, db.filenameFromDBName(dbName))
 }
 
 // CreateTables creates any necessary tables.
-func (db *DB) CreateTables() error {
-	migration := db.Migration()
+func (db *DB) CreateTables(ctx context.Context) error {
+	migration := db.Migration(ctx)
 	return migration.Run(db.log.Named("migration"))
 }
 
 // Close closes any resources.
 func (db *DB) Close() error {
-	return errs.Combine(
-		db.kdb.Close(),
-		db.ndb.Close(),
-		db.adb.Close(),
-
-		db.versionsDB.Close(),
-		db.v0PieceInfoDB.Close(),
-		db.bandwidthDB.Close(),
-		db.ordersDB.Close(),
-		db.pieceExpirationDB.Close(),
-		db.pieceSpaceUsedDB.Close(),
-		db.reputationDB.Close(),
-		db.storageUsageDB.Close(),
-		db.usedSerialsDB.Close(),
-		db.satellitesDB.Close(),
-	)
+	return db.closeDatabases()
 }
 
-// Versions returns the instance of the versions database.
-func (db *DB) Versions() SQLDB {
-	return db.versionsDB
+// closeDatabases closes all the SQLite database connections and removes them from the associated maps.
+func (db *DB) closeDatabases() error {
+	var errlist errs.Group
+
+	for k := range db.sqlDatabases {
+		errlist.Add(db.closeDatabase(k))
+	}
+	return errlist.Err()
+}
+
+// closeDatabase closes the specified SQLite database connections and removes them from the associated maps.
+func (db *DB) closeDatabase(dbName string) (err error) {
+	mdb, ok := db.sqlDatabases[dbName]
+	if !ok {
+		return ErrDatabase.New("no database with name %s found. database was never opened or already closed.", dbName)
+	}
+	return ErrDatabase.Wrap(mdb.GetDB().Close())
 }
 
 // V0PieceInfo returns the instance of the V0PieceInfoDB database.
@@ -295,25 +306,62 @@ func (db *DB) UsedSerials() piecestore.UsedSerials {
 	return db.usedSerialsDB
 }
 
-// RoutingTable returns kademlia routing table
-func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
-	return db.kdb, db.ndb, db.adb
-}
-
 // RawDatabases are required for testing purposes
 func (db *DB) RawDatabases() map[string]SQLDB {
-	return map[string]SQLDB{
-		"versions": db.versionsDB,
+	return db.sqlDatabases
+}
+
+// migrateToDB is a helper method that performs the migration from the
+// deprecatedInfoDB to the specified new db. It first closes and deletes any
+// existing database to guarantee idempotence. After migration it also closes
+// and re-opens the new database to allow the system to recover used disk space.
+func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...string) error {
+	err := db.closeDatabase(dbName)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
 	}
+
+	path := db.filepathFromDBName(dbName)
+
+	if _, err := os.Stat(path); err == nil {
+		err = os.Remove(path)
+		if err != nil {
+			return ErrDatabase.Wrap(err)
+		}
+	}
+
+	err = db.openDatabase(dbName)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	err = sqliteutil.MigrateTablesToDatabase(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), db.rawDatabaseFromName(dbName), tablesToKeep...)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	// We need to close and re-open the database we have just migrated *to* in
+	// order to recover any excess disk usage that was freed in the VACUUM call
+	err = db.closeDatabase(dbName)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	err = db.openDatabase(dbName)
+	if err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	return nil
 }
 
 // Migration returns table migrations.
-func (db *DB) Migration() *migrate.Migration {
+func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 	return &migrate.Migration{
-		Table: "versions",
+		Table: VersionTable,
 		Steps: []*migrate.Step{
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
@@ -395,7 +443,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Network Wipe #2",
 				Version:     1,
 				Action: migrate.SQL{
@@ -403,7 +451,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add tracking of deletion failures.",
 				Version:     2,
 				Action: migrate.SQL{
@@ -411,7 +459,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add vouchersDB for storing and retrieving vouchers.",
 				Version:     3,
 				Action: migrate.SQL{
@@ -423,7 +471,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add index on pieceinfo expireation",
 				Version:     4,
 				Action: migrate.SQL{
@@ -432,7 +480,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
@@ -444,7 +492,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add creation date.",
 				Version:     6,
 				Action: migrate.SQL{
@@ -452,7 +500,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop certificate table.",
 				Version:     7,
 				Action: migrate.SQL{
@@ -461,7 +509,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
 				Version:     8,
 				Action: migrate.SQL{
@@ -470,7 +518,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add order limit table.",
 				Version:     9,
 				Action: migrate.SQL{
@@ -478,7 +526,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
@@ -489,7 +537,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Create bandwidth_usage_rollup table.",
 				Version:     11,
 				Action: migrate.SQL{
@@ -503,7 +551,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{
@@ -551,28 +599,23 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
-					// When using inmemory DB, skip deletion process
-					if db.versionsDB.location == "" {
-						return nil
-					}
-
-					err := os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
+					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
+					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
+					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					err = os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
+					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
@@ -581,16 +624,11 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
-					// When using inmemory DB, skip deletion process
-					if db.versionsDB.location == "" {
-						return nil
-					}
-
-					err := os.RemoveAll(filepath.Join(filepath.Dir(db.versionsDB.location), "tmp"))
+					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
@@ -599,7 +637,7 @@ func (db *DB) Migration() *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Start piece_expirations table, deprecate pieceinfo table",
 				Version:     15,
 				Action: migrate.SQL{
@@ -616,7 +654,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add reputation and storage usage cache tables",
 				Version:     16,
 				Action: migrate.SQL{
@@ -644,7 +682,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Create piece_space_used table",
 				Version:     17,
 				Action: migrate.SQL{
@@ -658,7 +696,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop vouchers table",
 				Version:     18,
 				Action: migrate.SQL{
@@ -666,7 +704,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Add disqualified field to reputation",
 				Version:     19,
 				Action: migrate.SQL{
@@ -690,7 +728,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
 				Version:     20,
 				Action: migrate.SQL{
@@ -704,7 +742,7 @@ func (db *DB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.versionsDB,
+				DB:          db.deprecatedInfoDB,
 				Description: "Create satellites table and satellites_exit_progress table",
 				Version:     21,
 				Action: migrate.SQL{
@@ -725,6 +763,71 @@ func (db *DB) Migration() *migrate.Migration {
 						PRIMARY KEY (satellite_id)
 					)`,
 				},
+			},
+			{
+				DB:          db.deprecatedInfoDB,
+				Description: "Split into multiple sqlite databases",
+				Version:     22,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					// Migrate all the tables to new database files.
+					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateToDB(ctx, OrdersDBName, "unsent_order", "order_archive_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateToDB(ctx, PieceExpirationDBName, "piece_expirations"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateToDB(ctx, PieceInfoDBName, "pieceinfo_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateToDB(ctx, PieceSpaceUsedDBName, "piece_space_used"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateToDB(ctx, ReputationDBName, "reputation"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateToDB(ctx, StorageUsageDBName, "storage_usage"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateToDB(ctx, UsedSerialsDBName, "used_serial_"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.migrateToDB(ctx, SatellitesDBName, "satellites", "satellite_exit_progress"); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          db.deprecatedInfoDB,
+				Description: "Drop unneeded tables in deprecatedInfoDB",
+				Version:     23,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
+					// in migration step 23 because if we were to keep that as part of step 22
+					// and an error occurred it would replay the entire migration but some tables
+					// may have successfully dropped and we would experience unrecoverable data loss.
+					// This way if step 22 completes it never gets replayed even if a drop table or
+					// VACUUM call fails.
+					if err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), VersionTable); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					// Close the deprecated db in order to free up unused
+					// disk space
+					if err := db.closeDatabase(DeprecatedInfoDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					if err := db.openDatabase(DeprecatedInfoDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				}),
 			},
 		},
 	}

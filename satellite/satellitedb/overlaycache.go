@@ -1338,3 +1338,128 @@ func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) db
 
 	return updateFields
 }
+
+// UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
+func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if node.Address.GetAddress() == "" {
+		return Error.New("error UpdateCheckIn: missing the storage node address")
+	}
+
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		value := pb.Node{
+			Id:      node.NodeID,
+			Address: node.Address,
+			LastIp:  node.LastIP,
+		}
+		err := cache.UpdateAddress(ctx, &value, config)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		_, err = cache.UpdateUptime(ctx, node.NodeID, node.IsUp, config.UptimeReputationLambda, config.UptimeReputationWeight, config.UptimeReputationDQ)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		pbInfo := pb.InfoResponse{
+			Operator: node.Operator,
+			Capacity: node.Capacity,
+			Type:     pb.NodeType_STORAGE,
+		}
+		_, err = cache.UpdateNodeInfo(ctx, node.NodeID, &pbInfo)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	case *pq.Driver:
+		// v is a single feedback value that allows us to update both alpha and beta
+		var v float64 = -1
+		if node.IsUp {
+			v = 1
+		}
+		uptimeReputationAlpha := config.UptimeReputationLambda*config.UptimeReputationAlpha0 + config.UptimeReputationWeight*(1+v)/2
+		uptimeReputationBeta := config.UptimeReputationLambda*config.UptimeReputationBeta0 + config.UptimeReputationWeight*(1-v)/2
+		semVer, err := version.NewSemVer(node.Version.GetVersion())
+		if err != nil {
+			return Error.New("unable to convert version to semVer")
+		}
+		start := time.Now()
+		query := `
+			INSERT INTO nodes
+			(
+				id, address, last_net, protocol, type,
+				email, wallet, free_bandwidth, free_disk,
+				uptime_success_count, total_uptime_count, 
+				last_contact_success,
+				last_contact_failure,
+				audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
+				major, minor, patch, hash, timestamp, release
+			)
+			VALUES (
+				$1, $2, $3, $4, $5,
+				$6, $7, $8, $9,
+				$10::bool::int, 1,
+				CASE WHEN $10 IS TRUE THEN current_timestamp
+					ELSE '0001-01-01 00:00:00+00'
+				END,
+				CASE WHEN $10 IS FALSE THEN current_timestamp
+					ELSE '0001-01-01 00:00:00+00'
+				END,
+				$11, $12, $13, $14,
+				$18, $19, $20, $21, $22, $23
+			)
+			ON CONFLICT (id)
+			DO UPDATE
+			SET
+				address=$2,
+				last_net=$3,
+				protocol=$4,
+				email=$6,
+				wallet=$7,
+				free_bandwidth=$8,
+				free_disk=$9,
+				total_uptime_count=nodes.total_uptime_count+1,
+				uptime_reputation_alpha=$16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int,
+				uptime_reputation_beta=$16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int,
+				uptime_success_count = nodes.uptime_success_count + $10::bool::int,
+				last_contact_success = CASE WHEN $10 IS TRUE
+					THEN current_timestamp
+					ELSE nodes.last_contact_success
+				END,
+				last_contact_failure = CASE WHEN $10 IS FALSE
+					THEN current_timestamp
+					ELSE nodes.last_contact_failure
+				END,
+				-- this disqualified case statement resolves to: 
+				-- when (new.uptime_reputation_alpha /(new.uptime_reputation_alpha + new.uptime_reputation_beta)) <= config.UptimeReputationDQ
+				disqualified = CASE WHEN (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) / (($16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int) + ($16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int))) <= $15 AND nodes.disqualified IS NULL
+					THEN current_timestamp
+					ELSE nodes.disqualified
+				END;
+			`
+		_, err = cache.db.ExecContext(ctx, query,
+			// args $1 - $5
+			node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
+			// args $6 - $9
+			node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
+			// args $10
+			node.IsUp,
+			// args $11 - $14
+			config.AuditReputationAlpha0, config.AuditReputationBeta0, uptimeReputationAlpha, uptimeReputationBeta,
+			// args $15 - $17
+			config.UptimeReputationDQ, config.UptimeReputationLambda, config.UptimeReputationWeight,
+			// args $18 - $23
+			semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
+		)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		mon.FloatVal("UpdateCheckIn query execution time (seconds)").Observe(time.Since(start).Seconds())
+	default:
+		return Error.New("Unsupported database %t", t)
+	}
+
+	return nil
+}

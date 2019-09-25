@@ -161,7 +161,8 @@ func (s *segmentStore) Get(ctx context.Context, streamID storj.StreamID, segment
 	}
 
 	switch {
-	case len(info.EncryptedInlineData) != 0:
+	// no order limits also means its inline segment
+	case len(info.EncryptedInlineData) != 0 || len(limits) == 0:
 		return ranger.ByteRanger(info.EncryptedInlineData), info.SegmentEncryption, nil
 	default:
 		needed := CalcNeededNodes(objectRS)
@@ -208,7 +209,7 @@ func (s *segmentStore) Get(ctx context.Context, streamID storj.StreamID, segment
 func (s *segmentStore) Delete(ctx context.Context, streamID storj.StreamID, segmentIndex int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segmentID, limits, privateKey, err := s.metainfo.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
+	_, limits, privateKey, err := s.metainfo.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
 		StreamID: streamID,
 		Position: storj.SegmentPosition{
 			Index: segmentIndex,
@@ -226,13 +227,8 @@ func (s *segmentStore) Delete(ctx context.Context, streamID storj.StreamID, segm
 		}
 	}
 
-	err = s.metainfo.FinishDeleteSegment(ctx, metainfo.FinishDeleteSegmentParams{
-		SegmentID: segmentID,
-		// TODO add delete results
-	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	// don't do FinishDeleteSegment at the moment to avoid satellite round trip
+	// FinishDeleteSegment doesn't implement any specific logic at the moment
 
 	return nil
 }

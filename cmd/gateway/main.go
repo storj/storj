@@ -134,7 +134,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		address = net.JoinHostPort("127.0.0.1", port)
 	}
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	if err := process.InitMetrics(ctx, zap.L(), nil, ""); err != nil {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
@@ -274,7 +274,7 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 
 // interactive creates the configuration of the gateway interactively.
 func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
