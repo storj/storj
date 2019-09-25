@@ -22,14 +22,14 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import InfoComponent from '@/app/components/InfoComponent.vue';
+import InfoComponent from '@/app/components/VInfo.vue';
 
 @Component ({
     components: {
         InfoComponent,
     },
 })
-export default class ChecksAreaContainer extends Vue {
+export default class ChecksArea extends Vue {
     @Prop({default: ''})
     private readonly label: string;
     @Prop({default: ''})

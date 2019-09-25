@@ -16,8 +16,8 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import Bar from '@/app/components/Bar.vue';
-import InfoComponent from '@/app/components/InfoComponent.vue';
+import Bar from '@/app/components/VBar.vue';
+import InfoComponent from '@/app/components/VInfo.vue';
 
 @Component ({
     components: {
@@ -25,7 +25,7 @@ import InfoComponent from '@/app/components/InfoComponent.vue';
         InfoComponent,
     },
 })
-export default class BarInfoContainer extends Vue {
+export default class BarInfo extends Vue {
     @Prop({default: ''})
     private readonly label: string;
     @Prop({default: ''})

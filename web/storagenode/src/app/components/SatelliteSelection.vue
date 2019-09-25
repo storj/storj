@@ -24,7 +24,7 @@ import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
         SatelliteSelectionDropdown,
     },
 })
-export default class SatelliteSelectionContainer extends Vue {
+export default class SatelliteSelection extends Vue {
     @Prop({default: ''})
     private readonly label: string;
 

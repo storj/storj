@@ -21,7 +21,7 @@
     import { Component, Prop, Vue } from 'vue-property-decorator';
 
     @Component
-    export default class PayoutContainer extends Vue {
+    export default class PayoutArea extends Vue {
         @Prop({default: ''})
         private readonly label: string;
         @Prop({default: ''})
