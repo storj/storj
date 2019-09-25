@@ -43,15 +43,18 @@ const bucketsModule = makeBucketsModule(new BucketsMock());
 const usageModule = makeUsageModule(new ProjectUsageMock());
 const notificationsModule = makeNotificationsModule();
 
-const store = new Vuex.Store({ modules: {
-    notificationsModule,
-    usageModule,
-    bucketsModule,
-    apiKeysModule,
-     usersModule,
-     projectsModule,
-     appStateModule,
-     teamMembersModule }});
+const store = new Vuex.Store({
+    modules: {
+        notificationsModule,
+        usageModule,
+        bucketsModule,
+        apiKeysModule,
+        usersModule,
+        projectsModule,
+        appStateModule,
+        teamMembersModule,
+    },
+});
 
 describe('Dashboard', () => {
     beforeEach(() => {
@@ -110,14 +113,14 @@ describe('Dashboard', () => {
         jest.spyOn(AuthToken, 'get').mockReturnValue('authToken');
 
         const unavailableWithoutProject = [
-            RouteConfig.ApiKeys,
-            RouteConfig.Buckets,
-            RouteConfig.Team,
-            RouteConfig.ProjectOverview.with(RouteConfig.UsageReport),
+            RouteConfig.ApiKeys.path,
+            RouteConfig.Buckets.path,
+            RouteConfig.Team.path,
+            RouteConfig.ProjectOverview.with(RouteConfig.UsageReport).path,
         ];
 
         for (let i = 0; i < unavailableWithoutProject.length; i++) {
-            await router.push(unavailableWithoutProject[i].path);
+            await router.push(unavailableWithoutProject[i]);
 
             const wrapper = await shallowMount(Dashboard, {
                 localVue,
