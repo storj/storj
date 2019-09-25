@@ -26,6 +26,9 @@ import Register from '@/views/register/Register.vue';
 
 Vue.use(Router);
 
+/**
+ * RouteConfig contains information about all routes and subroutes
+ */
 export abstract class RouteConfig {
     // root paths
     public static Root = new NavigationLink('/', 'Root');
@@ -158,13 +161,13 @@ router.beforeEach((to, from, next) => {
         }
     }
 
-    if (navigateToFirstSubTab(to.matched, RouteConfig.Account)) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Profile).path);
 
         return;
     }
 
-    if (navigateToFirstSubTab(to.matched, RouteConfig.ProjectOverview)) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.ProjectOverview)) {
         next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
 
         return;
@@ -186,7 +189,7 @@ router.beforeEach((to, from, next) => {
  * @param next - callback to process next route
  * @param tabRoute - tabNavigator route
  */
-function navigateToFirstSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
+function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
     return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
 
