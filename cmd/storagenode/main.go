@@ -302,38 +302,44 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// maps deprecated config values to new values if applicable
 func mapConfigs(log *zap.Logger) {
-	// External Address
-	if runCfg.Contact.ExternalAddress != "" && runCfg.Kademlia.ExternalAddress != "" {
-		log.Warn("Both contact.external-address and kademlia.external-address are designated in your config.yaml. " +
-			"kademlia.external-address is deprecated. " + "Using contact.external-address. " + "Please update your config")
+	type config struct {
+		new     *string
+		newFlag string
+		old     *string
+		oldFlag string
 	}
-	if runCfg.Contact.ExternalAddress == "" {
-		externalAddress := runCfg.Kademlia.ExternalAddress
-		runCfg.Contact.ExternalAddress = externalAddress
-		log.Warn("kademlia.external-address is deprecated. Please update your config file with contact.external-address.")
+	configs := []config{
+		{
+			new:     &runCfg.Contact.ExternalAddress,
+			newFlag: "contact.external-address",
+			old:     &runCfg.Kademlia.ExternalAddress,
+			oldFlag: "kademlia.external-address",
+		},
+		{
+			new:     &runCfg.Operator.Wallet,
+			newFlag: "operator.wallet",
+			old:     &runCfg.Kademlia.Operator.Wallet,
+			oldFlag: "kademlia.operator.wallet",
+		},
+		{
+			new:     &runCfg.Operator.Email,
+			newFlag: "operator.email",
+			old:     &runCfg.Kademlia.Operator.Email,
+			oldFlag: "kademlia.operator.email",
+		},
 	}
 
-	// Operator Wallet
-	if runCfg.Operator.Wallet != "" && runCfg.Kademlia.Operator.Wallet != "" {
-		log.Warn("Both operator.wallet and kademlia.operator.wallet are designated in your config.yaml. " +
-			"kademlia.operator.wallet is deprecated. " + "Using operator.wallet. " + "Please update your config")
-	}
-	if runCfg.Operator.Wallet == "" {
-		wallet := runCfg.Kademlia.Operator.Wallet
-		runCfg.Operator.Wallet = wallet
-		log.Warn("kademlia.operator.wallet is deprecated. Please update your config file with operator.wallet.")
-	}
-
-	// Operator Email
-	if runCfg.Operator.Email != "" && runCfg.Kademlia.Operator.Email != "" {
-		log.Warn("Both operator.email and kademlia.operator.email are designated in your config.yaml. " +
-			"kademlia.operator.email is deprecated. " + "Using operator.email. " + "Please update your config")
-	}
-	if runCfg.Operator.Email == "" {
-		email := runCfg.Kademlia.Operator.Email
-		runCfg.Operator.Email = email
-		log.Warn("kademlia.operator.email is deprecated. Please update your config file with operator.email.")
+	for _, config := range configs {
+		if *config.new != "" && *config.old != "" {
+			log.Warn("Both " + config.newFlag + " and " + config.oldFlag + " are designated in your config.yaml. " +
+				config.oldFlag + " is deprecated. Using" + config.newFlag + ". Please update your config")
+		}
+		if *config.new == "" {
+			*config.new = *config.old
+			log.Warn(config.oldFlag + " is deprecated. Please update your config file with " + config.newFlag + ".")
+		}
 	}
 }
 
