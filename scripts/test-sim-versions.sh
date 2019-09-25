@@ -52,8 +52,8 @@ setup_stage(){
 
     local src_sat_version_dir=$(version_dir ${sat_version})
 
-    PATH=$src_sat_version_dir/bin:$PATH src_sat_cfg_dir=$(storj-sim network env SATELLITE_0_DIR)
-    PATH=$test_dir/bin:$PATH dest_sat_cfg_dir=$(storj-sim network env SATELLITE_0_DIR)
+    PATH=$src_sat_version_dir/bin:$PATH src_sat_cfg_dir=$(storj-sim network env --config-dir=${src_sat_version_dir}/local-network/ SATELLITE_0_DIR)
+    PATH=$test_dir/bin:$PATH dest_sat_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ SATELLITE_0_DIR)
     echo "src_sat_version_dir" ${src_sat_version_dir}
     echo "test_dir" ${test_dir}
     echo "$src_sat_version_dir/bin" $(ls $src_sat_version_dir/bin)
@@ -69,8 +69,8 @@ setup_stage(){
     for sn_version in ${stage_sn_versions}; do
         local src_sn_version_dir=$(version_dir ${sn_version})
 
-        PATH=$src_sn_version_dir/bin:$PATH src_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
-        PATH=$test_dir/bin:$PATH dest_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
+        PATH=$src_sn_version_dir/bin:$PATH src_sn_cfg_dir=$(storj-sim network env --config-dir=${src_sn_version_dir}/local-network/ STORAGENODE_${counter}_DIR)
+        PATH=$test_dir/bin:$PATH dest_sn_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ STORAGENODE_${counter}_DIR)
 
         # ln binary and copy config.yaml for desired version
         ln -f $src_sn_version_dir/bin/storagenode $dest_sn_cfg_dir/storagenode
@@ -80,11 +80,11 @@ setup_stage(){
     done
 
     # use desired uplink binary and config
-    ul_src_version_dir=$(version_dir ${stage_ul_version})
-    PATH=$ul_src_version_dir/bin:$PATH src_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
-    PATH=$test_dir/bin:$PATH dest_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
+    src_ul_version_dir=$(version_dir ${stage_ul_version})
+    PATH=$src_ul_version_dir/bin:$PATH src_ul_cfg_dir=$(storj-sim network env --config-dir=${src_ul_version_dir}/local-network/ GATEWAY_0_DIR)
+    PATH=$test_dir/bin:$PATH dest_ul_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_DIR)
     cp $src_ul_cfg_dir/config.yaml $dest_ul_cfg_dir
-    ln -f $ul_src_version_dir/bin/uplink $test_dir/bin/uplink
+    ln -f $src_ul_version_dir/bin/uplink $test_dir/bin/uplink
 }
 
 # Set up each environment
