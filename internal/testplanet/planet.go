@@ -222,6 +222,7 @@ func (planet *Planet) Start(ctx context.Context) {
 
 	var group errgroup.Group
 	for _, peer := range planet.StorageNodes {
+		peer := peer
 		group.Go(func() error {
 			peer.Storage2.Monitor.Loop.TriggerWait()
 			peer.Contact.Chore.Loop.TriggerWait()
