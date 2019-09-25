@@ -7,7 +7,7 @@
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p class="buckets-header__title">Buckets</p>
-                <HeaderComponent
+                <VHeader
                     class="buckets-header-component"
                     placeholder="Buckets"
                     :search="fetch"/>
@@ -23,11 +23,11 @@
             </div>
             <div v-if="buckets.length" class="buckets-container">
                 <SortingHeader />
-                <List
+                <VList
                     :data-set="buckets"
                     :item-component="itemComponent"
                     :on-item-click="doNothing"/>
-                <Pagination
+                <VPagination
                     v-if="totalPageCount > 1"
                     :total-page-count="totalPageCount"
                     :on-page-click-callback="onPageClick" />
@@ -48,9 +48,9 @@ import BucketItem from '@/components/buckets/BucketItem.vue';
 import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
 import SortingHeader from '@/components/buckets/SortingHeader.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
-import HeaderComponent from '@/components/common/VHeader.vue';
-import List from '@/components/common/VList.vue';
-import Pagination from '@/components/common/VPagination.vue';
+import VHeader from '@/components/common/VHeader.vue';
+import VList from '@/components/common/VList.vue';
+import VPagination from '@/components/common/VPagination.vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Bucket } from '@/types/buckets';
@@ -68,9 +68,9 @@ const {
         SortingHeader,
         BucketItem,
         NoBucketArea,
-        HeaderComponent,
-        Pagination,
-        List,
+        VHeader,
+        VPagination,
+        VList,
     },
 })
 export default class BucketArea extends Vue {

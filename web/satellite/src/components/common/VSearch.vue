@@ -24,7 +24,7 @@ declare interface SearchStyle {
 }
 
 @Component
-export default class SearchComponent extends Vue {
+export default class VSearch extends Vue {
     @Prop({default: ''})
     private readonly placeholder: string;
     @Prop({default: () => ''})

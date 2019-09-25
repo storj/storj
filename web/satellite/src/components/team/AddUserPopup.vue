@@ -42,13 +42,13 @@
                         </div>
                     </div>
                     <div class='add-user__form-container__button-container'>
-                        <Button
+                        <VButton
                             label='Cancel'
                             width='205px'
                             height='48px'
                             :on-press="onClose"
                             is-white="true"/>
-                        <Button
+                        <VButton
                             label='Add Team Members'
                             width='205px'
                             height='48px'
@@ -78,7 +78,7 @@
 <script lang='ts'>
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
@@ -88,7 +88,7 @@ import { validateEmail } from '@/utils/validation';
 
 @Component({
     components: {
-        Button,
+        VButton,
     },
 })
 export default class AddUserPopup extends Vue {

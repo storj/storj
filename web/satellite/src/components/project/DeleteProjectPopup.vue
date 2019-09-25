@@ -60,13 +60,13 @@
                         @keyup="resetError" >
                 </div>
                 <div class="delete-project-popup__form-container__button-container">
-                    <Button
+                    <VButton
                         label="Cancel"
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
                         is-white="true"/>
-                    <Button 
+                    <VButton
                         label="Delete"
                         width="205px" 
                         height="48px" 
@@ -87,7 +87,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -101,7 +101,7 @@ import {
 
 @Component({
     components: {
-        Button,
+        VButton,
     },
 })
 export default class DeleteProjectPopup extends Vue {

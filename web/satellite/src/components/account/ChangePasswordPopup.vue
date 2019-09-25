@@ -41,13 +41,13 @@
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation" />
                 <div class="change-password-popup__form-container__button-container">
-                    <Button
+                    <VButton
                         label="Cancel"
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
                         is-white="true" />
-                    <Button
+                    <VButton
                         label="Update"
                         width="205px"
                         height="48px"
@@ -67,7 +67,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { AuthApi } from '@/api/auth';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
@@ -76,7 +76,7 @@ import { validatePassword } from '@/utils/validation';
 @Component({
     components: {
         HeaderlessInput,
-        Button,
+        VButton,
     },
 })
 export default class ChangePasswordPopup extends Vue {

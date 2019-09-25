@@ -25,8 +25,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-
 @Component
 export default class PaginationArea extends Vue {}
 </script>

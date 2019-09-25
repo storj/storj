@@ -34,7 +34,7 @@
                 </svg>
             </div>
         </div>
-        <Button
+        <VButton
             class="payment-methods-container__add-button"
             label="Add Card"
             width="140px"
@@ -46,11 +46,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 @Component({
     components: {
-        Button,
+        VButton,
     },
 })
 export default class AccountPaymentMethods extends Vue {}

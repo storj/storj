@@ -17,7 +17,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component
-export default class InfoComponent extends Vue {
+export default class VInfo extends Vue {
     private isVisible: boolean = false;
 
     @Prop({default: ''})

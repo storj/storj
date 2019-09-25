@@ -4,11 +4,11 @@
 <template src="./page40X.html"></template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    // 404 component on page not found error
-    export default class Page404 extends Vue {}
+@Component
+// 404 component on page not found error
+export default class Page404 extends Vue {}
 </script>
 
 <style scoped lang="scss">

@@ -29,13 +29,13 @@
                     :init-value="userInfo.shortName"
                     @setData="setShortName"/>
                 <div class="edit-profile-popup__form-container__button-container">
-                    <Button
+                    <VButton
                         label="Cancel"
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
                         is-white="true" />
-                    <Button
+                    <VButton
                         label="Update"
                         width="205px"
                         height="48px"
@@ -55,7 +55,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
@@ -64,7 +64,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actio
 @Component({
     components: {
         HeaderedInput,
-        Button,
+        VButton,
     },
 })
 export default class EditProfilePopup extends Vue {

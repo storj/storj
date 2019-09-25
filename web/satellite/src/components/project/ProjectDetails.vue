@@ -33,13 +33,13 @@
                         is-multiline="true"
                         @setData="setNewDescription" />
                     <div class="project-details-info-container__description-container__buttons-area">
-                        <Button
+                        <VButton
                             label="Cancel"
                             width="180px"
                             height="48px"
                             :on-press="toggleEditing"
                             is-white="true"/>
-                        <Button
+                        <VButton
                             label="Save"
                             width="180px"
                             height="48px"
@@ -48,7 +48,7 @@
                 </div>
             </div>
             <div class="project-details__button-area" id="deleteProjectPopupButton">
-                <Button
+                <VButton
                     class="delete-project"
                     label="Delete project"
                     width="180px"
@@ -66,8 +66,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import Button from '@/components/common/VButton.vue';
-import Checkbox from '@/components/common/VCheckbox.vue';
+import VButton from '@/components/common/VButton.vue';
 import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
 
 import { RouteConfig } from '@/router';
@@ -77,9 +76,8 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actio
 
 @Component({
     components: {
-        Button,
+        VButton,
         HeaderedInput,
-        Checkbox,
         EmptyState,
         DeleteProjectPopup,
     },

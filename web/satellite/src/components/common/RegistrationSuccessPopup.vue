@@ -6,7 +6,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -15,7 +15,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actio
 
 @Component({
     components: {
-        Button,
+        VButton,
     },
 })
 export default class RegistrationSuccessPopup extends Vue {

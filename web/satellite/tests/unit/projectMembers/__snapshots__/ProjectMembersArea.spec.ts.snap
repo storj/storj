@@ -90,9 +90,9 @@ exports[`ProjectMembersArea.vue team area renders correctly 1`] = `
   <div id="team-container" class="team-area__container">
     <sortinglistheader-stub onheaderclickcallback="function () { [native code] }"></sortinglistheader-stub>
     <div class="team-area__container__content">
-      <list-stub itemcomponent="function VueComponent (options) {
+      <vlist-stub itemcomponent="function VueComponent (options) {
       this._init(options);
-    }" onitemclick="function () { [native code] }" dataset="[object Object]"></list-stub>
+    }" onitemclick="function () { [native code] }" dataset="[object Object]"></vlist-stub>
     </div>
     <!---->
   </div>

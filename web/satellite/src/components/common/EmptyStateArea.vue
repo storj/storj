@@ -7,7 +7,7 @@
             <h1 class="empty-state__wrap__title">{{mainTitle}}</h1>
             <div class="empty-state__wrap__additional-text" v-html="additionalText"></div>
             <div v-if="isButtonShown">
-                <Button
+                <VButton
                     :on-press="onButtonClick"
                     :label="buttonLabel"
                     width="190px"
@@ -21,11 +21,11 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 @Component({
     components: {
-        Button,
+        VButton,
     },
 })
 export default class EmptyStateProjectArea extends Vue {

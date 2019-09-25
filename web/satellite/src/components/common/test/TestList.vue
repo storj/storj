@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <List
+    <VList
         :data-set="dataSetItems"
         :item-component="getItemComponent"
         :on-item-click="onItemClick"/>
@@ -12,11 +12,11 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import TestListItem from '@/components/common/test/TestListItem.vue';
-import List from '@/components/common/VList.vue';
+import VList from '@/components/common/VList.vue';
 
 @Component({
     components: {
-        List,
+        VList,
     },
 })
 export default class TestList extends Vue {

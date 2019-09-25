@@ -35,13 +35,13 @@
                     <a class="project-creation-success-popup__form-container__confirmation-text__link" href="https://github.com/storj/storj/wiki/Uplink-CLI" target="_blank">Uplink CLI.</a>
                 </p>
                 <div class="project-creation-success-popup__form-container__button-container">
-                    <Button
+                    <VButton
                         label="I will do it later"
                         width="214px"
                         height="50px"
                         :on-press="onCloseClick"
                         is-white="true" />
-                    <Button
+                    <VButton
                         label="Create first API Key"
                         width="214px"
                         height="50px"
@@ -60,14 +60,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
-        Button,
+        VButton,
     },
 })
 export default class ProjectCreationSuccessPopup extends Vue {

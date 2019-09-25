@@ -30,13 +30,13 @@
                     @setData="setProjectDescription">
                 </HeaderedInput>
                 <div class="new-project-popup__form-container__button-container">
-                    <Button
+                    <VButton
                         label="Cancel"
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
                         is-white="true"/>
-                    <Button
+                    <VButton
                         label="Next"
                         width="205px"
                         height="48px"
@@ -56,8 +56,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import Button from '@/components/common/VButton.vue';
-import Checkbox from '@/components/common/VCheckbox.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -73,8 +72,7 @@ import {
 @Component({
     components: {
         HeaderedInput,
-        Checkbox,
-        Button,
+        VButton,
     },
 })
 export default class NewProjectPopup extends Vue {

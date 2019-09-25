@@ -11,12 +11,12 @@
         <div class="team-area__container" id="team-container" v-if="projectMembersCount > 0 || projectMembersTotalCount > 0">
             <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
             <div class="team-area__container__content">
-                <List
+                <VList
                     :data-set="projectMembers"
                     :item-component="getItemComponent"
                     :on-item-click="onMemberClick"/>
             </div>
-            <Pagination
+            <VPagination
                 v-if="totalPageCount > 1"
                 class="pagination-area"
                 ref="pagination"
@@ -62,8 +62,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import List from '@/components/common/VList.vue';
-import Pagination from '@/components/common/VPagination.vue';
+import VList from '@/components/common/VList.vue';
+import VPagination from '@/components/common/VPagination.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
 import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
 import SortingListHeader from '@/components/team/SortingListHeader.vue';
@@ -75,8 +75,8 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
 @Component({
     components: {
         HeaderArea,
-        List,
-        Pagination,
+        VList,
+        VPagination,
         SortingListHeader,
     },
 })
@@ -140,7 +140,7 @@ export default class ProjectMembersArea extends Vue {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
 
-        (this.$refs.pagination as Pagination).resetPageIndex();
+        (this.$refs.pagination as VPagination).resetPageIndex();
     }
 }
 </script>

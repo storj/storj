@@ -46,10 +46,10 @@
                 <!--Stripe card input here-->
             </div>
             <div class="add-stripe-card-popup-container__checkbox-container">
-                <Checkbox />
+                <VCheckbox />
                 <h2 class="add-stripe-card-popup-container__checkbox-container__title">Make this card default payment method</h2>
             </div>
-            <Button
+            <VButton
                 label="Save Card"
                 height="48px"
                 width="100%"/>
@@ -65,13 +65,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/VButton.vue';
-import Checkbox from '@/components/common/VCheckbox.vue';
+import VButton from '@/components/common/VButton.vue';
+import VCheckbox from '@/components/common/VCheckbox.vue';
 
 @Component({
     components: {
-        Checkbox,
-        Button,
+        VCheckbox,
+        VButton,
     },
 })
 

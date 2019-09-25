@@ -16,7 +16,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 // Custom button component with label
 @Component
-export default class Button extends Vue {
+export default class VButton extends Vue {
     @Prop({default: 'Default'})
     private readonly label: string;
     @Prop({default: 'inherit'})

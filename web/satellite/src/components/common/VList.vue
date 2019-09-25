@@ -15,19 +15,19 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    declare type listItemClickCallback = (item: any) => Promise<void>;
+declare type listItemClickCallback = (item: any) => Promise<void>;
 
-    @Component
-    export default class List extends Vue {
-        @Prop({default: ''})
-        private readonly itemComponent: string;
-        @Prop({default: () => new Promise(() => false)})
-        private readonly onItemClick: listItemClickCallback;
-        @Prop({default: Array()})
-        private readonly dataSet: any[];
-    }
+@Component
+export default class VList extends Vue {
+    @Prop({default: ''})
+    private readonly itemComponent: string;
+    @Prop({default: () => new Promise(() => false)})
+    private readonly onItemClick: listItemClickCallback;
+    @Prop({default: Array()})
+    private readonly dataSet: any[];
+}
 </script>
 
 <style scoped lang="scss">

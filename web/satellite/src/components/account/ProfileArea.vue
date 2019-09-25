@@ -53,7 +53,7 @@
             </div>
         </div>
         <div class="profile-container__button-area">
-            <Button
+            <VButton
                 class="profile-container__button-area__delete-button"
                 label="Delete account"
                 width="210px"
@@ -73,7 +73,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
 import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
 import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
@@ -81,7 +81,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
-        Button,
+        VButton,
         DeleteAccountPopup,
         ChangePasswordPopup,
         EditProfilePopup,

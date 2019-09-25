@@ -7,7 +7,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import Button from '@/components/common/VButton.vue';
 
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -20,7 +19,6 @@ import { validateEmail, validatePassword } from '@/utils/validation';
 @Component({
     components: {
         HeaderlessInput,
-        Button,
     },
 })
 export default class Login extends Vue {

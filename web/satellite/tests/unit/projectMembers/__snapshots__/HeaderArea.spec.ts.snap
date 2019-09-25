@@ -4,13 +4,13 @@ exports[`Team HeaderArea renders correctly 1`] = `
 <div class="team-header-container">
   <h1 class="team-header-container__title">Project Members</h1>
   <div class="team-header-container__wrapper">
-    <headercomponent-stub placeholder="Team Members" search="function () { [native code] }">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
       <div class="header-default-state"><span class="header-default-state__info-text">The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
-        <button-stub label="+Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></button-stub>
+        <vbutton-stub label="+Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></vbutton-stub>
       </div>
       <!---->
       <!---->
-    </headercomponent-stub>
+    </vheader-stub>
     <!---->
     <!---->
   </div>
@@ -22,16 +22,16 @@ exports[`Team HeaderArea renders correctly with 1 selected user and delete click
 <div class="team-header-container">
   <h1 class="team-header-container__title">Project Members</h1>
   <div class="team-header-container__wrapper">
-    <headercomponent-stub placeholder="Team Members" search="function () { [native code] }">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
       <!---->
       <!---->
       <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete 1 user?</span>
         <div class="header-after-delete-click__button-area">
-          <button-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></button-stub>
-          <button-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></button-stub>
+          <vbutton-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></vbutton-stub>
+          <vbutton-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
         </div>
       </div>
-    </headercomponent-stub>
+    </vheader-stub>
     <div class="blur-content"></div>
     <div class="blur-search"></div>
   </div>
@@ -43,16 +43,16 @@ exports[`Team HeaderArea renders correctly with 2 selected users and delete clic
 <div class="team-header-container">
   <h1 class="team-header-container__title">Project Members</h1>
   <div class="team-header-container__wrapper">
-    <headercomponent-stub placeholder="Team Members" search="function () { [native code] }">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
       <!---->
       <!---->
       <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete 2 users?</span>
         <div class="header-after-delete-click__button-area">
-          <button-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></button-stub>
-          <button-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></button-stub>
+          <vbutton-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></vbutton-stub>
+          <vbutton-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
         </div>
       </div>
-    </headercomponent-stub>
+    </vheader-stub>
     <div class="blur-content"></div>
     <div class="blur-search"></div>
   </div>
@@ -64,13 +64,13 @@ exports[`Team HeaderArea renders correctly with opened Add team member popup 1`]
 <div class="team-header-container">
   <h1 class="team-header-container__title">Project Members</h1>
   <div class="team-header-container__wrapper">
-    <headercomponent-stub placeholder="Team Members" search="function () { [native code] }">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
       <div class="header-default-state"><span class="header-default-state__info-text">The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
-        <button-stub label="+Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></button-stub>
+        <vbutton-stub label="+Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></vbutton-stub>
       </div>
       <!---->
       <!---->
-    </headercomponent-stub>
+    </vheader-stub>
     <!---->
     <!---->
   </div>
@@ -82,14 +82,14 @@ exports[`Team HeaderArea renders correctly with selected users 1`] = `
 <div class="team-header-container">
   <h1 class="team-header-container__title">Project Members</h1>
   <div class="team-header-container__wrapper">
-    <headercomponent-stub placeholder="Team Members" search="function () { [native code] }">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
       <!---->
       <div class="header-selected-members">
-        <button-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></button-stub>
-        <button-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></button-stub>
+        <vbutton-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></vbutton-stub>
+        <vbutton-stub label="Cancel" width="122px" height="48px" iswhite="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
       </div>
       <!---->
-    </headercomponent-stub>
+    </vheader-stub>
     <!---->
     <!---->
   </div>

@@ -10,7 +10,7 @@
             placeholder="Enter API Key Name"
             class="full-input"
             width="100%" />
-        <Button
+        <VButton
             class="next-button"
             label="Next >"
             width="128px"
@@ -29,7 +29,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { ApiKey } from '@/types/apiKeys';
 import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
@@ -39,7 +39,7 @@ const CREATE = API_KEYS_ACTIONS.CREATE;
 @Component({
     components: {
         HeaderlessInput,
-        Button,
+        VButton,
     },
 })
 export default class ApiKeysCreationPopup extends Vue {

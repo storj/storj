@@ -5,13 +5,13 @@
     <div class="team-header-container">
 	    <h1 class="team-header-container__title">Project Members</h1>
 	    <div class="team-header-container__wrapper">
-            <HeaderComponent
+            <VHeader
                 ref="headerComponent"
                 placeholder="Team Members"
                 :search="processSearchQuery">
                     <div class="header-default-state" v-if="headerState === 0">
                         <span class="header-default-state__info-text">The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
-                        <Button
+                        <VButton
                             class="button"
                             label="+Add"
                             width="122px"
@@ -19,13 +19,13 @@
                             :on-press="onAddUsersClick"/>
                     </div>
                     <div class="header-selected-members" v-if="headerState === 1 && !isDeleteClicked">
-                        <Button
+                        <VButton
                             class="button deletion"
                             label="Delete"
                             width="122px"
                             height="48px"
                             :on-press="onFirstDeleteClick"/>
-                        <Button
+                        <VButton
                             class="button"
                             label="Cancel"
                             width="122px"
@@ -36,13 +36,13 @@
                     <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
                         <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete {{selectedProjectMembersCount}} {{userCountTitle}}?</span>
                         <div class="header-after-delete-click__button-area">
-                            <Button
+                            <VButton
                                 class="button deletion"
                                 label="Delete"
                                 width="122px"
                                 height="48px"
                                 :on-press="onDelete"/>
-                            <Button
+                            <VButton
                                 class="button"
                                 label="Cancel"
                                 width="122px"
@@ -51,7 +51,7 @@
                                 :on-press="onClearSelection"/>
                         </div>
                     </div>
-            </HeaderComponent>
+            </VHeader>
             <div class="blur-content" v-if="isDeleteClicked"></div>
             <div class="blur-search" v-if="isDeleteClicked"></div>
 	    </div>
@@ -62,8 +62,8 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/VButton.vue';
-import HeaderComponent from '@/components/common/VHeader.vue';
+import VButton from '@/components/common/VButton.vue';
+import VHeader from '@/components/common/VHeader.vue';
 import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
 import { ProjectMember, ProjectMemberHeaderState } from '@/types/projectMembers';
@@ -75,8 +75,8 @@ declare interface ClearSearch {
 
 @Component({
     components: {
-        Button,
-        HeaderComponent,
+        VButton,
+        VHeader,
         AddUserPopup,
     },
 })
@@ -91,7 +91,7 @@ export default class HeaderArea extends Vue {
     public isDeleteClicked: boolean = false;
 
     public $refs!: {
-        headerComponent: HeaderComponent & ClearSearch;
+        headerComponent: VHeader & ClearSearch;
     };
 
     public get userCountTitle(): string {

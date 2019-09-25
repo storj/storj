@@ -44,7 +44,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
         PagesBlock,
     },
 })
-export default class Pagination extends Vue {
+export default class VPagination extends Vue {
     private readonly MAX_PAGES_PER_BLOCK: number = 3;
     private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
     private currentPageNumber: number = 1;

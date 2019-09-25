@@ -8,7 +8,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
-import InfoComponent from '@/components/common/VInfo.vue';
+import VInfo from '@/components/common/VInfo.vue';
 
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -22,7 +22,7 @@ import { validateEmail, validatePassword } from '@/utils/validation';
     components: {
         HeaderlessInput,
         RegistrationSuccessPopup,
-        InfoComponent,
+        VInfo,
     },
 })
 export default class RegisterArea extends Vue {

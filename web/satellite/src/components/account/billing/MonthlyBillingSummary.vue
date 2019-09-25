@@ -10,7 +10,7 @@
             </div>
             <div class="current-month-area__header__usage-info" v-if="false">
                 <span class="current-month-area__header__usage-info__data">Usage <b class="current-month-area__header__usage-info__data__bold-text">$12.44</b></span>
-                <Button
+                <VButton
                     label="Earn Credits"
                     width="153px"
                     height="48px"/>
@@ -73,11 +73,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 @Component({
     components: {
-        Button,
+        VButton,
     },
 })
 export default class MonthlyBillingSummary extends Vue {

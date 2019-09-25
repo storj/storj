@@ -14,12 +14,12 @@
                 :api-key-secret="apiKeySecret"
                 @closePopup="closeCopyNewApiKeyPopup"/>
             <div v-if="!isEmpty || hasSearchQuery" class="api-keys-header">
-                <HeaderComponent
+                <VHeader
                     ref="headerComponent"
                     placeholder="API Key"
                     :search="onSearchQueryCallback">
                         <div class="header-default-state" v-if="headerState === 0">
-                            <Button
+                            <VButton
                                 class="button"
                                 label="+Create API Key"
                                 width="180px"
@@ -27,13 +27,13 @@
                                 :on-press="onCreateApiKeyClick"/>
                         </div>
                         <div class="header-selected-api-keys" v-if="headerState === 1 && !isDeleteClicked">
-                            <Button
+                            <VButton
                                 class="button deletion"
                                 label="Delete"
                                 width="122px"
                                 height="48px"
                                 :on-press="onFirstDeleteClick"/>
-                            <Button
+                            <VButton
                                 class="button"
                                 label="Cancel"
                                 width="122px"
@@ -44,13 +44,13 @@
                         <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
                             <span class="header-after-delete-click__confirmation-label">Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}} ?</span>
                             <div class="header-after-delete-click__button-area">
-                                <Button
+                                <VButton
                                     class="button deletion"
                                     label="Delete"
                                     width="122px"
                                     height="48px"
                                     :on-press="onDelete"/>
-                                <Button
+                                <VButton
                                     class="button"
                                     label="Cancel"
                                     width="122px"
@@ -59,19 +59,19 @@
                                     :on-press="onClearSelection"/>
                             </div>
                         </div>
-                </HeaderComponent>
+                </VHeader>
                 <div class="blur-content" v-if="isDeleteClicked"></div>
                 <div class="blur-search" v-if="isDeleteClicked"></div>
             </div>
             <div v-if="!isEmpty" class="api-keys-items">
                 <SortingHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
                 <div class="api-keys-items__content">
-                    <List
+                    <VList
                         :data-set="apiKeyList"
                         :item-component="itemComponent"
                         :on-item-click="toggleSelection"/>
                 </div>
-                <Pagination
+                <VPagination
                     v-if="totalPageCount > 1"
                     class="pagination-area"
                     ref="pagination"
@@ -131,10 +131,10 @@ import { Component, Vue } from 'vue-property-decorator';
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
 import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
-import Button from '@/components/common/VButton.vue';
-import HeaderComponent from '@/components/common/VHeader.vue';
-import List from '@/components/common/VList.vue';
-import Pagination from '@/components/common/VPagination.vue';
+import VButton from '@/components/common/VButton.vue';
+import VHeader from '@/components/common/VHeader.vue';
+import VList from '@/components/common/VList.vue';
+import VPagination from '@/components/common/VPagination.vue';
 
 import { ApiKey, ApiKeyOrderBy } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
@@ -164,14 +164,14 @@ const {
 
 @Component({
     components: {
-        List,
+        VList,
         EmptyState,
-        HeaderComponent,
+        VHeader,
         ApiKeysItem,
-        Button,
+        VButton,
         ApiKeysCreationPopup,
         ApiKeysCopyPopup,
-        Pagination,
+        VPagination,
         SortingHeader,
     },
 })
@@ -307,7 +307,7 @@ export default class ApiKeysArea extends Vue {
             await this.notifyFetchError(error);
         }
 
-        (this.$refs.pagination as Pagination).resetPageIndex();
+        (this.$refs.pagination as VPagination).resetPageIndex();
     }
 
     public async onSearchQueryCallback(query: string): Promise<void> {
@@ -318,7 +318,7 @@ export default class ApiKeysArea extends Vue {
             await this.notifyFetchError(error);
         }
 
-        (this.$refs.pagination as Pagination).resetPageIndex();
+        (this.$refs.pagination as VPagination).resetPageIndex();
     }
 
     public async notifyFetchError(error: Error): Promise<void> {
