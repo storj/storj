@@ -109,9 +109,9 @@ CREATE TABLE nodes
   audit_reputation_beta   double precision         NOT NULL,
   uptime_reputation_alpha double precision         NOT NULL,
   uptime_reputation_beta  double precision         NOT NULL,
-	exit_initiated_at       timestamp with time zone,
-	exit_loop_completed_at  timestamp with time zone,
-	exit_finished_at        timestamp with time zone,
+	exit_initiated_at       timestamp,
+	exit_loop_completed_at  timestamp,
+	exit_finished_at        timestamp,
   PRIMARY KEY (id)
 );
 CREATE TABLE offers
@@ -311,23 +311,25 @@ CREATE TABLE project_payments
   PRIMARY KEY (id)
 );
 CREATE TABLE graceful_exit_progress (
-	node_id            bytea                    NOT NULL,
-	bytes_transferred  bigint                   NOT NULL,
-	updated_at         timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
+  node_id             bytea                    NOT NULL,
+  bytes_transferred   bigint                   NOT NULL,
+  pieces_transferred  bigint                   NOT NULL,
+  pieces_failed       bigint                   NOT NULL,
+  updated_at          timestamp                NOT NULL,
+  PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_transfer_queue (
-	node_id            bytea                    NOT NULL,
-	path               bytea                    NOT NULL,
-	piece_num          integer                  NOT NULL,
-	durability_ratio   double precision         NOT NULL,
-	queued_at          timestamp with time zone NOT NULL,
-	requested_at       timestamp with time zone,
-	last_failed_at     timestamp with time zone,
-	last_failed_code   integer,
-	failed_count       integer,
-	finished_at        timestamp with time zone,
-	PRIMARY KEY ( node_id, path )
+  node_id            bytea                    NOT NULL,
+  path               bytea                    NOT NULL,
+  piece_num          integer                  NOT NULL,
+  durability_ratio   double precision         NOT NULL,
+  queued_at          timestamp                NOT NULL,
+  requested_at       timestamp,
+  last_failed_at     timestamp,
+  last_failed_code   integer,
+  failed_count       integer,
+  finished_at        timestamp,
+  PRIMARY KEY ( node_id, path )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
@@ -400,8 +402,9 @@ INSERT INTO "project_payments" ("id", "project_id", "payer_id", "payment_method_
 INSERT INTO "pending_audits" ("node_id", "piece_id", "stripe_index", "share_size", "expected_share_hash", "reverify_count", "path") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 5, 1024, E'\\070\\127\\144\\013\\332\\344\\102\\376\\306\\056\\303\\130\\106\\132\\321\\276\\321\\274\\170\\264\\054\\333\\221\\116\\154\\221\\335\\070\\220\\146\\344\\216'::bytea, 1, 'not null');
 
 INSERT INTO "peer_identities" VALUES (E'\\334/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\033'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2019-02-14 08:07:31.335028+00');
-INSERT INTO "graceful_exit_progress" ("node_id", "bytes_transferred", "updated_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', 1000000000000000, '2019-09-12 10:07:31.028103+00');
-INSERT INTO "graceful_exit_transfer_queue" ("node_id", "path", "piece_num", "durability_ratio", "queued_at", "requested_at", "last_failed_at", "last_failed_code", "failed_count", "finished_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', E'f8419768-5baa-4901-b3ba-62808013ec45/s0/test3/\\240\\243\\223n\\334~b}\\2624)\\250m\\201\\202\\235\\276\\361\\3304\\323\\352\\311\\361\\353;\\326\\311', 8, 1.0, '2019-09-12 10:07:31.028103+00', '2019-09-12 10:07:32.028103+00', null, null, 0, '2019-09-12 10:07:33.028103+00');
-INSERT INTO "graceful_exit_transfer_queue" ("node_id", "path", "piece_num", "durability_ratio", "queued_at", "requested_at", "last_failed_at", "last_failed_code", "failed_count", "finished_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', E'f8419768-5baa-4901-b3ba-62808013ec45/s0/test3/\\240\\243\\223n\\334~b}\\2624)\\250m\\201\\202\\235\\276\\361\\3304\\323\\352\\311\\361\\353;\\326\\312', 8, 1.0, '2019-09-12 10:07:31.028103+00', '2019-09-12 10:07:32.028103+00', null, null, 0, '2019-09-12 10:07:33.028103+00');
+
+INSERT INTO "graceful_exit_progress" ("node_id", "bytes_transferred", "pieces_transferred", "pieces_failed", "updated_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', 1000000000000000, 0, 0, '2019-09-12 10:07:31.028103');
+INSERT INTO "graceful_exit_transfer_queue" ("node_id", "path", "piece_num", "durability_ratio", "queued_at", "requested_at", "last_failed_at", "last_failed_code", "failed_count", "finished_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', E'f8419768-5baa-4901-b3ba-62808013ec45/s0/test3/\\240\\243\\223n\\334~b}\\2624)\\250m\\201\\202\\235\\276\\361\\3304\\323\\352\\311\\361\\353;\\326\\311', 8, 1.0, '2019-09-12 10:07:31.028103', '2019-09-12 10:07:32.028103', null, null, 0, '2019-09-12 10:07:33.028103');
+INSERT INTO "graceful_exit_transfer_queue" ("node_id", "path", "piece_num", "durability_ratio", "queued_at", "requested_at", "last_failed_at", "last_failed_code", "failed_count", "finished_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', E'f8419768-5baa-4901-b3ba-62808013ec45/s0/test3/\\240\\243\\223n\\334~b}\\2624)\\250m\\201\\202\\235\\276\\361\\3304\\323\\352\\311\\361\\353;\\326\\312', 8, 1.0, '2019-09-12 10:07:31.028103', '2019-09-12 10:07:32.028103', null, null, 0, '2019-09-12 10:07:33.028103');
 
 -- NEW DATA --

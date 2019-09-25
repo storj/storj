@@ -330,7 +330,9 @@ CREATE TABLE bucket_usages (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
+	pieces_transferred bigint NOT NULL,
+	pieces_failed bigint NOT NULL,
+	updated_at timestamp NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_transfer_queue (
@@ -338,12 +340,12 @@ CREATE TABLE graceful_exit_transfer_queue (
 	path bytea NOT NULL,
 	piece_num integer NOT NULL,
 	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
+	queued_at timestamp NOT NULL,
+	requested_at timestamp,
+	last_failed_at timestamp,
 	last_failed_code integer,
 	failed_count integer,
-	finished_at timestamp with time zone,
+	finished_at timestamp,
 	PRIMARY KEY ( node_id, path )
 );
 CREATE TABLE injuredsegments (
@@ -392,9 +394,9 @@ CREATE TABLE nodes (
 	audit_reputation_beta double precision NOT NULL,
 	uptime_reputation_alpha double precision NOT NULL,
 	uptime_reputation_beta double precision NOT NULL,
-	exit_initiated_at timestamp with time zone,
-	exit_loop_completed_at timestamp with time zone,
-	exit_finished_at timestamp with time zone,
+	exit_initiated_at timestamp,
+	exit_loop_completed_at timestamp,
+	exit_finished_at timestamp,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -703,6 +705,8 @@ CREATE TABLE bucket_usages (
 CREATE TABLE graceful_exit_progress (
 	node_id BLOB NOT NULL,
 	bytes_transferred INTEGER NOT NULL,
+	pieces_transferred INTEGER NOT NULL,
+	pieces_failed INTEGER NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -1864,15 +1868,19 @@ func (f BucketUsage_AuditEgress_Field) value() interface{} {
 func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
 
 type GracefulExitProgress struct {
-	NodeId           []byte
-	BytesTransferred int64
-	UpdatedAt        time.Time
+	NodeId            []byte
+	BytesTransferred  int64
+	PiecesTransferred int64
+	PiecesFailed      int64
+	UpdatedAt         time.Time
 }
 
 func (GracefulExitProgress) _Table() string { return "graceful_exit_progress" }
 
 type GracefulExitProgress_Update_Fields struct {
-	BytesTransferred GracefulExitProgress_BytesTransferred_Field
+	BytesTransferred  GracefulExitProgress_BytesTransferred_Field
+	PiecesTransferred GracefulExitProgress_PiecesTransferred_Field
+	PiecesFailed      GracefulExitProgress_PiecesFailed_Field
 }
 
 type GracefulExitProgress_NodeId_Field struct {
@@ -1913,6 +1921,44 @@ func (f GracefulExitProgress_BytesTransferred_Field) value() interface{} {
 
 func (GracefulExitProgress_BytesTransferred_Field) _Column() string { return "bytes_transferred" }
 
+type GracefulExitProgress_PiecesTransferred_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func GracefulExitProgress_PiecesTransferred(v int64) GracefulExitProgress_PiecesTransferred_Field {
+	return GracefulExitProgress_PiecesTransferred_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_PiecesTransferred_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_PiecesTransferred_Field) _Column() string { return "pieces_transferred" }
+
+type GracefulExitProgress_PiecesFailed_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func GracefulExitProgress_PiecesFailed(v int64) GracefulExitProgress_PiecesFailed_Field {
+	return GracefulExitProgress_PiecesFailed_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_PiecesFailed_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_PiecesFailed_Field) _Column() string { return "pieces_failed" }
+
 type GracefulExitProgress_UpdatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -1920,6 +1966,7 @@ type GracefulExitProgress_UpdatedAt_Field struct {
 }
 
 func GracefulExitProgress_UpdatedAt(v time.Time) GracefulExitProgress_UpdatedAt_Field {
+	v = toUTC(v)
 	return GracefulExitProgress_UpdatedAt_Field{_set: true, _value: v}
 }
 
@@ -2047,6 +2094,7 @@ type GracefulExitTransferQueue_QueuedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_QueuedAt(v time.Time) GracefulExitTransferQueue_QueuedAt_Field {
+	v = toUTC(v)
 	return GracefulExitTransferQueue_QueuedAt_Field{_set: true, _value: v}
 }
 
@@ -2066,6 +2114,7 @@ type GracefulExitTransferQueue_RequestedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_RequestedAt(v time.Time) GracefulExitTransferQueue_RequestedAt_Field {
+	v = toUTC(v)
 	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _value: &v}
 }
 
@@ -2100,6 +2149,7 @@ type GracefulExitTransferQueue_LastFailedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_LastFailedAt(v time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
+	v = toUTC(v)
 	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _value: &v}
 }
 
@@ -2202,6 +2252,7 @@ type GracefulExitTransferQueue_FinishedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_FinishedAt(v time.Time) GracefulExitTransferQueue_FinishedAt_Field {
+	v = toUTC(v)
 	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _value: &v}
 }
 
@@ -3117,6 +3168,7 @@ type Node_ExitInitiatedAt_Field struct {
 }
 
 func Node_ExitInitiatedAt(v time.Time) Node_ExitInitiatedAt_Field {
+	v = toUTC(v)
 	return Node_ExitInitiatedAt_Field{_set: true, _value: &v}
 }
 
@@ -3149,6 +3201,7 @@ type Node_ExitLoopCompletedAt_Field struct {
 }
 
 func Node_ExitLoopCompletedAt(v time.Time) Node_ExitLoopCompletedAt_Field {
+	v = toUTC(v)
 	return Node_ExitLoopCompletedAt_Field{_set: true, _value: &v}
 }
 
@@ -3181,6 +3234,7 @@ type Node_ExitFinishedAt_Field struct {
 }
 
 func Node_ExitFinishedAt(v time.Time) Node_ExitFinishedAt_Field {
+	v = toUTC(v)
 	return Node_ExitFinishedAt_Field{_set: true, _value: &v}
 }
 
@@ -6858,14 +6912,16 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitProgress(ctx context.Context
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_progress_node_id.value()
 	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
-	__updated_at_val := __now
+	__pieces_transferred_val := int64(0)
+	__pieces_failed_val := int64(0)
+	__updated_at_val := __now.UTC()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, updated_at ) VALUES ( ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at ) VALUES ( ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -6886,7 +6942,7 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 	__path_val := graceful_exit_transfer_queue_path.value()
 	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
 	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
-	__queued_at_val := __now
+	__queued_at_val := __now.UTC()
 	__requested_at_val := optional.RequestedAt.value()
 	__last_failed_at_val := optional.LastFailedAt.value()
 	__last_failed_code_val := optional.LastFailedCode.value()
@@ -8559,7 +8615,7 @@ func (obj *postgresImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, graceful_exit_progress_node_id.value())
@@ -8568,7 +8624,7 @@ func (obj *postgresImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8595,6 +8651,42 @@ func (obj *postgresImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx co
 		return nil, obj.makeErr(err)
 	}
 	return graceful_exit_transfer_queue, nil
+
+}
+
+func (obj *postgresImpl) Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	limit int, offset int64) (
+	rows []*GracefulExitTransferQueue, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is NULL ORDER BY graceful_exit_transfer_queue.queued_at LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		graceful_exit_transfer_queue := &GracefulExitTransferQueue{}
+		err = __rows.Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, graceful_exit_transfer_queue)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -9555,9 +9647,19 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx conte
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_transferred = ?"))
 	}
 
+	if update.PiecesTransferred._set {
+		__values = append(__values, update.PiecesTransferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_transferred = ?"))
+	}
+
+	if update.PiecesFailed._set {
+		__values = append(__values, update.PiecesFailed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_failed = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
-	__values = append(__values, __now)
+	__values = append(__values, __now.UTC())
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
 	__args = append(__args, graceful_exit_progress_node_id.value())
@@ -10106,6 +10208,32 @@ func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is not NULL")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -11221,14 +11349,16 @@ func (obj *sqlite3Impl) CreateNoReturn_GracefulExitProgress(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_progress_node_id.value()
 	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
-	__updated_at_val := __now
+	__pieces_transferred_val := int64(0)
+	__pieces_failed_val := int64(0)
+	__updated_at_val := __now.UTC()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, updated_at ) VALUES ( ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at ) VALUES ( ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
+	obj.logStmt(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
 
-	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __updated_at_val)
+	_, err = obj.driver.Exec(__stmt, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
 	if err != nil {
 		return obj.makeErr(err)
 	}
@@ -11249,7 +11379,7 @@ func (obj *sqlite3Impl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Con
 	__path_val := graceful_exit_transfer_queue_path.value()
 	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
 	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
-	__queued_at_val := __now
+	__queued_at_val := __now.UTC()
 	__requested_at_val := optional.RequestedAt.value()
 	__last_failed_at_val := optional.LastFailedAt.value()
 	__last_failed_code_val := optional.LastFailedCode.value()
@@ -12922,7 +13052,7 @@ func (obj *sqlite3Impl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, graceful_exit_progress_node_id.value())
@@ -12931,7 +13061,7 @@ func (obj *sqlite3Impl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12958,6 +13088,42 @@ func (obj *sqlite3Impl) Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx con
 		return nil, obj.makeErr(err)
 	}
 	return graceful_exit_transfer_queue, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	limit int, offset int64) (
+	rows []*GracefulExitTransferQueue, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is NULL ORDER BY graceful_exit_transfer_queue.queued_at LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		graceful_exit_transfer_queue := &GracefulExitTransferQueue{}
+		err = __rows.Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, graceful_exit_transfer_queue)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -13988,9 +14154,19 @@ func (obj *sqlite3Impl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx contex
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_transferred = ?"))
 	}
 
+	if update.PiecesTransferred._set {
+		__values = append(__values, update.PiecesTransferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_transferred = ?"))
+	}
+
+	if update.PiecesFailed._set {
+		__values = append(__values, update.PiecesFailed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_failed = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
-	__values = append(__values, __now)
+	__values = append(__values, __now.UTC())
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
 	__args = append(__args, graceful_exit_progress_node_id.value())
@@ -14542,6 +14718,32 @@ func (obj *sqlite3Impl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx 
 
 }
 
+func (obj *sqlite3Impl) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	count int64, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is not NULL")
+
+	var __values []interface{}
+	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) getLastValueAttribution(ctx context.Context,
 	pk int64) (
 	value_attribution *ValueAttribution, err error) {
@@ -14978,13 +15180,13 @@ func (obj *sqlite3Impl) getLastGracefulExitProgress(ctx context.Context,
 	pk int64) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.UpdatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16032,6 +16234,17 @@ func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
 
 }
 
+func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx, graceful_exit_transfer_queue_node_id)
+
+}
+
 func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
 	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
@@ -16523,6 +16736,17 @@ func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Roll
 		return
 	}
 	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
+}
+
+func (rx *Rx) Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx context.Context,
+	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+	limit int, offset int64) (
+	rows []*GracefulExitTransferQueue, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx, graceful_exit_transfer_queue_node_id, limit, offset)
 }
 
 func (rx *Rx) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
@@ -17071,6 +17295,10 @@ type Methods interface {
 		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
 		count int64, err error)
 
+	Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+		count int64, err error)
+
 	Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx context.Context,
 		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
 		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field) (
@@ -17280,6 +17508,11 @@ type Methods interface {
 		bucket_usage_rollup_end_time_less_or_equal BucketUsage_RollupEndTime_Field,
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
+
+	Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx context.Context,
+		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
+		limit int, offset int64) (
+		rows []*GracefulExitTransferQueue, err error)
 
 	Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
