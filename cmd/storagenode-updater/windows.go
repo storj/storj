@@ -12,8 +12,9 @@
 package main
 
 import (
-	"time"
 	"log"
+	"os"
+	"time"
 
 	"golang.org/x/sys/windows/svc"
 )
@@ -32,6 +33,8 @@ func init() {
 	if err != nil {
 		panic("Service failed: " + err.Error())
 	}
+	// avoid starting main() when service was stopped
+	os.Exit(0)
 }
 
 type service struct{}
