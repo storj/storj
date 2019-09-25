@@ -30,6 +30,8 @@ import (
 	"storj.io/storj/versioncontrol"
 )
 
+const defaultInterval = 15 * time.Second
+
 // Peer represents one of StorageNode or Satellite
 type Peer interface {
 	ID() storj.NodeID
