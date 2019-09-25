@@ -44,6 +44,13 @@ version_dir(){
     echo "${TMP}/${1}"
 }
 
+replace_config_path(){
+    local src="$1"
+    local dest="$2"
+    local path=$3
+    sed -i "s#${src}#${dest}#g" "${path}"
+}
+
 setup_stage(){
     local test_dir=$1
     local sat_version=$2
@@ -69,6 +76,7 @@ setup_stage(){
     # ln binary and copy config.yaml for desired version
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
+    replace_config_path "${src_sat_cfg_dir}" "${dest_sat_cfg_dir}" "${dest_sat_cfg_dir}/config.yaml"
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
@@ -90,6 +98,8 @@ setup_stage(){
         ln -f $src_sn_version_dir/bin/storagenode $dest_sn_cfg_dir/storagenode
         cp $src_sn_cfg_dir/config.yaml $dest_sn_cfg_dir
 
+        replace_config_path "${src_sn_cfg_dir}" "${dest_sn_cfg_dir}" "${dest_sn_cfg_dir}/config.yaml"
+
         let counter+=1
     done
 
@@ -102,7 +112,7 @@ setup_stage(){
 }
 
 # Set up each environment
-unique_versions=$(find_unique_versions $stage1_sat_version $stage1_uplink_version $stage1_storagenode_versions $stage2_sat_version $stage2_uplink_version $stage2_storagenode_versions)
+unique_versions=$(find_unique_versions "$stage1_sat_version" "$stage1_uplink_version" "$stage1_storagenode_versions" "$stage2_sat_version" "$stage2_uplink_version" "$stage2_storagenode_versions")
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
@@ -120,7 +130,7 @@ for version in ${unique_versions}; do
     git worktree add -f ${dir} ${version}
     rm ${dir}/internal/version/release.go
     GOBIN=${bin_dir} make -C "${dir}" install-sim
-    PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="$STORJ_SIM_POSTGRES" --config-dir "${dir}/local-network" network setup
+    PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup
 
     echo "Finished setting up:" $(ls ${dir}/local-network)
 done
@@ -130,13 +140,13 @@ done
 # appropriate resources into that folder to ensure we have correct versions.
 test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
-setup_stage ${test_dir} ${stage1_sat_version} ${stage1_storagenode_versions} ${stage1_uplink_version}
+setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}" "${stage1_uplink_version}"
 
 # TODO: Run tests here
 scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-PATH=$test_dir/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 --config-dir "${test_dir}/local-network" network test bash "$scriptdir"/test-versions.sh ${test_dir}/local-network
+PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network"
 
-setup_stage ${test_dir} ${stage2_sat_version} ${stage2_storagenode_versions} ${stage2_uplink_version}
+setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}" "${stage2_uplink_version}"
 
 # TODO: Run stage 2 tests here
-PATH=$test_dir/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 --config-dir "${test_dir}/local-network" network test bash "$scriptdir"/test-versions.sh ${test_dir}/local-network
+PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network"
