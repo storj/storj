@@ -24,7 +24,7 @@
             <p class="online-status"><b>{{info.status}}</b></p>
             <p><b>Node Version</b></p>
             <p class="version">{{version}}</p>
-            <InfoComponent v-if="info.isLastVersion" text="Running the minimal allowed version:" boldText="v.0.0.0" isCustomPosition="true">
+            <InfoComponent v-if="info.isLastVersion" text="Running the minimal allowed version:" bold-text="v.0.0.0" is-custom-position="true">
                 <div class="version-svg-container">
                     <svg class="version-svg" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" alt="version status image">
                         <path d="M9 0.5C13.6942 0.5 17.5 4.3058 17.5 9C17.5 13.6942 13.6942 17.5 9 17.5C4.3058 17.5 0.5 13.6942 0.5 9C0.5 4.3058 4.3058 0.5 9 0.5Z" fill="#00CE7D" stroke="#F4F6F9"/>
@@ -32,7 +32,7 @@
                     </svg>
                 </div>
             </InfoComponent>
-            <InfoComponent v-else text="Your node is outdated. Please update to:" boldText="v.0.0.0" isCustomPosition="true">
+            <InfoComponent v-else text="Your node is outdated. Please update to:" bold-text="v.0.0.0" is-custom-position="true">
                 <div class="version-svg-container">
                     <svg class="version-svg" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" alt="version status image">
                         <path d="M9 0.5C13.6942 0.5 17.5 4.3058 17.5 9C17.5 13.6942 13.6942 17.5 9 17.5C4.3058 17.5 0.5 13.6942 0.5 9C0.5 4.3058 4.3058 0.5 9 0.5Z" fill="#E62929" stroke="#F4F6F9"/>

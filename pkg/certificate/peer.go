@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
@@ -104,7 +105,17 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return errs2.IgnoreCanceled(peer.Server.Run(ctx))
+	group := errgroup.Group{}
+
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
+	})
+
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Authorization.Endpoint.Run(ctx))
+	})
+
+	return group.Wait()
 }
 
 // Close closes all resources.
