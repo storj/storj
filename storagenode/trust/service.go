@@ -11,10 +11,9 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 // Error is the default error class
@@ -26,8 +25,8 @@ var mon = monkit.Package()
 //
 // architecture: Service
 type Pool struct {
-	mu        sync.RWMutex
-	transport transport.Client
+	mu     sync.RWMutex
+	dialer rpc.Dialer
 
 	trustedSatellites map[storj.NodeID]*satelliteInfoCache
 }
@@ -40,7 +39,7 @@ type satelliteInfoCache struct {
 }
 
 // NewPool creates a new trust pool of the specified list of trusted satellites.
-func NewPool(transport transport.Client, trustedSatellites storj.NodeURLs) (*Pool, error) {
+func NewPool(dialer rpc.Dialer, trustedSatellites storj.NodeURLs) (*Pool, error) {
 	// TODO: preload all satellite peer identities
 
 	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
@@ -51,7 +50,7 @@ func NewPool(transport transport.Client, trustedSatellites storj.NodeURLs) (*Poo
 	}
 
 	return &Pool{
-		transport:         transport,
+		dialer:            dialer,
 		trustedSatellites: trusted,
 	}, nil
 }
@@ -100,14 +99,13 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 
 // FetchPeerIdentity dials the url and fetches the identity.
 func (pool *Pool) FetchPeerIdentity(ctx context.Context, url storj.NodeURL) (_ *identity.PeerIdentity, err error) {
-	identity, err := pool.transport.FetchPeerIdentity(ctx, &pb.Node{
-		Id: url.ID,
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   url.Address,
-		},
-	})
-	return identity, Error.Wrap(err)
+	conn, err := pool.dialer.DialAddressID(ctx, url.Address, url.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, conn.Close()) }()
+
+	return conn.PeerIdentity()
 }
 
 // GetSatellites returns a slice containing all trusted satellites

@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/storagenode"
 )
 
@@ -23,17 +23,17 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 		nodeDossier := planet.StorageNodes[0].Local()
 		pingStats := planet.StorageNodes[0].Contact.PingStats
 
-		conn, err := planet.Satellites[0].Transport.DialNode(ctx, &nodeDossier.Node)
+		conn, err := planet.Satellites[0].Dialer.DialNode(ctx, &nodeDossier.Node)
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		resp, err := pb.NewContactClient(conn).PingNode(ctx, &pb.ContactPingRequest{})
+		resp, err := conn.ContactClient().PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
 		firstPing, _, _ := pingStats.WhenLastPinged()
 
-		resp, err = pb.NewContactClient(conn).PingNode(ctx, &pb.ContactPingRequest{})
+		resp, err = conn.ContactClient().PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
@@ -85,11 +85,11 @@ func TestRequestInfoEndpointTrustedSatellite(t *testing.T) {
 		nodeDossier := planet.StorageNodes[0].Local()
 
 		// Satellite Trusted
-		conn, err := planet.Satellites[0].Transport.DialNode(ctx, &nodeDossier.Node)
+		conn, err := planet.Satellites[0].Dialer.DialNode(ctx, &nodeDossier.Node)
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		resp, err := pb.NewNodesClient(conn).RequestInfo(ctx, &pb.InfoRequest{})
+		resp, err := conn.NodesClient().RequestInfo(ctx, &pb.InfoRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 		require.Equal(t, nodeDossier.Type, resp.Type)
@@ -111,13 +111,13 @@ func TestRequestInfoEndpointUntrustedSatellite(t *testing.T) {
 		nodeDossier := planet.StorageNodes[0].Local()
 
 		// Satellite Untrusted
-		conn, err := planet.Satellites[0].Transport.DialNode(ctx, &nodeDossier.Node)
+		conn, err := planet.Satellites[0].Dialer.DialNode(ctx, &nodeDossier.Node)
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		resp, err := pb.NewNodesClient(conn).RequestInfo(ctx, &pb.InfoRequest{})
+		resp, err := conn.NodesClient().RequestInfo(ctx, &pb.InfoRequest{})
 		require.Nil(t, resp)
 		require.Error(t, err)
-		require.Equal(t, status.Errorf(codes.PermissionDenied, "untrusted peer %v", planet.Satellites[0].Local().Id), err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 	})
 }
