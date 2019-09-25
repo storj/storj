@@ -25,6 +25,9 @@ setup(){
 if [[ "$1" == "upload" ]]; then
     setup
 
+    uplink --version
+    satellite version
+
     uplink --config-dir "$GATEWAY_0_DIR" mb "sj://$BUCKET/"
 
     uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "$TEST_FILES_DIR/small-upload-testfile" "sj://$BUCKET/"

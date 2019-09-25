@@ -25,6 +25,7 @@ trap cleanup EXIT
         #5 nodes on version master
         #5 nodes on version v0.15.4
 
+ # TODO make sure the number of storagenode versions matches the number of sns from setup
 
 stage1_sat_version="v0.16.2"
 stage1_uplink_version="v0.16.2"
@@ -41,6 +42,44 @@ find_unique_versions(){
 
 version_dir(){
     echo "${TMP}/${1}"
+}
+
+setup_stage(){
+    local test_dir=$1
+    local stage_sn_versions=$2
+
+    counter=0
+    for sn_version in ${stage_sn_versions}; do
+        # TODO(isaac): Check if storage node version is the same as satellite
+        # versoin, then we don't need to do any of the moving/copying stuff.
+        src_sn_version_dir=$(version_dir ${sn_version})
+
+        PATH=$src_sn_version_dir/bin:$PATH src_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
+        PATH=$test_dir/bin:$PATH dest_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
+
+        # ln binary and copy config.yaml for desired version
+        ln $src_sn_version_dir/bin/storagenode $stage1_sn_cfg_dir/storagenode
+        mv $stage1_sn_cfg_dir/config.yaml $stage1_sn_cfg_dir/orignial-config.yaml
+        cp $src_sn_cfg_dir/config.yaml $stage1_sn_cfg_dir
+        # TODO remove symlink and copy back original-config.yaml after stage 1 finishes
+
+        let counter+=1
+    done
+
+    # TODO(isaac): What if we cp the entire sat-version one into its own directory,
+    # then link in all the binaries and config files. Then at the end of stage 1 we
+    # can blow that directory away without having to worry about moving things back?
+
+    # use desired uplink binary and config
+    ul_version_dir=$(version_dir ${stage1_uplink_version})
+    PATH=$ul_version_dir/bin:$PATH desired_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
+    PATH=$stage1_dir/bin:$PATH stage1_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
+    mv $stage1_ul_cfg_dir/config.yaml $stage1_ul_cfg_dir/orignial-config.yaml
+    cp $desired_ul_cfg_dir/config.yaml $stage1_ul_cfg_dir
+    # TODO copy back original-config.yaml after stage 1 finshes
+    mv $stage1_dir/bin/uplink $stage1_dir/bin/original-uplink
+    ln $ul_version_dir/bin/uplink $stage1_dir/bin/uplink
+    # TODO copy back original uplink binary and remove symlink
 }
 
 # Set up each environment
@@ -67,37 +106,16 @@ for version in ${unique_versions}; do
     echo "Finished setting up:" $(ls ${dir}/local-network)
 done
 
+# Use stage 1 satellite version as the starting state. Create a cp of that
+# version folder so we don't worry about dirty states. Then copy/link/mv
+# appropriate resources into that folder to ensure we have correct versions.
+test_dir=$(version_dir ${stage1_sat_version})
+cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
+
 # stage 1
 # select storj-sim directory for stage 1 satellite version
 stage1_dir=$(version_dir ${stage1_sat_version})
 
-# iterate over every storagenode for that instance of storj-sim and symlink to storagenode binary for desired stage 2 storagenode version
-counter=0
-for sn_version in ${stage1_storagenode_versions}; do # TODO make sure the number of storagenode versions matches the number of sns from setup
-    $sn_version_dir=$(version_dir ${sn_version})
-
-    PATH=$sn_version_dir/bin:$PATH desired_sn_cfg_dir=`storj-sim network env STORAGENODE_${counter}_DIR`
-    PATH=$stage1_dir/bin:$PATH stage1_sn_cfg_dir=`storj-sim network env STORAGENODE_${counter}_DIR`
-    
-    # link binary and copy config.yaml for desired version
-    ln $sn_version_dir/bin/storagenode $stage1_sn_cfg_dir/storagenode
-    mv $stage1_sn_cfg_dir/config.yaml $stage1_sn_cfg_dir/orignial-config.yaml
-    cp $desired_sn_cfg_dir/config.yaml $stage1_sn_cfg_dir
-    # TODO remove symlink and copy back original-config.yaml after stage 1 finishes
-
-    let counter+=1
-done
-
-# use desired uplink binary and config
-$ul_version_dir=$(version_dir ${stage1_uplink_version})
-PATH=$ul_version_dir/bin:$PATH desired_ul_cfg_dir=`storj-sim network env GATEWAY_0_DIR`
-PATH=$stage1_dir/bin:$PATH stage1_ul_cfg_dir=`storj-sim network env GATEWAY_0_DIR`
-mv $stage1_ul_cfg_dir/config.yaml $stage1_ul_cfg_dir/orignial-config.yaml
-cp $desired_ul_cfg_dir/config.yaml $stage1_ul_cfg_dir
-# TODO copy back original-config.yaml after stage 1 finshes
-mv $stage1_dir/bin/uplink $stage1_dir/bin/original-uplink
-ln $ul_version_dir/bin/uplink $stage1_dir/bin/uplink
-# TODO copy back original uplink binary and remove symlink
 
 # run backwards compatibility test with stage 1 uplink version
 # run upload part of backward compatibility tests (TODO set SCRIPTDIR)
@@ -110,11 +128,11 @@ stage2_dir=$(version_dir ${stage2_sat_version})
 # iterate over every storagenode for that instance of storj-sim and symlink to storagenode binary for desired stage 2 storagenode version
 counter=0
 for sn_version in ${stage2_storagenode_versions}; do
-    $sn_version_dir=$(version_dir ${sn_version})
+    sn_version_dir=$(version_dir ${sn_version})
 
-    PATH=$sn_version_dir/bin:$PATH desired_sn_cfg_dir=`storj-sim network env STORAGENODE_${counter}_DIR`
-    PATH=$stage2_dir/bin:$PATH stage2_sn_cfg_dir=`storj-sim network env STORAGENODE_${counter}_DIR`
-    
+    PATH=$sn_version_dir/bin:$PATH desired_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
+    PATH=$stage2_dir/bin:$PATH stage2_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
+
     # link binary and copy config.yaml for desired version
     ln $sn_version_dir/bin/storagenode $stage2_sn_cfg_dir/storagenode
     mv $stage2_sn_cfg_dir/config.yaml $stage2_sn_cfg_dir/orignial-config.yaml
@@ -126,8 +144,8 @@ done
 
 # use desired uplink binary and config
 $ul_version_dir=$(version_dir ${stage2_uplink_version})
-PATH=$ul_version_dir/bin:$PATH desired_ul_cfg_dir=`storj-sim network env GATEWAY_0_DIR`
-PATH=$stage2_dir/bin:$PATH stage2_ul_cfg_dir=`storj-sim network env GATEWAY_0_DIR`
+PATH=$ul_version_dir/bin:$PATH desired_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
+PATH=$stage2_dir/bin:$PATH stage2_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
 mv $stage2_ul_cfg_dir/config.yaml $stage2_ul_cfg_dir/orignial-config.yaml
 cp $desired_ul_cfg_dir/config.yaml $stage2_ul_cfg_dir
 # TODO copy back original-config.yaml after stage 2 finshes
