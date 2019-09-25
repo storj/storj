@@ -60,13 +60,6 @@ type Revocations interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
 }
 
-// Containment is a copy/paste of containment interface to avoid import cycle error
-//
-// architecture: Database
-type Containment interface {
-	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
-}
-
 // Endpoint metainfo endpoint
 //
 // architecture: Endpoint
@@ -78,7 +71,6 @@ type Endpoint struct {
 	partnerinfo      attribution.DB
 	peerIdentities   overlay.PeerIdentities
 	projectUsage     *accounting.ProjectUsage
-	containment      Containment
 	apiKeys          APIKeys
 	createRequests   *createRequests
 	requiredRSConfig RSConfig
@@ -87,7 +79,7 @@ type Endpoint struct {
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
-	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
+	apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:              log,
@@ -96,7 +88,6 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		overlay:          cache,
 		partnerinfo:      partnerinfo,
 		peerIdentities:   peerIdentities,
-		containment:      containment,
 		apiKeys:          apiKeys,
 		projectUsage:     projectUsage,
 		createRequests:   newCreateRequests(),
