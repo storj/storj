@@ -284,6 +284,7 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 		CreationDate: time.Now(),
 		Type:         pb.Pointer_REMOTE,
 		Remote: &pb.RemoteSegment{
+			RootPieceId: storj.PieceID{0xFF},
 			Redundancy: &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_RS,
 				MinReq:           int32(rs.RequiredShares),
