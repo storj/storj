@@ -597,7 +597,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		// get a remote segment from metainfo
 		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List(ctx, "", "", "", true, 0, 0)
+		listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
@@ -1036,7 +1036,7 @@ func getRemoteSegment(
 
 	// get a remote segment from metainfo
 	metainfo := satellite.Metainfo.Service
-	listResponse, _, err := metainfo.List(ctx, "", "", "", true, 0, 0)
+	listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
 	require.NoError(t, err)
 
 	for _, v := range listResponse {

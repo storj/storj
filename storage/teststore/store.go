@@ -30,7 +30,6 @@ type Client struct {
 		Put            int
 		List           int
 		GetAll         int
-		ReverseList    int
 		Delete         int
 		Close          int
 		Iterate        int
@@ -202,12 +201,7 @@ func (store *Client) Iterate(ctx context.Context, opts storage.IterateOptions, f
 		return errInternal
 	}
 
-	var cursor advancer
-	if !opts.Reverse {
-		cursor = &forward{newCursor(store)}
-	} else {
-		cursor = &backward{newCursor(store)}
-	}
+	var cursor advancer = &forward{newCursor(store)}
 
 	cursor.PositionToFirst(opts.Prefix, opts.First)
 	var lastPrefix storage.Key
