@@ -7,7 +7,10 @@
         <p class="remaining-space-container__amount"><b>{{remaining}}GB</b></p>
         <div class="remaining-space-container__bar">
             <InfoComponent :text="infoMessage">
-                <Bar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
+                <Bar
+                    :current="currentBarAmount"
+                    :max="maxBarAmount"
+                    color="#224CA5"/>
             </InfoComponent>
         </div>
     </div>

@@ -97,17 +97,17 @@ export default class BandwidthChart extends Vue {
                                    <div class='tooltip-body'>
                                        <div class='tooltip-body__info'>
                                            <p>NORMAL</p>
-                                           <p class='tooltip-body__info__egress-value'><b>${dataPoint.normalEgress}</b></p>
-                                           <p class='tooltip-body__info__ingress-value'><b>${dataPoint.normalIngress}</b></p>
+                                           <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.normalEgress}</b></p>
+                                           <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.normalIngress}</b></p>
                                        </div>
                                        <div class='tooltip-body__info'>
                                            <p>REPAIR</p>
-                                           <p class='tooltip-body__info__egress-value'><b>${dataPoint.repairEgress}</b></p>
-                                           <p class='tooltip-body__info__ingress-value'><b>${dataPoint.repairIngress}</b></p>
+                                           <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.repairEgress}</b></p>
+                                           <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.repairIngress}</b></p>
                                        </div>
                                        <div class='tooltip-body__info'>
                                            <p>AUDIT</p>
-                                           <p class='tooltip-body__info__egress-value'><b>${dataPoint.auditEgress}</b></p>
+                                           <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.auditEgress}</b></p>
                                        </div>
                                    </div>
                                    <div class='tooltip-footer'>
@@ -163,7 +163,7 @@ export default class BandwidthChart extends Vue {
             margin-bottom: 14px;
             position: relative;
 
-            b {
+            .tooltip-bold-text {
                 font-size: 14px;
             }
 
