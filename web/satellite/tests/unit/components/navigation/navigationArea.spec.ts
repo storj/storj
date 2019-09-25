@@ -23,7 +23,7 @@ localVue.use(Vuex);
 const store = new Vuex.Store({ modules: { projectsModule } });
 
 const expectedLinks: NavigationLink[] = [
-    RouteConfig.ProjectOverview,
+    RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails),
     RouteConfig.Team,
     RouteConfig.ApiKeys,
     RouteConfig.Buckets,
