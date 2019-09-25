@@ -236,7 +236,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.audit-reputation-beta0: 0
 
 # the reputation cut-off for disqualifying SNs based on audit history
-# overlay.node.audit-reputation-dq: 0.6
+# overlay.node.audit-reputation-dq: 0
 
 # the forgetting factor used to calculate the audit SNs reputation
 # overlay.node.audit-reputation-lambda: 0.95
