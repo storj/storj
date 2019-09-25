@@ -17,7 +17,7 @@ describe('SearchComponent.vue', () => {
     it('renders correctly with default props', () => {
         const wrapper = mount(SearchComponent);
 
-        expect(wrapper.vm.$props.placeHolder).toMatch('');
+        expect(wrapper.vm.$props.placeholder).toMatch('');
         expect(wrapper.vm.$props.search).toMatch('');
     });
 

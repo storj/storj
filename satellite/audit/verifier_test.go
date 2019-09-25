@@ -398,7 +398,6 @@ func TestVerifierOfflineNode(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
-		satellite.Discovery.Service.Discovery.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)

@@ -59,8 +59,6 @@ export default class ProjectSelectionArea extends Vue {
 <style scoped lang="scss">
     .project-selection-container {
         position: relative;
-        padding-left: 10px;
-        padding-right: 10px;
         background-color: #FFFFFF;
         cursor: pointer;
 
@@ -107,6 +105,18 @@ export default class ProjectSelectionArea extends Vue {
             justify-content: center;
             width: 28px;
             height: 28px;
+        }
+    }
+
+    @media screen and (max-width: 1024px) {
+        .project-selection-container {
+            margin-right: 30px;
+            padding-right: 10px;
+        }
+
+        .project-selection-toggle-container {
+            justify-content: space-between;
+            margin-left: 10px;
         }
     }
 </style>

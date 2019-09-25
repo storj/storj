@@ -7,7 +7,7 @@
             <img src="../../static/images/register/Loading.gif">
         </div>
         <div v-if="!isLoading" class="dashboard-container__wrap">
-            <NavigationArea />
+            <NavigationArea class="regular-navigation" />
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader />
                 <div class="dashboard-container__main-area">
@@ -158,6 +158,12 @@ export default class Dashboard extends Vue {
         }
     }
 
+    @media screen and (max-width: 1024px)  {
+        .regular-navigation {
+            display: none;
+        }
+    }
+
     @media screen and (max-width: 720px) {
         .dashboard-container {
             &__main-area{
@@ -174,7 +180,6 @@ export default class Dashboard extends Vue {
         top: 0;
         left: 0;
         right: 0;
-        left: 0;
         height: 100vh;
         z-index: 100;
         background-color: rgba(134, 134, 148, 1);

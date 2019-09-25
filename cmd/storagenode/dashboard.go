@@ -54,7 +54,7 @@ func (dash *dashboardClient) close() error {
 }
 
 func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {

@@ -81,7 +81,7 @@ go test -v ./...
 ```
 
 You can also execute only a single test package if you like. For example:
-`go test ./pkg/kademlia`. Add `-v` for more informations about the executed unit
+`go test ./pkg/identity`. Add `-v` for more informations about the executed unit
 tests.
 
 ### Push up a pull request

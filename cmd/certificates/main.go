@@ -57,7 +57,7 @@ var (
 )
 
 func cmdRun(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
