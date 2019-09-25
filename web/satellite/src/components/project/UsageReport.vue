@@ -74,7 +74,7 @@ import { toUnixTimestamp } from '@/utils/time';
 })
 export default class UsageReport extends Vue {
     public startTime: any = {
-        time: '',
+        time: null,
     };
     private readonly dateRange: any;
 
@@ -179,7 +179,7 @@ export default class UsageReport extends Vue {
         window.open(url.href, '_blank');
     }
 
-    public async getDates(datesArray: string[]): Promise<void> {
+    public async getDates(datesArray: Date[]): Promise<void> {
         const now = new Date();
         const firstDate = new Date(datesArray[0]);
         const secondDate = new Date(datesArray[1]);

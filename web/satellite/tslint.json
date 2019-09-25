@@ -5,9 +5,7 @@
   ],
   "linterOptions": {
     "exclude": [
-      "node_modules/**",
-      // TODO: temporary file
-      "src/components/project/DatePicker.vue"
+      "node_modules/**"
     ]
   },
   "rules": {
