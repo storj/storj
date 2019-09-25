@@ -4,13 +4,13 @@
 package gracefulexit_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -21,7 +21,7 @@ import (
 func TestProgress(t *testing.T) {
 	// test basic graceful exit progress crud
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := context.Background()
+		ctx := testcontext.New(t)
 
 		geDB := db.GracefulExit()
 
@@ -59,7 +59,7 @@ func TestProgress(t *testing.T) {
 func TestTransferQueueItem(t *testing.T) {
 	// test basic graceful exit transfer queue crud
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := context.Background()
+		ctx := testcontext.New(t)
 
 		geDB := db.GracefulExit()
 
