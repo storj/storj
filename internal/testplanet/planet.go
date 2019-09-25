@@ -30,7 +30,7 @@ import (
 	"storj.io/storj/versioncontrol"
 )
 
-const defaultInterval = 15 * time.Second
+const defaultInterval = 3 * time.Second / 2
 
 // Peer represents one of StorageNode or Satellite
 type Peer interface {
