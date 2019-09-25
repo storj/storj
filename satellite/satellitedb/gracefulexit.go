@@ -146,21 +146,21 @@ func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item grac
 func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(path))
-	return err
+	return Error.Wrap(err)
 }
 
 // DeleteTransferQueueItem deletes a graceful exit transfer queue entries by nodeID.
 func (db *gracefulexitDB) DeleteTransferQueueItems(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()))
-	return err
+	return Error.Wrap(err)
 }
 
 // DeleteFinishedTransferQueueItem deletes finiahed graceful exit transfer queue entries by nodeID.
 func (db *gracefulexitDB) DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()))
-	return err
+	return Error.Wrap(err)
 }
 
 // GetTransferQueueItem gets a graceful exit transfer queue entry.
@@ -198,7 +198,7 @@ func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID
 		transferQueueItemRows[i] = transferQueueItem
 	}
 
-	return transferQueueItemRows, Error.Wrap(err)
+	return transferQueueItemRows, nil
 }
 
 func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (item *gracefulexit.TransferQueueItem, err error) {
@@ -230,5 +230,5 @@ func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (it
 		item.FinishedAt = *dbxTransferQueue.FinishedAt
 	}
 
-	return item, Error.Wrap(err)
+	return item, nil
 }
