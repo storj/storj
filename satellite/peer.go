@@ -671,6 +671,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
@@ -678,9 +681,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
@@ -787,6 +787,9 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
+	}
+	if peer.Metainfo.Loop != nil {
+		errlist.Add(peer.Metainfo.Loop.Close())
 	}
 
 	return errlist.Err()
