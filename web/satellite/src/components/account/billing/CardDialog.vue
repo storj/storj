@@ -3,8 +3,8 @@
 
 <template>
     <div class="dialog">
-        <p class="dialog__make-default">Make Default</p>
-        <p class="dialog__delete">Delete</p>
+        <p class="label dialog__make-default">Make Default</p>
+        <p class="label dialog__delete">Delete</p>
     </div>
 </template>
 
@@ -31,25 +31,25 @@ export default class CardDialog extends Vue {}
         height: 122px;
         cursor: initial;
 
-        p {
-            font-family: 'font_medium';
-            font-size: 16px;
-            margin: 0;
-            height: 35%;
-            text-align: center;
-            cursor: pointer;
-
-            &:hover {
-                text-decoration: underline;
-            }
-        }
-
         &__make-default {
             color: #61666B;
         }
 
         &__delete {
             color: #EB5757;
+        }
+    }
+
+    .label {
+        font-family: 'font_medium';
+        font-size: 16px;
+        margin: 0;
+        height: 35%;
+        text-align: center;
+        cursor: pointer;
+
+        &:hover {
+            text-decoration: underline;
         }
     }
 </style>

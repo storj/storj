@@ -106,15 +106,19 @@ export default class StripeInput extends Vue {
         -webkit-transition: box-shadow 150ms ease;
         transition: box-shadow 150ms ease;
     }
+
     .StripeElement--focus {
         box-shadow: 0 1px 3px 0 #cfd7df;
     }
+
     .StripeElement--invalid {
         border-color: #fa755a;
     }
+
     .StripeElement--webkit-autofill {
         background-color: #fefde5 !important;
     }
+
     .form-row {
         width: 100%;
     }

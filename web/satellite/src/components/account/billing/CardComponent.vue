@@ -10,11 +10,11 @@
                 <path d="M45.9603 17.8645C45.9603 24.8215 40.3375 30.45 33.3875 30.45C30.4539 30.45 27.7647 29.4362 25.6343 27.7581C28.5679 25.4508 30.4189 21.8849 30.4189 17.8645C30.4189 13.8442 28.533 10.2783 25.6343 7.97095C27.7647 6.29289 30.4539 5.27905 33.3875 5.27905C40.3375 5.27905 45.9603 10.9425 45.9603 17.8645Z" fill="#F79E1B"/>
             </svg>
             <div class="payment-methods-container__card-container__info-area__info-container">
-                <h1>**** **** **** {{1111}}</h1>
+                <h1 class="bold">**** **** **** {{1111}}</h1>
             </div>
             <div class="payment-methods-container__card-container__info-area__expire-container">
-                <h2>Expires</h2>
-                <h1>{{1}}/{{1111}}</h1>
+                <h2 class="medium">Expires</h2>
+                <h1 class="bold">{{1}}/{{1111}}</h1>
             </div>
         </div>
         <div class="payment-methods-container__card-container__button-area">
@@ -46,7 +46,7 @@ export default class CardComponent extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    h1 {
+    .bold {
         font-family: 'font_bold';
         font-size: 16px;
         line-height: 21px;
@@ -55,7 +55,7 @@ export default class CardComponent extends Vue {}
         margin-block-end: 0.5em;
     }
 
-    h2 {
+    .medium {
         font-family: 'font_regular';
         font-size: 16px;
         line-height: 21px;

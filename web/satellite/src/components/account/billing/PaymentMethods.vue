@@ -4,7 +4,7 @@
 <template>
     <div class="payment-methods-area">
         <div class="payment-methods-area__top-container">
-            <h1 class="payment-methods-area__title">Payment Methods</h1>
+            <h1 class="payment-methods-area__title text">Payment Methods</h1>
             <div class="payment-methods-area__button-area">
                 <div class="payment-methods-area__button-area__default-buttons" v-if="isDefaultState">
                     <Button
@@ -27,8 +27,8 @@
         </div>
         <div class="payment-methods-area__adding-container storj" v-if="isAddingStorjState">
             <div class="storj-container">
-                <p>Deposit STORJ Tokens via Coin Payments</p>
-                <StorjInput />
+                <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
+                <StorjInput class="form"/>
             </div>
             <Button
                 label="Continue to Coin Payments"
@@ -37,7 +37,7 @@
                 :on-press="onConfirmAddSTORJ"/>
         </div>
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
-            <p>Add Credit or Debit Card</p>
+            <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
             <StripeInput />
             <Button
                 label="Add card"
@@ -105,13 +105,12 @@ export default class PaymentMethods extends Vue {
 </script>
 
 <style scoped lang="scss">
-    h1,
-    span {
+    .text {
         margin: 0;
         color: #354049;
     }
 
-    form {
+    .form {
         width: 60%;
     }
 
@@ -176,7 +175,7 @@ export default class PaymentMethods extends Vue {
             justify-content: space-between;
             align-items: center;
 
-            p {
+            &__label {
                 font-family: 'font_medium';
                 font-size: 21px;
             }
@@ -193,7 +192,7 @@ export default class PaymentMethods extends Vue {
         display: flex;
         align-items: center;
 
-        p {
+        &__label {
             margin-right: 30px;
         }
     }

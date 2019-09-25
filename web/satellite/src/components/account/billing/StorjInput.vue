@@ -29,8 +29,8 @@
                 <div class="options-container__custom-container" @click.prevent="toggleCustomAmount">Custom Amount</div>
             </div>
         </div>
-        <label v-if="isCustomAmount">
-            <input type="number" placeholder="Enter Amount" v-model="customAmount">
+        <label class="label" v-if="isCustomAmount">
+            <input class="custom-input" type="number" placeholder="Enter Amount" v-model="customAmount">
             <div class="input-svg" @click="toggleCustomAmount">
                 <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
@@ -80,15 +80,7 @@ export default class StorjInput extends Vue {
 </script>
 
 <style scoped lang="scss">
-    p {
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-    }
-
-    input {
+    .custom-input {
         width: 200px;
         height: 48px;
         border: 1px solid #afb7c1;
@@ -101,13 +93,13 @@ export default class StorjInput extends Vue {
         color: #354049;
     }
 
-    input[type=number]::-webkit-inner-spin-button,
-    input[type=number]::-webkit-outer-spin-button {
+    .custom-input::-webkit-inner-spin-button,
+    .custom-input::-webkit-outer-spin-button {
         -webkit-appearance: none;
         margin: 0;
     }
 
-    label {
+    .label {
         position: relative;
     }
 
