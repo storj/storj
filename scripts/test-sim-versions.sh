@@ -10,7 +10,7 @@ cleanup(){
     rm -rf "$TMP"
     echo "cleaned up test successfully"
 }
-trap cleanup EXIT
+#trap cleanup EXIT
 
 #Stage1:
     #satellite-version: v0.16.2
@@ -46,40 +46,45 @@ version_dir(){
 
 setup_stage(){
     local test_dir=$1
-    local stage_sn_versions=$2
+    local sat_version=$2
+    local stage_sn_versions=$3
+    local stage_ul_version=$4
+
+    local src_sat_version_dir=$(version_dir ${sat_version})
+
+    PATH=$src_sat_version_dir/bin:$PATH src_sat_cfg_dir=$(storj-sim network env SATELLITE_0_DIR)
+    PATH=$test_dir/bin:$PATH dest_sat_cfg_dir=$(storj-sim network env SATELLITE_0_DIR)
+    echo "src_sat_version_dir" ${src_sat_version_dir}
+    echo "test_dir" ${test_dir}
+    echo "$src_sat_version_dir/bin" $(ls $src_sat_version_dir/bin)
+    echo "$test_dir/bin" $(ls $test_dir/bin)
+    echo "src_sat_cfg_dir" ${src_sat_cfg_dir}
+    echo "dest_sat_cfg_dir" ${dest_sat_cfg_dir}
+
+    # ln binary and copy config.yaml for desired version
+    ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
+    cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
-        # TODO(isaac): Check if storage node version is the same as satellite
-        # versoin, then we don't need to do any of the moving/copying stuff.
-        src_sn_version_dir=$(version_dir ${sn_version})
+        local src_sn_version_dir=$(version_dir ${sn_version})
 
         PATH=$src_sn_version_dir/bin:$PATH src_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
         PATH=$test_dir/bin:$PATH dest_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
 
         # ln binary and copy config.yaml for desired version
-        ln $src_sn_version_dir/bin/storagenode $stage1_sn_cfg_dir/storagenode
-        mv $stage1_sn_cfg_dir/config.yaml $stage1_sn_cfg_dir/orignial-config.yaml
-        cp $src_sn_cfg_dir/config.yaml $stage1_sn_cfg_dir
-        # TODO remove symlink and copy back original-config.yaml after stage 1 finishes
+        ln -f $src_sn_version_dir/bin/storagenode $dest_sn_cfg_dir/storagenode
+        cp $src_sn_cfg_dir/config.yaml $dest_sn_cfg_dir
 
         let counter+=1
     done
 
-    # TODO(isaac): What if we cp the entire sat-version one into its own directory,
-    # then link in all the binaries and config files. Then at the end of stage 1 we
-    # can blow that directory away without having to worry about moving things back?
-
     # use desired uplink binary and config
-    ul_version_dir=$(version_dir ${stage1_uplink_version})
-    PATH=$ul_version_dir/bin:$PATH desired_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
-    PATH=$stage1_dir/bin:$PATH stage1_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
-    mv $stage1_ul_cfg_dir/config.yaml $stage1_ul_cfg_dir/orignial-config.yaml
-    cp $desired_ul_cfg_dir/config.yaml $stage1_ul_cfg_dir
-    # TODO copy back original-config.yaml after stage 1 finshes
-    mv $stage1_dir/bin/uplink $stage1_dir/bin/original-uplink
-    ln $ul_version_dir/bin/uplink $stage1_dir/bin/uplink
-    # TODO copy back original uplink binary and remove symlink
+    ul_src_version_dir=$(version_dir ${stage_ul_version})
+    PATH=$ul_src_version_dir/bin:$PATH src_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
+    PATH=$test_dir/bin:$PATH dest_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
+    cp $src_ul_cfg_dir/config.yaml $dest_ul_cfg_dir
+    ln -f $ul_src_version_dir/bin/uplink $test_dir/bin/uplink
 }
 
 # Set up each environment
@@ -109,52 +114,12 @@ done
 # Use stage 1 satellite version as the starting state. Create a cp of that
 # version folder so we don't worry about dirty states. Then copy/link/mv
 # appropriate resources into that folder to ensure we have correct versions.
-test_dir=$(version_dir ${stage1_sat_version})
+test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
+setup_stage ${test_dir} ${stage1_sat_version} ${stage1_storagenode_versions} ${stage1_uplink_version}
 
-# stage 1
-# select storj-sim directory for stage 1 satellite version
-stage1_dir=$(version_dir ${stage1_sat_version})
+# TODO: Run tests here
 
+setup_stage ${test_dir} ${stage2_sat_version} ${stage2_storagenode_versions} ${stage2_uplink_version}
 
-# run backwards compatibility test with stage 1 uplink version
-# run upload part of backward compatibility tests (TODO set SCRIPTDIR)
-PATH=$stage1_dir/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
-
-# stage 2 TODO make sure data from stage1 is used for the stage2 satellite (if changed)
-# select storj-sim directory for stage 2 satellite version
-stage2_dir=$(version_dir ${stage2_sat_version})
-
-# iterate over every storagenode for that instance of storj-sim and symlink to storagenode binary for desired stage 2 storagenode version
-counter=0
-for sn_version in ${stage2_storagenode_versions}; do
-    sn_version_dir=$(version_dir ${sn_version})
-
-    PATH=$sn_version_dir/bin:$PATH desired_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
-    PATH=$stage2_dir/bin:$PATH stage2_sn_cfg_dir=$(storj-sim network env STORAGENODE_${counter}_DIR)
-
-    # link binary and copy config.yaml for desired version
-    ln $sn_version_dir/bin/storagenode $stage2_sn_cfg_dir/storagenode
-    mv $stage2_sn_cfg_dir/config.yaml $stage2_sn_cfg_dir/orignial-config.yaml
-    cp $desired_sn_cfg_dir/config.yaml $stage2_sn_cfg_dir
-    # TODO remove symlink and copy back original-config.yaml after stage 2 finishes
-
-    let counter+=1
-done
-
-# use desired uplink binary and config
-$ul_version_dir=$(version_dir ${stage2_uplink_version})
-PATH=$ul_version_dir/bin:$PATH desired_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
-PATH=$stage2_dir/bin:$PATH stage2_ul_cfg_dir=$(storj-sim network env GATEWAY_0_DIR)
-mv $stage2_ul_cfg_dir/config.yaml $stage2_ul_cfg_dir/orignial-config.yaml
-cp $desired_ul_cfg_dir/config.yaml $stage2_ul_cfg_dir
-# TODO copy back original-config.yaml after stage 2 finshes
-mv $stage2_dir/bin/uplink $stage2_dir/bin/original-uplink
-ln $ul_version_dir/bin/uplink $stage2_dir/bin/uplink
-# TODO copy back original uplink binary and remove symlink
-
-# run backwards compatibility test with stage 2 uplink version
-# run download part of backward compatibility tests (TODO set SCRIPTDIR)
-PATH=$stage2_dir/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
-
-# TODO write our own script instead of using test-backwards.sh. This script should also print out all satellite/storagenode/uplink versions using the binaries for sanity
+# TODO: Run stage 2 tests here
