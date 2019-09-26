@@ -4,7 +4,7 @@
 import sinon from 'sinon';
 import Vuex from 'vuex';
 
-import Notification from '@/components/notifications/Notification.vue';
+import NotificationItem from '@/components/notifications/NotificationItem.vue';
 
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { DelayedNotification } from '@/types/DelayedNotification';
@@ -28,7 +28,7 @@ const store = new Vuex.Store(notificationModule);
 describe('Notification.vue', () => {
 
     it('renders correctly', () => {
-        const wrapper = shallowMount(Notification);
+        const wrapper = shallowMount(NotificationItem);
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -36,7 +36,7 @@ describe('Notification.vue', () => {
     it('renders correctly with props', () => {
         const testMessage = 'testMessage';
 
-        const wrapper = mount(Notification, {
+        const wrapper = mount(NotificationItem, {
             propsData: {
                 notification: new DelayedNotification(
                     jest.fn(),
@@ -47,7 +47,7 @@ describe('Notification.vue', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.find('.notification-wrap__text').text()).toMatch(testMessage);
+        expect(wrapper.find('.notification-wrap__text-area__message').text()).toMatch(testMessage);
 
         wrapper.setProps({
             notification: new DelayedNotification(
@@ -81,7 +81,7 @@ describe('Notification.vue', () => {
     });
 
     it('trigger pause correctly', () => {
-        const wrapper = shallowMount(Notification, { store, localVue });
+        const wrapper = shallowMount(NotificationItem, { store, localVue });
 
         wrapper.find('.notification-wrap').trigger('mouseover');
 
@@ -89,7 +89,7 @@ describe('Notification.vue', () => {
     });
 
     it('trigger resume correctly', () => {
-        const wrapper = shallowMount(Notification, { store, localVue });
+        const wrapper = shallowMount(NotificationItem, { store, localVue });
 
         wrapper.find('.notification-wrap').trigger('mouseover');
         wrapper.find('.notification-wrap').trigger('mouseleave');
@@ -98,7 +98,7 @@ describe('Notification.vue', () => {
     });
 
     it('trigger delete correctly', () => {
-        const wrapper = shallowMount(Notification, { store, localVue });
+        const wrapper = shallowMount(NotificationItem, { store, localVue });
 
         wrapper.find('.notification-wrap__buttons-group').trigger('click');
 

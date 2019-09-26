@@ -4,15 +4,29 @@
 <template>
     <div class="pagination-container">
         <div class="pagination-container__pages">
-            <div v-html="arrowLeft" @click="prevPage" class="pagination-container__button"></div>
-            <div class="pagination-container__items">
-                <PagesBlock :pages="firstBlockPages" :is-selected="isSelected"/>
-                <span v-if="isFirstDotsShown">...</span>
-                <PagesBlock :pages="middleBlockPages" :is-selected="isSelected"/>
-                <span v-if="isSecondDotsShown">...</span>
-                <PagesBlock :pages="lastBlockPages" :is-selected="isSelected"/>
+            <div class="pagination-container__button" @click="prevPage">
+                <svg class="pagination-container__button__image" width="6" height="9" viewBox="0 0 6 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path class="pagination-svg-path" d="M2.80077e-07 4.26316L6 0L6 9L2.80077e-07 4.26316Z" fill="#354049"/>
+                </svg>
             </div>
-            <div v-html="arrowRight" @click="nextPage" class="pagination-container__button"></div>
+            <div class="pagination-container__items">
+                <PagesBlock
+                    :pages="firstBlockPages"
+                    :is-selected="isSelected"/>
+                <span class="pages-divider" v-if="isFirstDotsShown">...</span>
+                <PagesBlock
+                    :pages="middleBlockPages"
+                    :is-selected="isSelected"/>
+                <span class="pages-divider" v-if="isSecondDotsShown">...</span>
+                <PagesBlock
+                    :pages="lastBlockPages"
+                    :is-selected="isSelected"/>
+            </div>
+            <div class="pagination-container__button" @click="nextPage">
+                <svg class="pagination-container__button__image" width="6" height="9" viewBox="0 0 6 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path class="pagination-svg-path" d="M6 4.73684L0 9L1.20219e-06 -9.53674e-07L6 4.73684Z" fill="#354049"/>
+                </svg>
+            </div>
         </div>
     </div>
 </template>
@@ -30,10 +44,7 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
         PagesBlock,
     },
 })
-export default class Pagination extends Vue {
-    // TODO: use svg loader
-    public readonly arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
-    public readonly arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
+export default class VPagination extends Vue {
     private readonly MAX_PAGES_PER_BLOCK: number = 3;
     private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
     private currentPageNumber: number = 1;
@@ -235,15 +246,6 @@ export default class Pagination extends Vue {
             align-items: center;
         }
 
-        &__counter {
-
-            p {
-                font-family: 'font_medium';
-                font-size: 16px;
-                color: #AFB7C1;
-            }
-        }
-
         &__button {
             display: flex;
             align-items: center;
@@ -256,11 +258,8 @@ export default class Pagination extends Vue {
 
             &:hover {
 
-                svg {
-
-                    path {
-                        fill: #fff !important;
-                    }
+                .pagination-svg-path {
+                    fill: #fff !important;
                 }
             }
         }
@@ -269,7 +268,7 @@ export default class Pagination extends Vue {
             margin: 0 20px;
             display: flex;
 
-            span {
+            .pages-divider {
                 margin: 0 20px;
             }
         }

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Checkbox from '@/components/common/Checkbox.vue';
+import Checkbox from '@/components/common/VCheckbox.vue';
 
 import { mount, shallowMount } from '@vue/test-utils';
 

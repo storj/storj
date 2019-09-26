@@ -4,15 +4,10 @@
 import Vuex from 'vuex';
 
 import { appStateModule } from '@/store/modules/appState';
-import { makeNotificationsModule } from '@/store/modules/notifications';
-import { makeProjectMembersModule } from '@/store/modules/projectMembers';
-import { ProjectMember, ProjectMemberHeaderState, ProjectMembersPage } from '@/types/projectMembers';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
-import Dashboard from '@/views/Dashboard.vue';
+import DashboardArea from '@/views/DashboardArea.vue';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
-
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 
 const localVue = createLocalVue();
 
@@ -22,7 +17,7 @@ const store = new Vuex.Store({ modules: { appStateModule } });
 
 describe('Dashboard', () => {
     it('renders correctly when data is loading', () => {
-        const wrapper = shallowMount(Dashboard, {
+        const wrapper = shallowMount(DashboardArea, {
             store,
             localVue,
         });
@@ -35,7 +30,7 @@ describe('Dashboard', () => {
     it('renders correctly when data is loaded', () => {
         store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 
-        const wrapper = shallowMount(Dashboard, {
+        const wrapper = shallowMount(DashboardArea, {
             store,
             localVue,
         });

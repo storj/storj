@@ -1,14 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./register.html"></template>
+<template src="./registerArea.html"></template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import InfoComponent from '@/components/common/InfoComponent.vue';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
+import VInfo from '@/components/common/VInfo.vue';
 
 import { AuthApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -22,10 +22,10 @@ import { validateEmail, validatePassword } from '@/utils/validation';
     components: {
         HeaderlessInput,
         RegistrationSuccessPopup,
-        InfoComponent,
+        VInfo,
     },
 })
-export default class Register extends Vue {
+export default class RegisterArea extends Vue {
     private readonly user = new User();
 
     // tardigrade logic
@@ -156,4 +156,4 @@ export default class Register extends Vue {
 }
 </script>
 
-<style src="./register.scss" scoped lang="scss"></style>
+<style src="./registerArea.scss" scoped lang="scss"></style>

@@ -1,12 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./login.html"></template>
+<template src="./loginArea.html"></template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
 import { AuthApi } from '@/api/auth';
@@ -20,7 +19,6 @@ import { validateEmail, validatePassword } from '@/utils/validation';
 @Component({
     components: {
         HeaderlessInput,
-        Button,
     },
 })
 export default class Login extends Vue {
@@ -101,4 +99,4 @@ export default class Login extends Vue {
 }
 </script>
 
-<style src="./login.scss" scoped lang="scss"></style>
+<style src="./loginArea.scss" scoped lang="scss"></style>

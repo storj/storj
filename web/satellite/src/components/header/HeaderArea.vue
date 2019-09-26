@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./header.html"></template>
+<template src="./headerArea.html"></template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
@@ -35,4 +35,4 @@ export default class DashboardHeader extends Vue {
 }
 </script>
 
-<style src="./header.scss" lang="scss"></style>
+<style src="./headerArea.scss" scoped lang="scss"></style>

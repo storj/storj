@@ -3,7 +3,7 @@
 
 import * as sinon from 'sinon';
 
-import HeaderComponent from '@/components/common/HeaderComponent.vue';
+import HeaderComponent from '@/components/common/VHeader.vue';
 
 import { mount, shallowMount } from '@vue/test-utils';
 

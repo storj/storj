@@ -7,7 +7,7 @@
         :class="containerClassName"
         :style="style"
         @click="onPress">
-            <h1 :class="[isWhite ? 'label white' : 'label']">{{label}}</h1>
+        <h1 class="label" :class="{'white': isWhite}">{{label}}</h1>
     </div>
 </template>
 
@@ -16,7 +16,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 // Custom button component with label
 @Component
-export default class Button extends Vue {
+export default class VButton extends Vue {
     @Prop({default: 'Default'})
     private readonly label: string;
     @Prop({default: 'inherit'})
@@ -110,6 +110,7 @@ export default class Button extends Vue {
     .container.disabled {
         background-color: #DADDE5;
         border-color: #DADDE5;
+
         .label {
             color: #ACB0BC;
         }

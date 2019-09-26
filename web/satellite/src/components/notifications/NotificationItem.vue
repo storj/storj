@@ -3,9 +3,9 @@
 
 <template>
     <div :style="notification.style" class="notification-wrap" :class="{ active: isClassActive }" @mouseover="onMouseOver" @mouseleave="onMouseLeave" >
-        <div class="notification-wrap__text">
+        <div class="notification-wrap__text-area">
             <div v-html="notification.imgSource"></div>
-            <p>{{notification.message}}</p>
+            <p class="notification-wrap__text-area__message">{{notification.message}}</p>
         </div>
         <div class="notification-wrap__buttons-group" @click="onCloseClick">
             <span class="notification-wrap__buttons-group__close">
@@ -24,7 +24,7 @@ import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component
-export default class Notification extends Vue {
+export default class NotificationItem extends Vue {
     @Prop({default: () => new DelayedNotification(() => { return; }, '', '')})
     private notification: DelayedNotification;
 
@@ -67,21 +67,17 @@ export default class Notification extends Vue {
         margin-bottom: 7px;
         transition: all 0.3s;
 
-        &__text {
+        &__text-area {
             display: flex;
             align-items: center;
 
-            p {
+            &__message {
                 font-family: 'font_medium';
                 font-size: 14px;
                 height: auto;
                 width: 270px;
                 margin: 0 0 0 17px;
                 word-break: break-all;
-
-                span {
-                    margin-right: 10px;
-                }
             }
         }
 

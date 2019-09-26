@@ -6,14 +6,17 @@
         <div class="header-container__buttons-area">
             <slot></slot>
         </div>
-        <SearchComponent ref="search" :placeholder="placeholder" :search="search"/>
+        <VSearch
+            ref="search"
+            :placeholder="placeholder"
+            :search="search"/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import SearchComponent from '@/components/common/SearchComponent.vue';
+import VSearch from '@/components/common/VSearch.vue';
 
 declare type searchCallback = (search: string) => Promise<void>;
 declare interface ClearSearch {
@@ -22,17 +25,17 @@ declare interface ClearSearch {
 
 @Component({
     components: {
-        SearchComponent,
+        VSearch,
     },
 })
-export default class HeaderComponent extends Vue {
+export default class VHeader extends Vue {
     @Prop({default: ''})
     private readonly placeholder: string;
     @Prop({default: () => ''})
     private readonly search: searchCallback;
 
     public $refs!: {
-        search: SearchComponent & ClearSearch;
+        search: VSearch & ClearSearch;
     };
 
     public clearSearch() {

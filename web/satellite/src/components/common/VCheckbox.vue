@@ -3,8 +3,8 @@
 
 <template>
     <label class="container">
-        <input type="checkbox" v-model="checked" @change="onChange">
-        <span :class="[isCheckboxError ? 'checkmark error': 'checkmark']"></span>
+        <input class="checkmark-input" type="checkbox" v-model="checked" @change="onChange">
+        <span class="checkmark" :class="{'error': isCheckboxError}"></span>
     </label>
 </template>
 
@@ -13,7 +13,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 // Custom checkbox component
 @Component
-export default class Checkbox extends Vue {
+export default class VCheckbox extends Vue {
     @Prop({default: false})
     private readonly isCheckboxError: boolean;
 
@@ -41,7 +41,7 @@ export default class Checkbox extends Vue {
         outline: none;
     }
 
-    .container input {
+    .container .checkmark-input {
         position: absolute;
         opacity: 0;
         cursor: pointer;
@@ -59,11 +59,11 @@ export default class Checkbox extends Vue {
         border-radius: 4px;
     }
 
-    .container:hover input ~ .checkmark {
+    .container:hover .checkmark-input ~ .checkmark {
         background-color: #ccc;
     }
 
-    .container input:checked ~ .checkmark {
+    .container .checkmark-input:checked ~ .checkmark {
         border: 2px solid #2196F3;
         background-color: #2196F3;
     }
@@ -78,7 +78,7 @@ export default class Checkbox extends Vue {
         border-color: red;
     }
 
-    .container input:checked ~ .checkmark:after {
+    .container .checkmark-input:checked ~ .checkmark:after {
         display: block;
     }
 
