@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/certificate/authorization"
+	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/rpc/rpcpeer"
