@@ -13,11 +13,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
@@ -26,6 +24,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -194,10 +193,8 @@ func assertUnauthenticated(t *testing.T, err error, allowed bool) {
 
 	// If it's allowed, we allow any non-unauthenticated error because
 	// some calls error after authentication checks.
-	if err, ok := status.FromError(errs.Unwrap(err)); ok {
-		assert.Equal(t, codes.Unauthenticated == err.Code(), !allowed)
-	} else if !allowed {
-		assert.Fail(t, "got unexpected error", "%T", err)
+	if !allowed {
+		assert.True(t, errs2.IsRPC(err, rpcstatus.Unauthenticated))
 	}
 }
 

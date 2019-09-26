@@ -72,12 +72,12 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 		log.Debug("Starting listener and server")
 		sc := config.Server
 
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
+		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, Error.Wrap(errs.Combine(err, peer.Close()))
 		}
 
-		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, nil)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

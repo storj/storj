@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/transport"
 )
 
 // TestUplinkConfigDefaults tests that the uplink configuration gets the correct defaults applied
@@ -28,10 +27,8 @@ func TestUplinkConfigDefaultTimeouts(t *testing.T) {
 	assert.Equal(t, 20*time.Second, client.cfg.Volatile.RequestTimeout)
 
 	// Assert the values propagate correctly all the way down to the transport layer.
-	trans, ok := client.tc.(*transport.Transport)
-	assert.Equal(t, true, ok)
-	assert.Equal(t, 20*time.Second, trans.Timeouts().Dial)
-	assert.Equal(t, 20*time.Second, trans.Timeouts().Request)
+	assert.Equal(t, 20*time.Second, client.dialer.DialTimeout)
+	assert.Equal(t, 20*time.Second, client.dialer.RequestTimeout)
 }
 
 // TestUplinkConfigSetTimeouts tests that the uplink configuration settings properly override
@@ -60,8 +57,6 @@ func TestUplinkConfigSetTimeouts(t *testing.T) {
 	assert.Equal(t, 120*time.Second, client.cfg.Volatile.RequestTimeout)
 
 	// Assert the values propagate correctly all the way down to the transport layer.
-	trans, ok := client.tc.(*transport.Transport)
-	assert.Equal(t, true, ok)
-	assert.Equal(t, 120*time.Second, trans.Timeouts().Dial)
-	assert.Equal(t, 120*time.Second, trans.Timeouts().Request)
+	assert.Equal(t, 120*time.Second, client.dialer.DialTimeout)
+	assert.Equal(t, 120*time.Second, client.dialer.RequestTimeout)
 }
