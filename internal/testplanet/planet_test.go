@@ -43,6 +43,7 @@ func TestBasic(t *testing.T) {
 			for _, sn := range planet.StorageNodes {
 				node := sn.Local()
 				conn, err := sn.Transport.DialNode(ctx, &satellite)
+				defer conn.Close()
 				require.NoError(t, err)
 				_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 					Address:  node.GetAddress().GetAddress(),
@@ -51,9 +52,7 @@ func TestBasic(t *testing.T) {
 					Operator: &node.Operator,
 				})
 				require.NoError(t, err)
-				conn.Close()
 			}
-
 		}
 		// wait a bit to see whether some failures occur
 		time.Sleep(time.Second)
