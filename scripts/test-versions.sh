@@ -3,7 +3,7 @@ set -ueo pipefail
 
 main_cfg_dir=$1
 
-echo "Begin test-versions.sh"
+echo "Begin test-versions.sh" ${main_cfg_dir}
 
 echo "which storj-sim"
 which storj-sim

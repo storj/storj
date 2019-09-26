@@ -44,7 +44,7 @@ version_dir(){
     echo "${TMP}/${1}"
 }
 
-replace_config_path(){
+replace_in_file(){
     local src="$1"
     local dest="$2"
     local path=$3
@@ -76,7 +76,7 @@ setup_stage(){
     # ln binary and copy config.yaml for desired version
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
-    replace_config_path "${src_sat_cfg_dir}" "${dest_sat_cfg_dir}" "${dest_sat_cfg_dir}/config.yaml"
+    replace_in_file "${src_sat_cfg_dir}" "${dest_sat_cfg_dir}" "${dest_sat_cfg_dir}/config.yaml"
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
@@ -94,11 +94,15 @@ setup_stage(){
         echo "src_sn_cfg_dir" ${src_sn_cfg_dir}
         echo "dest_sn_cfg_dir" ${dest_sn_cfg_dir}
 
+        dest_sat_nodeid=$(grep "storage.whitelisted-satellites" ${dest_sn_cfg_dir}/config.yaml)
+        echo "dest_sat_nodeid" "${dest_sat_nodeid}"
+
         # ln binary and copy config.yaml for desired version
         ln -f $src_sn_version_dir/bin/storagenode $dest_sn_cfg_dir/storagenode
         cp $src_sn_cfg_dir/config.yaml $dest_sn_cfg_dir
 
-        replace_config_path "${src_sn_cfg_dir}" "${dest_sn_cfg_dir}" "${dest_sn_cfg_dir}/config.yaml"
+        replace_in_file "${src_sn_cfg_dir}" "${dest_sn_cfg_dir}" "${dest_sn_cfg_dir}/config.yaml"
+        replace_in_file '$(grep "storage.whitelisted-satellites" "${dest_sn_cfg_dir}/config.yaml")' "${dest_sat_nodeid}" "${dest_sn_cfg_dir}/config.yaml"
 
         let counter+=1
     done
