@@ -35,7 +35,7 @@ type StorageNodeFlags struct {
 	Deprecated
 }
 
-// Deprecated contains deprecated config flags
+// Deprecated contains deprecated config structs
 type Deprecated struct {
 	Kademlia struct {
 		ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
