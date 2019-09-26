@@ -35,5 +35,7 @@ storj-sim network env --config-dir "${main_cfg_dir}" STORAGENODE_7_DIR
 shasum $(storj-sim network env --config-dir "${main_cfg_dir}" STORAGENODE_7_DIR)/storagenode
 storj-sim network env --config-dir "${main_cfg_dir}" STORAGENODE_8_DIR
 shasum $(storj-sim network env --config-dir "${main_cfg_dir}" STORAGENODE_8_DIR)/storagenode
+storj-sim network env --config-dir "${main_cfg_dir}" STORAGENODE_9_DIR
+shasum $(storj-sim network env --config-dir "${main_cfg_dir}" STORAGENODE_9_DIR)/storagenode
 
 echo "!!!!!!!!!!!!"

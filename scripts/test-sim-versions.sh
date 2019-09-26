@@ -96,13 +96,15 @@ setup_stage(){
 
         dest_sat_nodeid=$(grep "storage.whitelisted-satellites" ${dest_sn_cfg_dir}/config.yaml)
         echo "dest_sat_nodeid" "${dest_sat_nodeid}"
+        src_sat_nodeid=$(grep "storage.whitelisted-satellites" "${src_sn_cfg_dir}/config.yaml")
 
         # ln binary and copy config.yaml for desired version
         ln -f $src_sn_version_dir/bin/storagenode $dest_sn_cfg_dir/storagenode
         cp $src_sn_cfg_dir/config.yaml $dest_sn_cfg_dir
 
+        # update config dir in config.yaml as well as whitelisted satellites in config.yaml
         replace_in_file "${src_sn_cfg_dir}" "${dest_sn_cfg_dir}" "${dest_sn_cfg_dir}/config.yaml"
-        replace_in_file '$(grep "storage.whitelisted-satellites" "${dest_sn_cfg_dir}/config.yaml")' "${dest_sat_nodeid}" "${dest_sn_cfg_dir}/config.yaml"
+        replace_in_file  "${src_sat_nodeid}" "${dest_sat_nodeid}" "${dest_sn_cfg_dir}/config.yaml"
 
         let counter+=1
     done
