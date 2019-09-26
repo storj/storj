@@ -32,12 +32,12 @@ func (sc Config) Run(ctx context.Context, log *zap.Logger, identity *identity.Fu
 		return Error.New("revDB cannot be nil in call to Run")
 	}
 
-	opts, err := tlsopts.NewOptions(identity, sc.Config, revDB)
+	tlsOptions, err := tlsopts.NewOptions(identity, sc.Config, revDB)
 	if err != nil {
 		return err
 	}
 
-	server, err := New(log.Named("server"), opts, sc.Address, sc.PrivateAddress, interceptor, services...)
+	server, err := New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, interceptor, services...)
 	if err != nil {
 		return err
 	}

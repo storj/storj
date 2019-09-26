@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/rpc"
 )
 
 var mon = monkit.Package()
@@ -25,30 +24,30 @@ type Config struct {
 	TLS     tlsopts.Config
 }
 
-// Client implements pb.CertificateClient
+// Client implements rpc.CertificatesClient
 type Client struct {
-	conn   *grpc.ClientConn
-	client pb.CertificatesClient
+	conn   *rpc.Conn
+	client rpc.CertificatesClient
 }
 
-// New creates a new certificate signing grpc client.
-func New(ctx context.Context, tc transport.Client, address string) (_ *Client, err error) {
+// New creates a new certificate signing rpc client.
+func New(ctx context.Context, dialer rpc.Dialer, address string) (_ *Client, err error) {
 	defer mon.Task()(&ctx, address)(&err)
 
-	conn, err := tc.DialAddress(ctx, address)
+	conn, err := dialer.DialAddressInsecure(ctx, address)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
 		conn:   conn,
-		client: pb.NewCertificatesClient(conn),
+		client: conn.CertificatesClient(),
 	}, nil
 }
 
 // NewClientFrom creates a new certificate signing gRPC client from an existing
 // grpc cert signing client.
-func NewClientFrom(client pb.CertificatesClient) *Client {
+func NewClientFrom(client rpc.CertificatesClient) *Client {
 	return &Client{
 		client: client,
 	}
@@ -58,17 +57,15 @@ func NewClientFrom(client pb.CertificatesClient) *Client {
 func (config Config) Sign(ctx context.Context, ident *identity.FullIdentity, authToken string) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	tlsOpts, err := tlsopts.NewOptions(ident, config.TLS, nil)
+	tlsOptions, err := tlsopts.NewOptions(ident, config.TLS, nil)
 	if err != nil {
 		return nil, err
 	}
-	client, err := New(ctx, transport.NewClient(tlsOpts), config.Address)
+	client, err := New(ctx, rpc.NewDefaultDialer(tlsOptions), config.Address)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, client.Close())
-	}()
+	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	return client.Sign(ctx, authToken)
 }

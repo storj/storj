@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -697,6 +698,82 @@ func (m *locked) DropSchema(schema string) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.DropSchema(schema)
+}
+
+// GracefulExit returns database for graceful exit
+func (m *locked) GracefulExit() gracefulexit.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedGracefulExit{m.Locker, m.db.GracefulExit()}
+}
+
+// lockedGracefulExit implements locking wrapper for gracefulexit.DB
+type lockedGracefulExit struct {
+	sync.Locker
+	db gracefulexit.DB
+}
+
+// DeleteFinishedTransferQueueItem deletes finiahed graceful exit transfer queue entries.
+func (m *lockedGracefulExit) DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteFinishedTransferQueueItems(ctx, nodeID)
+}
+
+// DeleteTransferQueueItem deletes a graceful exit transfer queue entry.
+func (m *lockedGracefulExit) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteTransferQueueItem(ctx, nodeID, path)
+}
+
+// DeleteTransferQueueItem deletes a graceful exit transfer queue entries by nodeID.
+func (m *lockedGracefulExit) DeleteTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteTransferQueueItems(ctx, nodeID)
+}
+
+// Enqueue batch inserts graceful exit transfer queue entries it does not exist.
+func (m *lockedGracefulExit) Enqueue(ctx context.Context, items []gracefulexit.TransferQueueItem) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Enqueue(ctx, items)
+}
+
+// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by the queued date ascending.
+func (m *lockedGracefulExit) GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetIncomplete(ctx, nodeID, limit, offset)
+}
+
+// GetProgress gets a graceful exit progress entry.
+func (m *lockedGracefulExit) GetProgress(ctx context.Context, nodeID storj.NodeID) (*gracefulexit.Progress, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetProgress(ctx, nodeID)
+}
+
+// GetTransferQueueItem gets a graceful exit transfer queue entry.
+func (m *lockedGracefulExit) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (*gracefulexit.TransferQueueItem, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetTransferQueueItem(ctx, nodeID, path)
+}
+
+// IncrementProgress increments transfer stats for a node.
+func (m *lockedGracefulExit) IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, successfulTransfers int64, failedTransfers int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.IncrementProgress(ctx, nodeID, bytes, successfulTransfers, failedTransfers)
+}
+
+// UpdateTransferQueueItem creates a graceful exit transfer queue entry.
+func (m *lockedGracefulExit) UpdateTransferQueueItem(ctx context.Context, item gracefulexit.TransferQueueItem) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateTransferQueueItem(ctx, item)
 }
 
 // Irreparable returns database for failed repairs
