@@ -9,11 +9,11 @@ import (
 	"os"
 	"path/filepath"
 
-	hw "github.com/jtolds/monkit-hw"
-	"github.com/zeebo/admission/admproto"
+	hw "github.com/jtolds/monkit-hw/v2"
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/environment"
+	"github.com/zeebo/admission/v2/admproto"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-	"gopkg.in/spacemonkeygo/monkit.v2/environment"
 
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
