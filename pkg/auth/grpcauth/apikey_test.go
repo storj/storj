@@ -63,10 +63,10 @@ func TestAPIKey(t *testing.T) {
 
 		if test.expected == codes.OK {
 			require.NoError(t, err)
-			require.Equal(t, response.Message, "Hello Me")
+			require.Equal(t, "Hello Me", response.Message)
 		} else {
 			require.Error(t, err)
-			require.Equal(t, status.Code(err), test.expected)
+			require.Equal(t, test.expected, status.Code(err))
 		}
 
 		require.NoError(t, conn.Close())

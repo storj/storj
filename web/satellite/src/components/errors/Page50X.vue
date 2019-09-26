@@ -4,11 +4,11 @@
 <template src="./page50X.html"></template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    // Page for server errors
-    export default class Page50X extends Vue {}
+@Component
+// Page for server errors
+export default class Page50X extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -31,13 +31,14 @@
         -ms-user-select: none; 
         user-select: none; 
 
-        h1 {
+        &__title {
             font-family: 'font_regular';
             margin-bottom: 60px;
             font-size: 32px;
         }
 
-        img, a {
+        img,
+        a {
             -webkit-user-drag: none;
             -khtml-user-drag: none;
             -moz-user-drag: none;

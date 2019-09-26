@@ -54,6 +54,15 @@ export default class App extends Vue {
         zoom: 100%;
     }
 
+    img,
+    a {
+        -webkit-user-drag: none;
+        -khtml-user-drag: none;
+        -moz-user-drag: none;
+        -o-user-drag: none;
+        user-drag: none;
+    }
+
     @font-face {
         font-family: "font_regular";
         font-display: swap;
