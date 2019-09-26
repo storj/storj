@@ -16,11 +16,11 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/peer"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcpeer"
 )
 
 const (
@@ -69,7 +69,7 @@ type Token struct {
 // ClaimOpts hold parameters for claiming an authorization.
 type ClaimOpts struct {
 	Req           *pb.SigningRequest
-	Peer          *peer.Peer
+	Peer          *rpcpeer.Peer
 	ChainBytes    [][]byte
 	MinDifficulty uint16
 }

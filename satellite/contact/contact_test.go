@@ -10,12 +10,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcpeer"
 )
 
 func TestSatelliteContactEndpoint(t *testing.T) {
@@ -25,18 +24,16 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 		nodeDossier := planet.StorageNodes[0].Local()
 		ident := planet.StorageNodes[0].Identity
 
-		grpcPeer := peer.Peer{
+		peer := rpcpeer.Peer{
 			Addr: &net.TCPAddr{
 				IP:   net.ParseIP(nodeDossier.Address.GetAddress()),
 				Port: 5,
 			},
-			AuthInfo: credentials.TLSInfo{
-				State: tls.ConnectionState{
-					PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
-				},
+			State: tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
 			},
 		}
-		peerCtx := peer.NewContext(ctx, &grpcPeer)
+		peerCtx := rpcpeer.NewContext(ctx, &peer)
 		resp, err := planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
 			Address:  nodeDossier.Address.GetAddress(),
 			Version:  &nodeDossier.Version,
