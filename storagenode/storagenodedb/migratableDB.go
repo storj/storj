@@ -3,8 +3,13 @@
 
 package storagenodedb
 
+import (
+	"database/sql"
+)
+
+// migratableDB fulfills the migrate.DB interface and the SQLDB interface
 type migratableDB struct {
-	SQLDB
+	*sql.DB
 }
 
 // Schema returns schema
@@ -22,6 +27,11 @@ func (db *migratableDB) Rebind(s string) string {
 }
 
 // Configure sets the underlining SQLDB connection.
-func (db *migratableDB) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
+func (db *migratableDB) Configure(sqlDB *sql.DB) {
+	db.DB = sqlDB
+}
+
+// GetDB returns the raw *sql.DB underlying this migratableDB
+func (db *migratableDB) GetDB() *sql.DB {
+	return db.DB
 }
