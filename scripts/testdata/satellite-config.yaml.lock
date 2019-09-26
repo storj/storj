@@ -350,4 +350,4 @@ server.private-address: 127.0.0.1:7778
 # version.request-timeout: 1m0s
 
 # server address to check its version against
-# version.server-address: https://version.alpha.storj.io
+# version.server-address: https://version.storj.io

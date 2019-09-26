@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
 
 	"storj.io/storj/pkg/process"
@@ -49,6 +50,8 @@ func init() {
 	if err != nil {
 		zap.S().Fatalf("Service failed: %v", err)
 	}
+	// avoid starting main() when service was stopped
+	os.Exit(0)
 }
 
 type service struct{}
@@ -58,9 +61,11 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 
 	changes <- svc.Status{State: svc.StartPending}
 
-	go func() {
+	var group errgroup.Group
+	group.Go(func() error {
 		process.Exec(rootCmd)
-	}()
+		return nil
+	})
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
@@ -80,8 +85,7 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 				// Cancel the command's root context to cleanup resources
 				_, cancel := process.Ctx(runCmd)
 				cancel()
-				// Sleep some time to give chance for goroutines finish cleanup after cancelling the context
-				time.Sleep(15 * time.Second)
+				_ = group.Wait() // process.Exec does not return an error
 				// After returning the Windows Service is stopped and the process terminates
 				return
 			default:

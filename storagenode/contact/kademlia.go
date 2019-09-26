@@ -7,11 +7,10 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -54,17 +53,17 @@ func (endpoint *KademliaEndpoint) RequestInfo(ctx context.Context, req *pb.InfoR
 	self := endpoint.service.Local()
 
 	if endpoint.trust == nil {
-		return nil, status.Error(codes.Internal, "missing trust")
+		return nil, rpcstatus.Error(rpcstatus.Internal, "missing trust")
 	}
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
 	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
 	if err != nil {
-		return nil, status.Errorf(codes.PermissionDenied, "untrusted peer %v", peer.ID)
+		return nil, rpcstatus.Errorf(rpcstatus.PermissionDenied, "untrusted peer %v", peer.ID)
 	}
 
 	return &pb.InfoResponse{

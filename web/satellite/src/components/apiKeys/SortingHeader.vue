@@ -4,13 +4,13 @@
 <template>
     <div class="sort-header-container">
         <div class="sort-header-container__name-item" @click="onHeaderItemClick(ApiKeyOrderBy.NAME)">
-            <p>Key Name</p>
+            <p class="sort-header-container__name-item__title">Key Name</p>
             <VerticalArrows
                 :isActive="getSortBy === ApiKeyOrderBy.NAME"
                 :direction="getSortDirection"></VerticalArrows>
         </div>
         <div class="sort-header-container__date-item" @click="onHeaderItemClick(ApiKeyOrderBy.CREATED_AT)">
-            <p>Created</p>
+            <p class="sort-header-container__date-item__title">Created</p>
             <VerticalArrows
                 :isActive="getSortBy === ApiKeyOrderBy.CREATED_AT"
                 :direction="getSortDirection"></VerticalArrows>
@@ -89,22 +89,22 @@ export default class SortApiKeysHeader extends Vue {
             margin: 0;
             cursor: pointer;
 
-            p {
+            &__title {
                 font-family: 'font_medium';
                 font-size: 16px;
-                margin-left: 26px;
+                margin: 0 0 0 26px;
                 color: #2A2A32;
             }
 
             &:nth-child(1) {
-                margin-left: 0px;
+                margin-left: 0;
             }
         }
 
         &__date-item {
             width: 60%;
 
-            P {
+            &__title {
                 margin: 0;
             }
         }
