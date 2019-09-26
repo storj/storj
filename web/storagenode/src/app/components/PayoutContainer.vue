@@ -11,7 +11,7 @@
             <p>{{label}}</p>
             <p><b>{{walletAddress}}</b></p>
         </div>
-        <a :href="'https://etherscan.io/address/' + walletAddress" target="_blank" rel="noopener">
+        <a :href="'https://etherscan.io/address/' + walletAddress + '#tokentxns'" target="_blank" rel="noopener">
             <div class="payout-container__button"><b>View on Etherscan</b></div>
         </a>
     </div>
