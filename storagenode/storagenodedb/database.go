@@ -722,6 +722,15 @@ func (db *DB) Migration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				DB:          db.versionsDB,
+				Description: "Free Storagenodes from trash data",
+				Version:     22,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					_, err := db.versionsDB.Exec("VACUUM;")
+					return err
+				}),
+			},
 		},
 	}
 }
