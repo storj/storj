@@ -34,28 +34,28 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class CardChoiceItem extends Vue {
-        @Prop({default: false})
-        private isChosen: boolean;
+@Component
+export default class CardChoiceItem extends Vue {
+    @Prop({default: false})
+    private isChosen: boolean;
 
-        @Prop({default: '0000'})
-        private lastDigits: string;
+    @Prop({default: '0000'})
+    private lastDigits: string;
 
-        @Prop({default: 'Shawn Wilkinson'})
-        private fullName: string;
+    @Prop({default: 'Shawn Wilkinson'})
+    private fullName: string;
 
-        @Prop({default: 'Expires'})
-        private expireLabel: string;
+    @Prop({default: 'Expires'})
+    private expireLabel: string;
 
-        @Prop({default: '12/2020'})
-        private expireDate: string;
+    @Prop({default: '12/2020'})
+    private expireDate: string;
 
-        @Prop()
-        private logoPath: string;
-    }
+    @Prop()
+    private logoPath: string;
+}
 </script>
 
 <style scoped lang="scss">

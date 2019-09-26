@@ -25,30 +25,40 @@
                                     class="no-error-input"
                                     :class="{ 'error-input': input.error }"
                                     @keyup="resetFormErrors(index)" />
-                                <svg @click="deleteInput(index)" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M11.7803 1.28033C12.0732 0.987437 12.0732 0.512563 11.7803 0.21967C11.4874 -0.0732233 11.0126 -0.0732233 10.7197 0.21967L11.7803 1.28033ZM0.21967 10.7197C-0.0732233 11.0126 -0.0732233 11.4874 0.21967 11.7803C0.512563 12.0732 0.987437 12.0732 1.28033 11.7803L0.21967 10.7197ZM1.28033 0.21967C0.987437 -0.0732233 0.512563 -0.0732233 0.21967 0.21967C-0.0732233 0.512563 -0.0732233 0.987437 0.21967 1.28033L1.28033 0.21967ZM10.7197 11.7803C11.0126 12.0732 11.4874 12.0732 11.7803 11.7803C12.0732 11.4874 12.0732 11.0126 11.7803 10.7197L10.7197 11.7803ZM10.7197 0.21967L0.21967 10.7197L1.28033 11.7803L11.7803 1.28033L10.7197 0.21967ZM0.21967 1.28033L10.7197 11.7803L11.7803 10.7197L1.28033 0.21967L0.21967 1.28033Z" fill="#AFB7C1"/>
+                                <svg class="add-user__form-container__inputs-group__item__image" @click="deleteInput(index)" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path class="delete-input-svg-path" d="M11.7803 1.28033C12.0732 0.987437 12.0732 0.512563 11.7803 0.21967C11.4874 -0.0732233 11.0126 -0.0732233 10.7197 0.21967L11.7803 1.28033ZM0.21967 10.7197C-0.0732233 11.0126 -0.0732233 11.4874 0.21967 11.7803C0.512563 12.0732 0.987437 12.0732 1.28033 11.7803L0.21967 10.7197ZM1.28033 0.21967C0.987437 -0.0732233 0.512563 -0.0732233 0.21967 0.21967C-0.0732233 0.512563 -0.0732233 0.987437 0.21967 1.28033L1.28033 0.21967ZM10.7197 11.7803C11.0126 12.0732 11.4874 12.0732 11.7803 11.7803C12.0732 11.4874 12.0732 11.0126 11.7803 10.7197L10.7197 11.7803ZM10.7197 0.21967L0.21967 10.7197L1.28033 11.7803L11.7803 1.28033L10.7197 0.21967ZM0.21967 1.28033L10.7197 11.7803L11.7803 10.7197L1.28033 0.21967L0.21967 1.28033Z" fill="#AFB7C1"/>
                                 </svg>
                         </div>
                     </div>
                     <div class="add-user-row">
                         <div @click='addInput' class="add-user-row__item" id="addUserButton">
                             <div :class="{ 'inactive-image': isMaxInputsCount }">
-                                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect width="40" height="40" rx="20" fill="#2683FF" />
-                                    <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white" />
+                                <svg class="add-user-row__item__image" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect class="add-user-row__item__image__rect" width="40" height="40" rx="20" fill="#2683FF" />
+                                    <path class="add-user-row__item__image__path" d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white" />
                                 </svg>
                             </div>
                             <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add Another</p>
                         </div>
                     </div>
                     <div class='add-user__form-container__button-container'>
-                        <Button label='Cancel' width='205px' height='48px' :on-press="onClose" is-white="true"/>
-                        <Button label='Add Team Members' width='205px' height='48px' :on-press="onAddUsersClick" :is-disabled="!isButtonActive"/>
+                        <VButton
+                            label='Cancel'
+                            width='205px'
+                            height='48px'
+                            :on-press="onClose"
+                            is-white="true"/>
+                        <VButton
+                            label='Add Team Members'
+                            width='205px'
+                            height='48px'
+                            :on-press="onAddUsersClick"
+                            :is-disabled="!isButtonActive"/>
                     </div>
                 </div>
                 <div class='add-user__close-cross-container' @click='onClose'>
                     <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'>
-                        <path d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
+                        <path class="close-cross-svg-path" d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
                     </svg>
                 </div>
             </div>
@@ -68,7 +78,7 @@
 <script lang='ts'>
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
@@ -78,7 +88,7 @@ import { validateEmail } from '@/utils/validation';
 
 @Component({
     components: {
-        Button,
+        VButton,
     },
 })
 export default class AddUserPopup extends Vue {
@@ -252,6 +262,19 @@ export default class AddUserPopup extends Vue {
             align-items: center;
             justify-content: space-between;
 
+            &__image {
+                margin-right: 20px;
+            }
+
+            &__label {
+                font-family: 'font_medium';
+                font-size: 16px;
+                margin-left: 0;
+                padding-left: 0;
+                margin-block-start: 0;
+                margin-block-end: 0;
+            }
+
             &:first-child {
                 cursor: pointer;
                 -webkit-user-select: none;
@@ -259,24 +282,12 @@ export default class AddUserPopup extends Vue {
                 -moz-user-select: none;
                 -ms-user-select: none;
                 user-select: none;
-
-                svg {
-                    margin-right: 20px;
-                }
-
-                &__label {
-                    font-family: 'font_medium';
-                    font-size: 16px;
-                    margin-left: 0;
-                    padding-left: 0;
-                    margin-block-start: 0;
-                    margin-block-end: 0;
-                }
             }
         }
     }
 
     .inactive-label {
+        cursor: default;
         color: #DADDE5;
     }
 
@@ -285,14 +296,15 @@ export default class AddUserPopup extends Vue {
     }
 
     .inactive-image {
+        cursor: default;
 
-        svg {
+        .add-user-row__item__image {
 
-            rect {
+            &__rect {
                 fill: #DADDE5;
             }
 
-            path {
+            &__path {
                 fill: #ACB0BC;
             }
         }
@@ -401,12 +413,12 @@ export default class AddUserPopup extends Vue {
                         }
                     }
 
-                    svg {
+                    &__image {
                         margin-bottom: 18px;
                         margin-left: 20px;
                         cursor: pointer;
 
-                        &:hover path {
+                        &:hover .delete-input-svg-path {
                             fill: #2683FF;
                         }
                     }
@@ -423,6 +435,7 @@ export default class AddUserPopup extends Vue {
 
             &__common-label {
                 margin: 0 0 10px 0;
+                font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 25px;
                 padding-left: 50px;
@@ -449,7 +462,7 @@ export default class AddUserPopup extends Vue {
             width: 24px;
             cursor: pointer;
 
-            &:hover svg path {
+            &:hover .close-cross-svg-path {
                 fill: #2683FF;
             }
         }
@@ -509,7 +522,7 @@ export default class AddUserPopup extends Vue {
         #addUserButton {
             justify-content: flex-start;
 
-            svg {
+            .add-user-row__item__image {
                 padding-right: 20px;
             }
         }

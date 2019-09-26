@@ -44,7 +44,7 @@ func TestECClient(t *testing.T) {
 
 	planet.Start(ctx)
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Dialer, 0)
 
 	k := storageNodes / 2
 	n := storageNodes

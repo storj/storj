@@ -42,9 +42,9 @@ func TestBasic(t *testing.T) {
 			satellite := sat.Local().Node
 			for _, sn := range planet.StorageNodes {
 				node := sn.Local()
-				conn, err := sn.Transport.DialNode(ctx, &satellite)
+				conn, err := sn.Dialer.DialNode(ctx, &satellite)
 				require.NoError(t, err)
-				_, err = pb.NewNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
+				_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
 					Address:  node.GetAddress().GetAddress(),
 					Version:  &node.Version,
 					Capacity: &node.Capacity,

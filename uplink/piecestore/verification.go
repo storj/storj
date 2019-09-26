@@ -30,14 +30,14 @@ func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerId
 		return ErrProtocol.New("invalid arguments")
 	}
 	if limit.PieceId != hash.PieceId {
-		return ErrProtocol.New("piece id changed") // TODO: report grpc status bad message
+		return ErrProtocol.New("piece id changed") // TODO: report rpc status bad message
 	}
 	if !bytes.Equal(hash.Hash, expectedHash) {
-		return ErrVerifyUntrusted.New("hashes don't match") // TODO: report grpc status bad message
+		return ErrVerifyUntrusted.New("hashes don't match") // TODO: report rpc status bad message
 	}
 
 	if err := signing.VerifyPieceHashSignature(ctx, signing.SigneeFromPeerIdentity(peer), hash); err != nil {
-		return ErrVerifyUntrusted.New("invalid hash signature: %v", err) // TODO: report grpc status bad message
+		return ErrVerifyUntrusted.New("invalid hash signature: %v", err) // TODO: report rpc status bad message
 	}
 
 	return nil
