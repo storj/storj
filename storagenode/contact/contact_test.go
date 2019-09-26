@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -123,7 +124,16 @@ func TestRequestInfoEndpointUntrustedSatellite(t *testing.T) {
 }
 
 func TestLocalAndUpdateSelf(t *testing.T) {
-	//local
-	//update
-	//local
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		var group errgroup.Group
+		group.Go(func() error {
+			_ = node.Contact.Service.Local()
+			return nil
+		})
+		node.Contact.Service.UpdateSelf(&pb.NodeCapacity{})
+		_ = group.Wait()
+	})
 }
