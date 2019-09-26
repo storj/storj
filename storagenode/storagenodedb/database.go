@@ -766,8 +766,17 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			},
 			{
 				DB:          db.deprecatedInfoDB,
-				Description: "Split into multiple sqlite databases",
+				Description: "Vacuum info db",
 				Version:     22,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					_, err := db.deprecatedInfoDB.GetDB().Exec("VACUUM;")
+					return err
+				}),
+			},
+			{
+				DB:          db.deprecatedInfoDB,
+				Description: "Split into multiple sqlite databases",
+				Version:     23,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					// Migrate all the tables to new database files.
 					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
@@ -804,7 +813,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			{
 				DB:          db.deprecatedInfoDB,
 				Description: "Drop unneeded tables in deprecatedInfoDB",
-				Version:     23,
+				Version:     24,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
 					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
 					// in migration step 23 because if we were to keep that as part of step 22
