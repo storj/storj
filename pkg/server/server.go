@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"sync"
 
@@ -41,11 +42,11 @@ type private struct {
 // Server represents a bundle of services defined by a specific ID.
 // Examples of servers are the satellite, the storagenode, and the uplink.
 type Server struct {
-	log      *zap.Logger
-	public   public
-	private  private
-	next     []Service
-	identity *identity.FullIdentity
+	log        *zap.Logger
+	public     public
+	private    private
+	next       []Service
+	tlsOptions *tlsopts.Options
 
 	mu   sync.Mutex
 	wg   sync.WaitGroup
@@ -55,12 +56,12 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
+func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
 	server := &Server{
-		log:      log,
-		next:     services,
-		identity: opts.Ident,
-		done:     make(chan struct{}),
+		log:        log,
+		next:       services,
+		tlsOptions: tlsOptions,
+		done:       make(chan struct{}),
 	}
 
 	unaryInterceptor := server.logOnErrorUnaryInterceptor
@@ -78,7 +79,7 @@ func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string,
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
-			opts.ServerOption(),
+			tlsOptions.ServerOption(),
 		),
 	}
 
@@ -96,7 +97,7 @@ func New(log *zap.Logger, opts *tlsopts.Options, publicAddr, privateAddr string,
 }
 
 // Identity returns the server's identity
-func (p *Server) Identity() *identity.FullIdentity { return p.identity }
+func (p *Server) Identity() *identity.FullIdentity { return p.tlsOptions.Ident }
 
 // Addr returns the server's public listener address
 func (p *Server) Addr() net.Addr { return p.public.listener.Addr() }
@@ -167,7 +168,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	const drpcHeader = "DRPC!!!1"
 
 	publicMux := listenmux.New(p.public.listener, len(drpcHeader))
-	publicDRPCListener := publicMux.Route(drpcHeader)
+	publicDRPCListener := tls.NewListener(publicMux.Route(drpcHeader), p.tlsOptions.ServerTLSConfig())
 
 	privateMux := listenmux.New(p.private.listener, len(drpcHeader))
 	privateDRPCListener := privateMux.Route(drpcHeader)

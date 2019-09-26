@@ -19,8 +19,8 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/piecestore"
 )
@@ -39,16 +39,16 @@ type dialPiecestoreFunc func(context.Context, *pb.Node) (*piecestore.Client, err
 
 type ecClient struct {
 	log                 *zap.Logger
-	transport           transport.Client
+	dialer              rpc.Dialer
 	memoryLimit         int
 	forceErrorDetection bool
 }
 
 // NewClient from the given identity and max buffer memory
-func NewClient(log *zap.Logger, tc transport.Client, memoryLimit int) Client {
+func NewClient(log *zap.Logger, dialer rpc.Dialer, memoryLimit int) Client {
 	return &ecClient{
 		log:         log,
-		transport:   tc,
+		dialer:      dialer,
 		memoryLimit: memoryLimit,
 	}
 }
@@ -60,7 +60,7 @@ func (ec *ecClient) WithForceErrorDetection(force bool) Client {
 
 func (ec *ecClient) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
 	logger := ec.log.Named(n.Id.String())
-	return piecestore.Dial(ctx, ec.transport, n, logger, piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, ec.dialer, n, logger, piecestore.DefaultConfig)
 }
 
 func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {

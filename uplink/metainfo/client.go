@@ -10,15 +10,14 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 )
 
@@ -31,8 +30,8 @@ var (
 
 // Client creates a grpcClient
 type Client struct {
-	client    pb.MetainfoClient
-	conn      *grpc.ClientConn
+	conn      *rpc.Conn
+	client    rpc.MetainfoClient
 	apiKeyRaw []byte
 }
 
@@ -44,7 +43,7 @@ type ListItem struct {
 }
 
 // New used as a public function
-func New(client pb.MetainfoClient, apiKey *macaroon.APIKey) *Client {
+func New(client rpc.MetainfoClient, apiKey *macaroon.APIKey) *Client {
 	return &Client{
 		client:    client,
 		apiKeyRaw: apiKey.SerializeRaw(),
@@ -52,15 +51,15 @@ func New(client pb.MetainfoClient, apiKey *macaroon.APIKey) *Client {
 }
 
 // Dial dials to metainfo endpoint with the specified api key.
-func Dial(ctx context.Context, tc transport.Client, address string, apiKey *macaroon.APIKey) (*Client, error) {
-	conn, err := tc.DialAddress(ctx, address)
+func Dial(ctx context.Context, dialer rpc.Dialer, address string, apiKey *macaroon.APIKey) (*Client, error) {
+	conn, err := dialer.DialAddressInsecure(ctx, address)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return &Client{
-		client:    pb.NewMetainfoClient(conn),
 		conn:      conn,
+		client:    conn.MetainfoClient(),
 		apiKeyRaw: apiKey.SerializeRaw(),
 	}, nil
 }
@@ -129,7 +128,7 @@ func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj
 		Segment: segmentIndex,
 	})
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return nil, storage.ErrKeyNotFound.Wrap(err)
 		}
 		return nil, Error.Wrap(err)
@@ -149,7 +148,7 @@ func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj
 		Segment: segmentIndex,
 	})
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return nil, nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
 		return nil, nil, piecePrivateKey, Error.Wrap(err)
@@ -187,7 +186,7 @@ func (client *Client) DeleteSegment(ctx context.Context, bucket string, path sto
 		Segment: segmentIndex,
 	})
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
 		return nil, piecePrivateKey, Error.Wrap(err)
@@ -368,7 +367,7 @@ func (client *Client) GetBucket(ctx context.Context, params GetBucketParams) (re
 
 	resp, err := client.client.GetBucket(ctx, params.toRequest(client.header()))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
 		}
 		return storj.Bucket{}, Error.Wrap(err)
@@ -407,7 +406,7 @@ func (client *Client) DeleteBucket(ctx context.Context, params DeleteBucketParam
 	defer mon.Task()(&ctx)(&err)
 	_, err = client.client.DeleteBucket(ctx, params.toRequest(client.header()))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return storj.ErrBucketNotFound.Wrap(err)
 		}
 		return Error.Wrap(err)
@@ -713,7 +712,7 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 	response, err := client.client.GetObject(ctx, params.toRequest(client.header()))
 
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return storj.ObjectInfo{}, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return storj.ObjectInfo{}, Error.Wrap(err)
@@ -765,7 +764,7 @@ func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteO
 
 	response, err := client.client.BeginDeleteObject(ctx, params.toRequest(client.header()))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return storj.StreamID{}, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return storj.StreamID{}, Error.Wrap(err)
@@ -1236,7 +1235,7 @@ func (client *Client) ListSegmentsNew(ctx context.Context, params ListSegmentsPa
 
 	response, err := client.client.ListSegments(ctx, params.toRequest(client.header()))
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			return []storj.SegmentListItem{}, false, storj.ErrObjectNotFound.Wrap(err)
 		}
 		return []storj.SegmentListItem{}, false, Error.Wrap(err)
