@@ -35,9 +35,10 @@ type StorageNodeFlags struct {
 	Deprecated
 }
 
+// Deprecated contains deprecated config flags
 type Deprecated struct {
 	Kademlia struct {
-		ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:"abc"`
+		ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
 		Operator        storagenode.OperatorConfig
 	}
 }
@@ -334,12 +335,14 @@ func mapConfigs(log *zap.Logger) {
 	for _, config := range configs {
 		if *config.new != "" && *config.old != "" {
 			log.Warn("Both " + config.newFlag + " and " + config.oldFlag + " are designated in your config.yaml. " +
-				config.oldFlag + " is deprecated. Using" + config.newFlag + ". Please update your config")
+				config.oldFlag + " is deprecated. Using " + config.newFlag + " with the value of " + *config.new + ". Please update your config.")
 		}
 		if *config.new == "" {
 			*config.new = *config.old
 			log.Warn(config.oldFlag + " is deprecated. Please update your config file with " + config.newFlag + ".")
+			log.Debug("Setting " + config.newFlag + " to the value of " + config.oldFlag + ": " + *config.old + ".")
 		}
+		log.Debug(config.newFlag + ": " + *config.new)
 	}
 }
 
