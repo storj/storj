@@ -1,19 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template functional>
+<template>
     <div class="sort-header-container">
         <div class="sort-header-container__item">
-            <p>Bucket Name</p>
+            <p class="sort-header-container__item__name">Bucket Name</p>
         </div>
         <div class="sort-header-container__item">
-            <p>Storage Used</p>
+            <p class="sort-header-container__item__name">Storage Used</p>
         </div>
         <div class="sort-header-container__item">
-            <p>Egress Used</p>
+            <p class="sort-header-container__item__name">Egress Used</p>
         </div>
         <div class="sort-header-container__item">
-            <p>Objects Stored</p>
+            <p class="sort-header-container__item__name">Objects Stored</p>
         </div>
     </div>
 </template>
@@ -39,20 +39,13 @@
             cursor: pointer;
             text-align: left;
             padding-left: 26px;
-            
-            p {
+
+            &__name {
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 23px;
                 color: #2A2A32;
             }
-        }
-    }
-    
-    @media screen and (max-width: 1600px) {
-        .sort-header-container {
-            grid-template-columns: 25% 28% 19% 15% 14%;
-            height: 65px;
         }
     }
 </style>

@@ -9,12 +9,11 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcpeer"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -45,16 +44,16 @@ func NewEndpoint(log *zap.Logger, pingStats *PingStats) *Endpoint {
 // PingNode provides an easy way to verify a node is online and accepting requests
 func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingRequest) (_ *pb.ContactPingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Internal, "unable to get grpc peer from context")
-	}
-	peerID, err := identity.PeerIdentityFromPeer(p)
+	peer, err := rpcpeer.FromContext(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
-	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", p.Addr))
-	endpoint.pingStats.WasPinged(time.Now(), peerID.ID, p.Addr.String())
+	peerID, err := identity.PeerIdentityFromPeer(peer)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", peer.Addr))
+	endpoint.pingStats.WasPinged(time.Now(), peerID.ID, peer.Addr.String())
 	return &pb.ContactPingResponse{}, nil
 }
 

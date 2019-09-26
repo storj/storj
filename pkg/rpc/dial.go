@@ -67,7 +67,9 @@ func (d Dialer) dialContext(ctx context.Context, address string) (net.Conn, erro
 
 	conn, err := new(net.Dialer).DialContext(ctx, "tcp", address)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		// N.B. this error is not wrapped on purpose! grpc code cares about inspecting
+		// it and it's not smart enough to attempt to do any unwrapping. :(
+		return nil, err
 	}
 
 	return &timedConn{

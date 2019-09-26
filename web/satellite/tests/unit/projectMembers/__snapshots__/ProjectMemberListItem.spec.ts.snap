@@ -5,7 +5,7 @@ exports[`should render correctly with item row highlighted 1`] = `
   <div class="user-container__base-info">
     <div class="checkbox"></div>
     <div class="user-container__base-info__avatar" style="background: rgb(88, 185, 255);">
-      <h1>T</h1>
+      <h1 class="user-container__base-info__avatar__letter">T</h1>
     </div>
     <p class="user-container__base-info__user-name">testShortName</p>
   </div>
@@ -19,7 +19,7 @@ exports[`should renders correctly 1`] = `
   <div class="user-container__base-info">
     <div class="checkbox"></div>
     <div class="user-container__base-info__avatar" style="background: rgb(88, 185, 255);">
-      <h1>T</h1>
+      <h1 class="user-container__base-info__avatar__letter">T</h1>
     </div>
     <p class="user-container__base-info__user-name">testShortName</p>
   </div>

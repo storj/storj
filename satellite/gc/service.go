@@ -14,8 +14,8 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/uplink/piecestore"
@@ -45,7 +45,7 @@ type Service struct {
 	config Config
 	Loop   sync2.Cycle
 
-	transport    transport.Client
+	dialer       rpc.Dialer
 	overlay      overlay.DB
 	metainfoLoop *metainfo.Loop
 }
@@ -58,13 +58,13 @@ type RetainInfo struct {
 }
 
 // NewService creates a new instance of the gc service
-func NewService(log *zap.Logger, config Config, transport transport.Client, overlay overlay.DB, loop *metainfo.Loop) *Service {
+func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *metainfo.Loop) *Service {
 	return &Service{
 		log:    log,
 		config: config,
 		Loop:   *sync2.NewCycle(config.Interval),
 
-		transport:    transport,
+		dialer:       dialer,
 		overlay:      overlay,
 		metainfoLoop: loop,
 	}
@@ -146,7 +146,7 @@ func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, 
 		return Error.Wrap(err)
 	}
 
-	client, err := piecestore.Dial(ctx, service.transport, &dossier.Node, log, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(ctx, service.dialer, &dossier.Node, log, piecestore.DefaultConfig)
 	if err != nil {
 		return Error.Wrap(err)
 	}

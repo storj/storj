@@ -15,8 +15,8 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -97,22 +97,22 @@ type Service struct {
 	log    *zap.Logger
 	config Config
 
-	transport transport.Client
-	orders    DB
-	trust     *trust.Pool
+	dialer rpc.Dialer
+	orders DB
+	trust  *trust.Pool
 
 	Sender  sync2.Cycle
 	Cleanup sync2.Cycle
 }
 
 // NewService creates an order service.
-func NewService(log *zap.Logger, transport transport.Client, orders DB, trust *trust.Pool, config Config) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, orders DB, trust *trust.Pool, config Config) *Service {
 	return &Service{
-		log:       log,
-		transport: transport,
-		orders:    orders,
-		config:    config,
-		trust:     trust,
+		log:    log,
+		dialer: dialer,
+		orders: orders,
+		config: config,
+		trust:  trust,
 
 		Sender:  *sync2.NewCycle(config.SenderInterval),
 		Cleanup: *sync2.NewCycle(config.CleanupInterval),
@@ -251,25 +251,14 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 	if err != nil {
 		return OrderError.New("unable to get satellite address: %v", err)
 	}
-	satellite := pb.Node{
-		Id: satelliteID,
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   address,
-		},
-	}
 
-	conn, err := service.transport.DialNode(ctx, &satellite)
+	conn, err := service.dialer.DialAddressID(ctx, address, satelliteID)
 	if err != nil {
 		return OrderError.New("unable to connect to the satellite: %v", err)
 	}
-	defer func() {
-		if cerr := conn.Close(); cerr != nil {
-			err = errs.Combine(err, OrderError.New("failed to close connection: %v", cerr))
-		}
-	}()
+	defer func() { err = errs.Combine(err, conn.Close()) }()
 
-	client, err := pb.NewOrdersClient(conn).Settlement(ctx)
+	stream, err := conn.OrdersClient().Settlement(ctx)
 	if err != nil {
 		return OrderError.New("failed to start settlement: %v", err)
 	}
@@ -283,10 +272,10 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 				Limit: order.Limit,
 				Order: order.Order,
 			}
-			err := client.Send(&req)
+			err := stream.Send(&req)
 			if err != nil {
 				err = OrderError.New("sending settlement agreements returned an error: %v", err)
-				log.Error("gRPC client when sending new orders settlements",
+				log.Error("rpc client when sending new orders settlements",
 					zap.Error(err),
 					zap.Any("request", req),
 				)
@@ -295,10 +284,10 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 			}
 		}
 
-		err := client.CloseSend()
+		err := stream.CloseSend()
 		if err != nil {
 			err = OrderError.New("CloseSend settlement agreements returned an error: %v", err)
-			log.Error("gRPC client error when closing sender ", zap.Error(err))
+			log.Error("rpc client error when closing sender ", zap.Error(err))
 			sendErrors.Add(err)
 		}
 
@@ -307,14 +296,14 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 
 	var errList errs.Group
 	for {
-		response, err := client.Recv()
+		response, err := stream.Recv()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 
 			err = OrderError.New("failed to receive settlement response: %v", err)
-			log.Error("gRPC client error when receiveing new order settlements", zap.Error(err))
+			log.Error("rpc client error when receiveing new order settlements", zap.Error(err))
 			errList.Add(err)
 			break
 		}
@@ -327,7 +316,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 			status = StatusRejected
 		default:
 			err := OrderError.New("unexpected settlement status response: %d", response.Status)
-			log.Error("gRPC client received a unexpected new orders setlement status",
+			log.Error("rpc client received a unexpected new orders setlement status",
 				zap.Error(err), zap.Any("response", response),
 			)
 			errList.Add(err)
