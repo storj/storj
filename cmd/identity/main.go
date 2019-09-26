@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/rpc"
 )
 
 const (
@@ -196,17 +196,16 @@ func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	tlsOpts, err := tlsopts.NewOptions(ident, config.Signer.TLS, nil)
+	tlsOptions, err := tlsopts.NewOptions(ident, config.Signer.TLS, nil)
 	if err != nil {
 		return err
 	}
-	client, err := certificateclient.New(ctx, transport.NewClient(tlsOpts), config.Signer.Address)
+
+	client, err := certificateclient.New(ctx, rpc.NewDefaultDialer(tlsOptions), config.Signer.Address)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = errs.Combine(err, client.Close())
-	}()
+	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	signedChainBytes, err := client.Sign(ctx, authToken)
 	if err != nil {

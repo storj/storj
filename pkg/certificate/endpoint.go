@@ -7,13 +7,12 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/certificate/authorization"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcpeer"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 )
 
 // Endpoint implements pb.CertificatesServer.
@@ -38,14 +37,14 @@ func NewEndpoint(log *zap.Logger, ca *identity.FullCertificateAuthority, authori
 // Returns a certificate chain consisting of the remote peer's CA followed by the CA chain.
 func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *pb.SigningResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	grpcPeer, ok := peer.FromContext(ctx)
-	if !ok {
+	peer, err := rpcpeer.FromContext(ctx)
+	if err != nil {
 		msg := "error getting peer from context"
 		endpoint.log.Error(msg, zap.Error(err))
 		return nil, internalErr(msg)
 	}
 
-	peerIdent, err := identity.PeerIdentityFromPeer(grpcPeer)
+	peerIdent, err := identity.PeerIdentityFromPeer(peer)
 	if err != nil {
 		msg := "error getting peer identity"
 		endpoint.log.Error(msg, zap.Error(err))
@@ -63,7 +62,7 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 	signedChainBytes = append(signedChainBytes, endpoint.ca.RawRestChain()...)
 	err = endpoint.authorizationDB.Claim(ctx, &authorization.ClaimOpts{
 		Req:           req,
-		Peer:          grpcPeer,
+		Peer:          peer,
 		ChainBytes:    signedChainBytes,
 		MinDifficulty: endpoint.minDifficulty,
 	})
@@ -100,5 +99,5 @@ func (endpoint Endpoint) Sign(ctx context.Context, req *pb.SigningRequest) (_ *p
 }
 
 func internalErr(msg string) error {
-	return status.Error(codes.Internal, Error.New(msg).Error())
+	return rpcstatus.Error(rpcstatus.Internal, Error.New(msg).Error())
 }

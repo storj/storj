@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
@@ -25,9 +23,10 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 // TODO: test sad path
@@ -82,14 +81,14 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				})
 				defer ctx.Check(peer.Close)
 
-				clientOpts, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{
+				tlsOptions, err := tlsopts.NewOptions(clientIdent, tlsopts.Config{
 					PeerIDVersions: "*",
 				}, nil)
 				require.NoError(t, err)
 
-				clientTransport := transport.NewClient(clientOpts)
+				dialer := rpc.NewDefaultDialer(tlsOptions)
 
-				client, err := certificateclient.New(ctx, clientTransport, peer.Server.Addr().String())
+				client, err := certificateclient.New(ctx, dialer, peer.Server.Addr().String())
 				require.NoError(t, err)
 				require.NotNil(t, client)
 				defer ctx.Check(client.Close)
@@ -163,15 +162,13 @@ func TestCertificateSigner_Sign(t *testing.T) {
 				IP:   net.ParseIP("1.2.3.4"),
 				Port: 5,
 			}
-			grpcPeer := &peer.Peer{
+			peer := &rpcpeer.Peer{
 				Addr: expectedAddr,
-				AuthInfo: credentials.TLSInfo{
-					State: tls.ConnectionState{
-						PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
-					},
+				State: tls.ConnectionState{
+					PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
 				},
 			}
-			peerCtx := peer.NewContext(ctx, grpcPeer)
+			peerCtx := rpcpeer.NewContext(ctx, peer)
 
 			certSigner := certificate.NewEndpoint(zaptest.NewLogger(t), ca, authDB, 0)
 			req := pb.SigningRequest{

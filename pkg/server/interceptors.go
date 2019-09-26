@@ -12,10 +12,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/storage"
 )
 
@@ -73,7 +73,7 @@ func prepareRequestLog(ctx context.Context, req, server interface{}, methodName 
 		PeerAddress: "<no peer???>",
 		Msg:         req,
 	}
-	if peer, ok := peer.FromContext(ctx); ok {
+	if peer, err := rpcpeer.FromContext(ctx); err == nil {
 		reqLog.PeerAddress = peer.Addr.String()
 		if peerIdentity, err := identity.PeerIdentityFromPeer(peer); err == nil {
 			reqLog.PeerNodeID = peerIdentity.ID.String()

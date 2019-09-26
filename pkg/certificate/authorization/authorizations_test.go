@@ -17,8 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
@@ -26,8 +24,9 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storage"
 )
 
@@ -230,12 +229,10 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 		IP:   net.ParseIP("1.2.3.4"),
 		Port: 5,
 	}
-	grpcPeer := &peer.Peer{
+	peer := &rpcpeer.Peer{
 		Addr: addr,
-		AuthInfo: credentials.TLSInfo{
-			State: tls.ConnectionState{
-				PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
-			},
+		State: tls.ConnectionState{
+			PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
 		},
 	}
 
@@ -249,7 +246,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 
 	err = authDB.Claim(ctx, &ClaimOpts{
 		Req:           req,
-		Peer:          grpcPeer,
+		Peer:          peer,
 		ChainBytes:    [][]byte{ident.CA.Raw},
 		MinDifficulty: difficulty,
 	})
@@ -263,7 +260,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	require.NotNil(t, updatedAuths[0].Claim)
 
 	claim := updatedAuths[0].Claim
-	assert.Equal(t, grpcPeer.Addr.String(), claim.Addr)
+	assert.Equal(t, peer.Addr.String(), claim.Addr)
 	assert.Equal(t, [][]byte{ident.CA.Raw}, claim.SignedChainBytes)
 	assert.Condition(t, func() bool {
 		return now-MaxClaimDelaySeconds < claim.Timestamp &&
@@ -314,12 +311,10 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 		IP:   net.ParseIP("1.2.3.4"),
 		Port: 5,
 	}
-	grpcPeer := &peer.Peer{
+	peer := &rpcpeer.Peer{
 		Addr: addr,
-		AuthInfo: credentials.TLSInfo{
-			State: tls.ConnectionState{
-				PeerCertificates: []*x509.Certificate{ident2.Leaf, ident2.CA},
-			},
+		State: tls.ConnectionState{
+			PeerCertificates: []*x509.Certificate{ident2.Leaf, ident2.CA},
 		},
 	}
 
@@ -332,7 +327,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 				AuthToken: auths[claimedIndex].Token.String(),
 				Timestamp: time.Now().Unix(),
 			},
-			Peer:          grpcPeer,
+			Peer:          peer,
 			ChainBytes:    [][]byte{ident2.CA.Raw},
 			MinDifficulty: difficulty2,
 		})
@@ -361,7 +356,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 				// NB: 1 day ago
 				Timestamp: time.Now().Unix() - 86400,
 			},
-			Peer:          grpcPeer,
+			Peer:          peer,
 			ChainBytes:    [][]byte{ident2.CA.Raw},
 			MinDifficulty: difficulty2,
 		})
@@ -385,7 +380,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 				AuthToken: auths[unclaimedIndex].Token.String(),
 				Timestamp: time.Now().Unix(),
 			},
-			Peer:          grpcPeer,
+			Peer:          peer,
 			ChainBytes:    [][]byte{ident2.CA.Raw},
 			MinDifficulty: difficulty2 + 1,
 		})
@@ -605,10 +600,10 @@ func TestNewClient(t *testing.T) {
 	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{}, nil)
 	require.NoError(t, err)
 
-	clientTransport := transport.NewClient(tlsOptions)
+	dialer := rpc.NewDefaultDialer(tlsOptions)
 
 	t.Run("Basic", func(t *testing.T) {
-		client, err := certificateclient.New(ctx, clientTransport, listener.Addr().String())
+		client, err := certificateclient.New(ctx, dialer, listener.Addr().String())
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 
@@ -616,16 +611,13 @@ func TestNewClient(t *testing.T) {
 	})
 
 	t.Run("ClientFrom", func(t *testing.T) {
-		conn, err := clientTransport.DialAddress(ctx, listener.Addr().String())
+		conn, err := dialer.DialAddressInsecure(ctx, listener.Addr().String())
 		require.NoError(t, err)
 		require.NotNil(t, conn)
 
 		defer ctx.Check(conn.Close)
 
-		pbClient := pb.NewCertificatesClient(conn)
-		require.NotNil(t, pbClient)
-
-		client := certificateclient.NewClientFrom(pbClient)
+		client := certificateclient.NewClientFrom(conn.CertificatesClient())
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 

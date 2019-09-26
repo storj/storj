@@ -16,8 +16,8 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/uplink"
 )
@@ -338,20 +338,14 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
-		network := &transport.SimulatedNetwork{
-			DialLatency:    200 * time.Second,
-			BytesPerSecond: 1 * memory.KiB,
-		}
-
-		tlsOpts, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
+		tlsOptions, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
-		newTransport := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
-			Dial: 20 * time.Millisecond,
-		})
-
-		slowClient := network.NewClient(newTransport)
-		require.NotNil(t, slowClient)
+		dialer := rpc.NewDefaultDialer(tlsOptions)
+		dialer.RequestTimeout = 0
+		dialer.DialTimeout = 20 * time.Millisecond
+		dialer.DialLatency = 200 * time.Second
+		dialer.TransferRate = 1 * memory.KB
 
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel and start
@@ -361,7 +355,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		verifier := audit.NewVerifier(
 			satellite.Log.Named("verifier"),
 			satellite.Metainfo.Service,
-			slowClient,
+			dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
 			satellite.Orders.Service,
