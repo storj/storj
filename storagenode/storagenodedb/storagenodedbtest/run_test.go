@@ -38,9 +38,8 @@ func TestFileConcurrency(t *testing.T) {
 	log := zaptest.NewLogger(t)
 
 	db, err := storagenodedb.New(log, storagenodedb.Config{
-		Pieces:   ctx.Dir("storage"),
-		Info2:    ctx.Dir("storage") + "/info.db",
-		Kademlia: ctx.Dir("storage") + "/kademlia",
+		Pieces: ctx.Dir("storage"),
+		Info2:  ctx.Dir("storage") + "/info.db",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -58,11 +57,10 @@ func TestInMemoryConcurrency(t *testing.T) {
 
 	storageDir := ctx.Dir("storage")
 	cfg := storagenodedb.Config{
-		Pieces:   storageDir,
-		Storage:  storageDir,
-		Info:     filepath.Join(storageDir, "piecestore.db"),
-		Info2:    filepath.Join(storageDir, "info.db"),
-		Kademlia: filepath.Join(storageDir, "kademlia"),
+		Pieces:  storageDir,
+		Storage: storageDir,
+		Info:    filepath.Join(storageDir, "piecestore.db"),
+		Info2:   filepath.Join(storageDir, "info.db"),
 	}
 
 	db, err := storagenodedb.New(log, cfg)
@@ -78,7 +76,7 @@ func testConcurrency(t *testing.T, ctx *testcontext.Context, db *storagenodedb.D
 	t.Run("Sqlite", func(t *testing.T) {
 		runtime.GOMAXPROCS(2)
 
-		err := db.CreateTables()
+		err := db.CreateTables(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -129,7 +129,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	}
 
 	server.server = http.Server{
-		Handler: mux,
+		Handler:        mux,
+		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
 	return &server
@@ -400,7 +401,7 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
 	token := getToken(r)
-	query, err := getQuery(r)
+	query, err := getQuery(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -421,6 +422,9 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
 	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery/?token="
 	rootObject[consoleql.SignInPath] = "login"
+	rootObject[consoleql.LetUsKnowURL] = server.config.LetUsKnowURL
+	rootObject[consoleql.ContactInfoURL] = server.config.ContactInfoURL
+	rootObject[consoleql.TermsAndConditionsURL] = server.config.TermsAndConditionsURL
 
 	result := graphql.Do(graphql.Params{
 		Schema:         server.schema,

@@ -107,18 +107,17 @@ func init() {
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {
 	return storagenodedb.Config{
-		Storage:  config.Storage.Path,
-		Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
-		Info2:    filepath.Join(config.Storage.Path, "info.db"),
-		Pieces:   config.Storage.Path,
-		Kademlia: config.Kademlia.DBPath,
+		Storage: config.Storage.Path,
+		Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
+		Info2:   filepath.Join(config.Storage.Path, "info.db"),
+		Pieces:  config.Storage.Path,
 	}
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// inert constructors only ====
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
 	identity, err := runCfg.Identity.Load()
@@ -164,7 +163,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = db.CreateTables()
+	err = db.CreateTables(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
@@ -236,7 +235,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	diagDir, err := filepath.Abs(confDir)
 	if err != nil {

@@ -9,18 +9,11 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// DB is the minimal implementation that is needed by migration.
-type DB interface {
-	Begin() (*sql.Tx, error)
-	Schema() string
-	Rebind(string) string
-}
-
 // Error is the default migrate errs class
 var Error = errs.Class("migrate")
 
 // Create with a previous schema check
-func Create(identifier string, db DB) error {
+func Create(identifier string, db DBX) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return Error.Wrap(err)

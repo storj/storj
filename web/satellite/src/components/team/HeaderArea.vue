@@ -5,20 +5,20 @@
     <div class="team-header-container">
 	    <h1>Project Members</h1>
 	    <div class="team-header-container__wrapper">
-            <HeaderComponent ref="headerComponent" placeHolder="Team Members" :search="processSearchQuery">
+            <HeaderComponent ref="headerComponent" placeholder="Team Members" :search="processSearchQuery">
                 <div class="header-default-state" v-if="headerState === 0">
                     <span>The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
-                    <Button class="button" label="+Add" width="122px" height="48px" :onPress="onAddUsersClick"/>
+                    <Button class="button" label="+Add" width="122px" height="48px" :on-press="onAddUsersClick"/>
                 </div>
                 <div class="header-selected-members" v-if="headerState === 1 && !isDeleteClicked">
-                    <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onFirstDeleteClick"/>
-                    <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
+                    <Button class="button deletion" label="Delete" width="122px" height="48px" :on-press="onFirstDeleteClick"/>
+                    <Button class="button" label="Cancel" width="122px" height="48px" is-white="true" :on-press="onClearSelection"/>
                 </div>
                 <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
                     <span>Are you sure you want to delete {{selectedProjectMembersCount}} {{userCountTitle}}?</span>
                     <div class="header-after-delete-click__button-area">
-                        <Button class="button deletion" label="Delete" width="122px" height="48px" :onPress="onDelete"/>
-                        <Button class="button" label="Cancel" width="122px" height="48px" isWhite="true" :onPress="onClearSelection"/>
+                        <Button class="button deletion" label="Delete" width="122px" height="48px" :on-press="onDelete"/>
+                        <Button class="button" label="Cancel" width="122px" height="48px" is-white="true" :on-press="onClearSelection"/>
                     </div>
                 </div>
             </HeaderComponent>

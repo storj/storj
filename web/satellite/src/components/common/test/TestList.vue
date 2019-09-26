@@ -3,9 +3,9 @@
 
 <template>
     <List
-        :dataSet="dataSetItems"
-        :itemComponent="getItemComponent"
-        :onItemClick="onItemClick"/>
+        :data-set="dataSetItems"
+        :item-component="getItemComponent"
+        :on-item-click="onItemClick"/>
 </template>
 
 <script lang="ts">

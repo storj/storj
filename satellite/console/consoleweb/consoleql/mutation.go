@@ -329,14 +329,21 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							userName = user.FullName
 						}
 
+						contactInfoURL := rootObject[ContactInfoURL].(string)
+						letUsKnowURL := rootObject[LetUsKnowURL].(string)
+						termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+
 						mailService.SendRenderedAsync(
 							p.Context,
 							[]post.Address{{Address: user.Email, Name: userName}},
 							&ProjectInvitationEmail{
-								Origin:      origin,
-								UserName:    userName,
-								ProjectName: project.Name,
-								SignInLink:  signIn,
+								Origin:                origin,
+								UserName:              userName,
+								ProjectName:           project.Name,
+								SignInLink:            signIn,
+								LetUsKnowURL:          letUsKnowURL,
+								TermsAndConditionsURL: termsAndConditionsURL,
+								ContactInfoURL:        contactInfoURL,
 							},
 						)
 					}

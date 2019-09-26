@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-button-container" id="accountDropdownButton">
-        <div class="account-button-toggle-container" v-on:click="toggleSelection" >
+        <div class="account-button-toggle-container" @click="toggleSelection" >
             <!-- background of this div generated and stores in store -->
             <div class="account-button-toggle-container__avatar">
                 <!-- First digit of firstName after Registration -->
@@ -59,8 +59,6 @@ export default class AccountButton extends Vue {
 
     .account-button-container {
         position: relative;
-        padding-left: 10px;
-        padding-right: 10px;
         background-color: #FFFFFF;
         cursor: pointer;
 
@@ -116,10 +114,11 @@ export default class AccountButton extends Vue {
         }
     }
 
-    @media screen and (max-width: 720px) {
+    @media screen and (max-width: 1024px) {
         .account-button-toggle-container {
 
-            &__user-name {
+            &__user-name,
+            &__expander-area {
                 display: none;
             }
         }

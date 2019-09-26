@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/overlay"
 )
 
 // Endpoint implements the contact service Endpoints.
@@ -53,32 +54,28 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
+	lastIP, err := overlay.GetNetwork(ctx, req.Address)
+	if err != nil {
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
+	}
+
 	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
-
-	err = endpoint.service.overlay.Put(ctx, nodeID, pb.Node{
-		Id: nodeID,
+	nodeInfo := overlay.NodeCheckInInfo{
+		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 			Address:   req.Address,
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 		},
-	})
-	if err != nil {
-		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
+		LastIP:   lastIP,
+		IsUp:     pingNodeSuccess,
+		Capacity: req.Capacity,
+		Operator: req.Operator,
+		Version:  req.Version,
 	}
-
-	// TODO(jg): We are making 2 requests to the database, one to update uptime and
-	// the other to update the capacity and operator info. We should combine these into
-	// one to reduce db connections. Consider adding batching and using a stored procedure.
-	_, err = endpoint.service.overlay.UpdateUptime(ctx, nodeID, pingNodeSuccess)
-	if err != nil {
-		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
-	}
-
-	nodeInfo := pb.InfoResponse{Operator: req.GetOperator(), Capacity: req.GetCapacity(), Version: &pb.NodeVersion{Version: req.Version}}
-	_, err = endpoint.service.overlay.UpdateNodeInfo(ctx, nodeID, &nodeInfo)
+	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo)
 	if err != nil {
 		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}

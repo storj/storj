@@ -19,6 +19,7 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
         <path d="M58.0059 5.36082C58.0059 7.91752 57.0118 9.56701 54.9408 10.3093L59 16H54.6095L51.0473 10.8866H48.5621V16H45V0H51.0473C53.5325 0 55.355 0.412371 56.3491 1.23711C57.5089 2.14433 58.0059 3.46392 58.0059 5.36082ZM53.6982 7.25773C54.1124 6.84536 54.3609 6.26804 54.3609 5.36082C54.3609 4.45361 54.1124 3.87629 53.6982 3.62887C53.2012 3.29897 52.4556 3.13402 51.2959 3.13402H48.645V7.83505H51.2959C52.4556 7.83505 53.284 7.58763 53.6982 7.25773Z" fill="#2683FF"></path>
         <path d="M60.92 3.11795V0H69V10.3385C69 12.2256 68.52 13.6205 67.56 14.6051C66.6 15.5077 65.4 16 63.88 16C62.04 16 60.36 15.2615 59 13.7846L60.76 11.241C61.72 12.3077 62.68 12.8 63.72 12.8C64.2 12.8 64.6 12.6359 65 12.2256C65.32 11.8154 65.56 11.241 65.56 10.5026V3.0359L60.92 3.11795Z" fill="#2683FF"></path>
       </svg></div>
+    <projectselectionarea-stub class="project-selection-area"></projectselectionarea-stub>
     <p class="navigation-area__project-title">PROJECT</p>
     <router-link-stub to="/project-overview" tag="a" event="click" aria-label="Overview" class="navigation-area__item-container">
       <div class="navigation-area__item-container__link-container">
@@ -138,6 +139,7 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
         <path d="M58.0059 5.36082C58.0059 7.91752 57.0118 9.56701 54.9408 10.3093L59 16H54.6095L51.0473 10.8866H48.5621V16H45V0H51.0473C53.5325 0 55.355 0.412371 56.3491 1.23711C57.5089 2.14433 58.0059 3.46392 58.0059 5.36082ZM53.6982 7.25773C54.1124 6.84536 54.3609 6.26804 54.3609 5.36082C54.3609 4.45361 54.1124 3.87629 53.6982 3.62887C53.2012 3.29897 52.4556 3.13402 51.2959 3.13402H48.645V7.83505H51.2959C52.4556 7.83505 53.284 7.58763 53.6982 7.25773Z" fill="#2683FF"></path>
         <path d="M60.92 3.11795V0H69V10.3385C69 12.2256 68.52 13.6205 67.56 14.6051C66.6 15.5077 65.4 16 63.88 16C62.04 16 60.36 15.2615 59 13.7846L60.76 11.241C61.72 12.3077 62.68 12.8 63.72 12.8C64.2 12.8 64.6 12.6359 65 12.2256C65.32 11.8154 65.56 11.241 65.56 10.5026V3.0359L60.92 3.11795Z" fill="#2683FF"></path>
       </svg></div>
+    <projectselectionarea-stub class="project-selection-area"></projectselectionarea-stub>
     <p class="navigation-area__project-title">PROJECT</p>
     <router-link-stub to="/project-overview" tag="a" event="click" aria-label="Overview" class="navigation-area__item-container disabled">
       <div class="navigation-area__item-container__link-container">
