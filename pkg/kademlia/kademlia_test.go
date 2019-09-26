@@ -24,8 +24,8 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage/teststore"
 )
@@ -429,15 +429,13 @@ func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node
 		return nil, err
 	}
 
-	transportClient := transport.NewClient(tlsOptions, rt)
-
 	kadConfig := Config{
 		BootstrapBackoffMax:  10 * time.Second,
 		BootstrapBackoffBase: 1 * time.Second,
 		Alpha:                alpha,
 	}
 
-	kad, err := NewService(log, transportClient, rt, kadConfig)
+	kad, err := NewService(log, rpc.NewDefaultDialer(tlsOptions), rt, kadConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -4,25 +4,28 @@
 <template>
     <div class="team-area">
         <div class="team-area__header">
-            <HeaderArea :headerState="headerState" :selectedProjectMembersCount="selectedProjectMembers.length"/>
+            <HeaderArea
+                :header-state="headerState"
+                :selected-project-members-count="selectedProjectMembers.length"/>
         </div>
         <div class="team-area__container" id="team-container" v-if="projectMembersCount > 0 || projectMembersTotalCount > 0">
-            <SortingListHeader :onHeaderClickCallback="onHeaderSectionClickCallback"/>
+            <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
             <div class="team-area__container__content">
-                <List
-                    :dataSet="projectMembers"
-                    :itemComponent="getItemComponent"
-                    :onItemClick="onMemberClick"/>
+                <VList
+                    :data-set="projectMembers"
+                    :item-component="getItemComponent"
+                    :on-item-click="onMemberClick"/>
             </div>
-            <Pagination
+            <VPagination
+                v-if="totalPageCount > 1"
                 class="pagination-area"
                 ref="pagination"
-                :totalPageCount="totalPageCount"
-                :onPageClickCallback="onPageClick"/>
+                :total-page-count="totalPageCount"
+                :on-page-click-callback="onPageClick"/>
         </div>
         <div class="team-area__empty-search-result-area" v-if="(projectMembersCount === 0 && projectMembersTotalCount === 0)">
-            <h1>No results found</h1>
-            <svg width="380" height="295" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <h1 class="team-area__empty-search-result-area__title">No results found</h1>
+            <svg class="team-area__empty-search-result-area__image" width="380" height="295" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M168 295C246.997 295 311 231.2 311 152.5C311 73.8 246.997 10 168 10C89.0028 10 25 73.8 25 152.5C25 231.2 89.0028 295 168 295Z" fill="#E8EAF2"/>
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M23.3168 98C21.4071 98 20 96.5077 20 94.6174C20.9046 68.9496 31.8599 45.769 49.0467 28.7566C66.2335 11.7442 89.6518 0.900089 115.583 0.00470057C117.492 -0.094787 119 1.39753 119 3.28779V32.4377C119 34.2284 117.593 35.6213 115.784 35.7208C99.7025 36.5167 85.2294 43.3813 74.4751 53.927C63.8213 64.5722 56.8863 78.8984 56.0822 94.8164C55.9817 96.6072 54.5746 98 52.7655 98H23.3168Z" fill="#B0B6C9"/>
                 <path d="M117.5 30C124.404 30 130 25.0751 130 19C130 12.9249 124.404 8 117.5 8C110.596 8 105 12.9249 105 19C105 25.0751 110.596 30 117.5 30Z" fill="#8F96AD"/>
@@ -59,8 +62,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import List from '@/components/common/List.vue';
-import Pagination from '@/components/common/Pagination.vue';
+import VList from '@/components/common/VList.vue';
+import VPagination from '@/components/common/VPagination.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
 import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
 import SortingListHeader from '@/components/team/SortingListHeader.vue';
@@ -72,8 +75,8 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
 @Component({
     components: {
         HeaderArea,
-        List,
-        Pagination,
+        VList,
+        VPagination,
         SortingListHeader,
     },
 })
@@ -123,8 +126,8 @@ export default class ProjectMembersArea extends Vue {
     public async onPageClick(index: number): Promise<void> {
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, index);
-        } catch (err) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
     }
 
@@ -137,7 +140,7 @@ export default class ProjectMembersArea extends Vue {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
 
-        (this.$refs.pagination as Pagination).resetPageIndex();
+        (this.$refs.pagination as VPagination).resetPageIndex();
     }
 }
 </script>
@@ -145,6 +148,7 @@ export default class ProjectMembersArea extends Vue {
 <style scoped lang="scss">
     .team-area {
         padding: 40px 65px 55px 64px;
+        font-family: 'font_regular';
 
         &__header {
             width: 100%;
@@ -160,24 +164,25 @@ export default class ProjectMembersArea extends Vue {
                 justify-content: space-between;
                 margin-bottom: 20px;
                 flex-direction: column;
+                height: 49.4vh;
             }
         }
 
         &__empty-search-result-area {
-            height: 80vh;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-direction: column;
 
-            h1 {
+            &__title {
                 font-family: 'font_bold';
                 font-size: 32px;
                 line-height: 39px;
                 margin-top: 100px;
             }
 
-            svg {
+            &__image {
                 margin-top: 40px;
             }
         }

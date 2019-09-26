@@ -334,7 +334,7 @@ func TestBandwidthRollup(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		err := db.CreateTables()
+		err := db.CreateTables(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

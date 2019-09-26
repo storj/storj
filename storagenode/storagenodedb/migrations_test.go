@@ -32,7 +32,7 @@ func insertNewData(mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.
 		if !ok {
 			return errs.New("Failed to find DB %s", dbName)
 		}
-		_, err := rawDB.Exec(dbState.NewData)
+		_, err := rawDB.GetDB().Exec(dbState.NewData)
 		if err != nil {
 			return err
 		}
@@ -45,7 +45,7 @@ func insertNewData(mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.
 func getSchemas(rawDBs map[string]storagenodedb.SQLDB) (map[string]*dbschema.Schema, error) {
 	schemas := make(map[string]*dbschema.Schema)
 	for dbName, rawDB := range rawDBs {
-		schema, err := sqliteutil.QuerySchema(rawDB)
+		schema, err := sqliteutil.QuerySchema(rawDB.GetDB())
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +63,7 @@ func getSchemas(rawDBs map[string]storagenodedb.SQLDB) (map[string]*dbschema.Sch
 func getData(rawDBs map[string]storagenodedb.SQLDB, schemas map[string]*dbschema.Schema) (map[string]*dbschema.Data, error) {
 	data := make(map[string]*dbschema.Data)
 	for dbName, rawDB := range rawDBs {
-		datum, err := sqliteutil.QueryData(rawDB, schemas[dbName])
+		datum, err := sqliteutil.QueryData(rawDB.GetDB(), schemas[dbName])
 		if err != nil {
 			return nil, err
 		}
@@ -91,10 +91,8 @@ func TestMigrate(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
-	rawDBs := db.RawDatabases()
-
 	// get migration for this database
-	migrations := db.Migration()
+	migrations := db.Migration(ctx)
 	for i, step := range migrations.Steps {
 		// the schema is different when migration step is before the step, cannot test the layout
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
@@ -106,6 +104,8 @@ func TestMigrate(t *testing.T) {
 		// find the matching expected version
 		expected, ok := testdata.States.FindVersion(step.Version)
 		require.True(t, ok)
+
+		rawDBs := db.RawDatabases()
 
 		// insert data for new tables
 		err = insertNewData(expected, rawDBs)

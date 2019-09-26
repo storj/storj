@@ -10,11 +10,6 @@
                         <path d="M30 60C46.5685 60 60 46.5685 60 30C60 13.4315 46.5685 0 30 0C13.4315 0 0 13.4315 0 30C0 46.5685 13.4315 60 30 60Z" fill="#2683FF"/>
                         <path d="M29.5001 34.5196C30.1001 34.5196 30.5865 34.0452 30.5865 33.46C30.5865 32.8748 30.1001 32.4004 29.5001 32.4004C28.9 32.4004 28.4136 32.8748 28.4136 33.46C28.4136 34.0452 28.9 34.5196 29.5001 34.5196Z" fill="#FEFEFF"/>
                         <path d="M39.9405 40.2152C40.1781 40 40.3139 39.6854 40.3139 39.3709V25.5464C40.3139 24.9007 39.7707 24.3709 39.1086 24.3709H35.7473V21.0927C35.7473 17.7318 32.9462 15 29.5 15C26.0538 15 23.2527 17.7318 23.2527 21.0927V24.3709H19.8914C19.2293 24.3709 18.686 24.9007 18.686 25.5464V39.3709C18.686 39.6854 18.8218 40 19.0595 40.2152L23.7959 44.6689C24.0166 44.8841 24.3222 45 24.6278 45H34.3552C34.6608 45 34.9664 44.8841 35.1871 44.6689L39.9405 40.2152ZM30.7053 36.6391V38.1291C30.7053 38.7748 30.1621 39.3046 29.5 39.3046C28.8379 39.3046 28.2947 38.7748 28.2947 38.1291V36.6391C26.9705 36.1589 26.0198 34.9172 26.0198 33.4437C26.0198 31.5728 27.5817 30.0497 29.5 30.0497C31.4183 30.0497 32.9801 31.5728 32.9801 33.4437C32.9801 34.9172 32.0295 36.1589 30.7053 36.6391ZM33.3367 24.3709H25.6464V21.0927C25.6464 19.0232 27.3779 17.351 29.483 17.351C31.5881 17.351 33.3197 19.0397 33.3197 21.0927V24.3709H33.3367Z" fill="#FEFEFF"/>
-                        <defs>
-                            <clipPath id="clipChangePassword">
-                                <rect width="21.6279" height="30" fill="#FFFFFF" transform="translate(18.686 15)"/>
-                            </clipPath>
-                        </defs>
                     </svg>
                     <h2 class="change-password-popup__form-container__main-label-text">Change Password</h2>
                 </div>
@@ -23,7 +18,7 @@
                     label="Old Password"
                     placeholder ="Enter Old Password"
                     width="100%"
-                    isPassword="true"
+                    is-password="true"
                     ref="oldPasswordInput"
                     :error="oldPasswordError"
                     @setData="setOldPassword" />
@@ -33,7 +28,7 @@
                     placeholder ="Enter New Password"
                     width="100%"
                     ref="newPasswordInput"
-                    isPassword="true"
+                    is-password="true"
                     :error="newPasswordError"
                     @setData="setNewPassword" />
                 <HeaderlessInput
@@ -42,17 +37,26 @@
                     placeholder="Confirm password"
                     width="100%"
                     ref="confirmPasswordInput"
-                    isPassword="true"
+                    is-password="true"
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation" />
                 <div class="change-password-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true" />
-                    <Button label="Update" width="205px" height="48px" :onPress="onUpdateClick" />
+                    <VButton
+                        label="Cancel"
+                        width="205px"
+                        height="48px"
+                        :on-press="onCloseClick"
+                        is-white="true" />
+                    <VButton
+                        label="Update"
+                        width="205px"
+                        height="48px"
+                        :on-press="onUpdateClick" />
                 </div>
             </div>
             <div class="change-password-popup__close-cross-container" @click="onCloseClick">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
+                    <path class="close-cross-svg-path" d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
                 </svg>
             </div>
         </div>
@@ -62,8 +66,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { AuthApi } from '@/api/auth';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
@@ -72,7 +76,7 @@ import { validatePassword } from '@/utils/validation';
 @Component({
     components: {
         HeaderlessInput,
-        Button,
+        VButton,
     },
 })
 export default class ChangePasswordPopup extends Vue {
@@ -145,14 +149,6 @@ export default class ChangePasswordPopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    p {
-        font-family: 'font_medium';
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-        display: flex;
-    }
-    
     .change-password-popup-container {
         position: fixed;
         top: 0;
@@ -164,6 +160,7 @@ export default class ChangePasswordPopup extends Vue {
         display: flex;
         justify-content: center;
         align-items: center;
+        font-family: 'font_regular';
     }
     
     .input-container.full-input {
@@ -205,16 +202,6 @@ export default class ChangePasswordPopup extends Vue {
             width: 100%;
             max-width: 440px;
             
-            p {
-                font-family: 'font_regular';
-                font-size: 16px;
-                margin-top: 20px;
-            
-                &:first-child {
-                    margin-top: 0;
-                }
-            }
-            
             &__main-label-text {
                 font-family: 'font_bold';
                 font-size: 32px;
@@ -246,7 +233,7 @@ export default class ChangePasswordPopup extends Vue {
             width: 24px;
             cursor: pointer;
         
-            &:hover svg path {
+            &:hover .close-cross-svg-path {
                 fill: #2683FF;
             }
         }

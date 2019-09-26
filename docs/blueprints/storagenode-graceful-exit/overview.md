@@ -118,6 +118,8 @@ model graceful_exit_progress {
 
     field node_id              blob
     field bytes_transferred    int64
+    field pieces_transferred   int64
+    field pieces_failed        int64
     field updated_at           timestamp ( updateable )
 }
 ```
