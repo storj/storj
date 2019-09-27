@@ -108,7 +108,7 @@ export default class DashboardArea extends Vue {
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets. ${error.message}`);
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
