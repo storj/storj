@@ -7,13 +7,13 @@
             <h1 class="payment-methods-area__title text">Payment Methods</h1>
             <div class="payment-methods-area__button-area">
                 <div class="payment-methods-area__button-area__default-buttons" v-if="isDefaultState">
-                    <Button
+                    <VButton
                         class="button"
                         label="Add STORJ"
                         width="123px"
                         height="48px"
                         :on-press="onAddSTORJ"/>
-                    <Button
+                    <VButton
                         class="button"
                         label="Add Card"
                         width="123px"
@@ -30,7 +30,7 @@
                 <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
                 <StorjInput class="form"/>
             </div>
-            <Button
+            <VButton
                 label="Continue to Coin Payments"
                 width="251px"
                 height="48px"
@@ -39,7 +39,7 @@
         <div class="payment-methods-area__adding-container card" v-if="isAddingCardState">
             <p class="payment-methods-area__adding-container__label">Add Credit or Debit Card</p>
             <StripeInput />
-            <Button
+            <VButton
                 label="Add card"
                 width="123px"
                 height="48px"
@@ -57,13 +57,13 @@ import { Component, Vue } from 'vue-property-decorator';
 import CardComponent from '@/components/account/billing/CardComponent.vue';
 import StorjInput from '@/components/account/billing/StorjInput.vue';
 import StripeInput from '@/components/account/billing/StripeInput.vue';
-import Button from '@/components/common/Button.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 @Component({
     components: {
-        Button,
+        VButton,
         CardComponent,
         StorjInput,
         StripeInput,
