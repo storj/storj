@@ -3,13 +3,13 @@
 exports[`TabNavigation snapshot not changed 1`] = `
 <div class="tab-navigation-container">
   <router-link-stub to="path1" tag="a" event="click" class="tab-navigation-container__item">
-    <p>name1</p>
+    <p class="tab-navigation-container__item__name">name1</p>
   </router-link-stub>
   <router-link-stub to="path2" tag="a" event="click" class="tab-navigation-container__item">
-    <p>name2</p>
+    <p class="tab-navigation-container__item__name">name2</p>
   </router-link-stub>
   <router-link-stub to="path3" tag="a" event="click" class="tab-navigation-container__item">
-    <p>name3</p>
+    <p class="tab-navigation-container__item__name">name3</p>
   </router-link-stub>
 </div>
 `;

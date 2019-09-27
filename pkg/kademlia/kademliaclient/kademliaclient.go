@@ -8,40 +8,52 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 var mon = monkit.Package()
 
-// Dialer sends requests to kademlia endpoints on storage nodes
-type Dialer struct {
-	log       *zap.Logger
-	transport transport.Client
-	limit     sync2.Semaphore
-}
-
 // Conn represents a connection
 type Conn struct {
-	conn   *grpc.ClientConn
-	client pb.NodesClient
+	conn   *rpc.Conn
+	client rpc.NodesClient
+}
+
+// Close closes this connection.
+func (conn *Conn) Close() error {
+	return conn.conn.Close()
+}
+
+// Dialer sends requests to kademlia endpoints on storage nodes
+type Dialer struct {
+	log    *zap.Logger
+	dialer rpc.Dialer
+	obs    Observer
+	limit  sync2.Semaphore
+}
+
+// Observer implements the ConnSuccess and ConnFailure methods
+// for Discovery and other services to use
+type Observer interface {
+	ConnSuccess(ctx context.Context, node *pb.Node)
+	ConnFailure(ctx context.Context, node *pb.Node, err error)
 }
 
 // NewDialer creates a new kademlia dialer.
-func NewDialer(log *zap.Logger, transport transport.Client) *Dialer {
-	dialer := &Dialer{
-		log:       log,
-		transport: transport,
+func NewDialer(log *zap.Logger, dialer rpc.Dialer, obs Observer) *Dialer {
+	d := &Dialer{
+		log:    log,
+		dialer: dialer,
+		obs:    obs,
 	}
-	dialer.limit.Init(32) // TODO: limit should not be hardcoded
-	return dialer
+	d.limit.Init(32) // TODO: limit should not be hardcoded
+	return d
 }
 
 // Close closes the pool resources and prevents new connections to be made.
@@ -72,9 +84,7 @@ func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, fi
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, conn.disconnect())
-	}()
+	defer func() { err = errs.Combine(err, conn.Close()) }()
 
 	resp, err := conn.client.Query(ctx, &req)
 	if err != nil {
@@ -96,10 +106,10 @@ func (dialer *Dialer) PingNode(ctx context.Context, target pb.Node) (_ bool, err
 	if err != nil {
 		return false, err
 	}
+	defer func() { err = errs.Combine(err, conn.Close()) }()
 
 	_, err = conn.client.Ping(ctx, &pb.PingRequest{})
-
-	return err == nil, errs.Combine(err, conn.disconnect())
+	return err == nil, err
 }
 
 // FetchPeerIdentity connects to a node and returns its peer identity
@@ -114,18 +124,13 @@ func (dialer *Dialer) FetchPeerIdentity(ctx context.Context, target pb.Node) (_ 
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, conn.disconnect())
-	}()
+	defer func() { err = errs.Combine(err, conn.Close()) }()
 
-	p := &peer.Peer{}
-	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, grpc.Peer(p))
-	ident, errFromPeer := identity.PeerIdentityFromPeer(p)
-	return ident, errs.Combine(err, errFromPeer)
+	return conn.conn.PeerIdentity()
 }
 
 // FetchPeerIdentityUnverified connects to an address and returns its peer identity (no node ID verification).
-func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address string, opts ...grpc.CallOption) (_ *identity.PeerIdentity, err error) {
+func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address string) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
@@ -136,14 +141,9 @@ func (dialer *Dialer) FetchPeerIdentityUnverified(ctx context.Context, address s
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, conn.disconnect())
-	}()
+	defer func() { err = errs.Combine(err, conn.Close()) }()
 
-	p := &peer.Peer{}
-	_, err = conn.client.Ping(ctx, &pb.PingRequest{}, grpc.Peer(p))
-	ident, errFromPeer := identity.PeerIdentityFromPeer(p)
-	return ident, errs.Combine(err, errFromPeer)
+	return conn.conn.PeerIdentity()
 }
 
 // FetchInfo connects to a node and returns its node info.
@@ -158,38 +158,58 @@ func (dialer *Dialer) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.Info
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errs.Combine(err, conn.Close()) }()
 
 	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{})
+	if err != nil {
+		return nil, err
+	}
 
-	return resp, errs.Combine(err, conn.disconnect())
-}
-
-// AlertSuccess alerts the transport observers of a successful connection
-func (dialer *Dialer) AlertSuccess(ctx context.Context, node *pb.Node) {
-	dialer.transport.AlertSuccess(ctx, node)
+	return resp, nil
 }
 
 // dialNode dials the specified node.
 func (dialer *Dialer) dialNode(ctx context.Context, target pb.Node) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
-	grpcconn, err := dialer.transport.DialNode(ctx, &target)
+
+	conn, err := dialer.dialer.DialNode(ctx, &target)
+	if err != nil {
+		if dialer.obs != nil {
+			dialer.obs.ConnFailure(ctx, &target, err)
+		}
+		return nil, err
+	}
+	if dialer.obs != nil {
+		dialer.obs.ConnSuccess(ctx, &target)
+	}
+
 	return &Conn{
-		conn:   grpcconn,
-		client: pb.NewNodesClient(grpcconn),
-	}, err
+		conn:   conn,
+		client: conn.NodesClient(),
+	}, nil
 }
 
 // dialAddress dials the specified node by address (no node ID verification)
 func (dialer *Dialer) dialAddress(ctx context.Context, address string) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
-	grpcconn, err := dialer.transport.DialAddress(ctx, address)
-	return &Conn{
-		conn:   grpcconn,
-		client: pb.NewNodesClient(grpcconn),
-	}, err
-}
 
-// disconnect disconnects this connection.
-func (conn *Conn) disconnect() error {
-	return conn.conn.Close()
+	conn, err := dialer.dialer.DialAddressInsecure(ctx, address)
+	if err != nil {
+		// TODO: can't get an id here because we failed to dial
+		return nil, err
+	}
+	if ident, err := conn.PeerIdentity(); err == nil && dialer.obs != nil {
+		dialer.obs.ConnSuccess(ctx, &pb.Node{
+			Id: ident.ID,
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   address,
+			},
+		})
+	}
+
+	return &Conn{
+		conn:   conn,
+		client: conn.NodesClient(),
+	}, nil
 }

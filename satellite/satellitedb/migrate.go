@@ -1255,6 +1255,28 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ALTER COLUMN updated_at SET DEFAULT current_timestamp;`,
 				},
 			},
+			{
+				DB:          db.db,
+				Description: "Remove timezone from Graceful Exit dates",
+				Version:     58,
+				Action: migrate.SQL{
+					`UPDATE nodes set exit_initiated_at = TIMEZONE('UTC', exit_initiated_at), exit_loop_completed_at = TIMEZONE('UTC', exit_loop_completed_at), 
+					     exit_finished_at = TIMEZONE('UTC', exit_finished_at);`,
+					`ALTER TABLE nodes ALTER COLUMN exit_initiated_at TYPE timestamp;`,
+					`ALTER TABLE nodes ALTER COLUMN exit_loop_completed_at TYPE timestamp;`,
+					`ALTER TABLE nodes ALTER COLUMN exit_finished_at TYPE timestamp;`,
+					`UPDATE graceful_exit_progress set updated_at = TIMEZONE('UTC', updated_at);`,
+					`ALTER TABLE graceful_exit_progress ADD COLUMN pieces_transferred bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE graceful_exit_progress ADD COLUMN pieces_failed bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE graceful_exit_progress ALTER COLUMN updated_at TYPE timestamp;`,
+					`UPDATE graceful_exit_transfer_queue set queued_at = TIMEZONE('UTC', queued_at), requested_at = TIMEZONE('UTC', requested_at),
+					     last_failed_at = TIMEZONE('UTC', last_failed_at), finished_at = TIMEZONE('UTC', finished_at);`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN queued_at TYPE timestamp;`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN requested_at TYPE timestamp;`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN last_failed_at TYPE timestamp;`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN finished_at TYPE timestamp;`,
+				},
+			},
 		},
 	}
 }
