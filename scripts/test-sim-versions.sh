@@ -111,10 +111,15 @@ setup_stage(){
 
     # use desired uplink binary and config
     src_ul_version_dir=$(version_dir ${stage_ul_version})
-    PATH=$src_ul_version_dir/bin:$PATH src_ul_cfg_dir=$(storj-sim network env --config-dir=${src_ul_version_dir}/local-network/ GATEWAY_0_DIR)
-    PATH=$test_dir/bin:$PATH dest_ul_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_DIR)
-    cp $src_ul_cfg_dir/config.yaml $dest_ul_cfg_dir
-    replace_in_file "${src_ul_version_dir}" "${test_dir}" "${dest_ul_cfg_dir}/config.yaml"
+    # PATH=$src_ul_version_dir/bin:$PATH src_ul_cfg_dir=$(storj-sim network env --config-dir=${src_ul_version_dir}/local-network/ GATEWAY_0_DIR)
+    # PATH=$test_dir/bin:$PATH dest_ul_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_DIR)
+
+    # src_ul_scope=$(grep "scope" "${src_ul_cfg_dir}/config.yaml")
+    # dest_ul_scope=$(grep "scope" "${dest_ul_cfg_dir}/config.yaml")
+
+    # cp $src_ul_cfg_dir/config.yaml $dest_ul_cfg_dir
+    # replace_in_file "${src_ul_version_dir}" "${test_dir}" "${dest_ul_cfg_dir}/config.yaml"
+    # replace_in_file "${src_ul_scope}" "${dest_ul_scope}" "${dest_ul_cfg_dir}/config.yaml"
     ln -f $src_ul_version_dir/bin/uplink $test_dir/bin/uplink
 }
 

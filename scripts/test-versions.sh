@@ -122,9 +122,9 @@ if [[ "$command" == "download" ]]; then
         exit 1
     fi
 
-    rm "${stage2_dst_dir}/small-upload-testfile"
-    rm "${stage2_dst_dir}/big-upload-testfile"
-    rm "${stage2_dst_dir}/multisegment-upload-testfile"
+    # rm "${stage2_dst_dir}/small-upload-testfile"
+    # rm "${stage2_dst_dir}/big-upload-testfile"
+    # rm "${stage2_dst_dir}/multisegment-upload-testfile"
 fi
 
 if [[ "$command" == "cleanup" ]]; then
