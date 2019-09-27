@@ -43,8 +43,12 @@ func TestBasic(t *testing.T) {
 			for _, sn := range planet.StorageNodes {
 				node := sn.Local()
 				conn, err := sn.Dialer.DialNode(ctx, &satellite)
-				defer conn.Close()
 				require.NoError(t, err)
+				defer func() {
+					err = conn.Close()
+					require.NoError(t, err)
+				}()
+
 				_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
 					Address:  node.GetAddress().GetAddress(),
 					Version:  &node.Version,
