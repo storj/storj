@@ -7,12 +7,12 @@
             <div class="payment-methods-container__card-container__info-area">
                 <img class="payment-methods-container__card-container__info-area__card-logo" src="../../../static/images/Logo.svg">
                 <div class="payment-methods-container__card-container__info-area__info-container">
-                    <h1>xxxx 0000</h1>
-                    <h2>Shawn Wilkinson</h2>
+                    <h1 class="payment-methods-container__card-container__info-area__info-container__card-number">xxxx 0000</h1>
+                    <h2 class="payment-methods-container__card-container__info-area__info-container__name">Shawn Wilkinson</h2>
                 </div>
                 <div class="payment-methods-container__card-container__info-area__expire-container">
-                    <h2>Expires</h2>
-                    <h1>12/2020</h1>
+                    <h2 class="payment-methods-container__card-container__info-area__expire-container__title">Expires</h2>
+                    <h1 class="payment-methods-container__card-container__info-area__expire-container__date">12/2020</h1>
                 </div>
                 <h3 class="payment-methods-container__card-container__info-area__added-text">Added on 29 May 2019</h3>
             </div>
@@ -34,7 +34,7 @@
                 </svg>
             </div>
         </div>
-        <Button
+        <VButton
             class="payment-methods-container__add-button"
             label="Add Card"
             width="140px"
@@ -46,11 +46,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
+import VButton from '@/components/common/VButton.vue';
 
 @Component({
     components: {
-        Button,
+        VButton,
     },
 })
 export default class AccountPaymentMethods extends Vue {}
@@ -59,6 +59,7 @@ export default class AccountPaymentMethods extends Vue {}
 <style scoped lang="scss">
     .payment-methods-container {
         margin-top: 83px;
+        font-family: 'font_regular';
         
         &__card-container {
             width: calc(100% - 80px);
@@ -83,15 +84,14 @@ export default class AccountPaymentMethods extends Vue {}
                 
                 &__info-container {
                 
-                    h1 {
+                    &__card-number {
                         font-family: 'font_bold';
                         font-size: 16px;
                         line-height: 21px;
                         color: #61666B;
                     }
                     
-                    h2 {
-                        font-family: 'font_regular';
+                    &__name {
                         font-size: 16px;
                         line-height: 21px;
                         color: #61666B;
@@ -102,7 +102,7 @@ export default class AccountPaymentMethods extends Vue {}
                 
                 &__expire-container {
                     
-                    h1 {
+                    &__date {
                         font-family: 'font_bold';
                         font-size: 16px;
                         line-height: 21px;
@@ -111,8 +111,7 @@ export default class AccountPaymentMethods extends Vue {}
                         margin-block-end: 0.5em;
                     }
                     
-                    h2 {
-                        font-family: 'font_regular';
+                    &__title {
                         font-size: 16px;
                         line-height: 21px;
                         color: #61666B;
@@ -120,7 +119,6 @@ export default class AccountPaymentMethods extends Vue {}
                 }
                 
                 &__added-text {
-                    font-family: 'font_regular';
                     font-size: 16px;
                     line-height: 21px;
                     color: #61666B;
@@ -168,7 +166,7 @@ export default class AccountPaymentMethods extends Vue {}
                     }
                 }
                 
-                svg {
+                &__delete-button {
                     cursor: pointer;
                 }
             }

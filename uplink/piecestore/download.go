@@ -32,7 +32,7 @@ type Download struct {
 	limit      *pb.OrderLimit
 	privateKey storj.PiecePrivateKey
 	peer       *identity.PeerIdentity
-	stream     pb.Piecestore_DownloadClient
+	stream     downloadStream
 	ctx        context.Context
 
 	read         int64 // how much data we have read so far
@@ -53,20 +53,24 @@ type Download struct {
 	closingError error
 }
 
+type downloadStream interface {
+	CloseSend() error
+	Send(*pb.PieceDownloadRequest) error
+	Recv() (*pb.PieceDownloadResponse, error)
+}
+
 // Download starts a new download using the specified order limit at the specified offset and size.
 func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, piecePrivateKey storj.PiecePrivateKey, offset, size int64) (_ Downloader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	peer, err := client.conn.PeerIdentity()
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
+	}
+
 	stream, err := client.client.Download(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	peer, err := identity.PeerIdentityFromContext(stream.Context())
-	if err != nil {
-		closeErr := stream.CloseSend()
-		_, recvErr := stream.Recv()
-		return nil, ErrInternal.Wrap(errs.Combine(err, ignoreEOF(closeErr), ignoreEOF(recvErr)))
 	}
 
 	err = stream.Send(&pb.PieceDownloadRequest{

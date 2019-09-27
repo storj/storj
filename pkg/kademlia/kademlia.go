@@ -17,8 +17,8 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia/kademliaclient"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
@@ -53,7 +53,7 @@ type Kademlia struct {
 }
 
 // NewService returns a newly configured Kademlia instance
-func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
+func NewService(log *zap.Logger, dialer rpc.Dialer, rt *RoutingTable, config Config) (*Kademlia, error) {
 	k := &Kademlia{
 		log:                  log,
 		alpha:                config.Alpha,
@@ -61,7 +61,7 @@ func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, c
 		bootstrapNodes:       config.BootstrapNodes(),
 		bootstrapBackoffMax:  config.BootstrapBackoffMax,
 		bootstrapBackoffBase: config.BootstrapBackoffBase,
-		dialer:               kademliaclient.NewDialer(log.Named("dialer"), transport),
+		dialer:               kademliaclient.NewDialer(log.Named("dialer"), dialer, rt),
 		refreshThreshold:     int64(time.Minute),
 	}
 
@@ -146,17 +146,6 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 				errGroup.Add(BootstrapErr.Wrap(BootstrapErr.New("%s : %s unable to fetch unverified peer identity node address %s: %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), node.Address.Address, err)))
 				continue
 			}
-
-			// FetchPeerIdentityUnverified uses transport.DialAddress, which should be
-			// enough to have the TransportObservers find out about this node. Unfortunately,
-			// getting DialAddress to be able to grab the node id seems challenging with gRPC.
-			// The way FetchPeerIdentityUnverified does is is to do a basic ping request, which
-			// we have now done. Let's tell all the transport observers now.
-			// TODO: remove the explicit transport observer notification
-			k.dialer.AlertSuccess(ctx, &pb.Node{
-				Id:      ident.ID,
-				Address: node.Address,
-			})
 
 			k.routingTable.mutex.Lock()
 			node.Id = ident.ID
