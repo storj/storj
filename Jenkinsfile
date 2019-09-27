@@ -15,6 +15,14 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    stage('Build Windows Installer') {
+      agent { 
+        label 'linux'
+      }
+      echo 'Build Windows Installer'
+      echo "Current build result: ${currentBuild.result}"
+    }
+
     stage('Build Images') {
       sh 'make images'
 
@@ -45,13 +53,13 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed ${env.BUILD_URL}"
+    // slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed ${env.BUILD_URL}"
 
-    mail from: 'builds@storj.io',
-      replyTo: 'builds@storj.io',
-      to: 'builds@storj.io',
-      subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
-      body: "Project build log: ${env.BUILD_URL}"
+    // mail from: 'builds@storj.io',
+    //   replyTo: 'builds@storj.io',
+    //   to: 'builds@storj.io',
+    //   subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
+    //   body: "Project build log: ${env.BUILD_URL}"
 
       throw err
 
