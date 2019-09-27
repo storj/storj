@@ -66,6 +66,9 @@ func TestGrapqhlMutation(t *testing.T) {
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
 		rootObject[consoleql.SignInPath] = "login"
+		rootObject[consoleql.LetUsKnowURL] = "letUsKnowURL"
+		rootObject[consoleql.ContactInfoURL] = "contactInfoURL"
+		rootObject[consoleql.TermsAndConditionsURL] = "termsAndConditionsURL"
 
 		schema, err := consoleql.CreateSchema(log, service, mailService)
 		require.NoError(t, err)

@@ -40,14 +40,32 @@
 # secret used to sign auth tokens
 # console.auth-token-secret: ""
 
+# url link to contacts page
+# console.contact-info-url: https://forum.storj.io
+
 # external endpoint of the satellite if hosted
 # console.external-address: ""
+
+# url link to let us know page
+# console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
+
+# used to display at web satellite console
+# console.satellite-name: Storj
+
+# name of organization which set up satellite
+# console.satellite-operator: Storj Labs
+
+# used to communicate with web crawlers and other web robots
+# console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
 # path to static resources
 # console.static-dir: ""
 
 # stripe api key
 # console.stripe-key: ""
+
+# url link to terms and conditions page
+# console.terms-and-conditions-url: https://storj.io/storage-sla/
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
