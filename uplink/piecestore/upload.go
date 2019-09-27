@@ -36,7 +36,7 @@ type Upload struct {
 	limit      *pb.OrderLimit
 	privateKey storj.PiecePrivateKey
 	peer       *identity.PeerIdentity
-	stream     pb.Piecestore_UploadClient
+	stream     uploadStream
 	ctx        context.Context
 
 	hash           hash.Hash // TODO: use concrete implementation
@@ -48,18 +48,25 @@ type Upload struct {
 	sendError error
 }
 
+type uploadStream interface {
+	Context() context.Context
+	CloseSend() error
+	Send(*pb.PieceUploadRequest) error
+	CloseAndRecv() (*pb.PieceUploadResponse, error)
+}
+
 // Upload initiates an upload to the storage node.
 func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit, piecePrivateKey storj.PiecePrivateKey) (_ Uploader, err error) {
 	defer mon.Task()(&ctx, "node: "+limit.StorageNodeId.String()[0:8])(&err)
 
+	peer, err := client.conn.PeerIdentity()
+	if err != nil {
+		return nil, ErrInternal.Wrap(err)
+	}
+
 	stream, err := client.client.Upload(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	peer, err := identity.PeerIdentityFromContext(stream.Context())
-	if err != nil {
-		return nil, ErrInternal.Wrap(err)
 	}
 
 	err = stream.Send(&pb.PieceUploadRequest{

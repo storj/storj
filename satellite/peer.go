@@ -23,10 +23,10 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/rollup"
@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -48,9 +49,6 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/localpayments"
-	"storj.io/storj/satellite/payments/stripepayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
@@ -99,6 +97,8 @@ type DB interface {
 	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
 	Buckets() metainfo.BucketsDB
+	// GracefulExit returns database for graceful exit
+	GracefulExit() gracefulexit.DB
 }
 
 // Config is the global config satellite
@@ -142,7 +142,7 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
-	Transport transport.Client
+	Dialer rpc.Dialer
 
 	Server *server.Server
 
@@ -259,18 +259,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		log.Debug("Starting listener and server")
 		sc := config.Server
 
-		options, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
+		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Transport = transport.NewClient(options)
+		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
 		unaryInterceptor := grpcauth.NewAPIKeyInterceptor()
 		if sc.DebugLogTraffic {
 			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
 		}
-		peer.Server, err = server.New(log.Named("server"), options, sc.Address, sc.PrivateAddress, unaryInterceptor)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -309,7 +309,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Type:    pb.NodeType_SATELLITE,
 			Version: *pbVersion,
 		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Transport)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
 		peer.Contact.KEndpoint = contact.NewKademliaEndpoint(peer.Log.Named("contact:nodes_service_endpoint"))
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
@@ -422,7 +422,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Metainfo.Service,
 			peer.Orders.Service,
 			peer.Overlay.Service,
-			peer.Transport,
+			peer.Dialer,
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
@@ -448,7 +448,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Service,
-			peer.Transport,
+			peer.Dialer,
 			peer.Overlay.Service,
 			peer.DB.Containment(),
 			peer.Orders.Service,
@@ -488,7 +488,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.GarbageCollection.Service = gc.NewService(
 			peer.Log.Named("garbage collection"),
 			config.GarbageCollection,
-			peer.Transport,
+			peer.Dialer,
 			peer.Overlay.DB,
 			peer.Metainfo.Loop,
 		)
@@ -598,20 +598,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.New("Auth token secret required")
 		}
 
-		// TODO: change mock implementation to using mock stripe backend
-		var pmService payments.Service
-		if consoleConfig.StripeKey != "" {
-			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
-		} else {
-			pmService = localpayments.NewService(nil)
-		}
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
-			pmService,
 			consoleConfig.PasswordCost,
 		)
 

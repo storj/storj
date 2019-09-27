@@ -233,10 +233,10 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 				revocationDB, err := revocation.NewDBFromCfg(tlscfg)
 				require.NoError(t, err)
 
-				options, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
+				tlsOptions, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
 				require.NoError(t, err)
 
-				server, err := server.New(storageNode.Log.Named("mock-server"), options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
+				server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr(), nil)
 				require.NoError(t, err)
 				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
 				go func() {

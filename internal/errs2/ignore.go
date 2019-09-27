@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+
+	"storj.io/storj/pkg/rpc/rpcstatus"
 )
 
 // IsCanceled returns true, when the error is a cancellation.
@@ -19,7 +19,7 @@ func IsCanceled(err error) bool {
 		return err == context.Canceled ||
 			err == grpc.ErrServerStopped ||
 			err == http.ErrServerClosed ||
-			status.Code(err) == codes.Canceled
+			rpcstatus.Code(err) == rpcstatus.Canceled
 	})
 }
 

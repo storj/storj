@@ -21,9 +21,9 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/piecestore"
 )
@@ -34,22 +34,22 @@ var ErrPieceHashVerifyFailed = errs.Class("piece hashes don't match")
 // ECRepairer allows the repairer to download, verify, and upload pieces from storagenodes.
 type ECRepairer struct {
 	log             *zap.Logger
-	transport       transport.Client
+	dialer          rpc.Dialer
 	satelliteSignee signing.Signee
 }
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
-func NewECRepairer(log *zap.Logger, tc transport.Client, satelliteSignee signing.Signee) *ECRepairer {
+func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee) *ECRepairer {
 	return &ECRepairer{
 		log:             log,
-		transport:       tc,
+		dialer:          dialer,
 		satelliteSignee: satelliteSignee,
 	}
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
 	logger := ec.log.Named(n.Id.String())
-	return piecestore.Dial(ctx, ec.transport, n, logger, piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, ec.dialer, n, logger, piecestore.DefaultConfig)
 }
 
 // Get downloads pieces from storagenodes using the provided order limits, and decodes those pieces into a segment.
