@@ -14,7 +14,7 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 import { ProjectsApiMock } from '../../mock/api/projects';
 
 const api = new ProjectsApiMock();
-api.setMockProject(new Project('1'));
+api.setMockProjects([new Project('1')]);
 const projectsModule = makeProjectsModule(api);
 const localVue = createLocalVue();
 
