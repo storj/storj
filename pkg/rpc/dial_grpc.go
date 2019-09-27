@@ -46,6 +46,7 @@ func (d Dialer) dialInsecure(ctx context.Context, address string) (_ *Conn, err 
 	defer mon.Task()(&ctx)(&err)
 
 	conn, err := grpc.DialContext(ctx, address,
+		grpc.WithInsecure(),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithContextDialer(d.dialContext))
