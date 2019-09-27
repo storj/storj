@@ -76,7 +76,7 @@ setup_stage(){
     # ln binary and copy config.yaml for desired version
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
-    replace_in_file "${src_sat_cfg_dir}" "${dest_sat_cfg_dir}" "${dest_sat_cfg_dir}/config.yaml"
+    replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
@@ -103,7 +103,7 @@ setup_stage(){
         cp $src_sn_cfg_dir/config.yaml $dest_sn_cfg_dir
 
         # update config dir in config.yaml as well as whitelisted satellites in config.yaml
-        replace_in_file "${src_sn_cfg_dir}" "${dest_sn_cfg_dir}" "${dest_sn_cfg_dir}/config.yaml"
+        replace_in_file "${src_sn_version_dir}" "${test_dir}" "${dest_sn_cfg_dir}/config.yaml"
         replace_in_file  "${src_sat_nodeid}" "${dest_sat_nodeid}" "${dest_sn_cfg_dir}/config.yaml"
 
         let counter+=1
@@ -114,6 +114,7 @@ setup_stage(){
     PATH=$src_ul_version_dir/bin:$PATH src_ul_cfg_dir=$(storj-sim network env --config-dir=${src_ul_version_dir}/local-network/ GATEWAY_0_DIR)
     PATH=$test_dir/bin:$PATH dest_ul_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_DIR)
     cp $src_ul_cfg_dir/config.yaml $dest_ul_cfg_dir
+    replace_in_file "${src_ul_version_dir}" "${test_dir}" "${dest_ul_cfg_dir}/config.yaml"
     ln -f $src_ul_version_dir/bin/uplink $test_dir/bin/uplink
 }
 
@@ -150,9 +151,9 @@ setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions
 
 # TODO: Run tests here
 scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network"
+PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "STAGE1TEST!!!"
 
 setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}" "${stage2_uplink_version}"
 
 # TODO: Run stage 2 tests here
-PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network"
+PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "STAGE2TEST!!!"
