@@ -2,10 +2,6 @@ module storj.io/storj
 
 go 1.12
 
-replace github.com/spacemonkeygo/monkit/v3 => /home/jeff/go/src/github.com/spacemonkeygo/monkit
-
-replace github.com/jtolds/monkit-hw/v2 => /home/jeff/go/src/github.com/jtolds/monkit-hw
-
 // force specific versions for minio
 require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
@@ -61,7 +57,7 @@ require (
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
-	github.com/jtolds/monkit-hw/v2 v2.0.0-20190926195117-7cc7b751bc54
+	github.com/jtolds/monkit-hw/v2 v2.0.0-20190926224016-be2adabd3d52
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
 	github.com/lib/pq v1.0.0
@@ -95,7 +91,7 @@ require (
 	github.com/sirupsen/logrus v1.3.0 // indirect
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.0-20190926200430-51dbb2c6b0e1
+	github.com/spacemonkeygo/monkit/v3 v3.0.0-20190926223917-5a90a2606f1c
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3

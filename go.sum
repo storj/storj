@@ -207,8 +207,8 @@ github.com/jtolds/gls v4.2.1+incompatible h1:fSuqC+Gmlu6l/ZYAoZzx2pyucC8Xza35fpR
 github.com/jtolds/gls v4.2.1+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0 h1:UyVaeqfY1fLPMt1iUTaWsxUNxYAzZVyK+7G+a3sRfhk=
 github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0/go.mod h1:OtVLEpPHGJkn8jgGrHlYELCA3uXLU0YSfNN0faeDM2M=
-github.com/jtolds/monkit-hw/v2 v2.0.0-20190926195117-7cc7b751bc54 h1:JUzP9cFoPqFTY9RiR//q6U4yglFtByCDOCB07kjgtqw=
-github.com/jtolds/monkit-hw/v2 v2.0.0-20190926195117-7cc7b751bc54/go.mod h1:QHw8kpHBCt81f+XKIa6dCg6A7Nz7nohmFmEBOTsPHoA=
+github.com/jtolds/monkit-hw/v2 v2.0.0-20190926224016-be2adabd3d52 h1:gm9h6xTNVlmK3rOcihNuC7k2TULppBbwimS5lI4xDl0=
+github.com/jtolds/monkit-hw/v2 v2.0.0-20190926224016-be2adabd3d52/go.mod h1:WYwH18YPrAg4hcfcxsiabgNAxajARQu/tDzNrcBHlTA=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/gotool v1.0.0 h1:AV2c/EiW3KqPNT9ZKl07ehoAGi4C5/01Cfbblndcapg=
@@ -361,10 +361,10 @@ github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 h1:xHQewZjohU
 github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1/go.mod h1:7NL9UAYQnRM5iKHUCld3tf02fKb5Dft+41+VckASUy0=
 github.com/spacemonkeygo/monkit/v3 v3.0.0-20190925203444-ad5e161bb3cd h1:KOpow9sNqi96FPJyo6IU/Wyqo8+oswCBdGrXm4Er+lg=
 github.com/spacemonkeygo/monkit/v3 v3.0.0-20190925203444-ad5e161bb3cd/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drXFybgGmbc27tuwes=
-github.com/spacemonkeygo/monkit/v3 v3.0.0-20190926194438-8bbf29ccad5e h1:ipNa37PnqQRob2Dw1xZRUt9C+GAgD/zGDwAo14H4EIE=
-github.com/spacemonkeygo/monkit/v3 v3.0.0-20190926194438-8bbf29ccad5e/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drXFybgGmbc27tuwes=
 github.com/spacemonkeygo/monkit/v3 v3.0.0-20190926200430-51dbb2c6b0e1 h1:IaVR0uiMMAn4f5y/fZ293QQ4YOn49zpgP/w6DW+nqN4=
 github.com/spacemonkeygo/monkit/v3 v3.0.0-20190926200430-51dbb2c6b0e1/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drXFybgGmbc27tuwes=
+github.com/spacemonkeygo/monkit/v3 v3.0.0-20190926223917-5a90a2606f1c h1:uW/NODhyaa9bohlgIV3WGllbJfue2sgyZnu6kSRNNc0=
+github.com/spacemonkeygo/monkit/v3 v3.0.0-20190926223917-5a90a2606f1c/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drXFybgGmbc27tuwes=
 github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a h1:8+cCjxhToanKmxLIbuyBNe2EnpgwhiivsIaRJstDRFA=
 github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a/go.mod h1:ul4bvvnCOPZgq8w0nTkSmWVg/hauVpFS97Am1YM1XXo=
 github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 h1:RC6RW7j+1+HkWaX/Yh71Ee5ZHaHYt7ZP4sQgUrm6cDU=
