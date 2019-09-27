@@ -71,7 +71,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class ProjectCreationSuccessPopup extends Vue {
-    private onCloseClick(): void {
+    public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
     }
 

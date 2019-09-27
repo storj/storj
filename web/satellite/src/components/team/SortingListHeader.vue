@@ -6,20 +6,20 @@
         <div class="sort-header-container__name-container" @click="onHeaderItemClick(ProjectMemberOrderBy.NAME)">
             <p class="sort-header-container__name-container__title">Name</p>
             <VerticalArrows
-                :is-active="getSortBy === ProjectMemberOrderBy.NAME"
-                :direction="getSortDirection"/>
+                :is-active="areProjectMembersSortedByName"
+                :direction="getSortDirection" />
         </div>
         <div class="sort-header-container__added-container" @click="onHeaderItemClick(ProjectMemberOrderBy.CREATED_AT)">
             <p class="sort-header-container__added-container__title">Added</p>
             <VerticalArrows
-                :is-active="getSortBy === ProjectMemberOrderBy.CREATED_AT"
-                :direction="getSortDirection"/>
+                :is-active="areProjectMembersSortedByDate"
+                :direction="getSortDirection" />
         </div>
         <div class="sort-header-container__email-container" @click="onHeaderItemClick(ProjectMemberOrderBy.EMAIL)">
             <p class="sort-header-container__email-container__title">Email</p>
             <VerticalArrows
-                :is-active="getSortBy === ProjectMemberOrderBy.EMAIL"
-                :direction="getSortDirection"/>
+                :is-active="areProjectMembersSortedByEmail"
+                :direction="getSortDirection" />
         </div>
     </div>
 </template>
@@ -54,8 +54,16 @@ export default class SortingListHeader extends Vue {
         return SortDirection.DESCENDING;
     }
 
-    public get getSortBy() {
-        return this.sortBy;
+    public areProjectMembersSortedByName(): boolean {
+        return this.sortBy === ProjectMemberOrderBy.NAME;
+    }
+
+    public areProjectMembersSortedByDate(): boolean {
+        return this.sortBy === ProjectMemberOrderBy.CREATED_AT;
+    }
+
+    public areProjectMembersSortedByEmail(): boolean {
+        return this.sortBy === ProjectMemberOrderBy.EMAIL;
     }
 
     public async onHeaderItemClick(sortBy: ProjectMemberOrderBy): Promise<void> {

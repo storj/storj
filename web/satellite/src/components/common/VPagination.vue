@@ -12,15 +12,15 @@
             <div class="pagination-container__items">
                 <PagesBlock
                     :pages="firstBlockPages"
-                    :is-selected="isSelected"/>
+                    :is-selected="isSelected" />
                 <span class="pages-divider" v-if="isFirstDotsShown">...</span>
                 <PagesBlock
                     :pages="middleBlockPages"
-                    :is-selected="isSelected"/>
+                    :is-selected="isSelected" />
                 <span class="pages-divider" v-if="isSecondDotsShown">...</span>
                 <PagesBlock
                     :pages="lastBlockPages"
-                    :is-selected="isSelected"/>
+                    :is-selected="isSelected" />
             </div>
             <div class="pagination-container__button" @click="nextPage">
                 <svg class="pagination-container__button__image" width="6" height="9" viewBox="0 0 6 9" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -37,7 +37,6 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 import PagesBlock from '@/components/common/PagesBlock.vue';
 
 import { Page } from '@/types/pagination';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component({
     components: {

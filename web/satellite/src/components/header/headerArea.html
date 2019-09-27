@@ -8,9 +8,9 @@
             v-if="!isNavigationVisible"
             @click.stop="toggleNavigationVisibility"
             width="21" height="15" viewBox="0 0 21 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="21" height="2.37931" rx="1.18966" fill="#2683FF"/>
-            <rect y="6.31055" width="21" height="2.37931" rx="1.18966" fill="#2683FF"/>
-            <rect y="12.6206" width="21" height="2.37931" rx="1.18966" fill="#2683FF"/>
+                <rect width="21" height="2.37931" rx="1.18966" fill="#2683FF"/>
+                <rect y="6.31055" width="21" height="2.37931" rx="1.18966" fill="#2683FF"/>
+                <rect y="12.6206" width="21" height="2.37931" rx="1.18966" fill="#2683FF"/>
         </svg>
         <div class="dashboard-header-container__left-area__close-button" v-if="isNavigationVisible" @click.stop="toggleNavigationVisibility">
             <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -20,7 +20,7 @@
             </svg>
             <p class="dashboard-header-container__left-area__close-button__title">Close</p>
         </div>
-        <ProjectSelectionArea class="dashboard-header-container__left-area__project-selection"/>
+        <ProjectSelectionArea class="dashboard-header-container__left-area__project-selection" />
     </div>
     <svg class="storj-title" @click.stop="onLogoClick" width="82" height="18" viewBox="0 0 82 18" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M5.22457 3.77689C4.86259 4.07571 4.6816 4.4582 4.6816 4.94826C4.6816 5.43832 4.89879 5.82081 5.34523 6.10768C5.79167 6.39455 6.80521 6.72922 8.40998 7.12367C10.0148 7.51811 11.2455 8.1038 12.1384 8.88073C13.0192 9.65766 13.4656 10.8051 13.4656 12.2992C13.4656 13.7933 12.8985 15.0125 11.7643 15.9448C10.6301 16.8771 9.14601 17.3433 7.28785 17.3433C4.62127 17.3433 2.22015 16.3632 0.0844727 14.4029L1.19454 13.0283C1.79784 12.2992 2.87171 12.1677 3.656 12.6937C4.97118 13.5782 6.20191 14.0204 7.36024 14.0204C8.048 14.0204 8.59097 13.877 8.98915 13.5782C9.38733 13.2794 9.58038 12.8849 9.58038 12.3829C9.58038 11.8809 9.37526 11.4864 8.95295 11.1876C8.53064 10.8888 7.71016 10.59 6.46736 10.2912C4.51268 9.8489 3.07683 9.23931 2.17188 8.49824C1.25487 7.75716 0.80843 6.59774 0.80843 5.01998C0.80843 3.43026 1.3876 2.21107 2.53386 1.35047C3.68013 0.489871 5.11598 0.0595703 6.82934 0.0595703C7.95148 0.0595703 9.07361 0.250815 10.2078 0.633304C11.3299 1.01579 12.3073 1.55367 13.1519 2.25888L12.3194 3.45416C11.7523 4.255 10.6904 4.51796 9.80963 4.08766C8.79609 3.58564 7.77049 3.33463 6.72075 3.33463C6.08125 3.33463 5.58655 3.47807 5.22457 3.77689Z" fill="#2683FF"/>
@@ -33,7 +33,7 @@
         <NewProjectArea class="dashboard-header-container__right-area__new-project" />
         <AccountButton class="dashboard-header-container__right-area__account-button" />
     </div>
-    <ProjectCreationSuccessPopup/>
+    <ProjectCreationSuccessPopup />
     <NavigationArea
         class="adapted-navigation"
         v-if="isNavigationVisible" />

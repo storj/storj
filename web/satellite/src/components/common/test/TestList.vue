@@ -5,7 +5,7 @@
     <VList
         :data-set="dataSetItems"
         :item-component="getItemComponent"
-        :on-item-click="onItemClick"/>
+        :on-item-click="onItemClick" />
 </template>
 
 <script lang="ts">

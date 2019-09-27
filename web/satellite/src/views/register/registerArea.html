@@ -3,12 +3,12 @@
 
 <div class="register-container" @keyup.enter="onCreateClick">
     <div :class="loadingClassName">
-        <img class="loading-image" src="../../../static/images/register/Loading.gif">
+        <img class="loading-image" src="@/../static/images/register/Loading.gif">
     </div>
-    <img class="image" src="../../../static/images/AuthImage.svg" alt="" >
+    <img class="image" src="@/../static/images/AuthImage.svg" alt="" >
     <div class="register-container__wrapper">
         <div class="register-container__header">
-            <img class="register-container__logo" src="../../../static/images/Logo.svg" alt="logo" @click="onLogoClick">
+            <img class="register-container__logo" src="@/../static/images/Logo.svg" alt="logo" @click="onLogoClick">
             <div class="register-container__register-button" @click.prevent="onLoginClick">
                 <p class="register-container__register-button__label">Login</p>
             </div>
@@ -85,7 +85,7 @@
                     <div class="register-area__submit-container__terms-area">
                         <label class="container">
                             <input type="checkbox" v-model="isTermsAccepted">
-                            <span :class="[isTermsAcceptedError ? 'checkmark error': 'checkmark']"></span>
+                            <span class="checkmark" :class="{'error': isTermsAcceptedError}"></span>
                         </label>
                         <h2 class="register-area__submit-container__terms-area__terms-confirmation">I agree to the <a class="register-area__submit-container__terms-area__link" href="https://tardigrade.io/terms-of-use/" target="_blank">Terms & Conditions</a></h2>
                     </div>
@@ -96,5 +96,5 @@
             </div>
         </div>
     </div>
-    <RegistrationSuccessPopup ref="register_success_popup"/>
+    <RegistrationSuccessPopup ref="register_success_popup" />
 </div>

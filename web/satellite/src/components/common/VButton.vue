@@ -7,7 +7,7 @@
         :class="containerClassName"
         :style="style"
         @click="onPress">
-        <h1 class="label" :class="{'white': isWhite}">{{label}}</h1>
+            <h1 class="label" :class="{'white': isWhite}">{{label}}</h1>
     </div>
 </template>
 

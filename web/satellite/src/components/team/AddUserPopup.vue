@@ -15,7 +15,7 @@
                         <img src="../../../static/images/register/ErrorInfo.svg"/>
                         <p class="add-user__form-container__label__error">{{formError}}</p>
                     </div>
-                    <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': inputs.length > 4 }">
+                    <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': isInputsGroupScrollable }">
                         <div v-for="(input, index) in inputs"
                             class="add-user__form-container__inputs-group__item"
                             :key="index" >
@@ -47,13 +47,13 @@
                             width='205px'
                             height='48px'
                             :on-press="onClose"
-                            is-white="true"/>
+                            is-white="true" />
                         <VButton
                             label='Add Team Members'
                             width='205px'
                             height='48px'
                             :on-press="onAddUsersClick"
-                            :is-disabled="!isButtonActive"/>
+                            :is-disabled="!isButtonActive" />
                     </div>
                 </div>
                 <div class='add-user__close-cross-container' @click='onClose'>
@@ -159,8 +159,8 @@ export default class AddUserPopup extends Vue {
 
         try {
             await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
-        } catch (err) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. ${err.message}`);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error during adding project members. ${error.message}`);
             this.isLoading = false;
 
             return;
@@ -217,6 +217,10 @@ export default class AddUserPopup extends Vue {
 
     public get registerPath(): string {
         return location.host + RouteConfig.Register.path;
+    }
+
+    public get isInputsGroupScrollable(): boolean {
+        return this.inputs.length > 4;
     }
 
     private resetFormErrors(index): void {

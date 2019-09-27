@@ -38,12 +38,12 @@
                             width="180px"
                             height="48px"
                             :on-press="toggleEditing"
-                            is-white="true"/>
+                            is-white="true" />
                         <VButton
                             label="Save"
                             width="180px"
                             height="48px"
-                            :on-press="onSaveButtonClick"/>
+                            :on-press="onSaveButtonClick" />
                     </div>
                 </div>
             </div>
@@ -54,7 +54,7 @@
                     width="180px"
                     height="48px"
                     :on-press="toggleDeleteDialog"
-                    is-deletion="true"/>
+                    is-deletion="true" />
             </div>
         </div>
         <DeleteProjectPopup v-if="isPopupShown" />

@@ -39,7 +39,7 @@
             label="Add Card"
             width="140px"
             height="48px"
-            is-disabled="true"/>
+            is-disabled="true" />
     </div>
 </template>
 

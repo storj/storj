@@ -6,7 +6,7 @@
         <div class="new-project-button-container" :class="{ active: !hasProjects }" @click="toggleSelection" id="newProjectButton">
             <h1 class="new-project-button-container__label">+ New Project</h1>
         </div>
-        <NewProjectPopup v-if="isPopupShown"/>
+        <NewProjectPopup v-if="isPopupShown" />
     </div>
 </template>
 

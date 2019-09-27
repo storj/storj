@@ -6,7 +6,7 @@
         <h1 class="account-area-container__title">Account</h1>
         <TabNavigation
             class="account-area-container__navigation"
-            :navigation="navigation"/>
+            :navigation="navigation" />
         <router-view />
     </div>
 </template>

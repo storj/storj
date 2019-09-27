@@ -19,9 +19,9 @@
                 <p class="account-billing-area__notification-container__low-balance__text">Your account balance is running low. Please add STORJ Tokens or a debit/credit card to prevent data loss.</p>
             </div>
         </div>
-        <AccountBalance/>
-        <MonthlyBillingSummary/>
-        <DepositAndBilling/>
+        <AccountBalance />
+        <MonthlyBillingSummary />
+        <DepositAndBilling />
     </div>
 </template>
 

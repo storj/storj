@@ -21,7 +21,7 @@
                 label="Earn Credits"
                 width="153px"
                 height="48px"
-                :on-press="onEarnCredits"/>
+                :on-press="onEarnCredits" />
         </div>
     </div>
 </template>

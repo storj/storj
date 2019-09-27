@@ -27,7 +27,7 @@
                     width="100%"
                     ref="shortNameInput"
                     :init-value="userInfo.shortName"
-                    @setData="setShortName"/>
+                    @setData="setShortName" />
                 <div class="edit-profile-popup__form-container__button-container">
                     <VButton
                         label="Cancel"

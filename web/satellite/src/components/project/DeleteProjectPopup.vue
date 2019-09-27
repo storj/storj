@@ -65,7 +65,7 @@
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
-                        is-white="true"/>
+                        is-white="true" />
                     <VButton
                         label="Delete"
                         width="205px" 

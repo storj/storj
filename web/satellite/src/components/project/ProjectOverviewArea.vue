@@ -6,8 +6,8 @@
         <TabNavigation
             v-if="isProjectSelected"
             class="project-overview__navigation"
-            :navigation="navigation"/>
-        <router-view v-if="isProjectSelected"/>
+            :navigation="navigation" />
+        <router-view v-if="isProjectSelected" />
         <EmptyState
             v-if="!isProjectSelected"
             main-title="Create your first project"

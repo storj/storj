@@ -6,24 +6,24 @@
         <div class="team-area__header">
             <HeaderArea
                 :header-state="headerState"
-                :selected-project-members-count="selectedProjectMembers.length"/>
+                :selected-project-members-count="selectedProjectMembers.length" />
         </div>
-        <div class="team-area__container" id="team-container" v-if="projectMembersCount > 0 || projectMembersTotalCount > 0">
-            <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
+        <div class="team-area__container" id="team-container" v-if="isTeamAreaShown">
+            <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback" />
             <div class="team-area__container__content">
                 <VList
                     :data-set="projectMembers"
                     :item-component="getItemComponent"
-                    :on-item-click="onMemberClick"/>
+                    :on-item-click="onMemberClick" />
             </div>
             <VPagination
                 v-if="totalPageCount > 1"
                 class="pagination-area"
                 ref="pagination"
                 :total-page-count="totalPageCount"
-                :on-page-click-callback="onPageClick"/>
+                :on-page-click-callback="onPageClick" />
         </div>
-        <div class="team-area__empty-search-result-area" v-if="(projectMembersCount === 0 && projectMembersTotalCount === 0)">
+        <div class="team-area__empty-search-result-area" v-if="isEmptySearchResultShown">
             <h1 class="team-area__empty-search-result-area__title">No results found</h1>
             <svg class="team-area__empty-search-result-area__image" width="380" height="295" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M168 295C246.997 295 311 231.2 311 152.5C311 73.8 246.997 10 168 10C89.0028 10 25 73.8 25 152.5C25 231.2 89.0028 295 168 295Z" fill="#E8EAF2"/>
@@ -72,6 +72,10 @@ import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
 import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
+declare interface ResetPagination {
+    resetPageIndex(): void;
+}
+
 @Component({
     components: {
         HeaderArea,
@@ -82,6 +86,10 @@ import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames'
 })
 export default class ProjectMembersArea extends Vue {
     private FIRST_PAGE = 1;
+
+    public $refs!: {
+        pagination: HTMLElement & ResetPagination;
+    };
 
     public async beforeDestroy(): Promise<void> {
         await this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
@@ -123,6 +131,14 @@ export default class ProjectMembersArea extends Vue {
         return ProjectMemberHeaderState.DEFAULT;
     }
 
+    public get isTeamAreaShown(): boolean {
+        return this.projectMembersCount > 0 || this.projectMembersTotalCount > 0;
+    }
+
+    public get isEmptySearchResultShown(): boolean {
+        return !!(this.projectMembersCount === 0 && this.projectMembersTotalCount === 0);
+    }
+
     public async onPageClick(index: number): Promise<void> {
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, index);
@@ -140,7 +156,9 @@ export default class ProjectMembersArea extends Vue {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
 
-        (this.$refs.pagination as VPagination).resetPageIndex();
+        if (this.totalPageCount > 1) {
+            this.$refs.pagination.resetPageIndex();
+        }
     }
 }
 </script>

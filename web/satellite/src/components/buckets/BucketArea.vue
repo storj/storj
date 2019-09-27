@@ -3,7 +3,7 @@
 
 <template>
     <div>
-        <NoBucketArea v-if="!totalCount && !search" />
+        <NoBucketArea v-if="isNoBucketAreaShown" />
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p class="buckets-header__title">Buckets</p>
@@ -28,13 +28,13 @@
                     :item-component="itemComponent"
                     :on-item-click="doNothing"/>
                 <VPagination
-                    v-if="totalPageCount > 1"
+                    v-if="isPaginationShown"
                     :total-page-count="totalPageCount"
                     :on-page-click-callback="onPageClick" />
             </div>
             <EmptyState
                 class="empty-container"
-                v-if="!totalPageCount && search"
+                v-if="isEmptySearchResultShown"
                 main-title="Nothing found :("
                 :image-source="emptyImage" />
         </div>
@@ -102,6 +102,18 @@ export default class BucketArea extends Vue {
 
     public get search(): string {
         return this.$store.getters.cursor.search;
+    }
+
+    public get isNoBucketAreaShown(): boolean {
+        return !!(!this.totalCount && !this.search);
+    }
+
+    public get isPaginationShown(): boolean {
+        return this.totalPageCount > 1;
+    }
+
+    public get isEmptySearchResultShown(): boolean {
+        return !!(!this.totalPageCount && this.search);
     }
 
     public async fetch(searchQuery: string): Promise<void> {
