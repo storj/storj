@@ -56,6 +56,13 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				}, nil
 			}
 
+			if satelliteDB.Name == "Postgres" {
+				planetConfig.Reconfigure.Satellite = func(log *zap.Logger, index int, config *satellite.Config) {
+					schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo")
+					config.Metainfo.DatabaseURL = pgutil.ConnstrWithSchema(satelliteDB.URL, schema)
+				}
+			}
+
 			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig)
 			if err != nil {
 				t.Fatal(err)
