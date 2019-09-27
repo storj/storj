@@ -8,36 +8,36 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    /**
-     * BarFillStyle class holds info for BarFillStyle entity.
-     */
-    class BarFillStyle {
-        'background-color': string;
-        width: string;
+/**
+ * BarFillStyle class holds info for BarFillStyle entity.
+ */
+class BarFillStyle {
+    'background-color': string;
+    width: string;
 
-        public constructor(backgroundColor: string, width: string) {
-            this['background-color'] = backgroundColor;
-            this.width = width;
-        }
+    public constructor(backgroundColor: string, width: string) {
+        this['background-color'] = backgroundColor;
+        this.width = width;
     }
+}
 
-    @Component
-    export default class Bar extends Vue {
-        @Prop({default: ''})
-        private readonly current: string;
-        @Prop({default: ''})
-        private readonly max: string;
-        @Prop({default: '#224CA5'})
-        private readonly color: string;
+@Component
+export default class Bar extends Vue {
+    @Prop({default: ''})
+    private readonly current: string;
+    @Prop({default: ''})
+    private readonly max: string;
+    @Prop({default: '#224CA5'})
+    private readonly color: string;
 
-        public get barFillStyle(): BarFillStyle {
-            const width = (parseFloat(this.current) / parseFloat(this.max)) * 100 + '%';
+    public get barFillStyle(): BarFillStyle {
+        const width = (parseFloat(this.current) / parseFloat(this.max)) * 100 + '%';
 
-            return new BarFillStyle(this.color, width);
-        }
+        return new BarFillStyle(this.color, width);
     }
+}
 </script>
 
 <style scoped lang="scss">
