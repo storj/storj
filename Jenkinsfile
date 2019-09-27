@@ -22,29 +22,29 @@ node('node') {
       }
     }
 
-    stage('Build Images') {
-      sh 'make images'
+    // stage('Build Images') {
+    //   sh 'make images'
 
-      echo "Current build result: ${currentBuild.result}"
-    }
+    //   echo "Current build result: ${currentBuild.result}"
+    // }
 
-    stage('Push Images') {
-      echo 'Push to Repo'
-      sh 'make push-images'
-      echo "Current build result: ${currentBuild.result}"
-    }
+    // stage('Push Images') {
+    //   echo 'Push to Repo'
+    //   sh 'make push-images'
+    //   echo "Current build result: ${currentBuild.result}"
+    // }
 
-    if (env.BRANCH_NAME == "master") {
-      /* This should only deploy to staging if the branch is master */
-      stage('Deploy to staging') {
-        sh 'make deploy'
-        echo "Current build result: ${currentBuild.result}"
-      }
-    }
-    stage('Upload') {
-      sh 'make binaries-upload'
-      echo "Current build result: ${currentBuild.result}"
-    }
+    // if (env.BRANCH_NAME == "master") {
+    //   /* This should only deploy to staging if the branch is master */
+    //   stage('Deploy to staging') {
+    //     sh 'make deploy'
+    //     echo "Current build result: ${currentBuild.result}"
+    //   }
+    // }
+    // stage('Upload') {
+    //   sh 'make binaries-upload'
+    //   echo "Current build result: ${currentBuild.result}"
+    // }
 
   }
   catch (err) {
