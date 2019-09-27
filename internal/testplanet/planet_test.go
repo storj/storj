@@ -44,11 +44,7 @@ func TestBasic(t *testing.T) {
 				node := sn.Local()
 				conn, err := sn.Dialer.DialNode(ctx, &satellite)
 				require.NoError(t, err)
-				defer func() {
-					err = conn.Close()
-					require.NoError(t, err)
-				}()
-
+				defer ctx.Check(conn.Close)
 				_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
 					Address:  node.GetAddress().GetAddress(),
 					Version:  &node.Version,
