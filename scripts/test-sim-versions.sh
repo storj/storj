@@ -12,27 +12,21 @@ cleanup(){
 }
 #trap cleanup EXIT
 
-#Stage1:
-    #satellite-version: v0.16.2
-    #uplink-version: v0.16.2
-    #storagenode-version:
-        #5 nodes on version v0.16.2
-        #5 nodes on version v0.15.4
-#Stage2:
-    #satellite-version: master
-    #uplink-version: master, v0.20.2, v0.19.7, v0.18.0, v0.17.1, v0.16.2, v0.15.4
-    #storagenode-version:
-        #5 nodes on version master
-        #5 nodes on version v0.15.4
+# TODO make sure the number of storagenode versions matches the number of sns from setup
 
- # TODO make sure the number of storagenode versions matches the number of sns from setup
+stage1_sat_version="$1"
+stage1_uplink_version="$2"
+stage1_storagenode_versions="$3"
+stage2_sat_version="$4"
+stage2_uplink_version="$5"
+stage2_storagenode_versions="$6"
 
-stage1_sat_version="v0.16.2"
-stage1_uplink_version="v0.16.2"
-stage1_storagenode_versions="v0.16.2 v0.16.2 v0.16.2 v0.16.2 v0.16.2 v0.15.4 v0.15.4 v0.15.4 v0.15.4 v0.15.4"
-stage2_sat_version="v0.20.2"
-stage2_uplink_version="v0.16.2"
-stage2_storagenode_versions="v0.20.2 v0.20.2 v0.20.2 v0.20.2 v0.20.2 v0.19.7 v0.19.7 v0.19.7 v0.19.7 v0.19.7"
+echo "stage1_sat_version" $stage1_sat_version
+echo "stage1_uplink_version" $stage1_uplink_version
+echo "stage1_storagenode_versions" $stage1_storagenode_versions
+echo "stage2_sat_version" $stage2_sat_version
+echo "stage2_uplink_version" $stage2_uplink_version
+echo "stage2_storagenode_versions" $stage2_storagenode_versions
 
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 

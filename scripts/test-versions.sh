@@ -43,7 +43,7 @@ shasum ${main_cfg_dir}/satellite/0/satellite
 
 echo -e "\nStoragenode config directories:"
 for i in {0..9}
-do 
+do
     echo -e "\nConfig directory for sn ${i}:"
     echo "${main_cfg_dir}/storagenode/${i}"
     # storj-sim network env --config-dir "${main_cfg_dir}" STORAGENODE_${i}_DIR
