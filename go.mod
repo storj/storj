@@ -2,6 +2,10 @@ module storj.io/storj
 
 go 1.12
 
+replace github.com/spacemonkeygo/monkit/v3 => /home/jeff/go/src/github.com/spacemonkeygo/monkit
+
+replace github.com/jtolds/monkit-hw/v2 => /home/jeff/go/src/github.com/jtolds/monkit-hw
+
 // force specific versions for minio
 require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
