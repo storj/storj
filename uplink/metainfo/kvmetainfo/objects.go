@@ -182,9 +182,9 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 	// case storj.Backward:
 	// 	// backward lists backwards from cursor, including cursor
 	// 	endBefore = keyAfter(options.Cursor)
-	// case storj.Forward:
-	// 	// forward lists forwards from cursor, including cursor
-	// 	startAfter = keyBefore(options.Cursor)
+	case storj.Forward:
+		// forward lists forwards from cursor, including cursor
+		startAfter = keyBefore(options.Cursor)
 	case storj.After:
 		// after lists forwards from cursor, without cursor
 		startAfter = options.Cursor
