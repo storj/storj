@@ -16,11 +16,10 @@ node('node') {
     }
 
     stage('Build Windows Installer') {
-      agent { 
-        label 'linux'
+      node('windows') { 
+        echo 'Build Windows Installer'
+        echo "Current build result: ${currentBuild.result}"
       }
-      echo 'Build Windows Installer'
-      echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Build Images') {
