@@ -31,6 +31,8 @@ export default class App extends Vue {
                 'sortTeamMemberByDropdownButton',
                 'notificationArea',
                 'successfulRegistrationPopup',
+                'paymentSelectButton',
+                'paymentSelect',
             ];
 
     private onClick(e: Event): void {

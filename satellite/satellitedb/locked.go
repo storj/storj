@@ -236,37 +236,6 @@ func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.Buc
 	return m.db.GetPaged(ctx, cursor)
 }
 
-// ProjectInvoiceStamps is a getter for ProjectInvoiceStamps repository
-func (m *lockedConsole) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedProjectInvoiceStamps{m.Locker, m.db.ProjectInvoiceStamps()}
-}
-
-// lockedProjectInvoiceStamps implements locking wrapper for console.ProjectInvoiceStamps
-type lockedProjectInvoiceStamps struct {
-	sync.Locker
-	db console.ProjectInvoiceStamps
-}
-
-func (m *lockedProjectInvoiceStamps) Create(ctx context.Context, stamp console.ProjectInvoiceStamp) (*console.ProjectInvoiceStamp, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, stamp)
-}
-
-func (m *lockedProjectInvoiceStamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]console.ProjectInvoiceStamp, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAll(ctx, projectID)
-}
-
-func (m *lockedProjectInvoiceStamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*console.ProjectInvoiceStamp, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByProjectIDStartDate(ctx, projectID, startDate)
-}
-
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()
@@ -306,61 +275,6 @@ func (m *lockedProjectMembers) Insert(ctx context.Context, memberID uuid.UUID, p
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Insert(ctx, memberID, projectID)
-}
-
-// ProjectPayments is a getter for ProjectPayments repository
-func (m *lockedConsole) ProjectPayments() console.ProjectPayments {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedProjectPayments{m.Locker, m.db.ProjectPayments()}
-}
-
-// lockedProjectPayments implements locking wrapper for console.ProjectPayments
-type lockedProjectPayments struct {
-	sync.Locker
-	db console.ProjectPayments
-}
-
-func (m *lockedProjectPayments) Create(ctx context.Context, info console.ProjectPayment) (*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, info)
-}
-
-func (m *lockedProjectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Delete(ctx, projectPaymentID)
-}
-
-func (m *lockedProjectPayments) GetByID(ctx context.Context, projectPaymentID uuid.UUID) (*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByID(ctx, projectPaymentID)
-}
-
-func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) ([]*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByPayerID(ctx, payerID)
-}
-
-func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByProjectID(ctx, projectID)
-}
-
-func (m *lockedProjectPayments) GetDefaultByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetDefaultByProjectID(ctx, projectID)
-}
-
-func (m *lockedProjectPayments) Update(ctx context.Context, info console.ProjectPayment) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Update(ctx, info)
 }
 
 // Projects is a getter for Projects repository
@@ -573,31 +487,6 @@ func (m *lockedUserCredits) UpdateEarnedCredits(ctx context.Context, userID uuid
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateEarnedCredits(ctx, userID)
-}
-
-// UserPayments is a getter for UserPayments repository
-func (m *lockedConsole) UserPayments() console.UserPayments {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedUserPayments{m.Locker, m.db.UserPayments()}
-}
-
-// lockedUserPayments implements locking wrapper for console.UserPayments
-type lockedUserPayments struct {
-	sync.Locker
-	db console.UserPayments
-}
-
-func (m *lockedUserPayments) Create(ctx context.Context, info console.UserPayment) (*console.UserPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, info)
-}
-
-func (m *lockedUserPayments) Get(ctx context.Context, userID uuid.UUID) (*console.UserPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, userID)
 }
 
 // Users is a getter for Users repository

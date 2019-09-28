@@ -84,7 +84,7 @@
 		-ms-transform: translate(-50%, -50%);
 		transform: translate(-50%, -50%);
 		box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
-		font-family: 'font-medium';
+		font-family: 'font_medium';
 	}
 	.cov-picker-box {
 		background: #fff;
