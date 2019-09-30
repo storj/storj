@@ -31,6 +31,16 @@ type StorageNodeFlags struct {
 	EditConf bool `default:"false" help:"open config in default editor"`
 
 	storagenode.Config
+
+	Deprecated
+}
+
+// Deprecated contains deprecated config structs
+type Deprecated struct {
+	Kademlia struct {
+		ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
+		Operator        storagenode.OperatorConfig
+	}
 }
 
 var (
@@ -119,6 +129,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
+
+	mapDeprecatedConfigs(log)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
@@ -289,6 +301,48 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return nil
+}
+
+// maps deprecated config values to new values if applicable
+func mapDeprecatedConfigs(log *zap.Logger) {
+	type migration struct {
+		newValue        *string
+		newConfigString string
+		oldValue        *string
+		oldConfigString string
+	}
+	migrations := []migration{
+		{
+			newValue:        &runCfg.Contact.ExternalAddress,
+			newConfigString: "contact.external-address",
+			oldValue:        &runCfg.Kademlia.ExternalAddress,
+			oldConfigString: "kademlia.external-address",
+		},
+		{
+			newValue:        &runCfg.Operator.Wallet,
+			newConfigString: "operator.wallet",
+			oldValue:        &runCfg.Kademlia.Operator.Wallet,
+			oldConfigString: "kademlia.operator.wallet",
+		},
+		{
+			newValue:        &runCfg.Operator.Email,
+			newConfigString: "operator.email",
+			oldValue:        &runCfg.Kademlia.Operator.Email,
+			oldConfigString: "kademlia.operator.email",
+		},
+	}
+
+	for _, migration := range migrations {
+		if *migration.newValue != "" && *migration.oldValue != "" {
+			log.Sugar().Debugf("Both %s and %s are designated in your config.yaml. %s is deprecated. Using %s with the value of %v. Please update your config.",
+				migration.oldConfigString, migration.newConfigString, migration.oldConfigString, migration.newConfigString, *migration.newValue)
+		}
+		if *migration.newValue == "" && *migration.oldValue != "" {
+			*migration.newValue = *migration.oldValue
+			log.Sugar().Debugf("%s is deprecated. Please update your config file with %s.", migration.oldConfigString, migration.newConfigString)
+			log.Sugar().Debugf("Setting %s to the value of %s: %v.", migration.newConfigString, migration.oldConfigString, *migration.oldValue)
+		}
+	}
 }
 
 func main() {
