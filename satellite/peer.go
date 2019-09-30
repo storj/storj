@@ -399,6 +399,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
 			signing.SignerFromFullIdentity(peer.Identity),
+			config.Metainfo.MaxCommitInterval,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)

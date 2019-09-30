@@ -316,6 +316,13 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 				return err
 			}
 
+			// expect that too much time has not passed between order limit creation and now
+			latestCommitTime := limit.OrderCreation.Add(endpoint.maxCommitInterval)
+			if latestCommitTime.Before(time.Now()) {
+				return Error.New("Segment not committed before max commit interval of %d minutes.", metainfo.maxCommitInterval.Minutes())
+			}
+
+
 			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
