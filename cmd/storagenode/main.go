@@ -305,42 +305,42 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 
 // maps deprecated config values to new values if applicable
 func mapDeprecatedConfigs(log *zap.Logger) {
-	type config struct {
-		new     *string
-		newFlag string
-		old     *string
-		oldFlag string
+	type migration struct {
+		newValue        *string
+		newConfigString string
+		oldValue        *string
+		oldConfigString string
 	}
-	configs := []config{
+	migrations := []migration{
 		{
-			new:     &runCfg.Contact.ExternalAddress,
-			newFlag: "contact.external-address",
-			old:     &runCfg.Kademlia.ExternalAddress,
-			oldFlag: "kademlia.external-address",
+			newValue:        &runCfg.Contact.ExternalAddress,
+			newConfigString: "contact.external-address",
+			oldValue:        &runCfg.Kademlia.ExternalAddress,
+			oldConfigString: "kademlia.external-address",
 		},
 		{
-			new:     &runCfg.Operator.Wallet,
-			newFlag: "operator.wallet",
-			old:     &runCfg.Kademlia.Operator.Wallet,
-			oldFlag: "kademlia.operator.wallet",
+			newValue:        &runCfg.Operator.Wallet,
+			newConfigString: "operator.wallet",
+			oldValue:        &runCfg.Kademlia.Operator.Wallet,
+			oldConfigString: "kademlia.operator.wallet",
 		},
 		{
-			new:     &runCfg.Operator.Email,
-			newFlag: "operator.email",
-			old:     &runCfg.Kademlia.Operator.Email,
-			oldFlag: "kademlia.operator.email",
+			newValue:        &runCfg.Operator.Email,
+			newConfigString: "operator.email",
+			oldValue:        &runCfg.Kademlia.Operator.Email,
+			oldConfigString: "kademlia.operator.email",
 		},
 	}
 
-	for _, config := range configs {
-		if *config.new != "" && *config.old != "" {
+	for _, migration := range migrations {
+		if *migration.newValue != "" && *migration.oldValue != "" {
 			log.Sugar().Debugf("Both %s and %s are designated in your config.yaml. %s is deprecated. Using %s with the value of %v. Please update your config.",
-				config.oldFlag, config.newFlag, config.oldFlag, config.newFlag, *config.new)
+				migration.oldConfigString, migration.newConfigString, migration.oldConfigString, migration.newConfigString, *migration.newValue)
 		}
-		if *config.new == "" && *config.old != "" {
-			*config.new = *config.old
-			log.Sugar().Debugf("%s is deprecated. Please update your config file with %s.", config.oldFlag, config.newFlag)
-			log.Sugar().Debugf("Setting %s to the value of %s: %v.", config.newFlag, config.oldFlag, *config.old)
+		if *migration.newValue == "" && *migration.oldValue != "" {
+			*migration.newValue = *migration.oldValue
+			log.Sugar().Debugf("%s is deprecated. Please update your config file with %s.", migration.oldConfigString, migration.newConfigString)
+			log.Sugar().Debugf("Setting %s to the value of %s: %v.", migration.newConfigString, migration.oldConfigString, *migration.oldValue)
 		}
 	}
 }
