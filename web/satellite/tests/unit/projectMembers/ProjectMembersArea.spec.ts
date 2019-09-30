@@ -79,7 +79,7 @@ describe('ProjectMembersArea.vue', () => {
         const sortingListHeaderStub = wrapper.findAll('sortinglistheader-stub');
         expect(sortingListHeaderStub.length).toBe(1);
 
-        const listStub = wrapper.findAll('list-stub');
+        const listStub = wrapper.findAll('vlist-stub');
         expect(listStub.length).toBe(1);
 
         expect(wrapper).toMatchSnapshot();

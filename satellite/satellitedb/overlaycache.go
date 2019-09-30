@@ -1368,6 +1368,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			Operator: node.Operator,
 			Capacity: node.Capacity,
 			Type:     pb.NodeType_STORAGE,
+			Version:  node.Version,
 		}
 		_, err = cache.UpdateNodeInfo(ctx, node.NodeID, &pbInfo)
 		if err != nil {
@@ -1420,6 +1421,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				wallet=$7,
 				free_bandwidth=$8,
 				free_disk=$9,
+				major=$18, minor=$19, patch=$20, hash=$21, timestamp=$22, release=$23,
 				total_uptime_count=nodes.total_uptime_count+1,
 				uptime_reputation_alpha=$16::numeric*nodes.uptime_reputation_alpha + $17::numeric*$10::bool::int,
 				uptime_reputation_beta=$16::numeric*nodes.uptime_reputation_beta + $17::numeric*(NOT $10)::bool::int,

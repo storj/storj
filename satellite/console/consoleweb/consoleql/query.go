@@ -181,6 +181,10 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						userName = user.FullName
 					}
 
+					contactInfoURL := rootObject[ContactInfoURL].(string)
+					letUsKnowURL := rootObject[LetUsKnowURL].(string)
+					termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+
 					mailService.SendRenderedAsync(
 						p.Context,
 						[]post.Address{{Address: user.Email, Name: userName}},
@@ -189,6 +193,9 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 							ResetLink:                  passwordRecoveryLink,
 							CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
 							UserName:                   userName,
+							LetUsKnowURL:               letUsKnowURL,
+							TermsAndConditionsURL:      termsAndConditionsURL,
+							ContactInfoURL:             contactInfoURL,
 						},
 					)
 
@@ -228,13 +235,18 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						userName = user.FullName
 					}
 
+					contactInfoURL := rootObject[ContactInfoURL].(string)
+					termsAndConditionsURL := rootObject[TermsAndConditionsURL].(string)
+
 					// TODO: think of a better solution
 					mailService.SendRenderedAsync(
 						p.Context,
 						[]post.Address{{Address: user.Email, Name: userName}},
 						&AccountActivationEmail{
-							Origin:         origin,
-							ActivationLink: link,
+							Origin:                origin,
+							ActivationLink:        link,
+							TermsAndConditionsURL: termsAndConditionsURL,
+							ContactInfoURL:        contactInfoURL,
 						},
 					)
 

@@ -20,8 +20,8 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/eestream"
 )
 
@@ -83,10 +83,11 @@ var (
 
 // Inspector gives access to overlay.
 type Inspector struct {
+	conn          *rpc.Conn
 	identity      *identity.FullIdentity
-	overlayclient pb.OverlayInspectorClient
-	irrdbclient   pb.IrreparableInspectorClient
-	healthclient  pb.HealthInspectorClient
+	overlayclient rpc.OverlayInspectorClient
+	irrdbclient   rpc.IrreparableInspectorClient
+	healthclient  rpc.HealthInspectorClient
 }
 
 // NewInspector creates a new gRPC inspector client for access to overlay.
@@ -101,18 +102,22 @@ func NewInspector(address, path string) (*Inspector, error) {
 		return nil, ErrIdentity.Wrap(err)
 	}
 
-	conn, err := transport.DialAddressInsecure(ctx, address)
+	conn, err := rpc.NewDefaultDialer(nil).DialAddressUnencrypted(ctx, address)
 	if err != nil {
 		return &Inspector{}, ErrInspectorDial.Wrap(err)
 	}
 
 	return &Inspector{
+		conn:          conn,
 		identity:      id,
-		overlayclient: pb.NewOverlayInspectorClient(conn),
-		irrdbclient:   pb.NewIrreparableInspectorClient(conn),
-		healthclient:  pb.NewHealthInspectorClient(conn),
+		overlayclient: conn.OverlayInspectorClient(),
+		irrdbclient:   conn.IrreparableInspectorClient(),
+		healthclient:  conn.HealthInspectorClient(),
 	}, nil
 }
+
+// Close closes the inspector.
+func (i *Inspector) Close() error { return i.conn.Close() }
 
 // ObjectHealth gets information about the health of an object on the network
 func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
@@ -122,6 +127,7 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, i.Close()) }()
 
 	startAfterSegment := int64(0) // start from first segment
 	endBeforeSegment := int64(0)  // No end, so we stop when we've hit limit or arrived at the last segment
@@ -201,6 +207,7 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, i.Close()) }()
 
 	segmentIndex, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
@@ -363,6 +370,8 @@ func getSegments(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
 	var lastSeenSegmentPath = []byte{}
 
 	// query DB and paginate results

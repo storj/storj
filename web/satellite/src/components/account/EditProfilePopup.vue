@@ -7,7 +7,7 @@
             <div class="edit-profile-popup__form-container">
                 <div class="edit-profile-row-container">
                     <div class="edit-profile-popup__form-container__avatar">
-                        <h1>{{avatarLetter}}</h1>
+                        <h1 class="edit-profile-popup__form-container__avatar__letter">{{avatarLetter}}</h1>
                     </div>
                     <h2 class="edit-profile-popup__form-container__main-label-text">Edit profile</h2>
                 </div>
@@ -29,13 +29,22 @@
                     :init-value="userInfo.shortName"
                     @setData="setShortName"/>
                 <div class="edit-profile-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :on-press="onCloseClick" isWhite="true" />
-                    <Button label="Update" width="205px" height="48px" :on-press="onUpdateClick" />
+                    <VButton
+                        label="Cancel"
+                        width="205px"
+                        height="48px"
+                        :on-press="onCloseClick"
+                        is-white="true" />
+                    <VButton
+                        label="Update"
+                        width="205px"
+                        height="48px"
+                        :on-press="onUpdateClick" />
                 </div>
             </div>
             <div class="edit-profile-popup__close-cross-container" @click="onCloseClick">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
+                    <path class="close-cross-svg-path" d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
                 </svg>
             </div>
         </div>
@@ -45,8 +54,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Button from '@/components/common/Button.vue';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
@@ -55,7 +64,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actio
 @Component({
     components: {
         HeaderedInput,
-        Button,
+        VButton,
     },
 })
 export default class EditProfilePopup extends Vue {
@@ -104,14 +113,6 @@ export default class EditProfilePopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    p {
-        font-family: 'font_medium';
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-        display: flex;
-    }
-
     .edit-profile-row-container {
         width: 100%;
         display: flex;
@@ -131,6 +132,7 @@ export default class EditProfilePopup extends Vue {
         display: flex;
         justify-content: center;
         align-items: center;
+        font-family: 'font_regular';
     }
     
     .input-container.full-input {
@@ -173,21 +175,11 @@ export default class EditProfilePopup extends Vue {
                 background: #E8EAF2;
                 margin-right: 20px;
                 
-                h1 {
+                &__letter {
                     font-family: 'font_medium';
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
-                }
-            }
-            
-            p {
-                font-family: 'font_regular';
-                font-size: 16px;
-                margin-top: 20px;
-                
-                &:first-child {
-                    margin-top: 0;
                 }
             }
             
@@ -220,7 +212,7 @@ export default class EditProfilePopup extends Vue {
             width: 24px;
             cursor: pointer;
             
-            &:hover svg path {
+            &:hover .close-cross-svg-path {
                 fill: #2683FF;
             }
         }
