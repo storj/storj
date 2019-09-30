@@ -4,6 +4,8 @@
 package metainfo
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/dbutil"
