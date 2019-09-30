@@ -4,19 +4,19 @@
 <template>
     <div class="sort-header-container">
         <div class="sort-header-container__name-container" @click="onHeaderItemClick(ProjectMemberOrderBy.NAME)">
-            <p>Name</p>
+            <p class="sort-header-container__name-container__title">Name</p>
             <VerticalArrows
                 :is-active="getSortBy === ProjectMemberOrderBy.NAME"
                 :direction="getSortDirection"/>
         </div>
         <div class="sort-header-container__added-container" @click="onHeaderItemClick(ProjectMemberOrderBy.CREATED_AT)">
-            <p>Added</p>
+            <p class="sort-header-container__added-container__title">Added</p>
             <VerticalArrows
                 :is-active="getSortBy === ProjectMemberOrderBy.CREATED_AT"
                 :direction="getSortDirection"/>
         </div>
         <div class="sort-header-container__email-container" @click="onHeaderItemClick(ProjectMemberOrderBy.EMAIL)">
-            <p>Email</p>
+            <p class="sort-header-container__email-container__title">Email</p>
             <VerticalArrows
                 :is-active="getSortBy === ProjectMemberOrderBy.EMAIL"
                 :direction="getSortDirection"/>
@@ -83,16 +83,21 @@ export default class SortingListHeader extends Vue {
     .sort-header-container {
         display: flex;
         flex-direction: row;
-        height: 36px;
+        height: 40px;
         background-color: rgba(255, 255, 255, 0.3);
-        margin-top: 29px;
+        margin-top: 31px;
 
-        p {
-            font-family: 'font_medium';
-            font-size: 16px;
-            line-height: 23px;
-            color: #2A2A32;
-            margin: 0;
+        &__name-container,
+        &__added-container,
+        &__email-container {
+
+            &__title {
+                font-family: 'font_medium';
+                font-size: 16px;
+                line-height: 23px;
+                color: #2A2A32;
+                margin: 0;
+            }
         }
 
         &__name-container {
@@ -100,16 +105,16 @@ export default class SortingListHeader extends Vue {
             width: calc(50% - 30px);
             cursor: pointer;
             text-align: left;
-            margin-left: 30px;
+            margin-left: 26px;
             align-items: center;
             justify-content: flex-start;
         }
 
         &__added-container {
-             width: 25%;
-             cursor: pointer;
-             text-align: left;
-             margin-left: 30px;
+            width: 25%;
+            cursor: pointer;
+            text-align: left;
+            margin-left: 30px;
             display: flex;
             align-items: center;
             justify-content: flex-start;
@@ -117,11 +122,11 @@ export default class SortingListHeader extends Vue {
 
         &__email-container {
             width: 25%;
-             cursor: pointer;
-             text-align: left;
-             display: flex;
-             align-items: center;
-             justify-content: flex-start;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
         }
     }
 </style>

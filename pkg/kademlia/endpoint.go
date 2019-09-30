@@ -10,12 +10,11 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcpeer"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -105,16 +104,16 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.
 	// NOTE: this code is very similar to that in storagenode/contact.(*Endpoint).PingNode().
 	// That other will be used going forward, and this will soon be gutted and deprecated. The
 	// code similarity will only exist until the transition away from Kademlia is complete.
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Internal, "unable to get grpc peer from context")
-	}
-	peerID, err := identity.PeerIdentityFromPeer(p)
+	peer, err := rpcpeer.FromContext(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+	peerID, err := identity.PeerIdentityFromPeer(peer)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 	if endpoint.pingStats != nil {
-		endpoint.pingStats.WasPinged(time.Now(), peerID.ID, p.Addr.String())
+		endpoint.pingStats.WasPinged(time.Now(), peerID.ID, peer.Addr.String())
 	}
 	return &pb.PingResponse{}, nil
 }
@@ -126,17 +125,17 @@ func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) 
 
 	if self.Type == pb.NodeType_STORAGE {
 		if endpoint.trust == nil {
-			return nil, status.Error(codes.Internal, "missing trust")
+			return nil, rpcstatus.Error(rpcstatus.Internal, "missing trust")
 		}
 
 		peer, err := identity.PeerIdentityFromContext(ctx)
 		if err != nil {
-			return nil, status.Error(codes.Unauthenticated, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 		}
 
 		err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
 		if err != nil {
-			return nil, status.Errorf(codes.PermissionDenied, "untrusted peer %v", peer.ID)
+			return nil, rpcstatus.Errorf(rpcstatus.PermissionDenied, "untrusted peer %v", peer.ID)
 		}
 	}
 
