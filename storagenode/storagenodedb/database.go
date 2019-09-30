@@ -727,7 +727,9 @@ func (db *DB) Migration() *migrate.Migration {
 				Description: "Free Storagenodes from trash data",
 				Version:     22,
 				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					fmt.Println("VACUUM start")
 					_, err := db.versionsDB.Exec("VACUUM;")
+					fmt.Println("VACUUM end")
 					return err
 				}),
 			},
