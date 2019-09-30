@@ -31,6 +31,7 @@
                         width="205%"
                         height="10vh"
                         is-multiline="true"
+                        :init-value="description"
                         @setData="setNewDescription" />
                     <div class="project-details-info-container__description-container__buttons-area">
                         <VButton
@@ -134,10 +135,9 @@ export default class ProjectDetailsArea extends Vue {
         this.$router.push(RouteConfig.UsageReport.path);
     }
 
-    private toggleEditing(): void {
+    public toggleEditing(): void {
         this.isEditing = !this.isEditing;
-        // TODO: cache this value in future
-        this.newDescription = '';
+        this.newDescription = this.description;
     }
 }
 </script>
@@ -227,7 +227,7 @@ export default class ProjectDetailsArea extends Vue {
                     line-height: 21px;
                     color: #354049;
                     width: 100%;
-                    word-wrap: break-word;
+                    word-break: break-word;
                 }
             }
             
