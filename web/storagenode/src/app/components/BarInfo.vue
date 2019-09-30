@@ -6,9 +6,9 @@
         <p class="remaining-space-container__title">{{label}}</p>
         <p class="remaining-space-container__amount"><b>{{remaining}}GB</b></p>
         <div class="remaining-space-container__bar">
-            <InfoComponent :text="infoMessage">
-                <Bar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
-            </InfoComponent>
+            <VInfo :text="infoMessage">
+                <VBar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
+            </VInfo>
         </div>
     </div>
 </template>
@@ -16,16 +16,16 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import Bar from '@/app/components/Bar.vue';
-import InfoComponent from '@/app/components/InfoComponent.vue';
+import VBar from '@/app/components/VBar.vue';
+import VInfo from '@/app/components/VInfo.vue';
 
 @Component ({
     components: {
-        Bar,
-        InfoComponent,
+        VBar,
+        VInfo,
     },
 })
-export default class BarInfoContainer extends Vue {
+export default class BarInfo extends Vue {
     @Prop({default: ''})
     private readonly label: string;
     @Prop({default: ''})
