@@ -35,14 +35,6 @@ type StorageNodeFlags struct {
 	Deprecated
 }
 
-// Deprecated contains deprecated config structs
-type Deprecated struct {
-	Kademlia struct {
-		ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
-		Operator        storagenode.OperatorConfig
-	}
-}
-
 var (
 	rootCmd = &cobra.Command{
 		Use:   "storagenode",
@@ -301,49 +293,6 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return nil
-}
-
-// maps deprecated config values to new values if applicable
-func mapConfigs(log *zap.Logger) {
-	type config struct {
-		new     *string
-		newFlag string
-		old     *string
-		oldFlag string
-	}
-	configs := []config{
-		{
-			new:     &runCfg.Contact.ExternalAddress,
-			newFlag: "contact.external-address",
-			old:     &runCfg.Kademlia.ExternalAddress,
-			oldFlag: "kademlia.external-address",
-		},
-		{
-			new:     &runCfg.Operator.Wallet,
-			newFlag: "operator.wallet",
-			old:     &runCfg.Kademlia.Operator.Wallet,
-			oldFlag: "kademlia.operator.wallet",
-		},
-		{
-			new:     &runCfg.Operator.Email,
-			newFlag: "operator.email",
-			old:     &runCfg.Kademlia.Operator.Email,
-			oldFlag: "kademlia.operator.email",
-		},
-	}
-
-	for _, config := range configs {
-		if *config.new != "" && *config.old != "" {
-			log.Warn("Both " + config.newFlag + " and " + config.oldFlag + " are designated in your config.yaml. " +
-				config.oldFlag + " is deprecated. Using " + config.newFlag + " with the value of " + *config.new + ". Please update your config.")
-		}
-		if *config.new == "" {
-			*config.new = *config.old
-			log.Warn(config.oldFlag + " is deprecated. Please update your config file with " + config.newFlag + ".")
-			log.Debug("Setting " + config.newFlag + " to the value of " + config.oldFlag + ": " + *config.old + ".")
-		}
-		log.Debug(config.newFlag + ": " + *config.new)
-	}
 }
 
 func main() {
