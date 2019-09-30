@@ -513,10 +513,10 @@ func TestUpdateCheckIn(t *testing.T) {
 				FreeBandwidth: int64(12355),
 			},
 			Version: &pb.NodeVersion{
-				Version:    "v0.0.0",
-				CommitHash: "",
-				Timestamp:  time.Time{},
-				Release:    false,
+				Version:    "v0.1.0",
+				CommitHash: "abc123",
+				Timestamp:  time.Now().UTC(),
+				Release:    true,
 			},
 		}
 		// confirm that the updated node is in the nodes table with the
@@ -530,6 +530,10 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.Equal(t, updatedNode.Address.GetAddress(), expectedAddress)
 		require.Equal(t, updatedNode.Reputation.UptimeSuccessCount, actualNode.Reputation.UptimeSuccessCount+1)
 		require.Equal(t, updatedNode.Capacity.GetFreeBandwidth(), int64(12355))
+		require.Equal(t, updatedInfo.Version.GetVersion(), updatedNode.Version.GetVersion())
+		require.Equal(t, updatedInfo.Version.GetCommitHash(), updatedNode.Version.GetCommitHash())
+		require.Equal(t, updatedInfo.Version.GetRelease(), updatedNode.Version.GetRelease())
+		require.True(t, updatedNode.Version.GetTimestamp().After(info.Version.GetTimestamp()))
 
 		// confirm we can udpate IsUp field
 		startOfUpdateTest2 := time.Now().UTC()

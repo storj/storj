@@ -3,12 +3,12 @@
 
 <template>
     <div class="account-button-container" id="accountDropdownButton">
-        <div class="account-button-toggle-container" v-on:click="toggleSelection" >
+        <div class="account-button-toggle-container" @click="toggleSelection" >
             <!-- background of this div generated and stores in store -->
             <div class="account-button-toggle-container__avatar">
                 <!-- First digit of firstName after Registration -->
                 <!-- img if avatar was set -->
-                <h1>{{avatarLetter}}</h1>
+                <h1 class="account-button-toggle-container__avatar__letter">{{avatarLetter}}</h1>
             </div>
             <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
             <div class="account-button-toggle-container__expander-area">
@@ -52,15 +52,8 @@ export default class AccountButton extends Vue {
 </script>
 
 <style scoped lang="scss">
-    a {
-        text-decoration: none;
-        outline: none;
-    }
-
     .account-button-container {
         position: relative;
-        padding-left: 10px;
-        padding-right: 10px;
         background-color: #FFFFFF;
         cursor: pointer;
 
@@ -98,7 +91,7 @@ export default class AccountButton extends Vue {
             justify-content: center;
             background: #E8EAF2;
 
-            h1 {
+            &__letter {
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 23px;
@@ -116,10 +109,11 @@ export default class AccountButton extends Vue {
         }
     }
 
-    @media screen and (max-width: 720px) {
+    @media screen and (max-width: 1024px) {
         .account-button-toggle-container {
 
-            &__user-name {
+            &__user-name,
+            &__expander-area {
                 display: none;
             }
         }

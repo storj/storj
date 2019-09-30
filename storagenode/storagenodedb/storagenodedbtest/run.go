@@ -28,11 +28,10 @@ func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
 
 		storageDir := ctx.Dir("storage")
 		cfg := storagenodedb.Config{
-			Storage:  storageDir,
-			Info:     filepath.Join(storageDir, "piecestore.db"),
-			Info2:    filepath.Join(storageDir, "info.db"),
-			Pieces:   storageDir,
-			Kademlia: filepath.Join(storageDir, "kad.db"),
+			Storage: storageDir,
+			Info:    filepath.Join(storageDir, "piecestore.db"),
+			Info2:   filepath.Join(storageDir, "info.db"),
+			Pieces:  storageDir,
 		}
 
 		db, err := storagenodedb.New(log, cfg)
@@ -41,7 +40,7 @@ func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
 		}
 		defer ctx.Check(db.Close)
 
-		err = db.CreateTables()
+		err = db.CreateTables(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

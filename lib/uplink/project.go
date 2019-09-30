@@ -11,8 +11,8 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/ecclient"
 	"storj.io/storj/uplink/eestream"
 	"storj.io/storj/uplink/metainfo"
@@ -24,7 +24,7 @@ import (
 // Project represents a specific project access session.
 type Project struct {
 	uplinkCfg     *Config
-	tc            transport.Client
+	dialer        rpc.Dialer
 	metainfo      *metainfo.Client
 	project       *kvmetainfo.Project
 	maxInlineSize memory.Size
@@ -179,7 +179,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	encryptionParameters := cfg.EncryptionParameters
 
-	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
+	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.dialer, p.uplinkCfg.Volatile.MaxMemory.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
 	if err != nil {
 		return nil, err

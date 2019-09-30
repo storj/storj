@@ -107,11 +107,10 @@ func init() {
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {
 	return storagenodedb.Config{
-		Storage:  config.Storage.Path,
-		Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
-		Info2:    filepath.Join(config.Storage.Path, "info.db"),
-		Pieces:   config.Storage.Path,
-		Kademlia: config.Kademlia.DBPath,
+		Storage: config.Storage.Path,
+		Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
+		Info2:   filepath.Join(config.Storage.Path, "info.db"),
+		Pieces:  config.Storage.Path,
 	}
 }
 
@@ -164,7 +163,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = db.CreateTables()
+	err = db.CreateTables(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}

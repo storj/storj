@@ -31,9 +31,7 @@ import (
 )
 
 func TestUplinksParallel(t *testing.T) {
-	t.Skip("flaky")
-
-	const uplinkCount = 3
+	const uplinkCount = 2
 	const parallelCount = 2
 
 	testplanet.Run(t, testplanet.Config{
@@ -80,9 +78,6 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
-
-		// stop discovery service so that we do not get a race condition when we delete nodes from overlay
-		satellite.Discovery.Service.Discovery.Stop()
 
 		testData := testrand.Bytes(memory.MiB)
 
@@ -238,10 +233,10 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 				revocationDB, err := revocation.NewDBFromCfg(tlscfg)
 				require.NoError(t, err)
 
-				options, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
+				tlsOptions, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
 				require.NoError(t, err)
 
-				server, err := server.New(storageNode.Log.Named("mock-server"), options, storageNode.Addr(), storageNode.PrivateAddr(), nil)
+				server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr(), nil)
 				require.NoError(t, err)
 				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
 				go func() {

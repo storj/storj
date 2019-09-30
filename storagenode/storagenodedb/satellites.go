@@ -28,7 +28,7 @@ type satellitesDB struct {
 // InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
 func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
+	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
 		query := `INSERT OR REPLACE INTO satellites (node_id, status, added_at) VALUES (?,?, COALESCE((SELECT added_at FROM satellites WHERE node_id = ?), ?))`
 		_, err = tx.ExecContext(ctx, query, satelliteID, satellites.Exiting, satelliteID, intitiatedAt.UTC()) // assume intitiatedAt < time.Now()
 		if err != nil {
@@ -51,7 +51,7 @@ func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID stor
 // CompleteGracefulExit updates the database when a graceful exit is completed or failed
 func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
+	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
 		query := `UPDATE satellites SET status = ? WHERE node_id = ?`
 		_, err = tx.ExecContext(ctx, query, satelliteID, exitStatus)
 		if err != nil {
@@ -66,7 +66,7 @@ func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID st
 // ListGracefulExits lists all graceful exit records
 func (db *satellitesDB) ListGracefulExits(ctx context.Context) (exitList []satellites.ExitProcess, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return exitList, ErrSatellitesDB.Wrap(withTx(ctx, db.SQLDB, func(tx *sql.Tx) error {
+	return exitList, ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
 		query := `SELECT satellite_id, initiated_at, finished_at, starting_disk_usage, bytes_deleted, completion_receipt FROM satellite_exit_progress`
 		rows, err := db.QueryContext(ctx, query)
 		if err != nil {
