@@ -21,7 +21,8 @@ import (
 )
 
 var (
-	monkitPath = "gopkg.in/spacemonkeygo/monkit.v2"
+	monkitPath    = "gopkg.in/spacemonkeygo/monkit.v2"
+	lockFilePerms = os.FileMode(0644)
 )
 
 func main() {
@@ -37,7 +38,7 @@ func main() {
 
 	outputStr := strings.Join(sortedNames, "\n")
 	if len(os.Args) == 2 {
-		ioutil.WriteFile(os.Args[1], []byte(outputStr+"\n"), 0644)
+		ioutil.WriteFile(os.Args[1], []byte(outputStr+"\n"), lockFilePerms)
 	} else {
 		fmt.Println(outputStr)
 	}
@@ -45,13 +46,13 @@ func main() {
 
 func findLockedFnNames(pkg *packages.Package) []string {
 	var (
-		lockedCalls   []token.Pos
-		lockedFns     []*ast.FuncDecl
-		lockedFnNames []string
-		lockedLines   = make(map[int]struct{})
+		lockedTasksPos []token.Pos
+		lockedTaskFns  []*ast.FuncDecl
+		lockedFnInfos  []string
+		lockedLines    = make(map[int]struct{})
 	)
 
-	// collect locked comments and what line they are on
+	// Collect locked comments and what line they are on.
 	for _, file := range pkg.Syntax {
 		for _, group := range file.Comments {
 			for _, comment := range group.List {
@@ -62,7 +63,9 @@ func findLockedFnNames(pkg *packages.Package) []string {
 			}
 		}
 
-		// find calls to mon.Task() on the same line as a locked comment and keep track of their position
+		// Find calls to monkit functions we're interested in that are on the
+		// same line as a "locked" comment and keep track of their position.
+		// NB: always return true to walk entire node tree.
 		ast.Inspect(file, func(node ast.Node) bool {
 			if node == nil {
 				return true
@@ -70,40 +73,47 @@ func findLockedFnNames(pkg *packages.Package) []string {
 			if !isMonkitCall(pkg, node) {
 				return true
 			}
+
+			// Ensure call line matches a "locked" comment line.
 			callLine := pkg.Fset.Position(node.End()).Line
 			if _, ok := lockedLines[callLine]; !ok {
 				return true
 			}
-			// we are already checking to ensure that these type assertions are valid in isMonkitCall
+
+			// We are already checking to ensure that these type assertions are valid in `isMonkitCall`.
 			sel := node.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
+
+			// Track `mon.Task` calls.
 			if sel.Sel.Name == "Task" {
-				lockedCalls = append(lockedCalls, node.End())
+				lockedTasksPos = append(lockedTasksPos, node.End())
 				return true
 			}
+
+			// Track other monkit calls that have one string argument (e.g. monkit.FloatVal, etc.)
+			// and transform them to representative string.
 			if len(node.(*ast.CallExpr).Args) != 1 {
 				return true
 			}
-			basicLit, ok := node.(*ast.CallExpr).Args[0].(*ast.BasicLit)
+			argLiteral, ok := node.(*ast.CallExpr).Args[0].(*ast.BasicLit)
 			if !ok {
 				return true
 			}
-			// adds other types of monkit calls that have one string argument
-			if basicLit.Kind == token.STRING {
-				lockedFnInfo := pkg.PkgPath + "." + basicLit.Value  + " " + sel.Sel.Name
-				lockedFnNames = append(lockedFnNames, lockedFnInfo)
+			if argLiteral.Kind == token.STRING {
+				lockedFnInfo := pkg.PkgPath + "." + argLiteral.Value + " " + sel.Sel.Name
+				lockedFnInfos = append(lockedFnInfos, lockedFnInfo)
 			}
 			return true
 		})
 
-		// find all function declarations and see if they include any locked
+		// Track all function declarations containing locked `mon.Task` calls.
 		ast.Inspect(file, func(node ast.Node) bool {
 			fn, ok := node.(*ast.FuncDecl)
 			if !ok {
 				return true
 			}
-			for _, locked := range lockedCalls {
+			for _, locked := range lockedTasksPos {
 				if fn.Pos() < locked && locked < fn.End() {
-					lockedFns = append(lockedFns, fn)
+					lockedTaskFns = append(lockedTaskFns, fn)
 				}
 			}
 			return true
@@ -111,8 +121,8 @@ func findLockedFnNames(pkg *packages.Package) []string {
 
 	}
 
-	// transform the ast.FuncDecl to representative string, sort them, unique them, and output them
-	for _, fn := range lockedFns {
+	// Transform the ast.FuncDecls containing locked `mon.Task` calls to representative string.
+	for _, fn := range lockedTaskFns {
 		object := pkg.TypesInfo.Defs[fn.Name]
 
 		var receiver string
@@ -129,12 +139,13 @@ func findLockedFnNames(pkg *packages.Package) []string {
 		}
 
 		lockedFnInfo := object.Pkg().Path() + receiver + "." + object.Name() + " Task"
-		lockedFnNames = append(lockedFnNames, lockedFnInfo)
+		lockedFnInfos = append(lockedFnInfos, lockedFnInfo)
 
 	}
-	return lockedFnNames
+	return lockedFnInfos
 }
 
+// isMonkitCall returns whether the node is a call to a function in the monkit package.
 func isMonkitCall(pkg *packages.Package, in ast.Node) bool {
 	defer func() { recover() }()
 

@@ -1,3 +1,4 @@
+storj.io/storj/satellite/accounting/tally."total.bytes" IntVal
 storj.io/storj/satellite/accounting/tally."total.inline_bytes" IntVal
 storj.io/storj/satellite/accounting/tally."total.inline_segments" IntVal
 storj.io/storj/satellite/accounting/tally."total.objects" IntVal
