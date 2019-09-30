@@ -10,7 +10,8 @@
                 <Bar
                     :current="currentBarAmount"
                     :max="maxBarAmount"
-                    color="#224CA5"/>
+                    color="#224CA5"
+                />
             </InfoComponent>
         </div>
     </div>
