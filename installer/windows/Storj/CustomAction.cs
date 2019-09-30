@@ -1,5 +1,6 @@
 using Microsoft.Deployment.WindowsInstaller;
 using System;
+using System.Globalization;
 using System.IO;
 
 namespace Storj
@@ -126,7 +127,7 @@ namespace Storj
                 return ActionResult.Success;
             }
 
-            if (!double.TryParse(storageStr, out double storage))
+            if (!double.TryParse(storageStr, NumberStyles.Number, CultureInfo.CreateSpecificCulture("en-US"), out double storage))
             {
                 session["STORJ_STORAGE_VALID"] = string.Format("'{0}' is not a valid number.", storageStr);
                 return ActionResult.Success;
@@ -165,7 +166,7 @@ namespace Storj
                 return ActionResult.Success;
             }
 
-            if (!double.TryParse(bandwidthStr, out double bandwidth))
+            if (!double.TryParse(bandwidthStr, NumberStyles.Number, CultureInfo.CreateSpecificCulture("en-US"), out double bandwidth))
             {
                 session["STORJ_BANDWIDTH_VALID"] = string.Format("'{0}' is not a valid number.", bandwidthStr);
                 return ActionResult.Success;
