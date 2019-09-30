@@ -79,7 +79,7 @@ func TestMapConfigs(t *testing.T) {
 			runCfg.Kademlia.Operator.Wallet = testCase.oldWallet
 			runCfg.Operator.Email = testCase.newEmail
 			runCfg.Kademlia.Operator.Email = testCase.oldEmail
-			mapConfigs(log)
+			mapDeprecatedConfigs(log)
 			require.Equal(t, testCase.expectedAddr, runCfg.Contact.ExternalAddress)
 			require.Equal(t, testCase.expectedWallet, runCfg.Operator.Wallet)
 			require.Equal(t, testCase.expectedEmail, runCfg.Operator.Email)

@@ -130,7 +130,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	mapConfigs(log)
+	mapDeprecatedConfigs(log)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
@@ -304,7 +304,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 // maps deprecated config values to new values if applicable
-func mapConfigs(log *zap.Logger) {
+func mapDeprecatedConfigs(log *zap.Logger) {
 	type config struct {
 		new     *string
 		newFlag string
