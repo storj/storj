@@ -24,7 +24,7 @@
             <p class="online-status"><b>{{info.status}}</b></p>
             <p><b>Node Version</b></p>
             <p class="version">{{version}}</p>
-            <InfoComponent
+            <VInfo
                 v-if="info.isLastVersion"
                 text="Running the minimal allowed version:"
                 bold-text="v.0.0.0"
@@ -35,8 +35,8 @@
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M4.35717 9.90354C3.30671 8.7687 5.03287 7.1697 6.08406 8.30604L7.78632 10.144L11.8784 5.31912C12.8797 4.13577 14.6803 5.66083 13.6792 6.84279L8.7531 12.6514C8.28834 13.1977 7.4706 13.2659 6.96364 12.7182L4.35717 9.90354Z" fill="#F4F6F9"/>
                     </svg>
                 </div>
-            </InfoComponent>
-            <InfoComponent
+            </VInfo>
+            <VInfo
                 v-else
                 text="Your node is outdated. Please update to:"
                 bold-text="v.0.0.0"
@@ -47,7 +47,7 @@
                         <path d="M11 7L7 11M7 7L11 11" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </div>
-            </InfoComponent>
+            </VInfo>
         </div>
     </div>
 </template>
@@ -55,7 +55,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import InfoComponent from '@/app/components/InfoComponent.vue';
+import VInfo from '@/app/components/VInfo.vue';
 import { StatusOnline } from '@/app/store/modules/node';
 
 /**
@@ -79,7 +79,7 @@ class NodeInfo {
 
 @Component ({
     components: {
-        InfoComponent,
+        VInfo,
     },
 })
 export default class SNOContentTitle extends Vue {
