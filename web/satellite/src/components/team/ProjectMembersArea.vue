@@ -6,22 +6,25 @@
         <div class="team-area__header">
             <HeaderArea
                 :header-state="headerState"
-                :selected-project-members-count="selectedProjectMembers.length" />
+                :selected-project-members-count="selectedProjectMembers.length"
+            />
         </div>
         <div class="team-area__container" id="team-container" v-if="isTeamAreaShown">
-            <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback" />
+            <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
             <div class="team-area__container__content">
                 <VList
                     :data-set="projectMembers"
                     :item-component="getItemComponent"
-                    :on-item-click="onMemberClick" />
+                    :on-item-click="onMemberClick"
+                />
             </div>
             <VPagination
                 v-if="totalPageCount > 1"
                 class="pagination-area"
                 ref="pagination"
                 :total-page-count="totalPageCount"
-                :on-page-click-callback="onPageClick" />
+                :on-page-click-callback="onPageClick"
+            />
         </div>
         <div class="team-area__empty-search-result-area" v-if="isEmptySearchResultShown">
             <h1 class="team-area__empty-search-result-area__title">No results found</h1>
@@ -136,7 +139,7 @@ export default class ProjectMembersArea extends Vue {
     }
 
     public get isEmptySearchResultShown(): boolean {
-        return !!(this.projectMembersCount === 0 && this.projectMembersTotalCount === 0);
+        return this.projectMembersCount === 0 && this.projectMembersTotalCount === 0;
     }
 
     public async onPageClick(index: number): Promise<void> {

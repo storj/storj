@@ -80,19 +80,19 @@ export default class NavigationArea extends Vue {
     }
 
     public get isResourcesDisplayingButtonShown(): boolean {
-        return !!(!this.areResourceItemsShown && this.isResourceButtonShown);
+        return !this.areResourceItemsShown && this.isResourceButtonShown;
     }
 
     public get isResourcesHidingButtonShown(): boolean {
-        return !!(this.areResourceItemsShown && this.isResourceButtonShown);
+        return this.areResourceItemsShown && this.isResourceButtonShown;
     }
 
     public get isAccountItemsDisplayingButtonShown(): boolean {
-        return !!(!this.areAccountItemsShown && this.isAccountButtonShown);
+        return !this.areAccountItemsShown && this.isAccountButtonShown;
     }
 
     public get isAccountItemsHidingButtonShown(): boolean {
-        return !!(this.areAccountItemsShown && this.isAccountButtonShown);
+        return this.areAccountItemsShown && this.isAccountButtonShown;
     }
 }
 </script>

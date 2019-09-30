@@ -7,13 +7,15 @@
             <p class="sort-header-container__name-item__title">Key Name</p>
             <VerticalArrows
                 :isActive="areApiKeysSortedByName"
-                :direction="getSortDirection" />
+                :direction="getSortDirection"
+            />
         </div>
         <div class="sort-header-container__date-item" @click="onHeaderItemClick(ApiKeyOrderBy.CREATED_AT)">
             <p class="sort-header-container__date-item__title">Created</p>
             <VerticalArrows
                 :isActive="areApiKeysSortedByDate"
-                :direction="getSortDirection" />
+                :direction="getSortDirection"
+            />
         </div>
     </div>
 </template>

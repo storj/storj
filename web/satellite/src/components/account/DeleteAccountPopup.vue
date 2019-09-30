@@ -46,19 +46,22 @@
                     width='100%'
                     is-password="true"
                     :error='passwordError'
-                    @setData='setPassword' />
+                    @setData='setPassword'
+                />
                 <div class='delete-account__form-container__button-container'>
                     <VButton
                         label='Cancel'
                         width='205px' height='48px'
                         :on-press='onCloseClick'
-                        is-white="true" />
+                        is-white="true"
+                    />
                     <VButton
                         label='Delete'
                         width='205px'
                         height='48px'
                         class='red'
-                        :on-press='onDeleteAccountClick' />
+                        :on-press='onDeleteAccountClick'
+                    />
                 </div>
             </div>
             <div class='delete-account__close-cross-container' @click='onCloseClick'>

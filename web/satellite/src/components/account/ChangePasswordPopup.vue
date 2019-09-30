@@ -21,7 +21,8 @@
                     is-password="true"
                     ref="oldPasswordInput"
                     :error="oldPasswordError"
-                    @setData="setOldPassword" />
+                    @setData="setOldPassword"
+                />
                 <HeaderlessInput
                     class="full-input mt"
                     label="New Password"
@@ -30,7 +31,8 @@
                     ref="newPasswordInput"
                     is-password="true"
                     :error="newPasswordError"
-                    @setData="setNewPassword" />
+                    @setData="setNewPassword"
+                />
                 <HeaderlessInput
                     class="full-input mt"
                     label="Confirm password"
@@ -39,19 +41,22 @@
                     ref="confirmPasswordInput"
                     is-password="true"
                     :error="confirmationPasswordError"
-                    @setData="setPasswordConfirmation" />
+                    @setData="setPasswordConfirmation"
+                />
                 <div class="change-password-popup__form-container__button-container">
                     <VButton
                         label="Cancel"
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
-                        is-white="true" />
+                        is-white="true"
+                    />
                     <VButton
                         label="Update"
                         width="205px"
                         height="48px"
-                        :on-press="onUpdateClick" />
+                        :on-press="onUpdateClick"
+                    />
                 </div>
             </div>
             <div class="change-password-popup__close-cross-container" @click="onCloseClick">

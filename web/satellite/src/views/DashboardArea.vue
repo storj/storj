@@ -7,11 +7,11 @@
             <img class="loading-image" src="@/../static/images/register/Loading.gif">
         </div>
         <div v-if="!isLoading" class="dashboard-container__wrap">
-            <NavigationArea class="regular-navigation" />
+            <NavigationArea class="regular-navigation"/>
             <div class="dashboard-container__wrap__column">
-                <DashboardHeader />
+                <DashboardHeader/>
                 <div class="dashboard-container__main-area">
-                    <router-view />
+                    <router-view/>
                 </div>
             </div>
         </div>

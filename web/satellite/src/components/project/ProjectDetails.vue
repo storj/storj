@@ -31,19 +31,22 @@
                         width="205%"
                         height="10vh"
                         is-multiline="true"
-                        @setData="setNewDescription" />
+                        @setData="setNewDescription"
+                    />
                     <div class="project-details-info-container__description-container__buttons-area">
                         <VButton
                             label="Cancel"
                             width="180px"
                             height="48px"
                             :on-press="toggleEditing"
-                            is-white="true" />
+                            is-white="true"
+                        />
                         <VButton
                             label="Save"
                             width="180px"
                             height="48px"
-                            :on-press="onSaveButtonClick" />
+                            :on-press="onSaveButtonClick"
+                        />
                     </div>
                 </div>
             </div>
@@ -54,10 +57,11 @@
                     width="180px"
                     height="48px"
                     :on-press="toggleDeleteDialog"
-                    is-deletion="true" />
+                    is-deletion="true"
+                />
             </div>
         </div>
-        <DeleteProjectPopup v-if="isPopupShown" />
+        <DeleteProjectPopup v-if="isPopupShown"/>
     </div>
 </template>
 

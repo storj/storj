@@ -13,15 +13,15 @@
         </div>
         <div class="billing-history-area__content">
             <h1 class="billing-history-area__content__title">Billing history</h1>
-            <SortingHeader />
-            <BillingItem />
-            <BillingItem />
-            <BillingItem />
-            <BillingItem />
-            <BillingItem />
-            <BillingItem />
+            <SortingHeader/>
+            <BillingItem/>
+            <BillingItem/>
+            <BillingItem/>
+            <BillingItem/>
+            <BillingItem/>
+            <BillingItem/>
         </div>
-        <PaginationArea />
+        <PaginationArea/>
     </div>
 </template>
 

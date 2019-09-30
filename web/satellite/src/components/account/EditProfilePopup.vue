@@ -19,7 +19,8 @@
                     ref="fullNameInput"
                     :error="fullNameError"
                     :init-value="userInfo.fullName"
-                    @setData="setFullName" />
+                    @setData="setFullName"
+                />
                 <HeaderedInput
                     class="full-input"
                     label="Nickname"
@@ -27,19 +28,22 @@
                     width="100%"
                     ref="shortNameInput"
                     :init-value="userInfo.shortName"
-                    @setData="setShortName" />
+                    @setData="setShortName"
+                />
                 <div class="edit-profile-popup__form-container__button-container">
                     <VButton
                         label="Cancel"
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
-                        is-white="true" />
+                        is-white="true"
+                    />
                     <VButton
                         label="Update"
                         width="205px"
                         height="48px"
-                        :on-press="onUpdateClick" />
+                        :on-press="onUpdateClick"
+                    />
                 </div>
             </div>
             <div class="edit-profile-popup__close-cross-container" @click="onCloseClick">

@@ -4,7 +4,7 @@
 <template>
     <div class="input-wrap">
         <div class="label-container">
-            <img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
+            <img v-if="error" src="@/../static/images/register/ErrorInfo.svg"/>
             <h3 class="label-container__label" v-if="isLabelShown" :style="style.labelStyle">{{label}}</h3>
             <h3 class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</h3>
         </div>
@@ -16,7 +16,8 @@
             v-model="value"
             :placeholder="placeholder"
             :type="type"
-            :style="style.inputStyle" />
+            :style="style.inputStyle"
+        />
         <!--2 conditions of eye image (crossed or not) -->
         <svg class="input-wrap__image" v-if="isPasswordHiddenState" @click="changeVision" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path class="input-wrap__image__path" d="M10 4C4.70642 4 1 10 1 10C1 10 3.6999 16 10 16C16.3527 16 19 10 19 10C19 10 15.3472 4 10 4ZM10 13.8176C7.93537 13.8176 6.2946 12.1271 6.2946 10C6.2946 7.87285 7.93537 6.18239 10 6.18239C12.0646 6.18239 13.7054 7.87285 13.7054 10C13.7054 12.1271 12.0646 13.8176 10 13.8176Z" fill="#AFB7C1"/>
@@ -106,11 +107,11 @@ export default class HeaderlessInput extends Vue {
     }
 
     public get isPasswordHiddenState(): boolean {
-        return !!(this.isPassword && !this.isPasswordShown);
+        return this.isPassword && !this.isPasswordShown;
     }
 
     public get isPasswordShownState(): boolean {
-        return !!(this.isPassword && this.isPasswordShown);
+        return this.isPassword && this.isPasswordShown;
     }
 
     protected get style(): object {

@@ -40,12 +40,14 @@
                         width="214px"
                         height="50px"
                         :on-press="onCloseClick"
-                        is-white="true" />
+                        is-white="true"
+                    />
                     <VButton
                         label="Create first API Key"
                         width="214px"
                         height="50px"
-                        :on-press="onCreateAPIKeyClick" />
+                        :on-press="onCreateAPIKeyClick"
+                    />
                 </div>
             </div>
             <div class="project-creation-success-popup__close-cross-container" @click="onCloseClick">

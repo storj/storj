@@ -59,11 +59,12 @@
                 width="210px"
                 height="56px"
                 :on-press="toggleDeleteAccountPopup"
-                is-deletion="true" />
+                is-deletion="true"
+            />
         </div>
-        <ChangePasswordPopup v-if="isChangePasswordPopupShown" />
-        <EditProfilePopup v-if="isEditProfilePopupShown" />
-        <DeleteAccountPopup v-if="isDeleteAccountPopupShown" />
+        <ChangePasswordPopup v-if="isChangePasswordPopupShown"/>
+        <EditProfilePopup v-if="isEditProfilePopupShown"/>
+        <DeleteAccountPopup v-if="isDeleteAccountPopupShown"/>
     </div>
 </template>
 

@@ -7,19 +7,22 @@
             <p class="sort-header-container__name-container__title">Name</p>
             <VerticalArrows
                 :is-active="areProjectMembersSortedByName"
-                :direction="getSortDirection" />
+                :direction="getSortDirection"
+            />
         </div>
         <div class="sort-header-container__added-container" @click="onHeaderItemClick(ProjectMemberOrderBy.CREATED_AT)">
             <p class="sort-header-container__added-container__title">Added</p>
             <VerticalArrows
                 :is-active="areProjectMembersSortedByDate"
-                :direction="getSortDirection" />
+                :direction="getSortDirection"
+            />
         </div>
         <div class="sort-header-container__email-container" @click="onHeaderItemClick(ProjectMemberOrderBy.EMAIL)">
             <p class="sort-header-container__email-container__title">Email</p>
             <VerticalArrows
                 :is-active="areProjectMembersSortedByEmail"
-                :direction="getSortDirection" />
+                :direction="getSortDirection"
+            />
         </div>
     </div>
 </template>

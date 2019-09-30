@@ -19,15 +19,16 @@
                         <div v-for="(input, index) in inputs"
                             class="add-user__form-container__inputs-group__item"
                             :key="index" >
-                                <input
-                                    placeholder="email@example.com"
-                                    v-model="input.value"
-                                    class="no-error-input"
-                                    :class="{ 'error-input': input.error }"
-                                    @keyup="resetFormErrors(index)" />
-                                <svg class="add-user__form-container__inputs-group__item__image" @click="deleteInput(index)" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path class="delete-input-svg-path" d="M11.7803 1.28033C12.0732 0.987437 12.0732 0.512563 11.7803 0.21967C11.4874 -0.0732233 11.0126 -0.0732233 10.7197 0.21967L11.7803 1.28033ZM0.21967 10.7197C-0.0732233 11.0126 -0.0732233 11.4874 0.21967 11.7803C0.512563 12.0732 0.987437 12.0732 1.28033 11.7803L0.21967 10.7197ZM1.28033 0.21967C0.987437 -0.0732233 0.512563 -0.0732233 0.21967 0.21967C-0.0732233 0.512563 -0.0732233 0.987437 0.21967 1.28033L1.28033 0.21967ZM10.7197 11.7803C11.0126 12.0732 11.4874 12.0732 11.7803 11.7803C12.0732 11.4874 12.0732 11.0126 11.7803 10.7197L10.7197 11.7803ZM10.7197 0.21967L0.21967 10.7197L1.28033 11.7803L11.7803 1.28033L10.7197 0.21967ZM0.21967 1.28033L10.7197 11.7803L11.7803 10.7197L1.28033 0.21967L0.21967 1.28033Z" fill="#AFB7C1"/>
-                                </svg>
+                            <input
+                                placeholder="email@example.com"
+                                v-model="input.value"
+                                class="no-error-input"
+                                :class="{ 'error-input': input.error }"
+                                @keyup="resetFormErrors(index)"
+                            />
+                            <svg class="add-user__form-container__inputs-group__item__image" @click="deleteInput(index)" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path class="delete-input-svg-path" d="M11.7803 1.28033C12.0732 0.987437 12.0732 0.512563 11.7803 0.21967C11.4874 -0.0732233 11.0126 -0.0732233 10.7197 0.21967L11.7803 1.28033ZM0.21967 10.7197C-0.0732233 11.0126 -0.0732233 11.4874 0.21967 11.7803C0.512563 12.0732 0.987437 12.0732 1.28033 11.7803L0.21967 10.7197ZM1.28033 0.21967C0.987437 -0.0732233 0.512563 -0.0732233 0.21967 0.21967C-0.0732233 0.512563 -0.0732233 0.987437 0.21967 1.28033L1.28033 0.21967ZM10.7197 11.7803C11.0126 12.0732 11.4874 12.0732 11.7803 11.7803C12.0732 11.4874 12.0732 11.0126 11.7803 10.7197L10.7197 11.7803ZM10.7197 0.21967L0.21967 10.7197L1.28033 11.7803L11.7803 1.28033L10.7197 0.21967ZM0.21967 1.28033L10.7197 11.7803L11.7803 10.7197L1.28033 0.21967L0.21967 1.28033Z" fill="#AFB7C1"/>
+                            </svg>
                         </div>
                     </div>
                     <div class="add-user-row">
@@ -47,13 +48,15 @@
                             width='205px'
                             height='48px'
                             :on-press="onClose"
-                            is-white="true" />
+                            is-white="true"
+                        />
                         <VButton
                             label='Add Team Members'
                             width='205px'
                             height='48px'
                             :on-press="onAddUsersClick"
-                            :is-disabled="!isButtonActive" />
+                            :is-disabled="!isButtonActive"
+                        />
                     </div>
                 </div>
                 <div class='add-user__close-cross-container' @click='onClose'>

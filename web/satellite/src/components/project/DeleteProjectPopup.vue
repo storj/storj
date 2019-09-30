@@ -57,7 +57,8 @@
                         type="text" 
                         placeholder="Enter Project Name"
                         v-model="projectName"
-                        @keyup="resetError" >
+                        @keyup="resetError"
+                    />
                 </div>
                 <div class="delete-project-popup__form-container__button-container">
                     <VButton
@@ -65,14 +66,16 @@
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
-                        is-white="true" />
+                        is-white="true"
+                    />
                     <VButton
                         label="Delete"
                         width="205px" 
                         height="48px" 
                         class="red"
                         :on-press="onDeleteProjectClick"
-                        :is-disabled="isDeleteButtonDisabled" />
+                        :is-disabled="isDeleteButtonDisabled"
+                    />
                 </div>
             </div>
             <div class="delete-project-popup__close-cross-container" @click="onCloseClick">
