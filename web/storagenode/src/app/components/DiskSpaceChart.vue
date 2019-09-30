@@ -8,7 +8,8 @@
             :chart-data="chartData"
             :width="400"
             :height="200"
-            :tooltip-constructor="diskSpaceTooltip" />
+            :tooltip-constructor="diskSpaceTooltip"
+        />
     </div>
 </template>
 

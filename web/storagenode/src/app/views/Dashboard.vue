@@ -3,12 +3,12 @@
 
 <template>
     <div class="page">
-        <SNOHeader />
+        <SNOHeader/>
         <div class="content">
-            <SNOContentTitle />
-            <SNOContentFilling />
+            <SNOContentTitle/>
+            <SNOContentFilling/>
         </div>
-        <SNOFooter />
+        <SNOFooter/>
     </div>
 </template>
 
