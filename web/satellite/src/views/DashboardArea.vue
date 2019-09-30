@@ -47,85 +47,89 @@ import { AppState } from '@/utils/constants/appStateEnum';
     },
 })
 export default class DashboardArea extends Vue {
-    public mounted(): void {
-        setTimeout(async () => {
-            // TODO: combine all project related requests in one
-            try {
-                await this.$store.dispatch(USER_ACTIONS.GET);
-            } catch (error) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
-                await this.$router.push(RouteConfig.Login.path);
-                AuthToken.remove();
+    public async mounted(): Promise<void> {
+        // TODO: combine all project related requests in one
+        try {
+            await this.$store.dispatch(USER_ACTIONS.GET);
+        } catch (error) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$router.push(RouteConfig.Login.path);
+            AuthToken.remove();
 
-                return;
-            }
+            return;
+        }
 
-            let projects: Project[] = [];
+        let projects: Project[] = [];
 
-            try {
-                projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-            } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+        try {
+            projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
 
-                return;
-            }
+            return;
+        }
 
-            if (!projects.length) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+        if (!projects.length) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
-                if (!this.isCurrentRouteIsAccount) {
-                    await this.$router.push(RouteConfig.ProjectOverview.path);
-
+            if (!this.isRouteAccessibleWithoutProject()) {
+                try {
+                    await this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+                } catch (err) {
                     return;
                 }
-
-                await this.$router.push(RouteConfig.ProjectOverview.path);
             }
 
-            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+            return;
+        }
 
-            await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
-            }
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
 
-            try {
-                await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
-            }
+        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+        try {
+            await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
+        }
 
-            try {
-                await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-            } catch (error) {
-                await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
-            }
+        try {
+            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch api keys. ${error.message}`);
+        }
 
-            try {
-                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
-            } catch (error) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + error.message);
-            }
+        try {
+            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project usage. ${error.message}`);
+        }
 
-            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
-            if (!paymentMethodsResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
-            }
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+        } catch (error) {
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch buckets. ${error.message}`);
+        }
 
-            this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
-        }, 800);
+        await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
     }
 
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
     }
-    public get isCurrentRouteIsAccount(): boolean {
-        const segments = this.$route.path.split('/').map(segment => segment.toLowerCase());
 
-        return segments.includes(RouteConfig.Account.name.toLowerCase());
+    /**
+     * This method checks if current route is available when user has no created projects
+     */
+    private isRouteAccessibleWithoutProject(): boolean {
+        const awailableRoutes = [
+            RouteConfig.Account.with(RouteConfig.Billing).path,
+            RouteConfig.Account.with(RouteConfig.Profile).path,
+            RouteConfig.Account.with(RouteConfig.PaymentMethods).path,
+            RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path,
+        ];
+
+        return awailableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
     }
 }
 </script>
