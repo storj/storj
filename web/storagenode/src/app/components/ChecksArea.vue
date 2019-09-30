@@ -5,7 +5,7 @@
     <div class="checks-area-container">
         <div class="checks-area-container__header">
             <p class="checks-area-container__header__title">{{label}}</p>
-            <InfoComponent :text="infoText" is-extra-padding="true" is-custom-position="true">
+            <VInfo :text="infoText" is-extra-padding="true" is-custom-position="true">
                 <div>
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" alt="info image">
                         <rect width="18" height="18" rx="9" fill="#5A667C"/>
@@ -13,7 +13,7 @@
                         <path d="M8.99988 6.96423C9.77415 6.96423 10.3992 6.33921 10.3992 5.56494C10.3992 4.79066 9.77415 4.16564 8.99988 4.16564C8.22561 4.16564 7.60059 4.79066 7.60059 5.56494C7.59748 6.33921 8.2225 6.96423 8.99988 6.96423Z" fill="white"/>
                     </svg>
                 </div>
-            </InfoComponent>
+            </VInfo>
         </div>
         <p class="checks-area-container__amount"><b>{{value}}%</b></p>
     </div>
@@ -22,14 +22,14 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import InfoComponent from '@/app/components/InfoComponent.vue';
+import VInfo from '@/app/components/VInfo.vue';
 
 @Component ({
     components: {
-        InfoComponent,
+        VInfo,
     },
 })
-export default class ChecksAreaContainer extends Vue {
+export default class ChecksArea extends Vue {
     @Prop({default: ''})
     private readonly label: string;
     @Prop({default: ''})
