@@ -46,7 +46,7 @@ _User Interface_
     - The Referral Manager will attempt to generate and/or fetch unredeemed tokens in the `tokens` table for this user ID and satellite.
         - If the user ID doesn't exist in the Referral Manager's `users` table, the Referral Manager will add an entry for this user ID and satellite in the `users` table and return an empty response to the satellite.
         - If the `users` table contains a value larger than `0` for `new_tokens` for this user ID, the Referral Manager will generate that number of new tokens, add the new unredeemed tokens to the `tokens` table, and set the value of `new_tokens` for that user to `0` in the `users` table.
-        - If there are unredeemed tokens in the `tokens` table, the Referral Manager will respond to the satellite's request with the tokens. Otherwise, it will return an empty response.
+        - If there are unredeemed tokens in the `tokens` table, the Referral Manager will respond to the satellite's request with the tokens after generating new tokens. Otherwise, it will return an empty response.
     - The satellite receives the response from Referral Manager.
         - If the response payload contains tokens, the satellite will display them in the UI.
         - If it's an empty response payload, the satellite will display a message `No available referral links. Try again later.`
@@ -55,8 +55,8 @@ _User Interface_
 _Referral Manager CLI_
 
 1. `referral-manager start --tokens-per-user=3 <satelliteURL1> <satelliteURL2> ...` initiates the invitation token generation process. The `--dry-run` flag can optionally be added to run the process without actually generating tokens. The dry run allows for estimating how many new tokens would be created by the command.
-2. The Referral Manager queries the `users` table for all users where `new_tokens < flags.tokens_per_user` and where the satellite matches one of the CLI-provided satellite URLs. These are the "eligible users".
-3. The Referral Manager will count the number of eligible users and calculate the number of tokens needed to bring each user up to `tokens_per_user`. If `--dry-run` is set, these values will be returned to the CLI for output and the process will end. Otherwise, the `users` table will be updated to set `new_tokens` to `tokens_per_user` for each eligible user, and the values will be returned to the CLI for output.
+2. The Referral Manager queries both `users` and `tokens` tables for all users where `new_tokens + unredeemed_tokens < flags.tokens_per_user` and where the satellite matches one of the CLI-provided satellite URLs. These are the "eligible users".
+3. The Referral Manager will count the number of eligible users and calculate the number of tokens needed to bring each user up to `tokens_per_user`. If `--dry-run` is set, these values will be returned to the CLI for output and the process will end. Otherwise, the `users` table will be updated to set `new_tokens` to `tokens_per_user - unredeemed_tokens` for each eligible user, and the values will be returned to the CLI for output.
 
 _Referral Link Redemption_
 
@@ -108,6 +108,8 @@ The User struct represent both a Go struct as well as the schema for the `users`
 type User struct {
     ID uuid.UUID
     satelliteURL string
+    NewTokens int
+    UnredeemedTokens int
 }
 ```
 
@@ -143,6 +145,12 @@ func Redeem(ctx, token, userID, satelliteURL) error {
 		return err
 	}
 
+    // decrease unredeemed token count in users table by 1
+    err := db.UpdateUserInfo(ctx, user)
+    if err != nil {
+        return err
+    }
+
     // save user info into users table
     err := db.CreateUser(ctx, userID, satelliteURL)
     if err != nil {
@@ -166,7 +174,7 @@ GenerateTokens(tokensPerUser int, satelliteURLs []string, dryRun bool) (tokenCou
     newTokenCount := 0
     eligibleUserCount := len(eligibleUsers)
     for _, user := range eligibleUsers {
-        for i:=user.NewTokens; i<tokensPerUser; i++ {
+        for i:=(user.NewTokens + user.UnredeemedTokens); i<tokensPerUser; i++ {
             newTokenCount++
         }
     }
@@ -196,5 +204,3 @@ startCmd() {
 Team Green will be responsible implementing this blueprint.
 
 ## Open issues
-
-Should we have another CLI command for querying the global number of unredeemed tokens + ungenerated tokens?
