@@ -23,7 +23,7 @@ type Uplink struct {
 // an error in cerr, when there is one.
 //
 // Caller must call close_uplink to close associated resources.
-func new_uplink(cfg C.UplinkConfig, cerr **C.char, tempDir *C.char) C.UplinkRef {
+func new_uplink(cfg C.UplinkConfig, tempDir *C.char, cerr **C.char) C.UplinkRef {
 	scope := rootScope(C.GoString(tempDir))
 
 	libcfg := &uplink.Config{} // TODO: figure out a better name
