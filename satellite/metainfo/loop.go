@@ -70,7 +70,7 @@ func (observer *observerContext) Wait() error {
 // LoopConfig contains configurable values for the metainfo loop.
 type LoopConfig struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
-	RepairOverride   int           `help:"override value for repair threshold"`
+	RepairOverride   int           `help:"override value for repair threshold" default:"0"`
 }
 
 // Loop is a metainfo loop service.

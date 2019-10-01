@@ -187,6 +187,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 
+# override value for repair threshold
+# metainfo.loop.repair-override: 0
+
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 8.0 KB
 
