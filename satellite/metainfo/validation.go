@@ -321,7 +321,6 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 				return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.maxCommitInterval.Minutes())
 			}
 
-
 			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
