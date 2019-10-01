@@ -118,6 +118,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
+				MaxCommitInterval:    1 * time.Hour,
 				Overlay:              true,
 				RS: metainfo.RSConfig{
 					MaxSegmentSize:   64 * memory.MiB,

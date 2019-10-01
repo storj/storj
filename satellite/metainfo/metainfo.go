@@ -63,35 +63,37 @@ type Revocations interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log              *zap.Logger
-	metainfo         *Service
-	orders           *orders.Service
-	overlay          *overlay.Service
-	partnerinfo      attribution.DB
-	peerIdentities   overlay.PeerIdentities
-	projectUsage     *accounting.ProjectUsage
-	apiKeys          APIKeys
-	createRequests   *createRequests
-	requiredRSConfig RSConfig
-	satellite        signing.Signer
+	log               *zap.Logger
+	metainfo          *Service
+	orders            *orders.Service
+	overlay           *overlay.Service
+	partnerinfo       attribution.DB
+	peerIdentities    overlay.PeerIdentities
+	projectUsage      *accounting.ProjectUsage
+	apiKeys           APIKeys
+	createRequests    *createRequests
+	requiredRSConfig  RSConfig
+	satellite         signing.Signer
+	maxCommitInterval time.Duration
 }
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
+	apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:              log,
-		metainfo:         metainfo,
-		orders:           orders,
-		overlay:          cache,
-		partnerinfo:      partnerinfo,
-		peerIdentities:   peerIdentities,
-		apiKeys:          apiKeys,
-		projectUsage:     projectUsage,
-		createRequests:   newCreateRequests(),
-		requiredRSConfig: rsConfig,
-		satellite:        satellite,
+		log:               log,
+		metainfo:          metainfo,
+		orders:            orders,
+		overlay:           cache,
+		partnerinfo:       partnerinfo,
+		peerIdentities:    peerIdentities,
+		apiKeys:           apiKeys,
+		projectUsage:      projectUsage,
+		createRequests:    newCreateRequests(),
+		requiredRSConfig:  rsConfig,
+		satellite:         satellite,
+		maxCommitInterval: maxCommitInterval,
 	}
 }
 
