@@ -70,7 +70,6 @@ func (observer *observerContext) Wait() error {
 // LoopConfig contains configurable values for the metainfo loop.
 type LoopConfig struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
-	RepairOverride   int           `help:"override value for repair threshold" default:"0"`
 }
 
 // Loop is a metainfo loop service.
@@ -187,11 +186,6 @@ waitformore:
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
 					return LoopError.New("unexpected error unmarshalling pointer %s", err)
-				}
-
-				//if RepairOverride is set, ensure the pointer contains the new value
-				if loop.config.RepairOverride != 0 {
-					pointer.Remote.Redundancy.RepairThreshold = int32(loop.config.RepairOverride)
 				}
 
 				pathElements := storj.SplitPath(rawPath)

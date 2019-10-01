@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/sync2"
@@ -34,6 +34,7 @@ type Config struct {
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
 
 	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
+	RepairOverride            int           `help:"override value for repair threshold" default:"0"`
 }
 
 // durabilityStats remote segment information
@@ -55,6 +56,7 @@ type Checker struct {
 	metainfo        *metainfo.Service
 	metaLoop        *metainfo.Loop
 	nodestate       *ReliabilityCache
+	overrideRepair  int32
 	Loop            sync2.Cycle
 	IrreparableLoop sync2.Cycle
 }
@@ -64,11 +66,12 @@ func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irrepar
 	return &Checker{
 		logger: logger,
 
-		repairQueue: repairQueue,
-		irrdb:       irrdb,
-		metainfo:    metainfo,
-		metaLoop:    metaLoop,
-		nodestate:   NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+		repairQueue:    repairQueue,
+		irrdb:          irrdb,
+		metainfo:       metainfo,
+		metaLoop:       metaLoop,
+		nodestate:      NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+		overrideRepair: int32(config.RepairOverride),
 
 		Loop:            *sync2.NewCycle(config.Interval),
 		IrreparableLoop: *sync2.NewCycle(config.IrreparableInterval),
@@ -108,11 +111,12 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	defer mon.Task()(&ctx)(&err)
 
 	observer := &checkerObserver{
-		repairQueue: checker.repairQueue,
-		irrdb:       checker.irrdb,
-		nodestate:   checker.nodestate,
-		monStats:    durabilityStats{},
-		log:         checker.logger,
+		repairQueue:    checker.repairQueue,
+		irrdb:          checker.irrdb,
+		nodestate:      checker.nodestate,
+		monStats:       durabilityStats{},
+		overrideRepair: checker.overrideRepair,
+		log:            checker.logger,
 	}
 	err = checker.metaLoop.Join(ctx, observer)
 	if err != nil {
@@ -216,11 +220,12 @@ var _ metainfo.Observer = (*checkerObserver)(nil)
 //
 // architecture: Observer
 type checkerObserver struct {
-	repairQueue queue.RepairQueue
-	irrdb       irreparable.DB
-	nodestate   *ReliabilityCache
-	monStats    durabilityStats
-	log         *zap.Logger
+	repairQueue    queue.RepairQueue
+	irrdb          irreparable.DB
+	nodestate      *ReliabilityCache
+	monStats       durabilityStats
+	overrideRepair int32
+	log            *zap.Logger
 }
 
 func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
@@ -249,10 +254,17 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 
 	redundancy := pointer.Remote.Redundancy
 
+	var repairThreshold int32
+	if obs.overrideRepair != 0 {
+		repairThreshold = obs.overrideRepair
+	} else {
+		repairThreshold = redundancy.RepairThreshold
+	}
+
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
+	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
 			obs.log.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
 				zap.String("path", path.Raw),
