@@ -16,18 +16,12 @@ import (
 // ErrReputation represents errors from the reputation database.
 var ErrReputation = errs.Class("reputation error")
 
+// ReputationDBName represents the database name.
+const ReputationDBName = "reputation"
+
 // reputation works with node reputation DB
 type reputationDB struct {
-	location string
-	SQLDB
-}
-
-// newReputationDB returns a new instance of reputationDB initialized with the specified database.
-func newReputationDB(db SQLDB, location string) *reputationDB {
-	return &reputationDB{
-		location: location,
-		SQLDB:    db,
-	}
+	migratableDB
 }
 
 // Store inserts or updates reputation stats into the db.

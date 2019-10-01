@@ -3,10 +3,12 @@
 
 package testdata
 
+import "storj.io/storj/storagenode/storagenodedb"
+
 var v21 = MultiDBState{
 	Version: 21,
 	DBStates: DBStates{
-		"versions": &DBState{
+		storagenodedb.DeprecatedInfoDBName: &DBState{
 			SQL: `
 				-- table for keeping serials that need to be verified against
 				CREATE TABLE used_serial_ (
@@ -210,8 +212,8 @@ var v21 = MultiDBState{
 				INSERT INTO storage_usage VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',5.0,'2019-07-19 20:00:00+00:00');
 			`,
 			NewData: `
-				INSERT INTO satellites VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000','127.0.0.1:55516','2019-09-10 20:00:00+00:00', 0);	
-				INSERT INTO satellite_exit_progress VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000','2019-09-10 20:00:00+00:00', null, 100, 0, null);	
+				INSERT INTO satellites VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000','127.0.0.1:55516','2019-09-10 20:00:00+00:00', 0);
+				INSERT INTO satellite_exit_progress VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000','2019-09-10 20:00:00+00:00', null, 100, 0, null);
 			`,
 		},
 	},

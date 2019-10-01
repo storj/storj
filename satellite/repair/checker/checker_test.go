@@ -96,9 +96,11 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		// when number of healthy piece is less than minimum required number of piece in redundancy,
 		// the piece is considered irreparable and will be put into irreparable DB
 		pointer := &pb.Pointer{
+			Type:         pb.Pointer_REMOTE,
 			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
+					ErasureShareSize: int32(256),
 					MinReq:           int32(4),
 					RepairThreshold:  int32(8),
 					SuccessThreshold: int32(9),
@@ -146,9 +148,11 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// make the pointer repairable
 		pointer = &pb.Pointer{
+			Type:         pb.Pointer_REMOTE,
 			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
+					ErasureShareSize: int32(256),
 					MinReq:           int32(2),
 					RepairThreshold:  int32(8),
 					SuccessThreshold: int32(9),
@@ -197,6 +201,7 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pointerPath string, cr
 		minReq, repairThreshold = numOfStorageNodes-1, numOfStorageNodes+1
 	}
 	pointer := &pb.Pointer{
+		Type:         pb.Pointer_REMOTE,
 		CreationDate: time.Now(),
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
@@ -204,6 +209,7 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pointerPath string, cr
 				RepairThreshold:  int32(repairThreshold),
 				SuccessThreshold: int32(repairThreshold) + 1,
 				Total:            int32(repairThreshold) + 2,
+				ErasureShareSize: int32(256),
 			},
 			RootPieceId:  testrand.PieceID(),
 			RemotePieces: pieces,

@@ -4,10 +4,9 @@
 <template>
     <div class="user-container">
         <div class="user-container__base-info">
-            <div class="checkbox" >
-            </div>
+            <div class="checkbox"></div>
             <div class="user-container__base-info__avatar" :style="avatarData.style">
-                <h1>{{avatarData.letter}}</h1>
+                <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
             <p class="user-container__base-info__user-name">{{this.itemData.formattedFullName()}}</p>
         </div>
@@ -33,12 +32,12 @@ export default class ProjectMemberListItem extends Vue {
         const letter = fullName.slice(0, 1).toLocaleUpperCase();
 
         const style = {
-            background: getColor(letter)
+            background: getColor(letter),
         };
 
         return {
             letter,
-            style
+            style,
         };
     }
 }
@@ -46,7 +45,6 @@ export default class ProjectMemberListItem extends Vue {
 
 <style scoped lang="scss">
     .user-container {
-        margin-top: 2px;
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -55,6 +53,7 @@ export default class ProjectMemberListItem extends Vue {
         background-color: #fff;
         cursor: pointer;
         width: calc(100% - 28px);
+        font-family: 'font_regular';
 
         &__base-info {
             width: 50%;
@@ -74,9 +73,8 @@ export default class ProjectMemberListItem extends Vue {
                 justify-content: center;
                 background-color: #FF8658;
 
-                h1 {
+                &__letter {
                     font-size: 16px;
-                    font-family: 'font_regular';
                     color: #F5F6FA;
                 }
             }
@@ -92,26 +90,22 @@ export default class ProjectMemberListItem extends Vue {
 
         &__date {
             width: 25%;
-            font-family: 'font_regular';
             font-size: 16px;
             color: #354049;
         }
 
         &__user-email {
             width: 25%;
-            font-family: 'font_regular';
             font-size: 16px;
             color: #354049;
         }
     }
-
 
     .checkbox {
         background-image: url("../../../static/images/team/checkboxEmpty.svg");
         min-width: 23px;
         height: 23px;
     }
-
 
     .user-container.selected {
         background-color: #2683FF;
@@ -122,13 +116,9 @@ export default class ProjectMemberListItem extends Vue {
             background-image: url("../../../static/images/team/checkboxChecked.svg");
         }
 
-        h1 {
-            font-size: 16px;
-            font-family: 'font_regular';
-            color: #FFFFFF;
-        }
-
-        p {
+        .user-container__base-info__user-name,
+        .user-container__date,
+        .user-container__user-email {
             color: #FFFFFF;
         }
     }

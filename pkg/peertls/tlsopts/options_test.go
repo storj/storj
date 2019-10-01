@@ -19,8 +19,8 @@ import (
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 )
 
 func TestNewOptions(t *testing.T) {
@@ -110,12 +110,12 @@ func TestNewOptions(t *testing.T) {
 		revocationDB, err := revocation.NewDBFromCfg(c.config)
 		require.NoError(t, err)
 
-		opts, err := tlsopts.NewOptions(fi, c.config, revocationDB)
+		tlsOptions, err := tlsopts.NewOptions(fi, c.config, revocationDB)
 		assert.NoError(t, err)
-		assert.True(t, reflect.DeepEqual(fi, opts.Ident))
-		assert.Equal(t, c.config, opts.Config)
-		assert.Len(t, opts.VerificationFuncs.Client(), c.clientVerificationFuncsLen)
-		assert.Len(t, opts.VerificationFuncs.Server(), c.serverVerificationFuncsLen)
+		assert.True(t, reflect.DeepEqual(fi, tlsOptions.Ident))
+		assert.Equal(t, c.config, tlsOptions.Config)
+		assert.Len(t, tlsOptions.VerificationFuncs.Client(), c.clientVerificationFuncsLen)
+		assert.Len(t, tlsOptions.VerificationFuncs.Server(), c.serverVerificationFuncsLen)
 
 		require.NoError(t, revocationDB.Close())
 	}
@@ -133,17 +133,14 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 	target := planet.StorageNodes[1].Local()
 
 	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
-		opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
+		tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{
 			PeerIDVersions: "*",
 		}, nil)
 		require.NoError(t, err)
 
-		dialOption, err := opts.DialOption(target.Id)
-		require.NoError(t, err)
+		dialer := rpc.NewDefaultDialer(tlsOptions)
 
-		transportClient := transport.NewClient(opts)
-
-		conn, err := transportClient.DialNode(ctx, &target.Node, dialOption)
+		conn, err := dialer.DialNode(ctx, &target.Node)
 		assert.NotNil(t, conn)
 		assert.NoError(t, err)
 
@@ -153,12 +150,12 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 
 func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {
 	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
-		opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
+		tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{
 			PeerIDVersions: "*",
 		}, nil)
 		require.NoError(t, err)
 
-		dialOption, err := opts.DialOption(storj.NodeID{})
+		dialOption, err := tlsOptions.DialOption(storj.NodeID{})
 		assert.Nil(t, dialOption)
 		assert.Error(t, err)
 	})
@@ -166,12 +163,12 @@ func TestOptions_DialOption_error_on_empty_ID(t *testing.T) {
 
 func TestOptions_DialUnverifiedIDOption(t *testing.T) {
 	testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
-		opts, err := tlsopts.NewOptions(ident, tlsopts.Config{
+		tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{
 			PeerIDVersions: "*",
 		}, nil)
 		require.NoError(t, err)
 
-		dialOption := opts.DialUnverifiedIDOption()
+		dialOption := tlsOptions.DialUnverifiedIDOption()
 		assert.NotNil(t, dialOption)
 	})
 }

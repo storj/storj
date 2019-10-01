@@ -104,7 +104,7 @@ Update `nodes` table:
 ```
 model nodes (
     ...
-    field exit_loop_completed       timestamp ( updateable )
+    field exit_loop_completed_at    timestamp ( updateable )
     field exit_initiated_at         timestamp ( updateable )
     field exit_finished_at          timestamp ( updateable )
 }
@@ -118,6 +118,8 @@ model graceful_exit_progress {
 
     field node_id              blob
     field bytes_transferred    int64
+    field pieces_transferred   int64
+    field pieces_failed        int64
     field updated_at           timestamp ( updateable )
 }
 ```

@@ -223,6 +223,7 @@ func TestLoopCancel(t *testing.T) {
 		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
 			CoalesceDuration: 1 * time.Second,
 		}, satellite.Metainfo.Service)
+
 		// create a cancelable context to pass into metaLoop.Run
 		loopCtx, cancel := context.WithCancel(ctx)
 
@@ -268,6 +269,9 @@ func TestLoopCancel(t *testing.T) {
 		})
 
 		err := group.Wait()
+		require.NoError(t, err)
+
+		err = metaLoop.Close()
 		require.NoError(t, err)
 
 		obs3 := newTestObserver(nil)

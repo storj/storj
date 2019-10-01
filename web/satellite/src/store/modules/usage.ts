@@ -1,9 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ProjectUsageApiGql } from '@/api/usage';
 import { StoreModule } from '@/store';
-import { DateRange, ProjectUsage } from '@/types/usage';
+import { DateRange, ProjectUsage, UsageApi } from '@/types/usage';
 
 export const PROJECT_USAGE_ACTIONS = {
     FETCH: 'fetchProjectUsage',
@@ -15,7 +14,7 @@ export const PROJECT_USAGE_ACTIONS = {
 export const PROJECT_USAGE_MUTATIONS = {
     SET_PROJECT_USAGE: 'SET_PROJECT_USAGE',
     SET_DATE: 'SET_DATE_PROJECT_USAGE',
-    CLEAR: 'CLEAR_PROJECT_USAGE'
+    CLEAR: 'CLEAR_PROJECT_USAGE',
 };
 
 const defaultState = new ProjectUsage(0, 0, 0, new Date(), new Date());
@@ -26,7 +25,7 @@ class UsageState {
     public endDate: Date = new Date();
 }
 
-export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState> {
+export function makeUsageModule(api: UsageApi): StoreModule<UsageState> {
     return {
         state: new UsageState(),
         mutations: {
@@ -41,7 +40,7 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
                 state.projectUsage = defaultState;
                 state.startDate = new Date();
                 state.endDate = new Date();
-            }
+            },
         },
         actions: {
             [PROJECT_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters}: any, dateRange: DateRange): Promise<ProjectUsage> {
@@ -85,7 +84,7 @@ export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState
             },
             [PROJECT_USAGE_ACTIONS.CLEAR]: function({commit}): void {
                 commit(PROJECT_USAGE_MUTATIONS.CLEAR);
-            }
+            },
         },
     };
 }

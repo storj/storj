@@ -19,29 +19,33 @@ mkdir -p "$SRC_DIR" "$DST_DIR"
 random_bytes_file () {
     size=$1
     output=$2
-    dd if=/dev/urandom of="$output" count=1 bs="$size" >/dev/null 2>&1
+    head -c $size </dev/urandom > $output
 }
 
-random_bytes_file 2x1024      "$SRC_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
-random_bytes_file 5x1024x1024 "$SRC_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
-random_bytes_file 5x1024x1024 "$SRC_DIR/multisegment-upload-testfile"   # create 5mb file of random bytes (remote)
+random_bytes_file "2KiB"    "$SRC_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
+random_bytes_file "5MiB"    "$SRC_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
+random_bytes_file "128MiB"  "$SRC_DIR/multisegment-upload-testfile"   # create 128mb file of random bytes (remote) 
+random_bytes_file "73MiB"   "$SRC_DIR/diff-size-segments"             # create 73mb file of random bytes (remote)
 
 UPLINK_DEBUG_ADDR=""
 
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" mb "sj://$BUCKET/"
 
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" --client.segment-size "1MiB" cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/diff-size-segments" "sj://$BUCKET/"
 
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
-uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR"
+uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
+uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
+uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR"
+uplink --config-dir "$GATEWAY_0_DIR" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/diff-size-segments" "$DST_DIR"
 
 
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/small-upload-testfile"
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/big-upload-testfile"
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/multisegment-upload-testfile"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/diff-size-segments"
 
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" ls "sj://$BUCKET"
 
@@ -70,6 +74,15 @@ else
     echo "multisegment upload testfile does not match uploaded file"
     exit 1
 fi
+
+if cmp "$SRC_DIR/diff-size-segments" "$DST_DIR/diff-size-segments"
+then
+    echo "diff-size-segments testfile matches uploaded file"
+else
+    echo "diff-size-segments testfile does not match uploaded file"
+    exit 1
+fi
+
 
 # check if all data files were removed
 # FILES=$(find "$STORAGENODE_0_DIR/../" -type f -path "*/blob/*" ! -name "info.*")

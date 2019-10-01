@@ -23,11 +23,11 @@ export async function addProjectPaymentMethodRequest(projectId: string, cardToke
             variables: {
                 projectId: projectId,
                 cardToken: cardToken,
-                isDefault: isDefault
+                isDefault: isDefault,
             },
             fetchPolicy: 'no-cache',
-            errorPolicy: 'all'
-        }
+            errorPolicy: 'all',
+        },
     );
 
     if (response.errors) {
@@ -54,11 +54,11 @@ export async function setDefaultPaymentMethodRequest(projectId: string, paymentI
            `),
            variables: {
                projectId: projectId,
-               id: paymentId
+               id: paymentId,
            },
            fetchPolicy: 'no-cache',
-           errorPolicy: 'all'
-       }
+           errorPolicy: 'all',
+       },
    );
 
    if (response.errors) {
@@ -83,11 +83,11 @@ export async function deletePaymentMethodRequest(paymentId: string): Promise<Req
                 }
            `),
             variables: {
-                id: paymentId
+                id: paymentId,
             },
             fetchPolicy: 'no-cache',
-            errorPolicy: 'all'
-        }
+            errorPolicy: 'all',
+        },
     );
 
     if (response.errors) {
@@ -119,14 +119,14 @@ export async function fetchProjectPaymentMethods(projectId: string): Promise<Req
                             isDefault
                         }
                     }
-                }`
+                }`,
             ),
             variables: {
                 projectId: projectId,
             },
             fetchPolicy: 'no-cache',
-            errorPolicy: 'all'
-        }
+            errorPolicy: 'all',
+        },
     );
 
     if (response.errors) {

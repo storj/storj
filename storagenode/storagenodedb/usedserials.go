@@ -16,17 +16,11 @@ import (
 // ErrUsedSerials represents errors from the used serials database.
 var ErrUsedSerials = errs.Class("usedserialsdb error")
 
-type usedSerialsDB struct {
-	location string
-	SQLDB
-}
+// UsedSerialsDBName represents the database name.
+const UsedSerialsDBName = "used_serial"
 
-// newUsedSerialsDB returns a new instance of usedSerials initialized with the specified database.
-func newUsedSerialsDB(db SQLDB, location string) *usedSerialsDB {
-	return &usedSerialsDB{
-		location: location,
-		SQLDB:    db,
-	}
+type usedSerialsDB struct {
+	migratableDB
 }
 
 // Add adds a serial to the database.

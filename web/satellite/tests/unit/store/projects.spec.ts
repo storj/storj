@@ -95,7 +95,7 @@ describe('actions', () => {
 
     it('success fetch projects', async () => {
         jest.spyOn(projectsApi, 'get').mockReturnValue(
-            Promise.resolve(projects)
+            Promise.resolve(projects),
         );
 
         await store.dispatch(FETCH);
@@ -117,7 +117,7 @@ describe('actions', () => {
     it('success create project', async () => {
         state.projects = [];
         jest.spyOn(projectsApi, 'create').mockReturnValue(
-            Promise.resolve(project)
+            Promise.resolve(project),
         );
 
         await store.dispatch(CREATE, {name: '', description: ''});
@@ -138,7 +138,7 @@ describe('actions', () => {
 
     it('success delete apiKeys', async () => {
         jest.spyOn(projectsApi, 'delete').mockReturnValue(
-            Promise.resolve()
+            Promise.resolve(),
         );
 
         state.projects = projects;
@@ -172,7 +172,7 @@ describe('actions', () => {
 
     it('success update project', async () => {
         jest.spyOn(projectsApi, 'update').mockReturnValue(
-            Promise.resolve()
+            Promise.resolve(),
         );
 
         state.projects = projects;

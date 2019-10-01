@@ -8,7 +8,7 @@ import AccountArea from '@/components/account/AccountArea.vue';
 import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingHistory from '@/components/account/billing/BillingHistory.vue';
-import Profile from '@/components/account/Profile.vue';
+import ProfileArea from '@/components/account/ProfileArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
@@ -19,13 +19,16 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import { NavigationLink } from '@/types/navigation';
 import { AuthToken } from '@/utils/authToken';
-import Dashboard from '@/views/Dashboard.vue';
+import DashboardArea from '@/views/DashboardArea.vue';
 import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import Login from '@/views/login/Login.vue';
-import Register from '@/views/register/Register.vue';
+import LoginArea from '@/views/login/LoginArea.vue';
+import RegisterArea from '@/views/register/RegisterArea.vue';
 
 Vue.use(Router);
 
+/**
+ * RouteConfig contains information about all routes and subroutes
+ */
 export abstract class RouteConfig {
     // root paths
     public static Root = new NavigationLink('/', 'Root');
@@ -56,24 +59,24 @@ const router = new Router({
         {
             path: RouteConfig.Login.path,
             name: RouteConfig.Login.name,
-            component: Login
+            component: LoginArea,
         },
         {
             path: RouteConfig.Register.path,
             name: RouteConfig.Register.name,
-            component: Register
+            component: RegisterArea,
         },
         {
             path: RouteConfig.ForgotPassword.path,
             name: RouteConfig.ForgotPassword.name,
-            component: ForgotPassword
+            component: ForgotPassword,
         },
         {
             path: RouteConfig.Root.path,
             meta: {
-                requiresAuth: true
+                requiresAuth: true,
             },
-            component: Dashboard,
+            component: DashboardArea,
             children: [
                 {
                     path: RouteConfig.Account.path,
@@ -83,7 +86,7 @@ const router = new Router({
                         {
                             path: RouteConfig.Profile.path,
                             name: RouteConfig.Profile.name,
-                            component: Profile,
+                            component: ProfileArea,
                         },
                         {
                             path: RouteConfig.Billing.path,
@@ -100,7 +103,7 @@ const router = new Router({
                             name: RouteConfig.BillingHistory.name,
                             component: BillingHistory,
                         },
-                    ]
+                    ],
                 },
                 {
                     path: RouteConfig.ProjectOverview.path,
@@ -115,38 +118,38 @@ const router = new Router({
                         {
                             path: RouteConfig.ProjectDetails.path,
                             name: RouteConfig.ProjectDetails.name,
-                            component: ProjectDetails
+                            component: ProjectDetails,
                         },
-                    ]
+                    ],
                 },
                 {
                     path: RouteConfig.Root.path,
                     name: 'default',
-                    component: ProjectOverviewArea
+                    component: ProjectOverviewArea,
                 },
                 {
                     path: RouteConfig.Team.path,
                     name: RouteConfig.Team.name,
-                    component: ProjectMembersArea
+                    component: ProjectMembersArea,
                 },
                 {
                     path: RouteConfig.ApiKeys.path,
                     name: RouteConfig.ApiKeys.name,
-                    component: ApiKeysArea
+                    component: ApiKeysArea,
                 },
                 {
                     path: RouteConfig.Buckets.path,
                     name: RouteConfig.Buckets.name,
-                    component: BucketArea
+                    component: BucketArea,
                 },
-            ]
+            ],
         },
         {
             path: '*',
             name: '404',
-            component: Page404
+            component: Page404,
         },
-    ]
+    ],
 });
 
 router.beforeEach((to, from, next) => {
@@ -158,13 +161,13 @@ router.beforeEach((to, from, next) => {
         }
     }
 
-    if (navigateToFirstSubTab(to.matched, RouteConfig.Account, RouteConfig.Profile)) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Profile).path);
 
         return;
     }
 
-    if (navigateToFirstSubTab(to.matched, RouteConfig.ProjectOverview, RouteConfig.ProjectDetails)) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.ProjectOverview)) {
         next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
 
         return;
@@ -172,6 +175,8 @@ router.beforeEach((to, from, next) => {
 
     if (to.name === 'default') {
         next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+
+        return;
     }
 
     next();
@@ -183,9 +188,8 @@ router.beforeEach((to, from, next) => {
  * @param routes - array of RouteRecord from vue-router
  * @param next - callback to process next route
  * @param tabRoute - tabNavigator route
- * @param subTabRoute - default sub route of the tabNavigator
  */
-function navigateToFirstSubTab(routes: RouteRecord[], tabRoute: NavigationLink, subTabRoute: NavigationLink): boolean {
+function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
     return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
 

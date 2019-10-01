@@ -4,6 +4,7 @@
 package testplanet
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,7 +15,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
@@ -72,44 +72,38 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					},
 				},
 			},
-			Kademlia: kademlia.Config{
-				BootstrapBackoffBase: 500 * time.Millisecond,
-				BootstrapBackoffMax:  2 * time.Second,
-				Alpha:                5,
-				DBPath:               filepath.Join(storageDir, "kademlia/"),
-				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@mail.test",
-					Wallet: "0x" + strings.Repeat("00", 20),
-				},
+			Operator: storagenode.OperatorConfig{
+				Email:  prefix + "@mail.test",
+				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 			Storage: piecestore.OldConfig{
 				Path:                   filepath.Join(storageDir, "pieces/"),
 				AllocatedDiskSpace:     1 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
-				KBucketRefreshInterval: time.Hour,
+				KBucketRefreshInterval: defaultInterval,
 				WhitelistedSatellites:  whitelistedSatellites,
 			},
 			Collector: collector.Config{
-				Interval: time.Minute,
+				Interval: defaultInterval,
 			},
 			Nodestats: nodestats.Config{
 				MaxSleep:       0,
-				ReputationSync: 1 * time.Minute,
-				StorageSync:    1 * time.Minute,
+				ReputationSync: defaultInterval,
+				StorageSync:    defaultInterval,
 			},
 			Console: consoleserver.Config{
 				Address:   "127.0.0.1:0",
 				StaticDir: filepath.Join(developmentRoot, "web/storagenode/"),
 			},
 			Storage2: piecestore.Config{
-				CacheSyncInterval:     time.Hour,
+				CacheSyncInterval:     defaultInterval,
 				ExpirationGracePeriod: 0,
 				MaxConcurrentRequests: 100,
 				OrderLimitGracePeriod: time.Hour,
 				Orders: orders.Config{
-					SenderInterval:  time.Hour,
-					SenderTimeout:   time.Hour,
-					CleanupInterval: time.Hour,
+					SenderInterval:  defaultInterval,
+					SenderTimeout:   10 * time.Minute,
+					CleanupInterval: defaultInterval,
 					ArchiveTTL:      time.Hour,
 				},
 				Monitor: monitor.Config{
@@ -123,10 +117,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			},
 			Version: planet.NewVersionConfig(),
 			Bandwidth: bandwidth.Config{
-				Interval: time.Hour,
+				Interval: defaultInterval,
 			},
 			Contact: contact.Config{
-				Interval: 30 * time.Second,
+				Interval: defaultInterval,
 				MaxSleep: 0 * time.Second,
 			},
 		}
@@ -145,11 +139,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		verisonInfo := planet.NewVersionInfo()
 
 		storageConfig := storagenodedb.Config{
-			Storage:  config.Storage.Path,
-			Info:     filepath.Join(config.Storage.Path, "piecestore.db"),
-			Info2:    filepath.Join(config.Storage.Path, "info.db"),
-			Pieces:   config.Storage.Path,
-			Kademlia: config.Kademlia.DBPath,
+			Storage: config.Storage.Path,
+			Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
+			Info2:   filepath.Join(config.Storage.Path, "info.db"),
+			Pieces:  config.Storage.Path,
 		}
 
 		var db storagenode.DB
@@ -176,7 +169,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			return xs, err
 		}
 
-		err = db.CreateTables()
+		err = db.CreateTables(context.TODO())
 		if err != nil {
 			return nil, err
 		}

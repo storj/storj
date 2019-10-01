@@ -145,7 +145,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// TODO figure out how to reduce duplicate code between here and checkerObs.RemoteSegment
 	defer mon.Task()(&ctx)(&err)
 	remote := pointer.GetRemote()
-	if remote == nil {
+	if pointer.GetType() == pb.Pointer_INLINE || remote == nil {
 		return nil
 	}
 
@@ -244,6 +244,9 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))
 	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy))
 
+	segmentAge := time.Since(pointer.CreationDate)
+	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds()))
+
 	redundancy := pointer.Remote.Redundancy
 
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
@@ -292,6 +295,14 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 				obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
 			}
 		}
+
+		var segmentAge time.Duration
+		if pointer.CreationDate.Before(pointer.LastRepaired) {
+			segmentAge = time.Since(pointer.LastRepaired)
+		} else {
+			segmentAge = time.Since(pointer.CreationDate)
+		}
+		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds()))
 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table

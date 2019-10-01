@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -235,37 +236,6 @@ func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.Buc
 	return m.db.GetPaged(ctx, cursor)
 }
 
-// ProjectInvoiceStamps is a getter for ProjectInvoiceStamps repository
-func (m *lockedConsole) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedProjectInvoiceStamps{m.Locker, m.db.ProjectInvoiceStamps()}
-}
-
-// lockedProjectInvoiceStamps implements locking wrapper for console.ProjectInvoiceStamps
-type lockedProjectInvoiceStamps struct {
-	sync.Locker
-	db console.ProjectInvoiceStamps
-}
-
-func (m *lockedProjectInvoiceStamps) Create(ctx context.Context, stamp console.ProjectInvoiceStamp) (*console.ProjectInvoiceStamp, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, stamp)
-}
-
-func (m *lockedProjectInvoiceStamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]console.ProjectInvoiceStamp, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAll(ctx, projectID)
-}
-
-func (m *lockedProjectInvoiceStamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*console.ProjectInvoiceStamp, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByProjectIDStartDate(ctx, projectID, startDate)
-}
-
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()
@@ -305,61 +275,6 @@ func (m *lockedProjectMembers) Insert(ctx context.Context, memberID uuid.UUID, p
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Insert(ctx, memberID, projectID)
-}
-
-// ProjectPayments is a getter for ProjectPayments repository
-func (m *lockedConsole) ProjectPayments() console.ProjectPayments {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedProjectPayments{m.Locker, m.db.ProjectPayments()}
-}
-
-// lockedProjectPayments implements locking wrapper for console.ProjectPayments
-type lockedProjectPayments struct {
-	sync.Locker
-	db console.ProjectPayments
-}
-
-func (m *lockedProjectPayments) Create(ctx context.Context, info console.ProjectPayment) (*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, info)
-}
-
-func (m *lockedProjectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Delete(ctx, projectPaymentID)
-}
-
-func (m *lockedProjectPayments) GetByID(ctx context.Context, projectPaymentID uuid.UUID) (*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByID(ctx, projectPaymentID)
-}
-
-func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) ([]*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByPayerID(ctx, payerID)
-}
-
-func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByProjectID(ctx, projectID)
-}
-
-func (m *lockedProjectPayments) GetDefaultByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetDefaultByProjectID(ctx, projectID)
-}
-
-func (m *lockedProjectPayments) Update(ctx context.Context, info console.ProjectPayment) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Update(ctx, info)
 }
 
 // Projects is a getter for Projects repository
@@ -574,31 +489,6 @@ func (m *lockedUserCredits) UpdateEarnedCredits(ctx context.Context, userID uuid
 	return m.db.UpdateEarnedCredits(ctx, userID)
 }
 
-// UserPayments is a getter for UserPayments repository
-func (m *lockedConsole) UserPayments() console.UserPayments {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedUserPayments{m.Locker, m.db.UserPayments()}
-}
-
-// lockedUserPayments implements locking wrapper for console.UserPayments
-type lockedUserPayments struct {
-	sync.Locker
-	db console.UserPayments
-}
-
-func (m *lockedUserPayments) Create(ctx context.Context, info console.UserPayment) (*console.UserPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, info)
-}
-
-func (m *lockedUserPayments) Get(ctx context.Context, userID uuid.UUID) (*console.UserPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, userID)
-}
-
 // Users is a getter for Users repository
 func (m *lockedConsole) Users() console.Users {
 	m.Lock()
@@ -697,6 +587,82 @@ func (m *locked) DropSchema(schema string) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.DropSchema(schema)
+}
+
+// GracefulExit returns database for graceful exit
+func (m *locked) GracefulExit() gracefulexit.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedGracefulExit{m.Locker, m.db.GracefulExit()}
+}
+
+// lockedGracefulExit implements locking wrapper for gracefulexit.DB
+type lockedGracefulExit struct {
+	sync.Locker
+	db gracefulexit.DB
+}
+
+// DeleteFinishedTransferQueueItem deletes finiahed graceful exit transfer queue entries.
+func (m *lockedGracefulExit) DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteFinishedTransferQueueItems(ctx, nodeID)
+}
+
+// DeleteTransferQueueItem deletes a graceful exit transfer queue entry.
+func (m *lockedGracefulExit) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteTransferQueueItem(ctx, nodeID, path)
+}
+
+// DeleteTransferQueueItem deletes a graceful exit transfer queue entries by nodeID.
+func (m *lockedGracefulExit) DeleteTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteTransferQueueItems(ctx, nodeID)
+}
+
+// Enqueue batch inserts graceful exit transfer queue entries it does not exist.
+func (m *lockedGracefulExit) Enqueue(ctx context.Context, items []gracefulexit.TransferQueueItem) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Enqueue(ctx, items)
+}
+
+// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by the queued date ascending.
+func (m *lockedGracefulExit) GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetIncomplete(ctx, nodeID, limit, offset)
+}
+
+// GetProgress gets a graceful exit progress entry.
+func (m *lockedGracefulExit) GetProgress(ctx context.Context, nodeID storj.NodeID) (*gracefulexit.Progress, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetProgress(ctx, nodeID)
+}
+
+// GetTransferQueueItem gets a graceful exit transfer queue entry.
+func (m *lockedGracefulExit) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (*gracefulexit.TransferQueueItem, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetTransferQueueItem(ctx, nodeID, path)
+}
+
+// IncrementProgress increments transfer stats for a node.
+func (m *lockedGracefulExit) IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, successfulTransfers int64, failedTransfers int64) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.IncrementProgress(ctx, nodeID, bytes, successfulTransfers, failedTransfers)
+}
+
+// UpdateTransferQueueItem creates a graceful exit transfer queue entry.
+func (m *lockedGracefulExit) UpdateTransferQueueItem(ctx context.Context, item gracefulexit.TransferQueueItem) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateTransferQueueItem(ctx, item)
 }
 
 // Irreparable returns database for failed repairs
@@ -932,6 +898,13 @@ func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node, 
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateAddress(ctx, value, defaults)
+}
+
+// UpdateCheckIn updates a single storagenode's check-in stats.
+func (m *lockedOverlayCache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, config overlay.NodeSelectionConfig) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateCheckIn(ctx, node, config)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
