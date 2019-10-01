@@ -66,21 +66,6 @@ func (db *ConsoleDB) UserCredits() console.UserCredits {
 	return &usercredits{db.db, db.tx}
 }
 
-// UserPayments is a getter for console.UserPayments repository
-func (db *ConsoleDB) UserPayments() console.UserPayments {
-	return &userpayments{db.methods}
-}
-
-// ProjectPayments is a getter for console.ProjectPayments repository
-func (db *ConsoleDB) ProjectPayments() console.ProjectPayments {
-	return &projectPayments{db.db, db.methods}
-}
-
-// ProjectInvoiceStamps is a getter for console.ProjectInvoiceStamps repository
-func (db *ConsoleDB) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
-	return &projectinvoicestamps{db.methods}
-}
-
 // BeginTx is a method for opening transaction
 func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
 	if db.db == nil {

@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/certificate/certificateclient"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/certificate/certificateclient"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
