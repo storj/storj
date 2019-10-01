@@ -1,0 +1,7 @@
+/.vs/
+/bin/
+/obj/
+*.exe
+*.msi
+*.wixobj
+*.wixpdb

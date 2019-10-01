@@ -12,11 +12,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -29,10 +31,10 @@ func TestProjectUsageStorage(t *testing.T) {
 		name             string
 		expectedExceeded bool
 		expectedResource string
-		expectedErrMsg   string
+		expectedStatus   rpcstatus.StatusCode
 	}{
-		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedErrMsg: ""},
-		{name: "exceeds storage project limit", expectedExceeded: true, expectedResource: "storage", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Usage Limit; segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Usage Limit"},
+		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedStatus: 0},
+		{name: "exceeds storage project limit", expectedExceeded: true, expectedResource: "storage", expectedStatus: rpcstatus.ResourceExhausted},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -69,7 +71,7 @@ func TestProjectUsageStorage(t *testing.T) {
 				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
 				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 				if testCase.expectedResource == "storage" {
-					assert.EqualError(t, actualErr, testCase.expectedErrMsg)
+					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
 				} else {
 					require.NoError(t, actualErr)
 				}
@@ -83,10 +85,10 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		name             string
 		expectedExceeded bool
 		expectedResource string
-		expectedErrMsg   string
+		expectedStatus   rpcstatus.StatusCode
 	}{
-		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedErrMsg: ""},
-		{name: "exceeds bandwidth project limit", expectedExceeded: true, expectedResource: "bandwidth", expectedErrMsg: "segment error: metainfo error: rpc error: code = ResourceExhausted desc = Exceeded Usage Limit"},
+		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedStatus: 0},
+		{name: "exceeds bandwidth project limit", expectedExceeded: true, expectedResource: "bandwidth", expectedStatus: rpcstatus.ResourceExhausted},
 	}
 
 	for _, tt := range cases {
@@ -128,7 +130,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
 				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, filePath)
 				if testCase.expectedResource == "bandwidth" {
-					assert.EqualError(t, actualErr, testCase.expectedErrMsg)
+					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
 				} else {
 					require.NoError(t, actualErr)
 				}

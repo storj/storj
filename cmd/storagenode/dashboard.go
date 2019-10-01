@@ -17,36 +17,30 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/rpc"
 )
 
 const contactWindow = time.Minute * 10
 
 type dashboardClient struct {
-	client pb.PieceStoreInspectorClient
-	conn   *grpc.ClientConn
+	conn *rpc.Conn
 }
 
 func dialDashboardClient(ctx context.Context, address string) (*dashboardClient, error) {
-	conn, err := transport.DialAddressInsecure(ctx, address)
+	conn, err := rpc.NewDefaultDialer(nil).DialAddressUnencrypted(ctx, address)
 	if err != nil {
 		return &dashboardClient{}, err
 	}
-
-	return &dashboardClient{
-		client: pb.NewPieceStoreInspectorClient(conn),
-		conn:   conn,
-	}, nil
+	return &dashboardClient{conn: conn}, nil
 }
 
 func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
-	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
+	return dash.conn.PieceStoreInspectorClient().Dashboard(ctx, &pb.DashboardRequest{})
 }
 
 func (dash *dashboardClient) close() error {
@@ -54,7 +48,7 @@ func (dash *dashboardClient) close() error {
 }
 
 func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {

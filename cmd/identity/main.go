@@ -14,9 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/certificate/certificateclient"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
-	"storj.io/storj/pkg/certificate/certificateclient"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/rpc"
 )
 
 const (
@@ -88,7 +88,7 @@ func serviceDirectory(serviceName string) string {
 }
 
 func cmdNewService(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	err := version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
@@ -150,7 +150,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 }
 
 func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 
 	err = version.CheckProcessVersion(ctx, zap.L(), config.Version, version.Build, "Identity")
 	if err != nil {
@@ -196,17 +196,16 @@ func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	tlsOpts, err := tlsopts.NewOptions(ident, config.Signer.TLS, nil)
+	tlsOptions, err := tlsopts.NewOptions(ident, config.Signer.TLS, nil)
 	if err != nil {
 		return err
 	}
-	client, err := certificateclient.New(ctx, transport.NewClient(tlsOpts), config.Signer.Address)
+
+	client, err := certificateclient.New(ctx, rpc.NewDefaultDialer(tlsOptions), config.Signer.Address)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = errs.Combine(err, client.Close())
-	}()
+	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	signedChainBytes, err := client.Sign(ctx, authToken)
 	if err != nil {

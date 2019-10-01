@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-area-container">
-        <h1>Account</h1>
+        <h1 class="account-area-container__title">Account</h1>
         <TabNavigation
             class="account-area-container__navigation"
             :navigation="navigation"/>
@@ -41,15 +41,13 @@ export default class AccountArea extends Vue {
         &__navigation {
             position: absolute;
             right: 55px;
-            top: 44px;
             z-index: 99;
             background-color: #F5F6FA;
         }
         
-        h1 {
+        &__title {
             position: absolute;
             left: 55px;
-            top: 44px;
             z-index: 99;
             font-family: 'font_bold';
             font-size: 24px;
@@ -57,6 +55,20 @@ export default class AccountArea extends Vue {
             color: #354049;
             margin-block-start: 0.5em;
             margin-block-end: 0.5em;
+        }
+    }
+
+    @media screen and (max-width: 1024px) {
+        .account-area-container {
+            padding: 44px 40px 55px 40px;
+
+            &__navigation {
+                right: 40px;
+            }
+
+            &__title {
+                left: 40px;
+            }
         }
     }
 </style>

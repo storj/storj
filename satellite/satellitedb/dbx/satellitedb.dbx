@@ -168,9 +168,9 @@ model node (
 	field uptime_reputation_alpha float64 ( updatable )
 	field uptime_reputation_beta  float64 ( updatable )
 
-    field exit_initiated_at         timestamp ( updatable, nullable )
-    field exit_loop_completed_at    timestamp ( updatable, nullable )
-    field exit_finished_at          timestamp ( updatable, nullable )
+    field exit_initiated_at         utimestamp ( updatable, nullable )
+    field exit_loop_completed_at    utimestamp ( updatable, nullable )
+    field exit_finished_at          utimestamp ( updatable, nullable )
 )
 
 create node ( noreturn )
@@ -862,8 +862,10 @@ model graceful_exit_progress (
     key node_id
 
     field node_id              blob
-    field bytes_transferred    int64     ( updatable )
-    field updated_at           timestamp ( autoinsert, autoupdate )
+    field bytes_transferred    int64 ( updatable )
+	field pieces_transferred   int64 ( autoinsert, updatable )
+	field pieces_failed        int64 ( autoinsert, updatable )
+    field updated_at           utimestamp ( autoinsert, autoupdate )
 )
 
 create graceful_exit_progress ( noreturn )
@@ -886,13 +888,13 @@ model graceful_exit_transfer_queue (
     field node_id             blob
     field path                blob
     field piece_num           int
-    field durability_ratio    float64   ( updatable )
-    field queued_at           timestamp ( autoinsert ) 
-    field requested_at        timestamp ( updatable, nullable ) 
-    field last_failed_at      timestamp ( updatable, nullable ) 
-    field last_failed_code    int       ( updatable, nullable )
-    field failed_count        int       ( updatable, nullable )
-    field finished_at         timestamp ( updatable, nullable )
+    field durability_ratio    float64    ( updatable )
+    field queued_at           utimestamp ( autoinsert ) 
+    field requested_at        utimestamp ( updatable, nullable ) 
+    field last_failed_at      utimestamp ( updatable, nullable ) 
+    field last_failed_code    int        ( updatable, nullable )
+    field failed_count        int        ( updatable, nullable )
+    field finished_at         utimestamp ( updatable, nullable )
 )
 
 create graceful_exit_transfer_queue ( noreturn )
@@ -909,8 +911,20 @@ delete graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
 )
+
+delete graceful_exit_transfer_queue ( 
+	where graceful_exit_transfer_queue.node_id = ?
+	where graceful_exit_transfer_queue.finished_at != null
+)
+
 read one ( 
 	select graceful_exit_transfer_queue
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+)
+read limitoffset (
+	select graceful_exit_transfer_queue
+	where graceful_exit_transfer_queue.node_id = ?
+	where graceful_exit_transfer_queue.finished_at = null
+	orderby asc graceful_exit_transfer_queue.queued_at
 )

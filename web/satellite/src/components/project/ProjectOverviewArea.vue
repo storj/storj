@@ -10,9 +10,9 @@
         <router-view v-if="isProjectSelected"/>
         <EmptyState
             v-if="!isProjectSelected"
-            mainTitle="Create your first project"
+            main-title="Create your first project"
             additional-text='<p>Please click the button <b>"New Project"</b> in the right corner</p>'
-            :imageSource="emptyImage" />
+            :image-source="emptyImage" />
     </div>
 </template>
 
@@ -59,6 +59,16 @@ export default class ProjectOverviewArea extends Vue {
             right: 55px;
             top: 44px;
             z-index: 99;
+        }
+    }
+
+    @media screen and (max-width: 1024px) {
+        .project-overview {
+            padding: 44px 40px 55px 40px;
+
+            &__navigation {
+                right: 40px;
+            }
         }
     }
 </style>

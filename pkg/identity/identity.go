@@ -18,12 +18,11 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -197,17 +196,8 @@ func PeerIdentityFromChain(chain []*x509.Certificate) (*PeerIdentity, error) {
 }
 
 // PeerIdentityFromPeer loads a PeerIdentity from a peer connection.
-func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
-	if peer.AuthInfo == nil {
-		return nil, Error.New("peer AuthInfo is nil")
-	}
-
-	tlsInfo, ok := peer.AuthInfo.(credentials.TLSInfo)
-	if !ok {
-		return nil, Error.New("peer AuthInfo is not credentials.TLSInfo")
-	}
-
-	chain := tlsInfo.State.PeerCertificates
+func PeerIdentityFromPeer(peer *rpcpeer.Peer) (*PeerIdentity, error) {
+	chain := peer.State.PeerCertificates
 	if len(chain)-1 < peertls.CAIndex {
 		return nil, Error.New("invalid certificate chain")
 	}
@@ -215,18 +205,16 @@ func PeerIdentityFromPeer(peer *peer.Peer) (*PeerIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return pi, nil
 }
 
 // PeerIdentityFromContext loads a PeerIdentity from a ctx TLS credentials.
 func PeerIdentityFromContext(ctx context.Context) (*PeerIdentity, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, Error.New("unable to get grpc peer from contex")
+	peer, err := rpcpeer.FromContext(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	return PeerIdentityFromPeer(p)
+	return PeerIdentityFromPeer(peer)
 }
 
 // NodeIDFromCertPath loads a node ID from a certificate file path.

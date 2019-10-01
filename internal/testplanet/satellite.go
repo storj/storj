@@ -7,13 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
@@ -38,8 +36,8 @@ import (
 )
 
 // newSatellites initializes satellites
-func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
-	var xs []*satellite.Peer
+func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
+	var xs []*SatelliteSystem
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, closablePeer{peer: x})
@@ -86,16 +84,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					},
 				},
 			},
-			Kademlia: kademlia.Config{
-				Alpha:                5,
-				BootstrapBackoffBase: 500 * time.Millisecond,
-				BootstrapBackoffMax:  2 * time.Second,
-				DBPath:               storageDir, // TODO: replace with master db
-				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@mail.test",
-					Wallet: "0x" + strings.Repeat("00", 20),
-				},
-			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
 					UptimeCount:       0,
@@ -122,7 +110,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				UpdateStatsBatchSize: 100,
 			},
 			Discovery: discovery.Config{
-				DiscoveryInterval:  1 * time.Second,
 				RefreshInterval:    1 * time.Second,
 				RefreshLimit:       100,
 				RefreshConcurrency: 2,
@@ -150,9 +137,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Expiration: 7 * 24 * time.Hour,
 			},
 			Checker: checker.Config{
-				Interval:                  30 * time.Second,
-				IrreparableInterval:       15 * time.Second,
-				ReliabilityCacheStaleness: 5 * time.Minute,
+				Interval:                  defaultInterval,
+				IrreparableInterval:       defaultInterval,
+				ReliabilityCacheStaleness: 1 * time.Minute,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,
@@ -166,26 +153,26 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
 				MaxReverifyCount:   3,
-				ChoreInterval:      30 * time.Second,
-				QueueInterval:      1 * time.Hour,
+				ChoreInterval:      defaultInterval,
+				QueueInterval:      defaultInterval,
 				Slots:              3,
 				WorkerConcurrency:  1,
 			},
 			GarbageCollection: gc.Config{
-				Interval:          1 * time.Minute,
+				Interval:          defaultInterval,
 				Enabled:           true,
 				InitialPieces:     10,
 				FalsePositiveRate: 0.1,
 				ConcurrentSends:   1,
 			},
 			DBCleanup: dbcleanup.Config{
-				SerialsInterval: time.Hour,
+				SerialsInterval: defaultInterval,
 			},
 			Tally: tally.Config{
-				Interval: 30 * time.Second,
+				Interval: defaultInterval,
 			},
 			Rollup: rollup.Config{
-				Interval:      2 * time.Minute,
+				Interval:      defaultInterval,
 				MaxAlphaUsage: 25 * memory.GB,
 				DeleteTallies: false,
 			},
@@ -231,7 +218,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
-		xs = append(xs, peer)
+
+		system := SatelliteSystem{Peer: *peer}
+		xs = append(xs, &system)
 	}
 	return xs, nil
 }

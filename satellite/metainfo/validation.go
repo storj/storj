@@ -13,13 +13,13 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 )
@@ -120,31 +120,40 @@ func (requests *createRequests) cleanup() {
 	}
 }
 
-func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
+func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
-	keyData, ok := auth.GetAPIKey(ctx)
-	if !ok {
-		endpoint.log.Debug("unauthorized request")
-		return nil, status.Error(codes.Unauthenticated, "Missing API credentials")
+	if header != nil {
+		return macaroon.ParseRawAPIKey(header.ApiKey)
 	}
 
-	key, err := macaroon.ParseAPIKey(string(keyData))
+	keyData, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return nil, errs.New("missing credentials")
+	}
+
+	return macaroon.ParseAPIKey(string(keyData))
+}
+
+func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	key, err := getAPIKey(ctx, header)
 	if err != nil {
 		endpoint.log.Debug("invalid request", zap.Error(err))
-		return nil, status.Error(codes.InvalidArgument, "Invalid API credentials")
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
 	}
 
 	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
-		return nil, status.Error(codes.PermissionDenied, "Unauthorized API credentials")
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
 	// Revocations are currently handled by just deleting the key.
 	err = key.Check(ctx, keyInfo.Secret, action, nil)
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
-		return nil, status.Error(codes.PermissionDenied, "Unauthorized API credentials")
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
 	return keyInfo, nil
@@ -348,11 +357,16 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 	return nil
 }
 
-func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit) (err error) {
+func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit, signee signing.Signee) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if piece.Hash == nil {
 		return errs.New("no piece hash, removing from pointer %v (%v)", piece.NodeId, piece.PieceNum)
+	}
+
+	err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
+	if err != nil {
+		return errs.New("piece hash signature could not be verified for node %v: %v", piece.NodeId, err)
 	}
 
 	timestamp := piece.Hash.Timestamp

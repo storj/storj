@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -46,7 +46,7 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
-	overlay *overlay.Service, tc transport.Client, timeout time.Duration,
+	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
 	excessOptimalThreshold float64, satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
@@ -59,7 +59,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         NewECRepairer(log.Named("ec repairer"), tc, satelliteSignee),
+		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}
@@ -248,9 +248,26 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// add pieces that failed piece hashes verification to the removal list
 	toRemove = append(toRemove, failedPieces...)
 
+	pointer.LastRepaired = time.Now().UTC()
+	pointer.RepairCount++
+
 	// Update the segment pointer in the metainfo
 	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
-	return err == nil, err
+	if err != nil {
+		return false, err
+	}
+
+	var segmentAge time.Duration
+	if pointer.CreationDate.Before(pointer.LastRepaired) {
+		segmentAge = time.Since(pointer.LastRepaired)
+	} else {
+		segmentAge = time.Since(pointer.CreationDate)
+	}
+
+	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds()))
+	mon.IntVal("segment_repair_count").Observe(int64(pointer.RepairCount))
+
+	return true, nil
 }
 
 func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failedNum int, err error) {
