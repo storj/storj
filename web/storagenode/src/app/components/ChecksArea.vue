@@ -8,7 +8,8 @@
             <VInfo
                 :text="infoText"
                 is-extra-padding="true"
-                is-custom-position="true">
+                is-custom-position="true"
+            >
                 <div>
                     <svg class="checks-area-image" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" alt="info image">
                         <rect class="checks-area-svg-rect" width="18" height="18" rx="9" fill="#5A667C"/>
