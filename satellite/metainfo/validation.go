@@ -317,7 +317,7 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			}
 
 			// expect that too much time has not passed between order limit creation and now
-			if time.Since(limit.OrderCreation) <= endpoint.maxCommitInterval {
+			if time.Since(limit.OrderCreation) > endpoint.maxCommitInterval {
 				return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.maxCommitInterval.Minutes())
 			}
 
