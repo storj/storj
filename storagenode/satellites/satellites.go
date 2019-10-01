@@ -15,15 +15,15 @@ type Status = int
 
 const (
 	//Unexpected status should not be used for sanity checking
-	Unexpected Status = iota
+	Unexpected Status = 0
 	//Normal status reflects a lack of graceful exit
-	Normal
+	Normal = 1
 	//Exiting reflects an active graceful exit
-	Exiting
+	Exiting = 2
 	//ExitSucceeded reflects a graceful exit that succeeded
-	ExitSucceeded
+	ExitSucceeded = 3
 	//ExitFailed reflects a graceful exit that failed
-	ExitFailed
+	ExitFailed = 4
 )
 
 //ExitProgress contains the status of a graceful exit
