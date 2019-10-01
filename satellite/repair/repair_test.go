@@ -360,7 +360,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		}
 		require.NotNil(t, corruptedNodeID)
 		require.NotNil(t, corruptedPieceID)
-		require.NotNil(t, corruptedNode)
+		require.NotNil(t, corruptedPiece)
 
 		for _, node := range planet.StorageNodes {
 			if node.ID() == corruptedNodeID {
@@ -373,6 +373,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 				require.NoError(t, err)
 			}
 		}
+		require.NotNil(t, corruptedNode)
 
 		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
