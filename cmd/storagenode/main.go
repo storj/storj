@@ -122,7 +122,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	mapConfigs(log)
+	mapDeprecatedConfigs(log)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {

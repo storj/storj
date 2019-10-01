@@ -24,7 +24,7 @@ type Deprecated struct {
 }
 
 // maps deprecated config values to new values if applicable
-func mapConfigs(log *zap.Logger) {
+func mapDeprecatedConfigs(log *zap.Logger) {
 	type config struct {
 		new     interface{}
 		newFlag string
