@@ -41,9 +41,9 @@
 	</div>
 </template>
 <script lang="ts">
-import {Component, Prop, Vue} from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import {DateGenerator, DateStamp, DayAction, DayItem, DisplayedType, Options} from '@/utils/datepicker';
+import { DateGenerator, DateStamp, DayAction, DayItem, DisplayedType, Options } from '@/utils/datepicker';
 
 @Component
 export default class VDatePicker extends Vue {
@@ -59,7 +59,7 @@ export default class VDatePicker extends Vue {
     public weekLibrary: string[] = this.option.week;
     public monthLibrary: string[] = this.option.month;
     public displayedMonth: string = this.monthLibrary[0];
-    public selectedDateState: DateStamp = new DateStamp(0,0,0);
+    public selectedDateState: DateStamp = new DateStamp(0, 0, 0);
     public dayList: DayItem[] = [];
     public selectedDays: Date[] = [];
     public yearLibrary: number[] = this.dateGenerator.populateYears();
