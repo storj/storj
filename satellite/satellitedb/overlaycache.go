@@ -987,7 +987,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 	return Error.Wrap(err)
 }
 
-// GetExitingNodes returns nodes who have initiated a graceful exit.
+// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
 func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1044,7 +1044,7 @@ func (cache *overlaycache) GetExitingNodesLoopIncomplete(ctx context.Context) (e
 	return exitingNodes, nil
 }
 
-// UpdateExitStatus returns nodes in exiting status.
+// UpdateExitStatus is used to update a node's graceful exit status.
 func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1062,15 +1062,6 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	// Cleanup containment table too
-	_, err = tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(nodeID.Bytes()))
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
-	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
-	// but for now we're adding a nil check to prevent a panic.
 	if dbNode == nil {
 		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
 	}
