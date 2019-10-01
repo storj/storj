@@ -2,15 +2,15 @@
 // See LICENSE for copying information.
 
 <script lang="ts">
-import * as VChart from 'vue-chartjs';
+import * as VueChart from 'vue-chartjs';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
 import { ChartData } from '@/app/types/chartData';
 
 @Component({
-    extends: VChart.Line
+    extends: VueChart.Line
 })
-export default class Chart extends Vue {
+export default class VChart extends Vue {
     @Prop({default: '$'})
     private readonly currency: string;
     @Prop({default: () => { console.error('Tooltip constructor is undefined'); }, })
