@@ -38,8 +38,8 @@ type SegmentRepairer struct {
 	// repaired pieces
 	multiplierOptimalThreshold float64
 
-	//override Value for the Repair Threshold handed over from the checker
-	overrideRepair int
+	//repairOverride is the value handed over from the checker to override the Repair Threshold
+	repairOverride int
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -50,7 +50,7 @@ type SegmentRepairer struct {
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
-	excessOptimalThreshold float64, overrideRepair int, satelliteSignee signing.Signee,
+	excessOptimalThreshold float64, repairOverride int, satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -65,7 +65,7 @@ func NewSegmentRepairer(
 		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
-		overrideRepair:             overrideRepair,
+		repairOverride:             repairOverride,
 	}
 }
 
@@ -112,11 +112,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return true, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
 	}
 
-	var repairThreshold int32
-	if repairer.overrideRepair == 0 {
-		repairThreshold = pointer.Remote.Redundancy.RepairThreshold
-	} else {
-		repairThreshold = int32(repairer.overrideRepair)
+	repairThreshold := pointer.Remote.Redundancy.RepairThreshold
+	if repairer.repairOverride != 0 {
+		repairThreshold = int32(repairer.repairOverride)
 	}
 
 	// repair not needed

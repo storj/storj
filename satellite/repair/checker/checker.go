@@ -56,7 +56,7 @@ type Checker struct {
 	metainfo        *metainfo.Service
 	metaLoop        *metainfo.Loop
 	nodestate       *ReliabilityCache
-	overrideRepair  int32
+	repairOverride  int32
 	Loop            sync2.Cycle
 	IrreparableLoop sync2.Cycle
 }
@@ -71,7 +71,7 @@ func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irrepar
 		metainfo:       metainfo,
 		metaLoop:       metaLoop,
 		nodestate:      NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
-		overrideRepair: int32(config.RepairOverride),
+		repairOverride: int32(config.RepairOverride),
 
 		Loop:            *sync2.NewCycle(config.Interval),
 		IrreparableLoop: *sync2.NewCycle(config.IrreparableInterval),
@@ -115,7 +115,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		irrdb:          checker.irrdb,
 		nodestate:      checker.nodestate,
 		monStats:       durabilityStats{},
-		overrideRepair: checker.overrideRepair,
+		overrideRepair: checker.repairOverride,
 		log:            checker.logger,
 	}
 	err = checker.metaLoop.Join(ctx, observer)
@@ -254,11 +254,9 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 
 	redundancy := pointer.Remote.Redundancy
 
-	var repairThreshold int32
+	repairThreshold := redundancy.RepairThreshold
 	if obs.overrideRepair != 0 {
 		repairThreshold = obs.overrideRepair
-	} else {
-		repairThreshold = redundancy.RepairThreshold
 	}
 
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
