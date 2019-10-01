@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -64,6 +65,7 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
+	Satellites() satellites.DB
 }
 
 // Config is all the configuration parameters for a Storage Node
