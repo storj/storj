@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -154,4 +155,9 @@ func (db *DB) Orders() orders.DB {
 // Containment returns database for storing pending audit info
 func (db *DB) Containment() audit.Containment {
 	return &containment{db: db.db}
+}
+
+// GracefulExit returns database for graceful exit
+func (db *DB) GracefulExit() gracefulexit.DB {
+	return &gracefulexitDB{db: db.db}
 }

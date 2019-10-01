@@ -1,6 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+a {
+    text-decoration: none;
+    outline: none;
+}
+
 .navigation-area {
     position: relative;
     min-width: 280px;
@@ -89,7 +94,7 @@
         &:hover {
             border-left: 3px solid #2683FF;
 
-            .svg path:not(.white) {
+            .svg .navigation-svg-path:not(.white) {
                 fill: #2683FF !important;
             }
         }
@@ -100,7 +105,7 @@
             justify-content: flex-start;
             align-items: center;
 
-            h1 {
+            &__title {
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 23px;
@@ -123,16 +128,11 @@
 
         &.router-link-active {
 
-            h1 {
+            .account-item {
                 color: #2683FF;
             }
         }
     }
-}
-
-a {
-    text-decoration: none;
-    outline: none;
 }
 
 .disabled {

@@ -5,18 +5,19 @@
     <div class="input-container">
         <div v-if="!isOptional" class="label-container">
             <img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
-            <h3 v-if="!error">{{label}}</h3>
-            <h3  v-if="!error" class="label-container__add-label">{{additionalLabel}}</h3>
+            <h3 v-if="!error" class="label-container__label">{{label}}</h3>
+            <h3 v-if="!error" class="label-container__label add-label">{{additionalLabel}}</h3>
             <h3 class="label-container__error" v-if="error">{{error}}</h3>
         </div>
         <div v-if="isOptional" class="optional-label-container">
-            <h3>{{label}}</h3>
-            <h4>Optional</h4>
+            <h3 class="label-container__label">{{label}}</h3>
+            <h4 class="optional-label-container__optional">Optional</h4>
         </div>
         <textarea
+            class="headered-textarea"
             v-if="isMultiline"
-            :id="this.$props.label"
-            :placeholder="this.$props.placeholder"
+            :id="this.label"
+            :placeholder="this.placeholder"
             :style="style.inputStyle"
             :rows="5"
             :cols="40"
@@ -26,8 +27,9 @@
             v-model="value">
         </textarea>
         <input
+            class="headered-input"
             v-if="!isMultiline"
-            :id="this.$props.label"
+            :id="this.label"
             :placeholder="this.$props.placeholder"
             :type="[isPassword ? 'password': 'text']"
             @input="onInput"
@@ -38,7 +40,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop } from 'vue-property-decorator';
 
 import HeaderlessInput from './HeaderlessInput.vue';
 
@@ -69,22 +71,23 @@ export default class HeaderedInput extends HeaderlessInput {
     	align-items: flex-start;
     	margin-top: 10px;
     	width: 48%;
+        font-family: 'font_regular';
     }
     
     .label-container {
     	display: flex;
     	justify-content: flex-start;
-    	flex-direction: row;
-    
-    	&__add-label {
-            margin-left: 5px;
-            font-family: 'font_regular';
+        align-items: center;
+
+        &__label {
             font-size: 16px;
             line-height: 21px;
-            color: rgba(56, 75, 101, 0.4);
+            color: #354049;
     	}
     
     	&__error {
+            font-size: 16px;
+            line-height: 21px;
             color: #FF5560;
             margin-left: 10px;
     	}
@@ -97,17 +100,15 @@ export default class HeaderedInput extends HeaderlessInput {
     	align-items: center;
     	width: 100%;
     
-    	h4 {
-            font-family: 'font_regular';
+    	&__optional {
             font-size: 16px;
             line-height: 21px;
             color: #AFB7C1;
     	}
     }
     
-    input,
-    textarea {
-    	font-family: 'font_regular';
+    .headered-input,
+    .headered-textarea {
     	font-size: 16px;
     	line-height: 21px;
     	resize: none;
@@ -119,15 +120,13 @@ export default class HeaderedInput extends HeaderlessInput {
     	outline: none;
     	box-shadow: none;
     }
-    
-    textarea {
+
+    .headered-textarea {
     	padding-top: 20px;
     }
-    
-    h3 {
-    	font-family: 'font_regular';
-    	font-size: 16px;
-    	line-height: 21px;
-    	color: #354049;
+
+    .add-label {
+        margin-left: 5px;
+        color: rgba(56, 75, 101, 0.4);
     }
 </style>
