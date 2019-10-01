@@ -602,13 +602,13 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 	})
 }
 
-// TestDataRepairOverride does the following:
+// TestDataRepairOverride_HigherLimit does the following:
 // - Uploads test data
-// - Kills nodes to fall below the Repair Override Value of the checker but stays above the original Repair Threshold
+// - Kills nodes to fall to the Repair Override Value of the checker but stays above the original Repair Threshold
 // - Triggers data repair, which attempts to repair the data from the remaining nodes to
 //	 the numbers of nodes determined by the upload repair max threshold
-func TestDataRepairOverride(t *testing.T) {
-	const RepairMaxExcessRateOptimalThreshold = 0.05
+func TestDataRepairOverride_HigherLimit(t *testing.T) {
+	const repairOverride = 6
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -617,8 +617,7 @@ func TestDataRepairOverride(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.OnlineWindow = 0
-				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
-				config.Checker.RepairOverride = 6
+				config.Checker.RepairOverride = repairOverride
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -637,7 +636,7 @@ func TestDataRepairOverride(t *testing.T) {
 		err := uplinkPeer.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
 			RepairThreshold:  4,
-			SuccessThreshold: 7,
+			SuccessThreshold: 8,
 			MaxThreshold:     9,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -648,7 +647,7 @@ func TestDataRepairOverride(t *testing.T) {
 		// kill one nodes less than repair threshold to ensure we dont hit it.
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 		numPieces := len(remotePieces)
-		toKill := numPieces - int(pointer.GetRemote().GetRedundancy().RepairThreshold) + 1
+		toKill := numPieces - repairOverride
 		require.True(t, toKill >= 1)
 
 		// kill nodes and track lost pieces
@@ -686,9 +685,9 @@ func TestDataRepairOverride(t *testing.T) {
 		pointer, err = metainfoService.Get(ctx, path)
 		require.NoError(t, err)
 
-		// pointer should have the optimal count of pieces
+		// pointer should have the success count of pieces
 		remotePieces = pointer.GetRemote().GetRemotePieces()
-		require.Equal(t, len(remotePieces), 8)
+		require.Equal(t, int(pointer.Remote.Redundancy.SuccessThreshold), len(remotePieces))
 	})
 }
 
@@ -700,7 +699,6 @@ func TestDataRepairOverride(t *testing.T) {
 // - Verify that the number of pieces which repaired has uploaded don't overpass
 //	 the established limit (success threshold + % of excess)
 func TestDataRepairUploadLimit(t *testing.T) {
-	t.Skip()
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
 	testplanet.Run(t, testplanet.Config{
