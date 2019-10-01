@@ -202,12 +202,6 @@ func openTestDatabase() (*sql.DB, error) {
 		return nil, ErrDatabase.Wrap(err)
 	}
 
-	// Set max idle and max open to 1 to control concurrent access to the memory DB
-	// Setting max open higher than 1 results in table locked errors
-	db.SetMaxIdleConns(1)
-	db.SetMaxOpenConns(1)
-	db.SetConnMaxLifetime(-1)
-
 	mon.Chain("db_stats", monkit.StatSourceFunc(
 		func(cb func(name string, val float64)) {
 			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
@@ -721,6 +715,15 @@ func (db *DB) Migration() *migrate.Migration {
 						PRIMARY KEY (satellite_id)
 					)`,
 				},
+			},
+			{
+				DB:          db.versionsDB,
+				Description: "Free Storagenodes from trash data",
+				Version:     22,
+				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+					_, err := db.versionsDB.Exec("VACUUM;")
+					return err
+				}),
 			},
 		},
 	}
