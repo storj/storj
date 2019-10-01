@@ -4,19 +4,19 @@
 <template>
 	<div class="cov-vue-date">
 		<div class="datepickbox">
-			<input type="text" title="input date" class="cov-datepicker" readonly="readonly" :placeholder="option.placeholder" v-model="date.time" :required="required" :style="option.inputStyle ? option.inputStyle : {}" />
+			<input type="text" title="input date" class="cov-datepicker" readonly="readonly" :style="option.inputStyle ? option.inputStyle : {}" />
 		</div>
-		<div class="datepicker-overlay" v-if="showInfo.check" @click="dismiss($event)" :style="{'background' : option.overlayOpacity? 'rgba(0,0,0,'+option.overlayOpacity+')' : 'rgba(0,0,0,0.5)'}">
+		<div class="datepicker-overlay" v-if="isChecking" @click="dismiss($event)" :style="{'background' : option.overlayOpacity? 'rgba(0,0,0,'+option.overlayOpacity+')' : 'rgba(0,0,0,0.5)'}">
 			<div class="cov-date-body" :style="{'background-color': option.color ? option.color.header : '#3f51b5'}">
 				<div class="cov-date-monthly">
 					<div class="cov-date-previous" @click="nextMonth('pre')">«</div>
 					<div class="cov-date-caption" :style="{'color': option.color ? option.color.headerText : '#fff'}">
 						<span @click="showYear">{{checked.year}}</span>
-						<span @click="showMonth">{{displayInfo.month}}</span>
+						<span @click="showMonth">{{displayedMonth}}</span>
 					</div>
 					<div class="cov-date-next" @click="nextMonth('next')">»</div>
 				</div>
-				<div class="cov-date-box" v-if="showInfo.day">
+				<div class="cov-date-box" v-if="isDaysChoiceShown">
 					<div class="cov-picker-box">
 						<div class="week">
 							<ul>
@@ -26,12 +26,12 @@
 						<div class="day" v-for="(day, index) in dayList" :key="index" @click="checkDay(day)" :class="{'checked':day.checked,'unavailable':day.unavailable,'passive-day': !(day.inMonth), 'today': day.today}" :style="day.checked ? (option.color && option.color.checkedDay ? { background: option.color.checkedDay } : { background: '#2683FF' }) : {}">{{day.value}}</div>
 					</div>
 				</div>
-				<div class="cov-date-box list-box" v-if="showInfo.year">
+				<div class="cov-date-box list-box" v-if="isYearChoiceShown">
 					<div class="cov-picker-box date-list" id="yearList">
 						<div class="date-item" v-for="yearItem in yearLibrary" :key="yearItem" @click="setYear(yearItem)">{{yearItem}}</div>
 					</div>
 				</div>
-				<div class="cov-date-box list-box" v-if="showInfo.month">
+				<div class="cov-date-box list-box" v-if="isMonthChoiceShown">
 					<div class="cov-picker-box date-list">
 						<div class="date-item" v-for="monthItem in monthLibrary" :key="monthItem" @click="setMonth(monthItem)">{{monthItem}}</div>
 					</div>
@@ -41,224 +41,204 @@
 	</div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import {Component, Prop, Vue} from 'vue-property-decorator';
 
-import { DateObj, Options } from '@/types/datepicker';
+import {DateGenerator, DateStamp, DayAction, DayItem, DisplayedType, Options} from '@/utils/datepicker';
 
 @Component
-export default class DatePicker extends Vue {
+export default class VDatePicker extends Vue {
 
-	@Prop({default: false})
-	private required: boolean;
-	@Prop({default: () => new DateObj()})
-	private date: DateObj;
-	@Prop({default: () => new Options()})
-	private option: Options;
+    @Prop({default: () => new Options()})
+    private option: Options;
 
-	public showInfo: any = {
-		day: false,
-		month: false,
-		year: false,
-		check: false,
-	};
-	public displayInfo = {
-		month: '',
-	};
+    private readonly MAX_DAYS_SELECTED = 2;
+    private showType: number = DisplayedType.Day;
+    private dateGenerator = new DateGenerator();
+    public isChecking = false;
 
-	public yearLibrary = [];
-	public weekLibrary = this.option.week;
-	public monthLibrary = this.option.month;
-	public checked: any = {
-		currentMoment: null,
-		year: 0,
-		month: 0,
-		day: 0,
-	};
-	public dayList = [];
-	public selectedDays: Date[] = [];
+    public weekLibrary: string[] = this.option.week;
+    public monthLibrary: string[] = this.option.month;
+    public displayedMonth: string = this.monthLibrary[0];
+    public selectedDateState: DateStamp = new DateStamp(0,0,0);
+    public dayList: DayItem[] = [];
+    public selectedDays: Date[] = [];
+    public yearLibrary: number[] = this.dateGenerator.populateYears();
 
-	public nextMonth(type) {
-		const currentMoment = new Date(this.checked.year, this.checked.month, this.checked.day);
-		const currentMonth = currentMoment.getMonth();
-		const now = new Date();
+    /**
+	 * computed value that indicates should days view be shown
+	 */
+    public get isDaysChoiceShown(): boolean {
+        return this.showType === DisplayedType.Day;
+    }
 
-		if (type === 'next') {
-			if (currentMonth === now.getMonth() && currentMoment.getFullYear() === now.getFullYear()) {
-				return;
-			}
-			currentMoment.setMonth(currentMonth + 1);
-		} else {
-			currentMoment.setMonth(currentMonth - 1);
-		}
-		this.showDay(currentMoment);
-	}
+    /**
+	 * computed value that indicates should month choice view be shown
+	 */
+    public get isMonthChoiceShown(): boolean {
+        return this.showType === DisplayedType.Month;
+    }
 
-	public checkDay(obj) {
-		if (obj.unavailable || obj.value === '') {
-			return false;
-		}
-		if (!obj.inMonth) {
-			this.nextMonth(obj.action);
+    /**
+	 * computed value that indicates should year choice view be shown
+	 */
+    public get isYearChoiceShown(): boolean {
+        return this.showType === DisplayedType.Year;
+    }
 
-			return;
-		}
+    /**
+	 * nextMonth set month depends on day action
+	 * @param action
+	 */
+    public nextMonth(action: DayAction): void {
+        const currentMoment = new Date(this.selectedDateState.year, this.selectedDateState.month, this.selectedDateState.day);
+        const currentMonth = currentMoment.getMonth();
+        const now = new Date();
 
-		if (obj.checked) {
-			obj.checked = false;
-			this.selectedDays.splice(this.selectedDays.indexOf(obj.moment), 1);
+        switch (action) {
+            case DayAction.Next:
+                if (currentMonth === now.getMonth() && currentMoment.getFullYear() === now.getFullYear()) {
+                    return;
+                }
 
-			return;
-		}
+                currentMoment.setMonth(currentMonth + 1);
+                break;
+            case DayAction.Previous:
+                currentMoment.setMonth(currentMonth - 1);
+                break;
+        }
 
-		if (this.selectedDays.length < 2) {
-			this.selectedDays.push(obj.moment);
-			obj.checked = true;
-		}
+        this.populateDays(currentMoment);
+    }
 
-		if (this.selectedDays.length === 2) {
-			this.submitSelectedDays();
-		}
-	}
+    /**
+	 * checkDay toggle checked property of day object
+	 * and submit selectedDays if max count reached
+	 *
+	 * @param day represent day object to check/uncheck
+	 */
+    public checkDay(day: DayItem): void {
+        if (day.unavailable || !day.value) {
+            return;
+        }
 
-	public setYear(year) {
-		this.checked.currentMoment = new Date(year, this.checked.month, this.checked.day);
-		this.showDay(this.checked.currentMoment);
-	}
+        if (!day.inMonth) {
+            this.nextMonth(day.action);
 
-	public setMonth(month) {
-		const mo = this.monthLibrary.indexOf(month);
+            return;
+        }
 
-		this.checked.currentMoment = new Date(this.checked.year, mo, this.checked.day);
-		this.showDay(this.checked.currentMoment);
-	}
+        if (day.checked) {
+            day.checked = false;
+            this.selectedDays.splice(this.selectedDays.indexOf(day.moment), 1);
 
-	public dismiss(evt) {
-		if (evt.target.className !== 'datepicker-overlay') {
-			return;
-		}
-		if (!this.option.dismissible) {
-			return;
-		}
+            return;
+        }
 
-		this.selectedDays = [];
+        if (this.selectedDays.length < this.MAX_DAYS_SELECTED) {
+            this.selectedDays.push(day.moment);
+            day.checked = true;
+        }
 
-		this.showInfo.check = false;
-		this.$emit('cancel');
-	}
+        if (this.selectedDays.length === this.MAX_DAYS_SELECTED) {
+            this.submitSelectedDays();
+        }
+    }
 
-	public showCheck() {
-		this.showDay();
-		this.showInfo.check = true;
-	}
+    /**
+	 * setYear select chosen year
+	 *
+	 * @param year
+	 */
+    public setYear(year): void {
+        this.populateDays(new Date(year, this.selectedDateState.month, this.selectedDateState.day));
+    }
 
-	public showYear() {
-		const year = new Date().getFullYear();
-		this.yearLibrary = [];
-		const yearTmp = [];
-		for (let i = year - 100; i <= year; i++) {
-			yearTmp.unshift(i);
-		}
-		this.yearLibrary = yearTmp;
-		this.showInfo.day = false;
-		this.showInfo.year = true;
-		this.showInfo.month = false;
-	}
+    /**
+	 * setYear select chosen month
+	 *
+	 * @param month
+	 */
+    public setMonth(month): void {
+        const monthIndex = this.monthLibrary.indexOf(month);
 
-	public showMonth(): void {
-		this.showInfo.day = false;
-		this.showInfo.year = false;
-		this.showInfo.month = true;
-	}
+        this.populateDays(new Date(this.selectedDateState.year, monthIndex, this.selectedDateState.day));
+    }
 
-	private submitSelectedDays(): void {
-		this.$emit('change', this.selectedDays);
-		this.showInfo.check = false;
-		this.selectedDays = [];
-	}
+    /**
+	 * dismiss closes popup and clears values
+	 *
+	 * @param evt mouse event
+	 */
+    public dismiss(evt): void {
+        if (evt.target.className !== 'datepicker-overlay') {
+            return;
+        }
 
-	private showDay(time: Date = new Date()) {
-		this.checked.currentMoment = new Date(time.getFullYear(), time.getMonth(), time.getDate());
-		this.showDays();
-		this.checked.year = this.checked.currentMoment.getFullYear();
-		this.checked.month = this.checked.currentMoment.getMonth();
-		this.checked.day = this.checked.currentMoment.getDate();
-		this.displayInfo.month = this.monthLibrary[this.checked.month];
-		const days = [];
-		const firstDate = new Date(this.checked.year, this.checked.month, this.checked.day);
-		firstDate.setDate(1);
-		let firstDay = firstDate.getDay();
-		const previousMonth = new Date(this.checked.year, this.checked.month, this.checked.day);
-		const nextMonth = new Date(this.checked.year, this.checked.month, this.checked.day);
-		nextMonth.setMonth(nextMonth.getMonth() + 1);
-		previousMonth.setMonth(previousMonth.getMonth() - 1);
-		const monthDays = new Date(this.checked.year, parseInt(this.checked.month) + 1, 0).getDate();
-		const now = new Date();
-		const nowMonth = now.getMonth();
-		for (let i = 1; i <= monthDays; i++) {
-			const moment = new Date(this.checked.year, this.checked.month, this.checked.day);
-			moment.setDate(i);
-			days.push({
-				value: i,
-				inMonth: this.checked.month !== nowMonth || (this.checked.month === nowMonth && i <= now.getDate()),
-				unavailable: false,
-				checked: false,
-				moment,
-			});
-		}
-		if (firstDay === 0) firstDay = 7;
-		const daysInPreviousMonth = new Date(previousMonth.getFullYear(), previousMonth.getMonth() + 1, 0).getDate();
-		for (let _i = 0; _i < firstDay - (this.option.isSundayFirst ? 0 : 1); _i++) {
-			const moment = new Date(this.checked.year, this.checked.month, this.checked.day);
-			moment.setDate(1);
-			moment.setMonth(moment.getMonth() - 1);
-			moment.setDate(new Date(moment.getFullYear(), moment.getMonth() + 1, 0).getDate() - _i);
-			const passiveDay = {
-				value: daysInPreviousMonth - _i,
-				inMonth: false,
-				action: 'previous',
-				unavailable: false,
-				checked: false,
-				moment,
-			};
-			days.unshift(passiveDay);
-		}
-		const passiveDaysAtFinal = 42 - days.length;
-		for (let _i2 = 1; _i2 <= passiveDaysAtFinal; _i2++) {
-			const moment = new Date(this.checked.year, this.checked.month, this.checked.day);
-			moment.setMonth(moment.getMonth() + 1);
-			moment.setDate(_i2);
-			const _passiveDay = {
-				value: _i2,
-				inMonth: false,
-				action: 'next',
-				unavailable: false,
-				checked: false,
-				moment,
-			};
-			days.push(_passiveDay);
-		}
-		this.markToday(days);
-		this.dayList = days;
-	}
+        if (!this.option.dismissible) {
+            return;
+        }
 
-	private markToday(days) {
-		const now = new Date();
-		const yearNow = now.getFullYear();
-		const monthNow = now.getMonth();
-		const dateNow = now.getDate();
+        this.selectedDays = [];
 
-		days.forEach((day: any) => {
-			if (day.moment.getFullYear() === yearNow && day.moment.getMonth() === monthNow && day.moment.getDate() === dateNow) {
-				day.today = true;
-			}
-		});
-	}
+        this.isChecking = false;
+    }
 
-	private showDays(): void {
-		this.showInfo.day = true;
-		this.showInfo.year = false;
-		this.showInfo.month = false;
-	}
+    /**
+	 * showCheck used for external popup opening
+	 */
+    public showCheck(): void {
+        this.populateDays();
+        this.isChecking = true;
+    }
+
+    /**
+	 * showYear used for opening choose year view
+	 */
+    public showYear(): void {
+        this.showType = DisplayedType.Year;
+    }
+
+    /**
+	 * showMonth used for opening choose month view
+	 */
+    public showMonth(): void {
+        this.showType = DisplayedType.Month;
+    }
+
+    /**
+	 * submitSelectedDays emits function to receive selected dates externally and then clears state
+	 */
+    private submitSelectedDays(): void {
+        this.$emit('change', this.selectedDays);
+        this.isChecking = false;
+        this.selectedDays = [];
+    }
+
+    /**
+	 * setChecked set selectedDateState for displaying selected date stamp
+	 *
+	 * @param time
+	 */
+    private setChecked(time: Date): void {
+        this.selectedDateState.year = time.getFullYear();
+        this.selectedDateState.month = time.getMonth();
+        this.selectedDateState.day = time.getDate();
+    }
+
+    /**
+	 * populateDays used for populating date items into calendars depends on selected date
+	 *
+	 * @param date
+	 */
+    private populateDays(date: Date = new Date()): void {
+        this.setChecked(date);
+
+        this.showType = DisplayedType.Day;
+
+        this.displayedMonth = this.monthLibrary[this.selectedDateState.month];
+
+        this.dayList = this.dateGenerator.populateDays(this.selectedDateState, false);
+    }
 }
 </script>
 

@@ -39,6 +39,6 @@
   "exclude": [
     "node_modules",
     // TODO: temporary file
-    "src/components/project/DatePicker.vue"
+    "src/components/common/VDatePicker.vue"
   ]
 }
