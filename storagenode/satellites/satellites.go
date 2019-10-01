@@ -26,8 +26,8 @@ const (
 	ExitFailed
 )
 
-//ExitProcess contains the status of a graceful exit
-type ExitProcess struct {
+//ExitProgress contains the status of a graceful exit
+type ExitProgress struct {
 	SatelliteID       storj.NodeID
 	InitiatedAt       *time.Time
 	FinishedAt        *time.Time
@@ -47,5 +47,5 @@ type DB interface {
 	// CompleteGracefulExit updates the database when a graceful exit is completed or failed
 	CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus Status, completionReceipt []byte) error
 	// ListGracefulExits lists all graceful exit records
-	ListGracefulExits(ctx context.Context) ([]ExitProcess, error)
+	ListGracefulExits(ctx context.Context) ([]ExitProgress, error)
 }
