@@ -31,6 +31,8 @@ export default class App extends Vue {
                 'sortTeamMemberByDropdownButton',
                 'notificationArea',
                 'successfulRegistrationPopup',
+                'paymentSelectButton',
+                'paymentSelect',
             ];
 
     private onClick(e: Event): void {
@@ -52,6 +54,15 @@ export default class App extends Vue {
         margin: 0 !important;
         height: 100vh;
         zoom: 100%;
+    }
+
+    img,
+    a {
+        -webkit-user-drag: none;
+        -khtml-user-drag: none;
+        -moz-user-drag: none;
+        -o-user-drag: none;
+        user-drag: none;
     }
 
     @font-face {

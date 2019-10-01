@@ -34,30 +34,29 @@ type Config struct {
 type Service struct {
 	log *zap.Logger
 
-	mutex *sync.Mutex
-	self  *overlay.NodeDossier
+	mu   sync.Mutex
+	self *overlay.NodeDossier
 }
 
 // NewService creates a new contact service
 func NewService(log *zap.Logger, self *overlay.NodeDossier) *Service {
 	return &Service{
-		log:   log,
-		mutex: &sync.Mutex{},
-		self:  self,
+		log:  log,
+		self: self,
 	}
 }
 
 // Local returns the storagenode node-dossier
 func (service *Service) Local() overlay.NodeDossier {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
+	service.mu.Lock()
+	defer service.mu.Unlock()
 	return *service.self
 }
 
 // UpdateSelf updates the local node with the capacity
 func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
+	service.mu.Lock()
+	defer service.mu.Unlock()
 	if capacity != nil {
 		service.self.Capacity = *capacity
 	}

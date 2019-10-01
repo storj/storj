@@ -6,7 +6,8 @@
     "serve": "vue-cli-service serve",
     "lint": "vue-cli-service lint",
     "test": "vue-cli-service test:unit",
-    "build": "vue-cli-service build"
+    "build": "vue-cli-service build",
+    "dev": "vue-cli-service build --mode development"
   },
   "dependencies": {
     "apollo-cache-inmemory": "1.6.3",

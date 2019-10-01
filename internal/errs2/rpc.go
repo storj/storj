@@ -5,13 +5,13 @@ package errs2
 
 import (
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+
+	"storj.io/storj/pkg/rpc/rpcstatus"
 )
 
 // IsRPC checks if err contains an RPC error with the given status code.
-func IsRPC(err error, code codes.Code) bool {
+func IsRPC(err error, code rpcstatus.StatusCode) bool {
 	return errs.IsFunc(err, func(err error) bool {
-		return status.Code(err) == code
+		return rpcstatus.Code(err) == code
 	})
 }
