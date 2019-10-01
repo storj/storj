@@ -1,9 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ProjectUsageApiGql } from '@/api/usage';
 import { StoreModule } from '@/store';
-import { DateRange, ProjectUsage } from '@/types/usage';
+import { DateRange, ProjectUsage, UsageApi } from '@/types/usage';
 
 export const PROJECT_USAGE_ACTIONS = {
     FETCH: 'fetchProjectUsage',
@@ -26,7 +25,7 @@ class UsageState {
     public endDate: Date = new Date();
 }
 
-export function makeUsageModule(api: ProjectUsageApiGql): StoreModule<UsageState> {
+export function makeUsageModule(api: UsageApi): StoreModule<UsageState> {
     return {
         state: new UsageState(),
         mutations: {

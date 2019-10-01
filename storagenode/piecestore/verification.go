@@ -9,11 +9,10 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 )
 
@@ -35,35 +34,35 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	now := time.Now()
 	switch {
 	case limit.Limit < 0:
-		return status.Error(codes.InvalidArgument, "order limit is negative")
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "order limit is negative")
 	case endpoint.signer.ID() != limit.StorageNodeId:
-		return status.Errorf(codes.InvalidArgument, "order intended for other storagenode: %v", limit.StorageNodeId)
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order intended for other storagenode: %v", limit.StorageNodeId)
 	case endpoint.IsExpired(limit.PieceExpiration):
-		return status.Errorf(codes.InvalidArgument, "piece expired: %v", limit.PieceExpiration)
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
-		return status.Errorf(codes.InvalidArgument, "order expired: %v", limit.OrderExpiration)
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order expired: %v", limit.OrderExpiration)
 	case now.Sub(limit.OrderCreation) > endpoint.config.OrderLimitGracePeriod:
-		return status.Errorf(codes.InvalidArgument, "order created too long ago: %v", limit.OrderCreation)
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too long ago: %v", limit.OrderCreation)
 	case limit.SatelliteId.IsZero():
-		return status.Errorf(codes.InvalidArgument, "missing satellite id")
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing satellite id")
 	case limit.UplinkPublicKey.IsZero():
-		return status.Errorf(codes.InvalidArgument, "missing uplink public key")
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing uplink public key")
 	case len(limit.SatelliteSignature) == 0:
-		return status.Errorf(codes.InvalidArgument, "missing satellite signature")
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing satellite signature")
 	case limit.PieceId.IsZero():
-		return status.Errorf(codes.InvalidArgument, "missing piece id")
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing piece id")
 	}
 
 	if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
-		return status.Errorf(codes.PermissionDenied, "untrusted: %+v", err)
+		return rpcstatus.Errorf(rpcstatus.PermissionDenied, "untrusted: %+v", err)
 	}
 
 	if err := endpoint.VerifyOrderLimitSignature(ctx, limit); err != nil {
 		if errs2.IsCanceled(err) {
-			return status.Error(codes.Canceled, "context has been canceled")
+			return rpcstatus.Error(rpcstatus.Canceled, "context has been canceled")
 		}
 
-		return status.Errorf(codes.Unauthenticated, "untrusted: %+v", err)
+		return rpcstatus.Errorf(rpcstatus.Unauthenticated, "untrusted: %+v", err)
 	}
 
 	serialExpiration := limit.OrderExpiration
@@ -74,7 +73,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	}
 
 	if err := endpoint.usedSerials.Add(ctx, limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
-		return status.Errorf(codes.Unauthenticated, "serial number is already used: %+v", err)
+		return rpcstatus.Errorf(rpcstatus.Unauthenticated, "serial number is already used: %+v", err)
 	}
 
 	return nil
@@ -85,14 +84,14 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, limit *pb.OrderLimit,
 	defer mon.Task()(&ctx)(&err)
 
 	if order.SerialNumber != limit.SerialNumber {
-		return ErrProtocol.New("order serial number changed during upload") // TODO: report grpc status bad message
+		return ErrProtocol.New("order serial number changed during upload") // TODO: report rpc status bad message
 	}
 	// TODO: add check for minimum allocation step
 	if order.Amount < largestOrderAmount {
-		return ErrProtocol.New("order contained smaller amount=%v, previous=%v", order.Amount, largestOrderAmount) // TODO: report grpc status bad message
+		return ErrProtocol.New("order contained smaller amount=%v, previous=%v", order.Amount, largestOrderAmount) // TODO: report rpc status bad message
 	}
 	if order.Amount > limit.Limit {
-		return ErrProtocol.New("order exceeded allowed amount=%v, limit=%v", order.Amount, limit.Limit) // TODO: report grpc status bad message
+		return ErrProtocol.New("order exceeded allowed amount=%v, limit=%v", order.Amount, limit.Limit) // TODO: report rpc status bad message
 	}
 
 	if err := signing.VerifyUplinkOrderSignature(ctx, limit.UplinkPublicKey, order); err != nil {
@@ -110,14 +109,14 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, limit *pb.OrderLi
 		return ErrProtocol.New("invalid arguments")
 	}
 	if limit.PieceId != hash.PieceId {
-		return ErrProtocol.New("piece id changed") // TODO: report grpc status bad message
+		return ErrProtocol.New("piece id changed") // TODO: report rpc status bad message
 	}
 	if !bytes.Equal(hash.Hash, expectedHash) {
-		return ErrProtocol.New("hashes don't match") // TODO: report grpc status bad message
+		return ErrProtocol.New("hashes don't match") // TODO: report rpc status bad message
 	}
 
 	if err := signing.VerifyUplinkPieceHashSignature(ctx, limit.UplinkPublicKey, hash); err != nil {
-		return ErrVerifyUntrusted.New("invalid piece hash signature") // TODO: report grpc status bad message
+		return ErrVerifyUntrusted.New("invalid piece hash signature") // TODO: report rpc status bad message
 	}
 
 	return nil
@@ -132,11 +131,11 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 		if errs2.IsCanceled(err) {
 			return err
 		}
-		return ErrVerifyUntrusted.New("unable to get signee: %v", err) // TODO: report grpc status bad message
+		return ErrVerifyUntrusted.New("unable to get signee: %v", err) // TODO: report rpc status bad message
 	}
 
 	if err := signing.VerifyOrderLimitSignature(ctx, signee, limit); err != nil {
-		return ErrVerifyUntrusted.New("invalid order limit signature: %v", err) // TODO: report grpc status bad message
+		return ErrVerifyUntrusted.New("invalid order limit signature: %v", err) // TODO: report rpc status bad message
 	}
 
 	return nil

@@ -2,7 +2,7 @@
 
 exports[`ApiKeysArea renders correctly 1`] = `
 <div class="api-keys-area">
-  <h1>API Keys</h1>
+  <h1 class="api-keys-area__title">API Keys</h1>
   <div class="api-keys-area__container">
     <apikeyscreationpopup-stub></apikeyscreationpopup-stub>
     <apikeyscopypopup-stub apikeysecret=""></apikeyscopypopup-stub>
@@ -38,7 +38,7 @@ exports[`ApiKeysArea renders correctly 1`] = `
 
 exports[`ApiKeysArea renders empty screen with add key prompt 1`] = `
 <div class="api-keys-area">
-  <h1>API Keys</h1>
+  <h1 class="api-keys-area__title">API Keys</h1>
   <div class="api-keys-area__container">
     <apikeyscreationpopup-stub></apikeyscreationpopup-stub>
     <apikeyscopypopup-stub apikeysecret=""></apikeyscopypopup-stub>
@@ -74,7 +74,7 @@ exports[`ApiKeysArea renders empty screen with add key prompt 1`] = `
 
 exports[`ApiKeysArea renders empty search state correctly 1`] = `
 <div class="api-keys-area">
-  <h1>API Keys</h1>
+  <h1 class="api-keys-area__title">API Keys</h1>
   <div class="api-keys-area__container">
     <apikeyscreationpopup-stub></apikeyscreationpopup-stub>
     <apikeyscopypopup-stub apikeysecret=""></apikeyscopypopup-stub>
