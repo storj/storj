@@ -36,7 +36,9 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow'
-                        sh 'go vet -vettool=$(which shadow) go list ./... | grep -v vendor'
+                        // Disable due to bugs in go1.13 implementation: https://github.com/golang/go/issues/34053
+                        //sh 'go vet -vettool=$(which shadow) ./...'
+                        sh 'shadow ./...'
                         sh 'go run ./scripts/check-copyright.go'
                         sh 'go run ./scripts/check-large-files.go'
                         sh 'go run ./scripts/check-imports.go -race ./...'
