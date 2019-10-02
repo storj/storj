@@ -295,6 +295,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
 			signing.SignerFromFullIdentity(peer.Identity),
+			config.Metainfo.MaxCommitInterval,
 		)
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 		pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2)
