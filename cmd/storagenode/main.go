@@ -77,12 +77,21 @@ var (
 		RunE:        cmdDashboard,
 		Annotations: map[string]string{"type": "helper"},
 	}
+	gracefulExitCmd = &cobra.Command{
+		Use:         "exit-satellite",
+		Short:       "Initiate graceful exit",
+		RunE:        cmdGracefulExit,
+		Annotations: map[string]string{"type": "helper"},
+	}
 
 	runCfg       StorageNodeFlags
 	setupCfg     StorageNodeFlags
 	diagCfg      storagenode.Config
 	dashboardCfg struct {
 		Address string `default:"127.0.0.1:7778" help:"address for dashboard service"`
+	}
+	gracefulExitCfg struct {
+		Address string `default:"127.0.0.1:7778" help:"address for graceful exit endpoint"`
 	}
 	defaultDiagDir string
 	confDir        string
@@ -108,11 +117,13 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(dashboardCmd)
+	rootCmd.AddCommand(gracefulExitCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(diagCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(dashboardCmd, &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
+	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {

@@ -1,0 +1,27 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+import "gogo.proto";
+package graceful_exit;
+
+service GracefulExit {
+  // GetSatellitesList returns 
+  rpc GetSatellitesList(GetSatellitesListRequest) returns (GetSatellitesListResponse);
+}
+
+
+// GetSatellitesListRequest
+message GetSatellitesListRequest {}
+
+message Satellite {
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    string domain_name = 2;
+    double space_used = 3;
+}
+
+message GetSatellitesListResponse {
+  repeated Satellite satellite = 1;
+}
