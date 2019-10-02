@@ -54,7 +54,7 @@ export default class ApiKeysCopyPopup extends Vue {
     @Prop({default: ''})
     private readonly apiKeySecret: string;
 
-    private isCopiedButtonShown: boolean = false;
+    public isCopiedButtonShown: boolean = false;
 
     public onCloseClick(): void {
         this.isCopiedButtonShown = false;
