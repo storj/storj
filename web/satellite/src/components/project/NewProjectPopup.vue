@@ -17,8 +17,8 @@
                     width="100%"
                     max-symbols="20"
                     :error="nameError"
-                    @setData="setProjectName">
-                </HeaderedInput>
+                    @setData="setProjectName"
+                />
                 <HeaderedInput
                     label="Description"
                     placeholder="Enter Project Description"
@@ -27,20 +27,22 @@
                     is-multiline="true"
                     height="100px"
                     width="100%"
-                    @setData="setProjectDescription">
-                </HeaderedInput>
+                    @setData="setProjectDescription"
+                />
                 <div class="new-project-popup__form-container__button-container">
                     <VButton
                         label="Cancel"
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
-                        is-white="true"/>
+                        is-white="true"
+                    />
                     <VButton
                         label="Next"
                         width="205px"
                         height="48px"
-                        :on-press="createProjectClick"/>
+                        :on-press="createProjectClick"
+                    />
                 </div>
             </div>
             <div class="new-project-popup__close-cross-container" @click="onCloseClick">
