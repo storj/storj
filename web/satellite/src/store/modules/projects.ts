@@ -22,7 +22,7 @@ export const PROJECTS_MUTATIONS = {
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
 };
 
-const defaultSelectedProject = new Project('', '', '', '', true);
+const defaultSelectedProject = new Project('', '', '', '', '', true);
 
 class ProjectsState {
     public projects: Project[] = [];
@@ -98,7 +98,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 state.projects = state.projects.filter(proj => proj.id !== projectID);
 
                 if (state.selectedProject.id === projectID) {
-                    state.selectedProject = new Project('', '', '', '');
+                    state.selectedProject = new Project('', '', '', '', '');
                 }
             },
             [CLEAR_PROJECTS](state: ProjectsState): void {
