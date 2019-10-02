@@ -56,10 +56,14 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				}, nil
 			}
 
-			if satelliteDB.Name == "Postgres" {
+			if satelliteDB.ForPointerDB {
+				satReconfigure := planetConfig.Reconfigure.Satellite
 				planetConfig.Reconfigure.Satellite = func(log *zap.Logger, index int, config *satellite.Config) {
 					schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo")
 					config.Metainfo.DatabaseURL = pgutil.ConnstrWithSchema(satelliteDB.URL, schema)
+					if satReconfigure != nil {
+						satReconfigure(log, index, config)
+					}
 				}
 			}
 

@@ -26,16 +26,17 @@ const (
 
 // Database describes a test database
 type Database struct {
-	Name    string
-	URL     string
-	Message string
+	Name         string
+	URL          string
+	ForPointerDB bool
+	Message      string
 }
 
 // Databases returns default databases.
 func Databases() []Database {
 	return []Database{
-		{"Sqlite", DefaultSqliteConn, ""},
-		{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},
+		{"Sqlite", DefaultSqliteConn, false, ""},
+		{"Postgres", *pgtest.ConnStr, true, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},
 	}
 }
 
