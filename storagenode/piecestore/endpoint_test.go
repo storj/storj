@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
@@ -497,7 +497,7 @@ func TestTooManyRequests(t *testing.T) {
 			config := piecestore.DefaultConfig
 			config.UploadBufferSize = 0 // disable buffering so we can detect write error early
 
-			client, err := piecestore.Dial(ctx, uplink.Transport, &storageNode.Node, uplink.Log, config)
+			client, err := piecestore.Dial(ctx, uplink.Dialer, &storageNode.Node, uplink.Log, config)
 			if err != nil {
 				return err
 			}
@@ -531,7 +531,7 @@ func TestTooManyRequests(t *testing.T) {
 
 			upload, err := client.Upload(ctx, orderLimit, piecePrivateKey)
 			if err != nil {
-				if errs2.IsRPC(err, codes.Unavailable) {
+				if errs2.IsRPC(err, rpcstatus.Unavailable) {
 					if atomic.AddInt64(&failedCount, -1) == 0 {
 						close(doneWaiting)
 					}
@@ -543,7 +543,7 @@ func TestTooManyRequests(t *testing.T) {
 
 			_, err = upload.Write(make([]byte, orderLimit.Limit))
 			if err != nil {
-				if errs2.IsRPC(err, codes.Unavailable) {
+				if errs2.IsRPC(err, rpcstatus.Unavailable) {
 					if atomic.AddInt64(&failedCount, -1) == 0 {
 						close(doneWaiting)
 					}
@@ -555,7 +555,7 @@ func TestTooManyRequests(t *testing.T) {
 
 			_, err = upload.Commit(ctx)
 			if err != nil {
-				if errs2.IsRPC(err, codes.Unavailable) {
+				if errs2.IsRPC(err, rpcstatus.Unavailable) {
 					if atomic.AddInt64(&failedCount, -1) == 0 {
 						close(doneWaiting)
 					}

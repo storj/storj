@@ -13,11 +13,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
@@ -26,6 +24,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -194,10 +193,8 @@ func assertUnauthenticated(t *testing.T, err error, allowed bool) {
 
 	// If it's allowed, we allow any non-unauthenticated error because
 	// some calls error after authentication checks.
-	if err, ok := status.FromError(errs.Unwrap(err)); ok {
-		assert.Equal(t, codes.Unauthenticated == err.Code(), !allowed)
-	} else if !allowed {
-		assert.Fail(t, "got unexpected error", "%T", err)
+	if !allowed {
+		assert.True(t, errs2.IsRPC(err, rpcstatus.Unauthenticated))
 	}
 }
 
@@ -564,6 +561,34 @@ func TestExpirationTimeSegment(t *testing.T) {
 				assert.False(t, r.errFlag)
 			}
 		}
+	})
+}
+
+func TestMaxCommitInterval(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.MaxCommitInterval = -1 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
+		pointer, limits := runCreateSegment(ctx, t, metainfo, fullIDMap)
+
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not committed before max commit interval")
 	})
 }
 

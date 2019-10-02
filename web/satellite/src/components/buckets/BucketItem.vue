@@ -18,7 +18,7 @@ import { Bucket } from '@/types/buckets';
 // TODO: should it be functional?
 @Component
 export default class BucketItem extends Vue {
-    @Prop()
+    @Prop({default: () => new Bucket('', 0, 0, 0, new Date(), new Date())})
     private readonly itemData: Bucket;
 
     public get storage(): string {
@@ -37,7 +37,7 @@ export default class BucketItem extends Vue {
 
 <style scoped lang="scss">
     .container {
-        padding: 25px 0px;
+        padding: 25px 0;
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;

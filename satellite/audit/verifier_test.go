@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
@@ -21,8 +20,9 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/storagenode"
 )
@@ -77,7 +77,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 // TestDownloadSharesOfflineNode checks that the Share.Error field of the
 // shares returned by the DownloadShares method for offline nodes contain an
 // error that:
-//   - has the transport.Error class
+//   - has the rpc.Error class
 //   - is not a context.DeadlineExceeded error
 //   - is not an RPC error
 //
@@ -128,9 +128,9 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 
 		for _, share := range shares {
 			if share.NodeID == stoppedNodeID {
-				assert.True(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
+				assert.True(t, rpc.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 				assert.False(t, errs.Is(share.Error, context.DeadlineExceeded), "unexpected error: %+v", share.Error)
-				assert.True(t, errs2.IsRPC(share.Error, codes.Unknown), "unexpected error: %+v", share.Error)
+				assert.True(t, errs2.IsRPC(share.Error, rpcstatus.Unknown), "unexpected error: %+v", share.Error)
 			} else {
 				assert.NoError(t, share.Error)
 			}
@@ -187,7 +187,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.True(t, errs2.IsRPC(share.Error, codes.NotFound), "unexpected error: %+v", share.Error)
+			assert.True(t, errs2.IsRPC(share.Error, rpcstatus.NotFound), "unexpected error: %+v", share.Error)
 		}
 	})
 }
@@ -195,7 +195,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 // TestDownloadSharesDialTimeout checks that the Share.Error field of the
 // shares returned by the DownloadShares method for nodes that time out on
 // dialing contain an error that:
-//   - has the transport.Error class
+//   - has the rpc.Error class
 //   - is a context.DeadlineExceeded error
 //   - is not an RPC error
 //
@@ -232,20 +232,13 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		network := &transport.SimulatedNetwork{
-			DialLatency:    200 * time.Second,
-			BytesPerSecond: 1 * memory.KiB,
-		}
-
-		tlsOpts, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
+		tlsOptions, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
-		newTransport := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
-			Dial: 20 * time.Millisecond,
-		})
-
-		slowClient := network.NewClient(newTransport)
-		require.NotNil(t, slowClient)
+		dialer := rpc.NewDefaultDialer(tlsOptions)
+		dialer.DialTimeout = 20 * time.Millisecond
+		dialer.DialLatency = 200 * time.Second
+		dialer.TransferRate = 1 * memory.KB
 
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel with timeout.
@@ -254,7 +247,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		verifier := audit.NewVerifier(
 			satellite.Log.Named("verifier"),
 			satellite.Metainfo.Service,
-			slowClient,
+			dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
 			satellite.Orders.Service,
@@ -270,7 +263,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.True(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
+			assert.True(t, rpc.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 			assert.True(t, errs.Is(share.Error, context.DeadlineExceeded), "unexpected error: %+v", share.Error)
 		}
 	})
@@ -280,7 +273,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 // shares returned by the DownloadShares method for nodes that are successfully
 // dialed, but time out during the download of the share contain an error that:
 //   - is an RPC error with code DeadlineExceeded
-//   - does not have the transport.Error class
+//   - does not have the rpc.Error class
 //
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
@@ -329,7 +322,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		verifier := audit.NewVerifier(
 			satellite.Log.Named("verifier"),
 			satellite.Metainfo.Service,
-			satellite.Transport,
+			satellite.Dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
 			satellite.Orders.Service,
@@ -350,8 +343,8 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 
 		require.Len(t, shares, 1)
 		share := shares[0]
-		assert.True(t, errs2.IsRPC(share.Error, codes.DeadlineExceeded), "unexpected error: %+v", share.Error)
-		assert.False(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
+		assert.True(t, errs2.IsRPC(share.Error, rpcstatus.DeadlineExceeded), "unexpected error: %+v", share.Error)
+		assert.False(t, rpc.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 	})
 }
 
@@ -491,20 +484,13 @@ func TestVerifierDialTimeout(t *testing.T) {
 		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
-		network := &transport.SimulatedNetwork{
-			DialLatency:    200 * time.Second,
-			BytesPerSecond: 1 * memory.KiB,
-		}
-
-		tlsOpts, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
+		tlsOptions, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
 
-		newTransport := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
-			Dial: 20 * time.Millisecond,
-		})
-
-		slowClient := network.NewClient(newTransport)
-		require.NotNil(t, slowClient)
+		dialer := rpc.NewDefaultDialer(tlsOptions)
+		dialer.DialTimeout = 20 * time.Millisecond
+		dialer.DialLatency = 200 * time.Second
+		dialer.TransferRate = 1 * memory.KB
 
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel with timeout.
@@ -513,7 +499,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		verifier := audit.NewVerifier(
 			satellite.Log.Named("verifier"),
 			satellite.Metainfo.Service,
-			slowClient,
+			dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
 			satellite.Orders.Service,

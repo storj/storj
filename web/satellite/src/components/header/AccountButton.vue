@@ -3,20 +3,20 @@
 
 <template>
     <div class="account-button-container" id="accountDropdownButton">
-        <div class="account-button-toggle-container" v-on:click="toggleSelection" >
+        <div class="account-button-toggle-container" @click="toggleSelection">
             <!-- background of this div generated and stores in store -->
             <div class="account-button-toggle-container__avatar">
                 <!-- First digit of firstName after Registration -->
                 <!-- img if avatar was set -->
-                <h1>{{avatarLetter}}</h1>
+                <h1 class="account-button-toggle-container__avatar__letter">{{avatarLetter}}</h1>
             </div>
             <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
             <div class="account-button-toggle-container__expander-area">
-                <img v-if="!isDropdownShown" src="../../../static/images/register/BlueExpand.svg"  alt="expand settings" />
-                <img v-if="isDropdownShown" src="../../../static/images/register/BlueHide.svg"  alt="hide settings" />
+                <img v-if="!isDropdownShown" src="@/../static/images/register/BlueExpand.svg"  alt="expand settings"/>
+                <img v-if="isDropdownShown" src="@/../static/images/register/BlueHide.svg"  alt="hide settings"/>
             </div>
         </div>
-        <AccountDropdown v-if="isDropdownShown" />
+        <AccountDropdown v-if="isDropdownShown"/>
     </div>
 </template>
 
@@ -52,11 +52,6 @@ export default class AccountButton extends Vue {
 </script>
 
 <style scoped lang="scss">
-    a {
-        text-decoration: none;
-        outline: none;
-    }
-
     .account-button-container {
         position: relative;
         background-color: #FFFFFF;
@@ -96,7 +91,7 @@ export default class AccountButton extends Vue {
             justify-content: center;
             background: #E8EAF2;
 
-            h1 {
+            &__letter {
                 font-family: 'font_medium';
                 font-size: 16px;
                 line-height: 23px;
