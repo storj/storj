@@ -9,12 +9,12 @@
                 v-for="(stat, key) in stats"
                 :key="key"
                 :style="stat.background">
-                    <span class="referral-stats__card-text">
-                        <span class="referral-stats__card-title">{{ stat.title }}</span>
-                        <span class="referral-stats__card-description">{{ stat.description }}</span>
-                    </span>
-                    <br>
-                    <span class="referral-stats__card-number">{{ stat.symbol + usage[key] }}</span>
+                <span class="referral-stats__card-text">
+                    <span class="referral-stats__card-title">{{ stat.title }}</span>
+                    <span class="referral-stats__card-description">{{ stat.description }}</span>
+                </span>
+                <br>
+                <span class="referral-stats__card-number">{{ stat.symbol + usage[key] }}</span>
             </div>
         </div>
     </div>

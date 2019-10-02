@@ -7,7 +7,11 @@
         <p class="remaining-space-container__amount"><b>{{remaining}}GB</b></p>
         <div class="remaining-space-container__bar">
             <VInfo :text="infoMessage">
-                <VBar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
+                <VBar
+                    :current="currentBarAmount"
+                    :max="maxBarAmount"
+                    color="#224CA5"
+                />
             </VInfo>
         </div>
     </div>

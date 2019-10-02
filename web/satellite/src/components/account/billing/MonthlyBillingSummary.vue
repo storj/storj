@@ -13,7 +13,8 @@
                 <VButton
                     label="Earn Credits"
                     width="153px"
-                    height="48px"/>
+                    height="48px"
+                />
             </div>
         </div>
         <div class="current-month-area__content">
