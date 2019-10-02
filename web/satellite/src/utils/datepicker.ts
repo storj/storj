@@ -3,7 +3,8 @@
 
 export class Options {
     public constructor(
-        public week: string[] = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+        public mondayFirstWeek: string[] = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+        public sundayFirstWeek: string[] = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
         public month: string[] = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
         public color = {
             checked: '#2683FF',
@@ -83,7 +84,7 @@ export class DateGenerator {
     public populateYears(): number[] {
         const year = new Date().getFullYear();
         const years: number[] = [];
-        for (let i = year - 100; i <= year; i++) {
+        for (let i = year - 99; i <= year; i++) {
             years.unshift(i);
         }
 

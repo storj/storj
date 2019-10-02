@@ -1,3 +1,4 @@
+import {DayAction} from "@/utils/datepicker";
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -9,12 +10,12 @@
 		<div class="datepicker-overlay" v-if="isChecking" @click="dismiss($event)" :style="{'background' : option.overlayOpacity? 'rgba(0,0,0,'+option.overlayOpacity+')' : 'rgba(0,0,0,0.5)'}">
 			<div class="cov-date-body" :style="{'background-color': option.color ? option.color.header : '#3f51b5'}">
 				<div class="cov-date-monthly">
-					<div class="cov-date-previous" @click="nextMonth('pre')">«</div>
+					<div class="cov-date-previous" @click="onPreviousMonthClick">«</div>
 					<div class="cov-date-caption" :style="{'color': option.color ? option.color.headerText : '#fff'}">
-						<span @click="showYear">{{checked.year}}</span>
-						<span @click="showMonth">{{displayedMonth}}</span>
+						<span class="year-selection" @click="showYear">{{selectedDateState.year}}</span>
+						<span class="month-selection" @click="showMonth">{{displayedMonth}}</span>
 					</div>
-					<div class="cov-date-next" @click="nextMonth('next')">»</div>
+					<div class="cov-date-next" @click="onNextMonthClick">»</div>
 				</div>
 				<div class="cov-date-box" v-if="isDaysChoiceShown">
 					<div class="cov-picker-box">
@@ -28,12 +29,12 @@
 				</div>
 				<div class="cov-date-box list-box" v-if="isYearChoiceShown">
 					<div class="cov-picker-box date-list" id="yearList">
-						<div class="date-item" v-for="yearItem in yearLibrary" :key="yearItem" @click="setYear(yearItem)">{{yearItem}}</div>
+						<div class="date-item year" v-for="yearItem in yearLibrary" :key="yearItem" @click="setYear(yearItem)">{{yearItem}}</div>
 					</div>
 				</div>
 				<div class="cov-date-box list-box" v-if="isMonthChoiceShown">
 					<div class="cov-picker-box date-list">
-						<div class="date-item" v-for="monthItem in monthLibrary" :key="monthItem" @click="setMonth(monthItem)">{{monthItem}}</div>
+						<div class="date-item month" v-for="monthItem in monthLibrary" :key="monthItem" @click="setMonth(monthItem)">{{monthItem}}</div>
 					</div>
 				</div>
 			</div>
@@ -41,28 +42,39 @@
 	</div>
 </template>
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+	import {Component, Prop, Vue} from "vue-property-decorator";
 
-import { DateGenerator, DateStamp, DayAction, DayItem, DisplayedType, Options } from '@/utils/datepicker';
+	import {DateGenerator, DateStamp, DayAction, DayItem, DisplayedType, Options} from "@/utils/datepicker";
 
-@Component
-export default class VDatePicker extends Vue {
+	@Component
+	export default class VDatePicker extends Vue {
 
     @Prop({default: () => new Options()})
     private option: Options;
+	@Prop({default: () => false})
+	private isSundayFirst: boolean;
 
     private readonly MAX_DAYS_SELECTED = 2;
     private showType: number = DisplayedType.Day;
-    private dateGenerator = new DateGenerator();
+    private dateGenerator: DateGenerator = new DateGenerator();
     public isChecking = false;
 
-    public weekLibrary: string[] = this.option.week;
-    public monthLibrary: string[] = this.option.month;
-    public displayedMonth: string = this.monthLibrary[0];
+    public weekLibrary: string[] = [];
+    public monthLibrary: string[] = [];
+    public displayedMonth: string;
     public selectedDateState: DateStamp = new DateStamp(0, 0, 0);
     public dayList: DayItem[] = [];
     public selectedDays: Date[] = [];
-    public yearLibrary: number[] = this.dateGenerator.populateYears();
+    public yearLibrary: number[] = [];
+
+    public constructor() {
+    	super();
+
+		this.weekLibrary = this.isSundayFirst ? this.option.sundayFirstWeek : this.option.mondayFirstWeek;
+		this.monthLibrary = this.option.month;
+		this.displayedMonth = this.monthLibrary[0];
+		this.yearLibrary = this.dateGenerator.populateYears();
+	}
 
     /**
 	 * computed value that indicates should days view be shown
@@ -85,30 +97,19 @@ export default class VDatePicker extends Vue {
         return this.showType === DisplayedType.Year;
     }
 
-    /**
-	 * nextMonth set month depends on day action
-	 * @param action
+	/**
+	 * nextMonth set previous month
 	 */
-    public nextMonth(action: DayAction): void {
-        const currentMoment = new Date(this.selectedDateState.year, this.selectedDateState.month, this.selectedDateState.day);
-        const currentMonth = currentMoment.getMonth();
-        const now = new Date();
+    public onPreviousMonthClick(): void {
+    	this.nextMonth(DayAction.Previous);
+	}
 
-        switch (action) {
-            case DayAction.Next:
-                if (currentMonth === now.getMonth() && currentMoment.getFullYear() === now.getFullYear()) {
-                    return;
-                }
-
-                currentMoment.setMonth(currentMonth + 1);
-                break;
-            case DayAction.Previous:
-                currentMoment.setMonth(currentMonth - 1);
-                break;
-        }
-
-        this.populateDays(currentMoment);
-    }
+	/**
+	 * nextMonth set next month
+	 */
+	public onNextMonthClick(): void {
+		this.nextMonth(DayAction.Next);
+	}
 
     /**
 	 * checkDay toggle checked property of day object
@@ -158,7 +159,7 @@ export default class VDatePicker extends Vue {
 	 *
 	 * @param month
 	 */
-    public setMonth(month): void {
+    public setMonth(month: string): void {
         const monthIndex = this.monthLibrary.indexOf(month);
 
         this.populateDays(new Date(this.selectedDateState.year, monthIndex, this.selectedDateState.day));
@@ -205,6 +206,31 @@ export default class VDatePicker extends Vue {
         this.showType = DisplayedType.Month;
     }
 
+	/**
+	 * nextMonth set month depends on day action
+	 * @param action
+	 */
+	private nextMonth(action: DayAction): void {
+		const currentMoment = new Date(this.selectedDateState.year, this.selectedDateState.month, this.selectedDateState.day);
+		const currentMonth = currentMoment.getMonth();
+		const now = new Date();
+
+		switch (action) {
+			case DayAction.Next:
+				if (currentMonth === now.getMonth() && currentMoment.getFullYear() === now.getFullYear()) {
+					return;
+				}
+
+				currentMoment.setMonth(currentMonth + 1);
+				break;
+			case DayAction.Previous:
+				currentMoment.setMonth(currentMonth - 1);
+				break;
+		}
+
+		this.populateDays(currentMoment);
+	}
+
     /**
 	 * submitSelectedDays emits function to receive selected dates externally and then clears state
 	 */
@@ -237,7 +263,7 @@ export default class VDatePicker extends Vue {
 
         this.displayedMonth = this.monthLibrary[this.selectedDateState.month];
 
-        this.dayList = this.dateGenerator.populateDays(this.selectedDateState, false);
+        this.dayList = this.dateGenerator.populateDays(this.selectedDateState, this.isSundayFirst);
     }
 }
 </script>
@@ -529,7 +555,7 @@ export default class VDatePicker extends Vue {
 		font-family: 'font_medium';
 	}
 	.today {
-		background: red;
+		background: lightblue;
 		color: white;
 	}
 </style>
