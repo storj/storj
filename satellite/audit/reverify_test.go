@@ -566,7 +566,9 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		// reverify the new path
 		report, err = audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
-		assert.Empty(t, report)
+		assert.Empty(t, report.Fails)
+		assert.Empty(t, report.Successes)
+		assert.Empty(t, report.PendingAudits)
 
 		// expect that the node was removed from containment since the segment it was contained for has been deleted
 		_, err = containment.Get(ctx, nodeID)
@@ -650,7 +652,9 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		// reverify the path that was not modified
 		report, err := audits.Verifier.Reverify(ctx, reverifyPath)
 		require.NoError(t, err)
-		assert.Empty(t, report)
+		assert.Empty(t, report.Fails)
+		assert.Empty(t, report.Successes)
+		assert.Empty(t, report.PendingAudits)
 
 		// expect that the node was removed from containment since the segment it was contained for has been changed
 		_, err = containment.Get(ctx, nodeID)
