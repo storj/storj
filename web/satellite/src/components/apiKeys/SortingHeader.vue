@@ -6,14 +6,16 @@
         <div class="sort-header-container__name-item" @click="onHeaderItemClick(ApiKeyOrderBy.NAME)">
             <p class="sort-header-container__name-item__title">Key Name</p>
             <VerticalArrows
-                :isActive="getSortBy === ApiKeyOrderBy.NAME"
-                :direction="getSortDirection"></VerticalArrows>
+                :isActive="areApiKeysSortedByName"
+                :direction="getSortDirection"
+            />
         </div>
         <div class="sort-header-container__date-item" @click="onHeaderItemClick(ApiKeyOrderBy.CREATED_AT)">
             <p class="sort-header-container__date-item__title">Created</p>
             <VerticalArrows
-                :isActive="getSortBy === ApiKeyOrderBy.CREATED_AT"
-                :direction="getSortDirection"></VerticalArrows>
+                :isActive="areApiKeysSortedByDate"
+                :direction="getSortDirection"
+            />
         </div>
     </div>
 </template>
@@ -48,8 +50,12 @@ export default class SortApiKeysHeader extends Vue {
         return SortDirection.DESCENDING;
     }
 
-    public get getSortBy(): ApiKeyOrderBy {
-        return this.sortBy;
+    public get areApiKeysSortedByName(): boolean {
+        return this.sortBy === ApiKeyOrderBy.NAME;
+    }
+
+    public get areApiKeysSortedByDate(): boolean {
+        return this.sortBy === ApiKeyOrderBy.CREATED_AT;
     }
 
     public async onHeaderItemClick(sortBy: ApiKeyOrderBy): Promise<void> {

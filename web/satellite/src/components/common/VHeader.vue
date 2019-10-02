@@ -9,7 +9,8 @@
         <VSearch
             ref="search"
             :placeholder="placeholder"
-            :search="search"/>
+            :search="search"
+        />
     </div>
 </template>
 

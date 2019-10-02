@@ -31,6 +31,9 @@
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
+# override value for repair threshold
+# checker.repair-override: 0
+
 # server address of the graphql api gateway and frontend app
 # console.address: :10100
 
