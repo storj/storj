@@ -35,7 +35,8 @@
             @input="onInput"
             @change="onInput"
             v-model="value"
-            :style="style.inputStyle"/>
+            :style="style.inputStyle"
+        />
     </div>
 </template>
 
