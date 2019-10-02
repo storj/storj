@@ -963,7 +963,7 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *testplane
 	require.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }
 
-// getRemoteSegment returns a remote pointer its path from satelliteellite.
+// getRemoteSegment returns a remote pointer its path from satellite.
 // nolint:golint
 func getRemoteSegment(
 	t *testing.T, ctx context.Context, satellite *testplanet.SatelliteSystem,
@@ -984,7 +984,7 @@ func getRemoteSegment(
 		}
 	}
 
-	t.Fatal("satelliteellite doesn't have any remote segment")
+	t.Fatal("satellite doesn't have any remote segment")
 	return nil, ""
 }
 
