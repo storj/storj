@@ -251,8 +251,8 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		}
 		require.NotNil(t, corruptedNode)
 
-		over := planet.Satellites[0].Overlay.Service
-		node, err := over.Get(ctx, corruptedNodeID)
+		overlay := planet.Satellites[0].Overlay.Service
+		node, err := overlay.Get(ctx, corruptedNodeID)
 		require.NoError(t, err)
 		corruptedNodeReputation := node.Reputation
 
@@ -267,7 +267,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		satellite.Repair.Repairer.Limiter.Wait()
 
 		// repair should update audit status as fail
-		node, err = over.Get(ctx, corruptedNodeID)
+		node, err = overlay.Get(ctx, corruptedNodeID)
 		require.NoError(t, err)
 		require.Equal(t, corruptedNodeReputation.AuditCount+1, node.Reputation.AuditCount)
 		require.True(t, corruptedNodeReputation.AuditReputationBeta < node.Reputation.AuditReputationBeta)
@@ -377,8 +377,8 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 
 		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
-		over := planet.Satellites[0].Overlay.Service
-		node, err := over.Get(ctx, corruptedNodeID)
+		overlay := planet.Satellites[0].Overlay.Service
+		node, err := overlay.Get(ctx, corruptedNodeID)
 		require.NoError(t, err)
 		corruptedNodeReputation := node.Reputation
 
@@ -391,7 +391,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		satellite.Repair.Repairer.Limiter.Wait()
 
 		// repair should update audit status as fail
-		node, err = over.Get(ctx, corruptedNodeID)
+		node, err = overlay.Get(ctx, corruptedNodeID)
 		require.NoError(t, err)
 		require.Equal(t, corruptedNodeReputation.AuditCount+1, node.Reputation.AuditCount)
 		require.True(t, corruptedNodeReputation.AuditReputationBeta < node.Reputation.AuditReputationBeta)
