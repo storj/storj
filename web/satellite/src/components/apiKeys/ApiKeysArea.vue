@@ -8,57 +8,64 @@
             <ApiKeysCreationPopup
                 @closePopup="closeNewApiKeyPopup"
                 @showCopyPopup="showCopyApiKeyPopup"
-                :is-popup-shown="isNewApiKeyPopupShown"/>
+                :is-popup-shown="isNewApiKeyPopupShown"
+            />
             <ApiKeysCopyPopup
                 :is-popup-shown="isCopyApiKeyPopupShown"
                 :api-key-secret="apiKeySecret"
-                @closePopup="closeCopyNewApiKeyPopup"/>
-            <div v-if="!isEmpty || hasSearchQuery" class="api-keys-header">
+                @closePopup="closeCopyNewApiKeyPopup"
+            />
+            <div v-if="isHeaderShown" class="api-keys-header">
                 <VHeader
                     ref="headerComponent"
                     placeholder="API Key"
                     :search="onSearchQueryCallback">
-                        <div class="header-default-state" v-if="headerState === 0">
-                            <VButton
-                                class="button"
-                                label="+Create API Key"
-                                width="180px"
-                                height="48px"
-                                :on-press="onCreateApiKeyClick"/>
-                        </div>
-                        <div class="header-selected-api-keys" v-if="headerState === 1 && !isDeleteClicked">
+                    <div class="header-default-state" v-if="isDefaultHeaderState">
+                        <VButton
+                            class="button"
+                            label="+Create API Key"
+                            width="180px"
+                            height="48px"
+                            :on-press="onCreateApiKeyClick"
+                        />
+                    </div>
+                    <div class="header-selected-api-keys" v-if="areApiKeysSelected">
+                        <VButton
+                            class="button deletion"
+                            label="Delete"
+                            width="122px"
+                            height="48px"
+                            :on-press="onFirstDeleteClick"
+                        />
+                        <VButton
+                            class="button"
+                            label="Cancel"
+                            width="122px"
+                            height="48px"
+                            is-white="true"
+                            :on-press="onClearSelection"
+                        />
+                    </div>
+                    <div class="header-after-delete-click" v-if="areSelectedApiKeysBeingDeleted">
+                        <span class="header-after-delete-click__confirmation-label">Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}} ?</span>
+                        <div class="header-after-delete-click__button-area">
                             <VButton
                                 class="button deletion"
                                 label="Delete"
                                 width="122px"
                                 height="48px"
-                                :on-press="onFirstDeleteClick"/>
+                                :on-press="onDelete"
+                            />
                             <VButton
                                 class="button"
                                 label="Cancel"
                                 width="122px"
                                 height="48px"
                                 is-white="true"
-                                :on-press="onClearSelection"/>
+                                :on-press="onClearSelection"
+                            />
                         </div>
-                        <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                            <span class="header-after-delete-click__confirmation-label">Are you sure you want to delete {{selectedAPIKeysCount}} {{apiKeyCountTitle}} ?</span>
-                            <div class="header-after-delete-click__button-area">
-                                <VButton
-                                    class="button deletion"
-                                    label="Delete"
-                                    width="122px"
-                                    height="48px"
-                                    :on-press="onDelete"/>
-                                <VButton
-                                    class="button"
-                                    label="Cancel"
-                                    width="122px"
-                                    height="48px"
-                                    is-white="true"
-                                    :on-press="onClearSelection"/>
-                            </div>
-                        </div>
+                    </div>
                 </VHeader>
                 <div class="blur-content" v-if="isDeleteClicked"></div>
                 <div class="blur-search" v-if="isDeleteClicked"></div>
@@ -69,17 +76,19 @@
                     <VList
                         :data-set="apiKeyList"
                         :item-component="itemComponent"
-                        :on-item-click="toggleSelection"/>
+                        :on-item-click="toggleSelection"
+                    />
                 </div>
                 <VPagination
                     v-if="totalPageCount > 1"
                     class="pagination-area"
                     ref="pagination"
                     :total-page-count="totalPageCount"
-                    :on-page-click-callback="onPageClick"/>
+                    :on-page-click-callback="onPageClick"
+                />
                 <p class="api-keys-items__additional-info">Want to give limited access? <b>Use API Keys.</b></p>
             </div>
-            <div class="empty-search-result-area" v-if="(isEmpty && hasSearchQuery)">
+            <div class="empty-search-result-area" v-if="isEmptySearchResultShown">
                 <h1 class="empty-search-result-area__title">No results found</h1>
                 <svg class="empty-search-result-area__image" width="254" height="195" viewBox="0 0 380 295" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M168 295C246.997 295 311 231.2 311 152.5C311 73.8 246.997 10 168 10C89.0028 10 25 73.8 25 152.5C25 231.2 89.0028 295 168 295Z" fill="#E8EAF2"/>
@@ -114,12 +123,13 @@
             </div>
             <EmptyState
                 :on-button-click="onCreateApiKeyClick"
-                v-if="isEmpty && !isNewApiKeyPopupShown && !hasSearchQuery"
+                v-if="isEmptyStateShown"
                 main-title="Let's create your first API Key"
                 additional-text="<p>API keys give access to the project allowing you to create buckets, upload files, and read them. Once you’ve created an API key, you’re ready to interact with the network through our Uplink CLI.</p>"
                 :image-source="emptyImage"
                 button-label="Create an API Key"
-                is-button-shown="true" />
+                is-button-shown="true"
+            />
         </div>
     </div>
 </template>
@@ -162,6 +172,10 @@ const {
     SET_SORT_DIRECTION,
 } = API_KEYS_ACTIONS;
 
+declare interface ResetPagination {
+    resetPageIndex(): void;
+}
+
 @Component({
     components: {
         VList,
@@ -183,17 +197,16 @@ export default class ApiKeysArea extends Vue {
     private isCopyApiKeyPopupShown: boolean = false;
     private apiKeySecret: string = '';
 
+    public $refs!: {
+        pagination: HTMLElement & ResetPagination;
+    };
+
     public mounted(): void {
         this.$store.dispatch(FETCH, this.FIRST_PAGE);
     }
 
     public async beforeDestroy(): Promise<void> {
         await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
-        try {
-            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.notifyFetchError(error);
-        }
     }
 
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
@@ -244,6 +257,10 @@ export default class ApiKeysArea extends Vue {
         }
 
         this.isDeleteClicked = false;
+
+        if (this.totalPageCount > 1) {
+            this.$refs.pagination.resetPageIndex();
+        }
     }
 
     public get itemComponent() {
@@ -290,6 +307,30 @@ export default class ApiKeysArea extends Vue {
         return HeaderState.DEFAULT;
     }
 
+    public get isHeaderShown(): boolean {
+        return !this.isEmpty || this.hasSearchQuery;
+    }
+
+    public get isDefaultHeaderState(): boolean {
+        return this.headerState === 0;
+    }
+
+    public get areApiKeysSelected(): boolean {
+        return this.headerState === 1 && !this.isDeleteClicked;
+    }
+
+    public get areSelectedApiKeysBeingDeleted(): boolean {
+        return this.headerState === 1 && this.isDeleteClicked;
+    }
+
+    public get isEmptySearchResultShown(): boolean {
+        return this.isEmpty && this.hasSearchQuery;
+    }
+
+    public get isEmptyStateShown(): boolean {
+        return this.isEmpty && !this.isNewApiKeyPopupShown && !this.hasSearchQuery;
+    }
+
     public async onPageClick(index: number): Promise<void> {
         try {
             await this.$store.dispatch(FETCH, index);
@@ -307,7 +348,9 @@ export default class ApiKeysArea extends Vue {
             await this.notifyFetchError(error);
         }
 
-        (this.$refs.pagination as VPagination).resetPageIndex();
+        if (this.totalPageCount > 1) {
+            this.$refs.pagination.resetPageIndex();
+        }
     }
 
     public async onSearchQueryCallback(query: string): Promise<void> {
@@ -318,7 +361,9 @@ export default class ApiKeysArea extends Vue {
             await this.notifyFetchError(error);
         }
 
-        (this.$refs.pagination as VPagination).resetPageIndex();
+        if (this.totalPageCount > 1) {
+            this.$refs.pagination.resetPageIndex();
+        }
     }
 
     public async notifyFetchError(error: Error): Promise<void> {

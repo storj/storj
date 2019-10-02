@@ -837,6 +837,20 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
+// GetExitingNodes returns nodes who have initiated a graceful exit.
+func (m *lockedOverlayCache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetExitingNodes(ctx)
+}
+
+// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
+func (m *lockedOverlayCache) GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetExitingNodesLoopIncomplete(ctx)
+}
+
 // IsVetted returns whether or not the node reaches reputable thresholds
 func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
 	m.Lock()
@@ -905,6 +919,13 @@ func (m *lockedOverlayCache) UpdateCheckIn(ctx context.Context, node overlay.Nod
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateCheckIn(ctx, node, config)
+}
+
+// UpdateExitStatus is used to update a node's graceful exit status.
+func (m *lockedOverlayCache) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (stats *overlay.NodeStats, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateExitStatus(ctx, request)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
