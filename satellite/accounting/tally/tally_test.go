@@ -131,6 +131,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		// Execute test: upload a file, then calculate at rest data
 		expectedBucketName := "testbucket"
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		require.NoError(t, err)
 
 		tallySvc.Loop.TriggerWait()
 
@@ -208,8 +209,8 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 
 				assert.Equal(t, len(expectedBucketTallies), len(savedTallies))
 				for _, actualTally := range savedTallies {
-					bucket := string(actualTally.BucketName)
-					assert.Equal(t, expectedBucketTallies[bucket], &actualTally)
+					actual := actualTally
+					assert.Equal(t, expectedBucketTallies[string(actualTally.BucketName)], &actual)
 				}
 			})
 		}
