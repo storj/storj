@@ -33,80 +33,84 @@ func mapDeprecatedConfigs(log *zap.Logger) {
 	}
 	configs := []config{
 		{
-			new:     runCfg.Contact.ExternalAddress,
+			new:     &runCfg.Contact.ExternalAddress,
 			newFlag: "contact.external-address",
-			old:     runCfg.Kademlia.ExternalAddress,
+			old:     runCfg.Deprecated.Kademlia.ExternalAddress,
 			oldFlag: "kademlia.external-address",
 		},
 		{
-			new:     runCfg.Operator.Wallet,
+			new:     &runCfg.Operator.Wallet,
 			newFlag: "operator.wallet",
-			old:     runCfg.Kademlia.Operator.Wallet,
+			old:     runCfg.Deprecated.Kademlia.Operator.Wallet,
 			oldFlag: "kademlia.operator.wallet",
 		},
 		{
-			new:     runCfg.Operator.Email,
+			new:     &runCfg.Operator.Email,
 			newFlag: "operator.email",
-			old:     runCfg.Kademlia.Operator.Email,
+			old:     runCfg.Deprecated.Kademlia.Operator.Email,
 			oldFlag: "kademlia.operator.email",
 		},
 	}
 
 	for _, config := range configs {
 		if config.old != "undefined" {
-			overwrite(&config.new, config.old)
-			log.Sugar().Warnf("Found deprecated flag. Migrating value %v from %s to %s", config.new, config.oldFlag, config.newFlag)
+			typ := reflect.TypeOf(config.new).Elem()
+			override := parseOverride(typ, config.old)
+
+			reflect.ValueOf(config.new).Elem().Set(reflect.ValueOf(override))
+
+			log.Sugar().Debugf("Found deprecated flag. Migrating value %v from %s to %s", reflect.ValueOf(config.new).Elem(), config.oldFlag, config.newFlag)
 		}
 	}
 }
 
-func overwrite(field *interface{}, value string) {
-	switch reflect.TypeOf(*field) {
+func parseOverride(typ reflect.Type, value string) interface{} {
+	switch typ {
 	case reflect.TypeOf(int(0)):
 		val, err := strconv.ParseInt(value, 0, strconv.IntSize)
 		if err != nil {
 			panic(err)
 		}
-		*field = val
+		return val
 	case reflect.TypeOf(int64(0)):
 		val, err := strconv.ParseInt(value, 0, 64)
 		if err != nil {
 			panic(err)
 		}
-		*field = val
+		return val
 	case reflect.TypeOf(uint(0)):
 		val, err := strconv.ParseUint(value, 0, strconv.IntSize)
 		if err != nil {
 			panic(err)
 		}
-		*field = val
+		return val
 	case reflect.TypeOf(uint64(0)):
 		val, err := strconv.ParseUint(value, 0, 64)
 		if err != nil {
 			panic(err)
 		}
-		*field = val
+		return val
 	case reflect.TypeOf(time.Duration(0)):
 		val, err := time.ParseDuration(value)
 		if err != nil {
 			panic(err)
 		}
-		*field = val
+		return val
 	case reflect.TypeOf(float64(0)):
 		val, err := strconv.ParseFloat(value, 64)
 		if err != nil {
 			panic(err)
 		}
-		*field = val
+		return val
 	case reflect.TypeOf(string("")):
-		*field = value
+		return value
 	case reflect.TypeOf(bool(false)):
 		val, err := strconv.ParseBool(value)
 		if err != nil {
 			panic(err)
 		}
-		*field = val
+		return val
 	default:
-		panic(fmt.Sprintf("invalid field type: %s", reflect.TypeOf(field).String()))
+		panic(fmt.Sprintf("invalid field type: %s", typ.String()))
 	}
 }
