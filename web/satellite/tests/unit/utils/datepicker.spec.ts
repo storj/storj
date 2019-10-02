@@ -2,7 +2,9 @@
 // See LICENSE for copying information.
 
 import {
-    DateGenerator, DateStamp, DayItem
+    DateGenerator,
+    DateStamp,
+    DayItem,
 } from '@/utils/datepicker';
 
 describe('datepicker', () => {

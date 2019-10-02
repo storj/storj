@@ -102,7 +102,7 @@ describe('VDatePicker.vue', () => {
         wrapper.findAll('.month').at(0).trigger('click');
 
         expect(wrapper.vm.selectedDateState.month).toBe(0);
-        expect(wrapper.find('.month-selection').text()).toBe(months[0])
+        expect(wrapper.find('.month-selection').text()).toBe(months[0]);
     });
 
     it('triggers correct functionality on year selection', function () {

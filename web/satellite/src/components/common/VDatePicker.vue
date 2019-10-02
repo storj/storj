@@ -42,17 +42,17 @@ import {DayAction} from "@/utils/datepicker";
 	</div>
 </template>
 <script lang="ts">
-	import {Component, Prop, Vue} from "vue-property-decorator";
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-	import {DateGenerator, DateStamp, DayAction, DayItem, DisplayedType, Options} from "@/utils/datepicker";
+import { DateGenerator, DateStamp, DayAction, DayItem, DisplayedType, Options } from '@/utils/datepicker';
 
-	@Component
-	export default class VDatePicker extends Vue {
+@Component
+    export default class VDatePicker extends Vue {
 
     @Prop({default: () => new Options()})
     private option: Options;
-	@Prop({default: () => false})
-	private isSundayFirst: boolean;
+    @Prop({default: () => false})
+    private isSundayFirst: boolean;
 
     private readonly MAX_DAYS_SELECTED = 2;
     private showType: number = DisplayedType.Day;
@@ -68,13 +68,13 @@ import {DayAction} from "@/utils/datepicker";
     public yearLibrary: number[] = [];
 
     public constructor() {
-    	super();
+        super();
 
-		this.weekLibrary = this.isSundayFirst ? this.option.sundayFirstWeek : this.option.mondayFirstWeek;
-		this.monthLibrary = this.option.month;
-		this.displayedMonth = this.monthLibrary[0];
-		this.yearLibrary = this.dateGenerator.populateYears();
-	}
+        this.weekLibrary = this.isSundayFirst ? this.option.sundayFirstWeek : this.option.mondayFirstWeek;
+        this.monthLibrary = this.option.month;
+        this.displayedMonth = this.monthLibrary[0];
+        this.yearLibrary = this.dateGenerator.populateYears();
+    }
 
     /**
 	 * computed value that indicates should days view be shown
@@ -97,19 +97,19 @@ import {DayAction} from "@/utils/datepicker";
         return this.showType === DisplayedType.Year;
     }
 
-	/**
+    /**
 	 * nextMonth set previous month
 	 */
     public onPreviousMonthClick(): void {
-    	this.nextMonth(DayAction.Previous);
-	}
+        this.nextMonth(DayAction.Previous);
+    }
 
-	/**
+    /**
 	 * nextMonth set next month
 	 */
-	public onNextMonthClick(): void {
-		this.nextMonth(DayAction.Next);
-	}
+    public onNextMonthClick(): void {
+        this.nextMonth(DayAction.Next);
+    }
 
     /**
 	 * checkDay toggle checked property of day object
@@ -206,30 +206,30 @@ import {DayAction} from "@/utils/datepicker";
         this.showType = DisplayedType.Month;
     }
 
-	/**
+    /**
 	 * nextMonth set month depends on day action
 	 * @param action
 	 */
-	private nextMonth(action: DayAction): void {
-		const currentMoment = new Date(this.selectedDateState.year, this.selectedDateState.month, this.selectedDateState.day);
-		const currentMonth = currentMoment.getMonth();
-		const now = new Date();
+    private nextMonth(action: DayAction): void {
+        const currentMoment = new Date(this.selectedDateState.year, this.selectedDateState.month, this.selectedDateState.day);
+        const currentMonth = currentMoment.getMonth();
+        const now = new Date();
 
-		switch (action) {
-			case DayAction.Next:
-				if (currentMonth === now.getMonth() && currentMoment.getFullYear() === now.getFullYear()) {
-					return;
-				}
+        switch (action) {
+            case DayAction.Next:
+                if (currentMonth === now.getMonth() && currentMoment.getFullYear() === now.getFullYear()) {
+                    return;
+                }
 
-				currentMoment.setMonth(currentMonth + 1);
-				break;
-			case DayAction.Previous:
-				currentMoment.setMonth(currentMonth - 1);
-				break;
-		}
+                currentMoment.setMonth(currentMonth + 1);
+                break;
+            case DayAction.Previous:
+                currentMoment.setMonth(currentMonth - 1);
+                break;
+        }
 
-		this.populateDays(currentMoment);
-	}
+        this.populateDays(currentMoment);
+    }
 
     /**
 	 * submitSelectedDays emits function to receive selected dates externally and then clears state
