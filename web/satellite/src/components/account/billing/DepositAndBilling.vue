@@ -7,10 +7,10 @@
             <h1 class="deposit-and-billing-area__header__title">Deposit & Billing History</h1>
             <div class="button" @click="onViewAllClick">View All</div>
         </div>
-        <SortingHeader />
-        <BillingItem />
-        <BillingItem />
-        <BillingItem />
+        <SortingHeader/>
+        <BillingItem/>
+        <BillingItem/>
+        <BillingItem/>
     </div>
 </template>
 

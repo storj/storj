@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 )
 
@@ -45,6 +46,23 @@ var _ storagenode.DB = (*DB)(nil)
 type SQLDB interface {
 	Configure(sqlDB *sql.DB)
 	GetDB() *sql.DB
+}
+
+// withTx is a helper method which executes callback in transaction scope
+func withTx(ctx context.Context, db *sql.DB, cb func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+	return cb(tx)
 }
 
 // Config configures storage node database
@@ -304,6 +322,11 @@ func (db *DB) StorageUsage() storageusage.DB {
 // UsedSerials returns the instance of the UsedSerials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials {
 	return db.usedSerialsDB
+}
+
+// Satellites returns the instance of the Satellites database.
+func (db *DB) Satellites() satellites.DB {
+	return db.satellitesDB
 }
 
 // RawDatabases are required for testing purposes
@@ -675,7 +698,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					)`,
 					`CREATE TABLE storage_usage (
 						satellite_id BLOB NOT NULL,
-						at_rest_total REAL NOT NUll,
+						at_rest_total REAL NOT NULL,
 						timestamp TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, timestamp)
 					)`,
@@ -735,7 +758,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`DROP TABLE storage_usage`,
 					`CREATE TABLE storage_usage (
 						satellite_id BLOB NOT NULL,
-						at_rest_total REAL NOT NUll,
+						at_rest_total REAL NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, interval_start)
 					)`,
@@ -748,7 +771,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.SQL{
 					`CREATE TABLE satellites (
 						node_id BLOB NOT NULL,
-						address TEXT NOT NUll,
+						address TEXT NOT NULL,
 						added_at TIMESTAMP NOT NULL,
 						status INTEGER NOT NULL,
 						PRIMARY KEY (node_id)
@@ -837,6 +860,24 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 
 					return nil
 				}),
+			},
+			{
+				DB:          db.satellitesDB,
+				Description: "Remove address from satellites table",
+				Version:     25,
+				Action: migrate.SQL{
+					`ALTER TABLE satellites RENAME TO _satellites_old`,
+					`CREATE TABLE satellites (
+						node_id BLOB NOT NULL,
+						added_at TIMESTAMP NOT NULL,
+						status INTEGER NOT NULL,
+						PRIMARY KEY (node_id)
+					)`,
+					`INSERT INTO satellites (node_id, added_at, status)
+						SELECT node_id, added_at, status
+						FROM _satellites_old`,
+					`DROP TABLE _satellites_old`,
+				},
 			},
 		},
 	}

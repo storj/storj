@@ -5,7 +5,8 @@
     <div>
         <EmptyState
             main-title="Create your first new project"
-            :image-source="emptyImage" />
+            :image-source="emptyImage"
+        />
     </div>
 </template>
 

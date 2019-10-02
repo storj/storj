@@ -12,7 +12,8 @@
         :placeholder="`Search ${placeholder}`"
         :style="style"
         type="text"
-        autocomplete="off">
+        autocomplete="off"
+    />
 </template>
 
 <script lang="ts">
