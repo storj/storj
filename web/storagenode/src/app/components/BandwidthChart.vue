@@ -8,7 +8,8 @@
             :chart-data="chartData"
             :width="400"
             :height="200"
-            :tooltip-constructor="bandwidthTooltip" />
+            :tooltip-constructor="bandwidthTooltip"
+        />
     </div>
 </template>
 
