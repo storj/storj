@@ -32,7 +32,7 @@ type Chore struct {
 
 // Config for the chore
 type Config struct {
-	ChoreBatchSize int `help:"size of the buffer used to batch inserts into the transfer queue." default:"100"`
+	ChoreBatchSize int `help:"size of the buffer used to batch inserts into the transfer queue." default:"500"`
 }
 
 // NewChore instantiates Chore.
