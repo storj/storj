@@ -45,6 +45,7 @@ build-dev-deps: ## Install dependencies for builds
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
+	go get github.com/go-bindata/go-bindata/go-bindata
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.19.1
 
 .PHONY: lint
@@ -132,6 +133,19 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 	@./scripts/test-sim-backwards.sh
 
 ##@ Build
+
+.PHONY: storagenode-web
+storagenode-web:
+	# install npm dependencies
+	cd web/storagenode; npm ci
+	# build web assets
+	rm -rf web/storagenode/dist
+	cd web/storagenode; npm run build
+	# embed web assets into go
+	go-bindata -prefix web/storagenode/dist/ -fs -o storagenode/console/consoleassets/bindata.go -pkg consoleassets web/storagenode/dist/...
+	# configure existing go code to know about the new assets
+	/bin/echo -e 'package consoleassets\nfunc init() { FileSystem = AssetFile() }' > storagenode/console/consoleassets/initbindata.go
+	gofmt -w -s storagenode/console/consoleassets/initbindata.go
 
 .PHONY: images
 images: bootstrap-image gateway-image satellite-image storagenode-image uplink-image versioncontrol-image ## Build bootstrap, gateway, satellite, storagenode, uplink, and versioncontrol Docker images
@@ -236,7 +250,7 @@ satellite_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=satellite $(MAKE) binary
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_%
-storagenode_%:
+storagenode_%: storagenode-web
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: binary-check
 binary-check:

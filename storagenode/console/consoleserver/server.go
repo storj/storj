@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleassets"
 )
 
 const (
@@ -65,8 +66,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 
 	// handle static pages
 	if config.StaticDir != "" {
+		// a specific directory has been configured. use it
 		fs = http.FileServer(http.Dir(server.config.StaticDir))
-
+	} else if consoleassets.FileSystem != nil {
+		// assets are compiled into this binary, use them
+		fs = http.FileServer(consoleassets.FileSystem)
+	}
+	if fs != nil {
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}

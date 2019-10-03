@@ -38,6 +38,7 @@ require (
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/fatih/color v1.7.0
 	github.com/fatih/structs v1.0.0 // indirect
+	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang-migrate/migrate/v3 v3.5.2
