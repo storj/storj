@@ -34,3 +34,5 @@ debug
 resource.syso
 
 *.resource.go
+
+vendor
