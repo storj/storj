@@ -3,11 +3,11 @@
 
 <div class="login-container" @keyup.enter="onLogin">
     <div :class="loadingClassName"></div>
-    <img :class="loadingLogoClassName" src="@/../static/images/LogoWhite.svg" alt="loading-logo">
-    <img class="image" src="@/../static/images/AuthImage.svg" alt="AuthImage">
+    <img :class="loadingLogoClassName" src="@/../static/images/LogoWhite.svg" alt="White company logo">
+    <img class="image" src="@/../static/images/AuthImage.svg" alt="Authentication illustration">
     <div class="login-container__wrapper">
         <div class="login-container__header">
-            <img class="login-container__logo" src="@/../static/images/Logo.svg" alt="logo" @click="onLogoClick">
+            <img class="login-container__logo" src="@/../static/images/Logo.svg" alt="Company logo" @click="onLogoClick">
             <div class="login-container__register-button" @click.prevent="onSignUpClick">
                 <p class="login-container__register-button__label">Create Account</p>
             </div>

@@ -4,7 +4,7 @@
 <template>
     <div class="input-wrap">
         <div class="label-container">
-            <img v-if="error" src="@/../static/images/register/ErrorInfo.svg" alt="error"/>
+            <img v-if="error" src="@/../static/images/register/ErrorInfo.svg" alt="Red error icon with explanation mark"/>
             <h3 class="label-container__label" v-if="isLabelShown" :style="style.labelStyle">{{label}}</h3>
             <h3 class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</h3>
         </div>
