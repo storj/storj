@@ -26,7 +26,8 @@ enum NodeType {
     SATELLITE = 1;
     STORAGE = 2;
     UPLINK = 3;
-    BOOTSTRAP = 4; //TODO remove
+    reserved 4;
+    reserved "BOOTSTRAP";
 }
 
 // NodeAddress contains the information needed to communicate with a node on the network
