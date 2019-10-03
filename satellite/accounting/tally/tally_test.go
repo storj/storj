@@ -116,6 +116,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tallySvc := planet.Satellites[0].Accounting.Tally
+		tallySvc.Loop.Pause()
 		uplink := planet.Uplinks[0]
 
 		// Setup: create 50KiB of data for the uplink to upload
@@ -144,7 +145,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 
 		// Confirm the correct number of bytes were stored on each node
 		for _, actualTotalBytes := range savedTallies {
-			assert.Equal(t, int64(actualTotalBytes.DataTotal), expectedTotalBytes)
+			assert.Equal(t, expectedTotalBytes, int64(actualTotalBytes.DataTotal))
 		}
 	})
 }
