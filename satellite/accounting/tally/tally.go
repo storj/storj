@@ -190,6 +190,7 @@ func (tally *Tally) InlineSegment(ctx context.Context, path metainfo.ScopedPath,
 	bucket.InlineBytes += int64(len(pointer.InlineSegment))
 	bucket.Bytes += int64(len(pointer.InlineSegment))
 	bucket.MetadataSize += int64(len(pointer.Metadata))
+
 	return nil
 }
 
@@ -201,8 +202,8 @@ func (tally *Tally) RemoteSegment(ctx context.Context, path metainfo.ScopedPath,
 	}
 
 	bucket.RemoteSegments++
-	bucket.RemoteBytes += int64(len(pointer.InlineSegment))
-	bucket.Bytes += int64(len(pointer.InlineSegment))
+	bucket.RemoteBytes += pointer.GetSegmentSize()
+	bucket.Bytes += pointer.GetSegmentSize()
 	bucket.MetadataSize += int64(len(pointer.Metadata))
 
 	// add node info
@@ -227,10 +228,9 @@ func (tally *Tally) RemoteSegment(ctx context.Context, path metainfo.ScopedPath,
 func bucketReport(tally *accounting.BucketTally, prefix string) {
 	mon.IntVal(prefix + ".objects").Observe(tally.ObjectCount)
 
-	mon.IntVal(prefix + ".segments").Observe(tally.Segments)
+	mon.IntVal(prefix + ".segments").Observe(tally.Segments())
 	mon.IntVal(prefix + ".inline_segments").Observe(tally.InlineSegments)
 	mon.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
-	mon.IntVal(prefix + ".unknown_segments").Observe(tally.UnknownSegments)
 
 	mon.IntVal(prefix + ".bytes").Observe(tally.Bytes)
 	mon.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)

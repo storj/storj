@@ -85,7 +85,6 @@ func TestOnlyInline(t *testing.T) {
 			BucketName:     []byte(expectedBucketName),
 			ProjectID:      projectID,
 			ObjectCount:    1,
-			Segments:       1,
 			InlineSegments: 1,
 			Bytes:          int64(expectedTotalBytes),
 			InlineBytes:    int64(expectedTotalBytes),
@@ -104,9 +103,11 @@ func TestOnlyInline(t *testing.T) {
 			require.NoError(t, err)
 
 			// Confirm the correct bucket storage tally was created
-			assert.Equal(t, len(savedTallies), 1)
-			for bucketID, actualTally := range savedTallies {
-				assert.Contains(t, bucketID, expectedBucketName)
+			if !assert.Equal(t, 1, len(savedTallies)) {
+				t.Logf("%v", savedTallies)
+			}
+
+			for _, actualTally := range savedTallies {
 				assert.Equal(t, expectedTally, actualTally)
 			}
 		}
@@ -223,7 +224,6 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	// if there is already an existing tally for this project and bucket, then
 	// add the new pointer data to the existing tally
 	if existingTally != nil {
-		existingTally.Segments++
 		existingTally.Bytes += int64(2)
 		existingTally.MetadataSize += int64(12)
 		existingTally.RemoteSegments++
@@ -235,7 +235,6 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	if inline {
 		newInlineTally := accounting.BucketTally{
 			ObjectCount:    int64(1),
-			Segments:       int64(1),
 			InlineSegments: int64(1),
 			Bytes:          int64(2),
 			InlineBytes:    int64(2),
@@ -246,7 +245,6 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 
 	// if the pointer was remote, create a tally with remote info
 	newRemoteTally := accounting.BucketTally{
-		Segments:       int64(1),
 		RemoteSegments: int64(1),
 		Bytes:          int64(2),
 		RemoteBytes:    int64(2),
