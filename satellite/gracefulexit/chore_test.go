@@ -53,7 +53,9 @@ func TestChore(t *testing.T) {
 			NodeID:          exitingNode.ID(),
 			ExitInitiatedAt: time.Now().UTC(),
 		}
-		satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
+
+		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
+		require.NoError(t, err)
 
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 

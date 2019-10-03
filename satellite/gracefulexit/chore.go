@@ -80,7 +80,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				NodeID:              nodeID,
 				ExitLoopCompletedAt: now,
 			}
-			chore.overlay.UpdateExitStatus(ctx, &exitStatus)
+			_, err = chore.overlay.UpdateExitStatus(ctx, &exitStatus)
+			if err != nil {
+				chore.log.Error("error updating exit status.", zap.Error(err))
+				return nil
+			}
 		}
 		return nil
 	})

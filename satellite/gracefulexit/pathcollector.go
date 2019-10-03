@@ -76,7 +76,10 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo
 				zap.Int32("num pieces", numPieces), zap.Int32("required pieces", pointer.GetRemote().GetRedundancy().GetSuccessThreshold()))
 
 			collector.buffer = append(collector.buffer, item)
-			collector.flush(ctx, collector.batchSize)
+			err = collector.flush(ctx, collector.batchSize)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
