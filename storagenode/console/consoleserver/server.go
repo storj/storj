@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -72,9 +71,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 		// assets are compiled into this binary, use them
 		fs = http.FileServer(consoleassets.FileSystem)
 	}
+
 	if fs != nil {
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.URL.Path = "/dist/"
+			fs.ServeHTTP(w, r)
+		}))
 	}
 
 	// handle api endpoints
@@ -110,11 +113,6 @@ func (server *Server) Run(ctx context.Context) (err error) {
 // Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return server.server.Close()
-}
-
-// appHandler is web app http handler function.
-func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "dist", "index.html"))
 }
 
 // dashboardHandler handles dashboard API requests.

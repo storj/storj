@@ -142,7 +142,7 @@ storagenode-web:
 	rm -rf web/storagenode/dist
 	cd web/storagenode; npm run build
 	# embed web assets into go
-	go-bindata -prefix web/storagenode/dist/ -fs -o storagenode/console/consoleassets/bindata.go -pkg consoleassets web/storagenode/dist/...
+	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
 	# configure existing go code to know about the new assets
 	/bin/echo -e 'package consoleassets\nfunc init() { FileSystem = AssetFile() }' > storagenode/console/consoleassets/initbindata.go
 	gofmt -w -s storagenode/console/consoleassets/initbindata.go
