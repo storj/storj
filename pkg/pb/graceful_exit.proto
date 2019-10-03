@@ -23,5 +23,5 @@ message Satellite {
 }
 
 message GetSatellitesListResponse {
-  repeated Satellite satellite = 1;
+  repeated Satellite satellites = 1;
 }

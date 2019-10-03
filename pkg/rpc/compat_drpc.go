@@ -20,6 +20,9 @@ type (
 	// ContactClient is an alias to the drpc client interface
 	ContactClient = pb.DRPCContactClient
 
+	// GracefulExitClient is an alias to the drpc client interface
+	GracefulExitClient = pb.DRPCGracefulExitClient
+
 	// HealthInspectorClient is an alias to the drpc client interface
 	HealthInspectorClient = pb.DRPCHealthInspectorClient
 
@@ -75,6 +78,16 @@ func NewContactClient(rc *RawConn) ContactClient {
 // ContactClient returns a ContactClient for this connection
 func (c *Conn) ContactClient() ContactClient {
 	return NewContactClient(c.raw)
+}
+
+// NewGracefulExitClient returns the drpc version of a GracefulExitClient
+func NewGracefulExitClient(rc *RawConn) GracefulExitClient {
+	return pb.NewDRPCGracefulExitClient(rc)
+}
+
+// GracefulExitClient returns a GracefulExitClient for this connection
+func (c *Conn) GracefulExitClient() GracefulExitClient {
+	return NewGracefulExitClient(c.raw)
 }
 
 // NewHealthInspectorClient returns the drpc version of a HealthInspectorClient

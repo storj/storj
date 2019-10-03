@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
@@ -35,11 +35,13 @@ func NewEndpoint(log *zap.Logger, trust *trust.Pool, satellites satellites.DB, c
 	}
 }
 
-// GetSatellites returns a list of satellites that haven't been exited.
-func (s *Endpoint) GetSatellites(ctx context.Context) ([]storj.NodeID, error) {
+// GetSatellitesList returns a list of satellites that haven't been exited.
+func (s *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesListRequest) (*pb.GetSatellitesListResponse, error) {
 	// get all trusted satellites
 	trustedSatellites := s.trust.GetSatellites(ctx)
-	availableSatellites := make([]storj.NodeID, 0, len(trustedSatellites))
+
+	availableSatellites := make([]*pb.Satellite, 0, len(trustedSatellites))
+
 	// filter out satellites that are already exiting
 	existingSatellites, err := s.satellites.ListGracefulExits(ctx)
 	if err != nil {
@@ -56,9 +58,16 @@ func (s *Endpoint) GetSatellites(ctx context.Context) ([]storj.NodeID, error) {
 		}
 
 		if !isExisting {
-			availableSatellites = append(availableSatellites, trusted)
+			availableSatellites = append(availableSatellites, &pb.Satellite{
+				NodeId: trusted,
+			})
 		}
 	}
 
-	return availableSatellites, nil
+	// get space usage by satellites
+	s.cacheService.
+
+	return &pb.GetSatellitesListResponse{
+		Satellites: availableSatellites,
+	}, nil
 }

@@ -21,6 +21,9 @@ type (
 	// ContactClient is an alias to the grpc client interface
 	ContactClient = pb.ContactClient
 
+	// GracefulExitClient is an alias to the grpc client interface
+	GracefulExitClient = pb.GracefulExitClient
+
 	// HealthInspectorClient is an alias to the grpc client interface
 	HealthInspectorClient = pb.HealthInspectorClient
 
@@ -76,6 +79,16 @@ func NewContactClient(rc *RawConn) ContactClient {
 // ContactClient returns a ContactClient for this connection
 func (c *Conn) ContactClient() ContactClient {
 	return NewContactClient(c.raw)
+}
+
+// NewGracefulExitClient returns the grpc version of a GracefulExitClient
+func NewGracefulExitClient(rc *RawConn) GracefulExitClient {
+	return pb.NewGracefulExitClient(rc)
+}
+
+// GracefulExitClient returns a GracefulExitClient for this connection
+func (c *Conn) GracefulExitClient() GracefulExitClient {
+	return NewGracefulExitClient(c.raw)
 }
 
 // NewHealthInspectorClient returns the grpc version of a HealthInspectorClient

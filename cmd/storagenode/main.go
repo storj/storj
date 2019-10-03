@@ -90,9 +90,6 @@ var (
 	dashboardCfg struct {
 		Address string `default:"127.0.0.1:7778" help:"address for dashboard service"`
 	}
-	gracefulExitCfg struct {
-		Address string `default:"127.0.0.1:7778" help:"address for graceful exit endpoint"`
-	}
 	defaultDiagDir string
 	confDir        string
 	identityDir    string
@@ -123,7 +120,7 @@ func init() {
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(diagCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(dashboardCmd, &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
-	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
+	process.Bind(gracefulExitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func databaseConfig(config storagenode.Config) storagenodedb.Config {
