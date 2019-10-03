@@ -1,6 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+/**
+ * Options is a set of options used for VDatePicker.vue
+ */
 export class Options {
     public constructor(
         public mondayFirstWeek: string[] = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
@@ -43,12 +46,18 @@ export class DayItem {
     }
 }
 
+/**
+ * DayAction is enum represents month change direction on day click
+ */
 export enum DayAction {
     Next,
     Previous,
     Default,
 }
 
+/**
+ * DateStamp is cozy representation of Date for view
+ */
 export class DateStamp {
     public constructor(
         public year: number,
@@ -57,12 +66,18 @@ export class DateStamp {
     ) {}
 }
 
+/**
+ * DisplayedType is enum represents view type to show in calendar to check
+ */
 export enum DisplayedType {
     Day,
     Month,
     Year,
 }
 
+/**
+ * DateGenerator is utility class used for generating DayItem and year lists for calendar
+ */
 export class DateGenerator {
     private current: DateStamp;
     private isSundayFirst: boolean;

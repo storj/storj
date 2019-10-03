@@ -72,11 +72,11 @@ import { toUnixTimestamp } from '@/utils/time';
     },
 })
 export default class UsageReport extends Vue {
-    public startTime = {
+    public readonly startTime = {
         time: null,
     };
 
-    private readonly dateRange: any;
+    private readonly dateRange;
 
     public constructor() {
         super();
@@ -178,7 +178,6 @@ export default class UsageReport extends Vue {
 
         window.open(url.href, '_blank');
     }
-
 
     public async getDates(datesArray: Date[]): Promise<void> {
         const now = new Date();

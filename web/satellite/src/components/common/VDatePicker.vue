@@ -6,7 +6,7 @@
         <div class="datepickbox">
             <input type="text" title="input date" class="cov-datepicker" readonly="readonly" :style="option.inputStyle ? option.inputStyle : {}" />
         </div>
-        <div class="datepicker-overlay" v-if="isChecking" @click="dismiss($event)" :style="{'background' : option.overlayOpacity? 'rgba(0,0,0,'+option.overlayOpacity+')' : 'rgba(0,0,0,0.5)'}">
+        <div class="datepicker-overlay" v-if="isChecking" @click.self="dismiss" :style="{'background' : option.overlayOpacity? 'rgba(0,0,0,'+option.overlayOpacity+')' : 'rgba(0,0,0,0.5)'}">
             <div class="cov-date-body" :style="{'background-color': option.color ? option.color.header : '#3f51b5'}">
                 <div class="cov-date-monthly">
                     <div class="cov-date-previous" @click="onPreviousMonthClick">«</div>
@@ -20,20 +20,20 @@
                     <div class="cov-picker-box">
                         <div class="week">
                             <ul>
-                                <li v-for="week in weekLibrary" :key="week">{{week}}</li>
+                                <li v-for="week in daysInWeek" :key="week">{{week}}</li>
                             </ul>
                         </div>
-                        <div class="day" v-for="(day, index) in dayList" :key="index" @click="checkDay(day)" :class="{'checked':day.checked,'unavailable':day.unavailable,'passive-day': !(day.inMonth), 'today': day.today}" :style="day.checked ? (option.color && option.color.checkedDay ? { background: option.color.checkedDay } : { background: '#2683FF' }) : {}">{{day.value}}</div>
+                        <div class="day" v-for="(day, index) in daysToShow" :key="index" @click="checkDay(day)" :class="{'checked':day.checked,'unavailable':day.unavailable,'passive-day': !(day.inMonth), 'today': day.today}" :style="day.checked ? (option.color && option.color.checkedDay ? { background: option.color.checkedDay } : { background: '#2683FF' }) : {}">{{day.value}}</div>
                     </div>
                 </div>
                 <div class="cov-date-box list-box" v-if="isYearChoiceShown">
                     <div class="cov-picker-box date-list" id="yearList">
-                        <div class="date-item year" v-for="yearItem in yearLibrary" :key="yearItem" @click="setYear(yearItem)">{{yearItem}}</div>
+                        <div class="date-item year" v-for="yearItem in years" :key="yearItem" @click="setYear(yearItem)">{{yearItem}}</div>
                     </div>
                 </div>
                 <div class="cov-date-box list-box" v-if="isMonthChoiceShown">
                     <div class="cov-picker-box date-list">
-                        <div class="date-item month" v-for="monthItem in monthLibrary" :key="monthItem" @click="setMonth(monthItem)">{{monthItem}}</div>
+                        <div class="date-item month" v-for="monthItem in months" :key="monthItem" @click="setMonth(monthItem)">{{monthItem}}</div>
                     </div>
                 </div>
             </div>
@@ -57,21 +57,21 @@ export default class VDatePicker extends Vue {
     private dateGenerator: DateGenerator = new DateGenerator();
     public isChecking = false;
 
-    public weekLibrary: string[] = [];
-    public monthLibrary: string[] = [];
+    public daysInWeek: string[] = [];
+    public months: string[] = [];
     public displayedMonth: string;
     public selectedDateState: DateStamp = new DateStamp(0, 0, 0);
-    public dayList: DayItem[] = [];
+    public daysToShow: DayItem[] = [];
     public selectedDays: Date[] = [];
-    public yearLibrary: number[] = [];
+    public years: number[] = [];
 
     public constructor() {
         super();
 
-        this.weekLibrary = this.isSundayFirst ? this.option.sundayFirstWeek : this.option.mondayFirstWeek;
-        this.monthLibrary = this.option.month;
-        this.displayedMonth = this.monthLibrary[0];
-        this.yearLibrary = this.dateGenerator.populateYears();
+        this.daysInWeek = this.isSundayFirst ? this.option.sundayFirstWeek : this.option.mondayFirstWeek;
+        this.months = this.option.month;
+        this.displayedMonth = this.months[0];
+        this.years = this.dateGenerator.populateYears();
     }
 
     /**
@@ -157,21 +157,15 @@ export default class VDatePicker extends Vue {
      * @param month
      */
     public setMonth(month: string): void {
-        const monthIndex = this.monthLibrary.indexOf(month);
+        const monthIndex = this.months.indexOf(month);
 
         this.populateDays(new Date(this.selectedDateState.year, monthIndex, this.selectedDateState.day));
     }
 
     /**
      * dismiss closes popup and clears values
-     *
-     * @param event mouse event
      */
-    public dismiss(event): void {
-        if (event.target.className !== 'datepicker-overlay') {
-            return;
-        }
-
+    public dismiss(): void {
         if (!this.option.dismissible) {
             return;
         }
@@ -259,9 +253,9 @@ export default class VDatePicker extends Vue {
 
         this.showType = DisplayedType.Day;
 
-        this.displayedMonth = this.monthLibrary[this.selectedDateState.month];
+        this.displayedMonth = this.months[this.selectedDateState.month];
 
-        this.dayList = this.dateGenerator.populateDays(this.selectedDateState, this.isSundayFirst);
+        this.daysToShow = this.dateGenerator.populateDays(this.selectedDateState, this.isSundayFirst);
     }
 }
 </script>
