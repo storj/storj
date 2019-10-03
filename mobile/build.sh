@@ -26,9 +26,9 @@ go mod vendor
 export GOPATH=$TMP
 
 # set go modules to default behavior
-export GO111MODULE=auto
+export GO111MODULE=off
 
-mkdir $GOPATH $GOPATH/src $GOPATH/bin $GOPATH/pkg
+mkdir "$GOPATH/src"
 
 mv $PWD/vendor/* "$GOPATH/src"
 
