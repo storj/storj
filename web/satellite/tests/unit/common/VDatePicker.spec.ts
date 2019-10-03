@@ -107,7 +107,6 @@ describe('VDatePicker.vue', () => {
 
     it('triggers correct functionality on year selection', function () {
         const wrapper = mount(VDatePicker);
-        const nowYear = new Date().getFullYear();
 
         wrapper.vm.showCheck();
         wrapper.vm.setYear(2019);
@@ -118,12 +117,13 @@ describe('VDatePicker.vue', () => {
         wrapper.find('.year-selection').trigger('click');
 
         expect(wrapper.findAll('.year').length).toBe(100);
-        expect(wrapper.findAll('.year').at(0).text()).toBe(nowYear.toString());
+        expect(wrapper.findAll('.year').at(0).text()).toBe('2019');
 
+        wrapper.find('.year-selection').trigger('click');
         wrapper.findAll('.year').at(1).trigger('click');
 
-        expect(wrapper.vm.selectedDateState.year).toBe(nowYear - 1);
-        expect(wrapper.find('.year-selection').text()).toBe((nowYear - 1).toString());
+        expect(wrapper.vm.selectedDateState.year).toBe(2018);
+        expect(wrapper.find('.year-selection').text()).toBe('2018');
     });
 
     it('triggers correct functionality on month incrementation', function () {

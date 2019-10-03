@@ -72,7 +72,7 @@ import { toUnixTimestamp } from '@/utils/time';
     },
 })
 export default class UsageReport extends Vue {
-    public startTime: any = {
+    public startTime = {
         time: null,
     };
 
