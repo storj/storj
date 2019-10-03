@@ -54,7 +54,7 @@ _User Interface_
 
 _Referral Manager CLI_
 
-1. `referral-manager start --tokens-per-user=3 <satelliteURL1> <satelliteURL2> ...` initiates the invitation token generation process. The `--dry-run` flag can optionally be added to run the process without actually generating tokens. The dry run allows for estimating how many new tokens would be created by the command.
+1. `referral-manager start --tokens-per-user=3 --max-unredeemed-tokens-per-user=1 <satelliteURL1> <satelliteURL2> ...` initiates the invitation token generation process. The `--dry-run` flag can optionally be added to run the process without actually generating tokens. The dry run allows for estimating how many new tokens would be created by the command.
 2. The Referral Manager queries both `users` and `tokens` tables for all users where `new_tokens + unredeemed_tokens < flags.tokens_per_user` and where the satellite matches one of the CLI-provided satellite URLs. These are the "eligible users".
 3. The Referral Manager will count the number of eligible users and calculate the number of tokens needed to bring each user up to `tokens_per_user`. If `--dry-run` is set, these values will be returned to the CLI for output and the process will end. Otherwise, the `users` table will be updated to set `new_tokens` to `tokens_per_user - unredeemed_tokens` for each eligible user, and the values will be returned to the CLI for output.
 
@@ -81,7 +81,7 @@ We could also set the admin port to only accept requests coming from storj vpn.
 - Create a private repository for Referral Manager.
 - Create `tokens` and `users` table in Referral Manager database.
 - Create an admin endpoint on Referral Manager.
-    - Implementing a method `GenerateTokens` for upadting the `users` table on Referral Manager to contain new tokens for eligible users.
+    - Implementing a method `GenerateTokens` for updating the `users` table on Referral Manager to contain new tokens for eligible users.
 - Implementing an endpoint `GetTokens` for requesting unredeemed tokens from Referral Manager. 
 - Implementing an endpoint `Redeem` on Referral Manager for verifying invitation tokens and storing newly created user ID into `users` table.
 - Replace existing registration token logic.
@@ -97,7 +97,8 @@ type Token struct {
     RedeemedID uuid.UUID
     OwnerSatelliteURL string
     RedeemedSatelliteURL string
-    Status string
+    // we should store it as an integer in the db and cast it into enum when retrieve it
+    Status enum
 }
 ```
 Statuses: `unsent` (owner's satellite doesn't know about it yet), `unredeemed` (owner's satellite knows about it but it has not been used), `redeemed` (someone has used this referral link to register alreadys)
@@ -119,18 +120,18 @@ type User struct {
 ```
 // GetTokens retrieves a list of unredeemed tokens for a user.
 GetTokens(userID uuid.UUID, satelliteURL string) []tokens {
-    user, err := db.GetUser(userID, satelliteURL)
+    tx := db.Tx
+    user, err := tx.GetUser(userID, satelliteURL)
     if err == UserNotFound {
-        db.CreateUser(userID, satelliteURL)
+        tx.CreateUser(userID, satelliteURL)
         return nil
     }
     if user.NewTokens > 0 {
         for i:=0; i<user.NewTokens; i++ {
             newToken := Token{data: generateRandomToken(), user: user.ID, satellite: user.satelliteURL}
             db.CreateToken(newToken)
-            tokens = append(tokens, newToken)
         }
-        db.UpdateUserNewTokens(userID, satelliteURL, 0)
+        tx.UpdateUserNewTokens(userID, satelliteURL, 0)
     }
     tokens := db.GetTokensByUserIDAndSatelliteURL(userID, satelliteURL)
 
@@ -139,20 +140,21 @@ GetTokens(userID uuid.UUID, satelliteURL string) []tokens {
 
 // Redeem marks a token as redeemed and stores user info into database
 func Redeem(ctx, token, userID, satelliteURL) error {
-	// only update the status if the status of a token is unredeems
-	tokenStatus, err := db.RedeemToken(ctx, token, userID)
+    tx := db.Tx
+	// only update the status if the status of a token is unredeemed
+	tokenStatus, err := tx.RedeemToken(ctx, token, userID)
 	if err != nil {
 		return err
 	}
 
     // decrease unredeemed token count in users table by 1
-    err := db.UpdateUserInfo(ctx, user)
+    err := tx.UpdateUserInfo(ctx, user)
     if err != nil {
         return err
     }
 
     // save user info into users table
-    err := db.CreateUser(ctx, userID, satelliteURL)
+    err := tx.CreateUser(ctx, userID, satelliteURL)
     if err != nil {
         // log the error, but we shouldn't return an error to stop user registration process if we don't get their info here
         log(err)
@@ -200,7 +202,5 @@ startCmd() {
 ```
 
 ## Wrapup
-
-Team Green will be responsible implementing this blueprint.
 
 ## Open issues
