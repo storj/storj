@@ -63,7 +63,6 @@ type AllowedVersions struct {
 
 // Processes describes versions for each binary.
 type Processes struct {
-	Bootstrap   Process `json:"bootstrap"`
 	Satellite   Process `json:"satellite"`
 	Storagenode Process `json:"storagenode"`
 	Uplink      Process `json:"uplink"`

@@ -12,6 +12,7 @@ import "google/protobuf/timestamp.proto";
 
 package inspector;
 
+// DEPRECATED
 service KadInspector {
   // CountNodes returns the number of nodes in the routing table
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
@@ -83,9 +84,11 @@ message CountNodesRequest {
 }
 
 message GetBucketListRequest {
+  option deprecated = true;
 }
 
 message GetBucketListResponse {
+  option deprecated = true;
 	message Bucket {
 	  bytes bucket_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 	  repeated node.Node routing_nodes = 2;
@@ -96,52 +99,63 @@ message GetBucketListResponse {
 
 // GetBuckets
 message GetBucketsRequest {
+  option deprecated = true;
 }
 
 message GetBucketsResponse {
+  option deprecated = true;
   int64 total = 1;
   repeated bytes ids = 2 [(gogoproto.customtype) = "NodeID"];
 }
 
 // GetBucket
 message GetBucketRequest {
+  option deprecated = true;
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
 message GetBucketResponse {
+  option deprecated = true;
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   repeated node.Node nodes = 2;
 }
 
 message BucketList {
+  option deprecated = true;
   repeated node.Node nodes = 1;
 }
 // PingNode
 message PingNodeRequest {
+  option deprecated = true;
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   string address = 2;
 }
 
 message PingNodeResponse {
+  option deprecated = true;
   bool ok = 1;
 }
 
 message LookupNodeRequest {
+  option deprecated = true;
   string id = 1;
   string address = 2;
 }
 
 message LookupNodeResponse {
+  option deprecated = true;
   node.Node node = 1;
   node.NodeMetadata meta = 2;
 }
 
 message NodeInfoRequest {
+  option deprecated = true;
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   node.NodeAddress address = 2;
 }
 
 message NodeInfoResponse {
+  option deprecated = true;
   node.NodeType type = 1;
   node.NodeOperator operator = 2;
   node.NodeCapacity capacity = 3;
@@ -149,12 +163,14 @@ message NodeInfoResponse {
 }
 
 message FindNearRequest {
+  option deprecated = true;
   bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   bytes start = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   int64 limit = 3;
 }
 
 message FindNearResponse {
+  option deprecated = true;
   repeated node.Node nodes = 2;
 }
 
@@ -181,7 +197,7 @@ message DashboardRequest {
 message DashboardResponse {
   bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
   int64 node_connections = 2;
-  string bootstrap_address = 3;
+  string bootstrap_address = 3 [deprecated=true];
   string internal_address = 4;
   string external_address = 5;
   string dashboard_address = 6;
