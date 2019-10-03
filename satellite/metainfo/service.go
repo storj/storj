@@ -53,6 +53,12 @@ func verifyPointer(pointer *pb.Pointer) (err error) {
 			redundancy.ErasureShareSize <= 0 {
 			return Error.New("invalid redundancy: %+v", redundancy)
 		}
+
+		for _, piece := range remote.GetRemotePieces() {
+			if int(piece.PieceNum) >= int(redundancy.Total) {
+				return Error.New("invalid PieceNum=%v total=%v", piece.PieceNum, redundancy.Total)
+			}
+		}
 	}
 
 	return nil
