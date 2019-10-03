@@ -143,7 +143,6 @@ func printDashboard(data *pb.DashboardResponse) error {
 	fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
 	// Disabling the Link to the Dashboard as its not working yet
 	// fmt.Fprintf(w, "Dashboard\t%s\n", color.WhiteString(data.GetDashboardAddress()))
-	fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
 	if err = w.Flush(); err != nil {
 		return err
 	}
