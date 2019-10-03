@@ -57,23 +57,25 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		chore.log.Info("running graceful exit chore.")
 
 		exitingNodes, err := chore.overlay.GetExitingNodesLoopIncomplete(ctx)
-
-		chore.log.Debug("graceful exit.", zap.Int("exitingNodes", len(exitingNodes)))
-
 		if err != nil {
 			return nil
 		}
+
+		chore.log.Debug("graceful exit.", zap.Int("exitingNodes", len(exitingNodes)))
+
 		pathCollector := NewPathCollector(chore.db, chore.metainfoService, exitingNodes, chore.log, chore.config.ChoreBatchSize)
 		err = chore.metainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
 			chore.log.Error("error joining metainfo loop.", zap.Error(err))
 			return nil
 		}
+
 		err = pathCollector.Flush(ctx)
 		if err != nil {
 			chore.log.Error("error flushing collector buffer.", zap.Error(err))
 			return nil
 		}
+
 		now := time.Now().UTC()
 		for _, nodeID := range exitingNodes {
 			exitStatus := overlay.ExitStatusRequest{

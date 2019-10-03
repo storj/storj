@@ -59,7 +59,6 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo
 	if len(collector.nodeIDMap) == 0 {
 		return nil
 	}
-	// TODO: Add mon stats
 
 	numPieces := int32(len(pointer.GetRemote().GetRemotePieces()))
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
