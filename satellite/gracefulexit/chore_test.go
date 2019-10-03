@@ -61,13 +61,17 @@ func TestChore(t *testing.T) {
 		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
 		require.NoError(t, err)
 
+		nodeIDs, err := satellite.Overlay.DB.GetExitingNodesLoopIncomplete(ctx)
+		require.NoError(t, err)
+		require.Len(t, nodeIDs, 1)
+
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 2)
 
-		// Test the other nodes don't have anything to transfer
+		// test the other nodes don't have anything to transfer
 		for _, sn := range planet.StorageNodes {
 			if sn.ID() == exitingNode.ID() {
 				continue
@@ -76,6 +80,10 @@ func TestChore(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, incompleteTransfers, 0)
 		}
+
+		nodeIDs, err = satellite.Overlay.DB.GetExitingNodesLoopIncomplete(ctx)
+		require.NoError(t, err)
+		require.Len(t, nodeIDs, 0)
 	})
 }
 
