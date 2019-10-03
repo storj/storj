@@ -154,10 +154,6 @@ func printDashboard(data *pb.DashboardResponse) error {
 	return nil
 }
 
-func whiteInt(value int64) string {
-	return color.WhiteString(fmt.Sprintf("%+v", value))
-}
-
 // clearScreen clears the screen so it can be redrawn
 func clearScreen() {
 	switch runtime.GOOS {
