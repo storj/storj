@@ -205,7 +205,7 @@ func insertPointer(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		}
 		for i := rs.MinReq; i < rs.SuccessThreshold; i++ {
 			pieces[i] = &pb.RemotePiece{
-				PieceNum: int32(i),
+				PieceNum: i,
 				NodeId:   storj.NodeID{byte(0xFF)},
 			}
 		}
