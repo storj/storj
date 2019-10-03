@@ -12,7 +12,7 @@
                 <div class='add-user__form-container'>
                     <p class='add-user__form-container__common-label' v-if="!formError">Email Address</p>
                     <div v-if="formError" class="add-user__form-container__label">
-                        <img src="../../../static/images/register/ErrorInfo.svg"/>
+                        <img src="../../../static/images/register/ErrorInfo.svg" alt="error"/>
                         <p class="add-user__form-container__label__error">{{formError}}</p>
                     </div>
                     <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': isInputsGroupScrollable }">

@@ -4,7 +4,7 @@
 <template>
     <div class="dashboard-container">
         <div v-if="isLoading" class="loading-overlay active">
-            <img class="loading-image" src="@/../static/images/register/Loading.gif">
+            <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Loading">
         </div>
         <div v-if="!isLoading" class="dashboard-container__wrap">
             <NavigationArea class="regular-navigation"/>

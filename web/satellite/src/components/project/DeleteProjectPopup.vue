@@ -49,7 +49,7 @@
                 <div>
                     <p class="text" v-if="!nameError">To confirm, enter the project name</p>
                     <div v-if="nameError" class="delete-project-popup__form-container__label">
-                        <img src="../../../static/images/register/ErrorInfo.svg"/>
+                        <img src="../../../static/images/register/ErrorInfo.svg" alt="error"/>
                         <p class="text">{{nameError}}</p>
                     </div>
                     <input
