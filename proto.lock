@@ -4049,7 +4049,13 @@
               },
               {
                 "name": "BOOTSTRAP",
-                "integer": 4
+                "integer": 4,
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               }
             ]
           },
