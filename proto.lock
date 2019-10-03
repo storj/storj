@@ -921,7 +921,13 @@
             "name": "CountNodesRequest"
           },
           {
-            "name": "GetBucketListRequest"
+            "name": "GetBucketListRequest",
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
+              }
+            ]
           },
           {
             "name": "GetBucketListResponse",
@@ -966,10 +972,22 @@
                   }
                 ]
               }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
+              }
             ]
           },
           {
-            "name": "GetBucketsRequest"
+            "name": "GetBucketsRequest",
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
+              }
+            ]
           },
           {
             "name": "GetBucketsResponse",
@@ -991,6 +1009,12 @@
                   }
                 ]
               }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
+              }
             ]
           },
           {
@@ -1010,6 +1034,12 @@
                     "value": "false"
                   }
                 ]
+              }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
               }
             ]
           },
@@ -1037,6 +1067,12 @@
                 "type": "node.Node",
                 "is_repeated": true
               }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
+              }
             ]
           },
           {
@@ -1047,6 +1083,12 @@
                 "name": "nodes",
                 "type": "node.Node",
                 "is_repeated": true
+              }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
               }
             ]
           },
@@ -1073,6 +1115,12 @@
                 "name": "address",
                 "type": "string"
               }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
+              }
             ]
           },
           {
@@ -1082,6 +1130,12 @@
                 "id": 1,
                 "name": "ok",
                 "type": "bool"
+              }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
               }
             ]
           },
@@ -1098,6 +1152,12 @@
                 "name": "address",
                 "type": "string"
               }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
+              }
             ]
           },
           {
@@ -1112,6 +1172,12 @@
                 "id": 2,
                 "name": "meta",
                 "type": "node.NodeMetadata"
+              }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
               }
             ]
           },
@@ -1138,6 +1204,12 @@
                 "name": "address",
                 "type": "node.NodeAddress"
               }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
+              }
             ]
           },
           {
@@ -1162,6 +1234,12 @@
                 "id": 4,
                 "name": "version",
                 "type": "node.NodeVersion"
+              }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
               }
             ]
           },
@@ -1203,6 +1281,12 @@
                 "name": "limit",
                 "type": "int64"
               }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
+              }
             ]
           },
           {
@@ -1213,6 +1297,12 @@
                 "name": "nodes",
                 "type": "node.Node",
                 "is_repeated": true
+              }
+            ],
+            "options": [
+              {
+                "name": "deprecated",
+                "value": "true"
               }
             ]
           },
@@ -1297,7 +1387,13 @@
               {
                 "id": 3,
                 "name": "bootstrap_address",
-                "type": "string"
+                "type": "string",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 4,
