@@ -24,7 +24,7 @@ type Endpoint struct {
 	pingStats *PingStats
 }
 
-// PingStats contains information regarding who and when the node was last pinged
+// PingStats contains information regarding when the node was last pinged
 type PingStats struct {
 	mu         sync.Mutex
 	lastPinged time.Time
