@@ -529,7 +529,7 @@ func (server *Server) initializeTemplates() (err error) {
 	return nil
 }
 
-// stripPort strips the port from hostport string if any
+// stripPort strips the port from hostport string if any.
 func stripPort(hostport string) string {
 	i := strings.Index(hostport, ":")
 	if i < 0 {
