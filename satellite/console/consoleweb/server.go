@@ -198,7 +198,12 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	host := stripPort(r.Host)
+	host, err := stripPort(r.Host)
+	if err != nil {
+		server.log.Error("bucket usage report error", zap.Error(err))
+		server.serveError(w, r, http.StatusInternalServerError)
+		return
+	}
 
 	tokenCookie, err := r.Cookie(host + "_tokenKey")
 	if err != nil {
@@ -530,10 +535,40 @@ func (server *Server) initializeTemplates() (err error) {
 }
 
 // stripPort strips the port from hostport string if any.
-func stripPort(hostport string) string {
-	i := strings.Index(hostport, ":")
+func stripPort(hostport string) (string, error) {
+	i := strings.LastIndex(hostport, ":")
 	if i < 0 {
-		return hostport
+		return hostport, nil
 	}
-	return hostport[:i]
+
+	// assume using ipv4
+	if hostport[0] != '[' {
+		host := hostport[:i]
+		if strings.Index(host, ":") >= 0 {
+			return "", errs.New("too many columns")
+		}
+
+		return host, nil
+	}
+
+	// ipv6
+	end := strings.LastIndex(hostport, "]")
+	if end == -1 {
+		return "", errs.New("invalid ipv6 address, no closing \"]\" at the end")
+	}
+
+	// only port separating ":" can follow after closing "]"
+	if end+1 != i {
+		return "", errs.New("invalid ipv6 address, invalid character after \"]\"")
+	}
+
+	host := hostport[1:end]
+	if strings.Index(host, "[") >= 0 {
+		return "", errs.New("unexpected '[' in address")
+	}
+	if strings.Index(host, "]") >= 0 {
+		return "", errs.New("unexpected ']' in address")
+	}
+
+	return host, nil
 }
