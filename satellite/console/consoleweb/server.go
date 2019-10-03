@@ -198,12 +198,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	host, _, err := net.SplitHostPort(r.Host)
-	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-		server.serveError(w, r, http.StatusInternalServerError)
-		return
-	}
+	host := stripPort(r.Host)
 
 	tokenCookie, err := r.Cookie(host + "_tokenKey")
 	if err != nil {
@@ -532,4 +527,13 @@ func (server *Server) initializeTemplates() (err error) {
 	}
 
 	return nil
+}
+
+// stripPort strips the port from hostport string if any
+func stripPort(hostport string) string {
+	i := strings.Index(hostport, ":")
+	if i < 0 {
+		return hostport
+	}
+	return hostport[:i]
 }
