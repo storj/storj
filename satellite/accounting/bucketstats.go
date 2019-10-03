@@ -17,7 +17,6 @@ type BucketTally struct {
 	InlineSegments int64
 	RemoteSegments int64
 
-	Bytes       int64
 	InlineBytes int64
 	RemoteBytes int64
 
@@ -31,7 +30,6 @@ func (s *BucketTally) Combine(o *BucketTally) {
 	s.InlineSegments += o.InlineSegments
 	s.RemoteSegments += o.RemoteSegments
 
-	s.Bytes += o.Bytes
 	s.InlineBytes += o.InlineBytes
 	s.RemoteBytes += o.RemoteBytes
 }
@@ -39,4 +37,9 @@ func (s *BucketTally) Combine(o *BucketTally) {
 // Segments returns the total number of segments
 func (s *BucketTally) Segments() int64 {
 	return s.InlineSegments + s.RemoteSegments
+}
+
+// Bytes returns the total bytes
+func (s *BucketTally) Bytes() int64 {
+	return s.InlineBytes + s.RemoteBytes
 }

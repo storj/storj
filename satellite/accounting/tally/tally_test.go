@@ -66,6 +66,7 @@ func TestOnlyInline(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tallySvc := planet.Satellites[0].Accounting.Tally
+		tallySvc.Loop.Pause()
 		uplink := planet.Uplinks[0]
 		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 
@@ -86,7 +87,6 @@ func TestOnlyInline(t *testing.T) {
 			ProjectID:      projectID,
 			ObjectCount:    1,
 			InlineSegments: 1,
-			Bytes:          int64(expectedTotalBytes),
 			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
@@ -95,7 +95,7 @@ func TestOnlyInline(t *testing.T) {
 		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		assert.NoError(t, err)
 
-		// Run calculate twice to test unique constraint issue
+		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
 			tallySvc.Loop.TriggerWait()
 
@@ -103,10 +103,7 @@ func TestOnlyInline(t *testing.T) {
 			require.NoError(t, err)
 
 			// Confirm the correct bucket storage tally was created
-			if !assert.Equal(t, 1, len(savedTallies)) {
-				t.Logf("%v", savedTallies)
-			}
-
+			assert.Equal(t, i+1, len(savedTallies))
 			for _, actualTally := range savedTallies {
 				assert.Equal(t, expectedTally, actualTally)
 			}
@@ -210,8 +207,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 
 				assert.Equal(t, len(expectedBucketTallies), len(savedTallies))
 				for _, actualTally := range savedTallies {
-					actual := actualTally
-					assert.Equal(t, expectedBucketTallies[string(actualTally.BucketName)], &actual)
+					assert.Equal(t, *expectedBucketTallies[string(actualTally.BucketName)], actualTally)
 				}
 			})
 		}
@@ -224,7 +220,6 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	// if there is already an existing tally for this project and bucket, then
 	// add the new pointer data to the existing tally
 	if existingTally != nil {
-		existingTally.Bytes += int64(2)
 		existingTally.MetadataSize += int64(12)
 		existingTally.RemoteSegments++
 		existingTally.RemoteBytes += int64(2)
@@ -233,20 +228,17 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 
 	// if the pointer was inline, create a tally with inline info
 	if inline {
-		newInlineTally := accounting.BucketTally{
+		return &accounting.BucketTally{
 			ObjectCount:    int64(1),
 			InlineSegments: int64(1),
-			Bytes:          int64(2),
 			InlineBytes:    int64(2),
 			MetadataSize:   int64(12),
 		}
-		return &newInlineTally
 	}
 
 	// if the pointer was remote, create a tally with remote info
-	newRemoteTally := accounting.BucketTally{
+	newRemoteTally := &accounting.BucketTally{
 		RemoteSegments: int64(1),
-		Bytes:          int64(2),
 		RemoteBytes:    int64(2),
 		MetadataSize:   int64(12),
 	}
@@ -255,7 +247,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 		newRemoteTally.ObjectCount++
 	}
 
-	return &newRemoteTally
+	return newRemoteTally
 }
 
 // makePointer creates a pointer
