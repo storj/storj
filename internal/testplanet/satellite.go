@@ -212,15 +212,20 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return xs, err
 		}
 
+		api, err := satellite.NewAPI(log, identity, db, revocationDB, &config, versionInfo)
+		if err != nil {
+			return xs, err
+		}
+
 		err = db.CreateTables()
 		if err != nil {
 			return nil, err
 		}
 		planet.databases = append(planet.databases, db)
 
-		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
+		log.Debug("id=" + peer.ID().String() + " addr=" + api.Addr())
 
-		system := SatelliteSystem{Peer: *peer}
+		system := SatelliteSystem{Peer: *peer, API: *api}
 		xs = append(xs, &system)
 	}
 	return xs, nil

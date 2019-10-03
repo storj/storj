@@ -82,7 +82,8 @@ type Planet struct {
 
 // SatelliteSystem contains all the processes needed to run a full Satellite setup
 type SatelliteSystem struct {
-	satellite.Peer
+	Peer satellite.Peer
+	satellite.API
 }
 
 type closablePeer struct {
@@ -187,7 +188,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 
 	whitelistedSatellites := make(storj.NodeURLs, 0, len(planet.Satellites))
 	for _, satellite := range planet.Satellites {
-		whitelistedSatellites = append(whitelistedSatellites, satellite.URL())
+		whitelistedSatellites = append(whitelistedSatellites, satellite.API.URL())
 	}
 
 	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)
