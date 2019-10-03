@@ -36,7 +36,6 @@ type ServiceVersions struct {
 
 // Versions represents versions for all binaries
 type Versions struct {
-	Bootstrap   Binary
 	Satellite   Binary
 	Storagenode Binary
 	Uplink      Binary
@@ -126,7 +125,6 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	peer.Versions.Processes = version.Processes{}
-	peer.Versions.Processes.Bootstrap = configToProcess(config.Binary.Bootstrap)
 	peer.Versions.Processes.Satellite = configToProcess(config.Binary.Satellite)
 	peer.Versions.Processes.Storagenode = configToProcess(config.Binary.Storagenode)
 	peer.Versions.Processes.Uplink = configToProcess(config.Binary.Uplink)
