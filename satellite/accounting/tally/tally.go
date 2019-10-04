@@ -228,19 +228,6 @@ func (tally *Tally) RemoteSegment(ctx context.Context, path metainfo.ScopedPath,
 	return nil
 }
 
-// bucketReport reports the stats thru monkit
-func bucketReport(tally *accounting.BucketTally, prefix string) {
-	mon.IntVal(prefix + ".objects").Observe(tally.ObjectCount)
-
-	mon.IntVal(prefix + ".segments").Observe(tally.Segments())
-	mon.IntVal(prefix + ".inline_segments").Observe(tally.InlineSegments)
-	mon.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
-
-	mon.IntVal(prefix + ".bytes").Observe(tally.Bytes())
-	mon.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)
-	mon.IntVal(prefix + ".remote_bytes").Observe(tally.RemoteBytes)
-}
-
 // bucketTallyAdd groups all the data based the passed pointer
 func bucketTallyAdd(s *accounting.BucketTally, pointer *pb.Pointer, last bool) {
 	switch pointer.GetType() {
@@ -264,14 +251,14 @@ func bucketTallyAdd(s *accounting.BucketTally, pointer *pb.Pointer, last bool) {
 var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
 
 // bucketReport reports the stats thru monkit
-func bucketReport(bucket *accounting.BucketTally, prefix string) {
-	monAccounting.IntVal(prefix + ".objects").Observe(bucket.ObjectCount)
+func bucketReport(tally *accounting.BucketTally, prefix string) {
+	monAccounting.IntVal(prefix + ".objects").Observe(tally.ObjectCount)
 
-	monAccounting.IntVal(prefix + ".segments").Observe(bucket.Segments())
-	monAccounting.IntVal(prefix + ".inline_segments").Observe(bucket.InlineSegments)
-	monAccounting.IntVal(prefix + ".remote_segments").Observe(bucket.RemoteSegments)
+	monAccounting.IntVal(prefix + ".segments").Observe(tally.Segments())
+	monAccounting.IntVal(prefix + ".inline_segments").Observe(tally.InlineSegments)
+	monAccounting.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
 
-	monAccounting.IntVal(prefix + ".bytes").Observe(bucket.Bytes())
-	monAccounting.IntVal(prefix + ".inline_bytes").Observe(bucket.InlineBytes)
-	monAccounting.IntVal(prefix + ".remote_bytes").Observe(bucket.RemoteBytes)
+	monAccounting.IntVal(prefix + ".bytes").Observe(tally.Bytes())
+	monAccounting.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)
+	monAccounting.IntVal(prefix + ".remote_bytes").Observe(tally.RemoteBytes)
 }

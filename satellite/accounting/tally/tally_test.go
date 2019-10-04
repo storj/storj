@@ -170,8 +170,8 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		redundancyScheme := planet.Uplinks[0].GetConfig(satellite).GetRedundancyScheme()
+		satellitePeer := planet.Satellites[0]
+		redundancyScheme := planet.Uplinks[0].GetConfig(satellitePeer).GetRedundancyScheme()
 		expectedBucketTallies := make(map[string]*accounting.BucketTally)
 		for _, tt := range testCases {
 			tt := tt // avoid scopelint error
@@ -182,7 +182,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 
 				// setup: create a pointer and save it to pointerDB
 				pointer, _ := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
-				metainfo := satellite.Metainfo.Service
+				metainfo := satellitePeer.Metainfo.Service
 				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName, tt.objectName)
 				if tt.objectName == "" {
 					objectPath = fmt.Sprintf("%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName)
@@ -201,9 +201,9 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				}
 
 				// test: calculate at rest data
-				satellite.Accounting.Tally.Loop.TriggerWait()
+				satellitePeer.Accounting.Tally.Loop.TriggerWait()
 
-				savedTallies, err := planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
+				savedTallies, err := satellitePeer.DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)
 
 				assert.Equal(t, len(expectedBucketTallies), len(savedTallies))
