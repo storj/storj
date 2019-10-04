@@ -3,6 +3,7 @@
 
 <template>
     <div class="chart">
+        <p class="bandwidth-chart__data-dimension">{{chartDataDimension}}</p>
         <VChart
             id="bandwidth-chart"
             :chart-data="chartData"
@@ -53,6 +54,18 @@ export default class BandwidthChart extends Vue {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
     }
 
+    public get chartDataDimension(): string {
+        let dataDimension: string = '';
+
+        if (this.allBandwidth.length) {
+            dataDimension = ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
+                return elem.summary();
+            }));
+        }
+
+        return dataDimension;
+    }
+
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
@@ -97,7 +110,7 @@ export default class BandwidthChart extends Vue {
                                    </div>
                                    <div class='tooltip-body'>
                                        <div class='tooltip-body__info'>
-                                           <p>NORMAL</p>
+                                           <p>USAGE</p>
                                            <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.normalEgress}</b></p>
                                            <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.normalIngress}</b></p>
                                        </div>
@@ -132,6 +145,16 @@ export default class BandwidthChart extends Vue {
 </script>
 
 <style lang="scss">
+    .bandwidth-chart {
+
+        &__data-dimension {
+            font-size: 13px;
+            color: #586c86;
+            margin: 0 0 5px 5px;
+            font-family: 'font_medium';
+        }
+    }
+
     #bandwidth-tooltip {
         background-color: #FFFFFF;
         width: auto;

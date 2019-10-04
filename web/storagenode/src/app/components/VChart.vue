@@ -53,21 +53,48 @@ export default class VChart extends Vue {
 
             scales: {
                 yAxes: [{
-                    display: false,
+                    display: true,
                     ticks: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                    },
+                    gridLines: {
+                        borderDash: [2, 5],
+                        drawBorder: false
                     }
                 }],
                 xAxes: [{
                     display: true,
                     ticks: {
                         fontFamily: 'font_regular',
-                        autoSkip: true,
+                        autoSkip: false,
                         maxRotation: 0,
                         minRotation: 0,
+                        callback: function(value, index, values): string | undefined {
+                            const valuesLength = values.length;
+                            const firstValue = values[0];
+                            const lastValue = values[valuesLength - 1];
+                            const middleIndex = valuesLength / 2;
+                            const isAfterEighthDayOfTheMonth = valuesLength > 8 && valuesLength <= 31;
+
+                            if (valuesLength <= 8) {
+                                return value
+                            }
+
+                            if (value === firstValue || value === lastValue ||
+                                (isAfterEighthDayOfTheMonth && valuesLength % 2 === 0
+                                && index === (middleIndex - 1))) {
+                                return value;
+                            }
+
+                            if (value === firstValue || value === lastValue ||
+                                (isAfterEighthDayOfTheMonth && valuesLength % 2 !== 0
+                                && index === (Math.floor(middleIndex)))) {
+                                return value;
+                            }
+                        }
                     },
                     gridLines: {
-                        display: false
+                        display: false,
                     },
                 }],
             },
