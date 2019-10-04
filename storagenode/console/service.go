@@ -159,13 +159,13 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	}
 
 	data.DiskSpace = DiskSpaceInfo{
-		Used:      memory.Size(spaceUsage).GB(),
-		Available: s.allocatedDiskSpace.GB(),
+		Used:      spaceUsage,
+		Available: s.allocatedDiskSpace.Int64(),
 	}
 
 	data.Bandwidth = BandwidthInfo{
-		Used:      memory.Size(bandwidthUsage).GB(),
-		Available: s.allocatedBandwidth.GB(),
+		Used:      bandwidthUsage,
+		Available: s.allocatedBandwidth.Int64(),
 	}
 
 	return data, nil
