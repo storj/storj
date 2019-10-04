@@ -15,10 +15,10 @@ import (
 // Deprecated contains deprecated config structs
 type Deprecated struct {
 	Kademlia struct {
-		ExternalAddress string `default:"undefined" hidden:"true"`
+		ExternalAddress string `default:"" hidden:"true"`
 		Operator        struct {
-			Email  string `default:"undefined" hidden:"true"`
-			Wallet string `default:"undefined" hidden:"true"`
+			Email  string `default:"" hidden:"true"`
+			Wallet string `default:"" hidden:"true"`
 		}
 	}
 }
@@ -53,7 +53,7 @@ func mapDeprecatedConfigs(log *zap.Logger) {
 	}
 
 	for _, migration := range migrations {
-		if migration.oldValue != "undefined" {
+		if migration.oldValue != "" {
 			typ := reflect.TypeOf(migration.newValue).Elem()
 			override := parseOverride(typ, migration.oldValue)
 

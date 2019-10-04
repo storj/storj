@@ -40,13 +40,13 @@ func TestMapDeprecatedConfigs(t *testing.T) {
 		},
 		{testID: "deprecated absent, do not override",
 			newExternalAddr:        "newAddr",
-			deprecatedExternalAddr: "undefined",
+			deprecatedExternalAddr: "",
 			expectedAddr:           "newAddr",
 			newWallet:              "newWallet",
-			deprecatedWallet:       "undefined",
+			deprecatedWallet:       "",
 			expectedWallet:         "newWallet",
 			newEmail:               "newEmail",
-			deprecatedEmail:        "undefined",
+			deprecatedEmail:        "",
 			expectedEmail:          "newEmail",
 		},
 	}
@@ -76,7 +76,7 @@ func TestParseOverride(t *testing.T) {
 	}{
 		{testID: "test new config is untouched if deprecated is undefined",
 			newConfigValue:    "test-string",
-			oldConfigValue:    "undefined",
+			oldConfigValue:    "",
 			expectedNewConfig: "test-string",
 		},
 		{testID: "test migrate int",
@@ -123,7 +123,7 @@ func TestParseOverride(t *testing.T) {
 	for _, c := range cases {
 		testCase := c
 		t.Run(testCase.testID, func(t *testing.T) {
-			if testCase.oldConfigValue != "undefined" {
+			if testCase.oldConfigValue != "" {
 				typ := reflect.TypeOf(testCase.newConfigValue)
 				testCase.newConfigValue = parseOverride(typ, testCase.oldConfigValue)
 			}
