@@ -71,7 +71,7 @@ func parseOverride(typ reflect.Type, value string) interface{} {
 		if err != nil {
 			panic(err)
 		}
-		return val
+		return int(val)
 	case reflect.TypeOf(int64(0)):
 		val, err := strconv.ParseInt(value, 0, 64)
 		if err != nil {
@@ -83,7 +83,7 @@ func parseOverride(typ reflect.Type, value string) interface{} {
 		if err != nil {
 			panic(err)
 		}
-		return val
+		return uint(val)
 	case reflect.TypeOf(uint64(0)):
 		val, err := strconv.ParseUint(value, 0, 64)
 		if err != nil {

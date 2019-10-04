@@ -127,7 +127,7 @@ func TestParseOverride(t *testing.T) {
 				typ := reflect.TypeOf(c.newConfigValue)
 				c.newConfigValue = parseOverride(typ, c.oldConfigValue)
 			}
-			require.EqualValues(t, c.expectedNewConfig, c.newConfigValue)
+			require.Equal(t, c.expectedNewConfig, c.newConfigValue)
 		})
 	}
 }
