@@ -99,8 +99,8 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	// add up all nodes and buckets
-	tally := NewObserver()
-	err = service.metainfoLoop.Join(ctx, tally)
+	observer := NewObserver()
+	err = service.metainfoLoop.Join(ctx, observer)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -108,30 +108,30 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 	// calculate byte hours, not just bytes
 	hours := time.Since(lastTime).Hours()
-	for id := range tally.Node {
-		tally.Node[id] *= hours
+	for id := range observer.Node {
+		observer.Node[id] *= hours
 	}
 
 	// save the new results
 	var errAtRest, errBucketInfo error
-	if len(tally.Node) > 0 {
-		err = service.storagenodeAccountingDB.SaveTallies(ctx, finishTime, tally.Node)
+	if len(observer.Node) > 0 {
+		err = service.storagenodeAccountingDB.SaveTallies(ctx, finishTime, observer.Node)
 		if err != nil {
 			errAtRest = errs.New("StorageNodeAccounting.SaveTallies failed: %v", err)
 		}
 	}
 
-	if len(tally.Bucket) > 0 {
-		err = service.projectAccountingDB.SaveTallies(ctx, finishTime, tally.Bucket)
+	if len(observer.Bucket) > 0 {
+		err = service.projectAccountingDB.SaveTallies(ctx, finishTime, observer.Bucket)
 		if err != nil {
 			errAtRest = errs.New("ProjectAccounting.SaveTallies failed: %v", err)
 		}
 	}
 
 	// report bucket metrics
-	if len(tally.Bucket) > 0 {
+	if len(observer.Bucket) > 0 {
 		var total accounting.BucketTally
-		for _, bucket := range tally.Bucket {
+		for _, bucket := range observer.Bucket {
 			bucketReport(bucket, "bucket")
 			total.Combine(bucket)
 		}
@@ -159,30 +159,30 @@ func NewObserver() *Observer {
 }
 
 // ensureBucket returns bucket corresponding to the passed in path
-func (tally *Observer) ensureBucket(ctx context.Context, path metainfo.ScopedPath) *accounting.BucketTally {
+func (observer *Observer) ensureBucket(ctx context.Context, path metainfo.ScopedPath) *accounting.BucketTally {
 	bucketID := storj.JoinPaths(path.ProjectIDString, path.BucketName)
 
-	bucket, exists := tally.Bucket[bucketID]
+	bucket, exists := observer.Bucket[bucketID]
 	if !exists {
 		bucket = &accounting.BucketTally{}
 		bucket.ProjectID = path.ProjectID
 		bucket.BucketName = []byte(path.BucketName)
-		tally.Bucket[bucketID] = bucket
+		observer.Bucket[bucketID] = bucket
 	}
 
 	return bucket
 }
 
 // Object is called for each object once.
-func (tally *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	bucket := tally.ensureBucket(ctx, path)
+func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	bucket := observer.ensureBucket(ctx, path)
 	bucket.ObjectCount++
 	return nil
 }
 
 // InlineSegment is called for each inline segment.
-func (tally *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	bucket := tally.ensureBucket(ctx, path)
+func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	bucket := observer.ensureBucket(ctx, path)
 	bucket.InlineSegments++
 	bucket.InlineBytes += int64(len(pointer.InlineSegment))
 	bucket.MetadataSize += int64(len(pointer.Metadata))
@@ -191,8 +191,8 @@ func (tally *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPa
 }
 
 // RemoteSegment is called for each remote segment.
-func (tally *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	bucket := tally.ensureBucket(ctx, path)
+func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	bucket := observer.ensureBucket(ctx, path)
 	bucket.RemoteSegments++
 	bucket.RemoteBytes += pointer.GetSegmentSize()
 	bucket.MetadataSize += int64(len(pointer.Metadata))
@@ -204,13 +204,13 @@ func (tally *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPa
 	minimumRequired := redundancy.GetMinReq()
 
 	if remote == nil || redundancy == nil || minimumRequired <= 0 {
-		// TODO: tally.log.Error("failed sanity check")
+		// TODO: observer.log.Error("failed sanity check")
 		return nil
 	}
 
 	pieceSize := float64(segmentSize / int64(minimumRequired))
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		tally.Node[piece.NodeId] += pieceSize
+		observer.Node[piece.NodeId] += pieceSize
 	}
 	return nil
 }
