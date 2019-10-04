@@ -215,25 +215,6 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 	return nil
 }
 
-// bucketTallyAdd groups all the data based the passed pointer
-func bucketTallyAdd(s *accounting.BucketTally, pointer *pb.Pointer, last bool) {
-	switch pointer.GetType() {
-	case pb.Pointer_INLINE:
-		s.InlineSegments++
-		s.InlineBytes += int64(len(pointer.InlineSegment))
-		s.MetadataSize += int64(len(pointer.Metadata))
-
-	case pb.Pointer_REMOTE:
-		s.RemoteSegments++
-		s.RemoteBytes += pointer.GetSegmentSize()
-		s.MetadataSize += int64(len(pointer.Metadata))
-	}
-
-	if last {
-		s.ObjectCount++
-	}
-}
-
 // using custom name to avoid breaking monitoring
 var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
 
