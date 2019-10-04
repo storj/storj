@@ -95,10 +95,10 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 selected.description = updateProjectModel.description;
             },
             [REMOVE](state: any, projectID: string): void {
-                state.projects = state.projects.filter(proj => proj.id !== projectID);
+                state.projects = state.projects.filter(project => project.id !== projectID);
 
                 if (state.selectedProject.id === projectID) {
-                    state.selectedProject = new Project('', '', '', '', '');
+                    state.selectedProject = new Project();
                 }
             },
             [CLEAR_PROJECTS](state: ProjectsState): void {
