@@ -153,7 +153,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	bandwidthUsage, err := s.bandwidthDB.Summary(ctx, time.Time{}, time.Now())
+	bandwidthUsage, err := s.bandwidthDB.MonthSummary(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
@@ -164,7 +164,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	}
 
 	data.Bandwidth = BandwidthInfo{
-		Used:      memory.Size(bandwidthUsage.Total()).GB(),
+		Used:      memory.Size(bandwidthUsage).GB(),
 		Available: s.allocatedBandwidth.GB(),
 	}
 
