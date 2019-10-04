@@ -3,12 +3,12 @@
 
 <div class="register-container" @keyup.enter="onCreateClick">
     <div :class="loadingClassName">
-        <img class="loading-image" src="@/../static/images/register/Loading.gif">
+        <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
     </div>
-    <img class="image" src="@/../static/images/AuthImage.svg" alt="" >
+    <img class="image" src="@/../static/images/AuthImage.svg" alt="Authentication illustration">
     <div class="register-container__wrapper">
         <div class="register-container__header">
-            <img class="register-container__logo" src="@/../static/images/Logo.svg" alt="logo" @click="onLogoClick">
+            <img class="register-container__logo" src="@/../static/images/Logo.svg" alt="Company logo" @click="onLogoClick">
             <div class="register-container__register-button" @click.prevent="onLoginClick">
                 <p class="register-container__register-button__label">Login</p>
             </div>
