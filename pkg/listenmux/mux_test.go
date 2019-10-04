@@ -44,13 +44,14 @@ func TestMux(t *testing.T) {
 
 	mux := New(lis, len("prefixN"))
 
-	var muxGroup errgroup.Group
-	muxGroup.Go(func() error { return mux.Run(ctx) })
-
 	var lisGroup errgroup.Group
 	lisGroup.Go(expect(mux.Route("prefix1"), "data1"))
 	lisGroup.Go(expect(mux.Route("prefix2"), "data2"))
 	lisGroup.Go(expect(mux.Default(), "prefix3data3"))
+
+	var muxGroup errgroup.Group
+	muxGroup.Go(func() error { return mux.Run(ctx) })
+
 	require.NoError(t, lisGroup.Wait())
 
 	cancel()

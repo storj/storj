@@ -36,6 +36,9 @@ func TestRollupNoDeletes(t *testing.T) {
 		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			planet.Satellites[0].Accounting.Rollup.Loop.Pause()
+			planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
 			dqedNodes, err := dqNodes(ctx, planet)
 			require.NoError(t, err)
 			require.NotEmpty(t, dqedNodes)
@@ -107,6 +110,9 @@ func TestRollupDeletes(t *testing.T) {
 		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			planet.Satellites[0].Accounting.Rollup.Loop.Pause()
+			planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
 			dqedNodes, err := dqNodes(ctx, planet)
 			require.NoError(t, err)
 			require.NotEmpty(t, dqedNodes)

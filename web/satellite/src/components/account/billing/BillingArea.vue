@@ -21,6 +21,7 @@
         </div>
         <AccountBalance/>
         <MonthlyBillingSummary/>
+        <PaymentMethods />
         <DepositAndBilling/>
     </div>
 </template>
@@ -31,12 +32,14 @@ import { Component, Vue } from 'vue-property-decorator';
 import AccountBalance from '@/components/account/billing/AccountBalance.vue';
 import DepositAndBilling from '@/components/account/billing/DepositAndBilling.vue';
 import MonthlyBillingSummary from '@/components/account/billing/MonthlyBillingSummary.vue';
+import PaymentMethods from '@/components/account/billing/PaymentMethods.vue';
 
 @Component({
     components: {
         AccountBalance,
         MonthlyBillingSummary,
         DepositAndBilling,
+        PaymentMethods,
     },
 })
 export default class BillingArea extends Vue {}

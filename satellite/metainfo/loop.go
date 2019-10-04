@@ -121,14 +121,18 @@ func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 func (loop *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	defer close(loop.done)
-
 	for {
 		err := loop.runOnce(ctx)
 		if err != nil {
 			return err
 		}
 	}
+}
+
+// Close closes the looping services.
+func (loop *Loop) Close() (err error) {
+	close(loop.done)
+	return nil
 }
 
 // runOnce goes through metainfo one time and sends information to observers.

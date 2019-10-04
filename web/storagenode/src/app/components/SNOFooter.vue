@@ -14,10 +14,10 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class SNOFooter extends Vue {}
+@Component
+export default class SNOFooter extends Vue {}
 </script>
 
 <style lang="scss">
@@ -35,7 +35,8 @@
             justify-content: space-between;
             align-items: center;
 
-            a {
+            &__community-link,
+            &__support-link {
                 font-size: 14px;
                 text-decoration: none;
                 color: #224CA5;

@@ -3,11 +3,15 @@
 
 <template>
     <div>
-        <NoBucketArea v-if="!totalCount && !search" />
+        <NoBucketArea v-if="isNoBucketAreaShown"/>
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
-                <p>Buckets</p>
-                <HeaderComponent class="buckets-header-component" placeHolder="Buckets" :search="fetch"/>
+                <p class="buckets-header__title">Buckets</p>
+                <VHeader
+                    class="buckets-header-component"
+                    placeholder="Buckets"
+                    :search="fetch"
+                />
             </div>
             <div class="buckets-notification-container">
                 <div class="buckets-notification">
@@ -19,15 +23,24 @@
                 </div>
             </div>
             <div v-if="buckets.length" class="buckets-container">
-                <SortingHeader />
-                <List :dataSet="buckets" :itemComponent="itemComponent" :onItemClick="doNothing"/>
-                <Pagination v-if="totalPageCount > 1" :totalPageCount="totalPageCount" :onPageClickCallback="onPageClick" />
+                <SortingHeader/>
+                <VList
+                    :data-set="buckets"
+                    :item-component="itemComponent"
+                    :on-item-click="doNothing"
+                />
+                <VPagination
+                    v-if="isPaginationShown"
+                    :total-page-count="totalPageCount"
+                    :on-page-click-callback="onPageClick"
+                />
             </div>
             <EmptyState
                 class="empty-container"
-                v-if="!totalPageCount && search"
-                mainTitle="Nothing found :("
-                :imageSource="emptyImage" />
+                v-if="isEmptySearchResultShown"
+                main-title="Nothing found :("
+                :image-source="emptyImage"
+            />
         </div>
     </div>
 </template>
@@ -39,9 +52,9 @@ import BucketItem from '@/components/buckets/BucketItem.vue';
 import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
 import SortingHeader from '@/components/buckets/SortingHeader.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
-import HeaderComponent from '@/components/common/HeaderComponent.vue';
-import List from '@/components/common/List.vue';
-import Pagination from '@/components/common/Pagination.vue';
+import VHeader from '@/components/common/VHeader.vue';
+import VList from '@/components/common/VList.vue';
+import VPagination from '@/components/common/VPagination.vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Bucket } from '@/types/buckets';
@@ -59,9 +72,9 @@ const {
         SortingHeader,
         BucketItem,
         NoBucketArea,
-        HeaderComponent,
-        Pagination,
-        List,
+        VHeader,
+        VPagination,
+        VList,
     },
 })
 export default class BucketArea extends Vue {
@@ -95,6 +108,18 @@ export default class BucketArea extends Vue {
         return this.$store.getters.cursor.search;
     }
 
+    public get isNoBucketAreaShown(): boolean {
+        return !this.totalCount && !this.search;
+    }
+
+    public get isPaginationShown(): boolean {
+        return this.totalPageCount > 1;
+    }
+
+    public get isEmptySearchResultShown(): boolean {
+        return !!(!this.totalPageCount && this.search);
+    }
+
     public async fetch(searchQuery: string): Promise<void> {
         await this.$store.dispatch(SET_SEARCH, searchQuery);
 
@@ -122,7 +147,7 @@ export default class BucketArea extends Vue {
         justify-content: space-between;
         padding: 40px 60px 20px 60px;
         
-        p {
+        &__title {
             font-family: 'font_bold';
             font-size: 32px;
             line-height: 39px;

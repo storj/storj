@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -37,6 +37,9 @@ type SegmentRepairer struct {
 	// threshold results in the maximum limit of number of nodes to upload
 	// repaired pieces
 	multiplierOptimalThreshold float64
+
+	//repairOverride is the value handed over from the checker to override the Repair Threshold
+	repairOverride int
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -46,8 +49,8 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
-	overlay *overlay.Service, tc transport.Client, timeout time.Duration,
-	excessOptimalThreshold float64, satelliteSignee signing.Signee,
+	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
+	excessOptimalThreshold float64, repairOverride int, satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -59,9 +62,10 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         NewECRepairer(log.Named("ec repairer"), tc, satelliteSignee),
+		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
+		repairOverride:             repairOverride,
 	}
 }
 
@@ -108,10 +112,15 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return true, Error.Wrap(IrreparableError.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1))
 	}
 
+	repairThreshold := pointer.Remote.Redundancy.RepairThreshold
+	if repairer.repairOverride != 0 {
+		repairThreshold = int32(repairer.repairOverride)
+	}
+
 	// repair not needed
-	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
+	if int32(numHealthy) > repairThreshold {
 		mon.Meter("repair_unnecessary").Mark(1)
-		repairer.log.Sugar().Debugf("segment %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		repairer.log.Sugar().Debugf("segment %v with %d pieces above repair threshold %d", path, numHealthy, repairThreshold)
 		return true, nil
 	}
 

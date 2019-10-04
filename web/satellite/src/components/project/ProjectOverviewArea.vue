@@ -6,13 +6,15 @@
         <TabNavigation
             v-if="isProjectSelected"
             class="project-overview__navigation"
-            :navigation="navigation"/>
+            :navigation="navigation"
+        />
         <router-view v-if="isProjectSelected"/>
         <EmptyState
             v-if="!isProjectSelected"
-            mainTitle="Create your first project"
+            main-title="Create your first project"
             additional-text='<p>Please click the button <b>"New Project"</b> in the right corner</p>'
-            :imageSource="emptyImage" />
+            :image-source="emptyImage"
+        />
     </div>
 </template>
 
