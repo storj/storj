@@ -28,6 +28,12 @@ type Config struct {
 	// be used. If set to a negative value, the system will use the
 	// smallest amount of memory it can.
 	MaxMemory int64
+
+	// SkipPeerCAWhitelist determines whether to require all
+	// remote hosts to have identity certificates signed by
+	// Certificate Authorities in the default whitelist. If
+	// set to true, the whitelist will be ignored.
+	SkipPeerCAWhitelist bool
 }
 
 // Uplink represents the main entrypoint to Storj V3. An Uplink connects to
@@ -47,7 +53,7 @@ func NewUplink(config *Config, tempDir string) (*Uplink, error) {
 	cfg := &libuplink.Config{}
 	if config != nil {
 		// TODO: V3-2303, support logging somehow
-		cfg.Volatile.TLS.SkipPeerCAWhitelist = true
+		cfg.Volatile.TLS.SkipPeerCAWhitelist = config.SkipPeerCAWhitelist
 		cfg.Volatile.MaxInlineSize = memory.Size(config.MaxInlineSize)
 		cfg.Volatile.MaxMemory = memory.Size(config.MaxMemory)
 	}
@@ -142,11 +148,11 @@ func (project *Project) GetBucketInfo(bucketName string) (*BucketInfo, error) {
 }
 
 // ListBuckets will list authorized buckets.
-func (project *Project) ListBuckets(cursor string, limit int) (*BucketList, error) {
+func (project *Project) ListBuckets(after string, limit int) (*BucketList, error) {
 	scope := project.scope.child()
 	opts := libuplink.BucketListOptions{
-		Cursor:    cursor,
-		Direction: storj.Forward,
+		Cursor:    after,
+		Direction: storj.After,
 		Limit:     limit,
 	}
 	list, err := project.lib.ListBuckets(scope.ctx, &opts)

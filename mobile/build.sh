@@ -4,7 +4,6 @@
 # Required:
 # * ANDROID_HOME set with NDK available
 # * go
-# * gospace
 
 if [ -z "$ANDROID_HOME" ]
 then
@@ -12,42 +11,38 @@ then
       exit 1
 fi
 
-OUTPUT_DIR=${1:-$PWD}
-OUTPUT_AAR="libuplink-android.aar"
-OUTPUT_JAVA_PACKAGE="io.storj.libuplink"
+# setup tmpdir for testfiles and cleanup
+TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+cleanup(){
+	rm -rf "$TMP"
+}
+trap cleanup EXIT
 
-STORJ_PATH=~/storj-for-android
-
-# set go modules to default behavior
-export GO111MODULE=auto
+OUTPUT=$PWD
 
 # go knows where our gopath is
-export GOPATH=$STORJ_PATH
+export GOPATH=$TMP
 
-# gospace knows where our gopath is (this is to avoid accidental damage to existing GOPATH)
-# you should not use default GOPATH here
-export GOSPACE_ROOT=$STORJ_PATH
+mkdir "$GOPATH/src"
 
-# set the github repository that this GOSPACE manages
-export GOSPACE_PKG=storj.io/storj
+# symlink doesn't look to be working with gomobile
+# ln -s "$PWD/../storj" "$GOPATH/src/storj.io/storj"
+rsync -am --stats --exclude=".*" "$PWD/../storj" "$GOPATH/src/storj.io/"
 
-# set the where the repository is located
-export GOSPACE_REPO=git@github.com:storj/storj.git
+cd "$GOPATH/src/storj.io/storj"
 
-gospace setup
+go mod vendor
 
-export PATH=$PATH:$GOPATH/bin
+cp -r $GOPATH/src/storj.io/storj/vendor/* "$GOPATH/src"
 
-# step can be removed after merge to master
-cd $GOPATH/src/storj.io/storj
-git checkout -q mn/java-bindings
-
-cd $GOPATH
+# set go modules to default behavior
+export GO111MODULE=off
 
 go get golang.org/x/mobile/cmd/gomobile
 
-gomobile init
+$GOPATH/bin/gomobile init
 
-echo -e "\nbuilding aar"
-gomobile bind -target android -o $OUTPUT_DIR/libuplink-android.aar -javapkg $OUTPUT_JAVA_PACKAGE storj.io/storj/mobile
-echo "output aar: $OUTPUT_DIR/libuplink-android.aar"
+$GOPATH/bin/gomobile bind -v -target android -o "$OUTPUT/libuplink-android.aar" -javapkg io.storj.libuplink storj.io/storj/mobile
+
+# cleanup pkg/mod directory
+go clean -modcache
