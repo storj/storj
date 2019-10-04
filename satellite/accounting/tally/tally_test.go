@@ -181,7 +181,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				require.NoError(t, err)
 
 				// setup: create a pointer and save it to pointerDB
-				pointer, _ := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
+				pointer := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
 				metainfo := satellitePeer.Metainfo.Service
 				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName, tt.objectName)
 				err = metainfo.Put(ctx, objectPath, pointer)
@@ -242,9 +242,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 }
 
 // makePointer creates a pointer
-func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
-	segmentSize int64, inline bool) (*pb.Pointer, error) {
-
+func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme, segmentSize int64, inline bool) *pb.Pointer {
 	if inline {
 		inlinePointer := &pb.Pointer{
 			CreationDate:  time.Now(),
@@ -253,7 +251,7 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 			SegmentSize:   segmentSize,
 			Metadata:      []byte("fakemetadata"),
 		}
-		return inlinePointer, nil
+		return inlinePointer
 	}
 
 	pieces := make([]*pb.RemotePiece, rs.TotalShares)
@@ -264,7 +262,7 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 		}
 	}
 
-	pointer := &pb.Pointer{
+	return &pb.Pointer{
 		CreationDate: time.Now(),
 		Type:         pb.Pointer_REMOTE,
 		Remote: &pb.RemoteSegment{
@@ -282,8 +280,6 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 		SegmentSize: segmentSize,
 		Metadata:    []byte("fakemetadata"),
 	}
-
-	return pointer, nil
 }
 
 func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
