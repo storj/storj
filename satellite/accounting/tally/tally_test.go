@@ -174,7 +174,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		redundancyScheme := planet.Uplinks[0].GetConfig(satellite).GetRedundancyScheme()
 		expectedBucketTallies := make(map[string]*accounting.BucketTally)
 		for _, tt := range testCases {
-			tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
+			tt := tt // avoid scopelint error
 
 			t.Run(tt.name, func(t *testing.T) {
 				projectID, err := uuid.Parse(tt.project)
@@ -208,7 +208,10 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 
 				assert.Equal(t, len(expectedBucketTallies), len(savedTallies))
 				for _, actualTally := range savedTallies {
-					assert.Equal(t, *expectedBucketTallies[string(actualTally.BucketName)], actualTally)
+					expectedTally := expectedBucketTallies[string(actualTally.BucketName)]
+					if assert.NotNil(t, expectedTally) {
+						assert.Equal(t, *expectedTally, actualTally)
+					}
 				}
 			})
 		}
@@ -297,13 +300,8 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 }
 
 func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
-
 	// The shareCount should be a value between RequiredShares and TotalShares where
 	// RequiredShares is the min number of shares required to recover a segment and
 	// TotalShares is the number of shares to encode
-	if int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares) {
-		return true
-	}
-
-	return false
+	return int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares)
 }
