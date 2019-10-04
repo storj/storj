@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
@@ -160,4 +161,9 @@ func (db *DB) Containment() audit.Containment {
 // GracefulExit returns database for graceful exit
 func (db *DB) GracefulExit() gracefulexit.DB {
 	return &gracefulexitDB{db: db.db}
+}
+
+// StripeCustomers returns table for storing stripe customers
+func (db *DB) StripeCustomers() stripecoinpayments.StripeCustomers {
+	return &stripe_customers{db: db.db}
 }

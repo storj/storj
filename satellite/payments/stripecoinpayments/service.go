@@ -1,0 +1,36 @@
+package stripecoinpayments
+
+import (
+	"context"
+
+	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/customer"
+)
+
+// Service is an implementation for PaymentsService via Stripe and Coinpayments
+type Service struct {
+	customers StripeCustomers
+}
+
+// NewService is a constructor for PaymentService
+func NewService(customers StripeCustomers) *Service {
+	return &Service{
+		customers: customers,
+	}
+}
+
+// Setup creates payment account for selected user
+func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email string) error {
+	params := &stripe.CustomerParams{
+		AccountBalance: stripe.Int64(0),
+		Email:          stripe.String(email),
+	}
+
+	if _, err := customer.New(params); err != nil {
+		return err
+	}
+
+	// TODO: delete customer from stripe, if db insertion fails
+	return service.customers.Insert(ctx, userID, email)
+}

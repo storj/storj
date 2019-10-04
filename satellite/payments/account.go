@@ -7,20 +7,12 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
-// Accounts -
+// Accounts exposes all needed functionality to manage payment accounts
 type Accounts interface {
 	Setup(userID uuid.UUID) error
 }
 
-// Account -
+// Account stores all payment related information
 type Account struct {
-	ID     string
-	UserID uuid.UUID
-}
-
-// AccountInfo - stores all needed information needed for account creation
-type AccountInfo struct {
-	FullName    string
-	Email       string
-	Description string
+	Balance float64
 }

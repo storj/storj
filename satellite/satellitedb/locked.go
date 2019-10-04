@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
@@ -1183,4 +1184,23 @@ func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTal
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, latestTally, nodeData)
+}
+
+// StripeCustomers returns table for storing stripe customers
+func (m *locked) StripeCustomers() stripecoinpayments.StripeCustomers {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedStripeCustomers{m.Locker, m.db.StripeCustomers()}
+}
+
+// lockedStripeCustomers implements locking wrapper for stripecoinpayments.StripeCustomers
+type lockedStripeCustomers struct {
+	sync.Locker
+	db stripecoinpayments.StripeCustomers
+}
+
+func (m *lockedStripeCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, userID, customerID)
 }
