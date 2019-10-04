@@ -20,23 +20,21 @@ var _ metainfo.Observer = (*PathCollector)(nil)
 //
 // architecture: Observer
 type PathCollector struct {
-	db              DB
-	metainfoService *metainfo.Service
-	nodeIDMap       map[storj.NodeID]struct{}
-	buffer          []TransferQueueItem
-	log             *zap.Logger
-	batchSize       int
+	db        DB
+	nodeIDMap map[storj.NodeID]struct{}
+	buffer    []TransferQueueItem
+	log       *zap.Logger
+	batchSize int
 }
 
 // NewPathCollector instantiates a path collector.
-func NewPathCollector(db DB, metainfoService *metainfo.Service, nodeIDs storj.NodeIDList, log *zap.Logger, batchSize int) *PathCollector {
+func NewPathCollector(db DB, nodeIDs storj.NodeIDList, log *zap.Logger, batchSize int) *PathCollector {
 	buffer := make([]TransferQueueItem, 0, batchSize)
 	collector := &PathCollector{
-		db:              db,
-		metainfoService: metainfoService,
-		log:             log,
-		buffer:          buffer,
-		batchSize:       batchSize,
+		db:        db,
+		log:       log,
+		buffer:    buffer,
+		batchSize: batchSize,
 	}
 
 	if len(nodeIDs) > 0 {

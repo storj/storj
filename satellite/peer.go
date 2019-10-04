@@ -661,7 +661,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup graceful exit
 		log.Debug("Setting up graceful")
-		peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("graceful exit chore"), peer.DB.GracefulExit(), peer.Overlay.DB, config.GracefulExit, peer.Metainfo.Service, peer.Metainfo.Loop)
+		peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("graceful exit chore"), peer.DB.GracefulExit(), peer.Overlay.DB, config.GracefulExit, peer.Metainfo.Loop)
 	}
 
 	return peer, nil

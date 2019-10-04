@@ -21,13 +21,12 @@ var mon = monkit.Package()
 //
 // architecture: Chore
 type Chore struct {
-	log             *zap.Logger
-	Loop            sync2.Cycle
-	db              DB
-	config          Config
-	overlay         overlay.DB
-	metainfoService *metainfo.Service
-	metainfoLoop    *metainfo.Loop
+	log          *zap.Logger
+	Loop         sync2.Cycle
+	db           DB
+	config       Config
+	overlay      overlay.DB
+	metainfoLoop *metainfo.Loop
 }
 
 // Config for the chore
@@ -36,15 +35,14 @@ type Config struct {
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, db DB, overlay overlay.DB, config Config, metainfoService *metainfo.Service, metaLoop *metainfo.Loop) *Chore {
+func NewChore(log *zap.Logger, db DB, overlay overlay.DB, config Config, metaLoop *metainfo.Loop) *Chore {
 	return &Chore{
-		log:             log,
-		Loop:            *sync2.NewCycle(time.Second * 10),
-		db:              db,
-		config:          config,
-		overlay:         overlay,
-		metainfoService: metainfoService,
-		metainfoLoop:    metaLoop,
+		log:          log,
+		Loop:         *sync2.NewCycle(time.Second * 10),
+		db:           db,
+		config:       config,
+		overlay:      overlay,
+		metainfoLoop: metaLoop,
 	}
 }
 
@@ -58,12 +56,13 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		exitingNodes, err := chore.overlay.GetExitingNodesLoopIncomplete(ctx)
 		if err != nil {
+			chore.log.Error("error retrieving nodes that have not completed the metainfo loop.", zap.Error(err))
 			return nil
 		}
 
 		chore.log.Debug("graceful exit.", zap.Int("exitingNodes", len(exitingNodes)))
 
-		pathCollector := NewPathCollector(chore.db, chore.metainfoService, exitingNodes, chore.log, chore.config.ChoreBatchSize)
+		pathCollector := NewPathCollector(chore.db, exitingNodes, chore.log, chore.config.ChoreBatchSize)
 		err = chore.metainfoLoop.Join(ctx, pathCollector)
 		if err != nil {
 			chore.log.Error("error joining metainfo loop.", zap.Error(err))
