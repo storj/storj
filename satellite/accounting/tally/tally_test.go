@@ -85,9 +85,7 @@ func TestOnlyInline(t *testing.T) {
 			BucketName:     []byte(expectedBucketName),
 			ProjectID:      projectID,
 			ObjectCount:    1,
-			Segments:       1,
 			InlineSegments: 1,
-			Bytes:          int64(expectedTotalBytes),
 			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
@@ -220,8 +218,6 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	// if there is already an existing tally for this project and bucket, then
 	// add the new pointer data to the existing tally
 	if existingTally != nil {
-		existingTally.Segments++
-		existingTally.Bytes += int64(2)
 		existingTally.MetadataSize += int64(12)
 		existingTally.RemoteSegments++
 		existingTally.RemoteBytes += int64(2)
@@ -232,9 +228,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	if inline {
 		newInlineTally := accounting.BucketTally{
 			ObjectCount:    int64(1),
-			Segments:       int64(1),
 			InlineSegments: int64(1),
-			Bytes:          int64(2),
 			InlineBytes:    int64(2),
 			MetadataSize:   int64(12),
 		}
@@ -243,9 +237,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 
 	// if the pointer was remote, create a tally with remote info
 	newRemoteTally := accounting.BucketTally{
-		Segments:       int64(1),
 		RemoteSegments: int64(1),
-		Bytes:          int64(2),
 		RemoteBytes:    int64(2),
 		MetadataSize:   int64(12),
 	}
