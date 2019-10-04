@@ -78,6 +78,22 @@ export default class NavigationArea extends Vue {
     public get isProjectNotSelected(): boolean {
         return this.$store.state.projectsModule.selectedProject.id === '';
     }
+
+    public get isResourcesDisplayingButtonShown(): boolean {
+        return !this.areResourceItemsShown && this.isResourceButtonShown;
+    }
+
+    public get isResourcesHidingButtonShown(): boolean {
+        return this.areResourceItemsShown && this.isResourceButtonShown;
+    }
+
+    public get isAccountItemsDisplayingButtonShown(): boolean {
+        return !this.areAccountItemsShown && this.isAccountButtonShown;
+    }
+
+    public get isAccountItemsHidingButtonShown(): boolean {
+        return this.areAccountItemsShown && this.isAccountButtonShown;
+    }
 }
 </script>
 

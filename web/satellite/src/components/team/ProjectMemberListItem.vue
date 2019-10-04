@@ -8,10 +8,10 @@
             <div class="user-container__base-info__avatar" :style="avatarData.style">
                 <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
-            <p class="user-container__base-info__user-name">{{this.itemData.formattedFullName()}}</p>
+            <p class="user-container__base-info__user-name">{{itemName}}</p>
         </div>
-        <p class="user-container__date">{{this.itemData.joinedAtLocal()}}</p>
-        <p class="user-container__user-email">{{this.itemData.formattedEmail()}}</p>
+        <p class="user-container__date">{{itemDate}}</p>
+        <p class="user-container__user-email">{{itemEmail}}</p>
     </div>
 </template>
 
@@ -39,6 +39,18 @@ export default class ProjectMemberListItem extends Vue {
             letter,
             style,
         };
+    }
+
+    public get itemName(): string {
+        return this.itemData.formattedFullName();
+    }
+
+    public get itemDate(): string {
+        return this.itemData.joinedAtLocal();
+    }
+
+    public get itemEmail(): string {
+        return this.itemData.formattedEmail();
     }
 }
 </script>
