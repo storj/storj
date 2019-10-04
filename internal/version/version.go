@@ -18,6 +18,10 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
+// SemVerRegex is the regular expression used to parse a semantic version.
+// https://github.com/Masterminds/semver/blob/master/LICENSE.txt
+const SemVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`
+
 var (
 	mon = monkit.Package()
 
@@ -32,6 +36,7 @@ var (
 	// Build is a struct containing all relevant build information associated with the binary
 	Build Info
 
+	versionRegex = regexp.MustCompile("^" + SemVerRegex + "$")
 	zeroSeed     = [32]byte{}
 )
 
@@ -89,9 +94,6 @@ type Version struct {
 	URL     string `json:"url"`
 }
 
-// SemVerRegex is the regular expression used to parse a semantic version.
-// https://github.com/Masterminds/semver/blob/master/LICENSE.txt
-const SemVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`
 // Rollout represents the state of a version rollout.
 type Rollout struct {
 	Active        bool        `json:"active"`
@@ -100,7 +102,6 @@ type Rollout struct {
 	TargetVersion Version     `json:"target_version"`
 }
 
-var versionRegex = regexp.MustCompile("^" + SemVerRegex + "$")
 type rolloutSeed [32]byte
 
 // NewSemVer parses a given version and returns an instance of SemVer or
