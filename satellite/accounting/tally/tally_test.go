@@ -66,6 +66,7 @@ func TestOnlyInline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 		uplink := planet.Uplinks[0]
 		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 
@@ -98,6 +99,9 @@ func TestOnlyInline(t *testing.T) {
 		for i := 0; i < 2; i++ {
 			obs := tally.NewObserver()
 			err := planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
+			require.NoError(t, err)
+
+			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, time.Now().Add(time.Duration(i)*time.Second), obs.Bucket)
 			require.NoError(t, err)
 
 			// Confirm the correct bucket storage tally was created
