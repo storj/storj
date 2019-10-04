@@ -26,21 +26,21 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
-		t.Run(satelliteDB.Name, func(t *testing.T) {
+		t.Run(satelliteDB.MasterDB.Name, func(t *testing.T) {
 			t.Parallel()
 
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
-			if satelliteDB.URL == "" {
-				t.Skipf("Database %s connection string not provided. %s", satelliteDB.Name, satelliteDB.Message)
+			if satelliteDB.MasterDB.URL == "" {
+				t.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)
 			}
 
 			planetConfig := config
 			planetConfig.Reconfigure.NewBootstrapDB = nil
 			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
 				schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix)
-				db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.URL, schema))
+				db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.MasterDB.URL, schema))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -54,6 +54,17 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 					DB:     db,
 					schema: schema,
 				}, nil
+			}
+
+			if satelliteDB.PointerDB.URL != "" {
+				satReconfigure := planetConfig.Reconfigure.Satellite
+				planetConfig.Reconfigure.Satellite = func(log *zap.Logger, index int, config *satellite.Config) {
+					schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo")
+					config.Metainfo.DatabaseURL = pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema)
+					if satReconfigure != nil {
+						satReconfigure(log, index, config)
+					}
+				}
 			}
 
 			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig)
