@@ -82,7 +82,7 @@ func TestOnlyInline(t *testing.T) {
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		expectedBucketName := "testbucket"
-		expectedTally := accounting.BucketTally{
+		expectedTally := &accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName),
 			ProjectID:      projectID,
 			ObjectCount:    1,
@@ -101,7 +101,8 @@ func TestOnlyInline(t *testing.T) {
 			err := planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 			require.NoError(t, err)
 
-			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, time.Now().Add(time.Duration(i)*time.Second), obs.Bucket)
+			now := time.Now().Add(time.Duration(i) * time.Second)
+			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, now, obs.Bucket)
 			require.NoError(t, err)
 
 			// Confirm the correct bucket storage tally was created
