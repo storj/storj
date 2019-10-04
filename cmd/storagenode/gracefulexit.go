@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -28,7 +27,7 @@ func dialGracefulExitClient(ctx context.Context, address string) (*gracefulExitC
 	return &gracefulExitClient{conn: conn}, nil
 }
 
-func (client *gracefulExitClient) gracefulExit(ctx context.Context) (*pb.GetSatellitesListResponse, error) {
+func (client *gracefulExitClient) getSatelliteList(ctx context.Context) (*pb.GetSatellitesListResponse, error) {
 	return client.conn.GracefulExitClient().GetSatellitesList(ctx, &pb.GetSatellitesListRequest{})
 }
 
@@ -63,13 +62,13 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	}()
 
 	// get list of satellites
-	satelliteList, err := client.gracefulExit(ctx)
+	satelliteList, err := client.getSatelliteList(ctx)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("got here")
-	fmt.Printf("%+v", satelliteList.GetSatellites()[0])
+	// display the list
+	// wait for user input
 
 	return nil
 }

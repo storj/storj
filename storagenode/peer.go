@@ -382,7 +382,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("gracefulexit:endpoint"),
 			peer.Storage2.Trust,
 			peer.DB.Satellites(),
-			peer.Storage2.CacheService,
+			peer.Storage2.BlobsCache,
 		)
 		pb.RegisterGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
 		pb.DRPCRegisterGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)

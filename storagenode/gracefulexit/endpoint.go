@@ -19,19 +19,19 @@ var Error = errs.Class("gracefulexit")
 
 // Endpoint is
 type Endpoint struct {
-	log          *zap.Logger
-	cacheService *pieces.CacheService
-	trust        *trust.Pool
-	satellites   satellites.DB
+	log        *zap.Logger
+	usageCache *pieces.BlobsUsageCache
+	trust      *trust.Pool
+	satellites satellites.DB
 }
 
 // NewEndpoint creates a new graceful exit endpoint.
-func NewEndpoint(log *zap.Logger, trust *trust.Pool, satellites satellites.DB, cacheService *pieces.CacheService) *Endpoint {
+func NewEndpoint(log *zap.Logger, trust *trust.Pool, satellites satellites.DB, usageCache *pieces.BlobsUsageCache) *Endpoint {
 	return &Endpoint{
-		log:          log,
-		cacheService: cacheService,
-		trust:        trust,
-		satellites:   satellites,
+		log:        log,
+		usageCache: usageCache,
+		trust:      trust,
+		satellites: satellites,
 	}
 }
 
@@ -58,14 +58,18 @@ func (s *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesL
 		}
 
 		if !isExisting {
+			// get space usage by satellites
+			spaceUsed, err := s.usageCache.SpaceUsedBySatellite(ctx, trusted)
+			if err != nil {
+				// TODO: deal with the error
+				continue
+			}
 			availableSatellites = append(availableSatellites, &pb.Satellite{
-				NodeId: trusted,
+				NodeId:    trusted,
+				SpaceUsed: float64(spaceUsed),
 			})
 		}
 	}
-
-	// get space usage by satellites
-	s.cacheService.
 
 	return &pb.GetSatellitesListResponse{
 		Satellites: availableSatellites,
