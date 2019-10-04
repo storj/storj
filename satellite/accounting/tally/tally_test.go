@@ -105,8 +105,7 @@ func TestOnlyInline(t *testing.T) {
 			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, now, obs.Bucket)
 			require.NoError(t, err)
 
-			// Confirm the correct bucket storage tally was created
-			assert.Equal(t, i, len(obs.Bucket))
+			assert.Equal(t, 1, len(obs.Bucket))
 			for _, actualTally := range obs.Bucket {
 				assert.Equal(t, expectedTally, actualTally)
 			}
