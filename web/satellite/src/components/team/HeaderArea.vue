@@ -9,48 +9,53 @@
                 ref="headerComponent"
                 placeholder="Team Members"
                 :search="processSearchQuery">
-                    <div class="header-default-state" v-if="headerState === 0">
-                        <span class="header-default-state__info-text">The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
-                        <VButton
-                            class="button"
-                            label="+Add"
-                            width="122px"
-                            height="48px"
-                            :on-press="onAddUsersClick"/>
-                    </div>
-                    <div class="header-selected-members" v-if="headerState === 1 && !isDeleteClicked">
+                <div class="header-default-state" v-if="isDefaultState">
+                    <span class="header-default-state__info-text">The only project role currently available is Admin, which gives <b>full access</b> to the project.</span>
+                    <VButton
+                        class="button"
+                        label="+Add"
+                        width="122px"
+                        height="48px"
+                        :on-press="onAddUsersClick"
+                    />
+                </div>
+                <div class="header-selected-members" v-if="areProjectMembersSelected">
+                    <VButton
+                        class="button deletion"
+                        label="Delete"
+                        width="122px"
+                        height="48px"
+                        :on-press="onFirstDeleteClick"
+                    />
+                    <VButton
+                        class="button"
+                        label="Cancel"
+                        width="122px"
+                        height="48px"
+                        is-white="true"
+                        :on-press="onClearSelection"
+                    />
+                </div>
+                <div class="header-after-delete-click" v-if="areSelectedProjectMembersBeingDeleted">
+                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete {{selectedProjectMembersCount}} {{userCountTitle}}?</span>
+                    <div class="header-after-delete-click__button-area">
                         <VButton
                             class="button deletion"
                             label="Delete"
                             width="122px"
                             height="48px"
-                            :on-press="onFirstDeleteClick"/>
+                            :on-press="onDelete"
+                        />
                         <VButton
                             class="button"
                             label="Cancel"
                             width="122px"
                             height="48px"
                             is-white="true"
-                            :on-press="onClearSelection"/>
+                            :on-press="onClearSelection"
+                        />
                     </div>
-                    <div class="header-after-delete-click" v-if="headerState === 1 && isDeleteClicked">
-                        <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete {{selectedProjectMembersCount}} {{userCountTitle}}?</span>
-                        <div class="header-after-delete-click__button-area">
-                            <VButton
-                                class="button deletion"
-                                label="Delete"
-                                width="122px"
-                                height="48px"
-                                :on-press="onDelete"/>
-                            <VButton
-                                class="button"
-                                label="Cancel"
-                                width="122px"
-                                height="48px"
-                                is-white="true"
-                                :on-press="onClearSelection"/>
-                        </div>
-                    </div>
+                </div>
             </VHeader>
             <div class="blur-content" v-if="isDeleteClicked"></div>
             <div class="blur-search" v-if="isDeleteClicked"></div>
@@ -124,8 +129,8 @@ export default class HeaderArea extends Vue {
 
         try {
             await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
-        } catch (err) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error while deleting users from projectMembers. ${err.message}`);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Error while deleting users from projectMembers. ${error.message}`);
 
             return;
         }
@@ -140,13 +145,25 @@ export default class HeaderArea extends Vue {
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (err) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${err.message}`);
+        } catch (error) {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to fetch project members. ${error.message}`);
         }
     }
 
     public get isAddTeamMembersPopupShown(): boolean {
         return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
+    }
+
+    public get isDefaultState(): boolean {
+        return this.headerState === 0;
+    }
+
+    public get areProjectMembersSelected(): boolean {
+        return this.headerState === 1 && !this.isDeleteClicked;
+    }
+
+    public get areSelectedProjectMembersBeingDeleted(): boolean {
+        return this.headerState === 1 && this.isDeleteClicked;
     }
 }
 </script>

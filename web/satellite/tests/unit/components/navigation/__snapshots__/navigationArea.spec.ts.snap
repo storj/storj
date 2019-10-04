@@ -86,21 +86,23 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
       <!---->
       <!---->
     </div>
-    <router-link-stub to="/account/profile" tag="a" event="click" class="navigation-area__item-container account-item">
-      <div class="navigation-area__item-container__link-container">
-        <h1 class="navigation-area__item-container__link-container__title account-item">Profile</h1>
-      </div>
-    </router-link-stub>
-    <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__item-container account-item">
-      <div class="navigation-area__item-container__link-container">
-        <h1 class="navigation-area__item-container__link-container__title account-item">Billing</h1>
-      </div>
-    </router-link-stub>
-    <router-link-stub to="/account/payment-methods" tag="a" event="click" class="navigation-area__item-container account-item">
-      <div class="navigation-area__item-container__link-container">
-        <h1 class="navigation-area__item-container__link-container__title account-item">Payment Methods</h1>
-      </div>
-    </router-link-stub>
+    <div class="navigation-area__account-area">
+      <router-link-stub to="/account/profile" tag="a" event="click" class="navigation-area__item-container account-item">
+        <div class="navigation-area__item-container__link-container">
+          <h1 class="navigation-area__item-container__link-container__title account-item">Profile</h1>
+        </div>
+      </router-link-stub>
+      <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__item-container account-item">
+        <div class="navigation-area__item-container__link-container">
+          <h1 class="navigation-area__item-container__link-container__title account-item">Billing</h1>
+        </div>
+      </router-link-stub>
+      <router-link-stub to="/account/payment-methods" tag="a" event="click" class="navigation-area__item-container account-item">
+        <div class="navigation-area__item-container__link-container">
+          <h1 class="navigation-area__item-container__link-container__title account-item">Payment Methods</h1>
+        </div>
+      </router-link-stub>
+    </div>
     <div class="divider custom-divider"></div>
   </div>
 </div>
@@ -192,21 +194,23 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
       <!---->
       <!---->
     </div>
-    <router-link-stub to="/account/profile" tag="a" event="click" class="navigation-area__item-container account-item">
-      <div class="navigation-area__item-container__link-container">
-        <h1 class="navigation-area__item-container__link-container__title account-item">Profile</h1>
-      </div>
-    </router-link-stub>
-    <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__item-container account-item">
-      <div class="navigation-area__item-container__link-container">
-        <h1 class="navigation-area__item-container__link-container__title account-item">Billing</h1>
-      </div>
-    </router-link-stub>
-    <router-link-stub to="/account/payment-methods" tag="a" event="click" class="navigation-area__item-container account-item">
-      <div class="navigation-area__item-container__link-container">
-        <h1 class="navigation-area__item-container__link-container__title account-item">Payment Methods</h1>
-      </div>
-    </router-link-stub>
+    <div class="navigation-area__account-area">
+      <router-link-stub to="/account/profile" tag="a" event="click" class="navigation-area__item-container account-item">
+        <div class="navigation-area__item-container__link-container">
+          <h1 class="navigation-area__item-container__link-container__title account-item">Profile</h1>
+        </div>
+      </router-link-stub>
+      <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__item-container account-item">
+        <div class="navigation-area__item-container__link-container">
+          <h1 class="navigation-area__item-container__link-container__title account-item">Billing</h1>
+        </div>
+      </router-link-stub>
+      <router-link-stub to="/account/payment-methods" tag="a" event="click" class="navigation-area__item-container account-item">
+        <div class="navigation-area__item-container__link-container">
+          <h1 class="navigation-area__item-container__link-container__title account-item">Payment Methods</h1>
+        </div>
+      </router-link-stub>
+    </div>
     <div class="divider custom-divider"></div>
   </div>
 </div>

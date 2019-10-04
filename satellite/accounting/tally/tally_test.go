@@ -272,12 +272,12 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 		return inlinePointer, nil
 	}
 
-	pieces := make([]*pb.RemotePiece, 0, len(storageNodes))
-	for i, storagenode := range storageNodes {
-		pieces = append(pieces, &pb.RemotePiece{
+	pieces := make([]*pb.RemotePiece, rs.TotalShares)
+	for i := range pieces {
+		pieces[i] = &pb.RemotePiece{
 			PieceNum: int32(i),
-			NodeId:   storagenode.ID(),
-		})
+			NodeId:   storageNodes[i].ID(),
+		}
 	}
 
 	pointer := &pb.Pointer{

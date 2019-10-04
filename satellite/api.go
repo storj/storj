@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -30,17 +29,10 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/rollup"
-	"storj.io/storj/satellite/accounting/tally"
-	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/discovery"
-	"storj.io/storj/satellite/gc"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -49,106 +41,45 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
-	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 )
 
-var mon = monkit.Package()
-
-// DB is the master database for the satellite
-//
-// architecture: Master Database
-type DB interface {
-	// CreateTables initializes the database
-	CreateTables() error
-	// Close closes the database
-	Close() error
-
-	// CreateSchema sets the schema
-	CreateSchema(schema string) error
-	// DropSchema drops the schema
-	DropSchema(schema string) error
-
-	// PeerIdentities returns a storage for peer identities
-	PeerIdentities() overlay.PeerIdentities
-	// OverlayCache returns database for caching overlay information
-	OverlayCache() overlay.DB
-	// Attribution returns database for partner keys information
-	Attribution() attribution.DB
-	// StoragenodeAccounting returns database for storing information about storagenode use
-	StoragenodeAccounting() accounting.StoragenodeAccounting
-	// ProjectAccounting returns database for storing information about project data use
-	ProjectAccounting() accounting.ProjectAccounting
-	// RepairQueue returns queue for segments that need repairing
-	RepairQueue() queue.RepairQueue
-	// Irreparable returns database for failed repairs
-	Irreparable() irreparable.DB
-	// Console returns database for satellite console
-	Console() console.DB
-	//  returns database for marketing admin GUI
-	Rewards() rewards.DB
-	// Orders returns database for orders
-	Orders() orders.DB
-	// Containment returns database for containment
-	Containment() audit.Containment
-	// Buckets returns the database to interact with buckets
-	Buckets() metainfo.BucketsDB
-	// GracefulExit returns database for graceful exit
-	GracefulExit() gracefulexit.DB
-}
-
-// Config is the global config satellite
-type Config struct {
+// APIConfig is the global config for the satellite API process
+type APIConfig struct {
 	Identity identity.Config
 	Server   server.Config
+	Version  version.Config
 
-	Contact   contact.Config
-	Overlay   overlay.Config
-	Discovery discovery.Config
+	Contact contact.Config
+	Overlay overlay.Config
 
 	Metainfo metainfo.Config
 	Orders   orders.Config
 
-	Checker  checker.Config
 	Repairer repairer.Config
-	Audit    audit.Config
 
-	GarbageCollection gc.Config
-
-	DBCleanup dbcleanup.Config
-
-	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
 
-	Mail    mailservice.Config
-	Console consoleweb.Config
-
+	Mail      mailservice.Config
+	Console   consoleweb.Config
 	Marketing marketingweb.Config
-
-	Version version.Config
 }
 
-// Peer is the satellite
+// API is the satellite API process
 //
 // architecture: Peer
-type Peer struct {
-	// core dependencies
+type API struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
 	DB       DB
 
-	Dialer rpc.Dialer
-
-	Server *server.Server
-
+	Dialer  rpc.Dialer
+	Server  *server.Server
 	Version *version.Service
 
-	// services and endpoints
 	Contact struct {
 		Service   *contact.Service
 		Endpoint  *contact.Endpoint
@@ -161,19 +92,8 @@ type Peer struct {
 		Inspector *overlay.Inspector
 	}
 
-	Discovery struct {
-		Service *discovery.Discovery
-	}
-
-	Metainfo struct {
-		Database  metainfo.PointerDB // TODO: move into pointerDB
-		Service   *metainfo.Service
-		Endpoint2 *metainfo.Endpoint
-		Loop      *metainfo.Loop
-	}
-
-	Inspector struct {
-		Endpoint *inspector.Endpoint
+	Vouchers struct {
+		Endpoint *vouchers.Endpoint
 	}
 
 	Orders struct {
@@ -181,30 +101,21 @@ type Peer struct {
 		Service  *orders.Service
 	}
 
+	Metainfo struct {
+		Database  metainfo.PointerDB
+		Service   *metainfo.Service
+		Endpoint2 *metainfo.Endpoint
+	}
+
+	Inspector struct {
+		Endpoint *inspector.Endpoint
+	}
+
 	Repair struct {
-		Checker   *checker.Checker
-		Repairer  *repairer.Service
 		Inspector *irreparable.Inspector
-	}
-	Audit struct {
-		Queue    *audit.Queue
-		Worker   *audit.Worker
-		Chore    *audit.Chore
-		Verifier *audit.Verifier
-		Reporter *audit.Reporter
-	}
-
-	GarbageCollection struct {
-		Service *gc.Service
-	}
-
-	DBCleanup struct {
-		Chore *dbcleanup.Chore
 	}
 
 	Accounting struct {
-		Tally        *tally.Service
-		Rollup       *rollup.Service
 		ProjectUsage *accounting.ProjectUsage
 	}
 
@@ -214,10 +125,6 @@ type Peer struct {
 
 	Mail struct {
 		Service *mailservice.Service
-	}
-
-	Vouchers struct {
-		Endpoint *vouchers.Endpoint
 	}
 
 	Console struct {
@@ -236,9 +143,9 @@ type Peer struct {
 	}
 }
 
-// New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*Peer, error) {
-	peer := &Peer{
+// NewAPI creates a new satellite API process
+func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *APIConfig, versionInfo version.Info) (*API, error) {
+	peer := &API{
 		Log:      log,
 		Identity: full,
 		DB:       db,
@@ -246,7 +153,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	var err error
 
-	{ // setup version control
+	{
 		test := version.Info{}
 		if test != versionInfo {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
@@ -256,7 +163,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup listener and server
-		log.Debug("Starting listener and server")
+		log.Debug("Satellite API Process starting listener and server")
 		sc := config.Server
 
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
@@ -277,18 +184,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup overlay
-		log.Debug("Starting overlay")
-
+		log.Debug("Satellite API Process starting overlay")
 		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
 		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
-
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
 		pb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector)
 	}
 
 	{ // setup contact service
-		log.Debug("Setting up contact service")
+		log.Debug("Satellite API Process setting up contact service")
 		c := config.Contact
 		if c.ExternalAddress == "" {
 			c.ExternalAddress = peer.Addr()
@@ -318,20 +223,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.DRPCRegisterNodes(peer.Server.DRPC(), peer.Contact.KEndpoint)
 	}
 
-	{ // setup discovery
-		log.Debug("Setting up discovery")
-		config := config.Discovery
-		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Contact.Service, config)
-	}
-
 	{ // setup vouchers
-		log.Debug("Setting up vouchers")
+		log.Debug("Satellite API Process setting up vouchers")
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 		pb.DRPCRegisterVouchers(peer.Server.DRPC(), peer.Vouchers.Endpoint)
 	}
 
 	{ // setup live accounting
-		log.Debug("Setting up live accounting")
+		log.Debug("Satellite API Process setting up live accounting")
 		config := config.LiveAccounting
 		liveAccountingService, err := live.New(peer.Log.Named("live-accounting"), config)
 		if err != nil {
@@ -341,7 +240,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup accounting project usage
-		log.Debug("Setting up accounting project usage")
+		log.Debug("Satellite API Process setting up accounting project usage")
 		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Service,
@@ -350,7 +249,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup orders
-		log.Debug("Setting up orders")
+		log.Debug("Satellite API Process setting up orders endpoint")
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
@@ -375,19 +274,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup metainfo
-		log.Debug("Setting up metainfo")
+		log.Debug("Satellite API Process setting up metainfo")
 		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
-		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Metainfo.Database = db
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 		)
-		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Service)
-
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
@@ -401,126 +297,30 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			signing.SignerFromFullIdentity(peer.Identity),
 			config.Metainfo.MaxCommitInterval,
 		)
-
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 		pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2)
 	}
 
 	{ // setup datarepair
-		log.Debug("Setting up datarepair")
-		// TODO: simplify argument list somehow
-		peer.Repair.Checker = checker.NewChecker(
-			peer.Log.Named("checker"),
-			peer.DB.RepairQueue(),
-			peer.DB.Irreparable(),
-			peer.Metainfo.Service,
-			peer.Metainfo.Loop,
-			peer.Overlay.Service,
-			config.Checker)
-
-		segmentRepairer := repairer.NewSegmentRepairer(
-			log.Named("repairer"),
-			peer.Metainfo.Service,
-			peer.Orders.Service,
-			peer.Overlay.Service,
-			peer.Dialer,
-			config.Repairer.Timeout,
-			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Checker.RepairOverride,
-			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
-		)
-
-		peer.Repair.Repairer = repairer.NewService(
-			peer.Log.Named("repairer"),
-			peer.DB.RepairQueue(),
-			&config.Repairer,
-			segmentRepairer,
-		)
-
+		log.Debug("Satellite API Process setting up datarepair inspector")
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
 		pb.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
 		pb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector)
 	}
 
-	{ // setup audit
-		log.Debug("Setting up audits")
-		config := config.Audit
-
-		peer.Audit.Queue = &audit.Queue{}
-
-		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
-			peer.Metainfo.Service,
-			peer.Dialer,
-			peer.Overlay.Service,
-			peer.DB.Containment(),
-			peer.Orders.Service,
-			peer.Identity,
-			config.MinBytesPerSecond,
-			config.MinDownloadTimeout,
-		)
-
-		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
-			peer.Overlay.Service,
-			peer.DB.Containment(),
-			config.MaxRetriesStatDB,
-			int32(config.MaxReverifyCount),
-		)
-
-		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
-			peer.Audit.Queue,
-			peer.Audit.Verifier,
-			peer.Audit.Reporter,
-			config,
-		)
-
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit chore"),
-			peer.Audit.Queue,
-			peer.Metainfo.Loop,
-			config,
-		)
-	}
-
-	{ // setup garbage collection
-		log.Debug("Setting up garbage collection")
-
-		peer.GarbageCollection.Service = gc.NewService(
-			peer.Log.Named("garbage collection"),
-			config.GarbageCollection,
-			peer.Dialer,
-			peer.Overlay.DB,
-			peer.Metainfo.Loop,
-		)
-	}
-
-	{ // setup db cleanup
-		log.Debug("Setting up db cleanup")
-		peer.DBCleanup.Chore = dbcleanup.NewChore(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
-	}
-
-	{ // setup accounting
-		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, config.Tally.Interval)
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
-	}
-
 	{ // setup inspector
-		log.Debug("Setting up inspector")
+		log.Debug("Satellite API Process setting up inspector")
 		peer.Inspector.Endpoint = inspector.NewEndpoint(
 			peer.Log.Named("inspector"),
 			peer.Overlay.Service,
 			peer.Metainfo.Service,
 		)
-
 		pb.RegisterHealthInspectorServer(peer.Server.PrivateGRPC(), peer.Inspector.Endpoint)
 		pb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint)
 	}
 
 	{ // setup mailservice
-		log.Debug("Setting up mail service")
+		log.Debug("Satellite API Process setting up mail service")
 		// TODO(yar): test multiple satellites using same OAUTH credentials
 		mailConfig := config.Mail
 
@@ -581,25 +381,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			sender,
 			mailConfig.TemplatePath,
 		)
-
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
 
 	{ // setup console
-		log.Debug("Setting up console")
+		log.Debug("Satellite API Process setting up console")
 		consoleConfig := config.Console
-
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
 		if consoleConfig.AuthTokenSecret == "" {
 			return nil, errs.New("Auth token secret required")
 		}
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
@@ -607,11 +403,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Rewards(),
 			consoleConfig.PasswordCost,
 		)
-
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
@@ -622,14 +416,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup marketing portal
-		log.Debug("Setting up marketing server")
+		log.Debug("Satellite API Process setting up marketing server")
 		marketingConfig := config.Marketing
-
 		peer.Marketing.Listener, err = net.Listen("tcp", marketingConfig.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
 		peer.Marketing.Endpoint, err = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
@@ -642,13 +434,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup node stats endpoint
-		log.Debug("Setting up node stats endpoint")
-
+		log.Debug("Satellite API Process setting up node stats endpoint")
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
 			peer.Overlay.DB,
-			peer.DB.StoragenodeAccounting())
-
+			peer.DB.StoragenodeAccounting(),
+		)
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
 	}
@@ -657,46 +448,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 }
 
 // Run runs satellite until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) (err error) {
+func (peer *API) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
-	})
-	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.DBCleanup.Chore.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Chore.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
-	})
-	group.Go(func() error {
-		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
@@ -714,90 +474,54 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 }
 
 // Close closes all the resources.
-func (peer *Peer) Close() error {
+func (peer *API) Close() error {
 	var errlist errs.Group
-
-	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Server != nil {
 		errlist.Add(peer.Server.Close())
 	}
-
-	if peer.Console.Endpoint != nil {
-		errlist.Add(peer.Console.Endpoint.Close())
-	} else if peer.Console.Listener != nil {
-		errlist.Add(peer.Console.Listener.Close())
-	}
-
-	if peer.Mail.Service != nil {
-		errlist.Add(peer.Mail.Service.Close())
-	}
-
 	if peer.Marketing.Endpoint != nil {
 		errlist.Add(peer.Marketing.Endpoint.Close())
 	} else if peer.Marketing.Listener != nil {
 		errlist.Add(peer.Marketing.Listener.Close())
 	}
-
-	// close services in reverse initialization order
-
-	if peer.Audit.Chore != nil {
-		errlist.Add(peer.Audit.Chore.Close())
+	if peer.Console.Endpoint != nil {
+		errlist.Add(peer.Console.Endpoint.Close())
+	} else if peer.Console.Listener != nil {
+		errlist.Add(peer.Console.Listener.Close())
 	}
-	if peer.Audit.Worker != nil {
-		errlist.Add(peer.Audit.Worker.Close())
+	if peer.Mail.Service != nil {
+		errlist.Add(peer.Mail.Service.Close())
 	}
-
-	if peer.Accounting.Rollup != nil {
-		errlist.Add(peer.Accounting.Rollup.Close())
+	if peer.Metainfo.Endpoint2 != nil {
+		errlist.Add(peer.Metainfo.Endpoint2.Close())
 	}
-	if peer.Accounting.Tally != nil {
-		errlist.Add(peer.Accounting.Tally.Close())
-	}
-
-	if peer.DBCleanup.Chore != nil {
-		errlist.Add(peer.DBCleanup.Chore.Close())
-	}
-	if peer.Repair.Repairer != nil {
-		errlist.Add(peer.Repair.Repairer.Close())
-	}
-	if peer.Repair.Checker != nil {
-		errlist.Add(peer.Repair.Checker.Close())
-	}
-
 	if peer.Metainfo.Database != nil {
 		errlist.Add(peer.Metainfo.Database.Close())
 	}
-
-	if peer.Discovery.Service != nil {
-		errlist.Add(peer.Discovery.Service.Close())
-	}
-
 	if peer.Contact.Service != nil {
 		errlist.Add(peer.Contact.Service.Close())
 	}
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
 	}
-	if peer.Metainfo.Loop != nil {
-		errlist.Add(peer.Metainfo.Loop.Close())
-	}
-
 	return errlist.Err()
 }
 
 // ID returns the peer ID.
-func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
+func (peer *API) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return peer.Contact.Service.Local() }
+func (peer *API) Local() overlay.NodeDossier { return peer.Contact.Service.Local() }
 
 // Addr returns the public address.
-func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
+func (peer *API) Addr() string { return peer.Server.Addr().String() }
 
 // URL returns the storj.NodeURL.
-func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()} }
+func (peer *API) URL() storj.NodeURL {
+	return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()}
+}
 
 // PrivateAddr returns the private address.
-func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
+func (peer *API) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
