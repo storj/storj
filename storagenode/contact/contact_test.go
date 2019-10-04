@@ -32,13 +32,13 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
-		firstPing, _, _ := pingStats.WhenLastPinged()
+		firstPing := pingStats.WhenLastPinged()
 
 		resp, err = conn.ContactClient().PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
-		secondPing, _, _ := pingStats.WhenLastPinged()
+		secondPing := pingStats.WhenLastPinged()
 
 		require.True(t, secondPing.After(firstPing))
 	})

@@ -143,7 +143,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 
 			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 			if err != nil {
-				errGroup.Add(BootstrapErr.Wrap(BootstrapErr.New("%s : %s unable to fetch unverified peer identity node address %s: %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), node.Address.Address, err)))
+				errGroup.Add(BootstrapErr.New("%s : %s unable to fetch unverified peer identity node address %s: %s", k.routingTable.self.Type.String(), k.routingTable.self.Id.String(), node.Address.Address, err))
 				continue
 			}
 
