@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/storagenode"
 )
 
@@ -65,8 +66,6 @@ func TestOnlyInline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		tallySvc := planet.Satellites[0].Accounting.Tally
-		tallySvc.Loop.Pause()
 		uplink := planet.Uplinks[0]
 		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 
@@ -97,14 +96,13 @@ func TestOnlyInline(t *testing.T) {
 
 		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
-			tallySvc.Loop.TriggerWait()
-
-			savedTallies, err := planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
+			obs := tally.NewObserver()
+			err := planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 			require.NoError(t, err)
 
 			// Confirm the correct bucket storage tally was created
-			assert.Equal(t, i+1, len(savedTallies))
-			for _, actualTally := range savedTallies {
+			assert.Equal(t, i, len(obs.Bucket))
+			for _, actualTally := range obs.Bucket {
 				assert.Equal(t, expectedTally, actualTally)
 			}
 		}

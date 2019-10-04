@@ -25,12 +25,6 @@ var (
 	mon   = monkit.Package()
 )
 
-// Error is a standard error class for this package.
-var (
-	Error = errs.Class("tally error")
-	mon   = monkit.Package()
-)
-
 // Config contains configurable values for the tally service
 type Config struct {
 	Interval time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
@@ -105,10 +99,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	// add up all nodes and buckets
-	tally := &Tally{
-		Node:   make(map[storj.NodeID]float64),
-		Bucket: make(map[string]*accounting.BucketTally),
-	}
+	tally := NewObserver()
 	err = service.metainfoLoop.Join(ctx, tally)
 	if err != nil {
 		return Error.Wrap(err)
@@ -151,16 +142,24 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	return errs.Combine(errAtRest, errBucketInfo)
 }
 
-var _ metainfo.Observer = (*Tally)(nil)
+var _ metainfo.Observer = (*Observer)(nil)
 
-// Tally observes metainfo and adds up tallies for nodes and buckets
-type Tally struct {
+// Observer observes metainfo and adds up tallies for nodes and buckets
+type Observer struct {
 	Node   map[storj.NodeID]float64
 	Bucket map[string]*accounting.BucketTally
 }
 
+// NewObserver returns an metainfo loop observer that adds up totals for buckets and nodes.
+func NewObserver() *Observer {
+	return &Observer{
+		Node:   make(map[storj.NodeID]float64),
+		Bucket: make(map[string]*accounting.BucketTally),
+	}
+}
+
 // ensureBucket returns bucket corresponding to the passed in path
-func (tally *Tally) ensureBucket(ctx context.Context, path metainfo.ScopedPath) (*accounting.BucketTally, error) {
+func (tally *Observer) ensureBucket(ctx context.Context, path metainfo.ScopedPath) *accounting.BucketTally {
 	bucketID := storj.JoinPaths(path.ProjectIDString, path.BucketName)
 
 	bucket, exists := tally.Bucket[bucketID]
@@ -171,27 +170,19 @@ func (tally *Tally) ensureBucket(ctx context.Context, path metainfo.ScopedPath) 
 		tally.Bucket[bucketID] = bucket
 	}
 
-	return bucket, nil
+	return bucket
 }
 
 // Object is called for each object once.
-func (tally *Tally) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	bucket, err := tally.ensureBucket(ctx, path)
-	if err != nil {
-		return err
-	}
-
+func (tally *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	bucket := tally.ensureBucket(ctx, path)
 	bucket.ObjectCount++
 	return nil
 }
 
 // InlineSegment is called for each inline segment.
-func (tally *Tally) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	bucket, err := tally.ensureBucket(ctx, path)
-	if err != nil {
-		return err
-	}
-
+func (tally *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	bucket := tally.ensureBucket(ctx, path)
 	bucket.InlineSegments++
 	bucket.InlineBytes += int64(len(pointer.InlineSegment))
 	bucket.MetadataSize += int64(len(pointer.Metadata))
@@ -200,12 +191,8 @@ func (tally *Tally) InlineSegment(ctx context.Context, path metainfo.ScopedPath,
 }
 
 // RemoteSegment is called for each remote segment.
-func (tally *Tally) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	bucket, err := tally.ensureBucket(ctx, path)
-	if err != nil {
-		return err
-	}
-
+func (tally *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	bucket := tally.ensureBucket(ctx, path)
 	bucket.RemoteSegments++
 	bucket.RemoteBytes += pointer.GetSegmentSize()
 	bucket.MetadataSize += int64(len(pointer.Metadata))
