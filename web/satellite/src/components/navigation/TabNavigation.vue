@@ -8,7 +8,7 @@
             class="tab-navigation-container__item"
             v-for="navLink in navigation"
             :key="navLink.name">
-                <p class="tab-navigation-container__item__name">{{navLink.name}}</p>
+            <p class="tab-navigation-container__item__name">{{navLink.name}}</p>
         </router-link>
     </div>
 </template>

@@ -15,7 +15,7 @@
                 <div class="project-details-info-container__description-container" v-if="!isEditing">
                     <div class="project-details-info-container__description-container__text">
                         <h2 class="project-details-info-container__description-container__text__title">Description</h2>
-                        <h3 class="project-details-info-container__description-container__text__project-description">{{description}}</h3>
+                        <h3 class="project-details-info-container__description-container__text__project-description">{{displayedDescription}}</h3>
                     </div>
                     <div title="Edit">
                         <svg class="project-details-svg" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" @click="toggleEditing">
@@ -31,19 +31,23 @@
                         width="205%"
                         height="10vh"
                         is-multiline="true"
-                        @setData="setNewDescription" />
+                        :init-value="storedDescription"
+                        @setData="setNewDescription" 
+                    />
                     <div class="project-details-info-container__description-container__buttons-area">
                         <VButton
                             label="Cancel"
                             width="180px"
                             height="48px"
                             :on-press="toggleEditing"
-                            is-white="true"/>
+                            is-white="true"
+                        />
                         <VButton
                             label="Save"
                             width="180px"
                             height="48px"
-                            :on-press="onSaveButtonClick"/>
+                            :on-press="onSaveButtonClick"
+                        />
                     </div>
                 </div>
             </div>
@@ -54,10 +58,11 @@
                     width="180px"
                     height="48px"
                     :on-press="toggleDeleteDialog"
-                    is-deletion="true"/>
+                    is-deletion="true"
+                />
             </div>
         </div>
-        <DeleteProjectPopup v-if="isPopupShown" />
+        <DeleteProjectPopup v-if="isPopupShown"/>
     </div>
 </template>
 
@@ -98,7 +103,11 @@ export default class ProjectDetailsArea extends Vue {
         return this.$store.getters.selectedProject.name;
     }
 
-    public get description(): string {
+    public get storedDescription(): string {
+        return this.$store.getters.selectedProject.description;
+    }
+
+    public get displayedDescription(): string {
         return this.$store.getters.selectedProject.description ?
             this.$store.getters.selectedProject.description :
             'No description yet. Please enter some information about the project if any.';
@@ -134,10 +143,9 @@ export default class ProjectDetailsArea extends Vue {
         this.$router.push(RouteConfig.UsageReport.path);
     }
 
-    private toggleEditing(): void {
+    public toggleEditing(): void {
         this.isEditing = !this.isEditing;
-        // TODO: cache this value in future
-        this.newDescription = '';
+        this.newDescription = this.storedDescription;
     }
 }
 </script>
@@ -227,7 +235,7 @@ export default class ProjectDetailsArea extends Vue {
                     line-height: 21px;
                     color: #354049;
                     width: 100%;
-                    word-wrap: break-word;
+                    word-break: break-word;
                 }
             }
             

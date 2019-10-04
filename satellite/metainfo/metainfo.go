@@ -59,48 +59,41 @@ type Revocations interface {
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
 }
 
-// Containment is a copy/paste of containment interface to avoid import cycle error
-//
-// architecture: Database
-type Containment interface {
-	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
-}
-
 // Endpoint metainfo endpoint
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log              *zap.Logger
-	metainfo         *Service
-	orders           *orders.Service
-	overlay          *overlay.Service
-	partnerinfo      attribution.DB
-	peerIdentities   overlay.PeerIdentities
-	projectUsage     *accounting.ProjectUsage
-	containment      Containment
-	apiKeys          APIKeys
-	createRequests   *createRequests
-	requiredRSConfig RSConfig
-	satellite        signing.Signer
+	log               *zap.Logger
+	metainfo          *Service
+	orders            *orders.Service
+	overlay           *overlay.Service
+	partnerinfo       attribution.DB
+	peerIdentities    overlay.PeerIdentities
+	projectUsage      *accounting.ProjectUsage
+	apiKeys           APIKeys
+	createRequests    *createRequests
+	requiredRSConfig  RSConfig
+	satellite         signing.Signer
+	maxCommitInterval time.Duration
 }
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service, partnerinfo attribution.DB, peerIdentities overlay.PeerIdentities,
-	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
+	apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:              log,
-		metainfo:         metainfo,
-		orders:           orders,
-		overlay:          cache,
-		partnerinfo:      partnerinfo,
-		peerIdentities:   peerIdentities,
-		containment:      containment,
-		apiKeys:          apiKeys,
-		projectUsage:     projectUsage,
-		createRequests:   newCreateRequests(),
-		requiredRSConfig: rsConfig,
-		satellite:        satellite,
+		log:               log,
+		metainfo:          metainfo,
+		orders:            orders,
+		overlay:           cache,
+		partnerinfo:       partnerinfo,
+		peerIdentities:    peerIdentities,
+		apiKeys:           apiKeys,
+		projectUsage:      projectUsage,
+		createRequests:    newCreateRequests(),
+		requiredRSConfig:  rsConfig,
+		satellite:         satellite,
+		maxCommitInterval: maxCommitInterval,
 	}
 }
 
@@ -411,13 +404,6 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		for _, piece := range pointer.GetRemote().GetRemotePieces() {
-			_, err := endpoint.containment.Delete(ctx, piece.NodeId)
-			if err != nil {
-				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-		}
-
 		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 		limits, privateKey, err := endpoint.orders.CreateDeleteOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
@@ -1637,13 +1623,6 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 
 	// moved from FinishDeleteSegment to avoid inconsistency if someone will not
 	// call FinishDeleteSegment on uplink side
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		_, err := endpoint.containment.Delete(ctx, piece.NodeId)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-	}
-
 	err = endpoint.metainfo.Delete(ctx, path)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
