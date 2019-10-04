@@ -238,15 +238,18 @@ func bucketTallyAdd(s *accounting.BucketTally, pointer *pb.Pointer, last bool) {
 	}
 }
 
+// using custom name to avoid breaking monitoring
+var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
+
 // bucketReport reports the stats thru monkit
 func bucketReport(bucket *accounting.BucketTally, prefix string) {
-	mon.IntVal(prefix + ".objects").Observe(bucket.ObjectCount)
+	monAccounting.IntVal(prefix + ".objects").Observe(bucket.ObjectCount)
 
-	mon.IntVal(prefix + ".segments").Observe(bucket.Segments())
-	mon.IntVal(prefix + ".inline_segments").Observe(bucket.InlineSegments)
-	mon.IntVal(prefix + ".remote_segments").Observe(bucket.RemoteSegments)
+	monAccounting.IntVal(prefix + ".segments").Observe(bucket.Segments())
+	monAccounting.IntVal(prefix + ".inline_segments").Observe(bucket.InlineSegments)
+	monAccounting.IntVal(prefix + ".remote_segments").Observe(bucket.RemoteSegments)
 
-	mon.IntVal(prefix + ".bytes").Observe(bucket.Bytes())
-	mon.IntVal(prefix + ".inline_bytes").Observe(bucket.InlineBytes)
-	mon.IntVal(prefix + ".remote_bytes").Observe(bucket.RemoteBytes)
+	monAccounting.IntVal(prefix + ".bytes").Observe(bucket.Bytes())
+	monAccounting.IntVal(prefix + ".inline_bytes").Observe(bucket.InlineBytes)
+	monAccounting.IntVal(prefix + ".remote_bytes").Observe(bucket.RemoteBytes)
 }
