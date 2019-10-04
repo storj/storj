@@ -25,41 +25,41 @@ type Deprecated struct {
 
 // maps deprecated config values to new values if applicable
 func mapDeprecatedConfigs(log *zap.Logger) {
-	type config struct {
-		new     interface{}
-		newFlag string
-		old     string
-		oldFlag string
+	type migration struct {
+		newValue        interface{}
+		newConfigString string
+		oldValue        string
+		oldConfigString string
 	}
-	configs := []config{
+	migrations := []migration{
 		{
-			new:     &runCfg.Contact.ExternalAddress,
-			newFlag: "contact.external-address",
-			old:     runCfg.Deprecated.Kademlia.ExternalAddress,
-			oldFlag: "kademlia.external-address",
+			newValue:        &runCfg.Contact.ExternalAddress,
+			newConfigString: "contact.external-address",
+			oldValue:        runCfg.Deprecated.Kademlia.ExternalAddress,
+			oldConfigString: "kademlia.external-address",
 		},
 		{
-			new:     &runCfg.Operator.Wallet,
-			newFlag: "operator.wallet",
-			old:     runCfg.Deprecated.Kademlia.Operator.Wallet,
-			oldFlag: "kademlia.operator.wallet",
+			newValue:        &runCfg.Operator.Wallet,
+			newConfigString: "operator.wallet",
+			oldValue:        runCfg.Deprecated.Kademlia.Operator.Wallet,
+			oldConfigString: "kademlia.operator.wallet",
 		},
 		{
-			new:     &runCfg.Operator.Email,
-			newFlag: "operator.email",
-			old:     runCfg.Deprecated.Kademlia.Operator.Email,
-			oldFlag: "kademlia.operator.email",
+			newValue:        &runCfg.Operator.Email,
+			newConfigString: "operator.email",
+			oldValue:        runCfg.Deprecated.Kademlia.Operator.Email,
+			oldConfigString: "kademlia.operator.email",
 		},
 	}
 
-	for _, config := range configs {
-		if config.old != "undefined" {
-			typ := reflect.TypeOf(config.new).Elem()
-			override := parseOverride(typ, config.old)
+	for _, migration := range migrations {
+		if migration.oldValue != "undefined" {
+			typ := reflect.TypeOf(migration.newValue).Elem()
+			override := parseOverride(typ, migration.oldValue)
 
-			reflect.ValueOf(config.new).Elem().Set(reflect.ValueOf(override))
+			reflect.ValueOf(migration.newValue).Elem().Set(reflect.ValueOf(override))
 
-			log.Sugar().Debugf("Found deprecated flag. Migrating value %v from %s to %s", reflect.ValueOf(config.new).Elem(), config.oldFlag, config.newFlag)
+			log.Sugar().Debugf("Found deprecated flag. Migrating value %v from %s to %s", reflect.ValueOf(migration.newValue).Elem(), migration.oldConfigString, migration.newConfigString)
 		}
 	}
 }
