@@ -42,7 +42,7 @@ go get golang.org/x/mobile/cmd/gomobile
 
 $GOPATH/bin/gomobile init
 
-$GOPATH/bin/gomobile bind -v -target android -o "$OUTPUT/libuplink-android.aar" -javapkg io.storj.libuplink storj.io/storj/mobile
+$GOPATH/bin/gomobile bind -v -target android -o "$OUTPUT/libuplink-android.aar" -javapkg io.storj.libuplink storj.io/storj/lib/uplink-gomobile
 
 # cleanup pkg/mod directory
 go clean -modcache
