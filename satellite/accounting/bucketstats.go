@@ -34,12 +34,12 @@ func (s *BucketTally) Combine(o *BucketTally) {
 	s.RemoteBytes += o.RemoteBytes
 }
 
-// Segments returns the total number of segments
+// Segments returns total number of segments.
 func (s *BucketTally) Segments() int64 {
 	return s.InlineSegments + s.RemoteSegments
 }
 
-// Bytes returns the total bytes
+// Bytes returns total bytes.
 func (s *BucketTally) Bytes() int64 {
 	return s.InlineBytes + s.RemoteBytes
 }

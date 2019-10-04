@@ -25,6 +25,12 @@ var (
 	mon   = monkit.Package()
 )
 
+// Error is a standard error class for this package.
+var (
+	Error = errs.Class("tally error")
+	mon   = monkit.Package()
+)
+
 // Config contains configurable values for the tally service
 type Config struct {
 	Interval time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
@@ -233,4 +239,39 @@ func bucketReport(tally *accounting.BucketTally, prefix string) {
 	mon.IntVal(prefix + ".bytes").Observe(tally.Bytes())
 	mon.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)
 	mon.IntVal(prefix + ".remote_bytes").Observe(tally.RemoteBytes)
+}
+
+// bucketTallyAdd groups all the data based the passed pointer
+func bucketTallyAdd(s *accounting.BucketTally, pointer *pb.Pointer, last bool) {
+	switch pointer.GetType() {
+	case pb.Pointer_INLINE:
+		s.InlineSegments++
+		s.InlineBytes += int64(len(pointer.InlineSegment))
+		s.MetadataSize += int64(len(pointer.Metadata))
+
+	case pb.Pointer_REMOTE:
+		s.RemoteSegments++
+		s.RemoteBytes += pointer.GetSegmentSize()
+		s.MetadataSize += int64(len(pointer.Metadata))
+	}
+
+	if last {
+		s.ObjectCount++
+	}
+}
+
+// using custom name to avoid breaking monitoring
+var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
+
+// bucketReport reports the stats thru monkit
+func bucketReport(bucket *accounting.BucketTally, prefix string) {
+	monAccounting.IntVal(prefix + ".objects").Observe(bucket.ObjectCount)
+
+	monAccounting.IntVal(prefix + ".segments").Observe(bucket.Segments())
+	monAccounting.IntVal(prefix + ".inline_segments").Observe(bucket.InlineSegments)
+	monAccounting.IntVal(prefix + ".remote_segments").Observe(bucket.RemoteSegments)
+
+	monAccounting.IntVal(prefix + ".bytes").Observe(bucket.Bytes())
+	monAccounting.IntVal(prefix + ".inline_bytes").Observe(bucket.InlineBytes)
+	monAccounting.IntVal(prefix + ".remote_bytes").Observe(bucket.RemoteBytes)
 }
