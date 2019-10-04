@@ -1,14 +1,12 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package stripecoinpayments
 
 import (
 	"context"
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
-
-// TODO: return, when lock generator will be able to handle nested interfaces
-// type DB interface {
-//	StripeCustomers() StripeCustomers
-// }
 
 type StripeCustomers interface {
 	Insert(ctx context.Context, userID uuid.UUID, customerID string) error
