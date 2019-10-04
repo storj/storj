@@ -22,10 +22,34 @@ import (
 
 	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/rpc"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/dbcleanup"
+	"storj.io/storj/satellite/discovery"
+	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/inspector"
+	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/marketingweb"
+	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodestats"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/irreparable"
+	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
@@ -82,9 +106,115 @@ type Planet struct {
 
 // SatelliteSystem contains all the processes needed to run a full Satellite setup
 type SatelliteSystem struct {
-	Peer satellite.Peer
-	satellite.API
+	Peer *satellite.Peer
+	API  *satellite.API
+
+	Log      *zap.Logger
+	Identity *identity.FullIdentity
+	DB       satellite.DB
+
+	Dialer  rpc.Dialer
+	Server  *server.Server
+	Version *version.Service
+
+	Contact struct {
+		Service   *contact.Service
+		Endpoint  *contact.Endpoint
+		KEndpoint *contact.KademliaEndpoint
+	}
+	Overlay struct {
+		DB        overlay.DB
+		Service   *overlay.Service
+		Inspector *overlay.Inspector
+	}
+	Discovery struct {
+		Service *discovery.Discovery
+	}
+	Metainfo struct {
+		Database  metainfo.PointerDB
+		Service   *metainfo.Service
+		Endpoint2 *metainfo.Endpoint
+		Loop      *metainfo.Loop
+	}
+	Inspector struct {
+		Endpoint *inspector.Endpoint
+	}
+	Orders struct {
+		Endpoint *orders.Endpoint
+		Service  *orders.Service
+	}
+	Repair struct {
+		Checker   *checker.Checker
+		Repairer  *repairer.Service
+		Inspector *irreparable.Inspector
+	}
+	Audit struct {
+		Queue    *audit.Queue
+		Worker   *audit.Worker
+		Chore    *audit.Chore
+		Verifier *audit.Verifier
+		Reporter *audit.Reporter
+	}
+	GarbageCollection struct {
+		Service *gc.Service
+	}
+	DBCleanup struct {
+		Chore *dbcleanup.Chore
+	}
+	Accounting struct {
+		Tally        *tally.Service
+		Rollup       *rollup.Service
+		ProjectUsage *accounting.ProjectUsage
+	}
+	LiveAccounting struct {
+		Service live.Service
+	}
+	Mail struct {
+		Service *mailservice.Service
+	}
+	Vouchers struct {
+		Endpoint *vouchers.Endpoint
+	}
+	Console struct {
+		Listener net.Listener
+		Service  *console.Service
+		Endpoint *consoleweb.Server
+	}
+	Marketing struct {
+		Listener net.Listener
+		Endpoint *marketingweb.Server
+	}
+	NodeStats struct {
+		Endpoint *nodestats.Endpoint
+	}
 }
+
+// ID returns the ID of the Satellite system.
+func (system *SatelliteSystem) ID() storj.NodeID { return system.API.Identity.ID }
+
+// Local returns the peer local node info from the Satellite system API.
+func (system *SatelliteSystem) Local() overlay.NodeDossier { return system.API.Contact.Service.Local() }
+
+// Addr returns the public address from the Satellite system API.
+func (system *SatelliteSystem) Addr() string { return system.API.Server.Addr().String() }
+
+// URL returns the storj.NodeURL from the Satellite system API.
+func (system *SatelliteSystem) URL() storj.NodeURL {
+	return storj.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
+}
+
+// Close closes all the subsystems in the Satellite system
+func (system *SatelliteSystem) Close() error {
+	return errs.Combine(system.API.Close(), system.Peer.Close())
+}
+
+// Run runs all the subsystems in the Satellite system
+func (system *SatelliteSystem) Run(ctx context.Context) (err error) {
+	return errs.Combine(system.API.Run(ctx), system.Peer.Run(ctx))
+}
+
+// PrivateAddr returns the private address from the Satellite system API.
+func (system *SatelliteSystem) PrivateAddr() string { return system.API.Server.PrivateAddr().String() }
 
 type closablePeer struct {
 	peer Peer

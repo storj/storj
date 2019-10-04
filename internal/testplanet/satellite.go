@@ -10,8 +10,11 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/revocation"
@@ -67,14 +70,17 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return nil, err
 		}
-
+		// TODO: add support for sqlite since boltdb cannot handle more than one
+		// connection at a time
+		metaInfoDBURL := "boltdb://" + filepath.Join(storageDir, "pointers.db")
+		revocationDBURL := "boltdb://" + filepath.Join(storageDir, "revocation.db")
 		config := satellite.Config{
 			Server: server.Config{
 				Address:        "127.0.0.1:0",
 				PrivateAddress: "127.0.0.1:0",
 
 				Config: tlsopts.Config{
-					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
+					RevocationDBURL:     revocationDBURL,
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
 					PeerIDVersions:      "latest",
@@ -115,7 +121,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				RefreshConcurrency: 2,
 			},
 			Metainfo: metainfo.Config{
-				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
+				DatabaseURL:          metaInfoDBURL,
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
 				MaxCommitInterval:    1 * time.Hour,
@@ -212,21 +218,117 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return xs, err
 		}
 
-		api, err := satellite.NewAPI(log, identity, db, revocationDB, &config, versionInfo)
-		if err != nil {
-			return xs, err
-		}
-
 		err = db.CreateTables()
 		if err != nil {
 			return nil, err
 		}
 		planet.databases = append(planet.databases, db)
 
+		api, err := planet.newAPI(i, identity, config, versionInfo)
+		if err != nil {
+			return xs, err
+		}
 		log.Debug("id=" + peer.ID().String() + " addr=" + api.Addr())
 
-		system := SatelliteSystem{Peer: *peer, API: *api}
-		xs = append(xs, &system)
+		system := createNewSystem(log, peer, api)
+		xs = append(xs, system)
 	}
 	return xs, nil
+}
+
+// createNewSystem makes a new Satellite System and exposes the same interface from
+// before we split out the API. In the short term this will help keep all the tests passing
+// without much modification needed. However long term, we probably want to rework this
+// so it represents how the satellite will run when it is made up of many prrocesses.
+func createNewSystem(log *zap.Logger, peer *satellite.Peer, api *satellite.API) *SatelliteSystem {
+	system := &SatelliteSystem{
+		Peer: peer,
+		API:  api,
+	}
+	system.Log = log
+	system.Identity = peer.Identity
+	system.DB = peer.DB
+
+	system.Dialer = api.Dialer
+	system.Server = api.Server
+	system.Version = peer.Version
+
+	system.Contact.Service = api.Contact.Service
+	system.Contact.Endpoint = api.Contact.Endpoint
+	system.Contact.KEndpoint = api.Contact.KEndpoint
+
+	system.Overlay.DB = api.Overlay.DB
+	system.Overlay.Service = api.Overlay.Service
+	system.Overlay.Inspector = api.Overlay.Inspector
+
+	system.Discovery.Service = peer.Discovery.Service
+
+	system.Metainfo.Database = api.Metainfo.Database
+	system.Metainfo.Service = api.Metainfo.Service
+	system.Metainfo.Endpoint2 = api.Metainfo.Endpoint2
+	system.Metainfo.Loop = peer.Metainfo.Loop
+
+	system.Inspector.Endpoint = api.Inspector.Endpoint
+
+	system.Orders.Endpoint = api.Orders.Endpoint
+	system.Orders.Service = api.Orders.Service
+
+	system.Repair.Checker = peer.Repair.Checker
+	system.Repair.Repairer = peer.Repair.Repairer
+	system.Repair.Inspector = api.Repair.Inspector
+
+	system.Audit.Queue = peer.Audit.Queue
+	system.Audit.Worker = peer.Audit.Worker
+	system.Audit.Chore = peer.Audit.Chore
+	system.Audit.Verifier = peer.Audit.Verifier
+	system.Audit.Reporter = peer.Audit.Reporter
+
+	system.GarbageCollection.Service = peer.GarbageCollection.Service
+
+	system.DBCleanup.Chore = peer.DBCleanup.Chore
+
+	system.Accounting.Tally = peer.Accounting.Tally
+	system.Accounting.Rollup = peer.Accounting.Rollup
+	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
+
+	system.LiveAccounting.Service = api.LiveAccounting.Service
+
+	system.Mail.Service = api.Mail.Service
+
+	system.Vouchers.Endpoint = api.Vouchers.Endpoint
+
+	system.Console.Listener = api.Console.Listener
+	system.Console.Service = api.Console.Service
+	system.Console.Endpoint = api.Console.Endpoint
+
+	system.Marketing.Listener = api.Marketing.Listener
+	system.Marketing.Endpoint = api.Marketing.Endpoint
+
+	system.NodeStats.Endpoint = api.NodeStats.Endpoint
+	return system
+}
+
+func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
+	prefix := "satellite-api" + strconv.Itoa(count)
+	log := planet.log.Named(prefix)
+	var err error
+
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+
+	var db satellite.DB
+	if planet.config.Reconfigure.NewSatelliteDB != nil {
+		db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), count)
+	} else {
+		db, err = satellitedb.NewInMemory(log.Named("db"))
+	}
+	if err != nil {
+		return nil, err
+	}
+	planet.databases = append(planet.databases, db)
+
+	return satellite.NewAPI(log, identity, db, revocationDB, &config, versionInfo)
 }
