@@ -218,10 +218,15 @@ func (infos *TransactionInfos) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	var errg errs.Group
 	for _, info := range errors {
 		if info.Error != "ok" {
-			return errs.New(info.Error)
+			errg.Add(errs.New(info.Error))
 		}
+	}
+
+	if err := errg.Err(); err != nil {
+		return err
 	}
 
 	if err := json.Unmarshal(b, &_infos); err != nil {
