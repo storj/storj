@@ -4,6 +4,7 @@
 package version
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -30,6 +31,8 @@ var (
 
 	// Build is a struct containing all relevant build information associated with the binary
 	Build Info
+
+	zeroSeed     = [32]byte{}
 )
 
 // Info is the versioning information for a binary
@@ -51,6 +54,7 @@ type SemVer struct {
 }
 
 // AllowedVersions provides the Minimum SemVer per Service
+// TODO: I don't think this name is representative of what this struct now holds.
 type AllowedVersions struct {
 	Bootstrap   SemVer
 	Satellite   SemVer
@@ -76,6 +80,7 @@ type Processes struct {
 type Process struct {
 	Minimum   Version `json:"minimum"`
 	Suggested Version `json:"suggested"`
+	Rollout   Rollout `json:"rollout"`
 }
 
 // Version represents version and download URL for binary.
@@ -87,8 +92,16 @@ type Version struct {
 // SemVerRegex is the regular expression used to parse a semantic version.
 // https://github.com/Masterminds/semver/blob/master/LICENSE.txt
 const SemVerRegex string = `v?([0-9]+)\.([0-9]+)\.([0-9]+)`
+// Rollout represents the state of a version rollout.
+type Rollout struct {
+	Active        bool        `json:"active"`
+	Seed          rolloutSeed `json:"seed"`
+	Cursor        int32       `json:"cursor"`
+	TargetVersion Version     `json:"target_version"`
+}
 
 var versionRegex = regexp.MustCompile("^" + SemVerRegex + "$")
+type rolloutSeed [32]byte
 
 // NewSemVer parses a given version and returns an instance of SemVer or
 // an error if unable to parse the version.
@@ -167,6 +180,14 @@ func (v Info) Proto() (*pb.NodeVersion, error) {
 		Timestamp:  v.Timestamp,
 		Release:    v.Release,
 	}, nil
+}
+
+func (seed rolloutSeed) MarshalJSON() ([]byte, error) {
+	seedSlice := seed[:]
+	if bytes.Equal(seedSlice, zeroSeed[:]) {
+		return json.Marshal("")
+	}
+	return json.Marshal(seedSlice)
 }
 
 // isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
