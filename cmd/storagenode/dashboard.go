@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/pkg/rpc"
 )
 
-const contactWindow = time.Minute * 10
+const contactWindow = time.Hour * 2
 
 type dashboardClient struct {
 	conn *rpc.Conn
@@ -94,15 +94,10 @@ func printDashboard(data *pb.DashboardResponse) error {
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
 
-	switch {
-	case data.LastPinged.IsZero():
+	if data.LastPinged.IsZero() || time.Since(data.LastPinged) >= contactWindow {
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("OFFLINE"))
-	case time.Since(data.LastPinged) >= contactWindow:
-		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString(fmt.Sprintf("%s ago",
-			time.Since(data.LastPinged).Truncate(time.Second))))
-	default:
-		fmt.Fprintf(w, "Last Contact\t%s\n", color.GreenString(fmt.Sprintf("%s ago",
-			time.Since(data.LastPinged).Truncate(time.Second))))
+	} else {
+		fmt.Fprintf(w, "Last Contact\t%s\n", color.GreenString("ONLINE"))
 	}
 
 	// TODO: use stdtime in protobuf
@@ -148,7 +143,6 @@ func printDashboard(data *pb.DashboardResponse) error {
 	fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
 	// Disabling the Link to the Dashboard as its not working yet
 	// fmt.Fprintf(w, "Dashboard\t%s\n", color.WhiteString(data.GetDashboardAddress()))
-	fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
 	if err = w.Flush(); err != nil {
 		return err
 	}
@@ -158,10 +152,6 @@ func printDashboard(data *pb.DashboardResponse) error {
 	}
 
 	return nil
-}
-
-func whiteInt(value int64) string {
-	return color.WhiteString(fmt.Sprintf("%+v", value))
 }
 
 // clearScreen clears the screen so it can be redrawn
