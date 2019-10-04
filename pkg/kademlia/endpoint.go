@@ -13,7 +13,6 @@ import (
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcpeer"
 	"storj.io/storj/pkg/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 )
@@ -27,7 +26,7 @@ type SatelliteIDVerifier interface {
 }
 
 type pingStatsSource interface {
-	WasPinged(when time.Time, byID storj.NodeID, byAddr string)
+	WasPinged(when time.Time)
 }
 
 // Endpoint implements the kademlia Endpoints
@@ -104,16 +103,14 @@ func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.
 	// NOTE: this code is very similar to that in storagenode/contact.(*Endpoint).PingNode().
 	// That other will be used going forward, and this will soon be gutted and deprecated. The
 	// code similarity will only exist until the transition away from Kademlia is complete.
-	peer, err := rpcpeer.FromContext(ctx)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
-	peerID, err := identity.PeerIdentityFromPeer(peer)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 	if endpoint.pingStats != nil {
-		endpoint.pingStats.WasPinged(time.Now(), peerID.ID, peer.Addr.String())
+		endpoint.pingStats.WasPinged(time.Now())
 	}
 	return &pb.PingResponse{}, nil
 }

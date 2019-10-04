@@ -14,51 +14,51 @@
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    declare interface MessageBoxStyle {
-        bottom: string;
+declare interface MessageBoxStyle {
+    bottom: string;
+}
+
+@Component
+export default class VInfo extends Vue {
+    private isVisible: boolean = false;
+    private height: string = '5px';
+
+    @Prop({default: ''})
+    private readonly text: string;
+    @Prop({default: ''})
+    private readonly boldText: string;
+    @Prop({default: false})
+    private readonly isExtraPadding: boolean;
+    @Prop({default: false})
+    private readonly isCustomPosition: boolean;
+
+    public toggleVisibility(): void {
+        this.isVisible = !this.isVisible;
     }
 
-    @Component
-    export default class InfoComponent extends Vue {
-        private isVisible: boolean = false;
-        private height: string = '5px';
+    public get messageBoxStyle(): MessageBoxStyle {
+        return { bottom: this.height };
+    }
 
-        @Prop({default: ''})
-        private readonly text: string;
-        @Prop({default: ''})
-        private readonly boldText: string;
-        @Prop({default: false})
-        private readonly isExtraPadding: boolean;
-        @Prop({default: false})
-        private readonly isCustomPosition: boolean;
-
-        public toggleVisibility(): void {
-            this.isVisible = !this.isVisible;
+    public mounted(): void {
+        const infoComponent = document.querySelector('.info');
+        if (!infoComponent) {
+            return;
         }
 
-        public get messageBoxStyle(): MessageBoxStyle {
-            return { bottom: this.height };
+        const slots = this.$slots.default;
+        if (!slots) {
+            return;
         }
 
-        public mounted(): void {
-            const infoComponent = document.querySelector('.info');
-            if (!infoComponent) {
-                return;
-            }
-
-            const slots = this.$slots.default;
-            if (!slots) {
-                return;
-            }
-
-            const slot = slots[0];
-            if (slot && slot.elm) {
-                this.height = (slot.elm as HTMLElement).offsetHeight + 'px';
-            }
+        const slot = slots[0];
+        if (slot && slot.elm) {
+            this.height = (slot.elm as HTMLElement).offsetHeight + 'px';
         }
     }
+}
 </script>
 
 <style scoped lang="scss">

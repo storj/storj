@@ -3,19 +3,20 @@
 
 <template>
     <div class="chart">
-        <Chart
+        <VChart
             id="bandwidth-chart"
             :chart-data="chartData"
             :width="400"
             :height="200"
-            :tooltip-constructor="bandwidthTooltip" />
+            :tooltip-constructor="bandwidthTooltip"
+        />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Chart from '@/app/components/Chart.vue';
+import VChart from '@/app/components/VChart.vue';
 import { ChartData } from '@/app/types/chartData';
 import { ChartUtils } from '@/app/utils/chartUtils';
 import { formatBytes } from '@/app/utils/converter';
@@ -44,7 +45,7 @@ class BandwidthTooltip {
 
 @Component ({
     components: {
-        Chart,
+        VChart,
     },
 })
 export default class BandwidthChart extends Vue {
@@ -97,17 +98,17 @@ export default class BandwidthChart extends Vue {
                                    <div class='tooltip-body'>
                                        <div class='tooltip-body__info'>
                                            <p>NORMAL</p>
-                                           <p class='tooltip-body__info__egress-value'><b>${dataPoint.normalEgress}</b></p>
-                                           <p class='tooltip-body__info__ingress-value'><b>${dataPoint.normalIngress}</b></p>
+                                           <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.normalEgress}</b></p>
+                                           <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.normalIngress}</b></p>
                                        </div>
                                        <div class='tooltip-body__info'>
                                            <p>REPAIR</p>
-                                           <p class='tooltip-body__info__egress-value'><b>${dataPoint.repairEgress}</b></p>
-                                           <p class='tooltip-body__info__ingress-value'><b>${dataPoint.repairIngress}</b></p>
+                                           <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.repairEgress}</b></p>
+                                           <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.repairIngress}</b></p>
                                        </div>
                                        <div class='tooltip-body__info'>
                                            <p>AUDIT</p>
-                                           <p class='tooltip-body__info__egress-value'><b>${dataPoint.auditEgress}</b></p>
+                                           <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.auditEgress}</b></p>
                                        </div>
                                    </div>
                                    <div class='tooltip-footer'>
@@ -163,7 +164,7 @@ export default class BandwidthChart extends Vue {
             margin-bottom: 14px;
             position: relative;
 
-            b {
+            .tooltip-bold-text {
                 font-size: 14px;
             }
 

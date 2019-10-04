@@ -3,8 +3,8 @@
 
 <template>
     <div class="satellite-selection-toggle-container" v-if="satellites" @click="toggleDropDown">
-        <p><b>Choose your satellite: </b>{{selectedSatellite ? selectedSatellite : 'All satellites'}}</p>
-        <svg width="8" height="4" viewBox="0 0 8 4" fill="none" xmlns="http://www.w3.org/2000/svg" alt="arrow image">
+        <p><b class="satellite-selection-toggle-container__bold-text">Choose your satellite: </b>{{selectedSatellite ? selectedSatellite : 'All satellites'}}</p>
+        <svg class="satellite-selection-toggle-container__image" width="8" height="4" viewBox="0 0 8 4" fill="none" xmlns="http://www.w3.org/2000/svg" alt="Arrow down">
             <path d="M3.33657 3.73107C3.70296 4.09114 4.29941 4.08814 4.66237 3.73107L7.79796 0.650836C8.16435 0.291517 8.01864 0 7.47247 0L0.526407 0C-0.0197628 0 -0.16292 0.294525 0.200917 0.650836L3.33657 3.73107Z" fill="#535F77"/>
         </svg>
         <SatelliteSelectionDropdown v-if="isPopupShown"/>
@@ -24,7 +24,7 @@ import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
         SatelliteSelectionDropdown,
     },
 })
-export default class SatelliteSelectionContainer extends Vue {
+export default class SatelliteSelection extends Vue {
     @Prop({default: ''})
     private readonly label: string;
 
@@ -62,11 +62,11 @@ export default class SatelliteSelectionContainer extends Vue {
         cursor: pointer;
         color: #535F77;
 
-        b {
+        &__bold-text {
             margin-right: 3px;
         }
 
-        svg {
+        &__image {
             position: absolute;
             right: 14px;
         }

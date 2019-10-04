@@ -11,7 +11,8 @@
                     :on-press="onButtonClick"
                     :label="buttonLabel"
                     width="190px"
-                    height="50px"/>
+                    height="50px"
+                />
             </div>
             <div class="empty-state__wrap__img" v-html="imageSource"></div>
         </div>

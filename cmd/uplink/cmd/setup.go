@@ -160,9 +160,7 @@ Your Uplink CLI is configured and ready to use!
 
 Some things to try next:
 
-* Run 'uplink --help' to see the operations that can be performed
-
-* See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands`)
+* See http://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
 
 	return nil
 }
