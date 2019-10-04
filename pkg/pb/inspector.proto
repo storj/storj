@@ -12,24 +12,6 @@ import "google/protobuf/timestamp.proto";
 
 package inspector;
 
-// DEPRECATED
-service KadInspector {
-  // CountNodes returns the number of nodes in the routing table
-  rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
-  // PingNode sends a PING RPC to a node and returns its availability
-  rpc PingNode(PingNodeRequest) returns (PingNodeResponse);
-  // LookupNode triggers a Kademlia FindNode and returns the response
-  rpc LookupNode(LookupNodeRequest) returns (LookupNodeResponse);
-  // NodeInfo sends a PING RPC to a node and returns its local info
-  rpc NodeInfo(NodeInfoRequest) returns (NodeInfoResponse);
-  // FindNear returns limit number of IDs "near" the Start ID
-  rpc FindNear(FindNearRequest) returns (FindNearResponse);
-  // DumpNodes returns all the nodes in the node database
-  rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
-  // GetBucketList returns all the buckets with all their nodes
-  rpc GetBucketList(GetBucketListRequest) returns (GetBucketListResponse);
-}
-
 service OverlayInspector {
   // CountNodes returns the number of nodes in the cache
   rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
@@ -56,7 +38,6 @@ service HealthInspector {
   rpc SegmentHealth(SegmentHealthRequest) returns (SegmentHealthResponse) {}
 }
 
-
 // ListSegments
 message ListIrreparableSegmentsRequest {
   int32 limit = 1;
@@ -81,97 +62,6 @@ message CountNodesResponse {
 }
 
 message CountNodesRequest {
-}
-
-message GetBucketListRequest {
-  option deprecated = true;
-}
-
-message GetBucketListResponse {
-  option deprecated = true;
-	message Bucket {
-	  bytes bucket_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-	  repeated node.Node routing_nodes = 2;
-	  repeated node.Node cached_nodes = 3;
-	}
-	repeated Bucket buckets = 1;
-}
-
-// GetBuckets
-message GetBucketsRequest {
-  option deprecated = true;
-}
-
-message GetBucketsResponse {
-  option deprecated = true;
-  int64 total = 1;
-  repeated bytes ids = 2 [(gogoproto.customtype) = "NodeID"];
-}
-
-// GetBucket
-message GetBucketRequest {
-  option deprecated = true;
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-}
-
-message GetBucketResponse {
-  option deprecated = true;
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  repeated node.Node nodes = 2;
-}
-
-message BucketList {
-  option deprecated = true;
-  repeated node.Node nodes = 1;
-}
-// PingNode
-message PingNodeRequest {
-  option deprecated = true;
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  string address = 2;
-}
-
-message PingNodeResponse {
-  option deprecated = true;
-  bool ok = 1;
-}
-
-message LookupNodeRequest {
-  option deprecated = true;
-  string id = 1;
-  string address = 2;
-}
-
-message LookupNodeResponse {
-  option deprecated = true;
-  node.Node node = 1;
-  node.NodeMetadata meta = 2;
-}
-
-message NodeInfoRequest {
-  option deprecated = true;
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  node.NodeAddress address = 2;
-}
-
-message NodeInfoResponse {
-  option deprecated = true;
-  node.NodeType type = 1;
-  node.NodeOperator operator = 2;
-  node.NodeCapacity capacity = 3;
-  node.NodeVersion version = 4;
-}
-
-message FindNearRequest {
-  option deprecated = true;
-  bytes id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  bytes start = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  int64 limit = 3;
-}
-
-message FindNearResponse {
-  option deprecated = true;
-  repeated node.Node nodes = 2;
 }
 
 message DumpNodesRequest {}

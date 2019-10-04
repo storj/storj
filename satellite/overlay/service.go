@@ -330,7 +330,7 @@ func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.N
 	defer mon.Task()(&ctx)(&err)
 
 	// If we get a Node without an ID
-	// we don't want to add to the cache
+	// we don't want to add to the database
 	if nodeID.IsZero() {
 		return nil
 	}
