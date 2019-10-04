@@ -66,6 +66,7 @@ func TestOnlyInline(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tallySvc := planet.Satellites[0].Accounting.Tally
+		tallySvc.Loop.Pause()
 		uplink := planet.Uplinks[0]
 		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 
@@ -85,9 +86,7 @@ func TestOnlyInline(t *testing.T) {
 			BucketName:     []byte(expectedBucketName),
 			ProjectID:      projectID,
 			ObjectCount:    1,
-			Segments:       1,
 			InlineSegments: 1,
-			Bytes:          int64(expectedTotalBytes),
 			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
@@ -120,6 +119,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tallySvc := planet.Satellites[0].Accounting.Tally
+		tallySvc.Loop.Pause()
 		uplink := planet.Uplinks[0]
 
 		// Setup: create 50KiB of data for the uplink to upload
@@ -161,12 +161,12 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		inline       bool
 		last         bool
 	}{
-		{"bucket, no objects", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "", "mockBucketName", "", true, false},
 		{"inline, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "l", "mockBucketName", "mockObjectName", true, true},
 		{"remote, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "s0", "mockBucketName", "mockObjectName1", false, false},
 		{"last segment, same project, different bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "l", "mockBucketName1", "mockObjectName2", false, true},
 		{"different project", "9656af6e-2d9c-42fa-91f2-bfd516a722d1", "s0", "mockBucketName", "mockObjectName", false, false},
 	}
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -174,41 +174,32 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		redundancyScheme := planet.Uplinks[0].GetConfig(satellitePeer).GetRedundancyScheme()
 		expectedBucketTallies := make(map[string]*accounting.BucketTally)
 		for _, tt := range testCases {
-			tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
+			tt := tt // avoid scopelint error
 
 			t.Run(tt.name, func(t *testing.T) {
 				projectID, err := uuid.Parse(tt.project)
 				require.NoError(t, err)
 
 				// setup: create a pointer and save it to pointerDB
-				pointer, _ := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
+				pointer := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
 				metainfo := satellitePeer.Metainfo.Service
 				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName, tt.objectName)
-				if tt.objectName == "" {
-					objectPath = fmt.Sprintf("%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName)
-				}
 				err = metainfo.Put(ctx, objectPath, pointer)
 				require.NoError(t, err)
 
-				// setup: create expected bucket tally for the pointer just created, but only if
-				// the pointer was for an object and not just for a bucket
-				if tt.objectName != "" {
-					bucketID := fmt.Sprintf("%s/%s", tt.project, tt.bucketName)
-					newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
-					newTally.BucketName = []byte(tt.bucketName)
-					newTally.ProjectID = *projectID
-					expectedBucketTallies[bucketID] = newTally
-				}
+				// create expected bucket tally for the pointer just created
+				bucketID := fmt.Sprintf("%s/%s", tt.project, tt.bucketName)
+				newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
+				newTally.BucketName = []byte(tt.bucketName)
+				newTally.ProjectID = *projectID
+				expectedBucketTallies[bucketID] = newTally
 
 				// test: calculate at rest data
 				tallySvc := satellitePeer.Accounting.Tally
 				_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
 				require.NoError(t, err)
 
-				assert.Equal(t, len(expectedBucketTallies), len(actualBucketData))
-				for bucket, actualTally := range actualBucketData {
-					assert.Equal(t, *expectedBucketTallies[bucket], *actualTally)
-				}
+				assert.Equal(t, expectedBucketTallies, actualBucketData)
 			})
 		}
 	})
@@ -220,8 +211,6 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	// if there is already an existing tally for this project and bucket, then
 	// add the new pointer data to the existing tally
 	if existingTally != nil {
-		existingTally.Segments++
-		existingTally.Bytes += int64(2)
 		existingTally.MetadataSize += int64(12)
 		existingTally.RemoteSegments++
 		existingTally.RemoteBytes += int64(2)
@@ -230,22 +219,17 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 
 	// if the pointer was inline, create a tally with inline info
 	if inline {
-		newInlineTally := accounting.BucketTally{
+		return &accounting.BucketTally{
 			ObjectCount:    int64(1),
-			Segments:       int64(1),
 			InlineSegments: int64(1),
-			Bytes:          int64(2),
 			InlineBytes:    int64(2),
 			MetadataSize:   int64(12),
 		}
-		return &newInlineTally
 	}
 
 	// if the pointer was remote, create a tally with remote info
-	newRemoteTally := accounting.BucketTally{
-		Segments:       int64(1),
+	newRemoteTally := &accounting.BucketTally{
 		RemoteSegments: int64(1),
-		Bytes:          int64(2),
 		RemoteBytes:    int64(2),
 		MetadataSize:   int64(12),
 	}
@@ -254,13 +238,11 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 		newRemoteTally.ObjectCount++
 	}
 
-	return &newRemoteTally
+	return newRemoteTally
 }
 
 // makePointer creates a pointer
-func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
-	segmentSize int64, inline bool) (*pb.Pointer, error) {
-
+func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme, segmentSize int64, inline bool) *pb.Pointer {
 	if inline {
 		inlinePointer := &pb.Pointer{
 			CreationDate:  time.Now(),
@@ -269,7 +251,7 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 			SegmentSize:   segmentSize,
 			Metadata:      []byte("fakemetadata"),
 		}
-		return inlinePointer, nil
+		return inlinePointer
 	}
 
 	pieces := make([]*pb.RemotePiece, rs.TotalShares)
@@ -280,7 +262,7 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 		}
 	}
 
-	pointer := &pb.Pointer{
+	return &pb.Pointer{
 		CreationDate: time.Now(),
 		Type:         pb.Pointer_REMOTE,
 		Remote: &pb.RemoteSegment{
@@ -298,18 +280,11 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 		SegmentSize: segmentSize,
 		Metadata:    []byte("fakemetadata"),
 	}
-
-	return pointer, nil
 }
 
 func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
-
 	// The shareCount should be a value between RequiredShares and TotalShares where
 	// RequiredShares is the min number of shares required to recover a segment and
 	// TotalShares is the number of shares to encode
-	if int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares) {
-		return true
-	}
-
-	return false
+	return int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares)
 }
