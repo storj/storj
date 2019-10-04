@@ -423,6 +423,10 @@ read one (
     select api_key
     where api_key.head = ?
 )
+read one (
+    select api_key
+    where api_key.name = ?
+)
 read all (
     select api_key
     where api_key.project_id = ?

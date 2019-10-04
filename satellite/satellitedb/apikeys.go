@@ -151,6 +151,17 @@ func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.API
 	return fromDBXAPIKey(ctx, dbKey)
 }
 
+// GetByName implements satellite.APIKeys
+func (keys *apikeys) GetByName(ctx context.Context, name string) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbKey, err := keys.methods.Get_ApiKey_By_Name(ctx, dbx.ApiKey_Name(name))
+	if err != nil {
+		return nil, err
+	}
+
+	return fromDBXAPIKey(ctx, dbKey)
+}
+
 // Create implements satellite.APIKeys
 func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)

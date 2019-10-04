@@ -185,6 +185,13 @@ func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.AP
 	return m.db.GetByHead(ctx, head)
 }
 
+// GetByName retrieves APIKeyInfo for given key name
+func (m *lockedAPIKeys) GetByName(ctx context.Context, name string) (*console.APIKeyInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByName(ctx, name)
+}
+
 // GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor
 func (m *lockedAPIKeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor) (akp *console.APIKeyPage, err error) {
 	m.Lock()
@@ -837,7 +844,7 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
-// GetExitingNodes returns nodes who have initiated a graceful exit.
+// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
 func (m *lockedOverlayCache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
 	m.Lock()
 	defer m.Unlock()

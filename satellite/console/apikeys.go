@@ -20,6 +20,8 @@ type APIKeys interface {
 	Get(ctx context.Context, id uuid.UUID) (*APIKeyInfo, error)
 	// GetByHead retrieves APIKeyInfo for given key head
 	GetByHead(ctx context.Context, head []byte) (*APIKeyInfo, error)
+	// GetByName retrieves APIKeyInfo for given key name
+	GetByName(ctx context.Context, name string) (*APIKeyInfo, error)
 	// Create creates and stores new APIKeyInfo
 	Create(ctx context.Context, head []byte, info APIKeyInfo) (*APIKeyInfo, error)
 	// Update updates APIKeyInfo in store
