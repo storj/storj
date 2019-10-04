@@ -35,7 +35,7 @@ func (s *BucketTally) Combine(o *BucketTally) {
 }
 
 // Segments returns total number of segments.
-func (s *BucketTally) Segments() int64 { 
+func (s *BucketTally) Segments() int64 {
 	return s.InlineSegments + s.RemoteSegments
 }
 

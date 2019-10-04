@@ -242,14 +242,14 @@ func bucketTallyAdd(s *accounting.BucketTally, pointer *pb.Pointer, last bool) {
 var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
 
 // bucketReport reports the stats thru monkit
-func bucketReport(bucket *accounting.BucketTally, prefix string) {
-	monAccounting.IntVal(prefix + ".objects").Observe(bucket.ObjectCount)
+func bucketReport(tally *accounting.BucketTally, prefix string) {
+	monAccounting.IntVal(prefix + ".objects").Observe(tally.ObjectCount)
 
-	monAccounting.IntVal(prefix + ".segments").Observe(bucket.Segments())
-	monAccounting.IntVal(prefix + ".inline_segments").Observe(bucket.InlineSegments)
-	monAccounting.IntVal(prefix + ".remote_segments").Observe(bucket.RemoteSegments)
+	monAccounting.IntVal(prefix + ".segments").Observe(tally.Segments())
+	monAccounting.IntVal(prefix + ".inline_segments").Observe(tally.InlineSegments)
+	monAccounting.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
 
-	monAccounting.IntVal(prefix + ".bytes").Observe(bucket.Bytes())
-	monAccounting.IntVal(prefix + ".inline_bytes").Observe(bucket.InlineBytes)
-	monAccounting.IntVal(prefix + ".remote_bytes").Observe(bucket.RemoteBytes)
+	monAccounting.IntVal(prefix + ".bytes").Observe(tally.Bytes())
+	monAccounting.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)
+	monAccounting.IntVal(prefix + ".remote_bytes").Observe(tally.RemoteBytes)
 }
