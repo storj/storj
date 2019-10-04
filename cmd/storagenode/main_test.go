@@ -123,11 +123,11 @@ func TestParseOverride(t *testing.T) {
 	for _, c := range cases {
 		testCase := c
 		t.Run(testCase.testID, func(t *testing.T) {
-			if c.oldConfigValue != "undefined" {
-				typ := reflect.TypeOf(c.newConfigValue)
-				c.newConfigValue = parseOverride(typ, c.oldConfigValue)
+			if testCase.oldConfigValue != "undefined" {
+				typ := reflect.TypeOf(testCase.newConfigValue)
+				testCase.newConfigValue = parseOverride(typ, testCase.oldConfigValue)
 			}
-			require.Equal(t, c.expectedNewConfig, c.newConfigValue)
+			require.Equal(t, testCase.expectedNewConfig, testCase.newConfigValue)
 		})
 	}
 }
