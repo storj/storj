@@ -71,27 +71,32 @@ export default class VChart extends Vue {
                         minRotation: 0,
                         callback: function(value, index, values): string | undefined {
                             const valuesLength = values.length;
-                            const firstValue = values[0];
-                            const lastValue = values[valuesLength - 1];
-                            const middleIndex = valuesLength / 2;
+                            const firstDateValue = values[0];
+                            const lastDateValue = values[valuesLength - 1];
+                            const isDateValueFirstOrLast = value === firstDateValue || value === lastDateValue;
+                            const middleDateValue = valuesLength / 2;
+                            const isDateValueInMiddleInEvenAmount = index === (middleDateValue - 1);
+                            const isDateValueInMiddleInNotEvenAmount = index === (Math.floor(middleDateValue));
                             const isAfterEighthDayOfTheMonth = valuesLength > 8 && valuesLength <= 31;
+                            const isDaysAmountEven = valuesLength % 2 === 0;
+                            const isDaysAmountNotEven = valuesLength % 2 !== 0;
+                            const areDaysShownOnEvenDaysAmount = isDateValueFirstOrLast ||
+                                (isAfterEighthDayOfTheMonth && isDaysAmountEven && isDateValueInMiddleInEvenAmount);
+                            const areDaysShownOnNotEvenDaysAmount = isDateValueFirstOrLast ||
+                                (isAfterEighthDayOfTheMonth && isDaysAmountNotEven && isDateValueInMiddleInNotEvenAmount);
 
                             if (valuesLength <= 8) {
-                                return value
-                            }
-
-                            if (value === firstValue || value === lastValue ||
-                                (isAfterEighthDayOfTheMonth && valuesLength % 2 === 0
-                                && index === (middleIndex - 1))) {
                                 return value;
                             }
 
-                            if (value === firstValue || value === lastValue ||
-                                (isAfterEighthDayOfTheMonth && valuesLength % 2 !== 0
-                                && index === (Math.floor(middleIndex)))) {
+                            if (areDaysShownOnEvenDaysAmount) {
                                 return value;
                             }
-                        }
+
+                            if (areDaysShownOnNotEvenDaysAmount) {
+                                return value;
+                            }
+                        },
                     },
                     gridLines: {
                         display: false,
