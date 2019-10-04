@@ -130,7 +130,6 @@ func TestInspectorDashboard(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.True(t, response.LastPinged.After(testStartedTime))
-			assert.NotEmpty(t, response.LastPingFromAddress)
 
 			assert.True(t, response.Uptime.Nanos > 0)
 			assert.Equal(t, storageNode.ID(), response.NodeId)
