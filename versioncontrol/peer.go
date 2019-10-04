@@ -27,7 +27,6 @@ type Config struct {
 
 // ServiceVersions provides a list of allowed Versions per Service
 type ServiceVersions struct {
-	Bootstrap   string `user:"true" help:"Allowed Bootstrap Versions" default:"v0.0.1"`
 	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.0.1"`
 	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
 	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
@@ -37,7 +36,6 @@ type ServiceVersions struct {
 
 // Versions represents versions for all binaries
 type Versions struct {
-	Bootstrap   Binary
 	Satellite   Binary
 	Storagenode Binary
 	Uplink      Binary
@@ -101,11 +99,6 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	// Convert each Service's Version String to SemVer
-	peer.Versions.Bootstrap, err = version.NewSemVer(config.Versions.Bootstrap)
-	if err != nil {
-		return &Peer{}, err
-	}
-
 	peer.Versions.Satellite, err = version.NewSemVer(config.Versions.Satellite)
 	if err != nil {
 		return &Peer{}, err
@@ -132,7 +125,6 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	peer.Versions.Processes = version.Processes{}
-	peer.Versions.Processes.Bootstrap = configToProcess(config.Binary.Bootstrap)
 	peer.Versions.Processes.Satellite = configToProcess(config.Binary.Satellite)
 	peer.Versions.Processes.Storagenode = configToProcess(config.Binary.Storagenode)
 	peer.Versions.Processes.Uplink = configToProcess(config.Binary.Uplink)

@@ -101,3 +101,37 @@ func (a APIKey) Restrict(caveat *Caveat) (*APIKey, error) {
 	}
 	return &APIKey{lib: &k}, nil
 }
+
+// Scope is a serializable type that represents all of the credentials you need
+// to open a project and some amount of buckets
+type Scope struct {
+	lib *libuplink.Scope
+}
+
+// Serialize serializes a Scope to a base58-encoded string
+func (s *Scope) Serialize() (string, error) {
+	return s.lib.Serialize()
+}
+
+// APIKey return APIKey
+func (s *Scope) APIKey() *APIKey {
+	return &APIKey{lib: &s.lib.APIKey}
+}
+
+// SatelliteAddr return satellite address
+func (s *Scope) SatelliteAddr() string {
+	return s.lib.SatelliteAddr
+}
+
+// EncryptionAccess returns encryption address
+func (s *Scope) EncryptionAccess() *EncryptionAccess {
+	return &EncryptionAccess{lib: s.lib.EncryptionAccess}
+}
+
+// ParseScope unmarshals a base58 encoded scope protobuf and decodes
+// the fields into the Scope convenience type. It will return an error if the
+// protobuf is malformed or field validation fails.
+func ParseScope(scopeb58 string) (*Scope, error) {
+	scope, err := libuplink.ParseScope(scopeb58)
+	return &Scope{lib: scope}, err
+}
