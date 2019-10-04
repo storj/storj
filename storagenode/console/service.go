@@ -153,19 +153,19 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	bandwidthUsage, err := s.bandwidthDB.Summary(ctx, time.Time{}, time.Now())
+	bandwidthUsage, err := s.bandwidthDB.MonthSummary(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
 	data.DiskSpace = DiskSpaceInfo{
-		Used:      memory.Size(spaceUsage).GB(),
-		Available: s.allocatedDiskSpace.GB(),
+		Used:      spaceUsage,
+		Available: s.allocatedDiskSpace.Int64(),
 	}
 
 	data.Bandwidth = BandwidthInfo{
-		Used:      memory.Size(bandwidthUsage.Total()).GB(),
-		Available: s.allocatedBandwidth.GB(),
+		Used:      bandwidthUsage,
+		Available: s.allocatedBandwidth.Int64(),
 	}
 
 	return data, nil

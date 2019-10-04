@@ -145,8 +145,10 @@ export default class RegisterArea extends Vue {
 
             // TODO: improve it
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
-            if (this.$refs['register_success_popup'] !== null) {
-                (this.$refs['register_success_popup'] as any).startResendEmailCountdown();
+            const registrationSuccessPopupRef = this.$refs['register_success_popup'];
+
+            if (registrationSuccessPopupRef) {
+                (registrationSuccessPopupRef as any).startResendEmailCountdown();
             }
         } catch (error) {
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
