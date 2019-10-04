@@ -4,7 +4,17 @@ set +x
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-make -C "$SCRIPTDIR"/.. install-sim
+rpcType="$1"
+if [ "${rpcType}" == "drpc" ]; then
+    echo "Running test-sim with drpc"
+    make -C "$SCRIPTDIR"/.. install-sim-drpc
+elif [ "${rpcType}" == "grpc" ]; then
+    echo "Running test-sim with grpc"
+    make -C "$SCRIPTDIR"/.. install-sim
+else
+    echo "Invalid rpcType ${rpcType}"
+    exit 1
+fi
 
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
