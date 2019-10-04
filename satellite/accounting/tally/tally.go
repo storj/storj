@@ -198,10 +198,10 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	}
 
 	for _, bucketTally := range bucketTallies {
-		reportTally(bucketTally, "bucket")
+		bucketReport(bucketTally, "bucket")
 		totalTallies.Combine(bucketTally)
 	}
-	reportTally(&totalTallies, "total")
+	bucketReport(&totalTallies, "total")
 
 	//store byte hours, not just bytes
 	numHours := time.Since(latestTally).Hours()
@@ -238,15 +238,15 @@ func bucketTallyAdd(s *accounting.BucketTally, pointer *pb.Pointer, last bool) {
 	}
 }
 
-// reportTally reports the stats thru monkit
-func reportTally(s *accounting.BucketTally, prefix string) {
-	mon.IntVal(prefix + ".objects").Observe(s.ObjectCount)
+// bucketReport reports the stats thru monkit
+func bucketReport(bucket *accounting.BucketTally, prefix string) {
+	mon.IntVal(prefix + ".objects").Observe(bucket.ObjectCount)
 
-	mon.IntVal(prefix + ".segments").Observe(s.Segments())
-	mon.IntVal(prefix + ".inline_segments").Observe(s.InlineSegments)
-	mon.IntVal(prefix + ".remote_segments").Observe(s.RemoteSegments)
+	mon.IntVal(prefix + ".segments").Observe(bucket.Segments())
+	mon.IntVal(prefix + ".inline_segments").Observe(bucket.InlineSegments)
+	mon.IntVal(prefix + ".remote_segments").Observe(bucket.RemoteSegments)
 
-	mon.IntVal(prefix + ".bytes").Observe(s.Bytes())
-	mon.IntVal(prefix + ".inline_bytes").Observe(s.InlineBytes)
-	mon.IntVal(prefix + ".remote_bytes").Observe(s.RemoteBytes)
+	mon.IntVal(prefix + ".bytes").Observe(bucket.Bytes())
+	mon.IntVal(prefix + ".inline_bytes").Observe(bucket.InlineBytes)
+	mon.IntVal(prefix + ".remote_bytes").Observe(bucket.RemoteBytes)
 }
