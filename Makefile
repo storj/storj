@@ -275,6 +275,10 @@ libuplink:
 	go build -ldflags="-s -w" -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
 	cp lib/uplinkc/uplink_definitions.h uplink_definitions.h
 
+.PHONY: libuplink-android
+libuplink-android:
+	@./mobile/build.sh
+
 ##@ Deploy
 
 .PHONY: deploy

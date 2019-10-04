@@ -20,26 +20,28 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class LibuplinkInstrumentedTest {
 
-    public static final String VALID_SATELLITE_ADDRESS = InstrumentationRegistry.getArguments().getString("storj.sim.host", "192.168.8.134:10000");
-    public static final String VALID_API_KEY = InstrumentationRegistry.getArguments().getString("api.key", "GBK6TEMIPJQUOVVN99C2QO9USKTU26QB6C4VNM0=");
+    public static final String VALID_SCOPE = InstrumentationRegistry.getArguments().getString("scope", "GBK6TEMIPJQUOVVN99C2QO9USKTU26QB6C4VNM0=");
+    public static Scope SCOPE;
 
     String filesDir;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         filesDir = InstrumentationRegistry.getTargetContext().getFilesDir().getAbsolutePath();
+        SCOPE = Mobile.parseScope(VALID_SCOPE);
     }
 
     @Test
     public void testOpenProjectFail() throws Exception {
         Config config = new Config();
+        config.setSkipPeerCAWhitelist(true);
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
             Project project = null;
             try {
                 // 10.0.2.2 refers to not existing satellite
-                project = uplink.openProject("10.0.2.2:1", VALID_API_KEY);
+                project = uplink.openProject("10.0.2.2:1", SCOPE.apiKey().serialize());
                 fail("exception expected");
             } catch (Exception e) {
                 // skip
@@ -56,12 +58,13 @@ public class LibuplinkInstrumentedTest {
     @Test
     public void testBasicBucket() throws Exception {
         Config config = new Config();
+        config.setSkipPeerCAWhitelist(true);
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
             Project project = null;
             try {
-                project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+                project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
 
                 String expectedBucket = "test-bucket";
                 BucketConfig bucketConfig = new BucketConfig();
@@ -96,10 +99,11 @@ public class LibuplinkInstrumentedTest {
     @Test
     public void testListBuckets() throws Exception {
         Config config = new Config();
+        config.setSkipPeerCAWhitelist(true);
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
             try {
                 BucketConfig bucketConfig = new BucketConfig();
                 RedundancyScheme scheme = new RedundancyScheme();
@@ -143,10 +147,11 @@ public class LibuplinkInstrumentedTest {
     @Test
     public void testUploadDownloadInline() throws Exception {
         Config config = new Config();
+        config.setSkipPeerCAWhitelist(true);
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
             try {
                 EncryptionAccess access = new EncryptionAccess();
                 access.setDefaultKey("TestEncryptionKey".getBytes());
@@ -206,10 +211,11 @@ public class LibuplinkInstrumentedTest {
     @Test
     public void testUploadDownloadDeleteRemote() throws Exception {
         Config config = new Config();
+        config.setSkipPeerCAWhitelist(true);
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
             try {
                 EncryptionAccess access = new EncryptionAccess();
                 access.setDefaultKey("TestEncryptionKey".getBytes());
@@ -276,10 +282,11 @@ public class LibuplinkInstrumentedTest {
     @Test
     public void testListObjects() throws Exception {
         Config config = new Config();
+        config.setSkipPeerCAWhitelist(true);
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
 
             try {
                 EncryptionAccess access = new EncryptionAccess();
@@ -341,10 +348,11 @@ public class LibuplinkInstrumentedTest {
     @Test
     public void testEncryptionAccessFromPassphrase() throws Exception {
         Config config = new Config();
+        config.setSkipPeerCAWhitelist(true);
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
             try {
                 byte[] saltedKey = project.saltedKeyFromPassphrase("some-passphrase");
                 EncryptionAccess ea = new EncryptionAccess(saltedKey);
@@ -361,10 +369,11 @@ public class LibuplinkInstrumentedTest {
     @Test
     public void testEncryptionAccessWithRoot() throws Exception {
         Config config = new Config();
+        config.setSkipPeerCAWhitelist(true);
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+            Project project = uplink.openProject(SCOPE.satelliteAddr(), SCOPE.apiKey().serialize());
             try {
                 byte[] saltedKey = project.saltedKeyFromPassphrase("some-passphrase");
                 EncryptionAccess ea = Mobile.newEncryptionAccessWithRoot("bucket", "unencryptedPath", "encryptedPath", saltedKey);
@@ -401,6 +410,22 @@ public class LibuplinkInstrumentedTest {
 
         APIKey newAPIKey = apiKey.restrict(caveat);
         assertNotEquals("", newAPIKey.serialize());
+    }
+
+    @Test
+    public void testScope() throws Exception {
+        String scopeString = "13GRuGrv5sY16uD86rwFtnv2b28Gmz2Bzi6rQxpD5pnieKgaY3iJyrK8gUnzqcLJfesubHqFuKHp74bfMf227jPheQyjrBadEtQcmKdGKNgnbVMTfpzJAzey6pZ2V22Kd8ehrcrP29T7gFhxqDEnsereCAAqAC7eUfx4YGRhQyr17pHLSvfssvAX";
+
+        Scope scope = Mobile.parseScope(scopeString);
+
+        assertNotNull(scope.apiKey());
+        assertNotEquals("", scope.apiKey().serialize());
+
+        assertNotEquals("", scope.satelliteAddr());
+
+        assertNotNull(scope.encryptionAccess());
+
+        assertEquals(scopeString, scope.serialize());
     }
 
 
