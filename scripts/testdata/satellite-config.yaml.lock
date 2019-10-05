@@ -94,15 +94,6 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
-# the amount of nodes refreshed in parallel
-# discovery.refresh-concurrency: 8
-
-# the interval at which the cache refreshes itself in seconds
-# discovery.refresh-interval: 1s
-
-# the amount of nodes read from the overlay in a single pagination call
-# discovery.refresh-limit: 100
-
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
 
