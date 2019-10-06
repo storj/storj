@@ -39,9 +39,6 @@ type (
 	// NodeStatsClient is an alias to the grpc client interface
 	NodeStatsClient = pb.NodeStatsClient
 
-	// NodesClient is an alias to the grpc client interface
-	NodesClient = pb.NodesClient
-
 	// OrdersClient is an alias to the grpc client interface
 	OrdersClient = pb.OrdersClient
 
@@ -139,16 +136,6 @@ func NewNodeStatsClient(rc *RawConn) NodeStatsClient {
 // NodeStatsClient returns a NodeStatsClient for this connection
 func (c *Conn) NodeStatsClient() NodeStatsClient {
 	return NewNodeStatsClient(c.raw)
-}
-
-// NewNodesClient returns the grpc version of a NodesClient
-func NewNodesClient(rc *RawConn) NodesClient {
-	return pb.NewNodesClient(rc)
-}
-
-// NodesClient returns a NodesClient for this connection
-func (c *Conn) NodesClient() NodesClient {
-	return NewNodesClient(c.raw)
 }
 
 // NewOrdersClient returns the grpc version of a OrdersClient
