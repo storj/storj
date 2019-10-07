@@ -52,7 +52,6 @@ type SemVer struct {
 
 // AllowedVersions provides the Minimum SemVer per Service
 type AllowedVersions struct {
-	Bootstrap   SemVer
 	Satellite   SemVer
 	Storagenode SemVer
 	Uplink      SemVer
@@ -64,7 +63,6 @@ type AllowedVersions struct {
 
 // Processes describes versions for each binary.
 type Processes struct {
-	Bootstrap   Process `json:"bootstrap"`
 	Satellite   Process `json:"satellite"`
 	Storagenode Process `json:"storagenode"`
 	Uplink      Process `json:"uplink"`

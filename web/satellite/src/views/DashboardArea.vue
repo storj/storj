@@ -4,7 +4,7 @@
 <template>
     <div class="dashboard-container">
         <div v-if="isLoading" class="loading-overlay active">
-            <img class="loading-image" src="@/../static/images/register/Loading.gif">
+            <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
         </div>
         <div v-if="!isLoading" class="dashboard-container__wrap">
             <NavigationArea class="regular-navigation"/>
@@ -125,7 +125,6 @@ export default class DashboardArea extends Vue {
         const awailableRoutes = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
             RouteConfig.Account.with(RouteConfig.Profile).path,
-            RouteConfig.Account.with(RouteConfig.PaymentMethods).path,
             RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path,
         ];
 

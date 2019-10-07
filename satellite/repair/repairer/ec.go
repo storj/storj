@@ -167,6 +167,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errs.Combine(err, ps.Close()) }()
 
 	downloader, err := ps.Download(ctx, limit.GetLimit(), privateKey, 0, pieceSize)
 	if err != nil {

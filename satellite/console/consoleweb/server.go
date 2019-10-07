@@ -198,14 +198,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	host, _, err := net.SplitHostPort(r.Host)
-	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-		server.serveError(w, r, http.StatusInternalServerError)
-		return
-	}
-
-	tokenCookie, err := r.Cookie(host + "_tokenKey")
+	tokenCookie, err := r.Cookie("_tokenKey")
 	if err != nil {
 		server.serveError(w, r, http.StatusUnauthorized)
 		return

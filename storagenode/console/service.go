@@ -132,7 +132,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.Version = s.versionInfo.Version
 	data.UpToDate = s.version.IsAllowed()
 
-	data.LastPinged, data.LastPingFromID, data.LastPingFromAddress = s.pingStats.WhenLastPinged()
+	data.LastPinged = s.pingStats.WhenLastPinged()
 
 	stats, err := s.reputationDB.All(ctx)
 	if err != nil {
@@ -153,19 +153,19 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	bandwidthUsage, err := s.bandwidthDB.Summary(ctx, time.Time{}, time.Now())
+	bandwidthUsage, err := s.bandwidthDB.MonthSummary(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
 	data.DiskSpace = DiskSpaceInfo{
-		Used:      memory.Size(spaceUsage).GB(),
-		Available: s.allocatedDiskSpace.GB(),
+		Used:      spaceUsage,
+		Available: s.allocatedDiskSpace.Int64(),
 	}
 
 	data.Bandwidth = BandwidthInfo{
-		Used:      memory.Size(bandwidthUsage.Total()).GB(),
-		Available: s.allocatedBandwidth.GB(),
+		Used:      bandwidthUsage,
+		Available: s.allocatedBandwidth.Int64(),
 	}
 
 	return data, nil

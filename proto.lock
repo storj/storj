@@ -921,302 +921,6 @@
             "name": "CountNodesRequest"
           },
           {
-            "name": "GetBucketListRequest"
-          },
-          {
-            "name": "GetBucketListResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "buckets",
-                "type": "Bucket",
-                "is_repeated": true
-              }
-            ],
-            "messages": [
-              {
-                "name": "Bucket",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "bucket_id",
-                    "type": "bytes",
-                    "options": [
-                      {
-                        "name": "(gogoproto.customtype)",
-                        "value": "NodeID"
-                      },
-                      {
-                        "name": "(gogoproto.nullable)",
-                        "value": "false"
-                      }
-                    ]
-                  },
-                  {
-                    "id": 2,
-                    "name": "routing_nodes",
-                    "type": "node.Node",
-                    "is_repeated": true
-                  },
-                  {
-                    "id": 3,
-                    "name": "cached_nodes",
-                    "type": "node.Node",
-                    "is_repeated": true
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "GetBucketsRequest"
-          },
-          {
-            "name": "GetBucketsResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "total",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "ids",
-                "type": "bytes",
-                "is_repeated": true,
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "GetBucketRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "GetBucketResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "BucketList",
-            "fields": [
-              {
-                "id": 1,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "PingNodeRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "address",
-                "type": "string"
-              }
-            ]
-          },
-          {
-            "name": "PingNodeResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "ok",
-                "type": "bool"
-              }
-            ]
-          },
-          {
-            "name": "LookupNodeRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "address",
-                "type": "string"
-              }
-            ]
-          },
-          {
-            "name": "LookupNodeResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node",
-                "type": "node.Node"
-              },
-              {
-                "id": 2,
-                "name": "meta",
-                "type": "node.NodeMetadata"
-              }
-            ]
-          },
-          {
-            "name": "NodeInfoRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "address",
-                "type": "node.NodeAddress"
-              }
-            ]
-          },
-          {
-            "name": "NodeInfoResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "type",
-                "type": "node.NodeType"
-              },
-              {
-                "id": 2,
-                "name": "operator",
-                "type": "node.NodeOperator"
-              },
-              {
-                "id": 3,
-                "name": "capacity",
-                "type": "node.NodeCapacity"
-              },
-              {
-                "id": 4,
-                "name": "version",
-                "type": "node.NodeVersion"
-              }
-            ]
-          },
-          {
-            "name": "FindNearRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "start",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "limit",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "FindNearResponse",
-            "fields": [
-              {
-                "id": 2,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
             "name": "DumpNodesRequest"
           },
           {
@@ -1297,7 +1001,13 @@
               {
                 "id": 3,
                 "name": "bootstrap_address",
-                "type": "string"
+                "type": "string",
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               },
               {
                 "id": 4,
@@ -1511,46 +1221,6 @@
           }
         ],
         "services": [
-          {
-            "name": "KadInspector",
-            "rpcs": [
-              {
-                "name": "CountNodes",
-                "in_type": "CountNodesRequest",
-                "out_type": "CountNodesResponse"
-              },
-              {
-                "name": "PingNode",
-                "in_type": "PingNodeRequest",
-                "out_type": "PingNodeResponse"
-              },
-              {
-                "name": "LookupNode",
-                "in_type": "LookupNodeRequest",
-                "out_type": "LookupNodeResponse"
-              },
-              {
-                "name": "NodeInfo",
-                "in_type": "NodeInfoRequest",
-                "out_type": "NodeInfoResponse"
-              },
-              {
-                "name": "FindNear",
-                "in_type": "FindNearRequest",
-                "out_type": "FindNearResponse"
-              },
-              {
-                "name": "DumpNodes",
-                "in_type": "DumpNodesRequest",
-                "out_type": "DumpNodesResponse"
-              },
-              {
-                "name": "GetBucketList",
-                "in_type": "GetBucketListRequest",
-                "out_type": "GetBucketListResponse"
-              }
-            ]
-          },
           {
             "name": "OverlayInspector",
             "rpcs": [
@@ -4049,7 +3719,13 @@
               },
               {
                 "name": "BOOTSTRAP",
-                "integer": 4
+                "integer": 4,
+                "options": [
+                  {
+                    "name": "deprecated",
+                    "value": "true"
+                  }
+                ]
               }
             ]
           },
