@@ -55,6 +55,8 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
+	// TODO: Display a warning and have user confirm before proceeding
+	
 	client, err := dialGracefulExitClient(ctx, diagCfg.Server.PrivateAddress)
 	if err != nil {
 		return err
