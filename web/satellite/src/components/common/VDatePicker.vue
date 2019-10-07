@@ -74,7 +74,7 @@ export default class VDatePicker extends Vue {
     // isChecking indicates when calendar is shown
     public isChecking: boolean = false;
     public displayedMonth: string;
-    // daysToShow contains days of selected month with a few extra day from adjacent months
+    // daysToShow contains days of selected month with a few extra days from adjacent months
     public daysToShow: DayItem[] = [];
 
     // Combination of selected year, month and day

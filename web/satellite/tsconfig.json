@@ -37,8 +37,6 @@
     "tests/**/*.tsx"
   ],
   "exclude": [
-    "node_modules",
-    // TODO: temporary file
-    "src/components/common/VDatePicker.vue"
+    "node_modules"
   ]
 }
