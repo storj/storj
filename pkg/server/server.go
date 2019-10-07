@@ -21,7 +21,7 @@ import (
 )
 
 // Service represents a specific gRPC method collection to be registered
-// on a shared gRPC server. Metainfo, OverlayCache, PieceStore, Kademlia,
+// on a shared gRPC server. Metainfo, OverlayCache, PieceStore,
 // etc. are all examples of services.
 type Service interface {
 	Run(ctx context.Context, server *Server) error

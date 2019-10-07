@@ -6,7 +6,7 @@
         <div class="new-project-popup" id="newProjectPopup" >
             <div class="new-project-popup__info-panel-container">
                 <h2 class="new-project-popup__info-panel-container__main-label-text">Create a Project</h2>
-                <img src="@/../static/images/dashboard/CreateNewProject.png" alt="create project image">
+                <img src="@/../static/images/dashboard/CreateNewProject.png" alt="Create project illustration">
             </div>
             <div class="new-project-popup__form-container">
                 <HeaderedInput

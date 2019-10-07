@@ -24,6 +24,12 @@ const (
 	DefaultSqliteConn = "sqlite3://file::memory:?mode=memory"
 )
 
+// SatelliteDatabases maybe name can be better
+type SatelliteDatabases struct {
+	MasterDB  Database
+	PointerDB Database
+}
+
 // Database describes a test database
 type Database struct {
 	Name    string
@@ -32,10 +38,16 @@ type Database struct {
 }
 
 // Databases returns default databases.
-func Databases() []Database {
-	return []Database{
-		{"Sqlite", DefaultSqliteConn, ""},
-		{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},
+func Databases() []SatelliteDatabases {
+	return []SatelliteDatabases{
+		{
+			MasterDB:  Database{"Sqlite", DefaultSqliteConn, ""},
+			PointerDB: Database{"Bolt", "", "should use preconfigured URL"},
+		},
+		{
+			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr},
+			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},
+		},
 	}
 }
 
@@ -47,17 +59,17 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
-		t.Run(dbInfo.Name, func(t *testing.T) {
+		t.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(t *testing.T) {
 			t.Parallel()
 
-			if dbInfo.URL == "" {
-				t.Skipf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
+			if dbInfo.MasterDB.URL == "" {
+				t.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
 			log := zaptest.NewLogger(t)
 
 			schema := strings.ToLower(t.Name() + "-satellite/x-" + schemaSuffix)
-			connstr := pgutil.ConnstrWithSchema(dbInfo.URL, schema)
+			connstr := pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema)
 			db, err := satellitedb.New(log, connstr)
 			if err != nil {
 				t.Fatal(err)
@@ -94,15 +106,15 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
-		b.Run(dbInfo.Name, func(b *testing.B) {
-			if dbInfo.URL == "" {
-				b.Skipf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
+		b.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(b *testing.B) {
+			if dbInfo.MasterDB.URL == "" {
+				b.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
 			log := zap.NewNop()
 
 			schema := strings.ToLower(b.Name() + "-satellite/x-" + schemaSuffix)
-			connstr := pgutil.ConnstrWithSchema(dbInfo.URL, schema)
+			connstr := pgutil.ConnstrWithSchema(dbInfo.MasterDB.URL, schema)
 			db, err := satellitedb.New(log, connstr)
 			if err != nil {
 				b.Fatal(err)
