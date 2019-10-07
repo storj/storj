@@ -18,6 +18,9 @@ node('node') {
     stage('Build Windows Installer') {
       node('windows') { 
         echo 'Build Windows Installer'
+
+        checkout scm
+
         echo "Current build result: ${currentBuild.result}"
       }
     }
