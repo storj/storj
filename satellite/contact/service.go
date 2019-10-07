@@ -24,11 +24,6 @@ type Config struct {
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 }
 
-// Conn represents a connection
-type Conn struct {
-	conn *rpc.Conn
-}
-
 // Service is the contact service between storage nodes and satellites.
 // It is responsible for updating general node information like address, capacity, and uptime.
 // It is also responsible for updating peer identity information for verifying signatures from that node.
