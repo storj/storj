@@ -60,7 +60,7 @@ export default class VDatePicker extends Vue {
     private isSundayFirst: boolean;
 
     private readonly MAX_DAYS_SELECTED: number = 2;
-    private selectedDays: Date[] = [];
+    public selectedDays: Date[] = [];
 
     private showType: number = DisplayedType.Day;
     private dateGenerator: DateGenerator = new DateGenerator();
