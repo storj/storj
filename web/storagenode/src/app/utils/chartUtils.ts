@@ -51,8 +51,14 @@ export class ChartUtils {
             case maxBytes < GB:
                 dataDimension = 'MB';
                 break;
-            default:
+            case maxBytes < TB:
                 dataDimension = 'GB';
+                break;
+            case maxBytes < PB:
+                dataDimension = 'TB';
+                break;
+            default:
+                dataDimension = 'PB';
         }
 
         return dataDimension;
@@ -60,11 +66,11 @@ export class ChartUtils {
 
     /**
      * Used to display correct number of days on chart's labels
-     * @param date - holds specific day of the month
+     *
      * @returns daysDisplayed - array of days converted to a string by using the current or specified locale
      */
-    public static daysDisplayedOnChart(date: Date): string[] {
-        const daysDisplayed = Array<string>(date.getDate());
+    public static daysDisplayedOnChart(): string[] {
+        const daysDisplayed = Array<string>(new Date().getDate());
 
         for (let i = 0; i < daysDisplayed.length; i++) {
             const date = new Date();

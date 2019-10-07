@@ -55,20 +55,18 @@ export default class BandwidthChart extends Vue {
     }
 
     public get chartDataDimension(): string {
-        let dataDimension: string = '';
-
-        if (this.allBandwidth.length) {
-            dataDimension = ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
-                return elem.summary();
-            }));
+        if (!this.allBandwidth.length) {
+            return '';
         }
 
-        return dataDimension;
+        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
+            return elem.summary();
+        }));
     }
 
     public get chartData(): ChartData {
         let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
+        const daysCount = ChartUtils.daysDisplayedOnChart();
         const chartBackgroundColor = '#F2F6FC';
         const chartBorderColor = '#1F49A3';
         const chartBorderWidth = 2;

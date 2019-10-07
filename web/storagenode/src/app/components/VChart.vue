@@ -7,6 +7,34 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
 import { ChartData } from '@/app/types/chartData';
 
+class DayShowingConditions {
+    public day: string;
+    public daysArray: string[];
+    public middleDateValue: number;
+    public isDateValueFirstOrLast: boolean;
+    public isAfterEighthDayOfTheMonth: boolean;
+
+    public constructor(day: string, daysArray: string[]) {
+        this.day = day;
+        this.daysArray = daysArray;
+        this.middleDateValue = this.countMiddleDateValue(daysArray);
+        this.isDateValueFirstOrLast = this.isDayFirstOrLast(day, daysArray);
+        this.isAfterEighthDayOfTheMonth = this.isDayAfterEighthDayOfTheMonth(daysArray);
+    }
+
+    private countMiddleDateValue(daysArray: string[]): number {
+        return daysArray.length / 2;
+    }
+
+    private isDayFirstOrLast(day: string, daysArray: string[]): boolean {
+        return day === daysArray[0] || day === daysArray[daysArray.length - 1];
+    }
+
+    private isDayAfterEighthDayOfTheMonth(daysArray: string[]): boolean {
+        return daysArray.length > 8 && daysArray.length <= 31;
+    }
+}
+
 @Component({
     extends: VueChart.Line
 })
@@ -34,6 +62,7 @@ export default class VChart extends Vue {
     }
 
     public get chartOptions(): object {
+        const filterCallback = this.filterDaysDisplayed;
         return {
             responsive: false,
             maintainAspectRatios: false,
@@ -69,34 +98,7 @@ export default class VChart extends Vue {
                         autoSkip: false,
                         maxRotation: 0,
                         minRotation: 0,
-                        callback: function(value, index, values): string | undefined {
-                            const valuesLength = values.length;
-                            const firstDateValue = values[0];
-                            const lastDateValue = values[valuesLength - 1];
-                            const isDateValueFirstOrLast = value === firstDateValue || value === lastDateValue;
-                            const middleDateValue = valuesLength / 2;
-                            const isDateValueInMiddleInEvenAmount = index === (middleDateValue - 1);
-                            const isDateValueInMiddleInNotEvenAmount = index === (Math.floor(middleDateValue));
-                            const isAfterEighthDayOfTheMonth = valuesLength > 8 && valuesLength <= 31;
-                            const isDaysAmountEven = valuesLength % 2 === 0;
-                            const isDaysAmountNotEven = valuesLength % 2 !== 0;
-                            const areDaysShownOnEvenDaysAmount = isDateValueFirstOrLast ||
-                                (isAfterEighthDayOfTheMonth && isDaysAmountEven && isDateValueInMiddleInEvenAmount);
-                            const areDaysShownOnNotEvenDaysAmount = isDateValueFirstOrLast ||
-                                (isAfterEighthDayOfTheMonth && isDaysAmountNotEven && isDateValueInMiddleInNotEvenAmount);
-
-                            if (valuesLength <= 8) {
-                                return value;
-                            }
-
-                            if (areDaysShownOnEvenDaysAmount) {
-                                return value;
-                            }
-
-                            if (areDaysShownOnNotEvenDaysAmount) {
-                                return value;
-                            }
-                        },
+                        callback: filterCallback,
                     },
                     gridLines: {
                         display: false,
@@ -116,6 +118,35 @@ export default class VChart extends Vue {
                 }
             }
         };
+    }
+
+    private filterDaysDisplayed(day: string, dayIndex: string, labelArray: string[]): string | undefined {
+        const eighthDayOfTheMonth = 8;
+        const isBeforeEighthDayOfTheMonth = labelArray.length <= eighthDayOfTheMonth;
+        const dayShowingConditions = new DayShowingConditions(day, labelArray);
+
+        if (isBeforeEighthDayOfTheMonth || this.areDaysShownOnEvenDaysAmount(dayShowingConditions)
+            || this.areDaysShownOnNotEvenDaysAmount(dayShowingConditions)) {
+            return day;
+        }
+    }
+
+    private areDaysShownOnEvenDaysAmount(dayShowingConditions: DayShowingConditions): boolean {
+        const isDaysAmountEven = dayShowingConditions.daysArray.length % 2 === 0;
+        const isDateValueInMiddleInEvenAmount = dayShowingConditions.day ===
+            dayShowingConditions.daysArray[dayShowingConditions.middleDateValue - 1];
+
+        return dayShowingConditions.isDateValueFirstOrLast || (isDaysAmountEven
+            && dayShowingConditions.isAfterEighthDayOfTheMonth && isDateValueInMiddleInEvenAmount);
+    }
+
+    private areDaysShownOnNotEvenDaysAmount(dayShowingConditions: DayShowingConditions): boolean {
+        const isDaysAmountNotEven = dayShowingConditions.daysArray.length % 2 !== 0;
+        const isDateValueInMiddleInNotEvenAmount = dayShowingConditions.day
+            === dayShowingConditions.daysArray[Math.floor(dayShowingConditions.middleDateValue)];
+
+        return dayShowingConditions.isDateValueFirstOrLast || (isDaysAmountNotEven
+            && dayShowingConditions.isAfterEighthDayOfTheMonth && isDateValueInMiddleInNotEvenAmount);
     }
 }
 </script>

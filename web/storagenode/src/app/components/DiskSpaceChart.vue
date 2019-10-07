@@ -47,20 +47,18 @@ export default class DiskSpaceChart extends Vue {
     }
 
     public get chartDataDimension(): string {
-        let dataDimension: string = '';
-
-        if (this.allStamps.length) {
-            dataDimension = ChartUtils.getChartDataDimension(this.allStamps.map((elem) => {
-                return elem.atRestTotal;
-            }));
+        if (!this.allStamps.length) {
+            return '';
         }
 
-        return dataDimension;
+        return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => {
+            return elem.atRestTotal;
+        }));
     }
 
     public get chartData(): ChartData {
         let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
+        const daysCount = ChartUtils.daysDisplayedOnChart();
         const chartBackgroundColor = '#F2F6FC';
         const chartBorderColor = '#1F49A3';
         const chartBorderWidth = 2;
@@ -121,7 +119,7 @@ export default class DiskSpaceChart extends Vue {
         &__data-dimension {
             font-size: 13px;
             color: #586c86;
-            margin-bottom: 5px;
+            margin: 0 0 5px 5px;
             font-family: 'font_medium';
         }
     }
