@@ -46,12 +46,6 @@ func (client *gracefulExitClient) close() error {
 }
 
 func cmdGracefulExit(cmd *cobra.Command, args []string) error {
-	// present a message describing the consequences of starting a graceful exit
-	// user must confirm before continuing
-	// user needs to type the satellite domian name to start
-	// get starting_disk_usage from pieces.Service
-	// adds an entry to satellite table
-
 	ctx, _ := process.Ctx(cmd)
 
 	ident, err := runCfg.Identity.Load()
@@ -76,16 +70,15 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// format output for display
 	output := "Domain Name\t" + "Node ID\t\t\t" + "Space Used\t" + "\n"
 
 	for _, satellite := range satelliteList.GetSatellites() {
-
-		output += (satellite.GetDomainName() + "\t")
-		output += (satellite.NodeId.String() + "\t")
-		output += (memory.Size(satellite.GetSpaceUsed()).Base10String() + "\n")
+		output += (satellite.GetDomainName() + "\t" + satellite.NodeId.String() + "\t" + memory.Size(satellite.GetSpaceUsed()).Base10String() + "\n")
 	}
 
-	// display the list
+	// display satellite infos and ask for user input
 	qs := []*survey.Question{
 		{
 			Name: "satellite selection",
@@ -111,11 +104,11 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(satelliteIDs) < 1 {
-		fmt.Println("Invalid input. Please type in a valid satellite domian name.")
+		fmt.Println("Invalid input. Please use a valid satellite domian name.")
 		return errs.New("Invalid satellite domain name")
 	}
-	// save it to the db
 
+	// save satellite for graceful exit into the db
 	req := &pb.StartExitRequest{
 		NodeIds: satelliteIDs,
 	}
