@@ -335,9 +335,7 @@ Your S3 Gateway is configured and ready to use!
 
 Some things to try next:
 
-* Run 'gateway --help' to see the operations that can be performed
-
-* See https://github.com/storj/docs/blob/master/S3-Gateway.md#using-the-aws-s3-commandline-interface for some example commands`)
+* See http://documentation.tardigrade.io/api-reference/s3-gateway for some example commands`)
 
 	return nil
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Error is bootstrap web error type
 var scanError = errs.Class("Protobuf Scanner")
 var valueError = errs.Class("Protobuf Valuer")
 
