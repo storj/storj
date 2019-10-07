@@ -92,6 +92,14 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return nil, err
 	}
 
+	defer func() {
+		// if piece hashes have not been verified for this segment, do not mark nodes as failing audit
+		if !pointer.PieceHashesVerified {
+			report.PendingAudits = nil
+			report.Fails = nil
+		}
+	}()
+
 	randomIndex, err := GetRandomStripe(ctx, pointer)
 	if err != nil {
 		return nil, err
@@ -323,6 +331,27 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		return nil, err
 	}
 
+	pieceHashesVerified := make(map[storj.NodeID]bool)
+	defer func() {
+		// for each node in Fails and PendingAudits, remove if piece hashes not verified for that segment
+		newFails := storj.NodeIDList{}
+		newPendingAudits := []*PendingAudit{}
+
+		for _, id := range report.Fails {
+			if pieceHashesVerified[id] {
+				newFails = append(newFails, id)
+			}
+		}
+		for _, pending := range report.PendingAudits {
+			if pieceHashesVerified[pending.NodeID] {
+				newPendingAudits = append(newPendingAudits, pending)
+			}
+		}
+
+		report.Fails = newFails
+		report.PendingAudits = newPendingAudits
+	}()
+
 	pieces := pointer.GetRemote().GetRemotePieces()
 	ch := make(chan result, len(pieces))
 	var containedInSegment int64
@@ -357,6 +386,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				verifier.log.Debug("Reverify: error getting pending pointer from metainfo", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 				return
 			}
+
+			// set whether piece hashes have been verified for this segment so we know whether to report a failed or pending audit for this node
+			pieceHashesVerified[pending.NodeID] = pendingPointer.PieceHashesVerified
+
 			if pendingPointer.GetRemote().RootPieceId != pending.PieceID {
 				// segment has changed since initial containment
 				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
