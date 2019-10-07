@@ -63,6 +63,9 @@ func TestChore(t *testing.T) {
 		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 2)
+		for _, incomplete := range incompleteTransfers {
+			require.Equal(t, 1.0, incomplete.DurabilityRatio)
+		}
 
 		// test the other nodes don't have anything to transfer
 		for _, sn := range planet.StorageNodes {
