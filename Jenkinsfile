@@ -12,6 +12,8 @@ node('node') {
     stage('Build Binaries') {
       sh 'make binaries'
 
+      stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
+
       echo "Current build result: ${currentBuild.result}"
     }
 
@@ -20,6 +22,8 @@ node('node') {
         echo 'Build Windows Installer'
 
         checkout scm
+
+        unstash "storagenode-binaries"
 
         bat 'msbuild installer\\windows\\windows.sln'
 
