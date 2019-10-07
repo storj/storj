@@ -136,11 +136,14 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 
 .PHONY: storagenode-console
 storagenode-console:
-	# install npm dependencies
-	cd web/storagenode; npm ci
 	# build web assets
 	rm -rf web/storagenode/dist
-	cd web/storagenode; npm run build
+	# install npm dependencies and build the binaries
+	docker run --rm -i \
+		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
+		-w /go/src/storj.io/storj/web/storagenode \
+		node:10.15.1 \
+	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
 	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
 	# configure existing go code to know about the new assets
