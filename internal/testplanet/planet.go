@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
@@ -29,6 +28,8 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
+
+const defaultInterval = 15 * time.Second
 
 // Peer represents one of StorageNode or Satellite
 type Peer interface {
@@ -65,7 +66,6 @@ type Planet struct {
 	databases []io.Closer
 	uplinks   []*Uplink
 
-	Bootstrap      *bootstrap.Peer
 	VersionControl *versioncontrol.Peer
 	Satellites     []*SatelliteSystem
 	StorageNodes   []*storagenode.Peer
@@ -173,11 +173,6 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Bootstrap, err = planet.newBootstrap()
-	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
-	}
-
 	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
@@ -217,9 +212,17 @@ func (planet *Planet) Start(ctx context.Context) {
 			return peer.peer.Run(peer.ctx)
 		})
 	}
+
+	var group errgroup.Group
 	for _, peer := range planet.StorageNodes {
-		peer.Contact.Chore.Loop.TriggerWait()
+		peer := peer
+		group.Go(func() error {
+			peer.Storage2.Monitor.Loop.TriggerWait()
+			peer.Contact.Chore.Loop.TriggerWait()
+			return nil
+		})
 	}
+	_ = group.Wait()
 
 	planet.started = true
 }

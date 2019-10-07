@@ -59,6 +59,13 @@ type Config struct {
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
+
+	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
+	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 }
 
 // Server represents console web server
@@ -191,14 +198,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	host, _, err := net.SplitHostPort(r.Host)
-	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-		server.serveError(w, r, http.StatusInternalServerError)
-		return
-	}
-
-	tokenCookie, err := r.Cookie(host + "_tokenKey")
+	tokenCookie, err := r.Cookie("_tokenKey")
 	if err != nil {
 		server.serveError(w, r, http.StatusUnauthorized)
 		return
@@ -415,6 +415,9 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
 	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery/?token="
 	rootObject[consoleql.SignInPath] = "login"
+	rootObject[consoleql.LetUsKnowURL] = server.config.LetUsKnowURL
+	rootObject[consoleql.ContactInfoURL] = server.config.ContactInfoURL
+	rootObject[consoleql.TermsAndConditionsURL] = server.config.TermsAndConditionsURL
 
 	result := graphql.Do(graphql.Params{
 		Schema:         server.schema,
@@ -442,7 +445,7 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	header.Set(contentType, mime.TypeByExtension(".txt"))
 	header.Set("X-Content-Type-Options", "nosniff")
 
-	_, err := w.Write([]byte("User-agent: *\nDisallow: \nDisallow: /cgi-bin/)"))
+	_, err := w.Write([]byte(server.config.SEO))
 	if err != nil {
 		server.log.Error(err.Error())
 	}

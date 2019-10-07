@@ -4,22 +4,25 @@
 <template>
     <div class="sort-header-container">
         <div class="sort-header-container__name-container" @click="onHeaderItemClick(ProjectMemberOrderBy.NAME)">
-            <p>Name</p>
+            <p class="sort-header-container__name-container__title">Name</p>
             <VerticalArrows
-                :isActive="getSortBy === ProjectMemberOrderBy.NAME"
-                :direction="getSortDirection"/>
+                :is-active="areProjectMembersSortedByName"
+                :direction="getSortDirection"
+            />
         </div>
         <div class="sort-header-container__added-container" @click="onHeaderItemClick(ProjectMemberOrderBy.CREATED_AT)">
-            <p>Added</p>
+            <p class="sort-header-container__added-container__title">Added</p>
             <VerticalArrows
-                :isActive="getSortBy === ProjectMemberOrderBy.CREATED_AT"
-                :direction="getSortDirection"/>
+                :is-active="areProjectMembersSortedByDate"
+                :direction="getSortDirection"
+            />
         </div>
         <div class="sort-header-container__email-container" @click="onHeaderItemClick(ProjectMemberOrderBy.EMAIL)">
-            <p>Email</p>
+            <p class="sort-header-container__email-container__title">Email</p>
             <VerticalArrows
-                :isActive="getSortBy === ProjectMemberOrderBy.EMAIL"
-                :direction="getSortDirection"/>
+                :is-active="areProjectMembersSortedByEmail"
+                :direction="getSortDirection"
+            />
         </div>
     </div>
 </template>
@@ -54,8 +57,16 @@ export default class SortingListHeader extends Vue {
         return SortDirection.DESCENDING;
     }
 
-    public get getSortBy() {
-        return this.sortBy;
+    public areProjectMembersSortedByName(): boolean {
+        return this.sortBy === ProjectMemberOrderBy.NAME;
+    }
+
+    public areProjectMembersSortedByDate(): boolean {
+        return this.sortBy === ProjectMemberOrderBy.CREATED_AT;
+    }
+
+    public areProjectMembersSortedByEmail(): boolean {
+        return this.sortBy === ProjectMemberOrderBy.EMAIL;
     }
 
     public async onHeaderItemClick(sortBy: ProjectMemberOrderBy): Promise<void> {
@@ -83,16 +94,21 @@ export default class SortingListHeader extends Vue {
     .sort-header-container {
         display: flex;
         flex-direction: row;
-        height: 36px;
+        height: 40px;
         background-color: rgba(255, 255, 255, 0.3);
-        margin-top: 29px;
+        margin-top: 31px;
 
-        p {
-            font-family: 'font_medium';
-            font-size: 16px;
-            line-height: 23px;
-            color: #2A2A32;
-            margin: 0;
+        &__name-container,
+        &__added-container,
+        &__email-container {
+
+            &__title {
+                font-family: 'font_medium';
+                font-size: 16px;
+                line-height: 23px;
+                color: #2A2A32;
+                margin: 0;
+            }
         }
 
         &__name-container {
@@ -100,16 +116,16 @@ export default class SortingListHeader extends Vue {
             width: calc(50% - 30px);
             cursor: pointer;
             text-align: left;
-            margin-left: 30px;
+            margin-left: 26px;
             align-items: center;
             justify-content: flex-start;
         }
 
         &__added-container {
-             width: 25%;
-             cursor: pointer;
-             text-align: left;
-             margin-left: 30px;
+            width: 25%;
+            cursor: pointer;
+            text-align: left;
+            margin-left: 30px;
             display: flex;
             align-items: center;
             justify-content: flex-start;
@@ -117,11 +133,11 @@ export default class SortingListHeader extends Vue {
 
         &__email-container {
             width: 25%;
-             cursor: pointer;
-             text-align: left;
-             display: flex;
-             align-items: center;
-             justify-content: flex-start;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
         }
     }
 </style>

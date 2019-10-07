@@ -7,19 +7,19 @@
         <p class="container__item">STORJ Token Deposit</p>
         <p class="container__item status">Added</p>
         <p class="container__item amount"><b>$25.00</b></p>
-        <p class="container__item download">Download <a>PDF</a></p>
+        <p class="container__item download">Download <a class="download-link">PDF</a></p>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    export default class BillingItem extends Vue {}
+@Component
+export default class BillingItem extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    a {
+    .download-link {
         color: #2683FF;
         font-family: 'font_bold';
 

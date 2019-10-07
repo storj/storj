@@ -5,10 +5,9 @@ import Vue from 'vue';
 import Router, { RouteRecord } from 'vue-router';
 
 import AccountArea from '@/components/account/AccountArea.vue';
-import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingHistory from '@/components/account/billing/BillingHistory.vue';
-import Profile from '@/components/account/Profile.vue';
+import ProfileArea from '@/components/account/ProfileArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
@@ -19,13 +18,16 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import { NavigationLink } from '@/types/navigation';
 import { AuthToken } from '@/utils/authToken';
-import Dashboard from '@/views/Dashboard.vue';
+import DashboardArea from '@/views/DashboardArea.vue';
 import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import Login from '@/views/login/Login.vue';
-import Register from '@/views/register/Register.vue';
+import LoginArea from '@/views/login/LoginArea.vue';
+import RegisterArea from '@/views/register/RegisterArea.vue';
 
 Vue.use(Router);
 
+/**
+ * RouteConfig contains information about all routes and subroutes
+ */
 export abstract class RouteConfig {
     // root paths
     public static Root = new NavigationLink('/', 'Root');
@@ -41,7 +43,6 @@ export abstract class RouteConfig {
     // child paths
     public static ProjectDetails = new NavigationLink('details', 'Project Details');
     public static UsageReport = new NavigationLink('usage-report', 'Usage Report');
-    public static PaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
     public static Profile = new NavigationLink('profile', 'Profile');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
@@ -56,12 +57,12 @@ const router = new Router({
         {
             path: RouteConfig.Login.path,
             name: RouteConfig.Login.name,
-            component: Login,
+            component: LoginArea,
         },
         {
             path: RouteConfig.Register.path,
             name: RouteConfig.Register.name,
-            component: Register,
+            component: RegisterArea,
         },
         {
             path: RouteConfig.ForgotPassword.path,
@@ -73,7 +74,7 @@ const router = new Router({
             meta: {
                 requiresAuth: true,
             },
-            component: Dashboard,
+            component: DashboardArea,
             children: [
                 {
                     path: RouteConfig.Account.path,
@@ -83,17 +84,12 @@ const router = new Router({
                         {
                             path: RouteConfig.Profile.path,
                             name: RouteConfig.Profile.name,
-                            component: Profile,
+                            component: ProfileArea,
                         },
                         {
                             path: RouteConfig.Billing.path,
                             name: RouteConfig.Billing.name,
                             component: AccountBilling,
-                        },
-                        {
-                            path: RouteConfig.PaymentMethods.path,
-                            name: RouteConfig.PaymentMethods.name,
-                            component: AccountPaymentMethods,
                         },
                         {
                             path: RouteConfig.BillingHistory.path,
@@ -158,13 +154,13 @@ router.beforeEach((to, from, next) => {
         }
     }
 
-    if (navigateToFirstSubTab(to.matched, RouteConfig.Account, RouteConfig.Profile)) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Profile).path);
 
         return;
     }
 
-    if (navigateToFirstSubTab(to.matched, RouteConfig.ProjectOverview, RouteConfig.ProjectDetails)) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.ProjectOverview)) {
         next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
 
         return;
@@ -172,6 +168,8 @@ router.beforeEach((to, from, next) => {
 
     if (to.name === 'default') {
         next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+
+        return;
     }
 
     next();
@@ -183,9 +181,8 @@ router.beforeEach((to, from, next) => {
  * @param routes - array of RouteRecord from vue-router
  * @param next - callback to process next route
  * @param tabRoute - tabNavigator route
- * @param subTabRoute - default sub route of the tabNavigator
  */
-function navigateToFirstSubTab(routes: RouteRecord[], tabRoute: NavigationLink, subTabRoute: NavigationLink): boolean {
+function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
     return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }
 
