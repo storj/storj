@@ -21,7 +21,7 @@ node('node') {
 
         checkout scm
 
-        sh 'msbuild installer\\windows\\windows.sln'
+        bat 'msbuild installer\\windows\\windows.sln'
 
         echo "Current build result: ${currentBuild.result}"
       }
