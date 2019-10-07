@@ -1282,8 +1282,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add table for storing stripe customers",
 				Version:     59,
 				Action: migrate.SQL{
-					`DROP TABLE project_payment CASCADE`,
-					`DROP TABLE user_payment CASCADE`,
+					`DROP TABLE project_payments CASCADE`,
+					`DROP TABLE user_payments CASCADE`,
 					`CREATE TABLE stripe_customers (
 						user_id bytea NOT NULL,
 						customer_id text NOT NULL,
