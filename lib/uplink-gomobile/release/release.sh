@@ -2,6 +2,12 @@
 set -ueo pipefail
 set +x
 
+if [ $# -eq 0 ]
+then
+      echo "Usage: release.sh version"
+      exit 1
+fi
+
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # setup tmpdir for testfiles and cleanup
