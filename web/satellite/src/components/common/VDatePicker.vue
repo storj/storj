@@ -43,7 +43,14 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { DateGenerator, DateStamp, DayAction, DayItem, DisplayedType, Options } from '@/utils/datepicker';
+import {
+    DateGenerator,
+    DateStamp,
+    DayAction,
+    DayItem,
+    DisplayedType,
+    Options,
+} from '@/utils/datepicker';
 
 @Component
 export default class VDatePicker extends Vue {
@@ -52,25 +59,33 @@ export default class VDatePicker extends Vue {
     @Prop({default: () => false})
     private isSundayFirst: boolean;
 
-    private readonly MAX_DAYS_SELECTED = 2;
+    private readonly MAX_DAYS_SELECTED: number = 2;
+    private selectedDays: Date[] = [];
+
     private showType: number = DisplayedType.Day;
     private dateGenerator: DateGenerator = new DateGenerator();
-    public isChecking = false;
 
-    public daysInWeek: string[] = [];
-    public months: string[] = [];
+    // daysInWeek contains days names abbreviations
+    public readonly daysInWeek: string[] = [];
+    public readonly monthsNames: string[] = [];
+    // years contains years numbers available to choose
+    public readonly years: number[] = [];
+
+    // isChecking indicates when calendar is shown
+    public isChecking: boolean = false;
     public displayedMonth: string;
-    public selectedDateState: DateStamp = new DateStamp(0, 0, 0);
+    // daysToShow contains days of selected month with a few extra day from adjacent months
     public daysToShow: DayItem[] = [];
-    public selectedDays: Date[] = [];
-    public years: number[] = [];
+
+    // Combination of selected year, month and day
+    public selectedDateState: DateStamp = new DateStamp(0, 0, 0);
 
     public constructor() {
         super();
 
         this.daysInWeek = this.isSundayFirst ? this.option.sundayFirstWeek : this.option.mondayFirstWeek;
-        this.months = this.option.month;
-        this.displayedMonth = this.months[0];
+        this.monthsNames = this.option.month;
+        this.displayedMonth = this.monthsNames[0];
         this.years = this.dateGenerator.populateYears();
     }
 
@@ -157,8 +172,7 @@ export default class VDatePicker extends Vue {
      * @param month
      */
     public setMonth(month: string): void {
-        const monthIndex = this.months.indexOf(month);
-
+        const monthIndex = this.monthsNames.indexOf(month);
         this.populateDays(new Date(this.selectedDateState.year, monthIndex, this.selectedDateState.day));
     }
 
@@ -171,7 +185,6 @@ export default class VDatePicker extends Vue {
         }
 
         this.selectedDays = [];
-
         this.isChecking = false;
     }
 
@@ -233,28 +246,14 @@ export default class VDatePicker extends Vue {
     }
 
     /**
-     * setChecked sets selectedDateState for displaying selected date stamp
-     *
-     * @param time holds selected date stamp
-     */
-    private setChecked(time: Date): void {
-        this.selectedDateState.year = time.getFullYear();
-        this.selectedDateState.month = time.getMonth();
-        this.selectedDateState.day = time.getDate();
-    }
-
-    /**
      * populateDays used for populating date items into calendars depending on selected date
      *
      * @param date represents Date which is used to create current date items to show
      */
     private populateDays(date: Date = new Date()): void {
-        this.setChecked(date);
-
+        this.selectedDateState.fromDate(date);
         this.showType = DisplayedType.Day;
-
-        this.displayedMonth = this.months[this.selectedDateState.month];
-
+        this.displayedMonth = this.monthsNames[this.selectedDateState.month];
         this.daysToShow = this.dateGenerator.populateDays(this.selectedDateState, this.isSundayFirst);
     }
 }

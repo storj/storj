@@ -64,6 +64,12 @@ export class DateStamp {
         public month: number,
         public day: number,
     ) {}
+
+    public fromDate(date: Date): void {
+        this.year = date.getFullYear();
+        this.month = date.getMonth();
+        this.day = date.getDate();
+    }
 }
 
 /**
