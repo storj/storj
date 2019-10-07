@@ -31,14 +31,15 @@ type Chore struct {
 
 // Config for the chore
 type Config struct {
-	ChoreBatchSize int `help:"size of the buffer used to batch inserts into the transfer queue." default:"500"`
+	ChoreBatchSize int           `help:"size of the buffer used to batch inserts into the transfer queue." default:"500"`
+	ChoreInterval  time.Duration `help:"how often to run the transfer queue chore." releaseDefault:"30s" devDefault:"10s"`
 }
 
 // NewChore instantiates Chore.
 func NewChore(log *zap.Logger, db DB, overlay overlay.DB, config Config, metaLoop *metainfo.Loop) *Chore {
 	return &Chore{
 		log:          log,
-		Loop:         *sync2.NewCycle(time.Second * 10),
+		Loop:         *sync2.NewCycle(config.ChoreInterval),
 		db:           db,
 		config:       config,
 		overlay:      overlay,

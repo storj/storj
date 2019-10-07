@@ -64,7 +64,7 @@ func TestChore(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 2)
 		for _, incomplete := range incompleteTransfers {
-			require.Equal(t, 1.0, incomplete.DurabilityRatio)
+			require.True(t, incomplete.DurabilityRatio > 0)
 		}
 
 		// test the other nodes don't have anything to transfer

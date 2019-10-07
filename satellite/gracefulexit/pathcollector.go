@@ -60,23 +60,24 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo
 
 	numPieces := int32(len(pointer.GetRemote().GetRemotePieces()))
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		_, ok := collector.nodeIDMap[piece.NodeId]
-		if ok {
-			item := TransferQueueItem{
-				NodeID:          piece.NodeId,
-				Path:            []byte(path.Raw),
-				PieceNum:        piece.PieceNum,
-				DurabilityRatio: float64(numPieces / pointer.GetRemote().GetRedundancy().GetSuccessThreshold()),
-			}
-			collector.log.Debug("adding piece to transfer queue.",
-				zap.String("path", path.Raw), zap.Int32("piece num", piece.GetPieceNum()),
-				zap.Int32("num pieces", numPieces), zap.Int32("required pieces", pointer.GetRemote().GetRedundancy().GetSuccessThreshold()))
+		if _, ok := collector.nodeIDMap[piece.NodeId]; !ok {
+			continue
+		}
 
-			collector.buffer = append(collector.buffer, item)
-			err = collector.flush(ctx, collector.batchSize)
-			if err != nil {
-				return err
-			}
+		item := TransferQueueItem{
+			NodeID:          piece.NodeId,
+			Path:            []byte(path.Raw),
+			PieceNum:        piece.PieceNum,
+			DurabilityRatio: float64(numPieces / pointer.GetRemote().GetRedundancy().GetTotal()),
+		}
+		collector.log.Debug("adding piece to transfer queue.", zap.String("node ID", piece.NodeId.String()),
+			zap.String("path", path.Raw), zap.Int32("piece num", piece.GetPieceNum()),
+			zap.Int32("num pieces", numPieces), zap.Int32("total possible pieces", pointer.GetRemote().GetRedundancy().GetTotal()))
+
+		collector.buffer = append(collector.buffer, item)
+		err = collector.flush(ctx, collector.batchSize)
+		if err != nil {
+			return err
 		}
 	}
 
