@@ -16,7 +16,7 @@ import { createLocalVue } from '@vue/test-utils';
 const Vue = createLocalVue();
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
-const {FETCH, CREATE, CLEAR_SELECTION, DELETE, TOGGLE_SELECTION, CLEAR} = API_KEYS_ACTIONS;
+const {FETCH, CREATE, CLEAR_SELECTION, DELETE, CLEAR} = API_KEYS_ACTIONS;
 
 const projectsApi = new ProjectsApiGql();
 const projectsModule = makeProjectsModule(projectsApi);
@@ -69,9 +69,9 @@ describe('mutations', () => {
     });
 
     it('set sort order', function () {
-        store.commit(API_KEYS_MUTATIONS.CHANGE_SORT_ORDER, ApiKeyOrderBy.EMAIL);
+        store.commit(API_KEYS_MUTATIONS.CHANGE_SORT_ORDER, ApiKeyOrderBy.CREATED_AT);
 
-        expect(state.cursor.order).toBe(ApiKeyOrderBy.EMAIL);
+        expect(state.cursor.order).toBe(ApiKeyOrderBy.CREATED_AT);
     });
 
     it('set sort direction', function () {
