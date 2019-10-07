@@ -25,7 +25,9 @@ node('node') {
 
         unstash "storagenode-binaries"
 
-        bat 'msbuild installer\\windows\\windows.sln'
+        bat 'installer\\windows\\build.bat'
+
+        stash name: "storagenode-installer", includes: "release/**/storagenode.msi"
 
         echo "Current build result: ${currentBuild.result}"
       }
