@@ -61,7 +61,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		chore.log.Debug("graceful exit.", zap.Int("exitingNodes", len(exitingNodes)))
+		nodeCount := len(exitingNodes)
+		chore.log.Debug("graceful exit.", zap.Int("exitingNodes", nodeCount))
+		if nodeCount == 0 {
+			return nil
+		}
 
 		pathCollector := NewPathCollector(chore.db, exitingNodes, chore.log, chore.config.ChoreBatchSize)
 		err = chore.metainfoLoop.Join(ctx, pathCollector)
@@ -85,7 +89,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			_, err = chore.overlay.UpdateExitStatus(ctx, &exitStatus)
 			if err != nil {
 				chore.log.Error("error updating exit status.", zap.Error(err))
-				return nil
 			}
 		}
 		return nil
