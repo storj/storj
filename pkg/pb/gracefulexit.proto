@@ -41,14 +41,14 @@ message StorageNodeMessage {
 message NotReady {}
 
 message TransferPiece {
-  bytes piece_id    = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];; // the current piece-id
+  bytes piece_id    = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false]; // the current piece-id
   bytes private_key = 2 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
   // addressed_order_limit contains the new piece id.
   metainfo.AddressedOrderLimit addressed_order_limit =3;              
 }
 
 message DeletePiece {
-  bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];;
+  bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
 message ExitCompleted {
