@@ -99,7 +99,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	// add up all nodes and buckets
-	observer := NewObserver()
+	observer := NewObserver(service.log.Named("observer"))
 	err = service.metainfoLoop.Join(ctx, observer)
 	if err != nil {
 		return Error.Wrap(err)
@@ -146,13 +146,15 @@ var _ metainfo.Observer = (*Observer)(nil)
 
 // Observer observes metainfo and adds up tallies for nodes and buckets
 type Observer struct {
+	Log    *zap.Logger
 	Node   map[storj.NodeID]float64
 	Bucket map[string]*accounting.BucketTally
 }
 
 // NewObserver returns an metainfo loop observer that adds up totals for buckets and nodes.
-func NewObserver() *Observer {
+func NewObserver(log *zap.Logger) *Observer {
 	return &Observer{
+		Log:    log,
 		Node:   make(map[storj.NodeID]float64),
 		Bucket: make(map[string]*accounting.BucketTally),
 	}
@@ -204,12 +206,12 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 	minimumRequired := redundancy.GetMinReq()
 
 	if remote == nil || redundancy == nil || minimumRequired <= 0 {
-		// TODO: observer.log.Error("failed sanity check")
+		observer.Log.Error("failed sanity check", zap.String("path", path.Raw))
 		return nil
 	}
 
 	pieceSize := float64(segmentSize / int64(minimumRequired))
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+	for _, piece := range remote.GetRemotePieces() {
 		observer.Node[piece.NodeId] += pieceSize
 	}
 	return nil

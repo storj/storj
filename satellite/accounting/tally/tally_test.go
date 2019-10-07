@@ -97,7 +97,7 @@ func TestOnlyInline(t *testing.T) {
 
 		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
-			obs := tally.NewObserver()
+			obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"))
 			err := planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 			require.NoError(t, err)
 
@@ -134,7 +134,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		require.NoError(t, err)
 
-		obs := tally.NewObserver()
+		obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"))
 		err = planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 		require.NoError(t, err)
 
@@ -193,7 +193,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				newTally.ProjectID = *projectID
 				expectedBucketTallies[bucketID] = newTally
 
-				obs := tally.NewObserver()
+				obs := tally.NewObserver(satellitePeer.Log.Named("observer"))
 				err = satellitePeer.Metainfo.Loop.Join(ctx, obs)
 				require.NoError(t, err)
 				require.Equal(t, expectedBucketTallies, obs.Bucket)
