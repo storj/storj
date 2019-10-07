@@ -32,7 +32,12 @@ func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service 
 	return &Service{logger: logger, DB: db, bucketsDB: bucketsDB}
 }
 
-func verifyPointer(pointer *pb.Pointer) (err error) {
+func verifyPointer(path string, pointer *pb.Pointer) (err error) {
+	tokens := storj.SplitPath(path)
+	if len(tokens) <= 3 {
+		return Error.New("invalid path %q", path)
+	}
+
 	if pointer.Type == pb.Pointer_REMOTE {
 		remote := pointer.Remote
 
@@ -68,7 +73,7 @@ func verifyPointer(pointer *pb.Pointer) (err error) {
 func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := verifyPointer(pointer); err != nil {
+	if err := verifyPointer(path, pointer); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -96,7 +101,7 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := verifyPointer(ref); err != nil {
+	if err := verifyPointer(path, ref); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
