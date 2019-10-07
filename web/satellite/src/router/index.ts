@@ -5,7 +5,6 @@ import Vue from 'vue';
 import Router, { RouteRecord } from 'vue-router';
 
 import AccountArea from '@/components/account/AccountArea.vue';
-import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingHistory from '@/components/account/billing/BillingHistory.vue';
 import ProfileArea from '@/components/account/ProfileArea.vue';
@@ -44,7 +43,6 @@ export abstract class RouteConfig {
     // child paths
     public static ProjectDetails = new NavigationLink('details', 'Project Details');
     public static UsageReport = new NavigationLink('usage-report', 'Usage Report');
-    public static PaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
     public static Profile = new NavigationLink('profile', 'Profile');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
@@ -92,11 +90,6 @@ const router = new Router({
                             path: RouteConfig.Billing.path,
                             name: RouteConfig.Billing.name,
                             component: AccountBilling,
-                        },
-                        {
-                            path: RouteConfig.PaymentMethods.path,
-                            name: RouteConfig.PaymentMethods.name,
-                            component: AccountPaymentMethods,
                         },
                         {
                             path: RouteConfig.BillingHistory.path,
