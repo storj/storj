@@ -838,7 +838,7 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
-// GetExitingNodes returns nodes who have initiated a graceful exit.
+// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
 func (m *lockedOverlayCache) GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error) {
 	m.Lock()
 	defer m.Unlock()
@@ -1220,6 +1220,14 @@ type lockedStripeCustomers struct {
 	db stripecoinpayments.StripeCustomers
 }
 
+// GetAllCustomerIDs return all ids of stripe customers stored in DB
+func (m *lockedStripeCustomers) GetAllCustomerIDs(ctx context.Context) (ids []string, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAllCustomerIDs(ctx)
+}
+
+// Insert is a method for inserting stripe customer into the database.
 func (m *lockedStripeCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
 	m.Lock()
 	defer m.Unlock()
