@@ -33,7 +33,7 @@
                 </div>
                 <div class="cov-date-box list-box" v-if="isMonthChoiceShown">
                     <div class="cov-picker-box date-list">
-                        <div class="date-item month" v-for="monthItem in months" :key="monthItem" @click="setMonth(monthItem)">{{monthItem}}</div>
+                        <div class="date-item month" v-for="monthItem in monthsNames" :key="monthItem" @click="setMonth(monthItem)">{{monthItem}}</div>
                     </div>
                 </div>
             </div>
