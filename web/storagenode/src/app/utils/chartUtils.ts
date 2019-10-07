@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { GB, KB, MB } from '@/app/utils/converter';
+import { GB, KB, MB, PB, TB } from '@/app/utils/converter';
 import { BandwidthUsed, Stamp } from '@/storagenode/satellite';
 
 /**
@@ -16,13 +16,19 @@ export class ChartUtils {
     public static normalizeChartData(data: number[]): number[] {
         const maxBytes = Math.ceil(Math.max(...data));
 
-        let divider: number = GB;
+        let divider: number = PB;
         switch (true) {
             case maxBytes < MB:
                 divider = KB;
                 break;
             case maxBytes < GB:
                 divider = MB;
+                break;
+            case maxBytes < TB:
+                divider = GB;
+                break;
+            case maxBytes < PB:
+                divider = TB;
                 break;
         }
 

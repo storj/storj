@@ -273,6 +273,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.RetainService,
+			peer.Contact.PingStats,
 			peer.Storage2.Store,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
