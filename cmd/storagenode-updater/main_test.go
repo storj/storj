@@ -43,7 +43,6 @@ func TestAutoUpdater(t *testing.T) {
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
 		Versions: versioncontrol.ServiceVersions{
-			Bootstrap:   "v0.0.1",
 			Satellite:   "v0.0.1",
 			Storagenode: "v0.0.1",
 			Uplink:      "v0.0.1",

@@ -11,6 +11,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
@@ -20,6 +21,12 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
+)
+
+// Error is a standard error class for this package.
+var (
+	Error = errs.Class("tally error")
+	mon   = monkit.Package()
 )
 
 // Config contains configurable values for the tally service
@@ -155,7 +162,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 						bucketTallies[bucketID] = bucketTally
 					}
 
-					bucketTally.AddSegment(pointer, segment == "l")
+					bucketTallyAdd(bucketTally, pointer, segment == "l")
 				}
 
 				remote := pointer.GetRemote()
@@ -191,11 +198,10 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	}
 
 	for _, bucketTally := range bucketTallies {
-		bucketTally.Report("bucket")
+		bucketReport(bucketTally, "bucket")
 		totalTallies.Combine(bucketTally)
 	}
-
-	totalTallies.Report("total")
+	bucketReport(&totalTallies, "total")
 
 	//store byte hours, not just bytes
 	numHours := time.Since(latestTally).Hours()
@@ -211,4 +217,39 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 		nodeData[k] *= numHours //calculate byte hours
 	}
 	return latestTally, nodeData, bucketTallies, err
+}
+
+// bucketTallyAdd groups all the data based the passed pointer
+func bucketTallyAdd(s *accounting.BucketTally, pointer *pb.Pointer, last bool) {
+	switch pointer.GetType() {
+	case pb.Pointer_INLINE:
+		s.InlineSegments++
+		s.InlineBytes += int64(len(pointer.InlineSegment))
+		s.MetadataSize += int64(len(pointer.Metadata))
+
+	case pb.Pointer_REMOTE:
+		s.RemoteSegments++
+		s.RemoteBytes += pointer.GetSegmentSize()
+		s.MetadataSize += int64(len(pointer.Metadata))
+	}
+
+	if last {
+		s.ObjectCount++
+	}
+}
+
+// using custom name to avoid breaking monitoring
+var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")
+
+// bucketReport reports the stats thru monkit
+func bucketReport(tally *accounting.BucketTally, prefix string) {
+	monAccounting.IntVal(prefix + ".objects").Observe(tally.ObjectCount)
+
+	monAccounting.IntVal(prefix + ".segments").Observe(tally.Segments())
+	monAccounting.IntVal(prefix + ".inline_segments").Observe(tally.InlineSegments)
+	monAccounting.IntVal(prefix + ".remote_segments").Observe(tally.RemoteSegments)
+
+	monAccounting.IntVal(prefix + ".bytes").Observe(tally.Bytes())
+	monAccounting.IntVal(prefix + ".inline_bytes").Observe(tally.InlineBytes)
+	monAccounting.IntVal(prefix + ".remote_bytes").Observe(tally.RemoteBytes)
 }
