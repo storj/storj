@@ -144,8 +144,8 @@ storagenode-web:
 	# embed web assets into go
 	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
 	# configure existing go code to know about the new assets
-	/bin/echo -e 'package consoleassets\nfunc init() { FileSystem = AssetFile() }' > storagenode/console/consoleassets/initbindata.go
-	gofmt -w -s storagenode/console/consoleassets/initbindata.go
+	/bin/echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.go
+	gofmt -w -s storagenode/console/consoleassets/bindata.go
 
 .PHONY: images
 images: bootstrap-image gateway-image satellite-image storagenode-image uplink-image versioncontrol-image ## Build bootstrap, gateway, satellite, storagenode, uplink, and versioncontrol Docker images
