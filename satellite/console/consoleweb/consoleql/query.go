@@ -5,6 +5,7 @@ package consoleql
 
 import (
 	"errors"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 
