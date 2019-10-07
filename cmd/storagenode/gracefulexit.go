@@ -5,9 +5,14 @@ package main
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/rpc"
@@ -66,9 +71,46 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	output := "Domain Name\t" + "Node ID\t\t\t" + "Space Used\t" + "\n"
+
+	for _, satellite := range satelliteList.GetSatellites() {
+
+		output += (satellite.GetDomainName() + "\t")
+		output += (satellite.NodeId.String() + "\t")
+		output += (memory.Size(satellite.GetSpaceUsed()).Base10String() + "\n")
+	}
 
 	// display the list
-	// wait for user input
+	qs := []*survey.Question{
+		{
+			Name: "satellite selection",
+			Prompt: &survey.Input{
+				Message: "Enter the domain name of the satellite you want to exit from:\n" + output + "\n",
+			},
+			Validate: survey.Required,
+		},
+	}
+
+	var selectedSatellite string
+	err = survey.Ask(qs, &selectedSatellite)
+	if err != nil {
+		return err
+	}
+
+	// validate user input
+	var found bool
+	for _, satellite := range satelliteList.GetSatellites() {
+		if satellite.GetDomainName() == selectedSatellite {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		fmt.Println("Invalid input. Please type in a valid satellite domian name.")
+		return errs.New("Invalid satellite domain name")
+	}
+	// save it to the db
 
 	return nil
 }

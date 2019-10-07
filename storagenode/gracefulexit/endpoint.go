@@ -58,6 +58,12 @@ func (s *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesL
 		}
 
 		if !isExisting {
+			// get domain name
+			domain, err := s.trust.GetAddress(ctx, trusted)
+			if err != nil {
+				// TODO: deal with the error
+				continue
+			}
 			// get space usage by satellites
 			spaceUsed, err := s.usageCache.SpaceUsedBySatellite(ctx, trusted)
 			if err != nil {
@@ -65,8 +71,9 @@ func (s *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesL
 				continue
 			}
 			availableSatellites = append(availableSatellites, &pb.Satellite{
-				NodeId:    trusted,
-				SpaceUsed: float64(spaceUsed),
+				DomainName: domain,
+				NodeId:     trusted,
+				SpaceUsed:  float64(spaceUsed),
 			})
 		}
 	}
