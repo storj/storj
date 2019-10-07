@@ -171,15 +171,6 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
-		if len(missingPieces) == 0 {
-			checker.logger.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
-				zap.String("path", path),
-				zap.Int32("min", redundancy.MinReq),
-				zap.Int32("repair", redundancy.RepairThreshold),
-				zap.Int32("success", redundancy.SuccessThreshold),
-				zap.Int32("total", redundancy.Total))
-			return nil
-		}
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 			Path:         []byte(path),
 			LostPieces:   missingPieces,
@@ -263,15 +254,6 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
-		if len(missingPieces) == 0 {
-			obs.log.Error("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme:",
-				zap.String("path", path.Raw),
-				zap.Int32("min", redundancy.MinReq),
-				zap.Int32("repair", redundancy.RepairThreshold),
-				zap.Int32("success", redundancy.SuccessThreshold),
-				zap.Int32("total", redundancy.Total))
-			return nil
-		}
 		obs.monStats.remoteSegmentsNeedingRepair++
 		err = obs.repairQueue.Insert(ctx, &pb.InjuredSegment{
 			Path:         []byte(path.Raw),
