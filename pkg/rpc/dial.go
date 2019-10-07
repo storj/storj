@@ -68,8 +68,18 @@ func (d Dialer) dialContext(ctx context.Context, address string) (net.Conn, erro
 	conn, err := new(net.Dialer).DialContext(ctx, "tcp", address)
 	if err != nil {
 		// N.B. this error is not wrapped on purpose! grpc code cares about inspecting
-		// it and it's not smart enough to attempt to do any unwrapping. :(
-		return nil, err
+		// it and it's not smart enough to attempt to do any unwrapping. :( Additionally
+		// DialContext does not return an error that can be inspected easily to see if it
+		// came from the context being canceled. Thus, we do this racy thing where if the
+		// context is canceled at this point, we return it, rather than return the error
+		// from dialing. It's a slight lie, but arguably still correct because the cancel
+		// must be racing with the dial anyway.
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			return nil, err
+		}
 	}
 
 	return &timedConn{
