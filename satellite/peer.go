@@ -131,6 +131,8 @@ type Config struct {
 	Marketing marketingweb.Config
 
 	Version version.Config
+
+	GracefulExit gracefulexit.Config
 }
 
 // Peer is the satellite
@@ -233,6 +235,10 @@ type Peer struct {
 
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
+	}
+
+	GracefulExit struct {
+		Chore *gracefulexit.Chore
 	}
 }
 
@@ -653,6 +659,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
 	}
 
+	{ // setup graceful exit
+		log.Debug("Setting up graceful")
+		peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("graceful exit chore"), peer.DB.GracefulExit(), peer.Overlay.DB, config.GracefulExit, peer.Metainfo.Loop)
+	}
+
 	return peer, nil
 }
 
@@ -709,6 +720,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -722,6 +736,10 @@ func (peer *Peer) Close() error {
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Server != nil {
 		errlist.Add(peer.Server.Close())
+	}
+
+	if peer.GracefulExit.Chore != nil {
+		errlist.Add(peer.GracefulExit.Chore.Close())
 	}
 
 	if peer.Console.Endpoint != nil {
