@@ -93,7 +93,6 @@ describe('Dashboard', () => {
         const availableWithoutProject = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
             RouteConfig.Account.with(RouteConfig.Profile).path,
-            RouteConfig.Account.with(RouteConfig.PaymentMethods).path,
         ];
 
         for (let i = 0; i < availableWithoutProject.length; i++) {
