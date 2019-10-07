@@ -5113,6 +5113,31 @@
         ],
         "messages": [
           {
+            "name": "InfoResponse",
+            "fields": [
+              {
+                "id": 2,
+                "name": "type",
+                "type": "node.NodeType"
+              },
+              {
+                "id": 3,
+                "name": "operator",
+                "type": "node.NodeOperator"
+              },
+              {
+                "id": 4,
+                "name": "capacity",
+                "type": "node.NodeCapacity"
+              },
+              {
+                "id": 5,
+                "name": "version",
+                "type": "node.NodeVersion"
+              }
+            ]
+          },
+          {
             "name": "Restriction",
             "fields": [
               {
@@ -5136,6 +5161,9 @@
         "imports": [
           {
             "path": "gogo.proto"
+          },
+          {
+            "path": "node.proto"
           }
         ],
         "package": {
