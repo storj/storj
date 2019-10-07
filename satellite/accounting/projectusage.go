@@ -10,10 +10,13 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/satellite/accounting/live"
 )
+
+var mon = monkit.Package()
 
 const (
 	// AverageDaysInMonth is how many days in a month

@@ -53,7 +53,7 @@ pipeline {
                 stage('Tests') {
                     environment {
                         STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                        COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=-coverpkg=storj.io/storj/bootstrap/...,storj.io/storj/internal/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/versioncontrol/...'}"
+                        COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=-coverpkg=storj.io/storj/internal/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/uplink/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''

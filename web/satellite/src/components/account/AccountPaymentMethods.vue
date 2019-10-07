@@ -5,7 +5,7 @@
     <div class="payment-methods-container">
         <div class="payment-methods-container__card-container">
             <div class="payment-methods-container__card-container__info-area">
-                <img class="payment-methods-container__card-container__info-area__card-logo" src="../../../static/images/Logo.svg">
+                <img class="payment-methods-container__card-container__info-area__card-logo" src="../../../static/images/Logo.svg" alt="Company logo">
                 <div class="payment-methods-container__card-container__info-area__info-container">
                     <h1 class="payment-methods-container__card-container__info-area__info-container__card-number">xxxx 0000</h1>
                     <h2 class="payment-methods-container__card-container__info-area__info-container__name">Shawn Wilkinson</h2>
