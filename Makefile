@@ -134,8 +134,8 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 
 ##@ Build
 
-.PHONY: storagenode-web
-storagenode-web:
+.PHONY: storagenode-console
+storagenode-console:
 	# install npm dependencies
 	cd web/storagenode; npm ci
 	# build web assets
@@ -250,7 +250,7 @@ satellite_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=satellite $(MAKE) binary
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_%
-storagenode_%: storagenode-web
+storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: binary-check
 binary-check:
