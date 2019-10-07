@@ -10,11 +10,18 @@ package graceful_exit;
 service GracefulExit {
   // GetSatellitesList returns 
   rpc GetSatellitesList(GetSatellitesListRequest) returns (GetSatellitesListResponse);
+  // StartExit
+  rpc StartExit(StartExitRequest) returns (StartExitResponse);
 }
 
 
 // GetSatellitesListRequest
 message GetSatellitesListRequest {}
+
+// StartExitRequest
+message StartExitRequest {
+  repeated bytes node_ids = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
 
 message Satellite {
     bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
@@ -24,4 +31,12 @@ message Satellite {
 
 message GetSatellitesListResponse {
   repeated Satellite satellites = 1;
+}
+
+message StartExitStatus {
+  string domain_name = 1;
+  bool success = 2;
+}
+message StartExitResponse {
+  repeated StartExitStatus statuses = 1;
 }

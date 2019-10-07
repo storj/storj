@@ -5,6 +5,7 @@ package gracefulexit
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -36,14 +37,15 @@ func NewEndpoint(log *zap.Logger, trust *trust.Pool, satellites satellites.DB, u
 }
 
 // GetSatellitesList returns a list of satellites that haven't been exited.
-func (s *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesListRequest) (*pb.GetSatellitesListResponse, error) {
+func (e *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesListRequest) (*pb.GetSatellitesListResponse, error) {
+	e.log.Debug("initialize graceful exit: GetSatellitesList")
 	// get all trusted satellites
-	trustedSatellites := s.trust.GetSatellites(ctx)
+	trustedSatellites := e.trust.GetSatellites(ctx)
 
 	availableSatellites := make([]*pb.Satellite, 0, len(trustedSatellites))
 
 	// filter out satellites that are already exiting
-	existingSatellites, err := s.satellites.ListGracefulExits(ctx)
+	existingSatellites, err := e.satellites.ListGracefulExits(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -59,13 +61,13 @@ func (s *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesL
 
 		if !isExisting {
 			// get domain name
-			domain, err := s.trust.GetAddress(ctx, trusted)
+			domain, err := e.trust.GetAddress(ctx, trusted)
 			if err != nil {
 				// TODO: deal with the error
 				continue
 			}
 			// get space usage by satellites
-			spaceUsed, err := s.usageCache.SpaceUsedBySatellite(ctx, trusted)
+			spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, trusted)
 			if err != nil {
 				// TODO: deal with the error
 				continue
@@ -81,4 +83,36 @@ func (s *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesL
 	return &pb.GetSatellitesListResponse{
 		Satellites: availableSatellites,
 	}, nil
+}
+
+// StartExit ...
+func (e *Endpoint) StartExit(ctx context.Context, req *pb.StartExitRequest) (*pb.StartExitResponse, error) {
+	e.log.Debug("initialize graceful exit: StartExit", zap.String("requested satellites: ", req.NodeIds[0].String()))
+	// save satellites info into db
+	resp := &pb.StartExitResponse{}
+	for _, satelliteID := range req.NodeIds {
+		domain, err := e.trust.GetAddress(ctx, satelliteID)
+		if err != nil {
+			// TODO: deal with the error
+			continue
+		}
+		status := &pb.StartExitStatus{
+			DomainName: domain,
+			Success:    false,
+		}
+		// get space usage by satellites
+		spaceUsed, err := e.usageCache.SpaceUsedBySatellite(ctx, satelliteID)
+		if err != nil {
+			// TODO: deal with the error
+			continue
+		}
+		err = e.satellites.InitiateGracefulExit(ctx, satelliteID, time.Now().UTC(), spaceUsed)
+		if err != nil {
+			continue
+		}
+		status.Success = true
+		resp.Statuses = append(resp.Statuses, status)
+	}
+
+	return resp, nil
 }
