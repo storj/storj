@@ -40,6 +40,9 @@ export GO111MODULE=off
 
 go get golang.org/x/mobile/cmd/gomobile
 
+# add gobind to PATH
+export PATH=$GOPATH/bin:$PATH
+
 $GOPATH/bin/gomobile init
 
 $GOPATH/bin/gomobile bind -v -target android -o "$OUTPUT/libuplink-android.aar" -javapkg io.storj.libuplink storj.io/storj/lib/uplink-gomobile
