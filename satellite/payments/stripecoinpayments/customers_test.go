@@ -8,6 +8,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
@@ -19,12 +20,12 @@ func TestCustomersRepository(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		stripecustomers := db.StripeCustomers()
+		customers := db.Customers()
 
 		customerID := "customerID"
 		userID, err := uuid.New()
 		if err != nil {
-			t.Fail()
+			require.NoError(t, err)
 		}
 
 		t.Run("Insert", func(t *testing.T) {
@@ -33,10 +34,10 @@ func TestCustomersRepository(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, len(stripeCustomersIDs), 0)
 
-			err = stripecustomers.Insert(ctx, *userID, customerID)
+			err = customers.Insert(ctx, *userID, customerID)
 			assert.NoError(t, err)
 
-			stripeCustomersIDs, err = stripecustomers.GetAllCustomerIDs(ctx)
+			stripeCustomersIDs, err = customers.GetAllCustomerIDs(ctx)
 
 			assert.NoError(t, err)
 			assert.Equal(t, len(stripeCustomersIDs), 1)
