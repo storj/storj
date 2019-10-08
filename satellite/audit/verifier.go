@@ -359,6 +359,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 	}
 
 	pieceHashesVerified := make(map[storj.NodeID]bool)
+	pieceHashesVerifiedMutex := &sync.Mutex{}
 	defer func() {
 		// for each node in Fails and PendingAudits, remove if piece hashes not verified for that segment
 		newFails := storj.NodeIDList{}
@@ -415,7 +416,9 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			}
 
 			// set whether piece hashes have been verified for this segment so we know whether to report a failed or pending audit for this node
+			pieceHashesVerifiedMutex.Lock()
 			pieceHashesVerified[pending.NodeID] = pendingPointer.PieceHashesVerified
+			pieceHashesVerifiedMutex.Unlock()
 
 			if pendingPointer.GetRemote().RootPieceId != pending.PieceID {
 				// segment has changed since initial containment
