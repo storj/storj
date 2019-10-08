@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/vivint/infectious"
