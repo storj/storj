@@ -409,6 +409,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
 	})
 	group.Go(func() error {
@@ -417,9 +420,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Orders.Run(ctx))
 	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
-	})
+
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
 	})
