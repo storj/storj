@@ -1,11 +1,9 @@
 #!/bin/bash
 set -ueo pipefail
 
-echo "Executing gomobile bind"
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-gomobile bind -target android -o libuplink_android/app/libs/libuplink-android.aar -javapkg io.storj.libuplink storj.io/storj/mobile
-
-cd libuplink_android
+cd "$SCRIPTDIR/libuplink_android"
 
 # Might be easier way than -Pandroid.testInstrumentationRunnerArguments
 ./gradlew connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.scope=$GATEWAY_0_SCOPE

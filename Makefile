@@ -109,6 +109,13 @@ test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
 
+.PHONY: test-libuplink-gomobile
+test-libuplink-gomobile: ## Run gomobile tests in Docker
+	docker run -v "${PWD}":/storj \
+	-e "STORJ_NETWORK_HOST4=172.17.0.2" \
+	-v /tmp:/tmp -w /storj storjlabs/gomobile \
+	./lib/uplink-gomobile/test-sim.sh
+
 .PHONY: check-satellite-config-lock
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
 	@echo "Running ${@}"
