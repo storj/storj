@@ -87,7 +87,10 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	// double-counted (counted in the tally and also counted as a delta to
 	// the tally). If that happens, it will be fixed at the time of the next
 	// tally run.
-	service.liveAccounting.ResetTotals()
+	err = service.liveAccounting.ResetTotals()
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	// Fetch when the last tally happened so we can roughly calculate the byte-hours.
 	lastTime, err := service.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
