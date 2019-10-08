@@ -1,4 +1,3 @@
-
 rem set the TAG env var from the release dir
 for /f %%i in ('dir /B release') do set TAG=%%i
 
