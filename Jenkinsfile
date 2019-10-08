@@ -19,8 +19,6 @@ node('node') {
 
     stage('Build Windows Installer') {
       node('windows') { 
-        echo 'Build Windows Installer'
-
         checkout scm
 
         unstash "storagenode-binaries"
@@ -31,6 +29,14 @@ node('node') {
 
         echo "Current build result: ${currentBuild.result}"
       }
+    }
+
+    stage('Sign Windows Installer') {
+      unstash "storagenode-installer"
+
+      sh 'make sign-windows-installer'
+
+      echo "Current build result: ${currentBuild.result}"
     }
 
     // stage('Build Images') {
