@@ -134,18 +134,21 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 
 ##@ Build
 
-.PHONY: storagenode-web
-storagenode-web:
-	# install npm dependencies
-	cd web/storagenode; npm ci
+.PHONY: storagenode-console
+storagenode-console:
 	# build web assets
 	rm -rf web/storagenode/dist
-	cd web/storagenode; npm run build
+	# install npm dependencies and build the binaries
+	docker run --rm -i \
+		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
+		-w /go/src/storj.io/storj/web/storagenode \
+		node:10.15.1 \
+	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
 	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
 	# configure existing go code to know about the new assets
-	/bin/echo -e 'package consoleassets\nfunc init() { FileSystem = AssetFile() }' > storagenode/console/consoleassets/initbindata.go
-	gofmt -w -s storagenode/console/consoleassets/initbindata.go
+	/bin/echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.go
+	gofmt -w -s storagenode/console/consoleassets/bindata.go
 
 .PHONY: images
 images: bootstrap-image gateway-image satellite-image storagenode-image uplink-image versioncontrol-image ## Build bootstrap, gateway, satellite, storagenode, uplink, and versioncontrol Docker images
@@ -250,7 +253,7 @@ satellite_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=satellite $(MAKE) binary
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_%
-storagenode_%: storagenode-web
+storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: binary-check
 binary-check:

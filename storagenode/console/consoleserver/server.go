@@ -34,8 +34,7 @@ var (
 
 // Config contains configuration for storagenode console web server.
 type Config struct {
-	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
-	StaticDir string `help:"path to static resources" default:""`
+	Address string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
 }
 
 // Server represents storagenode console web server.
@@ -44,7 +43,6 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config   Config
 	service  *console.Service
 	listener net.Listener
 
@@ -52,33 +50,25 @@ type Server struct {
 }
 
 // NewServer creates new instance of storagenode console web server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, assets http.FileSystem, service *console.Service, listener net.Listener) *Server {
 	server := Server{
 		log:      logger,
 		service:  service,
-		config:   config,
 		listener: listener,
 	}
 
-	var fs http.Handler
-	mux := http.NewServeMux()
+	//fs = http.FileServer(consoleassets.FileSystem)
+	var (
+		fs  = http.FileServer(consoleassets.FileSystem)
+		mux = http.NewServeMux()
+	)
 
-	// handle static pages
-	if config.StaticDir != "" {
-		// a specific directory has been configured. use it
-		fs = http.FileServer(http.Dir(server.config.StaticDir))
-	} else if consoleassets.FileSystem != nil {
-		// assets are compiled into this binary, use them
-		fs = http.FileServer(consoleassets.FileSystem)
-	}
-
-	if fs != nil {
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
-		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r.URL.Path = "/dist/"
-			fs.ServeHTTP(w, r)
-		}))
-	}
+	mux.Handle("/static/", http.StripPrefix("/static", fs))
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := r.Clone(r.Context())
+		req.URL.Path = "/dist/"
+		fs.ServeHTTP(w, req)
+	}))
 
 	// handle api endpoints
 	mux.Handle("/api/dashboard", http.HandlerFunc(server.dashboardHandler))
