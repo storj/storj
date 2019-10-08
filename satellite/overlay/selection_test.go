@@ -314,13 +314,20 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 func TestAddrtoNetwork_Conversion(t *testing.T) {
 	ctx := testcontext.New(t)
 
-	ip := "8.8.8.8:28967"
-	network, err := overlay.GetNetwork(ctx, ip)
+	addr := "8.8.8.8:28967"
+	_, network, err := overlay.ResolveAddressAndNetwork(ctx, addr)
 	require.Equal(t, "8.8.8.0", network)
 	require.NoError(t, err)
 
-	ipv6 := "[fc00::1:200]:28967"
-	network, err = overlay.GetNetwork(ctx, ipv6)
+	addr = "localhost:28967"
+	newaddr, network, err := overlay.ResolveAddressAndNetwork(ctx, addr)
+	require.Equal(t, "127.0.0.1:28967", newaddr)
+	require.Equal(t, "127.0.0.0", network)
+	require.NoError(t, err)
+
+	ipv6Addr := "[fc00::1:200]:28967"
+	newaddr, network, err = overlay.ResolveAddressAndNetwork(ctx, ipv6Addr)
+	require.Equal(t, ipv6Addr, newaddr)
 	require.Equal(t, "fc00::", network)
 	require.NoError(t, err)
 }
