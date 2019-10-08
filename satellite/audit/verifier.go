@@ -439,7 +439,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			}
 			if !found {
 				// node is no longer in pointer, so remove from containment
-				ch <- result{nodeID: pending.NodeID, status: erred, err: err}
 				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
 				if errDelete != nil {
 					verifier.log.Debug("Error deleting node from containment db", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
