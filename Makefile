@@ -41,12 +41,15 @@ help:
 ##@ Dependencies
 
 .PHONY: build-dev-deps
-build-dev-deps: ## Install dependencies for builds
+build-dev-deps: ## Install dependencies for development
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
-	go get github.com/go-bindata/go-bindata/go-bindata
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.19.1
+
+.PHONY: install-build-deps
+install-build-deps: ## Install dependencies for builds
+	go get github.com/go-bindata/go-bindata/go-bindata
 
 .PHONY: lint
 lint: check-copyrights ## Analyze and find programs in source code
@@ -135,7 +138,7 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 ##@ Build
 
 .PHONY: storagenode-console
-storagenode-console:
+storagenode-console: ## Build web static assets for storagenode console
 	# build web assets
 	rm -rf web/storagenode/dist
 	# install npm dependencies and build the binaries
@@ -272,7 +275,7 @@ COMPONENTLIST := certificates gateway identity inspector linksharing satellite s
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+binaries: install-build-deps ${BINARIES} ## Build certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
 
 .PHONY: libuplink
 libuplink:
