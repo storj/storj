@@ -27,7 +27,7 @@ const {
     GET_NODE_INFO,
 } = NODE_ACTIONS;
 
-const statusThreshHoldMinutes = 10;
+const statusThreshHoldMinutes = 120;
 const snoAPI = new SNOApi();
 
 const allSatellites = {

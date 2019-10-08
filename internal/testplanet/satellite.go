@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
@@ -194,6 +195,10 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
 			},
 			Version: planet.NewVersionConfig(),
+			GracefulExit: gracefulexit.Config{
+				ChoreBatchSize: 10,
+				ChoreInterval:  defaultInterval,
+			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
