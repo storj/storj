@@ -70,7 +70,7 @@ func TestRedisLiveAccounting(t *testing.T) {
 		assert.Equalf(t, sum, remoteUsed, "projectID %v", projID)
 	}
 
-	err = service.ResetTotals()
+	err = service.ResetTotals(ctx)
 	require.NoError(t, err)
 
 	for _, projID := range projectIDs {

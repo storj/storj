@@ -87,7 +87,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	// double-counted (counted in the tally and also counted as a delta to
 	// the tally). If that happens, it will be fixed at the time of the next
 	// tally run.
-	err = service.liveAccounting.ResetTotals()
+	err = service.liveAccounting.ResetTotals(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}

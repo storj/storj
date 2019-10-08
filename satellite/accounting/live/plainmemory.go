@@ -28,7 +28,7 @@ type plainMemoryLiveAccounting struct {
 
 func newPlainMemoryLiveAccounting(log *zap.Logger) (*plainMemoryLiveAccounting, error) {
 	pmac := &plainMemoryLiveAccounting{log: log}
-	pmac.ResetTotals()
+	pmac.spaceDeltas = make(map[uuid.UUID]spaceUsedAccounting, 0)
 	return pmac, nil
 }
 
@@ -57,7 +57,7 @@ func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Contex
 // ResetTotals reset all space-used totals for all projects back to zero. This
 // would normally be done in concert with calculating new tally counts in the
 // accountingDB.
-func (pmac *plainMemoryLiveAccounting) ResetTotals() error {
+func (pmac *plainMemoryLiveAccounting) ResetTotals(ctx context.Context) error {
 	pmac.log.Info("Resetting real-time accounting data")
 	pmac.spaceMapLock.Lock()
 	pmac.spaceDeltas = make(map[uuid.UUID]spaceUsedAccounting)

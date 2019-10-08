@@ -71,7 +71,7 @@ func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, pr
 // ResetTotals reset all space-used totals for all projects back to zero. This
 // would normally be done in concert with calculating new tally counts in the
 // accountingDB.
-func (cache *redisLiveAccounting) ResetTotals() error {
+func (cache *redisLiveAccounting) ResetTotals(ctx context.Context) error {
 	cache.log.Info("Resetting real-time accounting data")
 	return cache.client.FlushDB()
 }
