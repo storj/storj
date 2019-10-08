@@ -42,6 +42,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 
 	safeQuery := `
 		WHERE disqualified IS NULL
+		AND exit_initiated_at IS NULL
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
@@ -98,6 +99,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 
 	safeQuery := `
 		WHERE disqualified IS NULL
+		AND exit_initiated_at IS NULL
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
