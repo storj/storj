@@ -27,7 +27,7 @@
                     </div>
                 </a>
             </div>
-            <img src="../../../static/images/buckets/uplink.svg">
+            <img src="@/../static/images/buckets/uplink.svg" alt="uplink">
         </div>
         <p class="no-buckets-area__s3-link">Familiar with AWS S3? <a class="s3-gateway-link" href="https://github.com/storj/storj/wiki/S3-Gateway" target="_blank">Try our S3 Gateway</a></p>
         <div class="no-buckets-area__next-step-area">

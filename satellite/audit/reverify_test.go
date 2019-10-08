@@ -179,6 +179,99 @@ func TestReverifyFailMissingShare(t *testing.T) {
 	})
 }
 
+// TestReverifyFailMissingShareHashesNotVerified tests that if piece hashes were not verified for a pointer,
+// a node that fails an audit for that pointer does not get marked as failing an audit, but is removed from
+// the pointer.
+func TestReverifyFailMissingShareNotVerified(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		orders := satellite.Orders.Service
+		containment := satellite.DB.Containment()
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
+
+		pieces := pointer.GetRemote().GetRemotePieces()
+		origNumPieces := len(pieces)
+		rootPieceID := pointer.GetRemote().RootPieceId
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
+		require.NoError(t, err)
+
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
+		require.NoError(t, err)
+
+		pending := &audit.PendingAudit{
+			NodeID:            pieces[0].NodeId,
+			PieceID:           rootPieceID,
+			StripeIndex:       randomIndex,
+			ShareSize:         shareSize,
+			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
+			ReverifyCount:     0,
+			Path:              path,
+		}
+
+		err = containment.IncrementPending(ctx, pending)
+		require.NoError(t, err)
+
+		// update pointer to have PieceHashesVerified false
+		err = satellite.Metainfo.Service.Delete(ctx, path)
+		require.NoError(t, err)
+		pointer.PieceHashesVerified = false
+		err = satellite.Metainfo.Service.Put(ctx, path, pointer)
+		require.NoError(t, err)
+
+		// delete the piece from the first node
+		piece := pieces[0]
+		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		node := getStorageNode(planet, piece.NodeId)
+		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
+		require.NoError(t, err)
+
+		report, err := audits.Verifier.Reverify(ctx, path)
+		require.NoError(t, err)
+
+		require.Len(t, report.Successes, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+		// expect no failed audit
+		require.Len(t, report.Fails, 0)
+
+		// expect that bad node is no longer in the pointer
+		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
+		require.NoError(t, err)
+		assert.Len(t, pointer.GetRemote().GetRemotePieces(), origNumPieces-1)
+		for _, p := range pointer.GetRemote().GetRemotePieces() {
+			assert.NotEqual(t, p.NodeId, pieces[0].NodeId)
+		}
+	})
+}
+
 func TestReverifyFailBadData(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -396,11 +489,13 @@ func TestReverifyDeletedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// - uploads random data
+		// - uploads random data to all nodes
 		// - gets a path from the audit queue
 		// - creates one pending audit for a node holding a piece for that segment
 		// - deletes the file
-		// - calls reverify on that same stripe
+		// - calls reverify on the deleted file
+		// - expects reverification to return a segment deleted error, and expects the storage node to still be in containment
+		// - uploads a new file and calls reverify on it
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
 
 		satellite := planet.Satellites[0]
@@ -410,9 +505,15 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
-		testData := testrand.Bytes(8 * memory.KiB)
+		testData1 := testrand.Bytes(8 * memory.KiB)
+		rs := &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  2,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
+		}
 
-		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -441,13 +542,35 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the file
-		err = ul.Delete(ctx, satellite, "testbucket", "test/path")
+		err = ul.Delete(ctx, satellite, "testbucket", "test/path1")
 		require.NoError(t, err)
 
+		// call reverify on the deleted file and expect a segment deleted error
+		// but expect that the node is still in containment
 		report, err := audits.Verifier.Reverify(ctx, path)
 		require.True(t, audit.ErrSegmentDeleted.Has(err))
 		assert.Empty(t, report)
 
+		_, err = containment.Get(ctx, nodeID)
+		require.NoError(t, err)
+
+		// upload a new file to call reverify on
+		testData2 := testrand.Bytes(8 * memory.KiB)
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testData2)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err = queue.Next()
+		require.NoError(t, err)
+
+		// reverify the new path
+		report, err = audits.Verifier.Reverify(ctx, path)
+		require.NoError(t, err)
+		assert.Empty(t, report.Fails)
+		assert.Empty(t, report.Successes)
+		assert.Empty(t, report.PendingAudits)
+
+		// expect that the node was removed from containment since the segment it was contained for has been deleted
 		_, err = containment.Get(ctx, nodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
@@ -457,11 +580,10 @@ func TestReverifyModifiedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// - uploads random data
-		// - uses the cursor to get a stripe
-		// - creates one pending audit for a node holding a piece for that stripe
-		// - re-uploads the file
-		// - calls reverify on that same stripe
+		// - uploads random data to a file on all nodes
+		// - creates a pending audit for a particular node in that file
+		// - re-uploads the file so that the segment is modified
+		// - uploads a new file to all nodes and calls reverify on it
 		// - expects reverification to pass successufully and the storage node to be not in containment mode
 
 		satellite := planet.Satellites[0]
@@ -471,16 +593,21 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		audits.Worker.Loop.Pause()
 
 		ul := planet.Uplinks[0]
-		testData := testrand.Bytes(8 * memory.KiB)
-
-		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		testData1 := testrand.Bytes(8 * memory.KiB)
+		rs := &uplink.RSConfig{
+			MinThreshold:     1,
+			RepairThreshold:  2,
+			SuccessThreshold: 4,
+			MaxThreshold:     4,
+		}
+		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		path, err := queue.Next()
+		pendingPath, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, pendingPath)
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -494,7 +621,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			ShareSize:         pointer.GetRemote().GetRedundancy().GetErasureShareSize(),
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Path:              path,
+			Path:              pendingPath,
 		}
 
 		containment := satellite.DB.Containment()
@@ -503,13 +630,33 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// replace the file
-		err = ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Reverify(ctx, path)
+		// upload another file to call reverify on
+		testData2 := testrand.Bytes(8 * memory.KiB)
+		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testData2)
 		require.NoError(t, err)
-		assert.Empty(t, report)
 
+		// select the encrypted path that was not used for the pending audit
+		audits.Chore.Loop.TriggerWait()
+		path1, err := queue.Next()
+		require.NoError(t, err)
+		path2, err := queue.Next()
+		require.NoError(t, err)
+		reverifyPath := path1
+		if path1 == pendingPath {
+			reverifyPath = path2
+		}
+
+		// reverify the path that was not modified
+		report, err := audits.Verifier.Reverify(ctx, reverifyPath)
+		require.NoError(t, err)
+		assert.Empty(t, report.Fails)
+		assert.Empty(t, report.Successes)
+		assert.Empty(t, report.PendingAudits)
+
+		// expect that the node was removed from containment since the segment it was contained for has been changed
 		_, err = containment.Get(ctx, nodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})

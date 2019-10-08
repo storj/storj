@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -38,6 +37,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -65,6 +65,7 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
+	Satellites() satellites.DB
 }
 
 // Config is all the configuration parameters for a Storage Node
@@ -74,7 +75,7 @@ type Config struct {
 	Server server.Config
 
 	Contact  contact.Config
-	Kademlia kademlia.Config
+	Operator OperatorConfig
 
 	// TODO: flatten storage config and only keep the new one
 	Storage   piecestore.OldConfig
@@ -94,7 +95,7 @@ type Config struct {
 
 // Verify verifies whether configuration is consistent and acceptable.
 func (config *Config) Verify(log *zap.Logger) error {
-	return config.Kademlia.Verify(log)
+	return config.Operator.Verify(log)
 }
 
 // Peer is the representation of a Storage Node.
@@ -215,8 +216,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			},
 			Type: pb.NodeType_STORAGE,
 			Operator: pb.NodeOperator{
-				Email:  config.Kademlia.Operator.Email,
-				Wallet: config.Kademlia.Operator.Wallet,
+				Email:  config.Operator.Email,
+				Wallet: config.Operator.Wallet,
 			},
 			Version: *pbVersion,
 		}
@@ -272,6 +273,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.RetainService,
+			peer.Contact.PingStats,
 			peer.Storage2.Store,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
@@ -330,7 +332,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Version,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
-			config.Kademlia.Operator.Wallet,
+			config.Operator.Wallet,
 			versionInfo,
 			peer.Storage2.Trust,
 			peer.DB.Reputation(),

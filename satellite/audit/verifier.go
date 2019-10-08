@@ -92,6 +92,14 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return nil, err
 	}
 
+	defer func() {
+		// if piece hashes have not been verified for this segment, do not mark nodes as failing audit
+		if !pointer.PieceHashesVerified {
+			report.PendingAudits = nil
+			report.Fails = nil
+		}
+	}()
+
 	randomIndex, err := GetRandomStripe(ctx, pointer)
 	if err != nil {
 		return nil, err
@@ -323,6 +331,27 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		return nil, err
 	}
 
+	pieceHashesVerified := make(map[storj.NodeID]bool)
+	defer func() {
+		// for each node in Fails and PendingAudits, remove if piece hashes not verified for that segment
+		newFails := storj.NodeIDList{}
+		newPendingAudits := []*PendingAudit{}
+
+		for _, id := range report.Fails {
+			if pieceHashesVerified[id] {
+				newFails = append(newFails, id)
+			}
+		}
+		for _, pending := range report.PendingAudits {
+			if pieceHashesVerified[pending.NodeID] {
+				newPendingAudits = append(newPendingAudits, pending)
+			}
+		}
+
+		report.Fails = newFails
+		report.PendingAudits = newPendingAudits
+	}()
+
 	pieces := pointer.GetRemote().GetRemotePieces()
 	ch := make(chan result, len(pieces))
 	var containedInSegment int64
@@ -341,11 +370,33 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		containedInSegment++
 
 		go func(pending *PendingAudit) {
-			// TODO perhaps we should save piece number as part of the pending audit so we do not need to use metainfo here
 			pendingPointer, err := verifier.metainfo.Get(ctx, pending.Path)
 			if err != nil {
+				if storage.ErrKeyNotFound.Has(err) {
+					// segment has been deleted since node was contained
+					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
+					if errDelete != nil {
+						verifier.log.Debug("Error deleting node from containment db", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+					}
+					ch <- result{nodeID: pending.NodeID, status: skipped}
+					return
+				}
+
 				ch <- result{nodeID: pending.NodeID, status: erred, err: err}
 				verifier.log.Debug("Reverify: error getting pending pointer from metainfo", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
+				return
+			}
+
+			// set whether piece hashes have been verified for this segment so we know whether to report a failed or pending audit for this node
+			pieceHashesVerified[pending.NodeID] = pendingPointer.PieceHashesVerified
+
+			if pendingPointer.GetRemote().RootPieceId != pending.PieceID {
+				// segment has changed since initial containment
+				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
+				if errDelete != nil {
+					verifier.log.Debug("Error deleting node from containment db", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+				}
+				ch <- result{nodeID: pending.NodeID, status: skipped}
 				return
 			}
 			var pieceNum int32
@@ -357,8 +408,13 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				}
 			}
 			if !found {
+				// node is no longer in pointer, so remove from containment
 				ch <- result{nodeID: pending.NodeID, status: erred, err: err}
-				verifier.log.Debug("Reverify: could not find node in pointer to audit", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID))
+				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
+				if errDelete != nil {
+					verifier.log.Debug("Error deleting node from containment db", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+				}
+				ch <- result{nodeID: pending.NodeID, status: skipped}
 				return
 			}
 
@@ -367,8 +423,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				if overlay.ErrNodeDisqualified.Has(err) {
 					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
 					if errDelete != nil {
-						verifier.log.Debug("Error deleting disqualified node from containment db", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
-						err = errs.Combine(err, errDelete)
+						verifier.log.Debug("Error deleting disqualified node from containment db", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
 					}
 					ch <- result{nodeID: pending.NodeID, status: erred, err: err}
 					verifier.log.Debug("Reverify: order limit not created (disqualified)", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID))

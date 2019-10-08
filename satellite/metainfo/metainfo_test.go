@@ -564,6 +564,34 @@ func TestExpirationTimeSegment(t *testing.T) {
 	})
 }
 
+func TestMaxCommitInterval(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.MaxCommitInterval = -1 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
+		pointer, limits := runCreateSegment(ctx, t, metainfo, fullIDMap)
+
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not committed before max commit interval")
+	})
+}
+
 func TestDoubleCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,

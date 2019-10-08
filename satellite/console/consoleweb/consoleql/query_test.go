@@ -46,6 +46,9 @@ func TestGraphqlQuery(t *testing.T) {
 		rootObject := make(map[string]interface{})
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
+		rootObject[consoleql.LetUsKnowURL] = "letUsKnowURL"
+		rootObject[consoleql.ContactInfoURL] = "contactInfoURL"
+		rootObject[consoleql.TermsAndConditionsURL] = "termsAndConditionsURL"
 
 		creator := consoleql.TypeCreator{}
 		err = creator.Create(log, service, mailService)
