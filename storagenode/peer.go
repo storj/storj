@@ -6,6 +6,7 @@ package storagenode
 import (
 	"context"
 	"net"
+	"net/http"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -27,6 +28,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleassets"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/inspector"
@@ -349,9 +351,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		assets := consoleassets.FileSystem
+		if config.Console.StaticDir != "" {
+			// a specific directory has been configured. use it
+			assets = http.Dir(config.Console.StaticDir)
+		}
+
 		peer.Console.Endpoint = consoleserver.NewServer(
 			peer.Log.Named("console:endpoint"),
-			config.Console,
+			assets,
 			peer.Console.Service,
 			peer.Console.Listener,
 		)
