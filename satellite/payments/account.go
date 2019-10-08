@@ -9,10 +9,6 @@ import (
 
 // Accounts exposes all needed functionality to manage payment accounts
 type Accounts interface {
-	Setup(userID uuid.UUID) error
-}
-
-// Account stores all payment related information
-type Account struct {
-	Balance float64
+	// Setup creates payment account for selected user
+	Setup(userID uuid.UUID, email string) error
 }

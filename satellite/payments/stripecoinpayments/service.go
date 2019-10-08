@@ -13,11 +13,11 @@ import (
 
 // Service is an implementation for PaymentsService via Stripe and Coinpayments
 type Service struct {
-	customers StripeCustomers
+	customers Customers
 }
 
 // NewService is a constructor for PaymentService
-func NewService(customers StripeCustomers) *Service {
+func NewService(customers Customers) *Service {
 	return &Service{
 		customers: customers,
 	}

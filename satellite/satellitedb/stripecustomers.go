@@ -11,16 +11,16 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// accounts is an implementation of payments.Accounts
-type stripeCustomers struct {
+// customers is an implementation of payments.Accounts
+type customers struct {
 	db *dbx.DB
 }
 
 // Insert is a method for inserting stripe customer into the database.
-func (stripeCustomers *stripeCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) (err error) {
+func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, customerID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = stripeCustomers.db.Create_StripeCustomers(
+	_, err = customers.db.Create_StripeCustomers(
 		ctx,
 		dbx.StripeCustomers_UserId(userID[:]),
 		dbx.StripeCustomers_CustomerId(customerID),
@@ -30,18 +30,18 @@ func (stripeCustomers *stripeCustomers) Insert(ctx context.Context, userID uuid.
 }
 
 // Insert is a method for inserting stripe customer into the database.
-func (stripeCustomers *stripeCustomers) GetAllCustomerIDs(ctx context.Context) (ids []string, err error) {
+func (customers *customers) GetAllCustomerIDs(ctx context.Context) (ids []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := stripeCustomers.db.All_StripeCustomers_CustomerId_OrderBy_Asc_CreatedAt(ctx)
+	rows, err := customers.db.All_StripeCustomers_CustomerId_OrderBy_Asc_CreatedAt(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return stripeCustomers.fromDbxRowCustomerID(rows), nil
+	return customers.fromDbxRowCustomerID(rows), nil
 }
 
-func (stripeCustomers *stripeCustomers) fromDbxRowCustomerID(rows []*dbx.CustomerId_Row) (ids []string) {
+func (customers *customers) fromDbxRowCustomerID(rows []*dbx.CustomerId_Row) (ids []string) {
 	for _, row := range rows {
 		ids = append(ids, row.CustomerId)
 	}

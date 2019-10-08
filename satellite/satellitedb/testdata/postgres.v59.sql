@@ -317,8 +317,7 @@ CREATE TABLE stripe_customers (
     user_id bytea NOT NULL,
     customer_id text NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    PRIMARY KEY ( user_id, customer_id ),
-    UNIQUE ( customer_id )
+    PRIMARY KEY ( customer_id )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );

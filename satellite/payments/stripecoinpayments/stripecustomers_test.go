@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestStripeCustomersRepository(t *testing.T) {
+func TestCustomersRepository(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -28,7 +28,7 @@ func TestStripeCustomersRepository(t *testing.T) {
 		}
 
 		t.Run("Insert", func(t *testing.T) {
-			stripeCustomersIDs, err := stripecustomers.GetAllCustomerIDs(ctx)
+			stripeCustomersIDs, err := customers.GetAllCustomerIDs(ctx)
 
 			assert.NoError(t, err)
 			assert.Equal(t, len(stripeCustomersIDs), 0)

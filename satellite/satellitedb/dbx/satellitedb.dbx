@@ -880,8 +880,7 @@ read limitoffset (
 //--- satellite payments ---//
 
 model stripe_customers (
-    key user_id customer_id
-    unique customer_id
+    key customer_id
 
     field user_id     blob
     field customer_id text

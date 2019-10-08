@@ -583,6 +583,33 @@ func (m *locked) CreateTables() error {
 	return m.db.CreateTables()
 }
 
+// StripeCustomers returns table for storing stripe customers
+func (m *locked) Customers() stripecoinpayments.Customers {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedCustomers{m.Locker, m.db.Customers()}
+}
+
+// lockedCustomers implements locking wrapper for stripecoinpayments.Customers
+type lockedCustomers struct {
+	sync.Locker
+	db stripecoinpayments.Customers
+}
+
+// GetAllCustomerIDs return all ids of stripe customers stored in DB
+func (m *lockedCustomers) GetAllCustomerIDs(ctx context.Context) (ids []string, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAllCustomerIDs(ctx)
+}
+
+// Insert is a method for inserting stripe customer into the database.
+func (m *lockedCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, userID, customerID)
+}
+
 // DropSchema drops the schema
 func (m *locked) DropSchema(schema string) error {
 	m.Lock()
@@ -1198,31 +1225,4 @@ func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTal
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, latestTally, nodeData)
-}
-
-// StripeCustomers returns table for storing stripe customers
-func (m *locked) StripeCustomers() stripecoinpayments.StripeCustomers {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedStripeCustomers{m.Locker, m.db.StripeCustomers()}
-}
-
-// lockedStripeCustomers implements locking wrapper for stripecoinpayments.StripeCustomers
-type lockedStripeCustomers struct {
-	sync.Locker
-	db stripecoinpayments.StripeCustomers
-}
-
-// GetAllCustomerIDs return all ids of stripe customers stored in DB
-func (m *lockedStripeCustomers) GetAllCustomerIDs(ctx context.Context) (ids []string, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAllCustomerIDs(ctx)
-}
-
-// Insert is a method for inserting stripe customer into the database.
-func (m *lockedStripeCustomers) Insert(ctx context.Context, userID uuid.UUID, customerID string) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Insert(ctx, userID, customerID)
 }
