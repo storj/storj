@@ -8,9 +8,9 @@ import "gogo.proto";
 package graceful_exit;
 
 service GracefulExit {
-  // GetSatellitesList returns 
+  // GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
   rpc GetSatellitesList(GetSatellitesListRequest) returns (GetSatellitesListResponse);
-  // StartExit
+  // StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
   rpc StartExit(StartExitRequest) returns (StartExitResponse);
 }
 

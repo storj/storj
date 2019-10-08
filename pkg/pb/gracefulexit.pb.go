@@ -297,9 +297,9 @@ var fileDescriptor_8f0acbf2ce5fa631 = []byte{
 type DRPCGracefulExitClient interface {
 	DRPCConn() drpc.Conn
 
-	// GetSatellitesList returns
+	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
 	GetSatellitesList(ctx context.Context, in *GetSatellitesListRequest) (*GetSatellitesListResponse, error)
-	// StartExit
+	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(ctx context.Context, in *StartExitRequest) (*StartExitResponse, error)
 }
 
@@ -332,9 +332,9 @@ func (c *drpcGracefulExitClient) StartExit(ctx context.Context, in *StartExitReq
 }
 
 type DRPCGracefulExitServer interface {
-	// GetSatellitesList returns
+	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
 	GetSatellitesList(context.Context, *GetSatellitesListRequest) (*GetSatellitesListResponse, error)
-	// StartExit
+	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(context.Context, *StartExitRequest) (*StartExitResponse, error)
 }
 
@@ -415,9 +415,9 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type GracefulExitClient interface {
-	// GetSatellitesList returns
+	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
 	GetSatellitesList(ctx context.Context, in *GetSatellitesListRequest, opts ...grpc.CallOption) (*GetSatellitesListResponse, error)
-	// StartExit
+	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(ctx context.Context, in *StartExitRequest, opts ...grpc.CallOption) (*StartExitResponse, error)
 }
 
@@ -449,9 +449,9 @@ func (c *gracefulExitClient) StartExit(ctx context.Context, in *StartExitRequest
 
 // GracefulExitServer is the server API for GracefulExit service.
 type GracefulExitServer interface {
-	// GetSatellitesList returns
+	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
 	GetSatellitesList(context.Context, *GetSatellitesListRequest) (*GetSatellitesListResponse, error)
-	// StartExit
+	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(context.Context, *StartExitRequest) (*StartExitResponse, error)
 }
 
