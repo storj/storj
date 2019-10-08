@@ -25,7 +25,7 @@ node('node') {
 
         bat 'installer\\windows\\build.bat'
 
-        stash name: "storagenode-installer", includes: "release/**/storagenode.msi"
+        stash name: "storagenode-installer", includes: "release/**/storagenode*.msi"
 
         echo "Current build result: ${currentBuild.result}"
       }
@@ -58,10 +58,11 @@ node('node') {
     //     echo "Current build result: ${currentBuild.result}"
     //   }
     // }
-    // stage('Upload') {
-    //   sh 'make binaries-upload'
-    //   echo "Current build result: ${currentBuild.result}"
-    // }
+
+    stage('Upload') {
+      sh 'make binaries-upload'
+      echo "Current build result: ${currentBuild.result}"
+    }
 
   }
   catch (err) {

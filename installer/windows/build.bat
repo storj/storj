@@ -10,4 +10,4 @@ rem build the installer
 msbuild installer\windows\windows.sln
 
 rem copy the MSI to the release dir
-copy installer\windows\bin\Debug\storagenode.msi release\%TAG%\storagenode.msi
+copy installer\windows\bin\Debug\storagenode.msi release\%TAG%\storagenode_windows_amd64.msi

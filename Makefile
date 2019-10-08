@@ -272,7 +272,7 @@ binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspe
 
 .PHONY: sign-windows-installer
 sign-windows-installer: 
-	storj-sign release/${TAG}/storagenode.msi
+	storj-sign release/${TAG}/storagenode_windows_amd64.msi
 
 .PHONY: libuplink
 libuplink:
