@@ -24,40 +24,51 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
-		checker.Loop.Stop()
+		repairQueue := planet.Satellites[0].DB.RepairQueue()
+
+		checker.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
+
+		rs := &pb.RedundancyScheme{
+			MinReq:           int32(2),
+			RepairThreshold:  int32(3),
+			SuccessThreshold: int32(4),
+			Total:            int32(5),
+			ErasureShareSize: int32(256),
+		}
 
 		projectID := testrand.UUID()
 		pointerPathPrefix := storj.JoinPaths(projectID.String(), "l", "bucket") + "/"
 
-		//add noise to metainfo before bad record
+		// add some valid pointers
 		for x := 0; x < 10; x++ {
-			makePointer(t, planet, pointerPathPrefix+fmt.Sprintf("a-%d", x), false)
+			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("a-%d", x), false)
 		}
-		//create piece that needs repair
-		makePointer(t, planet, pointerPathPrefix+"b", true)
-		//add more noise to metainfo after bad record
+
+		// add pointer that needs repair
+		insertPointer(ctx, t, planet, rs, pointerPathPrefix+"b", true)
+
+		// add some valid pointers
 		for x := 0; x < 10; x++ {
-			makePointer(t, planet, pointerPathPrefix+fmt.Sprintf("c-%d", x), false)
+			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("c-%d", x), false)
 		}
-		err := checker.IdentifyInjuredSegments(ctx)
-		require.NoError(t, err)
+
+		checker.Loop.TriggerWait()
 
 		//check if the expected segments were added to the queue
-		repairQueue := planet.Satellites[0].DB.RepairQueue()
 		injuredSegment, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 
-		numValidNode := int32(len(planet.StorageNodes))
 		require.Equal(t, []byte(pointerPathPrefix+"b"), injuredSegment.Path)
-		require.Equal(t, len(planet.StorageNodes), len(injuredSegment.LostPieces))
+		require.Equal(t, int(rs.SuccessThreshold-rs.MinReq), len(injuredSegment.LostPieces))
 		for _, lostPiece := range injuredSegment.LostPieces {
-			// makePointer() starts with numValidNode good pieces
-			require.True(t, lostPiece >= numValidNode, pointerPathPrefix+fmt.Sprintf("%d >= %d \n", lostPiece, numValidNode))
-			// makePointer() than has numValidNode bad pieces
-			require.True(t, lostPiece < numValidNode*2, pointerPathPrefix+fmt.Sprintf("%d < %d \n", lostPiece, numValidNode*2))
+			require.True(t, rs.MinReq <= lostPiece && lostPiece < rs.SuccessThreshold, fmt.Sprintf("%v", lostPiece))
 		}
+
+		_, err = repairQueue.Select(ctx)
+		require.Error(t, err)
 	})
 }
 
@@ -176,45 +187,40 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 	})
 }
 
-func makePointer(t *testing.T, planet *testplanet.Planet, pointerPath string, createLost bool) {
-	ctx := context.TODO()
-	numOfStorageNodes := len(planet.StorageNodes)
-	pieces := make([]*pb.RemotePiece, 0, numOfStorageNodes)
-	// use online nodes
-	for i := 0; i < numOfStorageNodes; i++ {
-		pieces = append(pieces, &pb.RemotePiece{
-			PieceNum: int32(i),
-			NodeId:   planet.StorageNodes[i].Identity.ID,
-		})
-	}
-	// simulate offline nodes equal to the number of online nodes
-	if createLost {
-		for i := 0; i < numOfStorageNodes; i++ {
-			pieces = append(pieces, &pb.RemotePiece{
-				PieceNum: int32(numOfStorageNodes + i),
-				NodeId:   storj.NodeID{byte(i)},
-			})
+func insertPointer(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs *pb.RedundancyScheme, pointerPath string, createLost bool) {
+	pieces := make([]*pb.RemotePiece, rs.SuccessThreshold)
+	if !createLost {
+		for i := range pieces {
+			pieces[i] = &pb.RemotePiece{
+				PieceNum: int32(i),
+				NodeId:   planet.StorageNodes[i].Identity.ID,
+			}
+		}
+	} else {
+		for i := range pieces[:rs.MinReq] {
+			pieces[i] = &pb.RemotePiece{
+				PieceNum: int32(i),
+				NodeId:   planet.StorageNodes[i].Identity.ID,
+			}
+		}
+		for i := rs.MinReq; i < rs.SuccessThreshold; i++ {
+			pieces[i] = &pb.RemotePiece{
+				PieceNum: i,
+				NodeId:   storj.NodeID{byte(0xFF)},
+			}
 		}
 	}
-	minReq, repairThreshold := numOfStorageNodes-1, numOfStorageNodes-1
-	if createLost {
-		minReq, repairThreshold = numOfStorageNodes-1, numOfStorageNodes+1
-	}
+
 	pointer := &pb.Pointer{
 		Type:         pb.Pointer_REMOTE,
 		CreationDate: time.Now(),
 		Remote: &pb.RemoteSegment{
-			Redundancy: &pb.RedundancyScheme{
-				MinReq:           int32(minReq),
-				RepairThreshold:  int32(repairThreshold),
-				SuccessThreshold: int32(repairThreshold) + 1,
-				Total:            int32(repairThreshold) + 2,
-				ErasureShareSize: int32(256),
-			},
+			Redundancy:   rs,
 			RootPieceId:  testrand.PieceID(),
 			RemotePieces: pieces,
 		},
 	}
+
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
 	err := pointerdb.Put(ctx, pointerPath, pointer)

@@ -3,12 +3,7 @@
 
 // AuthToken exposes methods to manage auth cookie
 export class AuthToken {
-    private static readonly tokenKeySuffix: string = '_tokenKey';
     private static tokenKey: string = '_tokenKey';
-
-    public static initialize(): void {
-        AuthToken.tokenKey = (document as any).location.hostname + AuthToken.tokenKeySuffix;
-    }
 
     public static get(): string {
         return AuthToken.getCookie(AuthToken.tokenKey);
@@ -42,5 +37,3 @@ export class AuthToken {
         return '';
     }
 }
-
-AuthToken.initialize();
