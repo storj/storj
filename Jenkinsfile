@@ -39,25 +39,25 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    // stage('Build Images') {
-    //   sh 'make images'
+    stage('Build Images') {
+      sh 'make images'
 
-    //   echo "Current build result: ${currentBuild.result}"
-    // }
+      echo "Current build result: ${currentBuild.result}"
+    }
 
-    // stage('Push Images') {
-    //   echo 'Push to Repo'
-    //   sh 'make push-images'
-    //   echo "Current build result: ${currentBuild.result}"
-    // }
+    stage('Push Images') {
+      echo 'Push to Repo'
+      sh 'make push-images'
+      echo "Current build result: ${currentBuild.result}"
+    }
 
-    // if (env.BRANCH_NAME == "master") {
-    //   /* This should only deploy to staging if the branch is master */
-    //   stage('Deploy to staging') {
-    //     sh 'make deploy'
-    //     echo "Current build result: ${currentBuild.result}"
-    //   }
-    // }
+    if (env.BRANCH_NAME == "master") {
+      /* This should only deploy to staging if the branch is master */
+      stage('Deploy to staging') {
+        sh 'make deploy'
+        echo "Current build result: ${currentBuild.result}"
+      }
+    }
 
     stage('Upload') {
       sh 'make binaries-upload'
@@ -70,13 +70,13 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    // slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed ${env.BUILD_URL}"
+    slackSend color: 'danger', message: "@channel ${env.BRANCH_NAME} build failed ${env.BUILD_URL}"
 
-    // mail from: 'builds@storj.io',
-    //   replyTo: 'builds@storj.io',
-    //   to: 'builds@storj.io',
-    //   subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
-    //   body: "Project build log: ${env.BUILD_URL}"
+    mail from: 'builds@storj.io',
+      replyTo: 'builds@storj.io',
+      to: 'builds@storj.io',
+      subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
+      body: "Project build log: ${env.BUILD_URL}"
 
       throw err
 
