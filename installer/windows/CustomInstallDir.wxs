@@ -33,7 +33,7 @@ Patch dialog sequence:
         <CustomAction Id="CA.ValidateStorage" BinaryKey="StorjDLL" DllEntry="ValidateStorage" Return="check" />
         <CustomAction Id="CA.ValidateBandwidth" BinaryKey="StorjDLL" DllEntry="ValidateBandwidth" Return="check" />
 
-		<UI Id="CustomInstallDir">
+        <UI Id="CustomInstallDir">
             <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
             <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
             <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
@@ -56,7 +56,7 @@ Patch dialog sequence:
             <Publish Dialog="BrowseDlg" Control="OK" Event="SpawnDialog" Value="InvalidDirDlg" Order="4"><![CDATA[NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID<>"1"]]></Publish>
 
             <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
-			<Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"  Value="LaunchSNOBoard">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"  Value="LaunchSNOBoard">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
 
             <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">NOT Installed</Publish>
             <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH</Publish>
