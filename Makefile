@@ -142,6 +142,8 @@ storagenode-console:
 	docker run --rm -i \
 		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
 		-w /go/src/storj.io/storj/web/storagenode \
+		-e HOME=/tmp \
+		-u $(shell id -u):$(shell id -g) \
 		node:10.15.1 \
 	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
