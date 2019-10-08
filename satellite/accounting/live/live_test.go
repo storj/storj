@@ -21,6 +21,8 @@ import (
 
 func TestPlainMemoryLiveAccounting(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	config := Config{
 		StorageBackend: "plainmemory",
 	}
@@ -45,6 +47,8 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 
 func TestRedisLiveAccounting(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	address, cleanup, err := redisserver.Start()
 	require.NoError(t, err)
 	defer cleanup()
@@ -82,6 +86,9 @@ func TestRedisLiveAccounting(t *testing.T) {
 }
 
 func TestResetTotals(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	config := Config{
 		StorageBackend: "plainmemory:",
 	}
@@ -91,8 +98,6 @@ func TestResetTotals(t *testing.T) {
 	// ensure we are using the expected underlying type
 	_, ok := service.(*plainMemoryLiveAccounting)
 	require.True(t, ok)
-
-	ctx := context.Background()
 
 	projectID := testrand.UUID()
 	err = service.AddProjectStorageUsage(ctx, projectID, 0, -20)
