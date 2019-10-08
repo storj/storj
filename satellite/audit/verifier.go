@@ -92,6 +92,14 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return nil, err
 	}
 
+	defer func() {
+		// if piece hashes have not been verified for this segment, do not mark nodes as failing audit
+		if !pointer.PieceHashesVerified {
+			report.PendingAudits = nil
+			report.Fails = nil
+		}
+	}()
+
 	randomIndex, err := GetRandomStripe(ctx, pointer)
 	if err != nil {
 		return nil, err
@@ -114,7 +122,10 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	// the skip list
 	offlineNodes = getOfflineNodes(pointer, orderLimits, skip)
 	if len(offlineNodes) > 0 {
-		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)", zap.String("Segment Path", path), zap.Strings("Node IDs", offlineNodes.Strings()))
+		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)",
+			zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
+			zap.String("Segment Path", path),
+			zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
 
 	shares, err := verifier.DownloadShares(ctx, orderLimits, privateKey, randomIndex, shareSize)
@@ -141,37 +152,61 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			if errs.Is(share.Error, context.DeadlineExceeded) {
 				// dial timeout
 				offlineNodes = append(offlineNodes, share.NodeID)
-				verifier.log.Debug("Verify: dial timeout (offline)", zap.String("Segment Path", path), zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
+				verifier.log.Debug("Verify: dial timeout (offline)",
+					zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
+					zap.String("Segment Path", path),
+					zap.Stringer("Node ID", share.NodeID),
+					zap.Error(share.Error))
 				continue
 			}
 			if errs2.IsRPC(share.Error, rpcstatus.Unknown) {
 				// dial failed -- offline node
 				offlineNodes = append(offlineNodes, share.NodeID)
-				verifier.log.Debug("Verify: dial failed (offline)", zap.String("Segment Path", path), zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
+				verifier.log.Debug("Verify: dial failed (offline)",
+					zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
+					zap.String("Segment Path", path),
+					zap.Stringer("Node ID", share.NodeID),
+					zap.Error(share.Error))
 				continue
 			}
 			// unknown transport error
 			containedNodes[pieceNum] = share.NodeID
-			verifier.log.Debug("Verify: unknown transport error (contained)", zap.String("Segment Path", path), zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
+			verifier.log.Debug("Verify: unknown transport error (contained)",
+				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
+				zap.String("Segment Path", path),
+				zap.Stringer("Node ID", share.NodeID),
+				zap.Error(share.Error))
 		}
 
 		if errs2.IsRPC(share.Error, rpcstatus.NotFound) {
 			// missing share
 			failedNodes = append(failedNodes, share.NodeID)
-			verifier.log.Debug("Verify: piece not found (audit failed)", zap.String("Segment Path", path), zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
+			verifier.log.Debug("Verify: piece not found (audit failed)",
+				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
+				zap.String("Segment Path", path),
+				zap.Stringer("Node ID", share.NodeID),
+				zap.Error(share.Error))
 			continue
 		}
 
 		if errs2.IsRPC(share.Error, rpcstatus.DeadlineExceeded) {
 			// dial successful, but download timed out
 			containedNodes[pieceNum] = share.NodeID
-			verifier.log.Debug("Verify: download timeout (contained)", zap.String("Segment Path", path), zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
+			verifier.log.Debug("Verify: download timeout (contained)",
+				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
+				zap.String("Segment Path", path),
+				zap.Stringer("Node ID", share.NodeID),
+				zap.Error(share.Error))
 			continue
 		}
 
 		// unknown error
 		containedNodes[pieceNum] = share.NodeID
-		verifier.log.Debug("Verify: unknown error (contained)", zap.String("Segment Path", path), zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
+		verifier.log.Debug("Verify: unknown error (contained)",
+			zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
+			zap.String("Segment Path", path),
+			zap.Stringer("Node ID", share.NodeID),
+			zap.Error(share.Error))
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
@@ -323,6 +358,27 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		return nil, err
 	}
 
+	pieceHashesVerified := make(map[storj.NodeID]bool)
+	defer func() {
+		// for each node in Fails and PendingAudits, remove if piece hashes not verified for that segment
+		newFails := storj.NodeIDList{}
+		newPendingAudits := []*PendingAudit{}
+
+		for _, id := range report.Fails {
+			if pieceHashesVerified[id] {
+				newFails = append(newFails, id)
+			}
+		}
+		for _, pending := range report.PendingAudits {
+			if pieceHashesVerified[pending.NodeID] {
+				newPendingAudits = append(newPendingAudits, pending)
+			}
+		}
+
+		report.Fails = newFails
+		report.PendingAudits = newPendingAudits
+	}()
+
 	pieces := pointer.GetRemote().GetRemotePieces()
 	ch := make(chan result, len(pieces))
 	var containedInSegment int64
@@ -357,6 +413,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				verifier.log.Debug("Reverify: error getting pending pointer from metainfo", zap.String("Segment Path", pending.Path), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 				return
 			}
+
+			// set whether piece hashes have been verified for this segment so we know whether to report a failed or pending audit for this node
+			pieceHashesVerified[pending.NodeID] = pendingPointer.PieceHashesVerified
+
 			if pendingPointer.GetRemote().RootPieceId != pending.PieceID {
 				// segment has changed since initial containment
 				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)

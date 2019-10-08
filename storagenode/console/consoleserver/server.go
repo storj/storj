@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -44,7 +43,6 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config   Config
 	service  *console.Service
 	listener net.Listener
 
@@ -52,23 +50,23 @@ type Server struct {
 }
 
 // NewServer creates new instance of storagenode console web server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, assets http.FileSystem, service *console.Service, listener net.Listener) *Server {
 	server := Server{
 		log:      logger,
 		service:  service,
-		config:   config,
 		listener: listener,
 	}
 
-	var fs http.Handler
 	mux := http.NewServeMux()
 
-	// handle static pages
-	if config.StaticDir != "" {
-		fs = http.FileServer(http.Dir(server.config.StaticDir))
-
+	if assets != nil {
+		fs := http.FileServer(assets)
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			req := r.Clone(r.Context())
+			req.URL.Path = "/dist/"
+			fs.ServeHTTP(w, req)
+		}))
 	}
 
 	// handle api endpoints
@@ -104,11 +102,6 @@ func (server *Server) Run(ctx context.Context) (err error) {
 // Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return server.server.Close()
-}
-
-// appHandler is web app http handler function.
-func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "dist", "index.html"))
 }
 
 // dashboardHandler handles dashboard API requests.
