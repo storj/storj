@@ -270,8 +270,8 @@ BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
 
-.PHONY: binaries
-binaries: sign-windows-installer
+.PHONY: sign-windows-installer
+sign-windows-installer: 
 	storj-sign release/${TAG}/storagenode.msi
 
 .PHONY: libuplink
