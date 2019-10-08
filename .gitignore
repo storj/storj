@@ -34,4 +34,3 @@ debug
 resource.syso
 
 *.resource.go
-bindata.go

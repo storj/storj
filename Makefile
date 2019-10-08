@@ -145,10 +145,10 @@ storagenode-console:
 		node:10.15.1 \
 	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
-	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
+	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
 	# configure existing go code to know about the new assets
-	/bin/echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.go
-	gofmt -w -s storagenode/console/consoleassets/bindata.go
+	/bin/echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
+	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
 .PHONY: images
 images: bootstrap-image gateway-image satellite-image storagenode-image uplink-image versioncontrol-image ## Build bootstrap, gateway, satellite, storagenode, uplink, and versioncontrol Docker images

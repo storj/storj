@@ -17,7 +17,6 @@ import (
 
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
-	"storj.io/storj/storagenode/console/consoleassets"
 )
 
 const (
@@ -34,7 +33,8 @@ var (
 
 // Config contains configuration for storagenode console web server.
 type Config struct {
-	Address string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
+	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
+	StaticDir string `help:"path to static resources" default:""`
 }
 
 // Server represents storagenode console web server.
@@ -57,18 +57,17 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, service *console.Serv
 		listener: listener,
 	}
 
-	//fs = http.FileServer(consoleassets.FileSystem)
-	var (
-		fs  = http.FileServer(consoleassets.FileSystem)
-		mux = http.NewServeMux()
-	)
+	mux := http.NewServeMux()
 
-	mux.Handle("/static/", http.StripPrefix("/static", fs))
-	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := r.Clone(r.Context())
-		req.URL.Path = "/dist/"
-		fs.ServeHTTP(w, req)
-	}))
+	if assets != nil {
+		fs := http.FileServer(assets)
+		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			req := r.Clone(r.Context())
+			req.URL.Path = "/dist/"
+			fs.ServeHTTP(w, req)
+		}))
+	}
 
 	// handle api endpoints
 	mux.Handle("/api/dashboard", http.HandlerFunc(server.dashboardHandler))
