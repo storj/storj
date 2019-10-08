@@ -125,7 +125,6 @@ export default class DashboardArea extends Vue {
         const awailableRoutes = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
             RouteConfig.Account.with(RouteConfig.Profile).path,
-            RouteConfig.Account.with(RouteConfig.PaymentMethods).path,
             RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path,
         ];
 
