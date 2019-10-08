@@ -274,6 +274,10 @@ BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
 
+.PHONY: sign-windows-installer
+sign-windows-installer: 
+	storj-sign release/${TAG}/storagenode_windows_amd64.msi
+
 .PHONY: libuplink
 libuplink:
 	go build -ldflags="-s -w" -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
