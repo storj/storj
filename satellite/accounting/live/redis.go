@@ -52,14 +52,14 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added InlineSpaceUsed bytes of inline space usage
 // and RemoteSpaceUsed bytes of remote space usage.
-func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, InlineSpaceUsed, RemoteSpaceUsed int64) error {
+func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
 	curInlineTotal, curRemoteTotal, err := cache.GetProjectStorageUsage(ctx, projectID)
 	if err != nil {
 		return err
 	}
 	totalSpaceUsed := spaceUsedAccounting{
-		InlineSpace: curInlineTotal + InlineSpaceUsed,
-		RemoteSpace: curRemoteTotal + RemoteSpaceUsed,
+		InlineSpace: curInlineTotal + inlineSpaceUsed,
+		RemoteSpace: curRemoteTotal + remoteSpaceUsed,
 	}
 	marshalled, err := json.Marshal(totalSpaceUsed)
 	if err != nil {

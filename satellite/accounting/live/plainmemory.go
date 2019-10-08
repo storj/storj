@@ -44,12 +44,12 @@ func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Contex
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added InlineSpaceUsed bytes of inline space usage
 // and RemoteSpaceUsed bytes of remote space usage.
-func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, InlineSpaceUsed, RemoteSpaceUsed int64) error {
+func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]
-	curVal.InlineSpace += InlineSpaceUsed
-	curVal.RemoteSpace += RemoteSpaceUsed
+	curVal.InlineSpace += inlineSpaceUsed
+	curVal.RemoteSpace += remoteSpaceUsed
 	pmac.spaceDeltas[projectID] = curVal
 	return nil
 }
