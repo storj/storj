@@ -4,85 +4,130 @@
 package main
 
 import (
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
-func TestMapConfigs(t *testing.T) {
+func TestMapDeprecatedConfigs(t *testing.T) {
 	log := zap.L()
 
 	cases := []struct {
-		testID          string
-		newExternalAddr string
-		oldExternalAddr string
-		expectedAddr    string
-		newWallet       string
-		oldWallet       string
-		expectedWallet  string
-		newEmail        string
-		oldEmail        string
-		expectedEmail   string
+		testID                 string
+		newExternalAddr        string
+		deprecatedExternalAddr string
+		expectedAddr           string
+		newWallet              string
+		deprecatedWallet       string
+		expectedWallet         string
+		newEmail               string
+		deprecatedEmail        string
+		expectedEmail          string
 	}{
-		{testID: "new and old present, use new",
-			newExternalAddr: "newAddr",
-			oldExternalAddr: "oldAddr",
-			expectedAddr:    "newAddr",
-			newWallet:       "newWallet",
-			oldWallet:       "oldWallet",
-			expectedWallet:  "newWallet",
-			newEmail:        "newEmail",
-			oldEmail:        "oldEmail",
-			expectedEmail:   "newEmail",
+		{testID: "deprecated present, override",
+			newExternalAddr:        "newAddr",
+			deprecatedExternalAddr: "oldAddr",
+			expectedAddr:           "oldAddr",
+			newWallet:              "newWallet",
+			deprecatedWallet:       "oldWallet",
+			expectedWallet:         "oldWallet",
+			newEmail:               "newEmail",
+			deprecatedEmail:        "oldEmail",
+			expectedEmail:          "oldEmail",
 		},
-		{testID: "old present, new not, use old",
-			newExternalAddr: "",
-			oldExternalAddr: "oldAddr",
-			expectedAddr:    "oldAddr",
-			newWallet:       "",
-			oldWallet:       "oldWallet",
-			expectedWallet:  "oldWallet",
-			newEmail:        "",
-			oldEmail:        "oldEmail",
-			expectedEmail:   "oldEmail",
-		},
-		{testID: "new present, old not, use new",
-			newExternalAddr: "newAddr",
-			oldExternalAddr: "",
-			expectedAddr:    "newAddr",
-			newWallet:       "newWallet",
-			oldWallet:       "",
-			expectedWallet:  "newWallet",
-			newEmail:        "newEmail",
-			oldEmail:        "",
-			expectedEmail:   "newEmail",
-		},
-		{testID: "neither present",
-			newExternalAddr: "",
-			oldExternalAddr: "",
-			expectedAddr:    "",
-			newWallet:       "",
-			oldWallet:       "",
-			expectedWallet:  "",
-			newEmail:        "",
-			oldEmail:        "",
-			expectedEmail:   "",
+		{testID: "deprecated absent, do not override",
+			newExternalAddr:        "newAddr",
+			deprecatedExternalAddr: "",
+			expectedAddr:           "newAddr",
+			newWallet:              "newWallet",
+			deprecatedWallet:       "",
+			expectedWallet:         "newWallet",
+			newEmail:               "newEmail",
+			deprecatedEmail:        "",
+			expectedEmail:          "newEmail",
 		},
 	}
 	for _, c := range cases {
 		testCase := c
 		t.Run(testCase.testID, func(t *testing.T) {
 			runCfg.Contact.ExternalAddress = testCase.newExternalAddr
-			runCfg.Kademlia.ExternalAddress = testCase.oldExternalAddr
+			runCfg.Deprecated.Kademlia.ExternalAddress = testCase.deprecatedExternalAddr
 			runCfg.Operator.Wallet = testCase.newWallet
-			runCfg.Kademlia.Operator.Wallet = testCase.oldWallet
+			runCfg.Deprecated.Kademlia.Operator.Wallet = testCase.deprecatedWallet
 			runCfg.Operator.Email = testCase.newEmail
-			runCfg.Kademlia.Operator.Email = testCase.oldEmail
+			runCfg.Deprecated.Kademlia.Operator.Email = testCase.deprecatedEmail
 			mapDeprecatedConfigs(log)
 			require.Equal(t, testCase.expectedAddr, runCfg.Contact.ExternalAddress)
 			require.Equal(t, testCase.expectedWallet, runCfg.Operator.Wallet)
 			require.Equal(t, testCase.expectedEmail, runCfg.Operator.Email)
+		})
+	}
+}
+
+func TestParseOverride(t *testing.T) {
+	cases := []struct {
+		testID            string
+		newConfigValue    interface{}
+		oldConfigValue    string
+		expectedNewConfig interface{}
+	}{
+		{testID: "test new config is untouched if deprecated is undefined",
+			newConfigValue:    "test-string",
+			oldConfigValue:    "",
+			expectedNewConfig: "test-string",
+		},
+		{testID: "test migrate int",
+			newConfigValue:    int(1),
+			oldConfigValue:    "100",
+			expectedNewConfig: int(100),
+		},
+		{testID: "test migrate int64",
+			newConfigValue:    int64(1),
+			oldConfigValue:    "100",
+			expectedNewConfig: int64(100),
+		},
+		{testID: "test migrate uint",
+			newConfigValue:    uint(1),
+			oldConfigValue:    "2",
+			expectedNewConfig: uint(2),
+		},
+		{testID: "test migrate uint64",
+			newConfigValue:    uint64(1),
+			oldConfigValue:    "100",
+			expectedNewConfig: uint64(100),
+		},
+		{testID: "test migrate time.Duration",
+			newConfigValue:    1 * time.Hour,
+			oldConfigValue:    "100h",
+			expectedNewConfig: 100 * time.Hour,
+		},
+		{testID: "test migrate float64",
+			newConfigValue:    0.5,
+			oldConfigValue:    "1.5",
+			expectedNewConfig: 1.5,
+		},
+		{testID: "test migrate string",
+			newConfigValue:    "example@example.com",
+			oldConfigValue:    "migrate@migrate.com",
+			expectedNewConfig: "migrate@migrate.com",
+		},
+		{testID: "test migrate bool",
+			newConfigValue:    false,
+			oldConfigValue:    "true",
+			expectedNewConfig: true,
+		},
+	}
+	for _, c := range cases {
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			if testCase.oldConfigValue != "" {
+				typ := reflect.TypeOf(testCase.newConfigValue)
+				testCase.newConfigValue = parseOverride(typ, testCase.oldConfigValue)
+			}
+			require.Equal(t, testCase.expectedNewConfig, testCase.newConfigValue)
 		})
 	}
 }
