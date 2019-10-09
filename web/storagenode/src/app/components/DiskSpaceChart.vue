@@ -18,7 +18,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VChart from '@/app/components/VChart.vue';
 import { ChartData } from '@/app/types/chartData';
-import { ChartUtils } from '@/app/utils/chartUtils';
+import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
 import { Stamp } from '@/storagenode/satellite';
 
@@ -93,7 +93,7 @@ export default class DiskSpaceChart extends Vue {
             const position = diskSpaceChart.getBoundingClientRect();
             tooltipEl.style.opacity = '1';
             tooltipEl.style.position = 'absolute';
-            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - 20 + 'px';
+            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - 10 + 'px';
             tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
         }
 
@@ -103,6 +103,10 @@ export default class DiskSpaceChart extends Vue {
 </script>
 
 <style lang="scss">
+    p {
+        margin: 0;
+    }
+
     #disk-space-tooltip {
         background-color: #FFFFFF;
         width: auto;
