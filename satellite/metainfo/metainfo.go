@@ -1547,8 +1547,9 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
-			limit, keyInfo.ProjectID,
+		endpoint.log.Error("The project limit of storage and bandwidth has been exceeded",
+			zap.Int64("limit", limit.Int64()),
+			zap.String("project id", keyInfo.ProjectID.String()),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -1565,13 +1566,21 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if pointer.Type == pb.Pointer_REMOTE {
 		//We cannot have more redundancy than total/min
 		if float64(remoteUsed) > (float64(pointer.SegmentSize)/float64(pointer.Remote.Redundancy.MinReq))*float64(pointer.Remote.Redundancy.Total) {
-			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d, RS Min, Total: %d,%d", pointer.SegmentSize, remoteUsed, pointer.Remote.Redundancy.MinReq, pointer.Remote.Redundancy.Total)
+			endpoint.log.Debug("data size mismatch",
+				zap.Int64("segment", pointer.SegmentSize),
+				zap.Int64("pieces", remoteUsed),
+				zap.Int32("redundancy minimum requested", pointer.Remote.Redundancy.MinReq),
+				zap.Int32("redundancy total", pointer.Remote.Redundancy.Total),
+			)
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
 		}
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
-		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
+		endpoint.log.Error("Could not track new storage usage by project",
+			zap.String("projectID", keyInfo.ProjectID.String()),
+			zap.Error(err),
+		)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
