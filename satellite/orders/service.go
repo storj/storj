@@ -711,7 +711,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, bucketID []byte, nodeID storj.NodeID, pieceNum int32, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	orderExpiration := time.Now().Add(service.orderExpiration)
+	orderExpiration := time.Now().UTC().Add(service.orderExpiration)
 
 	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 	if err != nil {
@@ -745,7 +745,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		PieceId:          rootPieceID.Derive(nodeID, pieceNum),
 		Action:           pb.PieceAction_PUT_GRACEFUL_EXIT,
 		Limit:            int64(shareSize),
-		OrderCreation:    time.Now(),
+		OrderCreation:    time.Now().UTC(),
 		OrderExpiration:  orderExpiration,
 	})
 	if err != nil {

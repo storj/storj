@@ -69,36 +69,36 @@ func newPendingMap() *pendingMap {
 }
 
 // put adds to the map.
-func (pt *pendingMap) put(pieceID storj.PieceID, pendingTransfer *pendingTransfer) {
-	pt.mu.Lock()
-	defer pt.mu.Unlock()
+func (pm *pendingMap) put(pieceID storj.PieceID, pendingTransfer *pendingTransfer) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
-	pt.data[pieceID] = pendingTransfer
+	pm.data[pieceID] = pendingTransfer
 }
 
 // get returns the pending transfer item from the map, if it exists.
-func (pt *pendingMap) get(pieceID storj.PieceID) (pendingTransfer *pendingTransfer, ok bool) {
-	pt.mu.RLock()
-	defer pt.mu.RUnlock()
+func (pm *pendingMap) get(pieceID storj.PieceID) (pendingTransfer *pendingTransfer, ok bool) {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
 
-	pendingTransfer, ok = pt.data[pieceID]
+	pendingTransfer, ok = pm.data[pieceID]
 	return pendingTransfer, ok
 }
 
 // length returns the number of elements in the map.
-func (pt *pendingMap) length() int {
-	pt.mu.RLock()
-	defer pt.mu.RUnlock()
+func (pm *pendingMap) length() int {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
 
-	return len(pt.data)
+	return len(pm.data)
 }
 
 // delete removes the pending transfer item from the map.
-func (pt *pendingMap) delete(pieceID storj.PieceID) {
-	pt.mu.Lock()
-	defer pt.mu.Unlock()
+func (pm *pendingMap) delete(pieceID storj.PieceID) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
-	delete(pt.data, pieceID)
+	delete(pm.data, pieceID)
 }
 
 // DRPC returns a DRPC form of the endpoint.

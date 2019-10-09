@@ -85,7 +85,7 @@ func TestInitiate(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		// make sure all the pieces are in the transfer queue
-		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), numMessages+1, 0)
+		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), numMessages, 0)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, numMessages)
 
