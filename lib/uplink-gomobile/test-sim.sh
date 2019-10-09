@@ -20,10 +20,6 @@ cleanup(){
 }
 trap cleanup EXIT
 
-# build aar file and move it to android project for testing
-$SCRIPTDIR/build.sh
-mv -f libuplink-android* $SCRIPTDIR/libuplink_android/app/libs/
-
 # start Android emulator, headless version
 PORT=6000
 SERIAL=emulator-${PORT}
@@ -35,6 +31,12 @@ echo "no" | $ANDROID_HOME/tools/android create avd --name "${AVD_NAME}" -k "syst
 echo "AVD ${AVD_NAME} created."
 
 $ANDROID_HOME/emulator/emulator -avd ${AVD_NAME} -port ${PORT} -no-window -no-accel -no-audio -no-boot-anim 2>&1 &
+
+# build aar file and move it to android project for testing
+$SCRIPTDIR/build.sh
+mkdir -p "$SCRIPTDIR/libuplink_android/app/libs/"
+mv -f libuplink-android* "$SCRIPTDIR/libuplink_android/app/libs/"
+
 #Ensure Android Emulator has booted successfully before continuing
 # TODO add max number of checks and timeout
 while [ "`adb shell getprop sys.boot_completed | tr -d '\r' `" != "1" ] ; do sleep 3; done
