@@ -51,6 +51,7 @@ func TestInitiate(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, exitingNodeIDs, 0)
 
+		// connect to satellite so we initiate the exit.
 		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
 		require.NoError(t, err)
 		defer func() {
@@ -65,6 +66,7 @@ func TestInitiate(t *testing.T) {
 		response, err := c.Recv()
 		require.NoError(t, err)
 
+		// should get a NotReady since the metainfo loop would not be finished at this point.
 		switch response.GetMessage().(type) {
 		case *pb.SatelliteMessage_NotReady:
 			// now check that the exiting node is initiated.
@@ -82,10 +84,12 @@ func TestInitiate(t *testing.T) {
 		// trigger the metainfo loop chore so we can get some pieces to transfer
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
+		// make sure all the pieces are in the transfer queue
 		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), numMessages+1, 0)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, numMessages)
 
+		// connect to satellite again to start receiving transfers
 		c, err = client.Process(ctx, grpc.EmptyCallOption{})
 		require.NoError(t, err)
 		defer func() {
@@ -138,18 +142,19 @@ func TestInitiate(t *testing.T) {
 					require.NoError(t, err)
 				}
 			case *pb.SatelliteMessage_ExitCompleted:
+				// TODO test completed signature stuff
 				break
 			default:
 				t.FailNow()
 			}
 		}
 
+		// check that the exit has completed and we have the correct transferred/failed values
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
 		require.NoError(t, err)
 
 		require.Equal(t, int64(numMessages), progress.PiecesTransferred)
 		// even though we failed 1, it eventually succeeded, so the count should be 0
 		require.Equal(t, int64(0), progress.PiecesFailed)
-
 	})
 }
