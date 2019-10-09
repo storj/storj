@@ -128,7 +128,6 @@ func (driver *Driver) ListBuckets(ctx context.Context) (bucketItems []os.FileInf
 	defer mon.Task()(&ctx)(&err)
 
 	startAfter := ""
-	files := make([]os.FileInfo, 0)
 	listOpts := storj.BucketListOptions{
 		Direction: storj.Forward,
 		Cursor:    startAfter,
@@ -139,7 +138,7 @@ func (driver *Driver) ListBuckets(ctx context.Context) (bucketItems []os.FileInf
 			return nil, err
 		}
 		for _, item := range list.Items {
-			files = append(files, virtualFileInfo{
+			bucketItems = append(bucketItems, virtualFileInfo{
 				name:    item.Name,
 				modTime: item.Created,
 				size:    0,
@@ -159,6 +158,9 @@ func (driver *Driver) ListBuckets(ctx context.Context) (bucketItems []os.FileInf
 func ParsePath(path string) (context.Context, string, string) {
 	ctx := context.TODO()
 	defer mon.Task()(&ctx)
+	if len(path) > 0 && path[0] == '/' {
+		path = path[1:]
+	}
 	parts := strings.SplitN(path, "/", 1)
 	if len(parts) == 1 {
 		return ctx, parts[0], ""

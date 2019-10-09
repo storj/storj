@@ -64,7 +64,7 @@ var (
 )
 
 func main() {
-	logger, _ := zap.NewProduction()
+	logger, _ = zap.NewProduction()
 	defaultConfDir := fpath.ApplicationDir("storj", "ftp")
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "gateway")
 	cfgstruct.SetupFlag(logger, rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for FTP configuration")
@@ -91,7 +91,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		address = net.JoinHostPort("127.0.0.1", port)
 	}
 	//basic housekeeping
-	defer logger.Sync()
+	//defer logger.Sync()
 	ctx, _ := process.Ctx(cmd)
 	if err := process.InitMetrics(ctx, logger, nil, ""); err != nil {
 		logger.Warn("Failed to initialize telemetry batcher", zap.Error(err))
