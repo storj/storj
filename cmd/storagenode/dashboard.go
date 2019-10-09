@@ -138,7 +138,6 @@ func printDashboard(data *pb.DashboardResponse) error {
 
 	w = tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 	// TODO: Get addresses from server data
-	fmt.Fprintf(w, "\nBootstrap\t%s\n", color.WhiteString(data.GetBootstrapAddress()))
 	fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(dashboardCfg.Address))
 	fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
 	// Disabling the Link to the Dashboard as its not working yet

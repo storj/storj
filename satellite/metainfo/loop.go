@@ -76,19 +76,19 @@ type LoopConfig struct {
 //
 // architecture: Service
 type Loop struct {
-	config   LoopConfig
-	metainfo *Service
-	join     chan *observerContext
-	done     chan struct{}
+	config LoopConfig
+	db     PointerDB
+	join   chan *observerContext
+	done   chan struct{}
 }
 
 // NewLoop creates a new metainfo loop service.
-func NewLoop(config LoopConfig, metainfo *Service) *Loop {
+func NewLoop(config LoopConfig, db PointerDB) *Loop {
 	return &Loop{
-		metainfo: metainfo,
-		config:   config,
-		join:     make(chan *observerContext),
-		done:     make(chan struct{}),
+		db:     db,
+		config: config,
+		join:   make(chan *observerContext),
+		done:   make(chan struct{}),
 	}
 }
 
@@ -174,7 +174,7 @@ waitformore:
 		}
 	}
 
-	err = loop.metainfo.Iterate(ctx, "", "", true, false,
+	err = loop.db.Iterate(ctx, storage.IterateOptions{Recurse: true},
 		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
