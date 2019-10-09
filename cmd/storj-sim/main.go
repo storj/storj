@@ -20,7 +20,8 @@ type Flags struct {
 	StorageNodeCount int
 	Identities       int
 
-	IsDev bool
+	IsDev    bool
+	LogLevel string
 
 	OnlyEnv bool // only do things necessary for loading env vars
 
@@ -55,6 +56,7 @@ func main() {
 
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
+	rootCmd.PersistentFlags().StringVarP(&flags.LogLevel, "log.level", "l", "debug", "logging level to use")
 
 	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", "", "connection string for postgres. If provided, storj-sim will use postgres for all databases that support it.")
 

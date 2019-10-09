@@ -40,28 +40,28 @@ type Driver struct {
 	redundancy  storj.RedundancyScheme
 	segmentSize memory.Size
 
-	Logger       zap.Logger  // Logger
+	Logger       *zap.Logger // Logger
 	SettingsFile string      // Settings file
 	tlsConfig    *tls.Config // TLS config (if applies)
 	nbClients    int32       // Number of clients
 	server       server.Settings
 }
 
-// NewDriver creates a FTP session handler
-func NewDriver(project *uplink.Project, access *uplink.EncryptionAccess, pathCipher storj.CipherSuite, encryption storj.EncryptionParameters,
-	redundancy storj.RedundancyScheme, segmentSize memory.Size) *Driver {
-	return &Driver{
+// NewFtpServer creates a FTP session handler
+func NewFtpServer(project *uplink.Project, access *uplink.EncryptionAccess, pathCipher storj.CipherSuite, encryption storj.EncryptionParameters,
+	redundancy storj.RedundancyScheme, segmentSize memory.Size, logger *zap.Logger) *server.FtpServer {
+	driver := &Driver{
 		project:     project,
 		access:      access,
 		pathCipher:  pathCipher,
 		encryption:  encryption,
 		redundancy:  redundancy,
 		segmentSize: segmentSize,
-
-		Logger:    *zap.NewNop(),
-		tlsConfig: &tls.Config{},
-		nbClients: 4,
+		Logger:      logger,
+		tlsConfig:   &tls.Config{},
+		nbClients:   4,
 	}
+	return server.NewFtpServer(driver)
 }
 
 // GetSettings returns some general settings around the server setup
