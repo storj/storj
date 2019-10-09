@@ -17,9 +17,9 @@
                     <path d="M10.7756 14.334C10.4108 14.334 10.1226 14.6283 10.1226 15.0007C10.1226 15.3731 10.4108 15.6673 10.7756 15.6673C11.1404 15.6673 11.4287 15.3731 11.4287 15.0007C11.4287 14.6283 11.1404 14.334 10.7756 14.334Z" fill="#2683FF"/>
                 </svg>
             </div>
-            <p class="name">{{ itemData.formattedName() }}</p>
+            <p class="name">{{getItemName}}</p>
         </div>
-        <p class="date">{{ itemData.getDate() }}</p>
+        <p class="date">{{getItemDate}}</p>
     </div>
 </template>
 
@@ -32,6 +32,14 @@ import { ApiKey } from '@/types/apiKeys';
 export default class ApiKeysItem extends Vue {
     @Prop({default: () => new ApiKey('', '', '', '')})
     private readonly itemData: ApiKey;
+
+    public get getItemName(): string {
+        return this.itemData.formattedName();
+    }
+
+    public get getItemDate(): string {
+        return this.itemData.getDate();
+    }
 }
 </script>
 
