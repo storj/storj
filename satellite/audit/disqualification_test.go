@@ -49,7 +49,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		var (
 			satellitePeer = planet.Satellites[0]
 			nodeID        = planet.StorageNodes[0].ID()
-			report        = &audit.Report{
+			report        = audit.Report{
 				Fails: storj.NodeIDList{nodeID},
 			}
 		)
