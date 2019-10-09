@@ -25,7 +25,7 @@ type TransferQueueItem struct {
 	Path            []byte
 	PieceNum        int32
 	DurabilityRatio float64
-	QueuedAt        *time.Time
+	QueuedAt        time.Time
 	RequestedAt     *time.Time
 	LastFailedAt    *time.Time
 	LastFailedCode  *int
@@ -58,6 +58,6 @@ type DB interface {
 	GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
 	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries in the database ordered by durability ratio and queued date ascending.
 	GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
-	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed less than n times, ordered by durability ratio and queued date ascending.
-	GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, failedLessThan int, limit int, offset int64) ([]*TransferQueueItem, error)
+	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed <= maxFailures times, ordered by durability ratio and queued date ascending.
+	GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) ([]*TransferQueueItem, error)
 }

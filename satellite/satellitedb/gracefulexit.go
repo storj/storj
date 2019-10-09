@@ -234,17 +234,17 @@ func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID sto
 	return transferQueueItemRows, nil
 }
 
-// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed less than n times, ordered by durability ratio and queued date ascending.
-func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, failedLessThan int, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
+// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed <= maxFailures times, ordered by durability ratio and queued date ascending.
+func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 	sql := `SELECT node_id, path, piece_num, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at 
 			FROM graceful_exit_transfer_queue 
 			WHERE node_id = ? 
 			AND finished_at is NULL
 			AND last_failed_at is not NULL
-			AND failed_count < ?
+			AND failed_count <= ?
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), failedLessThan, limit, offset)
+	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -286,7 +286,7 @@ func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (it
 		Path:            dbxTransferQueue.Path,
 		PieceNum:        int32(dbxTransferQueue.PieceNum),
 		DurabilityRatio: dbxTransferQueue.DurabilityRatio,
-		QueuedAt:        &dbxTransferQueue.QueuedAt,
+		QueuedAt:        dbxTransferQueue.QueuedAt,
 	}
 	if dbxTransferQueue.LastFailedCode != nil {
 		item.LastFailedCode = dbxTransferQueue.LastFailedCode

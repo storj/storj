@@ -195,7 +195,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 
 				if len(incomplete) == 0 {
-					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.EndpointMaxFailures+1, endpoint.config.EndpointBatchSize, 0)
+					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.EndpointMaxFailures, endpoint.config.EndpointBatchSize, 0)
 					if err != nil {
 						return Error.Wrap(err)
 					}
@@ -214,14 +214,20 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 					}
 					remote := pointer.GetRemote()
 
-					found := false
+					var nodePiece *pb.RemotePiece
 					for _, piece := range remote.GetRemotePieces() {
 						if piece.NodeId == nodeID && piece.PieceNum == inc.PieceNum {
-							found = true
+							nodePiece = piece
 						}
 					}
-					if !found {
+					if nodePiece == nil {
 						endpoint.log.Debug("piece no longer held by node.", zap.String("node ID", nodeID.String()), zap.ByteString("path", inc.Path), zap.Int32("piece num", inc.PieceNum))
+
+						err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, inc.Path)
+						if err != nil {
+							return Error.Wrap(err)
+						}
+
 						continue
 					}
 
@@ -229,13 +235,26 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 					if err != nil {
 						return Error.Wrap(err)
 					}
+
+					if len(remote.GetRemotePieces()) > redundancy.OptimalThreshold() {
+						endpoint.log.Debug("piece has more pieces than required. removing node from pointer.", zap.String("node ID", nodeID.String()), zap.ByteString("path", inc.Path), zap.Int32("piece num", inc.PieceNum))
+
+						_, err = endpoint.metainfo.UpdatePieces(ctx, string(inc.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
+
+						err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, inc.Path)
+						if err != nil {
+							return Error.Wrap(err)
+						}
+
+						continue
+					}
+
 					pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 
 					request := overlay.FindStorageNodesRequest{
 						RequestedCount: 1,
 						FreeBandwidth:  pieceSize,
 						FreeDisk:       pieceSize,
-						ExcludedNodes:  []storj.NodeID{nodeID},
 					}
 
 					newNodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
@@ -246,16 +265,18 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 					if len(newNodes) == 0 {
 						return Error.New("could not find a node to transfer this piece to. nodeID %v, path %v, pieceNum %v.", nodeID.String(), zap.ByteString("path", inc.Path), inc.PieceNum)
 					}
+					newNode := newNodes[0]
+					endpoint.log.Debug("found new node for piece transfer.", zap.String("original node ID", newNode.Id.String()), zap.String("replacement node ID", newNode.Id.String()),
+						zap.ByteString("path", inc.Path), zap.Int32("piece num", inc.PieceNum))
 
-					endpoint.log.Debug("found new node for piece transfer.", zap.String("node ID", newNodes[0].Id.String()), zap.ByteString("path", inc.Path), zap.Int32("piece num", inc.PieceNum))
-
-					parts := storj.SplitPath(string(inc.Path))
+					parts := storj.SplitPath(storj.Path(inc.Path))
 					if len(parts) < 2 {
-						return Error.New("invalid path %v.", zap.ByteString("path", inc.Path))
+						pieceID := remote.RootPieceId.Derive(nodeID, inc.PieceNum)
+						return Error.New("invalid path for %v %v.", zap.String("node ID", inc.NodeID.String()), zap.String("pieceID", pieceID.String()))
 					}
 
 					bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
-					limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNodes[0].Id, inc.PieceNum, remote.RootPieceId, remote.Redundancy.GetErasureShareSize())
+					limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, inc.PieceNum, remote.RootPieceId, remote.Redundancy.GetErasureShareSize())
 					if err != nil {
 						return Error.Wrap(err)
 					}
@@ -342,13 +363,15 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 	if message.Succeeded.GetOriginalPieceHash() == nil {
 		return Error.New("Original piece hash cannot be nil.")
 	}
-	endpoint.log.Debug("transfer succeeded.", zap.String("piece ID", message.Succeeded.AddressedOrderLimit.Limit.PieceId.String()))
+
+	pieceID := message.Succeeded.AddressedOrderLimit.Limit.PieceId
+	endpoint.log.Debug("transfer succeeded.", zap.String("piece ID", pieceID.String()))
 
 	// TODO validation
 
 	transfer, ok := pending.get(message.Succeeded.OriginalPieceHash.PieceId)
 	if !ok {
-		endpoint.log.Debug("could not find transfer message in pending queue. skipping .", zap.String("piece ID", message.Succeeded.AddressedOrderLimit.Limit.PieceId.String()))
+		endpoint.log.Debug("could not find transfer message in pending queue. skipping .", zap.String("piece ID", pieceID.String()))
 	}
 
 	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path)
@@ -371,7 +394,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingM
 		return Error.Wrap(err)
 	}
 
-	pending.delete(message.Succeeded.GetAddressedOrderLimit().GetLimit().PieceId)
+	pending.delete(pieceID)
 
 	return nil
 }

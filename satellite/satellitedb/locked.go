@@ -637,11 +637,11 @@ func (m *lockedGracefulExit) GetIncomplete(ctx context.Context, nodeID storj.Nod
 	return m.db.GetIncomplete(ctx, nodeID, limit, offset)
 }
 
-// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed less than n times, ordered by durability ratio and queued date ascending.
-func (m *lockedGracefulExit) GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, failedLessThan int, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
+// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed <= maxFailures times, ordered by durability ratio and queued date ascending.
+func (m *lockedGracefulExit) GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetIncompleteFailed(ctx, nodeID, failedLessThan, limit, offset)
+	return m.db.GetIncompleteFailed(ctx, nodeID, maxFailures, limit, offset)
 }
 
 // GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries in the database ordered by durability ratio and queued date ascending.
