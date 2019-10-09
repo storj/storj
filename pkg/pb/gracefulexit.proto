@@ -10,13 +10,12 @@ import "orders.proto";
 
 package gracefulexit;
 
-service SatelliteGracefulExit {
+service NodeGracefulExit {
   // GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
   rpc GetNonExitingSatellites(GetNonExitingSatellitesRequest) returns (GetNonExitingSatellitesResponse);
   // StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
   rpc StartExit(StartExitRequest) returns (StartExitResponse);
-  // Process is called by storage nodes to initiate the graceful exit, get pieces to transfer, and receive exit status.
-  rpc Process(stream StorageNodeMessage) returns (stream SatelliteMessage);
+ 
 }
 
 message GetNonExitingSatellitesRequest{}
@@ -42,6 +41,11 @@ message StartExitStatus {
 }
 message StartExitResponse {
   repeated StartExitStatus statuses = 1;
+}
+
+service SatelliteGracefulExit {
+ // Process is called by storage nodes to initiate the graceful exit, get pieces to transfer, and receive exit status.
+  rpc Process(stream StorageNodeMessage) returns (stream SatelliteMessage);
 }
 
 message TransferSucceeded {

@@ -37,12 +37,12 @@ func dialGracefulExitClient(ctx context.Context, address string) (*gracefulExitC
 	return &gracefulExitClient{conn: conn}, nil
 }
 
-func (client *gracefulExitClient) getSatelliteList(ctx context.Context) (*pb.GetSatellitesListResponse, error) {
-	return client.conn.GracefulExitClient().GetSatellitesList(ctx, &pb.GetSatellitesListRequest{})
+func (client *gracefulExitClient) getNonExitingSatellites(ctx context.Context) (*pb.GetNonExitingSatellitesResponse, error) {
+	return client.conn.NodeGracefulExitClient().GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
 }
 
 func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.StartExitRequest) (*pb.StartExitResponse, error) {
-	return client.conn.GracefulExitClient().StartExit(ctx, req)
+	return client.conn.NodeGracefulExitClient().StartExit(ctx, req)
 }
 
 func (client *gracefulExitClient) close() error {
@@ -61,7 +61,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 
 	// TODO: Display a warning and have user confirm before proceeding
 	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("warning message.y/n")
+	fmt.Println("test message.y/n")
 	var userInput string
 	for scanner.Scan() {
 		userInput = scanner.Text()
@@ -83,19 +83,20 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	}()
 
 	// get list of satellites
-	satelliteList, err := client.getSatelliteList(ctx)
+	satelliteList, err := client.getNonExitingSatellites(ctx)
 	if err != nil {
 		return err
 	}
 
 	// display satellite options
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 0, ' ', tabwriter.AlignRight)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 	fmt.Fprintln(w, "Domain Name\tNode ID\tSpace Used\t")
 
 	for _, satellite := range satelliteList.GetSatellites() {
-		fmt.Fprintln(w, satellite.GetDomainName()+"\t"+satellite.NodeId.String()+"\t"+memory.Size(satellite.GetSpaceUsed()).Base10String()+"\t")
+		fmt.Fprintln(w, satellite.GetDomainName()+"\t"+satellite.NodeId.String()+"\t"+memory.Size(satellite.GetSpaceUsed()).Base10String()+"\t\n")
 	}
+	fmt.Fprintln(w, "Please enter the domain name for each satellite you would like to start graceful exit on with a space in between each domain name and hit enter once you are done:")
 	w.Flush()
 
 	var selectedSatellite []string

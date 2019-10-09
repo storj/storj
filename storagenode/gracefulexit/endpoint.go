@@ -37,12 +37,12 @@ func NewEndpoint(log *zap.Logger, trust *trust.Pool, satellites satellites.DB, u
 }
 
 // GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
-func (e *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesListRequest) (*pb.GetSatellitesListResponse, error) {
+func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonExitingSatellitesRequest) (*pb.GetNonExitingSatellitesResponse, error) {
 	e.log.Debug("initialize graceful exit: GetSatellitesList")
 	// get all trusted satellites
 	trustedSatellites := e.trust.GetSatellites(ctx)
 
-	availableSatellites := make([]*pb.Satellite, 0, len(trustedSatellites))
+	availableSatellites := make([]*pb.NonExitingSatellite, 0, len(trustedSatellites))
 
 	// filter out satellites that are already exiting
 	exitingSatellites, err := e.satellites.ListGracefulExits(ctx)
@@ -75,14 +75,14 @@ func (e *Endpoint) GetSatellitesList(ctx context.Context, req *pb.GetSatellitesL
 			e.log.Debug("graceful exit: get space used by satellite", zap.String("satelliteID", trusted.String()), zap.Error(err))
 			continue
 		}
-		availableSatellites = append(availableSatellites, &pb.Satellite{
+		availableSatellites = append(availableSatellites, &pb.NonExitingSatellite{
 			DomainName: domain,
 			NodeId:     trusted,
 			SpaceUsed:  float64(spaceUsed),
 		})
 	}
 
-	return &pb.GetSatellitesListResponse{
+	return &pb.GetNonExitingSatellitesResponse{
 		Satellites: availableSatellites,
 	}, nil
 }

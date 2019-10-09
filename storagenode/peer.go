@@ -392,8 +392,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Satellites(),
 			peer.Storage2.BlobsCache,
 		)
-		pb.RegisterGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
-		pb.DRPCRegisterGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
+		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
+		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
