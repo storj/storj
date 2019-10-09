@@ -4395,6 +4395,10 @@
               {
                 "name": "DELETE",
                 "integer": 6
+              },
+              {
+                "name": "PUT_GRACEFUL_EXIT",
+                "integer": 7
               }
             ]
           },
