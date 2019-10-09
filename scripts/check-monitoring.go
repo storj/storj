@@ -13,6 +13,7 @@ import (
 	"go/token"
 	"go/types"
 	"io/ioutil"
+	"log"
 	"os"
 	"sort"
 	"strings"
@@ -38,7 +39,10 @@ func main() {
 
 	outputStr := strings.Join(sortedNames, "\n")
 	if len(os.Args) == 2 {
-		ioutil.WriteFile(os.Args[1], []byte(outputStr+"\n"), lockFilePerms)
+		file := os.Args[1]
+		if err := ioutil.WriteFile(file, []byte(outputStr+"\n"), lockFilePerms); err != nil {
+			log.Fatalf("error while writing to file \"%s\": %s", file, err)
+		}
 	} else {
 		fmt.Println(outputStr)
 	}
