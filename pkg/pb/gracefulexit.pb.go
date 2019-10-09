@@ -24,36 +24,35 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// GetSatellitesListRequest
-type GetSatellitesListRequest struct {
+type GetNonExitingSatellitesRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *GetSatellitesListRequest) Reset()         { *m = GetSatellitesListRequest{} }
-func (m *GetSatellitesListRequest) String() string { return proto.CompactTextString(m) }
-func (*GetSatellitesListRequest) ProtoMessage()    {}
-func (*GetSatellitesListRequest) Descriptor() ([]byte, []int) {
+func (m *GetNonExitingSatellitesRequest) Reset()         { *m = GetNonExitingSatellitesRequest{} }
+func (m *GetNonExitingSatellitesRequest) String() string { return proto.CompactTextString(m) }
+func (*GetNonExitingSatellitesRequest) ProtoMessage()    {}
+func (*GetNonExitingSatellitesRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8f0acbf2ce5fa631, []int{0}
 }
-func (m *GetSatellitesListRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetSatellitesListRequest.Unmarshal(m, b)
+func (m *GetNonExitingSatellitesRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetNonExitingSatellitesRequest.Unmarshal(m, b)
 }
-func (m *GetSatellitesListRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetSatellitesListRequest.Marshal(b, m, deterministic)
+func (m *GetNonExitingSatellitesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetNonExitingSatellitesRequest.Marshal(b, m, deterministic)
 }
-func (m *GetSatellitesListRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetSatellitesListRequest.Merge(m, src)
+func (m *GetNonExitingSatellitesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetNonExitingSatellitesRequest.Merge(m, src)
 }
-func (m *GetSatellitesListRequest) XXX_Size() int {
-	return xxx_messageInfo_GetSatellitesListRequest.Size(m)
+func (m *GetNonExitingSatellitesRequest) XXX_Size() int {
+	return xxx_messageInfo_GetNonExitingSatellitesRequest.Size(m)
 }
-func (m *GetSatellitesListRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetSatellitesListRequest.DiscardUnknown(m)
+func (m *GetNonExitingSatellitesRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetNonExitingSatellitesRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_GetSatellitesListRequest proto.InternalMessageInfo
+var xxx_messageInfo_GetNonExitingSatellitesRequest proto.InternalMessageInfo
 
 // StartExitRequest
 type StartExitRequest struct {
@@ -87,7 +86,7 @@ func (m *StartExitRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_StartExitRequest proto.InternalMessageInfo
 
-type Satellite struct {
+type NonExitingSatellite struct {
 	NodeId               NodeID   `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3,customtype=NodeID" json:"node_id"`
 	DomainName           string   `protobuf:"bytes,2,opt,name=domain_name,json=domainName,proto3" json:"domain_name,omitempty"`
 	SpaceUsed            float64  `protobuf:"fixed64,3,opt,name=space_used,json=spaceUsed,proto3" json:"space_used,omitempty"`
@@ -96,76 +95,76 @@ type Satellite struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Satellite) Reset()         { *m = Satellite{} }
-func (m *Satellite) String() string { return proto.CompactTextString(m) }
-func (*Satellite) ProtoMessage()    {}
-func (*Satellite) Descriptor() ([]byte, []int) {
+func (m *NonExitingSatellite) Reset()         { *m = NonExitingSatellite{} }
+func (m *NonExitingSatellite) String() string { return proto.CompactTextString(m) }
+func (*NonExitingSatellite) ProtoMessage()    {}
+func (*NonExitingSatellite) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8f0acbf2ce5fa631, []int{2}
 }
-func (m *Satellite) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Satellite.Unmarshal(m, b)
+func (m *NonExitingSatellite) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_NonExitingSatellite.Unmarshal(m, b)
 }
-func (m *Satellite) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Satellite.Marshal(b, m, deterministic)
+func (m *NonExitingSatellite) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_NonExitingSatellite.Marshal(b, m, deterministic)
 }
-func (m *Satellite) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Satellite.Merge(m, src)
+func (m *NonExitingSatellite) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NonExitingSatellite.Merge(m, src)
 }
-func (m *Satellite) XXX_Size() int {
-	return xxx_messageInfo_Satellite.Size(m)
+func (m *NonExitingSatellite) XXX_Size() int {
+	return xxx_messageInfo_NonExitingSatellite.Size(m)
 }
-func (m *Satellite) XXX_DiscardUnknown() {
-	xxx_messageInfo_Satellite.DiscardUnknown(m)
+func (m *NonExitingSatellite) XXX_DiscardUnknown() {
+	xxx_messageInfo_NonExitingSatellite.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Satellite proto.InternalMessageInfo
+var xxx_messageInfo_NonExitingSatellite proto.InternalMessageInfo
 
-func (m *Satellite) GetDomainName() string {
+func (m *NonExitingSatellite) GetDomainName() string {
 	if m != nil {
 		return m.DomainName
 	}
 	return ""
 }
 
-func (m *Satellite) GetSpaceUsed() float64 {
+func (m *NonExitingSatellite) GetSpaceUsed() float64 {
 	if m != nil {
 		return m.SpaceUsed
 	}
 	return 0
 }
 
-type GetSatellitesListResponse struct {
-	Satellites           []*Satellite `protobuf:"bytes,1,rep,name=satellites,proto3" json:"satellites,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+type GetNonExitingSatellitesResponse struct {
+	Satellites           []*NonExitingSatellite `protobuf:"bytes,1,rep,name=satellites,proto3" json:"satellites,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *GetSatellitesListResponse) Reset()         { *m = GetSatellitesListResponse{} }
-func (m *GetSatellitesListResponse) String() string { return proto.CompactTextString(m) }
-func (*GetSatellitesListResponse) ProtoMessage()    {}
-func (*GetSatellitesListResponse) Descriptor() ([]byte, []int) {
+func (m *GetNonExitingSatellitesResponse) Reset()         { *m = GetNonExitingSatellitesResponse{} }
+func (m *GetNonExitingSatellitesResponse) String() string { return proto.CompactTextString(m) }
+func (*GetNonExitingSatellitesResponse) ProtoMessage()    {}
+func (*GetNonExitingSatellitesResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8f0acbf2ce5fa631, []int{3}
 }
-func (m *GetSatellitesListResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetSatellitesListResponse.Unmarshal(m, b)
+func (m *GetNonExitingSatellitesResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetNonExitingSatellitesResponse.Unmarshal(m, b)
 }
-func (m *GetSatellitesListResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetSatellitesListResponse.Marshal(b, m, deterministic)
+func (m *GetNonExitingSatellitesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetNonExitingSatellitesResponse.Marshal(b, m, deterministic)
 }
-func (m *GetSatellitesListResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetSatellitesListResponse.Merge(m, src)
+func (m *GetNonExitingSatellitesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetNonExitingSatellitesResponse.Merge(m, src)
 }
-func (m *GetSatellitesListResponse) XXX_Size() int {
-	return xxx_messageInfo_GetSatellitesListResponse.Size(m)
+func (m *GetNonExitingSatellitesResponse) XXX_Size() int {
+	return xxx_messageInfo_GetNonExitingSatellitesResponse.Size(m)
 }
-func (m *GetSatellitesListResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetSatellitesListResponse.DiscardUnknown(m)
+func (m *GetNonExitingSatellitesResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetNonExitingSatellitesResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_GetSatellitesListResponse proto.InternalMessageInfo
+var xxx_messageInfo_GetNonExitingSatellitesResponse proto.InternalMessageInfo
 
-func (m *GetSatellitesListResponse) GetSatellites() []*Satellite {
+func (m *GetNonExitingSatellitesResponse) GetSatellites() []*NonExitingSatellite {
 	if m != nil {
 		return m.Satellites
 	}
@@ -257,10 +256,10 @@ func (m *StartExitResponse) GetStatuses() []*StartExitStatus {
 }
 
 func init() {
-	proto.RegisterType((*GetSatellitesListRequest)(nil), "graceful_exit.GetSatellitesListRequest")
+	proto.RegisterType((*GetNonExitingSatellitesRequest)(nil), "graceful_exit.GetNonExitingSatellitesRequest")
 	proto.RegisterType((*StartExitRequest)(nil), "graceful_exit.StartExitRequest")
-	proto.RegisterType((*Satellite)(nil), "graceful_exit.Satellite")
-	proto.RegisterType((*GetSatellitesListResponse)(nil), "graceful_exit.GetSatellitesListResponse")
+	proto.RegisterType((*NonExitingSatellite)(nil), "graceful_exit.NonExitingSatellite")
+	proto.RegisterType((*GetNonExitingSatellitesResponse)(nil), "graceful_exit.GetNonExitingSatellitesResponse")
 	proto.RegisterType((*StartExitStatus)(nil), "graceful_exit.StartExitStatus")
 	proto.RegisterType((*StartExitResponse)(nil), "graceful_exit.StartExitResponse")
 }
@@ -268,37 +267,37 @@ func init() {
 func init() { proto.RegisterFile("gracefulexit.proto", fileDescriptor_8f0acbf2ce5fa631) }
 
 var fileDescriptor_8f0acbf2ce5fa631 = []byte{
-	// 353 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0xcd, 0x6a, 0xc2, 0x40,
-	0x14, 0x85, 0x3b, 0x5a, 0xd4, 0x5c, 0xed, 0x8f, 0xb3, 0x4a, 0x85, 0x36, 0x21, 0x1b, 0xd3, 0x8d,
-	0x0b, 0xbb, 0x29, 0x85, 0x6e, 0xa4, 0x45, 0x04, 0xb1, 0x10, 0x71, 0xd3, 0x4d, 0x18, 0x93, 0xab,
-	0x04, 0x34, 0x93, 0x7a, 0x27, 0xe0, 0x13, 0x96, 0x3e, 0x43, 0x17, 0x3e, 0x4b, 0x31, 0x7f, 0xf8,
-	0x4b, 0x97, 0x39, 0xf7, 0xdc, 0xc3, 0x77, 0x4f, 0x06, 0xf8, 0x7c, 0x25, 0x3c, 0x9c, 0xc5, 0x0b,
-	0x5c, 0x07, 0xaa, 0x13, 0xad, 0xa4, 0x92, 0xfc, 0x2a, 0xd7, 0xdc, 0xad, 0xd8, 0x82, 0xb9, 0x9c,
-	0xcb, 0x74, 0x64, 0xb5, 0x40, 0xef, 0xa3, 0x1a, 0x0b, 0x85, 0x8b, 0x45, 0xa0, 0x90, 0x86, 0x01,
-	0x29, 0x07, 0xbf, 0x62, 0x24, 0x65, 0xbd, 0xc2, 0xed, 0x58, 0x89, 0x95, 0x7a, 0x5f, 0x07, 0xb9,
-	0xc6, 0x1f, 0xa1, 0x16, 0x4a, 0x1f, 0xdd, 0xc0, 0x27, 0x9d, 0x99, 0x65, 0xbb, 0xd1, 0xbb, 0xfe,
-	0xd9, 0x18, 0x17, 0xbf, 0x1b, 0xa3, 0x32, 0x92, 0x3e, 0x0e, 0xde, 0x9c, 0xea, 0x76, 0x3e, 0xf0,
-	0xc9, 0x52, 0xa0, 0x15, 0xb9, 0xbc, 0x0d, 0xd5, 0x6c, 0x4f, 0x67, 0x26, 0x3b, 0xb1, 0x56, 0x49,
-	0xd7, 0xb8, 0x01, 0x75, 0x5f, 0x2e, 0x45, 0x10, 0xba, 0xa1, 0x58, 0xa2, 0x5e, 0x32, 0x99, 0xad,
-	0x39, 0x90, 0x4a, 0x23, 0xb1, 0x44, 0x7e, 0x0f, 0x40, 0x91, 0xf0, 0xd0, 0x8d, 0x09, 0x7d, 0xbd,
-	0x6c, 0x32, 0x9b, 0x39, 0x5a, 0xa2, 0x4c, 0x08, 0x7d, 0x6b, 0x02, 0x77, 0x27, 0x0e, 0xa2, 0x48,
-	0x86, 0x84, 0xfc, 0x19, 0x80, 0x8a, 0x49, 0xc2, 0x5f, 0xef, 0xea, 0x9d, 0xbd, 0x76, 0x3a, 0xc5,
-	0xaa, 0xb3, 0xe3, 0xb5, 0x86, 0x70, 0x53, 0x74, 0x31, 0x56, 0x42, 0xc5, 0x74, 0x48, 0xca, 0x8e,
-	0x48, 0x75, 0xa8, 0x52, 0xec, 0x79, 0x48, 0x94, 0x9c, 0x51, 0x73, 0xf2, 0x4f, 0xeb, 0x03, 0x9a,
-	0x3b, 0xcd, 0x66, 0x70, 0x2f, 0x50, 0xa3, 0x24, 0xb9, 0x40, 0x7b, 0x38, 0x44, 0xdb, 0x27, 0x70,
-	0x0a, 0x7f, 0xf7, 0x9b, 0x41, 0xa3, 0x9f, 0x79, 0xb7, 0x06, 0x3e, 0x83, 0xe6, 0x51, 0x0d, 0xbc,
-	0x7d, 0x90, 0x77, 0xee, 0xcf, 0xb7, 0xec, 0xff, 0x8d, 0x19, 0xf4, 0x08, 0xb4, 0x82, 0x8a, 0x1b,
-	0xe7, 0x78, 0xf3, 0x5c, 0xf3, 0xbc, 0x21, 0xcd, 0xeb, 0x5d, 0x7e, 0x96, 0xa2, 0xe9, 0xb4, 0x92,
-	0x3c, 0xce, 0xa7, 0xbf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x85, 0x23, 0x3c, 0x99, 0xcd, 0x02, 0x00,
-	0x00,
+	// 363 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0x4d, 0x4b, 0xf3, 0x40,
+	0x14, 0x85, 0xdf, 0x69, 0x5f, 0xfa, 0x71, 0xdb, 0xf7, 0xc3, 0x71, 0x61, 0x28, 0xd8, 0x84, 0x6c,
+	0xac, 0x0b, 0xb3, 0xa8, 0x3b, 0xc1, 0x4d, 0x51, 0x4a, 0x41, 0x22, 0xa4, 0xb8, 0x71, 0x13, 0xa6,
+	0xc9, 0x35, 0x04, 0xda, 0x4c, 0xec, 0x9d, 0x40, 0x57, 0xfe, 0x3e, 0x7f, 0x82, 0xb8, 0xe8, 0x6f,
+	0x91, 0x7c, 0x34, 0xd4, 0xd8, 0x88, 0xcb, 0x9c, 0x39, 0x79, 0x38, 0xe7, 0x70, 0x81, 0x07, 0x6b,
+	0xe1, 0xe1, 0x53, 0xb2, 0xc4, 0x4d, 0xa8, 0xac, 0x78, 0x2d, 0x95, 0xe4, 0x7f, 0x76, 0x9a, 0x9b,
+	0x8a, 0x03, 0x08, 0x64, 0x20, 0xf3, 0x27, 0xd3, 0x80, 0xe1, 0x14, 0x95, 0x2d, 0xa3, 0xdb, 0x4d,
+	0xa8, 0xc2, 0x28, 0x98, 0x0b, 0x85, 0xcb, 0x65, 0xa8, 0x90, 0x1c, 0x7c, 0x4e, 0x90, 0x94, 0x79,
+	0x0d, 0xff, 0xe7, 0x4a, 0xac, 0x55, 0x6a, 0x28, 0x34, 0x7e, 0x0e, 0x9d, 0x48, 0xfa, 0xe8, 0x86,
+	0x3e, 0x69, 0xcc, 0x68, 0x8e, 0xfa, 0x93, 0xbf, 0xaf, 0x5b, 0xfd, 0xd7, 0xfb, 0x56, 0x6f, 0xd9,
+	0xd2, 0xc7, 0xd9, 0x8d, 0xd3, 0x4e, 0xdf, 0x67, 0x3e, 0x99, 0x2f, 0x70, 0x7c, 0x80, 0xce, 0xcf,
+	0xa0, 0x5d, 0x10, 0x34, 0x66, 0xb0, 0x03, 0x80, 0x56, 0x0e, 0xe0, 0x3a, 0xf4, 0x7c, 0xb9, 0x12,
+	0x61, 0xe4, 0x46, 0x62, 0x85, 0x5a, 0xc3, 0x60, 0xa3, 0xae, 0x03, 0xb9, 0x64, 0x8b, 0x15, 0xf2,
+	0x53, 0x00, 0x8a, 0x85, 0x87, 0x6e, 0x42, 0xe8, 0x6b, 0x4d, 0x83, 0x8d, 0x98, 0xd3, 0xcd, 0x94,
+	0x07, 0x42, 0xdf, 0x44, 0xd0, 0x6b, 0x0b, 0x52, 0x2c, 0x23, 0x42, 0x3e, 0x01, 0xa0, 0x52, 0xcd,
+	0xfa, 0xf4, 0xc6, 0xa6, 0xf5, 0x69, 0x33, 0xeb, 0x00, 0xc0, 0xd9, 0xfb, 0xcb, 0xbc, 0x83, 0x7f,
+	0xe5, 0x4a, 0x73, 0x25, 0x54, 0x42, 0xd5, 0xe4, 0xec, 0x4b, 0x72, 0x0d, 0xda, 0x94, 0x78, 0x1e,
+	0x12, 0x65, 0xb5, 0x3a, 0xce, 0xee, 0xd3, 0xbc, 0x87, 0xa3, 0xbd, 0xcd, 0x8b, 0x98, 0x57, 0xd0,
+	0xa1, 0x8c, 0x5c, 0x86, 0x1c, 0x56, 0x42, 0x56, 0x12, 0x38, 0xa5, 0x7f, 0xfc, 0xc6, 0xa0, 0x3f,
+	0x2d, 0xbc, 0xa9, 0x81, 0x6f, 0xe0, 0xa4, 0x66, 0x16, 0x7e, 0x51, 0xa1, 0x7e, 0x7f, 0x1f, 0x03,
+	0xeb, 0xa7, 0xf6, 0xa2, 0x86, 0x0d, 0xdd, 0x32, 0x27, 0xd7, 0xeb, 0x1a, 0xec, 0xe8, 0x46, 0xbd,
+	0x21, 0xe7, 0x4d, 0x7e, 0x3f, 0x36, 0xe2, 0xc5, 0xa2, 0x95, 0x9d, 0xf3, 0xe5, 0x47, 0x00, 0x00,
+	0x00, 0xff, 0xff, 0x96, 0x8e, 0x40, 0xcd, 0xff, 0x02, 0x00, 0x00,
 }
 
 type DRPCGracefulExitClient interface {
 	DRPCConn() drpc.Conn
 
 	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
-	GetSatellitesList(ctx context.Context, in *GetSatellitesListRequest) (*GetSatellitesListResponse, error)
+	GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error)
 	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(ctx context.Context, in *StartExitRequest) (*StartExitResponse, error)
 }
@@ -313,9 +312,9 @@ func NewDRPCGracefulExitClient(cc drpc.Conn) DRPCGracefulExitClient {
 
 func (c *drpcGracefulExitClient) DRPCConn() drpc.Conn { return c.cc }
 
-func (c *drpcGracefulExitClient) GetSatellitesList(ctx context.Context, in *GetSatellitesListRequest) (*GetSatellitesListResponse, error) {
-	out := new(GetSatellitesListResponse)
-	err := c.cc.Invoke(ctx, "/graceful_exit.GracefulExit/GetSatellitesList", in, out)
+func (c *drpcGracefulExitClient) GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error) {
+	out := new(GetNonExitingSatellitesResponse)
+	err := c.cc.Invoke(ctx, "/graceful_exit.GracefulExit/GetNonExitingSatellites", in, out)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +332,7 @@ func (c *drpcGracefulExitClient) StartExit(ctx context.Context, in *StartExitReq
 
 type DRPCGracefulExitServer interface {
 	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
-	GetSatellitesList(context.Context, *GetSatellitesListRequest) (*GetSatellitesListResponse, error)
+	GetNonExitingSatellites(context.Context, *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error)
 	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(context.Context, *StartExitRequest) (*StartExitResponse, error)
 }
@@ -345,14 +344,14 @@ func (DRPCGracefulExitDescription) NumMethods() int { return 2 }
 func (DRPCGracefulExitDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
 	switch n {
 	case 0:
-		return "/graceful_exit.GracefulExit/GetSatellitesList",
+		return "/graceful_exit.GracefulExit/GetNonExitingSatellites",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCGracefulExitServer).
-					GetSatellitesList(
+					GetNonExitingSatellites(
 						ctx,
-						in1.(*GetSatellitesListRequest),
+						in1.(*GetNonExitingSatellitesRequest),
 					)
-			}, DRPCGracefulExitServer.GetSatellitesList, true
+			}, DRPCGracefulExitServer.GetNonExitingSatellites, true
 	case 1:
 		return "/graceful_exit.GracefulExit/StartExit",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
@@ -371,16 +370,16 @@ func DRPCRegisterGracefulExit(srv drpc.Server, impl DRPCGracefulExitServer) {
 	srv.Register(impl, DRPCGracefulExitDescription{})
 }
 
-type DRPCGracefulExit_GetSatellitesListStream interface {
+type DRPCGracefulExit_GetNonExitingSatellitesStream interface {
 	drpc.Stream
-	SendAndClose(*GetSatellitesListResponse) error
+	SendAndClose(*GetNonExitingSatellitesResponse) error
 }
 
-type drpcGracefulExitGetSatellitesListStream struct {
+type drpcGracefulExitGetNonExitingSatellitesStream struct {
 	drpc.Stream
 }
 
-func (x *drpcGracefulExitGetSatellitesListStream) SendAndClose(m *GetSatellitesListResponse) error {
+func (x *drpcGracefulExitGetNonExitingSatellitesStream) SendAndClose(m *GetNonExitingSatellitesResponse) error {
 	if err := x.MsgSend(m); err != nil {
 		return err
 	}
@@ -416,7 +415,7 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type GracefulExitClient interface {
 	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
-	GetSatellitesList(ctx context.Context, in *GetSatellitesListRequest, opts ...grpc.CallOption) (*GetSatellitesListResponse, error)
+	GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest, opts ...grpc.CallOption) (*GetNonExitingSatellitesResponse, error)
 	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(ctx context.Context, in *StartExitRequest, opts ...grpc.CallOption) (*StartExitResponse, error)
 }
@@ -429,9 +428,9 @@ func NewGracefulExitClient(cc *grpc.ClientConn) GracefulExitClient {
 	return &gracefulExitClient{cc}
 }
 
-func (c *gracefulExitClient) GetSatellitesList(ctx context.Context, in *GetSatellitesListRequest, opts ...grpc.CallOption) (*GetSatellitesListResponse, error) {
-	out := new(GetSatellitesListResponse)
-	err := c.cc.Invoke(ctx, "/graceful_exit.GracefulExit/GetSatellitesList", in, out, opts...)
+func (c *gracefulExitClient) GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest, opts ...grpc.CallOption) (*GetNonExitingSatellitesResponse, error) {
+	out := new(GetNonExitingSatellitesResponse)
+	err := c.cc.Invoke(ctx, "/graceful_exit.GracefulExit/GetNonExitingSatellites", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +449,7 @@ func (c *gracefulExitClient) StartExit(ctx context.Context, in *StartExitRequest
 // GracefulExitServer is the server API for GracefulExit service.
 type GracefulExitServer interface {
 	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
-	GetSatellitesList(context.Context, *GetSatellitesListRequest) (*GetSatellitesListResponse, error)
+	GetNonExitingSatellites(context.Context, *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error)
 	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(context.Context, *StartExitRequest) (*StartExitResponse, error)
 }
@@ -459,20 +458,20 @@ func RegisterGracefulExitServer(s *grpc.Server, srv GracefulExitServer) {
 	s.RegisterService(&_GracefulExit_serviceDesc, srv)
 }
 
-func _GracefulExit_GetSatellitesList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetSatellitesListRequest)
+func _GracefulExit_GetNonExitingSatellites_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNonExitingSatellitesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GracefulExitServer).GetSatellitesList(ctx, in)
+		return srv.(GracefulExitServer).GetNonExitingSatellites(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/graceful_exit.GracefulExit/GetSatellitesList",
+		FullMethod: "/graceful_exit.GracefulExit/GetNonExitingSatellites",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GracefulExitServer).GetSatellitesList(ctx, req.(*GetSatellitesListRequest))
+		return srv.(GracefulExitServer).GetNonExitingSatellites(ctx, req.(*GetNonExitingSatellitesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -500,8 +499,8 @@ var _GracefulExit_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*GracefulExitServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetSatellitesList",
-			Handler:    _GracefulExit_GetSatellitesList_Handler,
+			MethodName: "GetNonExitingSatellites",
+			Handler:    _GracefulExit_GetNonExitingSatellites_Handler,
 		},
 		{
 			MethodName: "StartExit",

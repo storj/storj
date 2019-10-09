@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -23,8 +24,6 @@ import (
 
 // TODO:
 // rename pb messages since it;s global
-// add error handling in the endpoints
-// the response status in StartExisting is not being applied, need to fix that
 
 type gracefulExitClient struct {
 	conn *rpc.Conn
@@ -61,6 +60,17 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	}
 
 	// TODO: Display a warning and have user confirm before proceeding
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Println("warning message.y/n")
+	var userInput string
+	for scanner.Scan() {
+		userInput = scanner.Text()
+		break
+	}
+	confirmationOptions := map[string]struct{}{"y": struct{}{}, "yes": struct{}{}, "Y": struct{}{}, "Yes": struct{}{}}
+	if _, ok := confirmationOptions[userInput]; !ok {
+		return nil
+	}
 
 	client, err := dialGracefulExitClient(ctx, diagCfg.Server.PrivateAddress)
 	if err != nil {
@@ -79,38 +89,40 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	}
 
 	// display satellite options
-	const padding = 10
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight)
-	defer w.Flush()
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 0, ' ', tabwriter.AlignRight)
 
 	fmt.Fprintln(w, "Domain Name\tNode ID\tSpace Used\t")
 
 	for _, satellite := range satelliteList.GetSatellites() {
 		fmt.Fprintln(w, satellite.GetDomainName()+"\t"+satellite.NodeId.String()+"\t"+memory.Size(satellite.GetSpaceUsed()).Base10String()+"\t")
 	}
+	w.Flush()
 
 	var selectedSatellite []string
-	scanner := bufio.NewScanner(os.Stdin)
-	// TODO: how to know when user is done input
+
 	for scanner.Scan() {
 		input := scanner.Text()
-		selectedSatellite = append(selectedSatellite, input)
+		inputs := strings.Split(input, " ")
+		selectedSatellite = append(selectedSatellite, inputs...)
+		break
 	}
-	if err != scanner.Err(); err != nil {
+	if err != scanner.Err() || err != nil {
 		return err
 	}
 
 	// validate user input
 	satelliteIDs := make([]storj.NodeID, 0, len(satelliteList.GetSatellites()))
-	for _, satellite := range satelliteList.GetSatellites() {
-		if satellite.GetDomainName() == selectedSatellite {
-			satelliteIDs = append(satelliteIDs, satellite.NodeId)
+	for _, selected := range selectedSatellite {
+		for _, satellite := range satelliteList.GetSatellites() {
+			if satellite.GetDomainName() == selected {
+				satelliteIDs = append(satelliteIDs, satellite.NodeId)
+			}
 		}
 	}
 
 	if len(satelliteIDs) < 1 {
-		fmt.Println("Invalid input. Please use a valid satellite domian name.")
-		return errs.New("Invalid satellite domain name")
+		fmt.Println("Invalid input. Please use valid satellite domian names.")
+		return errs.New("Invalid satellite domain names")
 	}
 
 	// save satellite for graceful exit into the db
