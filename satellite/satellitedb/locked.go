@@ -637,6 +637,20 @@ func (m *lockedGracefulExit) GetIncomplete(ctx context.Context, nodeID storj.Nod
 	return m.db.GetIncomplete(ctx, nodeID, limit, offset)
 }
 
+// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed less than n times, ordered by durability ratio descending and queued date ascending.
+func (m *lockedGracefulExit) GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, failedLessThan int, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetIncompleteFailed(ctx, nodeID, failedLessThan, limit, offset)
+}
+
+// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries in the database ordered by durability ratio descending and queued date ascending.
+func (m *lockedGracefulExit) GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*gracefulexit.TransferQueueItem, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetIncompleteNotFailed(ctx, nodeID, limit, offset)
+}
+
 // GetProgress gets a graceful exit progress entry.
 func (m *lockedGracefulExit) GetProgress(ctx context.Context, nodeID storj.NodeID) (*gracefulexit.Progress, error) {
 	m.Lock()
@@ -835,6 +849,12 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, nodeID)
+}
+
+func (m *lockedOverlayCache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *overlay.ExitStatus, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetExitStatus(ctx, nodeID)
 }
 
 // GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
