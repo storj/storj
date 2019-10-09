@@ -49,12 +49,20 @@ type Versions struct {
 type Binary struct {
 	Minimum   Version
 	Suggested Version
+	Rollout   Rollout
 }
 
 // Version single version
 type Version struct {
 	Version string `user:"true" help:"peer version" default:"v0.0.1"`
 	URL     string `user:"true" help:"URL for specific binary" default:""`
+}
+
+// Rollout represents the state of a version rollout.
+type Rollout struct {
+	Seed   string  `user:"true" help:"random 32 byte, base64-encoded string"`
+	Cursor int     `user:"true" help:"percentage of nodes which should roll-out to the target version"`
+	Target Version `user:"true" help:"target release version to be rolled-out"`
 }
 
 // Peer is the representation of a VersionControl Server.
