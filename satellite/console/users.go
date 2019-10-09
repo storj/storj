@@ -94,7 +94,7 @@ type User struct {
 	ShortName string `json:"shortName"`
 
 	Email        string `json:"email"`
-	PasswordHash []byte `json:"passwordHash"`
+	PasswordHash []byte `json:"-"`
 
 	Status    UserStatus `json:"status"`
 	PartnerID uuid.UUID  `json:"partnerId"`

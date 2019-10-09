@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -112,28 +113,121 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
 	}
 
-	mux := http.NewServeMux()
+	router := mux.NewRouter()
+	//mux := http.NewServeMux()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	mux.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
+	router.Handle("/api/graphql/v0", http.HandlerFunc(server.grapqlHandler))
 
 	if server.config.StaticDir != "" {
-		mux.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
-		mux.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
-		mux.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
-		mux.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
-		mux.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
-		mux.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
-		mux.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		router.Handle("/activation/", http.HandlerFunc(server.accountActivationHandler))
+		router.Handle("/password-recovery/", http.HandlerFunc(server.passwordRecoveryHandler))
+		router.Handle("/cancel-password-recovery/", http.HandlerFunc(server.cancelPasswordRecoveryHandler))
+		router.Handle("/registrationToken/", http.HandlerFunc(server.createRegistrationTokenHandler))
+		router.Handle("/usage-report/", http.HandlerFunc(server.bucketUsageReportHandler))
+		router.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
+		router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
+
+		router.Handle("/users/", http.HandlerFunc(server.createNewUserRequestHandler)).Methods("POST")
+		router.Handle("/users/{id}/", http.HandlerFunc(server.usersRequestHandler)).Methods("GET", "PUT", "DELETE", "PATCH")
+		router.Handle("/users/{id}/change-password/", http.HandlerFunc(server.changeAccountPasswordRequestHandler)).Methods("POST")
+
+		router.Handle("/", http.HandlerFunc(server.appHandler))
+
 	}
 
 	server.server = http.Server{
-		Handler:        mux,
+		Handler:        router,
 		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
 	return &server
+}
+
+func (server *Server) usersRequestHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	server.log.Debug(r.Method + ":" + r.URL.Path)
+
+	switch r.Method {
+	case "PATCH":
+		fallthrough
+	case "PUT":
+		server.updateAccountRequestHandler(w, r)
+	case "DELETE":
+		server.deleteAccount(w, r)
+	case "GET":
+		server.getUserByIDRequestHandler(w, r)
+	case "POST":
+	default:
+		server.serveError(w, r, 404)
+	}
+
+}
+func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter, r *http.Request) {
+	server.log.Debug("Change Account Password")
+}
+
+func (server *Server) getUserByIDRequestHandler(w http.ResponseWriter, r *http.Request) {
+	server.log.Debug("Get User by ID")
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	token := getToken(r)
+
+	ctx = auth.WithAPIKey(ctx, []byte(token))
+	auth, err := server.service.Authorize(ctx)
+	if err != nil {
+		ctx = console.WithAuthFailure(ctx, err)
+	} else {
+		ctx = console.WithAuth(ctx, auth)
+	}
+
+	params := mux.Vars(r)
+	val, ok := params["id"]
+	if !ok {
+		err = errs.New("id expected")
+
+		w.WriteHeader(400)
+		return
+	}
+	id, err := uuid.Parse(val)
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+	_, err = console.GetAuth(ctx)
+	if err != nil {
+		w.WriteHeader(401)
+		return
+	}
+
+	user, err := server.service.GetUser(ctx, *id)
+	if err != nil {
+		w.WriteHeader(404)
+		return
+	}
+	//server.service.G
+	err = json.NewEncoder(w).Encode(user)
+	if err != nil {
+		w.WriteHeader(500)
+		server.log.Debug("Error serializing response: " + err.Error())
+	}
+}
+
+func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http.Request) {
+	server.log.Debug("Create New User")
+}
+
+func (server *Server) updateAccountRequestHandler(w http.ResponseWriter, r *http.Request) {
+	server.log.Debug("UPDATE Account")
+
+}
+
+func (server *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
+	server.log.Debug("DELETE Account")
 }
 
 // Run starts the server that host webapp and api endpoint
