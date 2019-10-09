@@ -131,6 +131,8 @@ type Config struct {
 	Marketing marketingweb.Config
 
 	Version version.Config
+
+	GracefulExit gracefulexit.Config
 }
 
 // Peer is the satellite
@@ -234,6 +236,10 @@ type Peer struct {
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
+
+	GracefulExit struct {
+		Chore *gracefulexit.Chore
+	}
 }
 
 // New creates a new satellite
@@ -246,7 +252,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	var err error
 
-	{
+	{ // setup version control
 		test := version.Info{}
 		if test != versionInfo {
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
@@ -386,7 +392,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 		)
-		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Service)
+		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Database)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -426,6 +432,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Dialer,
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,
+			config.Checker.RepairOverride,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
 
@@ -502,7 +509,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Loop, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
@@ -652,6 +659,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
 	}
 
+	{ // setup graceful exit
+		log.Debug("Setting up graceful")
+		peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("graceful exit chore"), peer.DB.GracefulExit(), peer.Overlay.DB, config.GracefulExit, peer.Metainfo.Loop)
+	}
+
 	return peer, nil
 }
 
@@ -708,6 +720,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -721,6 +736,10 @@ func (peer *Peer) Close() error {
 	// close servers, to avoid new connections to closing subsystems
 	if peer.Server != nil {
 		errlist.Add(peer.Server.Close())
+	}
+
+	if peer.GracefulExit.Chore != nil {
+		errlist.Add(peer.GracefulExit.Chore.Close())
 	}
 
 	if peer.Console.Endpoint != nil {

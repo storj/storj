@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-button-container" id="accountDropdownButton">
-        <div class="account-button-toggle-container" @click="toggleSelection" >
+        <div class="account-button-toggle-container" @click="toggleSelection">
             <!-- background of this div generated and stores in store -->
             <div class="account-button-toggle-container__avatar">
                 <!-- First digit of firstName after Registration -->
@@ -12,11 +12,11 @@
             </div>
             <h1 class="account-button-toggle-container__user-name">{{userName}}</h1>
             <div class="account-button-toggle-container__expander-area">
-                <img v-if="!isDropdownShown" src="../../../static/images/register/BlueExpand.svg"  alt="expand settings" />
-                <img v-if="isDropdownShown" src="../../../static/images/register/BlueHide.svg"  alt="hide settings" />
+                <img v-if="!isDropdownShown" src="@/../static/images/register/BlueExpand.svg"  alt="Arrow down (expand)"/>
+                <img v-if="isDropdownShown" src="@/../static/images/register/BlueHide.svg"  alt="Arrow up (hide)"/>
             </div>
         </div>
-        <AccountDropdown v-if="isDropdownShown" />
+        <AccountDropdown v-if="isDropdownShown"/>
     </div>
 </template>
 

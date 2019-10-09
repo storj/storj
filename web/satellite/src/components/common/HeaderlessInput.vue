@@ -4,8 +4,8 @@
 <template>
     <div class="input-wrap">
         <div class="label-container">
-            <img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
-            <h3 class="label-container__label" v-if="!error && label" :style="style.labelStyle">{{label}}</h3>
+            <img v-if="error" src="@/../static/images/register/ErrorInfo.svg" alt="Red error icon with explanation mark"/>
+            <h3 class="label-container__label" v-if="isLabelShown" :style="style.labelStyle">{{label}}</h3>
             <h3 class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</h3>
         </div>
         <input
@@ -16,13 +16,14 @@
             v-model="value"
             :placeholder="placeholder"
             :type="type"
-            :style="style.inputStyle"/>
+            :style="style.inputStyle"
+        />
         <!--2 conditions of eye image (crossed or not) -->
-        <svg class="input-wrap__image" v-if="isPassword && !isPasswordShown" @click="changeVision" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg class="input-wrap__image" v-if="isPasswordHiddenState" @click="changeVision" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path class="input-wrap__image__path" d="M10 4C4.70642 4 1 10 1 10C1 10 3.6999 16 10 16C16.3527 16 19 10 19 10C19 10 15.3472 4 10 4ZM10 13.8176C7.93537 13.8176 6.2946 12.1271 6.2946 10C6.2946 7.87285 7.93537 6.18239 10 6.18239C12.0646 6.18239 13.7054 7.87285 13.7054 10C13.7054 12.1271 12.0646 13.8176 10 13.8176Z" fill="#AFB7C1"/>
             <path d="M11.6116 9.96328C11.6116 10.8473 10.8956 11.5633 10.0116 11.5633C9.12763 11.5633 8.41162 10.8473 8.41162 9.96328C8.41162 9.07929 9.12763 8.36328 10.0116 8.36328C10.8956 8.36328 11.6116 9.07929 11.6116 9.96328Z" fill="#AFB7C1"/>
         </svg>
-        <svg class="input-wrap__image" v-if="isPassword && isPasswordShown" @click="changeVision" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg class="input-wrap__image" v-if="isPasswordShownState" @click="changeVision" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path class="input-wrap__image__path" d="M10 4C4.70642 4 1 10 1 10C1 10 3.6999 16 10 16C16.3527 16 19 10 19 10C19 10 15.3472 4 10 4ZM10 13.8176C7.93537 13.8176 6.2946 12.1271 6.2946 10C6.2946 7.87285 7.93537 6.18239 10 6.18239C12.0646 6.18239 13.7054 7.87285 13.7054 10C13.7054 12.1271 12.0646 13.8176 10 13.8176Z" fill="#AFB7C1"/>
             <path d="M11.6121 9.96328C11.6121 10.8473 10.8961 11.5633 10.0121 11.5633C9.12812 11.5633 8.41211 10.8473 8.41211 9.96328C8.41211 9.07929 9.12812 8.36328 10.0121 8.36328C10.8961 8.36328 11.6121 9.07929 11.6121 9.96328Z" fill="#AFB7C1"/>
             <mask id="path-3-inside-1" fill="white">
@@ -101,6 +102,18 @@ export default class HeaderlessInput extends Vue {
         this.type = this.passwordType;
     }
 
+    public get isLabelShown(): boolean {
+        return !!(!this.error && this.label);
+    }
+
+    public get isPasswordHiddenState(): boolean {
+        return this.isPassword && !this.isPasswordShown;
+    }
+
+    public get isPasswordShownState(): boolean {
+        return this.isPassword && this.isPasswordShown;
+    }
+
     protected get style(): object {
         return {
             inputStyle: {
@@ -123,7 +136,7 @@ export default class HeaderlessInput extends Vue {
         position: relative;
         width: 100%;
         font-family: 'font_regular';
-    
+
         &__image {
             position: absolute;
             right: 25px;
@@ -131,7 +144,7 @@ export default class HeaderlessInput extends Vue {
             transform: translateY(-50%);
             z-index: 20;
             cursor: pointer;
-        
+
             &:hover .input-wrap__image__path {
                 fill: #2683FF !important;
             }

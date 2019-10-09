@@ -30,12 +30,13 @@
         <path d="M72.5888 3.64524V1.82842C72.5888 1.06344 73.2162 0.441895 73.9884 0.441895H81.3607V11.3309C81.3607 13.327 80.8419 14.8091 79.8042 15.8012C78.7665 16.7933 77.4393 17.2834 75.8104 17.2834C74.5193 17.2834 73.3248 16.9726 72.2389 16.3391C71.2012 15.7415 70.9357 14.3788 71.6356 13.4107L72.456 12.2871C73.4696 13.3748 74.5314 13.9127 75.6415 13.9127C76.1724 13.9127 76.6309 13.7095 77.0049 13.3031C77.379 12.8967 77.572 12.2871 77.572 11.4743V3.64524H72.5888Z" fill="#2683FF"/>
     </svg>
     <div class="dashboard-header-container__right-area">
-        <NewProjectArea class="dashboard-header-container__right-area__new-project" />
-        <AccountButton class="dashboard-header-container__right-area__account-button" />
+        <NewProjectArea class="dashboard-header-container__right-area__new-project"/>
+        <AccountButton class="dashboard-header-container__right-area__account-button"/>
     </div>
     <ProjectCreationSuccessPopup/>
     <NavigationArea
         class="adapted-navigation"
-        v-if="isNavigationVisible" />
+        v-if="isNavigationVisible"
+    />
     <div class="navigation-blur" v-if="isNavigationVisible"></div>
 </div>
