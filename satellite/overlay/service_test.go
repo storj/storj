@@ -375,6 +375,7 @@ func TestUpdateCheckIn(t *testing.T) {
 			Contained:    false,
 			Disqualified: nil,
 			PieceCount:   0,
+			ExitStatus:   overlay.ExitStatus{NodeID: nodeID},
 		}
 		config := overlay.NodeSelectionConfig{
 			UptimeReputationLambda: 0.99,
@@ -404,7 +405,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		expectedNode.Reputation.LastContactSuccess = actualNode.Reputation.LastContactSuccess
 		expectedNode.Reputation.LastContactFailure = actualNode.Reputation.LastContactFailure
 		expectedNode.Version.Timestamp = actualNode.Version.Timestamp
-		require.Equal(t, actualNode, expectedNode)
+		require.Equal(t, expectedNode, actualNode)
 
 		// confirm that we can update the address field
 		startOfUpdateTest := time.Now().UTC()
