@@ -7,10 +7,10 @@ import (
 	"context"
 	"net"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/internal/errs2"

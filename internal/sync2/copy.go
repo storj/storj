@@ -7,7 +7,7 @@ import (
 	"context"
 	"io"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
 )
 
 var mon = monkit.Package()

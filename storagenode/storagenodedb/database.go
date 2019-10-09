@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3" // used indirectly.
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/sqliteutil"

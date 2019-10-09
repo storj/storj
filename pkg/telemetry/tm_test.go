@@ -8,9 +8,9 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (

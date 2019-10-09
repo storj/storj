@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	monkitPath    = "gopkg.in/spacemonkeygo/monkit.v2"
+	monkitPath    = "github.com/spacemonkeygo/monkit/v3"
 	lockFilePerms = os.FileMode(0644)
 )
 

@@ -13,8 +13,9 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/pb"

@@ -6,9 +6,9 @@ package contact
 import (
 	"sync"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/rpc"
 	"storj.io/storj/satellite/overlay"

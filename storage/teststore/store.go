@@ -10,7 +10,7 @@ import (
 	"sort"
 	"sync"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/storj/storage"
 )

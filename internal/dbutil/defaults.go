@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"flag"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
 )
 
 var (

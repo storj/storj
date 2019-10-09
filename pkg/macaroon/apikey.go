@@ -10,8 +10,8 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/gogo/protobuf/proto"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (

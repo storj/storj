@@ -17,15 +17,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/collect"
+	"github.com/spacemonkeygo/monkit/v3/present"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"github.com/zeebo/structs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-	"gopkg.in/spacemonkeygo/monkit.v2/collect"
-	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"

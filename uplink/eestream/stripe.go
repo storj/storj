@@ -11,9 +11,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (

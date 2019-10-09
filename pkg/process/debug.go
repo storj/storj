@@ -11,9 +11,9 @@ import (
 	"net/http/pprof"
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/present"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
-	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
 	"storj.io/storj/internal/version/checker"
 )

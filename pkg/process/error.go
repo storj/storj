@@ -4,8 +4,8 @@
 package process
 
 import (
+	"github.com/spacemonkeygo/monkit/v3"
 	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 func init() {

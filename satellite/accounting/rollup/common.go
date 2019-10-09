@@ -4,8 +4,8 @@
 package rollup
 
 import (
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 // Error is a standard error class for this package.

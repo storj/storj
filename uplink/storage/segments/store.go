@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/vivint/infectious"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"

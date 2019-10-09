@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeebo/admission/admmonkit"
 	"go.uber.org/zap/zaptest"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 func TestNewClient_IntervalIsZero(t *testing.T) {

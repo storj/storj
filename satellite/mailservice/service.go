@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/post"
 )

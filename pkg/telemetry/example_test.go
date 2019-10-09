@@ -9,11 +9,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/zeebo/admission/admproto"
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/admission/v2/admproto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/telemetry"
 )
