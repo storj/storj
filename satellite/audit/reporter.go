@@ -45,11 +45,8 @@ func NewReporter(log *zap.Logger, overlay *overlay.Service, containment Containm
 // RecordAudits saves audit results to overlay. When no error, it returns
 // nil for both return values, otherwise it returns the report with the fields
 // set to the values which have been saved and the error.
-func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Report, err error) {
+func (reporter *Reporter) RecordAudits(ctx context.Context, req Report) (_ Report, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if req == nil {
-		return nil, nil
-	}
 
 	successes := req.Successes
 	fails := req.Fails
@@ -68,7 +65,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Rep
 	tries := 0
 	for tries <= reporter.maxRetries {
 		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
-			return nil, nil
+			return Report{}, nil
 		}
 
 		errlist = errs.Group{}
@@ -103,14 +100,14 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Rep
 
 	err = errlist.Err()
 	if tries >= reporter.maxRetries && err != nil {
-		return &Report{
+		return Report{
 			Successes:     successes,
 			Fails:         fails,
 			Offlines:      offlines,
 			PendingAudits: pendingAudits,
 		}, errs.Combine(Error.New("some nodes failed to be updated in overlay"), err)
 	}
-	return nil, nil
+	return Report{}, nil
 }
 
 // recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
