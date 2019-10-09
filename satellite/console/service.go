@@ -781,7 +781,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 
 	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
 	if err == nil {
-		return nil, nil, errs.New("An API Key with this name already exists in this project, please use a different name")
+		return nil, nil, errs.New("an API Key with this name already exists in this project, please use a different name")
 	}
 
 	secret, err := macaroon.NewSecret()
