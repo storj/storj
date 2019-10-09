@@ -123,7 +123,8 @@ func TestInitiate(t *testing.T) {
 							},
 						},
 					}
-					c.Send(success)
+					err = c.Send(success)
+					require.NoError(t, err)
 				} else {
 					failed := &pb.StorageNodeMessage{
 						Message: &pb.StorageNodeMessage_Failed{
@@ -133,7 +134,8 @@ func TestInitiate(t *testing.T) {
 							},
 						},
 					}
-					c.Send(failed)
+					err = c.Send(failed)
+					require.NoError(t, err)
 				}
 			case *pb.SatelliteMessage_ExitCompleted:
 				break

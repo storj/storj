@@ -12,6 +12,7 @@ import (
 
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/gracefulexit"
@@ -195,7 +196,10 @@ func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID
 		return nil, Error.Wrap(err)
 	}
 
-	defer rows.Close()
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
 	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -218,7 +222,10 @@ func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID sto
 		return nil, Error.Wrap(err)
 	}
 
-	defer rows.Close()
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
 	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -242,7 +249,10 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 		return nil, Error.Wrap(err)
 	}
 
-	defer rows.Close()
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
 	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {
 		return nil, Error.Wrap(err)

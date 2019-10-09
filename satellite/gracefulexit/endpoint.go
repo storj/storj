@@ -323,7 +323,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *sync.Map
 		return Error.Wrap(err)
 	}
 
-	var failed int64 = 0
+	var failed int64
 	if transferQueueItem.FailedCount != nil && *transferQueueItem.FailedCount > 0 {
 		failed = -1
 	}
@@ -333,7 +333,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *sync.Map
 		return Error.Wrap(err)
 	}
 
-	endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.(pendingTransfer).path)
+	err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.(pendingTransfer).path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
