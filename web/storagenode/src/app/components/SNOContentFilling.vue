@@ -182,6 +182,8 @@ export default class SNOContentFilling extends Vue {
             margin-top: 17px;
 
             &__image {
+                min-height: 35px;
+                min-width: 35px;
                 margin-right: 17px;
             }
 

@@ -80,6 +80,7 @@ export default class SatelliteSelectionDropdown extends Vue {
 
             &__image {
                 position: absolute;
+                top: 13px;
                 left: 10px;
             }
 
