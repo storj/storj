@@ -22,9 +22,6 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// TODO:
-// rename pb messages since it;s global
-
 type gracefulExitClient struct {
 	conn *rpc.Conn
 }
