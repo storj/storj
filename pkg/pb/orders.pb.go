@@ -224,8 +224,7 @@ type OrderLimitSigning struct {
 	OrderExpiration    *time.Time  `protobuf:"bytes,9,opt,name=order_expiration,json=orderExpiration,proto3,stdtime" json:"order_expiration,omitempty"`
 	OrderCreation      *time.Time  `protobuf:"bytes,12,opt,name=order_creation,json=orderCreation,proto3,stdtime" json:"order_creation,omitempty"`
 	SatelliteSignature []byte      `protobuf:"bytes,10,opt,name=satellite_signature,json=satelliteSignature,proto3" json:"satellite_signature,omitempty"`
-	// satellites aren't necessarily discoverable in kademlia. this allows
-	// a storage node to find a satellite and handshake with it to get its key.
+	// this allows a storage node to find a satellite and handshake with it to get its key.
 	SatelliteAddress     *NodeAddress `protobuf:"bytes,11,opt,name=satellite_address,json=satelliteAddress,proto3" json:"satellite_address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
