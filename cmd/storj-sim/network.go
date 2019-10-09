@@ -154,7 +154,7 @@ func networkTest(flags *Flags, command string, args []string) error {
 	if printCommands {
 		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
-	time.Sleep(20 * time.Second)
+	time.Sleep(30 * time.Second) //this may end up being flaky
 	errRun := cmd.Run()
 
 	cancel()
