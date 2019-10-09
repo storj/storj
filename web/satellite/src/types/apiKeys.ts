@@ -36,7 +36,6 @@ export interface ApiKeysApi {
 
 export enum ApiKeyOrderBy {
     NAME = 1,
-    EMAIL,
     CREATED_AT,
 }
 

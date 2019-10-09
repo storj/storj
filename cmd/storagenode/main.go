@@ -31,6 +31,8 @@ type StorageNodeFlags struct {
 	EditConf bool `default:"false" help:"open config in default editor"`
 
 	storagenode.Config
+
+	Deprecated
 }
 
 var (
@@ -119,6 +121,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
+
+	mapDeprecatedConfigs(log)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {

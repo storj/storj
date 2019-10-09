@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/discovery"
 	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
@@ -118,6 +119,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
+				MaxCommitInterval:    1 * time.Hour,
 				Overlay:              true,
 				RS: metainfo.RSConfig{
 					MaxSegmentSize:   64 * memory.MiB,
@@ -193,6 +195,10 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
 			},
 			Version: planet.NewVersionConfig(),
+			GracefulExit: gracefulexit.Config{
+				ChoreBatchSize: 10,
+				ChoreInterval:  defaultInterval,
+			},
 		}
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)

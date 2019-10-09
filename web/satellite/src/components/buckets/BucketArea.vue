@@ -3,14 +3,15 @@
 
 <template>
     <div>
-        <NoBucketArea v-if="!totalCount && !search" />
+        <NoBucketArea v-if="isNoBucketAreaShown"/>
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p class="buckets-header__title">Buckets</p>
                 <VHeader
                     class="buckets-header-component"
                     placeholder="Buckets"
-                    :search="fetch"/>
+                    :search="fetch"
+                />
             </div>
             <div class="buckets-notification-container">
                 <div class="buckets-notification">
@@ -22,21 +23,24 @@
                 </div>
             </div>
             <div v-if="buckets.length" class="buckets-container">
-                <SortingHeader />
+                <SortingHeader/>
                 <VList
                     :data-set="buckets"
                     :item-component="itemComponent"
-                    :on-item-click="doNothing"/>
+                    :on-item-click="doNothing"
+                />
                 <VPagination
-                    v-if="totalPageCount > 1"
+                    v-if="isPaginationShown"
                     :total-page-count="totalPageCount"
-                    :on-page-click-callback="onPageClick" />
+                    :on-page-click-callback="onPageClick"
+                />
             </div>
             <EmptyState
                 class="empty-container"
-                v-if="!totalPageCount && search"
+                v-if="isEmptySearchResultShown"
                 main-title="Nothing found :("
-                :image-source="emptyImage" />
+                :image-source="emptyImage"
+            />
         </div>
     </div>
 </template>
@@ -102,6 +106,18 @@ export default class BucketArea extends Vue {
 
     public get search(): string {
         return this.$store.getters.cursor.search;
+    }
+
+    public get isNoBucketAreaShown(): boolean {
+        return !this.totalCount && !this.search;
+    }
+
+    public get isPaginationShown(): boolean {
+        return this.totalPageCount > 1;
+    }
+
+    public get isEmptySearchResultShown(): boolean {
+        return !!(!this.totalPageCount && this.search);
     }
 
     public async fetch(searchQuery: string): Promise<void> {
