@@ -4,10 +4,14 @@
 <template>
     <div class="remaining-space-container">
         <p class="remaining-space-container__title">{{label}}</p>
-        <p class="remaining-space-container__amount"><b>{{remaining}}GB</b></p>
+        <p class="remaining-space-container__amount"><b>{{remaining}}</b></p>
         <div class="remaining-space-container__bar">
             <VInfo :text="infoMessage">
-                <VBar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
+                <VBar
+                    :current="currentBarAmount"
+                    :max="maxBarAmount"
+                    color="#224CA5"
+                />
             </VInfo>
         </div>
     </div>
@@ -18,6 +22,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VBar from '@/app/components/VBar.vue';
 import VInfo from '@/app/components/VInfo.vue';
+import { formatBytes } from '@/app/utils/converter';
 
 @Component ({
     components: {
@@ -42,7 +47,7 @@ export default class BarInfo extends Vue {
     }
 
     public get remaining(): string {
-        return this.amount.toFixed(2);
+        return formatBytes(this.amount);
     }
 }
 </script>

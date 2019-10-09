@@ -29,9 +29,6 @@ var ErrNodeOffline = errs.Class("node is offline")
 // ErrNodeDisqualified is returned if a nodes is disqualified
 var ErrNodeDisqualified = errs.Class("node is disqualified")
 
-// ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
-var ErrBucketNotFound = errs.New("bucket not found")
-
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
@@ -56,8 +53,6 @@ type DB interface {
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// PaginateQualified will page through the qualified nodes
 	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
-	// IsVetted returns whether or not the node reaches reputable thresholds
-	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -75,6 +70,13 @@ type DB interface {
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
 	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
+
+	// UpdateExitStatus is used to update a node's graceful exit status.
+	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (stats *NodeStats, err error)
+	// GetExitingNodes returns nodes who have initiated a graceful exit, but have not completed it.
+	GetExitingNodes(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
+	// GetExitingNodesLoopIncomplete returns exiting nodes who haven't completed the metainfo loop iteration.
+	GetExitingNodesLoopIncomplete(ctx context.Context) (exitingNodes storj.NodeIDList, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -125,6 +127,14 @@ type UpdateRequest struct {
 	UptimeLambda float64
 	UptimeWeight float64
 	UptimeDQ     float64
+}
+
+// ExitStatusRequest is used to update a node's graceful exit status.
+type ExitStatusRequest struct {
+	NodeID              storj.NodeID
+	ExitInitiatedAt     time.Time
+	ExitLoopCompletedAt time.Time
+	ExitFinishedAt      time.Time
 }
 
 // NodeDossier is the complete info that the satellite tracks for a storage node
@@ -317,8 +327,8 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// If we get a Node without an ID (i.e. bootstrap node)
-	// we don't want to add to the routing tbale
+	// If we get a Node without an ID
+	// we don't want to add to the database
 	if nodeID.IsZero() {
 		return nil
 	}
@@ -335,20 +345,6 @@ func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.N
 		return Error.Wrap(err)
 	}
 	return service.db.UpdateAddress(ctx, &value, service.config.Node)
-}
-
-// IsVetted returns whether or not the node reaches reputable thresholds
-func (service *Service) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	criteria := &NodeCriteria{
-		AuditCount:  service.config.Node.AuditCount,
-		UptimeCount: service.config.Node.UptimeCount,
-	}
-	reputable, err = service.db.IsVetted(ctx, nodeID, criteria)
-	if err != nil {
-		return false, err
-	}
-	return reputable, nil
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction

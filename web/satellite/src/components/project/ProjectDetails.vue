@@ -32,19 +32,22 @@
                         height="10vh"
                         is-multiline="true"
                         :init-value="storedDescription"
-                        @setData="setNewDescription" />
+                        @setData="setNewDescription"
+                    />
                     <div class="project-details-info-container__description-container__buttons-area">
                         <VButton
                             label="Cancel"
                             width="180px"
                             height="48px"
                             :on-press="toggleEditing"
-                            is-white="true"/>
+                            is-white="true"
+                        />
                         <VButton
                             label="Save"
                             width="180px"
                             height="48px"
-                            :on-press="onSaveButtonClick"/>
+                            :on-press="onSaveButtonClick"
+                        />
                     </div>
                 </div>
             </div>
@@ -55,10 +58,11 @@
                     width="180px"
                     height="48px"
                     :on-press="toggleDeleteDialog"
-                    is-deletion="true"/>
+                    is-deletion="true"
+                />
             </div>
         </div>
-        <DeleteProjectPopup v-if="isPopupShown" />
+        <DeleteProjectPopup v-if="isPopupShown"/>
     </div>
 </template>
 
@@ -124,7 +128,9 @@ export default class ProjectDetailsArea extends Vue {
                 new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription),
             );
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, `Unable to update project description. ${error.message}`);
+
+            return;
         }
 
         this.toggleEditing();
@@ -231,6 +237,8 @@ export default class ProjectDetailsArea extends Vue {
                     line-height: 21px;
                     color: #354049;
                     width: 100%;
+                    max-height: 25vh;
+                    overflow-y: scroll;
                     word-break: break-word;
                 }
             }

@@ -68,7 +68,6 @@ export default class NavigationArea extends Vue {
     public readonly accountNavigation: NavigationLink[] = [
         RouteConfig.Account.with(RouteConfig.Profile),
         RouteConfig.Account.with(RouteConfig.Billing),
-        RouteConfig.Account.with(RouteConfig.PaymentMethods),
     ];
 
     public onLogoClick(): void {
@@ -77,6 +76,22 @@ export default class NavigationArea extends Vue {
 
     public get isProjectNotSelected(): boolean {
         return this.$store.state.projectsModule.selectedProject.id === '';
+    }
+
+    public get isResourcesDisplayingButtonShown(): boolean {
+        return !this.areResourceItemsShown && this.isResourceButtonShown;
+    }
+
+    public get isResourcesHidingButtonShown(): boolean {
+        return this.areResourceItemsShown && this.isResourceButtonShown;
+    }
+
+    public get isAccountItemsDisplayingButtonShown(): boolean {
+        return !this.areAccountItemsShown && this.isAccountButtonShown;
+    }
+
+    public get isAccountItemsHidingButtonShown(): boolean {
+        return this.areAccountItemsShown && this.isAccountButtonShown;
     }
 }
 </script>
