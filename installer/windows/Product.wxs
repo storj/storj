@@ -83,7 +83,7 @@
     <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
     <Property Id="STORJ_STORAGE">1.0</Property>
     <Property Id="STORJ_BANDWIDTH">2.0</Property>
-    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch SNOBoard" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open dashboard" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
 
     <UIRef Id="CustomInstallDir" />
