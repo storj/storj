@@ -334,13 +334,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	return nil
 }
 
-func (endpoint *Endpoint) sendPiecesToTransfer(ctx context.Context, stream processStream, nodeID storj.NodeID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	endpoint.log.Debug("sending pieces to transfer.", zap.String("nodeID", nodeID.String()))
-
-	return nil
-}
-
 func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if message.Succeeded.GetAddressedOrderLimit() == nil {
