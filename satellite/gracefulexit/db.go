@@ -54,10 +54,10 @@ type DB interface {
 	DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error
 	// GetTransferQueueItem gets a graceful exit transfer queue entry.
 	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (*TransferQueueItem, error)
-	// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by the queued date ascending.
+	// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by durability ratio and queued date ascending.
 	GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
-	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries in the database ordered by durability ratio descending and queued date ascending.
+	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries in the database ordered by durability ratio and queued date ascending.
 	GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
-	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed less than n times, ordered by durability ratio descending and queued date ascending.
+	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed less than n times, ordered by durability ratio and queued date ascending.
 	GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, failedLessThan int, limit int, offset int64) ([]*TransferQueueItem, error)
 }
