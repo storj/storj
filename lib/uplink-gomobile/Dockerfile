@@ -7,7 +7,7 @@ RUN apt-get update -qq
 # Dependencies to execute Android builds
 RUN dpkg --add-architecture i386
 RUN apt-get update -qq
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y unzip openjdk-8-jdk rsync libc6:i386 libstdc++6:i386 libgcc1:i386 libncurses5:i386 libz1:i386
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y unzip openjdk-8-jdk rsync qemu-kvm qemu-utils libc6:i386 libstdc++6:i386 libgcc1:i386 libncurses5:i386 libz1:i386
 
 RUN cd /opt \
     && wget -q https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip -O android-sdk-tools.zip \
