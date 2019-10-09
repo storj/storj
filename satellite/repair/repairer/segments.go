@@ -257,6 +257,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// add pieces that failed piece hashes verification to the removal list
 	toRemove = append(toRemove, failedPieces...)
 
+	var segmentAge time.Duration
+	if pointer.CreationDate.Before(pointer.LastRepaired) {
+		segmentAge = time.Since(pointer.LastRepaired)
+	} else {
+		segmentAge = time.Since(pointer.CreationDate)
+	}
+
 	pointer.LastRepaired = time.Now().UTC()
 	pointer.RepairCount++
 
@@ -264,13 +271,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
 	if err != nil {
 		return false, err
-	}
-
-	var segmentAge time.Duration
-	if pointer.CreationDate.Before(pointer.LastRepaired) {
-		segmentAge = time.Since(pointer.LastRepaired)
-	} else {
-		segmentAge = time.Since(pointer.CreationDate)
 	}
 
 	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds()))

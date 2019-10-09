@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/bootstrap"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/storj"
@@ -67,7 +66,6 @@ type Planet struct {
 	databases []io.Closer
 	uplinks   []*Uplink
 
-	Bootstrap      *bootstrap.Peer
 	VersionControl *versioncontrol.Peer
 	Satellites     []*SatelliteSystem
 	StorageNodes   []*storagenode.Peer
@@ -171,11 +169,6 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 	planet.whitelistPath = whitelistPath
 
 	planet.VersionControl, err = planet.newVersionControlServer()
-	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
-	}
-
-	planet.Bootstrap, err = planet.newBootstrap()
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
