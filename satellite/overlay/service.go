@@ -53,8 +53,6 @@ type DB interface {
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// PaginateQualified will page through the qualified nodes
 	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
-	// IsVetted returns whether or not the node reaches reputable thresholds
-	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -347,20 +345,6 @@ func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.N
 		return Error.Wrap(err)
 	}
 	return service.db.UpdateAddress(ctx, &value, service.config.Node)
-}
-
-// IsVetted returns whether or not the node reaches reputable thresholds
-func (service *Service) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	criteria := &NodeCriteria{
-		AuditCount:  service.config.Node.AuditCount,
-		UptimeCount: service.config.Node.UptimeCount,
-	}
-	reputable, err = service.db.IsVetted(ctx, nodeID, criteria)
-	if err != nil {
-		return false, err
-	}
-	return reputable, nil
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction

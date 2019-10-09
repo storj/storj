@@ -38,18 +38,18 @@ func TestIterate(t *testing.T) {
 		// Test: Confirm that only the objects are in pointerDB
 		// and not the bucket metadata
 		var itemCount int
-		metainfoSvc := saPeer.Metainfo.Service
-		err = metainfoSvc.Iterate(ctx, "", "", true, false, func(ctx context.Context, it storage.Iterator) error {
-			var item storage.ListItem
-			for it.Next(ctx, &item) {
-				itemCount++
-				pathElements := storj.SplitPath(storj.Path(item.Key))
-				// there should not be any objects in pointerDB with less than 4 path
-				// elements. i.e buckets should not be stored in pointerDB
-				require.True(t, len(pathElements) > 3)
-			}
-			return nil
-		})
+		err = saPeer.Metainfo.Database.Iterate(ctx, storage.IterateOptions{Recurse: true},
+			func(ctx context.Context, it storage.Iterator) error {
+				var item storage.ListItem
+				for it.Next(ctx, &item) {
+					itemCount++
+					pathElements := storj.SplitPath(storj.Path(item.Key))
+					// there should not be any objects in pointerDB with less than 4 path
+					// elements. i.e buckets should not be stored in pointerDB
+					require.True(t, len(pathElements) > 3)
+				}
+				return nil
+			})
 		require.NoError(t, err)
 		// There should only be 1 item in pointerDB, the one object
 		require.Equal(t, 1, itemCount)
