@@ -95,7 +95,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 
 	defer func() {
 		// if piece hashes have not been verified for this segment, do not mark nodes as failing audit
-		if !pointer.PieceHashesVerified {
+		if !pointer.PieceHashesVerified && report != nil {
 			report.PendingAudits = nil
 			report.Fails = nil
 		}
@@ -362,6 +362,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 	pieceHashesVerified := make(map[storj.NodeID]bool)
 	pieceHashesVerifiedMutex := &sync.Mutex{}
 	defer func() {
+		if report == nil {
+			return
+		}
+
 		pieceHashesVerifiedMutex.Lock()
 
 		// for each node in Fails and PendingAudits, remove if piece hashes not verified for that segment
