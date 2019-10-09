@@ -779,7 +779,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
-	_, err = s.store.APIKeys().GetByName(ctx, name)
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
 	if err == nil {
 		return nil, nil, errs.New("An API Key with this name already exists in this project, please use a different name")
 	}

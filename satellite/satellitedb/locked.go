@@ -185,11 +185,11 @@ func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.AP
 	return m.db.GetByHead(ctx, head)
 }
 
-// GetByName retrieves APIKeyInfo for given key name
-func (m *lockedAPIKeys) GetByName(ctx context.Context, name string) (*console.APIKeyInfo, error) {
+// GetByNameAndProjectID retrieves APIKeyInfo for given key name and projectID
+func (m *lockedAPIKeys) GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (*console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetByName(ctx, name)
+	return m.db.GetByNameAndProjectID(ctx, name, projectID)
 }
 
 // GetPagedByProjectID is a method for querying API keys from the database by projectID and cursor

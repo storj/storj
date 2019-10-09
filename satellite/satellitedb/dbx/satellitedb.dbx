@@ -426,6 +426,7 @@ read one (
 read one (
     select api_key
     where api_key.name = ?
+    where api_key.project_id = ?
 )
 read all (
     select api_key
