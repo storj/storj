@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -241,7 +242,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 
 	err = endpoint.filterValidPieces(ctx, req.Pointer, req.OriginalLimits)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, err
 	}
 
 	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
@@ -459,6 +460,10 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
+// filterValidPieces filter out the invalid remote pieces hold by pointer.
+//
+// The method alwayw return a gRPC status error so the caller can directly
+// returned to the client.
 func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -470,23 +475,44 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			return err
 		}
 
-		var remotePieces []*pb.RemotePiece
-		allSizesValid := true
-		lastPieceSize := int64(0)
-		for _, piece := range remote.RemotePieces {
+		type invalidPiece struct {
+			NodeID   storj.NodeID
+			PieceNum int32
+			Reason   string
+		}
 
+		var (
+			remotePieces  []*pb.RemotePiece
+			invalidPieces []invalidPiece
+			lastPieceSize int64
+			allSizesValid = true
+		)
+		for _, piece := range remote.RemotePieces {
 			// Verify storagenode signature on piecehash
 			peerID, ok := peerIDMap[piece.NodeId]
 			if !ok {
-				endpoint.log.Warn("Identity chain unknown for node", zap.String("nodeID", piece.NodeId.String()))
+				endpoint.log.Warn("Identity chain unknown for node. Piece removed from pointer",
+					zap.String("nodeID", piece.NodeId.String()),
+					zap.Int32("pieceID", piece.PieceNum),
+				)
+
+				invalidPieces = append(invalidPieces, invalidPiece{
+					NodeID:   piece.NodeId,
+					PieceNum: piece.PieceNum,
+					Reason:   "Identity chain unknown for node",
+				})
 				continue
 			}
 			signee := signing.SigneeFromPeerIdentity(peerID)
 
 			err = endpoint.validatePieceHash(ctx, piece, limits, signee)
 			if err != nil {
-				// TODO maybe this should be logged also to uplink too
-				endpoint.log.Warn("Problem validating piece hash", zap.Error(err))
+				endpoint.log.Warn("Problem validating piece hash. Pieces removed from pointer", zap.Error(err))
+				invalidPieces = append(invalidPieces, invalidPiece{
+					NodeID:   piece.NodeId,
+					PieceNum: piece.PieceNum,
+					Reason:   err.Error(),
+				})
 				continue
 			}
 
@@ -502,35 +528,69 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		if allSizesValid {
 			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 			if err != nil {
-				return Error.Wrap(err)
+				endpoint.log.Debug("pointer contains an invalid redundancy strategy", zap.Error(Error.Wrap(err)))
+				return rpcstatus.Error(rpcstatus.InvalidArgument, "invalid redundancy strategy; MinReq and/or Total are invalid")
 			}
 
 			expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
 			if expectedPieceSize != lastPieceSize {
-				return Error.New("expected piece size is different from provided (%v != %v)", expectedPieceSize, lastPieceSize)
+				errMsg := fmt.Sprintf("expected piece size is different from provided (%d != %d)", expectedPieceSize, lastPieceSize)
+				endpoint.log.Debug(errMsg)
+				return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 			}
 		} else {
-			return Error.New("all pieces needs to have the same size")
+			errMsg := "all pieces needs to have the same size"
+			endpoint.log.Debug(errMsg)
+			return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 		}
 
 		// We repair when the number of healthy files is less than or equal to the repair threshold
 		// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
-		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces (%d) is less than or equal to the repair threshold (%d)",
+		if numPieces := int32(len(remotePieces)); numPieces <= remote.Redundancy.RepairThreshold && numPieces < remote.Redundancy.SuccessThreshold {
+			errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than or equal to the repair threshold (%d). Found %d invalid pieces",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
+				len(remote.RemotePieces),
 			)
+			endpoint.log.Debug(errMsg)
+
+			if len(invalidPieces) > 0 {
+				errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+
+				for _, p := range invalidPieces {
+					errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+						errMsg, p.NodeID, p.PieceNum, p.Reason,
+					)
+				}
+			}
+
+			return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 		}
 
 		if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces (%d) is less than the success threshold (%d)",
+			errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
 				len(remotePieces),
 				remote.Redundancy.SuccessThreshold,
+				len(remote.RemotePieces),
 			)
+			endpoint.log.Debug(errMsg)
+
+			if len(invalidPieces) > 0 {
+				errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+
+				for _, p := range invalidPieces {
+					errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+						errMsg, p.NodeID, p.PieceNum, p.Reason,
+					)
+				}
+			}
+
+			return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 		}
 
 		remote.RemotePieces = remotePieces
 	}
+
 	return nil
 }
 
@@ -541,7 +601,8 @@ func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePi
 	}
 	peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		endpoint.log.Error("retrieving batch of the peer identities of nodes", zap.Error(Error.Wrap(err)))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "retrieving nodes peer identities")
 	}
 	peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
 	for _, peerID := range peerIDList {
@@ -1414,6 +1475,18 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
+	if numResults := len(req.UploadResult); numResults < int(streamID.Redundancy.GetSuccessThreshold()) {
+		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
+			zap.Int("upload pieces results", numResults),
+			zap.Int32("redundancy optimal threshold", streamID.Redundancy.GetSuccessThreshold()),
+			zap.String("segment ID", req.SegmentId.String()),
+		)
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
+			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
+			numResults, streamID.Redundancy.GetSuccessThreshold(),
+		)
+	}
+
 	pieces := make([]*pb.RemotePiece, len(req.UploadResult))
 	for i, result := range req.UploadResult {
 		pieces[i] = &pb.RemotePiece{
@@ -1461,7 +1534,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	err = endpoint.filterValidPieces(ctx, pointer, orderLimits)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, err
 	}
 
 	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
