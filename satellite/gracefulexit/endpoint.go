@@ -23,6 +23,9 @@ import (
 	"storj.io/storj/uplink/eestream"
 )
 
+// millis for the transfer queue building ticker
+const buildQueueMillis = 100
+
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
 type drpcEndpoint struct{ *Endpoint }
 
@@ -60,7 +63,7 @@ func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 func NewEndpoint(log *zap.Logger, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service, config Config) *Endpoint {
 	return &Endpoint{
 		log:       log,
-		interval:  time.Millisecond * 100,
+		interval:  time.Millisecond * buildQueueMillis,
 		db:        db,
 		overlaydb: overlaydb,
 		overlay:   overlay,
