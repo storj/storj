@@ -24,6 +24,56 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+type TransferFailed_Error int32
+
+const (
+	TransferFailed_NOT_FOUND                TransferFailed_Error = 0
+	TransferFailed_STORAGE_NODE_UNAVAILABLE TransferFailed_Error = 1
+	TransferFailed_UNKNOWN                  TransferFailed_Error = 2
+)
+
+var TransferFailed_Error_name = map[int32]string{
+	0: "NOT_FOUND",
+	1: "STORAGE_NODE_UNAVAILABLE",
+	2: "UNKNOWN",
+}
+
+var TransferFailed_Error_value = map[string]int32{
+	"NOT_FOUND":                0,
+	"STORAGE_NODE_UNAVAILABLE": 1,
+	"UNKNOWN":                  2,
+}
+
+func (x TransferFailed_Error) String() string {
+	return proto.EnumName(TransferFailed_Error_name, int32(x))
+}
+
+func (TransferFailed_Error) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{7, 0}
+}
+
+type ExitFailed_Reason int32
+
+const (
+	ExitFailed_VERIFICATION_FAILED ExitFailed_Reason = 0
+)
+
+var ExitFailed_Reason_name = map[int32]string{
+	0: "VERIFICATION_FAILED",
+}
+
+var ExitFailed_Reason_value = map[string]int32{
+	"VERIFICATION_FAILED": 0,
+}
+
+func (x ExitFailed_Reason) String() string {
+	return proto.EnumName(ExitFailed_Reason_name, int32(x))
+}
+
+func (ExitFailed_Reason) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{13, 0}
+}
+
 type GetNonExitingSatellitesRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -255,151 +305,926 @@ func (m *StartExitResponse) GetStatuses() []*StartExitStatus {
 	return nil
 }
 
+type TransferSucceeded struct {
+	AddressedOrderLimit  *AddressedOrderLimit `protobuf:"bytes,1,opt,name=addressed_order_limit,json=addressedOrderLimit,proto3" json:"addressed_order_limit,omitempty"`
+	OriginalPieceHash    *PieceHash           `protobuf:"bytes,2,opt,name=original_piece_hash,json=originalPieceHash,proto3" json:"original_piece_hash,omitempty"`
+	ReplacementPieceHash *PieceHash           `protobuf:"bytes,3,opt,name=replacement_piece_hash,json=replacementPieceHash,proto3" json:"replacement_piece_hash,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *TransferSucceeded) Reset()         { *m = TransferSucceeded{} }
+func (m *TransferSucceeded) String() string { return proto.CompactTextString(m) }
+func (*TransferSucceeded) ProtoMessage()    {}
+func (*TransferSucceeded) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{6}
+}
+func (m *TransferSucceeded) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TransferSucceeded.Unmarshal(m, b)
+}
+func (m *TransferSucceeded) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TransferSucceeded.Marshal(b, m, deterministic)
+}
+func (m *TransferSucceeded) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransferSucceeded.Merge(m, src)
+}
+func (m *TransferSucceeded) XXX_Size() int {
+	return xxx_messageInfo_TransferSucceeded.Size(m)
+}
+func (m *TransferSucceeded) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransferSucceeded.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TransferSucceeded proto.InternalMessageInfo
+
+func (m *TransferSucceeded) GetAddressedOrderLimit() *AddressedOrderLimit {
+	if m != nil {
+		return m.AddressedOrderLimit
+	}
+	return nil
+}
+
+func (m *TransferSucceeded) GetOriginalPieceHash() *PieceHash {
+	if m != nil {
+		return m.OriginalPieceHash
+	}
+	return nil
+}
+
+func (m *TransferSucceeded) GetReplacementPieceHash() *PieceHash {
+	if m != nil {
+		return m.ReplacementPieceHash
+	}
+	return nil
+}
+
+type TransferFailed struct {
+	PieceId              PieceID              `protobuf:"bytes,1,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`
+	Error                TransferFailed_Error `protobuf:"varint,2,opt,name=error,proto3,enum=gracefulexit.TransferFailed_Error" json:"error,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *TransferFailed) Reset()         { *m = TransferFailed{} }
+func (m *TransferFailed) String() string { return proto.CompactTextString(m) }
+func (*TransferFailed) ProtoMessage()    {}
+func (*TransferFailed) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{7}
+}
+func (m *TransferFailed) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TransferFailed.Unmarshal(m, b)
+}
+func (m *TransferFailed) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TransferFailed.Marshal(b, m, deterministic)
+}
+func (m *TransferFailed) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransferFailed.Merge(m, src)
+}
+func (m *TransferFailed) XXX_Size() int {
+	return xxx_messageInfo_TransferFailed.Size(m)
+}
+func (m *TransferFailed) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransferFailed.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TransferFailed proto.InternalMessageInfo
+
+func (m *TransferFailed) GetError() TransferFailed_Error {
+	if m != nil {
+		return m.Error
+	}
+	return TransferFailed_NOT_FOUND
+}
+
+type StorageNodeMessage struct {
+	// Types that are valid to be assigned to Message:
+	//	*StorageNodeMessage_Succeeded
+	//	*StorageNodeMessage_Failed
+	Message              isStorageNodeMessage_Message `protobuf_oneof:"Message"`
+	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
+	XXX_unrecognized     []byte                       `json:"-"`
+	XXX_sizecache        int32                        `json:"-"`
+}
+
+func (m *StorageNodeMessage) Reset()         { *m = StorageNodeMessage{} }
+func (m *StorageNodeMessage) String() string { return proto.CompactTextString(m) }
+func (*StorageNodeMessage) ProtoMessage()    {}
+func (*StorageNodeMessage) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{8}
+}
+func (m *StorageNodeMessage) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StorageNodeMessage.Unmarshal(m, b)
+}
+func (m *StorageNodeMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StorageNodeMessage.Marshal(b, m, deterministic)
+}
+func (m *StorageNodeMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StorageNodeMessage.Merge(m, src)
+}
+func (m *StorageNodeMessage) XXX_Size() int {
+	return xxx_messageInfo_StorageNodeMessage.Size(m)
+}
+func (m *StorageNodeMessage) XXX_DiscardUnknown() {
+	xxx_messageInfo_StorageNodeMessage.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StorageNodeMessage proto.InternalMessageInfo
+
+type isStorageNodeMessage_Message interface {
+	isStorageNodeMessage_Message()
+}
+
+type StorageNodeMessage_Succeeded struct {
+	Succeeded *TransferSucceeded `protobuf:"bytes,1,opt,name=succeeded,proto3,oneof"`
+}
+type StorageNodeMessage_Failed struct {
+	Failed *TransferFailed `protobuf:"bytes,2,opt,name=failed,proto3,oneof"`
+}
+
+func (*StorageNodeMessage_Succeeded) isStorageNodeMessage_Message() {}
+func (*StorageNodeMessage_Failed) isStorageNodeMessage_Message()    {}
+
+func (m *StorageNodeMessage) GetMessage() isStorageNodeMessage_Message {
+	if m != nil {
+		return m.Message
+	}
+	return nil
+}
+
+func (m *StorageNodeMessage) GetSucceeded() *TransferSucceeded {
+	if x, ok := m.GetMessage().(*StorageNodeMessage_Succeeded); ok {
+		return x.Succeeded
+	}
+	return nil
+}
+
+func (m *StorageNodeMessage) GetFailed() *TransferFailed {
+	if x, ok := m.GetMessage().(*StorageNodeMessage_Failed); ok {
+		return x.Failed
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*StorageNodeMessage) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _StorageNodeMessage_OneofMarshaler, _StorageNodeMessage_OneofUnmarshaler, _StorageNodeMessage_OneofSizer, []interface{}{
+		(*StorageNodeMessage_Succeeded)(nil),
+		(*StorageNodeMessage_Failed)(nil),
+	}
+}
+
+func _StorageNodeMessage_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*StorageNodeMessage)
+	// Message
+	switch x := m.Message.(type) {
+	case *StorageNodeMessage_Succeeded:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Succeeded); err != nil {
+			return err
+		}
+	case *StorageNodeMessage_Failed:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Failed); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("StorageNodeMessage.Message has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _StorageNodeMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*StorageNodeMessage)
+	switch tag {
+	case 1: // Message.succeeded
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(TransferSucceeded)
+		err := b.DecodeMessage(msg)
+		m.Message = &StorageNodeMessage_Succeeded{msg}
+		return true, err
+	case 2: // Message.failed
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(TransferFailed)
+		err := b.DecodeMessage(msg)
+		m.Message = &StorageNodeMessage_Failed{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _StorageNodeMessage_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*StorageNodeMessage)
+	// Message
+	switch x := m.Message.(type) {
+	case *StorageNodeMessage_Succeeded:
+		s := proto.Size(x.Succeeded)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *StorageNodeMessage_Failed:
+		s := proto.Size(x.Failed)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+type NotReady struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *NotReady) Reset()         { *m = NotReady{} }
+func (m *NotReady) String() string { return proto.CompactTextString(m) }
+func (*NotReady) ProtoMessage()    {}
+func (*NotReady) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{9}
+}
+func (m *NotReady) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_NotReady.Unmarshal(m, b)
+}
+func (m *NotReady) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_NotReady.Marshal(b, m, deterministic)
+}
+func (m *NotReady) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NotReady.Merge(m, src)
+}
+func (m *NotReady) XXX_Size() int {
+	return xxx_messageInfo_NotReady.Size(m)
+}
+func (m *NotReady) XXX_DiscardUnknown() {
+	xxx_messageInfo_NotReady.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NotReady proto.InternalMessageInfo
+
+type TransferPiece struct {
+	PieceId    PieceID         `protobuf:"bytes,1,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`
+	PrivateKey PiecePrivateKey `protobuf:"bytes,2,opt,name=private_key,json=privateKey,proto3,customtype=PiecePrivateKey" json:"private_key"`
+	// addressed_order_limit contains the new piece id.
+	AddressedOrderLimit  *AddressedOrderLimit `protobuf:"bytes,3,opt,name=addressed_order_limit,json=addressedOrderLimit,proto3" json:"addressed_order_limit,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *TransferPiece) Reset()         { *m = TransferPiece{} }
+func (m *TransferPiece) String() string { return proto.CompactTextString(m) }
+func (*TransferPiece) ProtoMessage()    {}
+func (*TransferPiece) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{10}
+}
+func (m *TransferPiece) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TransferPiece.Unmarshal(m, b)
+}
+func (m *TransferPiece) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TransferPiece.Marshal(b, m, deterministic)
+}
+func (m *TransferPiece) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransferPiece.Merge(m, src)
+}
+func (m *TransferPiece) XXX_Size() int {
+	return xxx_messageInfo_TransferPiece.Size(m)
+}
+func (m *TransferPiece) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransferPiece.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TransferPiece proto.InternalMessageInfo
+
+func (m *TransferPiece) GetAddressedOrderLimit() *AddressedOrderLimit {
+	if m != nil {
+		return m.AddressedOrderLimit
+	}
+	return nil
+}
+
+type DeletePiece struct {
+	PieceId              PieceID  `protobuf:"bytes,1,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeletePiece) Reset()         { *m = DeletePiece{} }
+func (m *DeletePiece) String() string { return proto.CompactTextString(m) }
+func (*DeletePiece) ProtoMessage()    {}
+func (*DeletePiece) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{11}
+}
+func (m *DeletePiece) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DeletePiece.Unmarshal(m, b)
+}
+func (m *DeletePiece) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DeletePiece.Marshal(b, m, deterministic)
+}
+func (m *DeletePiece) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeletePiece.Merge(m, src)
+}
+func (m *DeletePiece) XXX_Size() int {
+	return xxx_messageInfo_DeletePiece.Size(m)
+}
+func (m *DeletePiece) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeletePiece.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeletePiece proto.InternalMessageInfo
+
+type ExitCompleted struct {
+	// when everything is completed
+	ExitCompleteSignature []byte   `protobuf:"bytes,1,opt,name=exit_complete_signature,json=exitCompleteSignature,proto3" json:"exit_complete_signature,omitempty"`
+	XXX_NoUnkeyedLiteral  struct{} `json:"-"`
+	XXX_unrecognized      []byte   `json:"-"`
+	XXX_sizecache         int32    `json:"-"`
+}
+
+func (m *ExitCompleted) Reset()         { *m = ExitCompleted{} }
+func (m *ExitCompleted) String() string { return proto.CompactTextString(m) }
+func (*ExitCompleted) ProtoMessage()    {}
+func (*ExitCompleted) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{12}
+}
+func (m *ExitCompleted) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ExitCompleted.Unmarshal(m, b)
+}
+func (m *ExitCompleted) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ExitCompleted.Marshal(b, m, deterministic)
+}
+func (m *ExitCompleted) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExitCompleted.Merge(m, src)
+}
+func (m *ExitCompleted) XXX_Size() int {
+	return xxx_messageInfo_ExitCompleted.Size(m)
+}
+func (m *ExitCompleted) XXX_DiscardUnknown() {
+	xxx_messageInfo_ExitCompleted.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ExitCompleted proto.InternalMessageInfo
+
+func (m *ExitCompleted) GetExitCompleteSignature() []byte {
+	if m != nil {
+		return m.ExitCompleteSignature
+	}
+	return nil
+}
+
+type ExitFailed struct {
+	// on failure
+	ExitFailureSignature []byte            `protobuf:"bytes,1,opt,name=exit_failure_signature,json=exitFailureSignature,proto3" json:"exit_failure_signature,omitempty"`
+	Reason               ExitFailed_Reason `protobuf:"varint,2,opt,name=reason,proto3,enum=gracefulexit.ExitFailed_Reason" json:"reason,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *ExitFailed) Reset()         { *m = ExitFailed{} }
+func (m *ExitFailed) String() string { return proto.CompactTextString(m) }
+func (*ExitFailed) ProtoMessage()    {}
+func (*ExitFailed) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{13}
+}
+func (m *ExitFailed) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ExitFailed.Unmarshal(m, b)
+}
+func (m *ExitFailed) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ExitFailed.Marshal(b, m, deterministic)
+}
+func (m *ExitFailed) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExitFailed.Merge(m, src)
+}
+func (m *ExitFailed) XXX_Size() int {
+	return xxx_messageInfo_ExitFailed.Size(m)
+}
+func (m *ExitFailed) XXX_DiscardUnknown() {
+	xxx_messageInfo_ExitFailed.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ExitFailed proto.InternalMessageInfo
+
+func (m *ExitFailed) GetExitFailureSignature() []byte {
+	if m != nil {
+		return m.ExitFailureSignature
+	}
+	return nil
+}
+
+func (m *ExitFailed) GetReason() ExitFailed_Reason {
+	if m != nil {
+		return m.Reason
+	}
+	return ExitFailed_VERIFICATION_FAILED
+}
+
+type SatelliteMessage struct {
+	// Types that are valid to be assigned to Message:
+	//	*SatelliteMessage_NotReady
+	//	*SatelliteMessage_TransferPiece
+	//	*SatelliteMessage_DeletePiece
+	//	*SatelliteMessage_ExitCompleted
+	//	*SatelliteMessage_ExitFailed
+	Message              isSatelliteMessage_Message `protobuf_oneof:"Message"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
+}
+
+func (m *SatelliteMessage) Reset()         { *m = SatelliteMessage{} }
+func (m *SatelliteMessage) String() string { return proto.CompactTextString(m) }
+func (*SatelliteMessage) ProtoMessage()    {}
+func (*SatelliteMessage) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8f0acbf2ce5fa631, []int{14}
+}
+func (m *SatelliteMessage) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SatelliteMessage.Unmarshal(m, b)
+}
+func (m *SatelliteMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SatelliteMessage.Marshal(b, m, deterministic)
+}
+func (m *SatelliteMessage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SatelliteMessage.Merge(m, src)
+}
+func (m *SatelliteMessage) XXX_Size() int {
+	return xxx_messageInfo_SatelliteMessage.Size(m)
+}
+func (m *SatelliteMessage) XXX_DiscardUnknown() {
+	xxx_messageInfo_SatelliteMessage.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SatelliteMessage proto.InternalMessageInfo
+
+type isSatelliteMessage_Message interface {
+	isSatelliteMessage_Message()
+}
+
+type SatelliteMessage_NotReady struct {
+	NotReady *NotReady `protobuf:"bytes,1,opt,name=not_ready,json=notReady,proto3,oneof"`
+}
+type SatelliteMessage_TransferPiece struct {
+	TransferPiece *TransferPiece `protobuf:"bytes,2,opt,name=transfer_piece,json=transferPiece,proto3,oneof"`
+}
+type SatelliteMessage_DeletePiece struct {
+	DeletePiece *DeletePiece `protobuf:"bytes,3,opt,name=delete_piece,json=deletePiece,proto3,oneof"`
+}
+type SatelliteMessage_ExitCompleted struct {
+	ExitCompleted *ExitCompleted `protobuf:"bytes,4,opt,name=exit_completed,json=exitCompleted,proto3,oneof"`
+}
+type SatelliteMessage_ExitFailed struct {
+	ExitFailed *ExitFailed `protobuf:"bytes,5,opt,name=exit_failed,json=exitFailed,proto3,oneof"`
+}
+
+func (*SatelliteMessage_NotReady) isSatelliteMessage_Message()      {}
+func (*SatelliteMessage_TransferPiece) isSatelliteMessage_Message() {}
+func (*SatelliteMessage_DeletePiece) isSatelliteMessage_Message()   {}
+func (*SatelliteMessage_ExitCompleted) isSatelliteMessage_Message() {}
+func (*SatelliteMessage_ExitFailed) isSatelliteMessage_Message()    {}
+
+func (m *SatelliteMessage) GetMessage() isSatelliteMessage_Message {
+	if m != nil {
+		return m.Message
+	}
+	return nil
+}
+
+func (m *SatelliteMessage) GetNotReady() *NotReady {
+	if x, ok := m.GetMessage().(*SatelliteMessage_NotReady); ok {
+		return x.NotReady
+	}
+	return nil
+}
+
+func (m *SatelliteMessage) GetTransferPiece() *TransferPiece {
+	if x, ok := m.GetMessage().(*SatelliteMessage_TransferPiece); ok {
+		return x.TransferPiece
+	}
+	return nil
+}
+
+func (m *SatelliteMessage) GetDeletePiece() *DeletePiece {
+	if x, ok := m.GetMessage().(*SatelliteMessage_DeletePiece); ok {
+		return x.DeletePiece
+	}
+	return nil
+}
+
+func (m *SatelliteMessage) GetExitCompleted() *ExitCompleted {
+	if x, ok := m.GetMessage().(*SatelliteMessage_ExitCompleted); ok {
+		return x.ExitCompleted
+	}
+	return nil
+}
+
+func (m *SatelliteMessage) GetExitFailed() *ExitFailed {
+	if x, ok := m.GetMessage().(*SatelliteMessage_ExitFailed); ok {
+		return x.ExitFailed
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*SatelliteMessage) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _SatelliteMessage_OneofMarshaler, _SatelliteMessage_OneofUnmarshaler, _SatelliteMessage_OneofSizer, []interface{}{
+		(*SatelliteMessage_NotReady)(nil),
+		(*SatelliteMessage_TransferPiece)(nil),
+		(*SatelliteMessage_DeletePiece)(nil),
+		(*SatelliteMessage_ExitCompleted)(nil),
+		(*SatelliteMessage_ExitFailed)(nil),
+	}
+}
+
+func _SatelliteMessage_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*SatelliteMessage)
+	// Message
+	switch x := m.Message.(type) {
+	case *SatelliteMessage_NotReady:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NotReady); err != nil {
+			return err
+		}
+	case *SatelliteMessage_TransferPiece:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.TransferPiece); err != nil {
+			return err
+		}
+	case *SatelliteMessage_DeletePiece:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.DeletePiece); err != nil {
+			return err
+		}
+	case *SatelliteMessage_ExitCompleted:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ExitCompleted); err != nil {
+			return err
+		}
+	case *SatelliteMessage_ExitFailed:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ExitFailed); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("SatelliteMessage.Message has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _SatelliteMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*SatelliteMessage)
+	switch tag {
+	case 1: // Message.not_ready
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(NotReady)
+		err := b.DecodeMessage(msg)
+		m.Message = &SatelliteMessage_NotReady{msg}
+		return true, err
+	case 2: // Message.transfer_piece
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(TransferPiece)
+		err := b.DecodeMessage(msg)
+		m.Message = &SatelliteMessage_TransferPiece{msg}
+		return true, err
+	case 3: // Message.delete_piece
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(DeletePiece)
+		err := b.DecodeMessage(msg)
+		m.Message = &SatelliteMessage_DeletePiece{msg}
+		return true, err
+	case 4: // Message.exit_completed
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ExitCompleted)
+		err := b.DecodeMessage(msg)
+		m.Message = &SatelliteMessage_ExitCompleted{msg}
+		return true, err
+	case 5: // Message.exit_failed
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ExitFailed)
+		err := b.DecodeMessage(msg)
+		m.Message = &SatelliteMessage_ExitFailed{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _SatelliteMessage_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*SatelliteMessage)
+	// Message
+	switch x := m.Message.(type) {
+	case *SatelliteMessage_NotReady:
+		s := proto.Size(x.NotReady)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *SatelliteMessage_TransferPiece:
+		s := proto.Size(x.TransferPiece)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *SatelliteMessage_DeletePiece:
+		s := proto.Size(x.DeletePiece)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *SatelliteMessage_ExitCompleted:
+		s := proto.Size(x.ExitCompleted)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *SatelliteMessage_ExitFailed:
+		s := proto.Size(x.ExitFailed)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 func init() {
-	proto.RegisterType((*GetNonExitingSatellitesRequest)(nil), "graceful_exit.GetNonExitingSatellitesRequest")
-	proto.RegisterType((*StartExitRequest)(nil), "graceful_exit.StartExitRequest")
-	proto.RegisterType((*NonExitingSatellite)(nil), "graceful_exit.NonExitingSatellite")
-	proto.RegisterType((*GetNonExitingSatellitesResponse)(nil), "graceful_exit.GetNonExitingSatellitesResponse")
-	proto.RegisterType((*StartExitStatus)(nil), "graceful_exit.StartExitStatus")
-	proto.RegisterType((*StartExitResponse)(nil), "graceful_exit.StartExitResponse")
+	proto.RegisterEnum("gracefulexit.TransferFailed_Error", TransferFailed_Error_name, TransferFailed_Error_value)
+	proto.RegisterEnum("gracefulexit.ExitFailed_Reason", ExitFailed_Reason_name, ExitFailed_Reason_value)
+	proto.RegisterType((*GetNonExitingSatellitesRequest)(nil), "gracefulexit.GetNonExitingSatellitesRequest")
+	proto.RegisterType((*StartExitRequest)(nil), "gracefulexit.StartExitRequest")
+	proto.RegisterType((*NonExitingSatellite)(nil), "gracefulexit.NonExitingSatellite")
+	proto.RegisterType((*GetNonExitingSatellitesResponse)(nil), "gracefulexit.GetNonExitingSatellitesResponse")
+	proto.RegisterType((*StartExitStatus)(nil), "gracefulexit.StartExitStatus")
+	proto.RegisterType((*StartExitResponse)(nil), "gracefulexit.StartExitResponse")
+	proto.RegisterType((*TransferSucceeded)(nil), "gracefulexit.TransferSucceeded")
+	proto.RegisterType((*TransferFailed)(nil), "gracefulexit.TransferFailed")
+	proto.RegisterType((*StorageNodeMessage)(nil), "gracefulexit.StorageNodeMessage")
+	proto.RegisterType((*NotReady)(nil), "gracefulexit.NotReady")
+	proto.RegisterType((*TransferPiece)(nil), "gracefulexit.TransferPiece")
+	proto.RegisterType((*DeletePiece)(nil), "gracefulexit.DeletePiece")
+	proto.RegisterType((*ExitCompleted)(nil), "gracefulexit.ExitCompleted")
+	proto.RegisterType((*ExitFailed)(nil), "gracefulexit.ExitFailed")
+	proto.RegisterType((*SatelliteMessage)(nil), "gracefulexit.SatelliteMessage")
 }
 
 func init() { proto.RegisterFile("gracefulexit.proto", fileDescriptor_8f0acbf2ce5fa631) }
 
 var fileDescriptor_8f0acbf2ce5fa631 = []byte{
-	// 363 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0x4d, 0x4b, 0xf3, 0x40,
-	0x14, 0x85, 0xdf, 0x69, 0x5f, 0xfa, 0x71, 0xdb, 0xf7, 0xc3, 0x71, 0x61, 0x28, 0xd8, 0x84, 0x6c,
-	0xac, 0x0b, 0xb3, 0xa8, 0x3b, 0xc1, 0x4d, 0x51, 0x4a, 0x41, 0x22, 0xa4, 0xb8, 0x71, 0x13, 0xa6,
-	0xc9, 0x35, 0x04, 0xda, 0x4c, 0xec, 0x9d, 0x40, 0x57, 0xfe, 0x3e, 0x7f, 0x82, 0xb8, 0xe8, 0x6f,
-	0x91, 0x7c, 0x34, 0xd4, 0xd8, 0x88, 0xcb, 0x9c, 0x39, 0x79, 0x38, 0xe7, 0x70, 0x81, 0x07, 0x6b,
-	0xe1, 0xe1, 0x53, 0xb2, 0xc4, 0x4d, 0xa8, 0xac, 0x78, 0x2d, 0x95, 0xe4, 0x7f, 0x76, 0x9a, 0x9b,
-	0x8a, 0x03, 0x08, 0x64, 0x20, 0xf3, 0x27, 0xd3, 0x80, 0xe1, 0x14, 0x95, 0x2d, 0xa3, 0xdb, 0x4d,
-	0xa8, 0xc2, 0x28, 0x98, 0x0b, 0x85, 0xcb, 0x65, 0xa8, 0x90, 0x1c, 0x7c, 0x4e, 0x90, 0x94, 0x79,
-	0x0d, 0xff, 0xe7, 0x4a, 0xac, 0x55, 0x6a, 0x28, 0x34, 0x7e, 0x0e, 0x9d, 0x48, 0xfa, 0xe8, 0x86,
-	0x3e, 0x69, 0xcc, 0x68, 0x8e, 0xfa, 0x93, 0xbf, 0xaf, 0x5b, 0xfd, 0xd7, 0xfb, 0x56, 0x6f, 0xd9,
-	0xd2, 0xc7, 0xd9, 0x8d, 0xd3, 0x4e, 0xdf, 0x67, 0x3e, 0x99, 0x2f, 0x70, 0x7c, 0x80, 0xce, 0xcf,
-	0xa0, 0x5d, 0x10, 0x34, 0x66, 0xb0, 0x03, 0x80, 0x56, 0x0e, 0xe0, 0x3a, 0xf4, 0x7c, 0xb9, 0x12,
-	0x61, 0xe4, 0x46, 0x62, 0x85, 0x5a, 0xc3, 0x60, 0xa3, 0xae, 0x03, 0xb9, 0x64, 0x8b, 0x15, 0xf2,
-	0x53, 0x00, 0x8a, 0x85, 0x87, 0x6e, 0x42, 0xe8, 0x6b, 0x4d, 0x83, 0x8d, 0x98, 0xd3, 0xcd, 0x94,
-	0x07, 0x42, 0xdf, 0x44, 0xd0, 0x6b, 0x0b, 0x52, 0x2c, 0x23, 0x42, 0x3e, 0x01, 0xa0, 0x52, 0xcd,
-	0xfa, 0xf4, 0xc6, 0xa6, 0xf5, 0x69, 0x33, 0xeb, 0x00, 0xc0, 0xd9, 0xfb, 0xcb, 0xbc, 0x83, 0x7f,
-	0xe5, 0x4a, 0x73, 0x25, 0x54, 0x42, 0xd5, 0xe4, 0xec, 0x4b, 0x72, 0x0d, 0xda, 0x94, 0x78, 0x1e,
-	0x12, 0x65, 0xb5, 0x3a, 0xce, 0xee, 0xd3, 0xbc, 0x87, 0xa3, 0xbd, 0xcd, 0x8b, 0x98, 0x57, 0xd0,
-	0xa1, 0x8c, 0x5c, 0x86, 0x1c, 0x56, 0x42, 0x56, 0x12, 0x38, 0xa5, 0x7f, 0xfc, 0xc6, 0xa0, 0x3f,
-	0x2d, 0xbc, 0xa9, 0x81, 0x6f, 0xe0, 0xa4, 0x66, 0x16, 0x7e, 0x51, 0xa1, 0x7e, 0x7f, 0x1f, 0x03,
-	0xeb, 0xa7, 0xf6, 0xa2, 0x86, 0x0d, 0xdd, 0x32, 0x27, 0xd7, 0xeb, 0x1a, 0xec, 0xe8, 0x46, 0xbd,
-	0x21, 0xe7, 0x4d, 0x7e, 0x3f, 0x36, 0xe2, 0xc5, 0xa2, 0x95, 0x9d, 0xf3, 0xe5, 0x47, 0x00, 0x00,
-	0x00, 0xff, 0xff, 0x96, 0x8e, 0x40, 0xcd, 0xff, 0x02, 0x00, 0x00,
+	// 977 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0xdf, 0x6e, 0x1a, 0xc7,
+	0x17, 0x66, 0xed, 0x98, 0x3f, 0x07, 0x8c, 0xf1, 0x38, 0xb6, 0xf9, 0xf9, 0x97, 0x04, 0xb2, 0x37,
+	0x75, 0xab, 0xd6, 0xaa, 0xdc, 0xbf, 0x51, 0xd5, 0x56, 0x38, 0x60, 0x83, 0x42, 0x17, 0x77, 0xb0,
+	0x53, 0xa9, 0x37, 0xab, 0x09, 0x73, 0x8c, 0x57, 0x85, 0x5d, 0x3a, 0x33, 0x44, 0xf1, 0x4d, 0x9f,
+	0xa3, 0x57, 0x7d, 0x84, 0xde, 0xf7, 0x0d, 0xf2, 0x0c, 0x95, 0x9a, 0x87, 0xe8, 0x13, 0x54, 0x33,
+	0x3b, 0xac, 0x59, 0x0c, 0x51, 0xd3, 0x3b, 0xe6, 0xcc, 0x77, 0xbe, 0xfd, 0xce, 0x39, 0xdf, 0xcc,
+	0x00, 0x64, 0x28, 0xd8, 0x00, 0xaf, 0xa6, 0x23, 0x7c, 0x15, 0xa8, 0xa3, 0x89, 0x88, 0x54, 0x44,
+	0x4a, 0xf3, 0xb1, 0x03, 0x18, 0x46, 0xc3, 0x28, 0xde, 0x39, 0x28, 0x8f, 0x51, 0xb1, 0x20, 0xbc,
+	0x9a, 0xad, 0x4b, 0x91, 0xe0, 0x28, 0x64, 0xbc, 0x72, 0xeb, 0xf0, 0xe8, 0x0c, 0x95, 0x17, 0x85,
+	0xad, 0x57, 0x81, 0x0a, 0xc2, 0x61, 0x9f, 0x29, 0x1c, 0x8d, 0x02, 0x85, 0x92, 0xe2, 0xcf, 0x53,
+	0x94, 0xca, 0xfd, 0x1a, 0x2a, 0x7d, 0xc5, 0x84, 0xd2, 0x00, 0x1b, 0x23, 0xef, 0x43, 0x3e, 0x8c,
+	0x38, 0xfa, 0x01, 0x97, 0x55, 0xa7, 0xbe, 0x7e, 0x58, 0x3a, 0x29, 0xbf, 0x7e, 0x53, 0xcb, 0xfc,
+	0xf9, 0xa6, 0x96, 0xf5, 0x22, 0x8e, 0x9d, 0x26, 0xcd, 0xe9, 0xfd, 0x0e, 0x97, 0xee, 0x2f, 0xb0,
+	0xb3, 0x84, 0x9d, 0xbc, 0x07, 0x39, 0xcb, 0x50, 0x75, 0xea, 0xce, 0x12, 0x82, 0x6c, 0x4c, 0x40,
+	0x6a, 0x50, 0xe4, 0xd1, 0x98, 0x05, 0xa1, 0x1f, 0xb2, 0x31, 0x56, 0xd7, 0xea, 0xce, 0x61, 0x81,
+	0x42, 0x1c, 0xf2, 0xd8, 0x18, 0xc9, 0x43, 0x00, 0x39, 0x61, 0x03, 0xf4, 0xa7, 0x12, 0x79, 0x75,
+	0xbd, 0xee, 0x1c, 0x3a, 0xb4, 0x60, 0x22, 0x97, 0x12, 0xb9, 0xcb, 0xa1, 0xb6, 0xb2, 0x40, 0x39,
+	0x89, 0x42, 0x89, 0xa4, 0x01, 0x20, 0x93, 0xa8, 0xa9, 0xa7, 0x78, 0xfc, 0xf8, 0x28, 0xd5, 0xe4,
+	0x25, 0xf9, 0x74, 0x2e, 0xc9, 0xed, 0xc2, 0x56, 0xd2, 0xa4, 0xbe, 0x62, 0x6a, 0x2a, 0x17, 0x85,
+	0x3b, 0x77, 0x84, 0x57, 0x21, 0x27, 0xa7, 0x83, 0x01, 0x4a, 0x69, 0xaa, 0xca, 0xd3, 0xd9, 0xd2,
+	0xf5, 0x60, 0x7b, 0xae, 0xe5, 0x56, 0xe5, 0x13, 0xc8, 0x4b, 0xc3, 0x9c, 0x68, 0x7c, 0x98, 0xd6,
+	0xb8, 0x20, 0x80, 0x26, 0x70, 0xf7, 0x6f, 0x07, 0xb6, 0x2f, 0x04, 0x0b, 0xe5, 0x15, 0x8a, 0xbe,
+	0xfe, 0x06, 0x72, 0xe4, 0xe4, 0x7b, 0xd8, 0x65, 0x9c, 0x0b, 0x94, 0x12, 0xb9, 0x6f, 0x4c, 0xe1,
+	0x8f, 0x82, 0x71, 0xa0, 0x8c, 0x54, 0xcd, 0x9e, 0x18, 0xa7, 0x31, 0x83, 0xf5, 0x34, 0xaa, 0xab,
+	0x41, 0x74, 0x87, 0xdd, 0x0d, 0x92, 0x06, 0xec, 0x44, 0x22, 0x18, 0x06, 0x21, 0x1b, 0xf9, 0x93,
+	0x00, 0x07, 0xe8, 0x5f, 0x33, 0x79, 0x6d, 0xca, 0x2b, 0x1e, 0x6f, 0x1f, 0x59, 0xe7, 0x9d, 0xeb,
+	0x9d, 0x36, 0x93, 0xd7, 0x74, 0x7b, 0x86, 0x4e, 0x42, 0xe4, 0x0c, 0xf6, 0x04, 0x4e, 0x46, 0x6c,
+	0x80, 0x63, 0x0c, 0xd5, 0x3c, 0xcb, 0xfa, 0x2a, 0x96, 0xfb, 0x73, 0x09, 0x49, 0xd4, 0xfd, 0xc3,
+	0x81, 0xf2, 0xac, 0xe8, 0x53, 0x16, 0x8c, 0x90, 0x93, 0x0f, 0x20, 0x1f, 0xf3, 0x25, 0xae, 0xdb,
+	0xb2, 0xae, 0xcb, 0x99, 0x3c, 0xed, 0x5b, 0x03, 0xe8, 0x70, 0xf2, 0x25, 0x6c, 0xa0, 0x10, 0x91,
+	0x30, 0xe2, 0xcb, 0xc7, 0x6e, 0xba, 0xd7, 0x69, 0xe2, 0xa3, 0x96, 0x46, 0xd2, 0x38, 0xc1, 0x6d,
+	0xc0, 0x86, 0x59, 0x93, 0x4d, 0x28, 0x78, 0xbd, 0x0b, 0xff, 0xb4, 0x77, 0xe9, 0x35, 0x2b, 0x19,
+	0xf2, 0x00, 0xaa, 0xfd, 0x8b, 0x1e, 0x6d, 0x9c, 0xb5, 0x7c, 0xaf, 0xd7, 0x6c, 0xf9, 0x97, 0x5e,
+	0xe3, 0x79, 0xa3, 0xd3, 0x6d, 0x9c, 0x74, 0x5b, 0x15, 0x87, 0x14, 0x21, 0x77, 0xe9, 0x3d, 0xf3,
+	0x7a, 0x3f, 0x78, 0x95, 0x35, 0xf7, 0x57, 0x07, 0x48, 0x5f, 0x45, 0x82, 0x0d, 0x51, 0x1f, 0x87,
+	0xef, 0x50, 0x4a, 0x36, 0x44, 0xf2, 0x2d, 0x14, 0xe4, 0x6c, 0x7c, 0x76, 0x4a, 0xb5, 0xe5, 0xba,
+	0x92, 0x29, 0xb7, 0x33, 0xf4, 0x36, 0x87, 0x7c, 0x0e, 0xd9, 0x2b, 0xa3, 0xd8, 0x8e, 0xe4, 0xc1,
+	0xdb, 0xaa, 0x6a, 0x67, 0xa8, 0x45, 0x9f, 0x14, 0x20, 0x67, 0x35, 0xb8, 0x00, 0x79, 0x2f, 0x52,
+	0x14, 0x19, 0xbf, 0x71, 0x5f, 0x3b, 0xb0, 0x39, 0xcb, 0x31, 0x0d, 0x7c, 0xc7, 0x0e, 0x17, 0x27,
+	0x22, 0x78, 0xc9, 0x14, 0xfa, 0x3f, 0xe1, 0x8d, 0x51, 0x54, 0x3a, 0xd9, 0xb7, 0xf0, 0x2d, 0x03,
+	0x3f, 0x8f, 0xf7, 0x9f, 0xe1, 0x0d, 0x85, 0x49, 0xf2, 0x7b, 0xb5, 0x73, 0xd7, 0xff, 0xab, 0x73,
+	0xdd, 0x27, 0x50, 0x6c, 0xe2, 0x08, 0x15, 0xbe, 0x73, 0x1d, 0xee, 0x19, 0x6c, 0xea, 0x53, 0xf7,
+	0x34, 0x1a, 0x4f, 0x34, 0x81, 0xee, 0xf2, 0xbe, 0x6e, 0xa7, 0x3f, 0xb0, 0x11, 0x5f, 0x06, 0xc3,
+	0x90, 0xa9, 0xa9, 0x88, 0x6f, 0x81, 0x12, 0xdd, 0xc5, 0x39, 0x7c, 0x7f, 0xb6, 0xe9, 0xfe, 0xe6,
+	0x00, 0x68, 0x26, 0xeb, 0xd6, 0x4f, 0x61, 0xcf, 0xd0, 0xe8, 0x19, 0x4c, 0xc5, 0x5d, 0x96, 0xfb,
+	0x68, 0xb1, 0x53, 0x71, 0x4b, 0x42, 0xbe, 0x80, 0xac, 0x40, 0x26, 0xa3, 0xd0, 0x1a, 0x77, 0xc1,
+	0x20, 0xb7, 0xfc, 0x47, 0xd4, 0xc0, 0xa8, 0x85, 0xbb, 0x8f, 0x21, 0x1b, 0x47, 0xc8, 0x3e, 0xec,
+	0x3c, 0x6f, 0xd1, 0xce, 0x69, 0xe7, 0x69, 0xe3, 0xa2, 0xd3, 0xf3, 0xfc, 0xd3, 0x46, 0xa7, 0xdb,
+	0x6a, 0x56, 0x32, 0xee, 0x5f, 0x6b, 0x50, 0x49, 0xee, 0xbf, 0x99, 0x29, 0x3f, 0x83, 0x42, 0x18,
+	0x29, 0x5f, 0x68, 0x47, 0x58, 0x53, 0xee, 0x2d, 0x5e, 0x9e, 0xb1, 0x5f, 0xda, 0x19, 0x9a, 0x0f,
+	0xed, 0x6f, 0xd2, 0x84, 0xb2, 0xb2, 0xd6, 0x89, 0x0f, 0xb9, 0xb5, 0xe4, 0xff, 0x97, 0x5b, 0x32,
+	0x3e, 0xd7, 0x19, 0xba, 0xa9, 0x52, 0x7e, 0xfb, 0x06, 0x4a, 0xdc, 0x8c, 0xcd, 0x72, 0xc4, 0x06,
+	0xf8, 0x5f, 0x9a, 0x63, 0x6e, 0xb0, 0xed, 0x0c, 0x2d, 0xf2, 0xb9, 0x39, 0x37, 0xa1, 0x9c, 0x1a,
+	0x15, 0xaf, 0xde, 0x5b, 0xa6, 0x22, 0x35, 0x5f, 0xad, 0x02, 0x53, 0x03, 0xff, 0x0a, 0x8a, 0xc9,
+	0xa4, 0x90, 0x57, 0x37, 0x0c, 0x45, 0x75, 0x55, 0xe3, 0xdb, 0x19, 0x0a, 0x98, 0xac, 0xe6, 0xce,
+	0xd6, 0xf1, 0xef, 0x6b, 0xb0, 0x9b, 0xf4, 0xf7, 0xcc, 0x66, 0xeb, 0x44, 0xf2, 0x12, 0xf6, 0x57,
+	0xbc, 0x62, 0xe4, 0xc3, 0xf4, 0x77, 0xde, 0xfe, 0x9a, 0x1f, 0x7c, 0xf4, 0x2f, 0xd1, 0xf6, 0xd1,
+	0xe9, 0x42, 0x21, 0x79, 0x56, 0xc8, 0xa3, 0x15, 0xef, 0xcd, 0x8c, 0xbb, 0xb6, 0x72, 0xdf, 0xb2,
+	0xf5, 0x20, 0x77, 0x2e, 0x22, 0xfd, 0xc4, 0x91, 0xfa, 0x22, 0x76, 0xf1, 0xb2, 0x3b, 0x58, 0xfc,
+	0xda, 0x82, 0xef, 0x0e, 0x9d, 0x8f, 0x9d, 0x93, 0x7b, 0x3f, 0xae, 0x4d, 0x5e, 0xbc, 0xc8, 0x9a,
+	0xbf, 0x32, 0x9f, 0xfc, 0x13, 0x00, 0x00, 0xff, 0xff, 0xa0, 0xfa, 0x41, 0x02, 0x18, 0x09, 0x00,
+	0x00,
 }
 
-type DRPCGracefulExitClient interface {
+type DRPCSatelliteGracefulExitClient interface {
 	DRPCConn() drpc.Conn
 
 	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
 	GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error)
 	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(ctx context.Context, in *StartExitRequest) (*StartExitResponse, error)
+	// Process is called by storage nodes to initiate the graceful exit, get pieces to transfer, and receive exit status.
+	Process(ctx context.Context) (DRPCSatelliteGracefulExit_ProcessClient, error)
 }
 
-type drpcGracefulExitClient struct {
+type drpcSatelliteGracefulExitClient struct {
 	cc drpc.Conn
 }
 
-func NewDRPCGracefulExitClient(cc drpc.Conn) DRPCGracefulExitClient {
-	return &drpcGracefulExitClient{cc}
+func NewDRPCSatelliteGracefulExitClient(cc drpc.Conn) DRPCSatelliteGracefulExitClient {
+	return &drpcSatelliteGracefulExitClient{cc}
 }
 
-func (c *drpcGracefulExitClient) DRPCConn() drpc.Conn { return c.cc }
+func (c *drpcSatelliteGracefulExitClient) DRPCConn() drpc.Conn { return c.cc }
 
-func (c *drpcGracefulExitClient) GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error) {
+func (c *drpcSatelliteGracefulExitClient) GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error) {
 	out := new(GetNonExitingSatellitesResponse)
-	err := c.cc.Invoke(ctx, "/graceful_exit.GracefulExit/GetNonExitingSatellites", in, out)
+	err := c.cc.Invoke(ctx, "/gracefulexit.SatelliteGracefulExit/GetNonExitingSatellites", in, out)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *drpcGracefulExitClient) StartExit(ctx context.Context, in *StartExitRequest) (*StartExitResponse, error) {
+func (c *drpcSatelliteGracefulExitClient) StartExit(ctx context.Context, in *StartExitRequest) (*StartExitResponse, error) {
 	out := new(StartExitResponse)
-	err := c.cc.Invoke(ctx, "/graceful_exit.GracefulExit/StartExit", in, out)
+	err := c.cc.Invoke(ctx, "/gracefulexit.SatelliteGracefulExit/StartExit", in, out)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-type DRPCGracefulExitServer interface {
+func (c *drpcSatelliteGracefulExitClient) Process(ctx context.Context) (DRPCSatelliteGracefulExit_ProcessClient, error) {
+	stream, err := c.cc.NewStream(ctx, "/gracefulexit.SatelliteGracefulExit/Process")
+	if err != nil {
+		return nil, err
+	}
+	x := &drpcSatelliteGracefulExitProcessClient{stream}
+	return x, nil
+}
+
+type DRPCSatelliteGracefulExit_ProcessClient interface {
+	drpc.Stream
+	Send(*StorageNodeMessage) error
+	Recv() (*SatelliteMessage, error)
+}
+
+type drpcSatelliteGracefulExitProcessClient struct {
+	drpc.Stream
+}
+
+func (x *drpcSatelliteGracefulExitProcessClient) Send(m *StorageNodeMessage) error {
+	return x.MsgSend(m)
+}
+
+func (x *drpcSatelliteGracefulExitProcessClient) Recv() (*SatelliteMessage, error) {
+	m := new(SatelliteMessage)
+	if err := x.MsgRecv(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+type DRPCSatelliteGracefulExitServer interface {
 	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
 	GetNonExitingSatellites(context.Context, *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error)
 	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(context.Context, *StartExitRequest) (*StartExitResponse, error)
+	// Process is called by storage nodes to initiate the graceful exit, get pieces to transfer, and receive exit status.
+	Process(DRPCSatelliteGracefulExit_ProcessStream) error
 }
 
-type DRPCGracefulExitDescription struct{}
+type DRPCSatelliteGracefulExitDescription struct{}
 
-func (DRPCGracefulExitDescription) NumMethods() int { return 2 }
+func (DRPCSatelliteGracefulExitDescription) NumMethods() int { return 3 }
 
-func (DRPCGracefulExitDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
+func (DRPCSatelliteGracefulExitDescription) Method(n int) (string, drpc.Handler, interface{}, bool) {
 	switch n {
 	case 0:
-		return "/graceful_exit.GracefulExit/GetNonExitingSatellites",
+		return "/gracefulexit.SatelliteGracefulExit/GetNonExitingSatellites",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCGracefulExitServer).
+				return srv.(DRPCSatelliteGracefulExitServer).
 					GetNonExitingSatellites(
 						ctx,
 						in1.(*GetNonExitingSatellitesRequest),
 					)
-			}, DRPCGracefulExitServer.GetNonExitingSatellites, true
+			}, DRPCSatelliteGracefulExitServer.GetNonExitingSatellites, true
 	case 1:
-		return "/graceful_exit.GracefulExit/StartExit",
+		return "/gracefulexit.SatelliteGracefulExit/StartExit",
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCGracefulExitServer).
+				return srv.(DRPCSatelliteGracefulExitServer).
 					StartExit(
 						ctx,
 						in1.(*StartExitRequest),
 					)
-			}, DRPCGracefulExitServer.StartExit, true
+			}, DRPCSatelliteGracefulExitServer.StartExit, true
+	case 2:
+		return "/gracefulexit.SatelliteGracefulExit/Process",
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return nil, srv.(DRPCSatelliteGracefulExitServer).
+					Process(
+						&drpcSatelliteGracefulExitProcessStream{in1.(drpc.Stream)},
+					)
+			}, DRPCSatelliteGracefulExitServer.Process, true
 	default:
 		return "", nil, nil, false
 	}
 }
 
-func DRPCRegisterGracefulExit(srv drpc.Server, impl DRPCGracefulExitServer) {
-	srv.Register(impl, DRPCGracefulExitDescription{})
+func DRPCRegisterSatelliteGracefulExit(srv drpc.Server, impl DRPCSatelliteGracefulExitServer) {
+	srv.Register(impl, DRPCSatelliteGracefulExitDescription{})
 }
 
-type DRPCGracefulExit_GetNonExitingSatellitesStream interface {
+type DRPCSatelliteGracefulExit_GetNonExitingSatellitesStream interface {
 	drpc.Stream
 	SendAndClose(*GetNonExitingSatellitesResponse) error
 }
 
-type drpcGracefulExitGetNonExitingSatellitesStream struct {
+type drpcSatelliteGracefulExitGetNonExitingSatellitesStream struct {
 	drpc.Stream
 }
 
-func (x *drpcGracefulExitGetNonExitingSatellitesStream) SendAndClose(m *GetNonExitingSatellitesResponse) error {
+func (x *drpcSatelliteGracefulExitGetNonExitingSatellitesStream) SendAndClose(m *GetNonExitingSatellitesResponse) error {
 	if err := x.MsgSend(m); err != nil {
 		return err
 	}
 	return x.CloseSend()
 }
 
-type DRPCGracefulExit_StartExitStream interface {
+type DRPCSatelliteGracefulExit_StartExitStream interface {
 	drpc.Stream
 	SendAndClose(*StartExitResponse) error
 }
 
-type drpcGracefulExitStartExitStream struct {
+type drpcSatelliteGracefulExitStartExitStream struct {
 	drpc.Stream
 }
 
-func (x *drpcGracefulExitStartExitStream) SendAndClose(m *StartExitResponse) error {
+func (x *drpcSatelliteGracefulExitStartExitStream) SendAndClose(m *StartExitResponse) error {
 	if err := x.MsgSend(m); err != nil {
 		return err
 	}
 	return x.CloseSend()
+}
+
+type DRPCSatelliteGracefulExit_ProcessStream interface {
+	drpc.Stream
+	Send(*SatelliteMessage) error
+	Recv() (*StorageNodeMessage, error)
+}
+
+type drpcSatelliteGracefulExitProcessStream struct {
+	drpc.Stream
+}
+
+func (x *drpcSatelliteGracefulExitProcessStream) Send(m *SatelliteMessage) error {
+	return x.MsgSend(m)
+}
+
+func (x *drpcSatelliteGracefulExitProcessStream) Recv() (*StorageNodeMessage, error) {
+	m := new(StorageNodeMessage)
+	if err := x.MsgRecv(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -410,103 +1235,171 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// GracefulExitClient is the client API for GracefulExit service.
+// SatelliteGracefulExitClient is the client API for SatelliteGracefulExit service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type GracefulExitClient interface {
+type SatelliteGracefulExitClient interface {
 	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
 	GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest, opts ...grpc.CallOption) (*GetNonExitingSatellitesResponse, error)
 	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(ctx context.Context, in *StartExitRequest, opts ...grpc.CallOption) (*StartExitResponse, error)
+	// Process is called by storage nodes to initiate the graceful exit, get pieces to transfer, and receive exit status.
+	Process(ctx context.Context, opts ...grpc.CallOption) (SatelliteGracefulExit_ProcessClient, error)
 }
 
-type gracefulExitClient struct {
+type satelliteGracefulExitClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewGracefulExitClient(cc *grpc.ClientConn) GracefulExitClient {
-	return &gracefulExitClient{cc}
+func NewSatelliteGracefulExitClient(cc *grpc.ClientConn) SatelliteGracefulExitClient {
+	return &satelliteGracefulExitClient{cc}
 }
 
-func (c *gracefulExitClient) GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest, opts ...grpc.CallOption) (*GetNonExitingSatellitesResponse, error) {
+func (c *satelliteGracefulExitClient) GetNonExitingSatellites(ctx context.Context, in *GetNonExitingSatellitesRequest, opts ...grpc.CallOption) (*GetNonExitingSatellitesResponse, error) {
 	out := new(GetNonExitingSatellitesResponse)
-	err := c.cc.Invoke(ctx, "/graceful_exit.GracefulExit/GetNonExitingSatellites", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/gracefulexit.SatelliteGracefulExit/GetNonExitingSatellites", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *gracefulExitClient) StartExit(ctx context.Context, in *StartExitRequest, opts ...grpc.CallOption) (*StartExitResponse, error) {
+func (c *satelliteGracefulExitClient) StartExit(ctx context.Context, in *StartExitRequest, opts ...grpc.CallOption) (*StartExitResponse, error) {
 	out := new(StartExitResponse)
-	err := c.cc.Invoke(ctx, "/graceful_exit.GracefulExit/StartExit", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/gracefulexit.SatelliteGracefulExit/StartExit", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// GracefulExitServer is the server API for GracefulExit service.
-type GracefulExitServer interface {
+func (c *satelliteGracefulExitClient) Process(ctx context.Context, opts ...grpc.CallOption) (SatelliteGracefulExit_ProcessClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_SatelliteGracefulExit_serviceDesc.Streams[0], "/gracefulexit.SatelliteGracefulExit/Process", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &satelliteGracefulExitProcessClient{stream}
+	return x, nil
+}
+
+type SatelliteGracefulExit_ProcessClient interface {
+	Send(*StorageNodeMessage) error
+	Recv() (*SatelliteMessage, error)
+	grpc.ClientStream
+}
+
+type satelliteGracefulExitProcessClient struct {
+	grpc.ClientStream
+}
+
+func (x *satelliteGracefulExitProcessClient) Send(m *StorageNodeMessage) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *satelliteGracefulExitProcessClient) Recv() (*SatelliteMessage, error) {
+	m := new(SatelliteMessage)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// SatelliteGracefulExitServer is the server API for SatelliteGracefulExit service.
+type SatelliteGracefulExitServer interface {
 	// GetSatellitesList returns a list of satellites that the storagenode has not begun a graceful exit for.
 	GetNonExitingSatellites(context.Context, *GetNonExitingSatellitesRequest) (*GetNonExitingSatellitesResponse, error)
 	// StartExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 	StartExit(context.Context, *StartExitRequest) (*StartExitResponse, error)
+	// Process is called by storage nodes to initiate the graceful exit, get pieces to transfer, and receive exit status.
+	Process(SatelliteGracefulExit_ProcessServer) error
 }
 
-func RegisterGracefulExitServer(s *grpc.Server, srv GracefulExitServer) {
-	s.RegisterService(&_GracefulExit_serviceDesc, srv)
+func RegisterSatelliteGracefulExitServer(s *grpc.Server, srv SatelliteGracefulExitServer) {
+	s.RegisterService(&_SatelliteGracefulExit_serviceDesc, srv)
 }
 
-func _GracefulExit_GetNonExitingSatellites_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SatelliteGracefulExit_GetNonExitingSatellites_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetNonExitingSatellitesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GracefulExitServer).GetNonExitingSatellites(ctx, in)
+		return srv.(SatelliteGracefulExitServer).GetNonExitingSatellites(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/graceful_exit.GracefulExit/GetNonExitingSatellites",
+		FullMethod: "/gracefulexit.SatelliteGracefulExit/GetNonExitingSatellites",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GracefulExitServer).GetNonExitingSatellites(ctx, req.(*GetNonExitingSatellitesRequest))
+		return srv.(SatelliteGracefulExitServer).GetNonExitingSatellites(ctx, req.(*GetNonExitingSatellitesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GracefulExit_StartExit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SatelliteGracefulExit_StartExit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartExitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GracefulExitServer).StartExit(ctx, in)
+		return srv.(SatelliteGracefulExitServer).StartExit(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/graceful_exit.GracefulExit/StartExit",
+		FullMethod: "/gracefulexit.SatelliteGracefulExit/StartExit",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GracefulExitServer).StartExit(ctx, req.(*StartExitRequest))
+		return srv.(SatelliteGracefulExitServer).StartExit(ctx, req.(*StartExitRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _GracefulExit_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "graceful_exit.GracefulExit",
-	HandlerType: (*GracefulExitServer)(nil),
+func _SatelliteGracefulExit_Process_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SatelliteGracefulExitServer).Process(&satelliteGracefulExitProcessServer{stream})
+}
+
+type SatelliteGracefulExit_ProcessServer interface {
+	Send(*SatelliteMessage) error
+	Recv() (*StorageNodeMessage, error)
+	grpc.ServerStream
+}
+
+type satelliteGracefulExitProcessServer struct {
+	grpc.ServerStream
+}
+
+func (x *satelliteGracefulExitProcessServer) Send(m *SatelliteMessage) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *satelliteGracefulExitProcessServer) Recv() (*StorageNodeMessage, error) {
+	m := new(StorageNodeMessage)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+var _SatelliteGracefulExit_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "gracefulexit.SatelliteGracefulExit",
+	HandlerType: (*SatelliteGracefulExitServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetNonExitingSatellites",
-			Handler:    _GracefulExit_GetNonExitingSatellites_Handler,
+			Handler:    _SatelliteGracefulExit_GetNonExitingSatellites_Handler,
 		},
 		{
 			MethodName: "StartExit",
-			Handler:    _GracefulExit_StartExit_Handler,
+			Handler:    _SatelliteGracefulExit_StartExit_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Process",
+			Handler:       _SatelliteGracefulExit_Process_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "gracefulexit.proto",
 }
