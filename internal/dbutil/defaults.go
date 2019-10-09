@@ -28,7 +28,7 @@ func Configure(db *sql.DB, mon *monkit.Scope) {
 		db.SetConnMaxLifetime(*connMaxLifetime)
 	}
 	mon.Chain("db_stats", monkit.StatSourceFunc(
-		func(cb func(name string, val float64)) {
+		func(cb func(series monkit.Series, val float64)) {
 			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
 		}))
 }

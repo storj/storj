@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/admission/v2"
 	"github.com/zeebo/admission/v2/admproto"
 )
 
