@@ -96,9 +96,9 @@ type Version struct {
 
 // Rollout represents the state of a version rollout.
 type Rollout struct {
-	Seed          rolloutSeed `json:"seed"`
-	Cursor        int32       `json:"cursor"`
-	TargetVersion Version     `json:"target_version"`
+	Seed   rolloutSeed `json:"seed"`
+	Cursor int32       `json:"cursor"`
+	Target Version     `json:"target"`
 }
 
 type rolloutSeed [32]byte
