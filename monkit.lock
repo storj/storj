@@ -5,7 +5,6 @@ storj.io/storj/satellite/accounting/tally."total.objects" IntVal
 storj.io/storj/satellite/accounting/tally."total.remote_bytes" IntVal
 storj.io/storj/satellite/accounting/tally."total.remote_segments" IntVal
 storj.io/storj/satellite/accounting/tally."total.segments" IntVal
-storj.io/storj/satellite/accounting/tally."total.unknown_segments" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_age" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_healthy_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_time_until_irreparable" IntVal
