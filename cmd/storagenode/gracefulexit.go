@@ -4,10 +4,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"text/tabwriter"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,7 +21,10 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// const contactWindow = time.Minute * 10
+// TODO:
+// rename pb messages since it;s global
+// add error handling in the endpoints
+// the response status in StartExisting is not being applied, need to fix that
 
 type gracefulExitClient struct {
 	conn *rpc.Conn
@@ -56,7 +61,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 	}
 
 	// TODO: Display a warning and have user confirm before proceeding
-	
+
 	client, err := dialGracefulExitClient(ctx, diagCfg.Server.PrivateAddress)
 	if err != nil {
 		return err
@@ -73,27 +78,25 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// format output for display
-	output := "Domain Name\t" + "Node ID\t\t\t" + "Space Used\t" + "\n"
+	// display satellite options
+	const padding = 10
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight)
+	defer w.Flush()
+
+	fmt.Fprintln(w, "Domain Name\tNode ID\tSpace Used\t")
 
 	for _, satellite := range satelliteList.GetSatellites() {
-		output += (satellite.GetDomainName() + "\t" + satellite.NodeId.String() + "\t" + memory.Size(satellite.GetSpaceUsed()).Base10String() + "\n")
+		fmt.Fprintln(w, satellite.GetDomainName()+"\t"+satellite.NodeId.String()+"\t"+memory.Size(satellite.GetSpaceUsed()).Base10String()+"\t")
 	}
 
-	// display satellite infos and ask for user input
-	qs := []*survey.Question{
-		{
-			Name: "satellite selection",
-			Prompt: &survey.Input{
-				Message: "Enter the domain name of the satellite you want to exit from:\n" + output + "\n",
-			},
-			Validate: survey.Required,
-		},
+	var selectedSatellite []string
+	scanner := bufio.NewScanner(os.Stdin)
+	// TODO: how to know when user is done input
+	for scanner.Scan() {
+		input := scanner.Text()
+		selectedSatellite = append(selectedSatellite, input)
 	}
-
-	var selectedSatellite string
-	err = survey.Ask(qs, &selectedSatellite)
-	if err != nil {
+	if err != scanner.Err(); err != nil {
 		return err
 	}
 
