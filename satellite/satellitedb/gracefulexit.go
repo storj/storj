@@ -189,7 +189,7 @@ func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID
 			FROM graceful_exit_transfer_queue 
 			WHERE node_id = ? 
 			AND finished_at is NULL 
-			ORDER BY durability_ratio desc asc, queued_at asc LIMIT ? OFFSET ?`
+			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
 	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
