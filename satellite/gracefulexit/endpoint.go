@@ -54,6 +54,53 @@ type pendingTransfer struct {
 	satelliteMessage *pb.SatelliteMessage
 }
 
+// pendingMap for managing concurrent access to the pending transfer map.
+type pendingMap struct {
+	mu   sync.RWMutex
+	data map[storj.PieceID]*pendingTransfer
+}
+
+// newPendingMap creates a new pendingMap and instantiates the map.
+func newPendingMap() *pendingMap {
+	newData := make(map[storj.PieceID]*pendingTransfer)
+	return &pendingMap{
+		data: newData,
+	}
+}
+
+// put adds to the map.
+func (pt *pendingMap) put(pieceID storj.PieceID, pendingTransfer *pendingTransfer) {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	pt.data[pieceID] = pendingTransfer
+}
+
+// get returns the pending transfer item from the map, if it exists.
+func (pt *pendingMap) get(pieceID storj.PieceID) (pendingTransfer *pendingTransfer, ok bool) {
+	pt.mu.RLock()
+	defer pt.mu.RUnlock()
+
+	pendingTransfer, ok = pt.data[pieceID]
+	return pendingTransfer, ok
+}
+
+// length returns the number of elements in the map.
+func (pt *pendingMap) length() int {
+	pt.mu.RLock()
+	defer pt.mu.RUnlock()
+
+	return len(pt.data)
+}
+
+// delete removes the pending transfer item from the map.
+func (pt *pendingMap) delete(pieceID storj.PieceID) {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	delete(pt.data, pieceID)
+}
+
 // DRPC returns a DRPC form of the endpoint.
 func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
 	return &drpcEndpoint{Endpoint: endpoint}
@@ -131,18 +178,8 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		return Error.Wrap(err)
 	}
 
-	// TODO possibly switch out for custom queue
-	var pending sync.Map
-	pendingLength := func() int {
-		count := 0
-		pending.Range(func(key interface{}, value interface{}) bool {
-			count++
-			return true
-		})
+	pending := newPendingMap()
 
-		return count
-	}
-	// this will be 1 until GetIncomplete* methods no longer return values
 	var morePiecesFlag int32 = 1
 
 	var group errgroup.Group
@@ -151,7 +188,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		defer ticker.Stop()
 
 		for range ticker.C {
-			if pendingLength() == 0 {
+			if pending.length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
 				if err != nil {
 					return Error.Wrap(err)
@@ -236,7 +273,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 					if err != nil {
 						return Error.Wrap(err)
 					}
-					pending.Store(limit.Limit.PieceId, pendingTransfer{
+					pending.put(limit.Limit.PieceId, &pendingTransfer{
 						path:             inc.Path,
 						pieceSize:        pieceSize,
 						satelliteMessage: transferMsg,
@@ -249,7 +286,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 	for {
 		// if there are no more transfers and the pending queue is empty, send complete
-		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingLength() == 0 {
+		if atomic.LoadInt32(&morePiecesFlag) == 0 && pending.length() == 0 {
 			// TODO check whether failure threshold is met before sending completed
 			// TODO needs exit signature
 			transferMsg := &pb.SatelliteMessage{
@@ -264,7 +301,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			break
 		}
 		// skip if there are none pending
-		if pendingLength() == 0 {
+		if pending.length() == 0 {
 			continue
 		}
 
@@ -275,13 +312,13 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 
 		switch m := request.GetMessage().(type) {
 		case *pb.StorageNodeMessage_Succeeded:
-			err = endpoint.handleSucceeded(ctx, &pending, nodeID, m)
+			err = endpoint.handleSucceeded(ctx, pending, nodeID, m)
 			if err != nil {
 				return Error.Wrap(err)
 			}
 
 		case *pb.StorageNodeMessage_Failed:
-			err = endpoint.handleFailed(ctx, &pending, nodeID, m)
+			err = endpoint.handleFailed(ctx, pending, nodeID, m)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -304,7 +341,7 @@ func (endpoint *Endpoint) sendPiecesToTransfer(ctx context.Context, stream proce
 	return nil
 }
 
-func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *sync.Map, nodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
+func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if message.Succeeded.GetAddressedOrderLimit() == nil {
 		return Error.New("Addressed order limit cannot be nil.")
@@ -316,12 +353,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *sync.Map
 
 	// TODO validation
 
-	transfer, ok := pending.Load(message.Succeeded.OriginalPieceHash.PieceId)
+	transfer, ok := pending.get(message.Succeeded.OriginalPieceHash.PieceId)
 	if !ok {
 		endpoint.log.Debug("could not find transfer message in pending queue. skipping .", zap.String("piece ID", message.Succeeded.AddressedOrderLimit.Limit.PieceId.String()))
 	}
 
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.(pendingTransfer).path)
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -331,30 +368,30 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, pending *sync.Map
 		failed = -1
 	}
 
-	err = endpoint.db.IncrementProgress(ctx, nodeID, transfer.(pendingTransfer).pieceSize, 1, failed)
+	err = endpoint.db.IncrementProgress(ctx, nodeID, transfer.pieceSize, 1, failed)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.(pendingTransfer).path)
+	err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	pending.Delete(message.Succeeded.GetAddressedOrderLimit().GetLimit().PieceId)
+	pending.delete(message.Succeeded.GetAddressedOrderLimit().GetLimit().PieceId)
 
 	return nil
 }
 
-func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *sync.Map, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
+func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *pendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	endpoint.log.Warn("transfer failed.", zap.String("piece ID", message.Failed.PieceId.String()), zap.String("transfer error", message.Failed.GetError().String()))
 	pieceID := message.Failed.PieceId
-	transfer, ok := pending.Load(pieceID)
+	transfer, ok := pending.get(pieceID)
 	if !ok {
 		endpoint.log.Debug("could not find transfer message in pending queue. skipping .", zap.String("piece ID", pieceID.String()))
 	}
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.(pendingTransfer).path)
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -384,7 +421,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *sync.Map, n
 		}
 	}
 
-	pending.Delete(pieceID)
+	pending.delete(pieceID)
 
 	return nil
 }
