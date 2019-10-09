@@ -13,7 +13,7 @@ pipeline {
         NPM_CONFIG_CACHE = '/tmp/npm/cache'
     }
     stages {
-        stage('BuildDRPC') {
+        stage('Build') {
             steps {
                 checkout scm
 
@@ -25,53 +25,8 @@ pipeline {
                 // download dependencies
                 sh 'go mod download'
 
-                sh 'make -j3 build-packages-drpc'
-                sh 'make install-sim-drpc'
-
                 sh 'service postgresql start'
-            }
-        }
 
-        stage('TestDRPC') {
-            parallel {
-
-                stage('Test') {
-                    environment {
-                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorjdrpc?sslmode=disable'
-                    }
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorjdrpc;\''
-                        sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'go test -tags drpc -parallel 4 -p 6 -vet=off -timeout 20m -json -race ./... 2>&1 | tee .build/testsdrpc.json | go run ./scripts/xunit.go -out .build/testsdrpc.xml'
-                        sh 'go run scripts/check-clean-directory.go'
-                    }
-                    post {
-                        always {
-                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
-                            archiveArtifacts artifacts: '.build/testsdrpc.json'
-                            junit '.build/testsdrpc.xml'
-                        }
-                    }
-                }
-
-                stage('Integration') {
-                    environment {
-                        // use different hostname to avoid port conflicts
-                        STORJ_NETWORK_HOST4 = '127.0.0.2'
-                        STORJ_NETWORK_HOST6 = '127.0.0.2'
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorjdrpc2?sslmode=disable'
-                    }
-                    steps {
-                        sh 'echo which-storj-sim $(which storj-sim)'
-                        sh 'psql -U postgres -c \'create database teststorjdrpc2;\''
-                        sh 'make test-sim-drpc'
-                    }
-                }
-            }
-        }
-
-        stage('BuildGRPC') {
-            steps {
                 sh 'make -j3 build-packages'
                 sh 'make install-sim'
             }
