@@ -6,6 +6,7 @@ package live
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
@@ -57,6 +58,7 @@ func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, pr
 	if err != nil {
 		return err
 	}
+	fmt.Println(curInlineTotal)
 	totalSpaceUsed := spaceUsedAccounting{
 		InlineSpace: curInlineTotal + inlineSpaceUsed,
 		RemoteSpace: curRemoteTotal + remoteSpaceUsed,

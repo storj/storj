@@ -85,6 +85,44 @@ func TestRedisLiveAccounting(t *testing.T) {
 	}
 }
 
+func TestRedisCacheConcurrency(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	address, cleanup, err := redisserver.Start()
+	require.NoError(t, err)
+	defer cleanup()
+
+	config := Config{
+		StorageBackend: "redis://" + address + "?db=0",
+	}
+	service, err := New(zaptest.NewLogger(t).Named("live-accounting"), config)
+	require.NoError(t, err)
+
+	projectID := testrand.UUID()
+
+	const (
+		numConcurrent = 100
+		inlineAmount  = 10
+		remoteAmount  = 10
+	)
+	expectedInlineSum := inlineAmount * numConcurrent
+	expectedRemoteSum := inlineAmount * numConcurrent
+	var group errgroup.Group
+	for i := 0; i < numConcurrent; i++ {
+		group.Go(func() error {
+			return service.AddProjectStorageUsage(ctx, projectID, inlineAmount, remoteAmount)
+		})
+	}
+	require.NoError(t, group.Wait())
+
+	inlineSum, remoteSum, err := service.GetProjectStorageUsage(ctx, projectID)
+	require.NoError(t, err)
+
+	require.EqualValues(t, expectedInlineSum, inlineSum)
+	require.EqualValues(t, expectedRemoteSum, remoteSum)
+}
+
 func TestResetTotals(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
