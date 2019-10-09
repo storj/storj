@@ -420,14 +420,12 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Orders.Run(ctx))
 	})
-
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
 	})
-
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
 	})
