@@ -17,7 +17,7 @@ import (
 )
 
 // InfluxDest is a MetricDest that sends data with the Influx TCP wire
-// protocol
+// protocol.
 type InfluxDest struct {
 	url   string
 	token string
@@ -53,7 +53,7 @@ func (d *InfluxDest) Metric(application, instance string, key []byte, val float6
 	defer d.mu.Unlock()
 
 	// TODO(jeff): actual parsing of the key is very tricky in the presence of influx's busted
-	// escapes. if we could do that, we could more easily put the application tag in sorted order
+	// escapes. If we could do that, we could more easily put the application tag in sorted order
 	// but since it begins with a, we'll do the easy thing and insert it first.
 	added := false
 	for i, val := range key {
@@ -105,7 +105,7 @@ func appendTag(buf []byte, tag string) []byte {
 	return buf
 }
 
-// Close stops the flushing goroutine
+// Close stops the flushing goroutine.
 func (d *InfluxDest) Close() error {
 	d.mu.Lock()
 	d.stopped = true
