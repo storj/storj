@@ -492,7 +492,7 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			peerID, ok := peerIDMap[piece.NodeId]
 			if !ok {
 				endpoint.log.Warn("Identity chain unknown for node. Piece removed from pointer",
-					zap.String("nodeID", piece.NodeId.String()),
+					zap.Stringer("nodeID", piece.NodeId),
 					zap.Int32("pieceID", piece.PieceNum),
 				)
 
@@ -1479,7 +1479,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
 			zap.Int("upload pieces results", numResults),
 			zap.Int32("redundancy optimal threshold", streamID.Redundancy.GetSuccessThreshold()),
-			zap.String("segment ID", req.SegmentId.String()),
+			zap.Stringer("segment ID", req.SegmentId),
 		)
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
@@ -1549,7 +1549,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if exceeded {
 		endpoint.log.Error("The project limit of storage and bandwidth has been exceeded",
 			zap.Int64("limit", limit.Int64()),
-			zap.String("project id", keyInfo.ProjectID.String()),
+			zap.Stringer("project id", keyInfo.ProjectID),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -1578,7 +1578,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
 		endpoint.log.Error("Could not track new storage usage by project",
-			zap.String("projectID", keyInfo.ProjectID.String()),
+			zap.Stringer("projectID", keyInfo.ProjectID),
 			zap.Error(err),
 		)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
