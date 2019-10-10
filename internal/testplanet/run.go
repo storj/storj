@@ -15,8 +15,10 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/storage/postgreskv"
 )
 
 // Run runs testplanet in multiple configurations.
@@ -56,17 +58,18 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			}
 
 			if satelliteDB.PointerDB.URL != "" {
-				satReconfigure := planetConfig.Reconfigure.Satellite
-				planetConfig.Reconfigure.Satellite = func(log *zap.Logger, index int, config *satellite.Config) {
-					// TODO: use a different unique schema name to ensure we can drop it separately instead of relying
-					//       master database to drop it
-					// Something like:
-					//       schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo" + "-" + schemaSuffix)
-					schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix)
-					config.Metainfo.DatabaseURL = pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema)
-					if satReconfigure != nil {
-						satReconfigure(log, index, config)
+				planetConfig.Reconfigure.NewSatellitePointerDB = func(log *zap.Logger, index int) (metainfo.PointerDB, error) {
+					schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo-" + schemaSuffix)
+
+					db, err := postgreskv.New(pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema))
+					if err != nil {
+						t.Fatal(err)
 					}
+
+					return &satellitePointerSchema{
+						Client: db,
+						schema: schema,
+					}, nil
 				}
 			}
 
@@ -92,9 +95,24 @@ type satelliteSchema struct {
 	schema string
 }
 
+// Close closes the database and drops the schema.
 func (db *satelliteSchema) Close() error {
 	return errs.Combine(
 		db.DB.DropSchema(db.schema),
 		db.DB.Close(),
+	)
+}
+
+// satellitePointerSchema closes database and drops the associated schema
+type satellitePointerSchema struct {
+	*postgreskv.Client
+	schema string
+}
+
+// Close closes the database and drops the schema.
+func (db *satellitePointerSchema) Close() error {
+	return errs.Combine(
+		db.Client.DropSchema(db.schema),
+		db.Client.Close(),
 	)
 }

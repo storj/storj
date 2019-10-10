@@ -243,7 +243,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, config *Config, versionInfo version.Info, revocationDB extensions.RevocationDB) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -382,12 +382,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup metainfo
 		log.Debug("Setting up metainfo")
-		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
-		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Metainfo.Database = pointerDB // for logging: storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
@@ -782,10 +778,6 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Repair.Checker != nil {
 		errlist.Add(peer.Repair.Checker.Close())
-	}
-
-	if peer.Metainfo.Database != nil {
-		errlist.Add(peer.Metainfo.Database.Close())
 	}
 
 	if peer.Discovery.Service != nil {
