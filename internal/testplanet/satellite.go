@@ -84,7 +84,7 @@ type SatelliteSystem struct {
 	}
 
 	Metainfo struct {
-		Database  metainfo.PointerDB // TODO: move into pointerDB
+		Database  metainfo.PointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
 		Loop      *metainfo.Loop
