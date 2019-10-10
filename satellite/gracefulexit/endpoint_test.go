@@ -4,7 +4,6 @@
 package gracefulexit_test
 
 import (
-	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -44,7 +43,7 @@ func TestSuccess(t *testing.T) {
 				if pieceID.IsZero() {
 					pieceID = m.TransferPiece.PieceId
 				}
-				fmt.Printf("EEEE: %v\n", m.TransferPiece.PieceId.String())
+
 				if pieceID != m.TransferPiece.PieceId {
 					success := &pb.StorageNodeMessage{
 						Message: &pb.StorageNodeMessage_Succeeded{
