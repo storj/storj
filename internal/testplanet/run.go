@@ -23,13 +23,23 @@ import (
 
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
-	schemaSuffix := pgutil.CreateRandomTestingSchemaName(8)
+	schemaSuffix := pgutil.CreateRandomTestingSchemaName(6)
 	t.Log("schema-suffix ", schemaSuffix)
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
 		t.Run(satelliteDB.MasterDB.Name, func(t *testing.T) {
 			t.Parallel()
+
+			// postgres has a maximum schema length of 64
+			// we need additional 6 bytes for the random suffix
+			//    and 4 bytes for the satellite index "/S0/""
+			const MaxTestNameLength = 64 - 6 - 4
+
+			testname := t.Name()
+			if len(testname) > MaxTestNameLength {
+				testname = testname[:MaxTestNameLength]
+			}
 
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
@@ -40,7 +50,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			planetConfig := config
 			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
-				schema := strings.ToLower(t.Name() + "/S" + strconv.Itoa(index) + "/" + schemaSuffix)
+				schema := strings.ToLower(testname + "/S" + strconv.Itoa(index) + "/" + schemaSuffix)
 				db, err := satellitedb.New(log, pgutil.ConnstrWithSchema(satelliteDB.MasterDB.URL, schema))
 				if err != nil {
 					t.Fatal(err)
@@ -59,7 +69,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			if satelliteDB.PointerDB.URL != "" {
 				planetConfig.Reconfigure.NewSatellitePointerDB = func(log *zap.Logger, index int) (metainfo.PointerDB, error) {
-					schema := strings.ToLower(t.Name() + "/Sm" + strconv.Itoa(index) + "/" + schemaSuffix)
+					schema := strings.ToLower(testname + "/P" + strconv.Itoa(index) + "/" + schemaSuffix)
 
 					db, err := postgreskv.New(pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema))
 					if err != nil {
