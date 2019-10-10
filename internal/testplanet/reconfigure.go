@@ -15,9 +15,9 @@ import (
 
 // Reconfigure allows to change node configurations
 type Reconfigure struct {
-	NewSatelliteDB func(log *zap.Logger, index int) (satellite.DB, error)
+	NewSatelliteDB        func(log *zap.Logger, index int) (satellite.DB, error)
 	NewSatellitePointerDB func(log *zap.Logger, index int) (metainfo.PointerDB, error)
-	Satellite      func(log *zap.Logger, index int, config *satellite.Config)
+	Satellite             func(log *zap.Logger, index int, config *satellite.Config)
 
 	NewStorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode      func(index int, config *storagenode.Config)
