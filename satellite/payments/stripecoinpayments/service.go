@@ -9,10 +9,13 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
+	"github.com/zeebo/errs"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var mon = monkit.Package()
+
+var ErrorStripe = errs.Class("stripe API error")
 
 // Service is an implementation for PaymentsService via Stripe and Coinpayments
 type Service struct {
@@ -35,7 +38,7 @@ func (service *Service) Setup(ctx context.Context, userID uuid.UUID, email strin
 	}
 
 	if _, err := customer.New(params); err != nil {
-		return err
+		return ErrorStripe.Wrap(err)
 	}
 
 	// TODO: delete customer from stripe, if db insertion fails
