@@ -44,6 +44,7 @@ const (
 	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
+	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
 
@@ -777,6 +778,11 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
 		return nil, nil, ErrUnauthorized.Wrap(err)
+	}
+
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
+	if err == nil {
+		return nil, nil, errs.New(apiKeyWithNameExistsErrMsg)
 	}
 
 	secret, err := macaroon.NewSecret()
