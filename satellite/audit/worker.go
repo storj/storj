@@ -118,19 +118,17 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) error {
 
 	// Skip all reverified nodes in the next Verify step.
 	skip := make(map[storj.NodeID]bool)
-	if report != nil {
-		for _, nodeID := range report.Successes {
-			skip[nodeID] = true
-		}
-		for _, nodeID := range report.Offlines {
-			skip[nodeID] = true
-		}
-		for _, nodeID := range report.Fails {
-			skip[nodeID] = true
-		}
-		for _, pending := range report.PendingAudits {
-			skip[pending.NodeID] = true
-		}
+	for _, nodeID := range report.Successes {
+		skip[nodeID] = true
+	}
+	for _, nodeID := range report.Offlines {
+		skip[nodeID] = true
+	}
+	for _, nodeID := range report.Fails {
+		skip[nodeID] = true
+	}
+	for _, pending := range report.PendingAudits {
+		skip[pending.NodeID] = true
 	}
 
 	// Next, audit the the remaining nodes that are not in containment mode.
