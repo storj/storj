@@ -82,7 +82,7 @@ pipeline {
 
                 stage('Tests Gomobile') {
                     environment {
-                        # docker container IP
+                        // docker container IP
                         STORJ_NETWORK_HOST4 = '172.17.0.2'
                     }
 
