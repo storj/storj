@@ -6,6 +6,7 @@ package consoleweb
 import (
 	"context"
 	"encoding/json"
+	"github.com/prometheus/common/log"
 	"html/template"
 	"mime"
 	"net"
@@ -128,12 +129,17 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.Handle("/static/", server.gzipHandler(http.StripPrefix("/static", fs)))
 		router.Handle("/robots.txt", http.HandlerFunc(server.seoHandler))
 
-		router.Handle("/users/", http.HandlerFunc(server.createNewUserRequestHandler)).Methods("POST")
-		router.Handle("/users/{id}/", http.HandlerFunc(server.usersRequestHandler)).Methods("GET", "PUT", "DELETE", "PATCH")
-		router.Handle("/users/{id}/change-password/", http.HandlerFunc(server.changeAccountPasswordRequestHandler)).Methods("POST")
+		usersRouter := router.PathPrefix("/users").Subrouter()
+		usersRouter.Use(server.authMiddlewareHandler)
+
+		usersRouter.Handle("/", http.HandlerFunc(server.createNewUserRequestHandler)).Methods("POST")
+		usersRouter.Handle("/", http.HandlerFunc(server.updateAccountRequestHandler)).Methods("PUT", "PATCH")
+		usersRouter.Handle("/", http.HandlerFunc(server.deleteAccount)).Methods("DELETE")
+		usersRouter.Handle("/token/", http.HandlerFunc(server.tokenRequestHandler)).Methods("POST")
+		usersRouter.Handle("/{id}/", http.HandlerFunc(server.getUserByIDRequestHandler)).Methods("GET")
+		usersRouter.Handle("/{id}/change-password/", http.HandlerFunc(server.changeAccountPasswordRequestHandler)).Methods("POST")
 
 		router.Handle("/", http.HandlerFunc(server.appHandler))
-
 	}
 
 	server.server = http.Server{
@@ -144,46 +150,82 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	return &server
 }
 
-func (server *Server) usersRequestHandler(w http.ResponseWriter, r *http.Request) {
+func (server *Server) authMiddlewareHandler(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		var err error
+		defer mon.Task()(&ctx)(&err)
+		token := getToken(r)
+
+		ctx = auth.WithAPIKey(ctx, []byte(token))
+		auth, err := server.service.Authorize(ctx)
+		if err != nil {
+			ctx = console.WithAuthFailure(ctx, err)
+		} else {
+			ctx = console.WithAuth(ctx, auth)
+		}
+
+		handler.ServeHTTP(w, r.Clone(ctx))
+	})
+}
+
+func (server *Server) tokenRequestHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	server.log.Debug(r.Method + ":" + r.URL.Path)
+	email := ""
+	password := ""
 
-	switch r.Method {
-	case "PATCH":
-		fallthrough
-	case "PUT":
-		server.updateAccountRequestHandler(w, r)
-	case "DELETE":
-		server.deleteAccount(w, r)
-	case "GET":
-		server.getUserByIDRequestHandler(w, r)
-	case "POST":
-	default:
-		server.serveError(w, r, 404)
+	token, err := server.service.Token(ctx, email, password)
+	if err != nil {
+		w.WriteHeader(404)
+		return
 	}
 
+	err = json.NewEncoder(w).Encode(token)
+	if err != nil {
+		w.WriteHeader(500)
+		server.log.Debug("Error serializing response: " + err.Error())
+	}
 }
+
 func (server *Server) changeAccountPasswordRequestHandler(w http.ResponseWriter, r *http.Request) {
-	server.log.Debug("Change Account Password")
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = console.GetAuth(ctx)
+	if err != nil {
+		w.WriteHeader(401)
+		return
+	}
+
+	type ChangePasswordRequestModel struct {
+		Password    string `json:"password"`
+		NewPassword string `json:"new_password"`
+	}
+
+	var passwordChange ChangePasswordRequestModel
+	err = json.NewDecoder(r.Body).Decode(&passwordChange)
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	err = server.service.ChangePassword(ctx, passwordChange.Password, passwordChange.NewPassword)
+	if err != nil {
+		w.WriteHeader(404)
+		return
+	}
+
+	w.WriteHeader(200)
 }
 
 func (server *Server) getUserByIDRequestHandler(w http.ResponseWriter, r *http.Request) {
-	server.log.Debug("Get User by ID")
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	token := getToken(r)
-
-	ctx = auth.WithAPIKey(ctx, []byte(token))
-	auth, err := server.service.Authorize(ctx)
-	if err != nil {
-		ctx = console.WithAuthFailure(ctx, err)
-	} else {
-		ctx = console.WithAuth(ctx, auth)
-	}
 
 	params := mux.Vars(r)
 	val, ok := params["id"]
@@ -193,11 +235,13 @@ func (server *Server) getUserByIDRequestHandler(w http.ResponseWriter, r *http.R
 		w.WriteHeader(400)
 		return
 	}
+
 	id, err := uuid.Parse(val)
 	if err != nil {
 		w.WriteHeader(400)
 		return
 	}
+
 	_, err = console.GetAuth(ctx)
 	if err != nil {
 		w.WriteHeader(401)
@@ -209,7 +253,7 @@ func (server *Server) getUserByIDRequestHandler(w http.ResponseWriter, r *http.R
 		w.WriteHeader(404)
 		return
 	}
-	//server.service.G
+
 	err = json.NewEncoder(w).Encode(user)
 	if err != nil {
 		w.WriteHeader(500)
@@ -218,16 +262,123 @@ func (server *Server) getUserByIDRequestHandler(w http.ResponseWriter, r *http.R
 }
 
 func (server *Server) createNewUserRequestHandler(w http.ResponseWriter, r *http.Request) {
-	server.log.Debug("Create New User")
-}
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
-func (server *Server) updateAccountRequestHandler(w http.ResponseWriter, r *http.Request) {
-	server.log.Debug("UPDATE Account")
+	type CreateUserModel struct {
+		console.CreateUser
+		Secret         string `json:"secret"`
+		ReferrerUserID string `json:"referrerUserId"`
+	}
 
+	var model CreateUserModel
+	err = json.NewDecoder(r.Body).Decode(&model)
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	secret, err := console.RegistrationSecretFromBase64(model.Secret)
+	if err != nil {
+		log.Error("register: failed to create account",
+			zap.Error(err))
+		log.Debug("register: ", zap.String("rawSecret", model.Secret))
+		w.WriteHeader(400)
+
+		return
+	}
+
+	user, err := server.service.CreateUser(ctx, model.CreateUser, secret, model.ReferrerUserID)
+	if err != nil {
+		log.Error("register: failed to create account",
+			zap.Error(err))
+		log.Debug("register: ", zap.String("rawSecret", model.Secret))
+		w.WriteHeader(400)
+
+		return
+	}
+
+	token, err := server.service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		log.Error("register: failed to generate activation token",
+			zap.Stringer("id", user.ID),
+			zap.String("email", user.Email),
+			zap.Error(err))
+		w.WriteHeader(400)
+
+		return
+	}
+
+
+
+		//server.service.CreateUser(ctx, model)
+	}
+
+	func (server *Server) updateAccountRequestHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	type UpdateUserModel struct {
+		FullName  string `json:"full_name"`
+		ShortName string `json:"short_name"`
+	}
+
+	var updateAccount UpdateUserModel
+	err = json.NewDecoder(r.Body).Decode(&updateAccount)
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	info := console.UserInfo{
+		FullName:  updateAccount.FullName,
+		ShortName: updateAccount.ShortName,
+	}
+
+	err = server.service.UpdateAccount(ctx, info)
+	if err != nil {
+		w.WriteHeader(404)
+		return
+	}
+
+	w.WriteHeader(200)
 }
 
 func (server *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
-	server.log.Debug("DELETE Account")
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := console.GetAuth(ctx)
+	if err != nil {
+		w.WriteHeader(401)
+		return
+	}
+
+	type DeleteAccountStruct struct {
+		Password string `json:"password"`
+	}
+
+	var password DeleteAccountStruct
+	err = json.NewDecoder(r.Body).Decode(&password)
+	if err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	err = server.service.DeleteAccount(ctx, password.Password)
+	if err != nil {
+		w.WriteHeader(404)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(auth.User)
+	if err != nil {
+		w.WriteHeader(500)
+		server.log.Debug("Error serializing response: " + err.Error())
+	}
 }
 
 // Run starts the server that host webapp and api endpoint
