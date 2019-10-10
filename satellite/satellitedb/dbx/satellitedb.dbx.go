@@ -479,6 +479,13 @@ CREATE TABLE storagenode_storage_tallies (
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE stripe_customers (
+	user_id bytea NOT NULL,
+	customer_id text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -558,22 +565,6 @@ CREATE TABLE user_credits (
 	credits_earned_in_cents integer NOT NULL,
 	credits_used_in_cents integer NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE user_payments (
-	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	customer_id bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( user_id ),
-	UNIQUE ( customer_id )
-);
-CREATE TABLE project_payments (
-	id bytea NOT NULL,
-	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
-	payment_method_id bytea NOT NULL,
-	is_default boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -854,6 +845,13 @@ CREATE TABLE storagenode_storage_tallies (
 	data_total REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE stripe_customers (
+	user_id BLOB NOT NULL,
+	customer_id TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
+);
 CREATE TABLE users (
 	id BLOB NOT NULL,
 	email TEXT NOT NULL,
@@ -933,22 +931,6 @@ CREATE TABLE user_credits (
 	credits_earned_in_cents INTEGER NOT NULL,
 	credits_used_in_cents INTEGER NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE user_payments (
-	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	customer_id BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( user_id ),
-	UNIQUE ( customer_id )
-);
-CREATE TABLE project_payments (
-	id BLOB NOT NULL,
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	payer_id BLOB NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
-	payment_method_id BLOB NOT NULL,
-	is_default INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -4456,6 +4438,74 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
+type StripeCustomers struct {
+	UserId     []byte
+	CustomerId string
+	CreatedAt  time.Time
+}
+
+func (StripeCustomers) _Table() string { return "stripe_customers" }
+
+type StripeCustomers_Update_Fields struct {
+}
+
+type StripeCustomers_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StripeCustomers_UserId(v []byte) StripeCustomers_UserId_Field {
+	return StripeCustomers_UserId_Field{_set: true, _value: v}
+}
+
+func (f StripeCustomers_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripeCustomers_UserId_Field) _Column() string { return "user_id" }
+
+type StripeCustomers_CustomerId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StripeCustomers_CustomerId(v string) StripeCustomers_CustomerId_Field {
+	return StripeCustomers_CustomerId_Field{_set: true, _value: v}
+}
+
+func (f StripeCustomers_CustomerId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripeCustomers_CustomerId_Field) _Column() string { return "customer_id" }
+
+type StripeCustomers_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripeCustomers_CreatedAt(v time.Time) StripeCustomers_CreatedAt_Field {
+	return StripeCustomers_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StripeCustomers_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripeCustomers_CreatedAt_Field) _Column() string { return "created_at" }
+
 type User struct {
 	Id              []byte
 	Email           string
@@ -5718,203 +5768,6 @@ func (f UserCredit_CreatedAt_Field) value() interface{} {
 
 func (UserCredit_CreatedAt_Field) _Column() string { return "created_at" }
 
-type UserPayment struct {
-	UserId     []byte
-	CustomerId []byte
-	CreatedAt  time.Time
-}
-
-func (UserPayment) _Table() string { return "user_payments" }
-
-type UserPayment_Update_Fields struct {
-}
-
-type UserPayment_UserId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func UserPayment_UserId(v []byte) UserPayment_UserId_Field {
-	return UserPayment_UserId_Field{_set: true, _value: v}
-}
-
-func (f UserPayment_UserId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (UserPayment_UserId_Field) _Column() string { return "user_id" }
-
-type UserPayment_CustomerId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func UserPayment_CustomerId(v []byte) UserPayment_CustomerId_Field {
-	return UserPayment_CustomerId_Field{_set: true, _value: v}
-}
-
-func (f UserPayment_CustomerId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (UserPayment_CustomerId_Field) _Column() string { return "customer_id" }
-
-type UserPayment_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func UserPayment_CreatedAt(v time.Time) UserPayment_CreatedAt_Field {
-	return UserPayment_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f UserPayment_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (UserPayment_CreatedAt_Field) _Column() string { return "created_at" }
-
-type ProjectPayment struct {
-	Id              []byte
-	ProjectId       []byte
-	PayerId         []byte
-	PaymentMethodId []byte
-	IsDefault       bool
-	CreatedAt       time.Time
-}
-
-func (ProjectPayment) _Table() string { return "project_payments" }
-
-type ProjectPayment_Update_Fields struct {
-	IsDefault ProjectPayment_IsDefault_Field
-}
-
-type ProjectPayment_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectPayment_Id(v []byte) ProjectPayment_Id_Field {
-	return ProjectPayment_Id_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_Id_Field) _Column() string { return "id" }
-
-type ProjectPayment_ProjectId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectPayment_ProjectId(v []byte) ProjectPayment_ProjectId_Field {
-	return ProjectPayment_ProjectId_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_ProjectId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_ProjectId_Field) _Column() string { return "project_id" }
-
-type ProjectPayment_PayerId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectPayment_PayerId(v []byte) ProjectPayment_PayerId_Field {
-	return ProjectPayment_PayerId_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_PayerId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_PayerId_Field) _Column() string { return "payer_id" }
-
-type ProjectPayment_PaymentMethodId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectPayment_PaymentMethodId(v []byte) ProjectPayment_PaymentMethodId_Field {
-	return ProjectPayment_PaymentMethodId_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_PaymentMethodId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_PaymentMethodId_Field) _Column() string { return "payment_method_id" }
-
-type ProjectPayment_IsDefault_Field struct {
-	_set   bool
-	_null  bool
-	_value bool
-}
-
-func ProjectPayment_IsDefault(v bool) ProjectPayment_IsDefault_Field {
-	return ProjectPayment_IsDefault_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_IsDefault_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_IsDefault_Field) _Column() string { return "is_default" }
-
-type ProjectPayment_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func ProjectPayment_CreatedAt(v time.Time) ProjectPayment_CreatedAt_Field {
-	return ProjectPayment_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f ProjectPayment_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectPayment_CreatedAt_Field) _Column() string { return "created_at" }
-
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
 }
@@ -6402,30 +6255,6 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Create_UserPayment(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field,
-	user_payment_customer_id UserPayment_CustomerId_Field) (
-	user_payment *UserPayment, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__user_id_val := user_payment_user_id.value()
-	__customer_id_val := user_payment_customer_id.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_payments ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? ) RETURNING user_payments.user_id, user_payments.customer_id, user_payments.created_at")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
-
-	user_payment = &UserPayment{}
-	err = obj.driver.QueryRow(__stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&user_payment.UserId, &user_payment.CustomerId, &user_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user_payment, nil
-
-}
-
 func (obj *postgresImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -6455,36 +6284,6 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return project, nil
-
-}
-
-func (obj *postgresImpl) Create_ProjectPayment(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	project_payment_project_id ProjectPayment_ProjectId_Field,
-	project_payment_payer_id ProjectPayment_PayerId_Field,
-	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-	project_payment_is_default ProjectPayment_IsDefault_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := project_payment_id.value()
-	__project_id_val := project_payment_project_id.value()
-	__payer_id_val := project_payment_payer_id.value()
-	__payment_method_id_val := project_payment_payment_method_id.value()
-	__is_default_val := project_payment_is_default.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_payments ( id, project_id, payer_id, payment_method_id, is_default, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
 
 }
 
@@ -6962,6 +6761,30 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 
 }
 
+func (obj *postgresImpl) Create_StripeCustomers(ctx context.Context,
+	stripe_customers_user_id StripeCustomers_UserId_Field,
+	stripe_customers_customer_id StripeCustomers_CustomerId_Field) (
+	stripe_customers *StripeCustomers, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := stripe_customers_user_id.value()
+	__customer_id_val := stripe_customers_customer_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? ) RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
+
+	stripe_customers = &StripeCustomers{}
+	err = obj.driver.QueryRow(__stmt, __user_id_val, __customer_id_val, __created_at_val).Scan(&stripe_customers.UserId, &stripe_customers.CustomerId, &stripe_customers.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripe_customers, nil
+
+}
+
 func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -7361,27 +7184,6 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_UserPayment_By_UserId(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field) (
-	user_payment *UserPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_payments.user_id, user_payments.customer_id, user_payments.created_at FROM user_payments WHERE user_payments.user_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_payment_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	user_payment = &UserPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user_payment.UserId, &user_payment.CustomerId, &user_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user_payment, nil
-
-}
-
 func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -7493,136 +7295,6 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, project)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) Get_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
-
-}
-
-func (obj *postgresImpl) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ? AND project_payments.is_default = true LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	project_payment = &ProjectPayment{}
-	err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("ProjectPayment_By_ProjectId_And_IsDefault_Equal_True")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return project_payment, nil
-
-}
-
-func (obj *postgresImpl) All_ProjectPayment_By_ProjectId(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	rows []*ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_payment := &ProjectPayment{}
-		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_payment)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) All_ProjectPayment_By_PayerId(ctx context.Context,
-	project_payment_payer_id ProjectPayment_PayerId_Field) (
-	rows []*ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.payer_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_payer_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_payment := &ProjectPayment{}
-		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_payment)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -9327,46 +8999,6 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
-func (obj *postgresImpl) Update_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	update ProjectPayment_Update_Fields) (
-	project_payment *ProjectPayment, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_payments SET "), __sets, __sqlbundle_Literal(" WHERE project_payments.id = ? RETURNING project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.IsDefault._set {
-		__values = append(__values, update.IsDefault.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_default = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, project_payment_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
-}
-
 func (obj *postgresImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	update ApiKey_Update_Fields) (
@@ -9944,32 +9576,6 @@ func (obj *postgresImpl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *postgresImpl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -10272,26 +9878,6 @@ func (impl postgresImpl) isConstraintError(err error) (
 func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
-	__res, err = obj.driver.Exec("DELETE FROM project_payments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM user_payments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM user_credits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -10363,6 +9949,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM stripe_customers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -10825,33 +10421,6 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Create_UserPayment(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field,
-	user_payment_customer_id UserPayment_CustomerId_Field) (
-	user_payment *UserPayment, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__user_id_val := user_payment_user_id.value()
-	__customer_id_val := user_payment_customer_id.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_payments ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __user_id_val, __customer_id_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastUserPayment(ctx, __pk)
-
-}
-
 func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -10884,39 +10453,6 @@ func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastProject(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_ProjectPayment(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	project_payment_project_id ProjectPayment_ProjectId_Field,
-	project_payment_payer_id ProjectPayment_PayerId_Field,
-	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-	project_payment_is_default ProjectPayment_IsDefault_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := project_payment_id.value()
-	__project_id_val := project_payment_project_id.value()
-	__payer_id_val := project_payment_payer_id.value()
-	__payment_method_id_val := project_payment_payment_method_id.value()
-	__is_default_val := project_payment_is_default.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_payments ( id, project_id, payer_id, payment_method_id, is_default, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val)
-
-	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastProjectPayment(ctx, __pk)
 
 }
 
@@ -11421,6 +10957,33 @@ func (obj *sqlite3Impl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Con
 
 }
 
+func (obj *sqlite3Impl) Create_StripeCustomers(ctx context.Context,
+	stripe_customers_user_id StripeCustomers_UserId_Field,
+	stripe_customers_customer_id StripeCustomers_CustomerId_Field) (
+	stripe_customers *StripeCustomers, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := stripe_customers_user_id.value()
+	__customer_id_val := stripe_customers_customer_id.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __user_id_val, __customer_id_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __user_id_val, __customer_id_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastStripeCustomers(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -11820,27 +11383,6 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_UserPayment_By_UserId(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field) (
-	user_payment *UserPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_payments.user_id, user_payments.customer_id, user_payments.created_at FROM user_payments WHERE user_payments.user_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, user_payment_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	user_payment = &UserPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user_payment.UserId, &user_payment.CustomerId, &user_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user_payment, nil
-
-}
-
 func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -11952,136 +11494,6 @@ func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, project)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
-
-}
-
-func (obj *sqlite3Impl) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ? AND project_payments.is_default = 1 LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	project_payment = &ProjectPayment{}
-	err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("ProjectPayment_By_ProjectId_And_IsDefault_Equal_True")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return project_payment, nil
-
-}
-
-func (obj *sqlite3Impl) All_ProjectPayment_By_ProjectId(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	rows []*ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_payment := &ProjectPayment{}
-		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_payment)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) All_ProjectPayment_By_PayerId(ctx context.Context,
-	project_payment_payer_id ProjectPayment_PayerId_Field) (
-	rows []*ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.payer_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_payer_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		project_payment := &ProjectPayment{}
-		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, project_payment)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -13826,56 +13238,6 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
-func (obj *sqlite3Impl) Update_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	update ProjectPayment_Update_Fields) (
-	project_payment *ProjectPayment, err error) {
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_payments SET "), __sets, __sqlbundle_Literal(" WHERE project_payments.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.IsDefault._set {
-		__values = append(__values, update.IsDefault.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_default = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, project_payment_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	project_payment = &ProjectPayment{}
-	_, err = obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
-}
-
 func (obj *sqlite3Impl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	update ApiKey_Update_Fields) (
@@ -14473,32 +13835,6 @@ func (obj *sqlite3Impl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	deleted bool, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.Exec(__stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *sqlite3Impl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -14914,24 +14250,6 @@ func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) getLastUserPayment(ctx context.Context,
-	pk int64) (
-	user_payment *UserPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_payments.user_id, user_payments.customer_id, user_payments.created_at FROM user_payments WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	user_payment = &UserPayment{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user_payment.UserId, &user_payment.CustomerId, &user_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return user_payment, nil
-
-}
-
 func (obj *sqlite3Impl) getLastProject(ctx context.Context,
 	pk int64) (
 	project *Project, err error) {
@@ -14947,24 +14265,6 @@ func (obj *sqlite3Impl) getLastProject(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return project, nil
-
-}
-
-func (obj *sqlite3Impl) getLastProjectPayment(ctx context.Context,
-	pk int64) (
-	project_payment *ProjectPayment, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return project_payment, nil
 
 }
 
@@ -15256,6 +14556,24 @@ func (obj *sqlite3Impl) getLastGracefulExitTransferQueue(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastStripeCustomers(ctx context.Context,
+	pk int64) (
+	stripe_customers *StripeCustomers, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at FROM stripe_customers WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	stripe_customers = &StripeCustomers{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&stripe_customers.UserId, &stripe_customers.CustomerId, &stripe_customers.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripe_customers, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -15274,26 +14592,6 @@ func (impl sqlite3Impl) isConstraintError(err error) (
 func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
-	__res, err = obj.driver.Exec("DELETE FROM project_payments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM user_payments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM user_credits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -15365,6 +14663,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM stripe_customers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -15707,26 +15015,6 @@ func (rx *Rx) All_ProjectMember_By_MemberId(ctx context.Context,
 		return
 	}
 	return tx.All_ProjectMember_By_MemberId(ctx, project_member_member_id)
-}
-
-func (rx *Rx) All_ProjectPayment_By_PayerId(ctx context.Context,
-	project_payment_payer_id ProjectPayment_PayerId_Field) (
-	rows []*ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_ProjectPayment_By_PayerId(ctx, project_payment_payer_id)
-}
-
-func (rx *Rx) All_ProjectPayment_By_ProjectId(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	rows []*ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_ProjectPayment_By_ProjectId(ctx, project_payment_project_id)
 }
 
 func (rx *Rx) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
@@ -16119,21 +15407,6 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_ProjectPayment(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	project_payment_project_id ProjectPayment_ProjectId_Field,
-	project_payment_payer_id ProjectPayment_PayerId_Field,
-	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-	project_payment_is_default ProjectPayment_IsDefault_Field) (
-	project_payment *ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_ProjectPayment(ctx, project_payment_id, project_payment_project_id, project_payment_payer_id, project_payment_payment_method_id, project_payment_is_default)
-
-}
-
 func (rx *Rx) Create_RegistrationToken(ctx context.Context,
 	registration_token_secret RegistrationToken_Secret_Field,
 	registration_token_project_limit RegistrationToken_ProjectLimit_Field,
@@ -16156,6 +15429,18 @@ func (rx *Rx) Create_ResetPasswordToken(ctx context.Context,
 		return
 	}
 	return tx.Create_ResetPasswordToken(ctx, reset_password_token_secret, reset_password_token_owner_id)
+
+}
+
+func (rx *Rx) Create_StripeCustomers(ctx context.Context,
+	stripe_customers_user_id StripeCustomers_UserId_Field,
+	stripe_customers_customer_id StripeCustomers_CustomerId_Field) (
+	stripe_customers *StripeCustomers, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_StripeCustomers(ctx, stripe_customers_user_id, stripe_customers_customer_id)
 
 }
 
@@ -16188,18 +15473,6 @@ func (rx *Rx) Create_UserCredit(ctx context.Context,
 		return
 	}
 	return tx.Create_UserCredit(ctx, user_credit_user_id, user_credit_offer_id, user_credit_type, user_credit_credits_earned_in_cents, user_credit_expires_at, optional)
-
-}
-
-func (rx *Rx) Create_UserPayment(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field,
-	user_payment_customer_id UserPayment_CustomerId_Field) (
-	user_payment *UserPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_UserPayment(ctx, user_payment_user_id, user_payment_customer_id)
 
 }
 
@@ -16339,16 +15612,6 @@ func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context
 		return
 	}
 	return tx.Delete_ProjectMember_By_MemberId_And_ProjectId(ctx, project_member_member_id, project_member_project_id)
-}
-
-func (rx *Rx) Delete_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_ProjectPayment_By_Id(ctx, project_payment_id)
 }
 
 func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
@@ -16622,26 +15885,6 @@ func (rx *Rx) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Con
 	return tx.Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx, project_invoice_stamp_project_id, project_invoice_stamp_start_date)
 }
 
-func (rx *Rx) Get_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
-	project_payment *ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ProjectPayment_By_Id(ctx, project_payment_id)
-}
-
-func (rx *Rx) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
-	project_payment *ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx, project_payment_project_id)
-}
-
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -16700,16 +15943,6 @@ func (rx *Rx) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
-}
-
-func (rx *Rx) Get_UserPayment_By_UserId(ctx context.Context,
-	user_payment_user_id UserPayment_UserId_Field) (
-	user_payment *UserPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_UserPayment_By_UserId(ctx, user_payment_user_id)
 }
 
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
@@ -16971,17 +16204,6 @@ func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
 	return tx.Update_PendingAudits_By_NodeId(ctx, pending_audits_node_id, update)
 }
 
-func (rx *Rx) Update_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field,
-	update ProjectPayment_Update_Fields) (
-	project_payment *ProjectPayment, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_ProjectPayment_By_Id(ctx, project_payment_id, update)
-}
-
 func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -17053,14 +16275,6 @@ type Methods interface {
 	All_ProjectMember_By_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*ProjectMember, err error)
-
-	All_ProjectPayment_By_PayerId(ctx context.Context,
-		project_payment_payer_id ProjectPayment_PayerId_Field) (
-		rows []*ProjectPayment, err error)
-
-	All_ProjectPayment_By_ProjectId(ctx context.Context,
-		project_payment_project_id ProjectPayment_ProjectId_Field) (
-		rows []*ProjectPayment, err error)
 
 	All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field) (
@@ -17277,14 +16491,6 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		project_member *ProjectMember, err error)
 
-	Create_ProjectPayment(ctx context.Context,
-		project_payment_id ProjectPayment_Id_Field,
-		project_payment_project_id ProjectPayment_ProjectId_Field,
-		project_payment_payer_id ProjectPayment_PayerId_Field,
-		project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-		project_payment_is_default ProjectPayment_IsDefault_Field) (
-		project_payment *ProjectPayment, err error)
-
 	Create_RegistrationToken(ctx context.Context,
 		registration_token_secret RegistrationToken_Secret_Field,
 		registration_token_project_limit RegistrationToken_ProjectLimit_Field,
@@ -17295,6 +16501,11 @@ type Methods interface {
 		reset_password_token_secret ResetPasswordToken_Secret_Field,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 		reset_password_token *ResetPasswordToken, err error)
+
+	Create_StripeCustomers(ctx context.Context,
+		stripe_customers_user_id StripeCustomers_UserId_Field,
+		stripe_customers_customer_id StripeCustomers_CustomerId_Field) (
+		stripe_customers *StripeCustomers, err error)
 
 	Create_User(ctx context.Context,
 		user_id User_Id_Field,
@@ -17313,11 +16524,6 @@ type Methods interface {
 		user_credit_expires_at UserCredit_ExpiresAt_Field,
 		optional UserCredit_Create_Fields) (
 		user_credit *UserCredit, err error)
-
-	Create_UserPayment(ctx context.Context,
-		user_payment_user_id UserPayment_UserId_Field,
-		user_payment_customer_id UserPayment_CustomerId_Field) (
-		user_payment *UserPayment, err error)
 
 	Create_ValueAttribution(ctx context.Context,
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
@@ -17374,10 +16580,6 @@ type Methods interface {
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
-		deleted bool, err error)
-
-	Delete_ProjectPayment_By_Id(ctx context.Context,
-		project_payment_id ProjectPayment_Id_Field) (
 		deleted bool, err error)
 
 	Delete_Project_By_Id(ctx context.Context,
@@ -17494,14 +16696,6 @@ type Methods interface {
 		project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
 		project_invoice_stamp *ProjectInvoiceStamp, err error)
 
-	Get_ProjectPayment_By_Id(ctx context.Context,
-		project_payment_id ProjectPayment_Id_Field) (
-		project_payment *ProjectPayment, err error)
-
-	Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
-		project_payment_project_id ProjectPayment_ProjectId_Field) (
-		project_payment *ProjectPayment, err error)
-
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		project *Project, err error)
@@ -17525,10 +16719,6 @@ type Methods interface {
 	Get_StoragenodeStorageTally_By_Id(ctx context.Context,
 		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
 		storagenode_storage_tally *StoragenodeStorageTally, err error)
-
-	Get_UserPayment_By_UserId(ctx context.Context,
-		user_payment_user_id UserPayment_UserId_Field) (
-		user_payment *UserPayment, err error)
 
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
@@ -17650,11 +16840,6 @@ type Methods interface {
 		pending_audits_node_id PendingAudits_NodeId_Field,
 		update PendingAudits_Update_Fields) (
 		pending_audits *PendingAudits, err error)
-
-	Update_ProjectPayment_By_Id(ctx context.Context,
-		project_payment_id ProjectPayment_Id_Field,
-		update ProjectPayment_Update_Fields) (
-		project_payment *ProjectPayment, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,
