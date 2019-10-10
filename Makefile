@@ -98,7 +98,7 @@ test: ## Run tests on source code (jenkins)
 .PHONY: test-sim
 test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim.sh "grpc"
+	@./scripts/test-sim.sh
 
 .PHONY: test-certificates
 test-certificates: ## Test certificate signing service and storagenode setup (jenkins)

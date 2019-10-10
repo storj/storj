@@ -44,7 +44,7 @@ pipeline {
                         sh 'go env'
                         sh 'psql -U postgres -c \'create database teststorjdrpc;\''
                         sh 'go run scripts/use-ports.go -from 1024 -to 10000 &'
-                        sh 'go test -tags drpc -parallel 4 -p 6 -vet=off -timeout 20m -json -race ./... 2>&1 | tee .build/testsdrpc.json | go run ./scripts/xunit.go -out .build/testsdrpc.xml'
+                        sh 'go test -parallel 4 -p 6 -vet=off -timeout 20m -json -race ./... 2>&1 | tee .build/testsdrpc.json | go run ./scripts/xunit.go -out .build/testsdrpc.xml'
                         sh 'go run scripts/check-clean-directory.go'
                     }
                     post {
