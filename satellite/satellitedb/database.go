@@ -163,7 +163,7 @@ func (db *DB) GracefulExit() gracefulexit.DB {
 	return &gracefulexitDB{db: db.db}
 }
 
-// Customers returns table for storing stripe customers
+// Customers returns database for dealing with stripe customers.
 func (db *DB) Customers() stripecoinpayments.Customers {
 	return &customers{db: db.db}
 }
