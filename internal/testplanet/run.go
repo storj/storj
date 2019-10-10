@@ -58,7 +58,11 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			if satelliteDB.PointerDB.URL != "" {
 				satReconfigure := planetConfig.Reconfigure.Satellite
 				planetConfig.Reconfigure.Satellite = func(log *zap.Logger, index int, config *satellite.Config) {
-					schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo")
+					// TODO: use a different unique schema name to ensure we can drop it separately instead of relying
+					//       master database to drop it
+					// Something like:
+					//       schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-metainfo" + "-" + schemaSuffix)
+					schema := strings.ToLower(t.Name() + "-satellite/" + strconv.Itoa(index) + "-" + schemaSuffix)
 					config.Metainfo.DatabaseURL = pgutil.ConnstrWithSchema(satelliteDB.PointerDB.URL, schema)
 					if satReconfigure != nil {
 						satReconfigure(log, index, config)
