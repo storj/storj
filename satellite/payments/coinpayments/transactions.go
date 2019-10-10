@@ -262,7 +262,7 @@ type Transactions struct {
 }
 
 // Create creates new transaction.
-func (c Transactions) Create(ctx context.Context, params CreateTX) (*Transaction, error) {
+func (t Transactions) Create(ctx context.Context, params CreateTX) (*Transaction, error) {
 	amount := strconv.FormatFloat(params.Amount, 'f', -1, 64)
 
 	values := make(url.Values)
@@ -273,7 +273,7 @@ func (c Transactions) Create(ctx context.Context, params CreateTX) (*Transaction
 
 	tx := new(Transaction)
 
-	res, err := c.client.do(ctx, cmdCreateTransaction, values)
+	res, err := t.client.do(ctx, cmdCreateTransaction, values)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -286,13 +286,13 @@ func (c Transactions) Create(ctx context.Context, params CreateTX) (*Transaction
 }
 
 // Info receives transaction info by transaction id.
-func (c Transactions) Info(ctx context.Context, id TransactionID) (*TransactionInfo, error) {
+func (t Transactions) Info(ctx context.Context, id TransactionID) (*TransactionInfo, error) {
 	values := make(url.Values)
 	values.Set("txid", id.String())
 
 	txInfo := new(TransactionInfo)
 
-	res, err := c.client.do(ctx, cmdGetTransactionInfo, values)
+	res, err := t.client.do(ctx, cmdGetTransactionInfo, values)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -305,7 +305,7 @@ func (c Transactions) Info(ctx context.Context, id TransactionID) (*TransactionI
 }
 
 // ListInfos returns up to 25 transaction infos.
-func (c Transactions) ListInfos(ctx context.Context, ids TransactionIDList) (TransactionInfos, error) {
+func (t Transactions) ListInfos(ctx context.Context, ids TransactionIDList) (TransactionInfos, error) {
 	if len(ids) > 25 {
 		return nil, Error.New("only up to 25 transactions can be queried")
 	}
@@ -315,7 +315,7 @@ func (c Transactions) ListInfos(ctx context.Context, ids TransactionIDList) (Tra
 
 	txInfos := make(TransactionInfos, len(ids))
 
-	res, err := c.client.do(ctx, cmdGetTransactionInfoList, values)
+	res, err := t.client.do(ctx, cmdGetTransactionInfoList, values)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
