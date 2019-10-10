@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -38,13 +37,13 @@ type Service struct {
 	Loop sync2.Cycle
 
 	metainfoLoop            *metainfo.Loop
-	liveAccounting          live.Service
+	liveAccounting          accounting.LiveAccounting
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
 }
 
 // New creates a new tally Service
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.LiveAccounting, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
 	return &Service{
 		log:  log,
 		Loop: *sync2.NewCycle(interval),

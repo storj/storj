@@ -211,7 +211,7 @@ type Peer struct {
 	}
 
 	LiveAccounting struct {
-		Service live.Service
+		Cache accounting.LiveAccounting
 	}
 
 	Mail struct {
@@ -243,7 +243,7 @@ type Peer struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, liveAccounting accounting.LiveAccounting, config *Config, versionInfo version.Info) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -338,19 +338,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup live accounting
 		log.Debug("Setting up live accounting")
-		config := config.LiveAccounting
-		liveAccountingService, err := live.New(peer.Log.Named("live-accounting"), config)
-		if err != nil {
-			return nil, err
-		}
-		peer.LiveAccounting.Service = liveAccountingService
+		peer.LiveAccounting.Cache = liveAccounting
 	}
 
 	{ // setup accounting project usage
 		log.Debug("Setting up accounting project usage")
 		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
 			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Service,
+			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
 		)
 	}
@@ -509,7 +504,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Loop, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Loop, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 

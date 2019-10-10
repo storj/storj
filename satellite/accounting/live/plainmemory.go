@@ -28,7 +28,9 @@ type plainMemoryLiveAccounting struct {
 
 func newPlainMemoryLiveAccounting(log *zap.Logger) (*plainMemoryLiveAccounting, error) {
 	pmac := &plainMemoryLiveAccounting{log: log}
+	pmac.spaceMapLock.Lock()
 	pmac.spaceDeltas = make(map[uuid.UUID]spaceUsedAccounting, 0)
+	pmac.spaceMapLock.Unlock()
 	return pmac, nil
 }
 
@@ -64,3 +66,6 @@ func (pmac *plainMemoryLiveAccounting) ResetTotals(ctx context.Context) error {
 	pmac.spaceMapLock.Unlock()
 	return nil
 }
+
+// Close matches the accounting.LiveAccounting interface
+func (pmac *plainMemoryLiveAccounting) Close() error { return nil }

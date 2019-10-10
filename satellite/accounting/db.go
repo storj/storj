@@ -94,3 +94,13 @@ type ProjectAccounting interface {
 	// GetProjectUsageLimits returns project usage limit
 	GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
 }
+
+// LiveAccounting stores live information about project storage which has not yet been synced to ProjectAccounting
+//
+// architecture: Database
+type LiveAccounting interface {
+	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
+	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error
+	ResetTotals(ctx context.Context) error
+	Close() error
+}

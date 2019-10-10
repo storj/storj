@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
@@ -210,9 +211,17 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
+
 		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := satellite.New(log, identity, db, revocationDB, &config, versionInfo)
+		liveAccountingCache, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
+		if err != nil {
+			return xs, errs.Wrap(err)
+		}
+
+		planet.databases = append(planet.databases, liveAccountingCache)
+
+		peer, err := satellite.New(log, identity, db, revocationDB, liveAccountingCache, &config, versionInfo)
 		if err != nil {
 			return xs, err
 		}

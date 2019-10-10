@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/pkg/signing"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -60,8 +59,7 @@ type APIConfig struct {
 
 	Repairer repairer.Config
 
-	Rollup         rollup.Config
-	LiveAccounting live.Config
+	Rollup rollup.Config
 
 	Mail      mailservice.Config
 	Console   consoleweb.Config
@@ -120,7 +118,7 @@ type API struct {
 	}
 
 	LiveAccounting struct {
-		Service live.Service
+		Cache accounting.LiveAccounting
 	}
 
 	Mail struct {
@@ -144,7 +142,7 @@ type API struct {
 }
 
 // NewAPI creates a new satellite API process
-func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config *APIConfig, versionInfo version.Info) (*API, error) {
+func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, liveAccounting accounting.LiveAccounting, config *APIConfig, versionInfo version.Info) (*API, error) {
 	peer := &API{
 		Log:      log,
 		Identity: full,
@@ -231,19 +229,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB ex
 
 	{ // setup live accounting
 		log.Debug("Satellite API Process setting up live accounting")
-		config := config.LiveAccounting
-		liveAccountingService, err := live.New(peer.Log.Named("live-accounting"), config)
-		if err != nil {
-			return nil, err
-		}
-		peer.LiveAccounting.Service = liveAccountingService
+		peer.LiveAccounting.Cache = liveAccounting
 	}
 
 	{ // setup accounting project usage
 		log.Debug("Satellite API Process setting up accounting project usage")
 		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
 			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Service,
+			peer.LiveAccounting.Cache,
 			config.Rollup.MaxAlphaUsage,
 		)
 	}

@@ -13,7 +13,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/satellite/accounting/live"
 )
 
 var mon = monkit.Package()
@@ -36,12 +35,12 @@ var (
 // architecture: Service
 type ProjectUsage struct {
 	projectAccountingDB ProjectAccounting
-	liveAccounting      live.Service
+	liveAccounting      LiveAccounting
 	maxAlphaUsage       memory.Size
 }
 
 // NewProjectUsage created new instance of project usage service
-func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting live.Service, maxAlphaUsage memory.Size) *ProjectUsage {
+func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting LiveAccounting, maxAlphaUsage memory.Size) *ProjectUsage {
 	return &ProjectUsage{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,

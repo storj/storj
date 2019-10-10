@@ -6,7 +6,6 @@ package live
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
@@ -21,7 +20,7 @@ type redisLiveAccounting struct {
 	client *redis.Client
 }
 
-func newRedisLiveAccounting(log *zap.Logger, address string) (Service, error) {
+func newRedisLiveAccounting(log *zap.Logger, address string) (*redisLiveAccounting, error) {
 	client, err := redis.NewClientFrom(address)
 	if err != nil {
 		return nil, err
@@ -58,7 +57,6 @@ func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, pr
 	if err != nil {
 		return err
 	}
-	fmt.Println(curInlineTotal)
 	totalSpaceUsed := spaceUsedAccounting{
 		InlineSpace: curInlineTotal + inlineSpaceUsed,
 		RemoteSpace: curRemoteTotal + remoteSpaceUsed,
@@ -76,4 +74,9 @@ func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, pr
 func (cache *redisLiveAccounting) ResetTotals(ctx context.Context) error {
 	cache.log.Info("Resetting real-time accounting data")
 	return cache.client.FlushDB()
+}
+
+// Close the DB connection
+func (cache *redisLiveAccounting) Close() error {
+	return cache.client.Close()
 }

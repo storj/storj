@@ -16,6 +16,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/storage/redis/redisserver"
 )
 
@@ -26,19 +27,19 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 	config := Config{
 		StorageBackend: "plainmemory",
 	}
-	service, err := New(zaptest.NewLogger(t).Named("live-accounting"), config)
+	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
 	// ensure we are using the expected underlying type
-	_, ok := service.(*plainMemoryLiveAccounting)
+	_, ok := cache.(*plainMemoryLiveAccounting)
 	require.True(t, ok)
 
-	projectIDs, sum, err := populateCache(ctx, service)
+	projectIDs, sum, err := populateCache(ctx, cache)
 	require.NoError(t, err)
 
 	// make sure all of the "projects" got all space updates and got right totals
 	for _, projID := range projectIDs {
-		inlineUsed, remoteUsed, err := service.GetProjectStorageUsage(ctx, projID)
+		inlineUsed, remoteUsed, err := cache.GetProjectStorageUsage(ctx, projID)
 		require.NoError(t, err)
 		assert.Equalf(t, sum, inlineUsed, "projectID %v", projID)
 		assert.Equalf(t, sum, remoteUsed, "projectID %v", projID)
@@ -56,29 +57,29 @@ func TestRedisLiveAccounting(t *testing.T) {
 	config := Config{
 		StorageBackend: "redis://" + address + "?db=0",
 	}
-	service, err := New(zaptest.NewLogger(t).Named("live-accounting"), config)
+	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
 	// ensure we are using the expected underlying type
-	_, ok := service.(*redisLiveAccounting)
+	_, ok := cache.(*redisLiveAccounting)
 	require.True(t, ok)
 
-	projectIDs, sum, err := populateCache(ctx, service)
+	projectIDs, sum, err := populateCache(ctx, cache)
 	require.NoError(t, err)
 
 	// make sure all of the "projects" got all space updates and got right totals
 	for _, projID := range projectIDs {
-		inlineUsed, remoteUsed, err := service.GetProjectStorageUsage(ctx, projID)
+		inlineUsed, remoteUsed, err := cache.GetProjectStorageUsage(ctx, projID)
 		require.NoError(t, err)
 		assert.Equalf(t, sum, inlineUsed, "projectID %v", projID)
 		assert.Equalf(t, sum, remoteUsed, "projectID %v", projID)
 	}
 
-	err = service.ResetTotals(ctx)
+	err = cache.ResetTotals(ctx)
 	require.NoError(t, err)
 
 	for _, projID := range projectIDs {
-		inlineUsed, remoteUsed, err := service.GetProjectStorageUsage(ctx, projID)
+		inlineUsed, remoteUsed, err := cache.GetProjectStorageUsage(ctx, projID)
 		require.NoError(t, err)
 		assert.EqualValues(t, 0, inlineUsed)
 		assert.EqualValues(t, 0, remoteUsed)
@@ -96,7 +97,7 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	config := Config{
 		StorageBackend: "redis://" + address + "?db=0",
 	}
-	service, err := New(zaptest.NewLogger(t).Named("live-accounting"), config)
+	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
 	projectID := testrand.UUID()
@@ -111,12 +112,12 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	var group errgroup.Group
 	for i := 0; i < numConcurrent; i++ {
 		group.Go(func() error {
-			return service.AddProjectStorageUsage(ctx, projectID, inlineAmount, remoteAmount)
+			return cache.AddProjectStorageUsage(ctx, projectID, inlineAmount, remoteAmount)
 		})
 	}
 	require.NoError(t, group.Wait())
 
-	inlineSum, remoteSum, err := service.GetProjectStorageUsage(ctx, projectID)
+	inlineSum, remoteSum, err := cache.GetProjectStorageUsage(ctx, projectID)
 	require.NoError(t, err)
 
 	require.EqualValues(t, expectedInlineSum, inlineSum)
@@ -130,19 +131,19 @@ func TestResetTotals(t *testing.T) {
 	config := Config{
 		StorageBackend: "plainmemory:",
 	}
-	service, err := New(zaptest.NewLogger(t).Named("live-accounting"), config)
+	cache, err := NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
 	// ensure we are using the expected underlying type
-	_, ok := service.(*plainMemoryLiveAccounting)
+	_, ok := cache.(*plainMemoryLiveAccounting)
 	require.True(t, ok)
 
 	projectID := testrand.UUID()
-	err = service.AddProjectStorageUsage(ctx, projectID, 0, -20)
+	err = cache.AddProjectStorageUsage(ctx, projectID, 0, -20)
 	require.NoError(t, err)
 }
 
-func populateCache(ctx context.Context, service Service) (projectIDs []uuid.UUID, sum int64, _ error) {
+func populateCache(ctx context.Context, cache accounting.LiveAccounting) (projectIDs []uuid.UUID, sum int64, _ error) {
 	const (
 		valuesListSize  = 1000
 		valueMultiplier = 4096
@@ -176,7 +177,7 @@ func populateCache(ctx context.Context, service Service) (projectIDs []uuid.UUID
 			})
 
 			for _, val := range myValues {
-				if err := service.AddProjectStorageUsage(ctx, projID, val, val); err != nil {
+				if err := cache.AddProjectStorageUsage(ctx, projID, val, val); err != nil {
 					return err
 				}
 			}
