@@ -15,6 +15,7 @@ import (
 
 var mon = monkit.Package()
 
+// ErrorStripe is stripe error type
 var ErrorStripe = errs.Class("stripe API error")
 
 // Service is an implementation for PaymentsService via Stripe and Coinpayments
