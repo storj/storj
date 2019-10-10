@@ -208,97 +208,10 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 				}
 
 				for _, inc := range incomplete {
-					pointer, err := endpoint.metainfo.Get(ctx, string(inc.Path))
+					err = endpoint.processIncomplete(ctx, stream, pending, nodeID, inc)
 					if err != nil {
 						return Error.Wrap(err)
 					}
-					remote := pointer.GetRemote()
-
-					var nodePiece *pb.RemotePiece
-					for _, piece := range remote.GetRemotePieces() {
-						if piece.NodeId == nodeID && piece.PieceNum == inc.PieceNum {
-							nodePiece = piece
-						}
-					}
-					if nodePiece == nil {
-						endpoint.log.Debug("piece no longer held by node.", zap.String("node ID", nodeID.String()), zap.ByteString("path", inc.Path), zap.Int32("piece num", inc.PieceNum))
-
-						err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, inc.Path)
-						if err != nil {
-							return Error.Wrap(err)
-						}
-
-						continue
-					}
-
-					redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
-					if err != nil {
-						return Error.Wrap(err)
-					}
-
-					if len(remote.GetRemotePieces()) > redundancy.OptimalThreshold() {
-						endpoint.log.Debug("piece has more pieces than required. removing node from pointer.", zap.String("node ID", nodeID.String()), zap.ByteString("path", inc.Path), zap.Int32("piece num", inc.PieceNum))
-
-						_, err = endpoint.metainfo.UpdatePieces(ctx, string(inc.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
-
-						err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, inc.Path)
-						if err != nil {
-							return Error.Wrap(err)
-						}
-
-						continue
-					}
-
-					pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-
-					request := overlay.FindStorageNodesRequest{
-						RequestedCount: 1,
-						FreeBandwidth:  pieceSize,
-						FreeDisk:       pieceSize,
-					}
-
-					newNodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
-					if err != nil {
-						return Error.Wrap(err)
-					}
-
-					if len(newNodes) == 0 {
-						return Error.New("could not find a node to transfer this piece to. nodeID %v, path %v, pieceNum %v.", nodeID.String(), zap.ByteString("path", inc.Path), inc.PieceNum)
-					}
-					newNode := newNodes[0]
-					endpoint.log.Debug("found new node for piece transfer.", zap.String("original node ID", newNode.Id.String()), zap.String("replacement node ID", newNode.Id.String()),
-						zap.ByteString("path", inc.Path), zap.Int32("piece num", inc.PieceNum))
-
-					parts := storj.SplitPath(storj.Path(inc.Path))
-					if len(parts) < 2 {
-						pieceID := remote.RootPieceId.Derive(nodeID, inc.PieceNum)
-						return Error.New("invalid path for %v %v.", zap.String("node ID", inc.NodeID.String()), zap.String("pieceID", pieceID.String()))
-					}
-
-					bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
-					limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, inc.PieceNum, remote.RootPieceId, remote.Redundancy.GetErasureShareSize())
-					if err != nil {
-						return Error.Wrap(err)
-					}
-
-					transferMsg := &pb.SatelliteMessage{
-						Message: &pb.SatelliteMessage_TransferPiece{
-							TransferPiece: &pb.TransferPiece{
-								PieceId:             limit.Limit.PieceId,
-								AddressedOrderLimit: limit,
-								PrivateKey:          privateKey,
-							},
-						},
-					}
-					err = stream.Send(transferMsg)
-					if err != nil {
-						return Error.Wrap(err)
-					}
-					pending.put(limit.Limit.PieceId, &pendingTransfer{
-						path:             inc.Path,
-						pieceSize:        pieceSize,
-						satelliteMessage: transferMsg,
-					})
 				}
 			}
 		}
@@ -306,8 +219,9 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	})
 
 	for {
+		pendingCount := pending.length()
 		// if there are no more transfers and the pending queue is empty, send complete
-		if atomic.LoadInt32(&morePiecesFlag) == 0 && pending.length() == 0 {
+		if atomic.LoadInt32(&morePiecesFlag) == 0 && pendingCount == 0 {
 			// TODO check whether failure threshold is met before sending completed
 			// TODO needs exit signature
 			transferMsg := &pb.SatelliteMessage{
@@ -322,7 +236,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			break
 		}
 		// skip if there are none pending
-		if pending.length() == 0 {
+		if pendingCount == 0 {
 			continue
 		}
 
@@ -351,6 +265,102 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	if err := group.Wait(); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processStream, pending *pendingMap, nodeID storj.NodeID, incomplete *TransferQueueItem) error {
+	pointer, err := endpoint.metainfo.Get(ctx, string(incomplete.Path))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	remote := pointer.GetRemote()
+
+	var nodePiece *pb.RemotePiece
+	for _, piece := range remote.GetRemotePieces() {
+		if piece.NodeId == nodeID && piece.PieceNum == incomplete.PieceNum {
+			nodePiece = piece
+		}
+	}
+	if nodePiece == nil {
+		endpoint.log.Debug("piece no longer held by node.", zap.String("node ID", nodeID.String()), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
+
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		return nil
+	}
+
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if len(remote.GetRemotePieces()) > redundancy.OptimalThreshold() {
+		endpoint.log.Debug("piece has more pieces than required. removing node from pointer.", zap.String("node ID", nodeID.String()), zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
+
+		_, err = endpoint.metainfo.UpdatePieces(ctx, string(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
+
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		return nil
+	}
+
+	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+
+	request := overlay.FindStorageNodesRequest{
+		RequestedCount: 1,
+		FreeBandwidth:  pieceSize,
+		FreeDisk:       pieceSize,
+	}
+
+	newNodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if len(newNodes) == 0 {
+		return Error.New("could not find a node to transfer this piece to. nodeID %v, path %v, pieceNum %v.", nodeID.String(), zap.ByteString("path", incomplete.Path), incomplete.PieceNum)
+	}
+	newNode := newNodes[0]
+	endpoint.log.Debug("found new node for piece transfer.", zap.String("original node ID", newNode.Id.String()), zap.String("replacement node ID", newNode.Id.String()),
+		zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
+
+	parts := storj.SplitPath(storj.Path(incomplete.Path))
+	if len(parts) < 2 {
+		pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
+		return Error.New("invalid path for %v %v.", zap.String("node ID", incomplete.NodeID.String()), zap.String("pieceID", pieceID.String()))
+	}
+
+	bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
+	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, remote.Redundancy.GetErasureShareSize())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	transferMsg := &pb.SatelliteMessage{
+		Message: &pb.SatelliteMessage_TransferPiece{
+			TransferPiece: &pb.TransferPiece{
+				PieceId:             limit.Limit.PieceId,
+				AddressedOrderLimit: limit,
+				PrivateKey:          privateKey,
+			},
+		},
+	}
+	err = stream.Send(transferMsg)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	pending.put(limit.Limit.PieceId, &pendingTransfer{
+		path:             incomplete.Path,
+		pieceSize:        pieceSize,
+		satelliteMessage: transferMsg,
+	})
 
 	return nil
 }
