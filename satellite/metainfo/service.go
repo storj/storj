@@ -244,18 +244,6 @@ func (s *Service) Delete(ctx context.Context, path string) (err error) {
 	return s.DB.Delete(ctx, []byte(path))
 }
 
-// Iterate iterates over items in db
-func (s *Service) Iterate(ctx context.Context, prefix string, first string, recurse bool, reverse bool, f func(context.Context, storage.Iterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	opts := storage.IterateOptions{
-		Prefix:  storage.Key(prefix),
-		First:   storage.Key(first),
-		Recurse: recurse,
-		Reverse: reverse,
-	}
-	return s.DB.Iterate(ctx, opts, f)
-}
-
 // CreateBucket creates a new bucket in the buckets db
 func (s *Service) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)

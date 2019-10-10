@@ -118,6 +118,12 @@ contact.external-address: ""
 # the time between each send of garbage collection filters to storage nodes
 # garbage-collection.interval: 120h0m0s
 
+# size of the buffer used to batch inserts into the transfer queue.
+# graceful-exit.chore-batch-size: 500
+
+# how often to run the transfer queue chore.
+# graceful-exit.chore-interval: 30s
+
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
