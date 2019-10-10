@@ -81,24 +81,12 @@ build-packages-normal:
 build-npm:
 	cd web/satellite && npm ci
 
-.PHONY: build-packages-drpc
-build-packages-drpc: build-packages-race-drpc build-packages-normal-drpc build-npm ## Test docker images locally
-build-packages-race-drpc:
-	go build -tags drpc -v ./...
-build-packages-normal-drpc:
-	go build -tags drpc -v -race ./...
-
 ##@ Simulator
 
 .PHONY: install-sim
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
 	@go install -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/versioncontrol storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway storj.io/storj/cmd/identity storj.io/storj/cmd/certificates
-
-.PHONY: install-sim-drpc
-install-sim-drpc:
-	@echo "Running ${@}"
-	@go install -tags drpc -race -v storj.io/storj/cmd/storj-sim storj.io/storj/cmd/versioncontrol storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode storj.io/storj/cmd/uplink storj.io/storj/cmd/gateway storj.io/storj/cmd/identity storj.io/storj/cmd/certificates
 
 ##@ Test
 
@@ -110,12 +98,7 @@ test: ## Run tests on source code (jenkins)
 .PHONY: test-sim
 test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim.sh "grpc"
-
-.PHONY: test-sim-drpc
-test-sim-drpc: ## Test source with storj-sim (jenkins)
-	@echo "Running ${@}"
-	@./scripts/test-sim.sh "drpc"
+	@./scripts/test-sim.sh
 
 .PHONY: test-certificates
 test-certificates: ## Test certificate signing service and storagenode setup (jenkins)
